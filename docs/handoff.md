@@ -20,93 +20,77 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-03 (turn flow + battle outcomes + scheduler)
+## From session 2026-05-03 (renderer skeleton + demo battle)
 
 ### Suggested next-session scope
 
-Roadmap session 10: **Renderer skeleton.** First time the engine produces anything visible. Concrete deliverables per `docs/architecture/architecture-overview.md` ("Renderer"):
+Roadmap session 11: **UI skeleton.** React-side controls that drive the engine through the same `commitAction` path the demo orchestrator uses. Concrete deliverables per the roadmap:
 
-- PixiJS application bootstrap. Single canvas, window-sized, top-down orthographic.
-- Tile rendering. Read `state.map.tiles`, draw flat-color squares per `terrain` type. Z-layer ordering for stacked tiles. No textures yet — solid colors per terrain (ground/water/wall/etc.).
-- Unit sprites. Read `state.units.values()`, draw a colored circle per unit at its `position`. Color by team. KO'd units rendered grayscale.
-- Camera / viewport. Center on the active unit when `state.turnState !== null`; pan smoothly between turns.
-- Action-log subscriber. The renderer reads the action log and animates events: a `move` action interpolates the unit between path positions over a fixed duration; a `use_ability` flashes the target; `battle_end` triggers a "win/lose" overlay.
-- One demo battle visible end-to-end. Two units, one map, one turn-cycle scripted via the scheduler.
+- Action menu for the active player-controlled unit (Move / Attack / Wait). Click-to-select-target on the battle map.
+- Current-unit panel (HP, MP, Speed, status icons placeholder).
+- Projection-queue display: read `projectUpcoming` and show the next ~5 turns. KO filtering already in place (this session).
+- Replace one team's controller in the demo with a click-driven UI controller; the other stays on `greedyMeleeController` until session 12 lands the AI.
 
-The renderer reads engine state read-only — never writes. Engine code does not import from `src/renderer/` (CLAUDE rule 1, ADR-0001).
+The renderer should not need structural changes. The animator's `playActions` already accepts arbitrary committed-action sequences; the UI just needs to call `orchestrator.step()` indirectly via a "submit action" button rather than the auto-pump that `BattleView` does today.
 
-Two specific carries from this session that session 10 should fold in:
+### Things noticed during the renderer session
 
-1. **Projection vs. scheduler difference: KO'd unit filtering.** `engine/ct/projection.ts`'s `projectUpcoming` does *not* filter KO'd units; the scheduler does. The renderer's "upcoming queue" UI reads from `projectUpcoming` and would currently show ghost entries for KO'd units. Either fix `projectUpcoming` to filter (cleanest), or document the difference clearly and have the renderer filter on read. Lean toward fixing projection; scheduler's filter is the right behavior for both.
+- **Renderer + orchestrator coupling is via `BattleView.tsx` only.** `src/renderer/` and `src/app/demo/` are independent — no cross-imports. The pump loop lives in BattleView's `useEffect`. When session 11 introduces a UI controller, it'll likely move the pump into a custom hook or app-level controller; the renderer/orchestrator boundaries don't need to shift.
 
-2. **`reaction_fizzled` system event.** Today reaction-validation failures silently drop. When the renderer wants to show "Counter fizzled — target out of range," ship a `reaction_fizzled` system action type that the chain processor emits. One-line addition (push an action onto the log instead of `continue`). Don't need it before the renderer has a use, but session 10 may surface that need.
+- **Animator derives visual state from action outcomes, not from engine-state snapshots.** A `move` reads `outcome.pathTaken`; a `use_ability` reads `outcome.perTargetResults[0].damage` and applies the HP delta itself. This means the renderer never reads intermediate engine states (only the latest, kept on `lastState`). When the renderer needs information that isn't in the action outcome (e.g., "what's the unit's current MP?"), it should sync from `lastState`, not try to derive from the action chain.
 
-### Things noticed during the turn-flow session
+- **`turn_start` always paints the active highlight; `turn_end` always clears it.** Skipped turns (Stop) still emit both, so the highlight blinks on and off correctly. The renderer doesn't special-case `outcome.skipped`.
 
-- **`reduceTurnEnd` always runs to completion before `battle_end` evaluates.** The chain order is: `turn_end` reducer runs (sets state, generates `status_tick` for turn-based statuses, evaluates outcome, generates `battle_end` if decided). FIFO chain then commits `status_tick` first (decrementing turn-based statuses), then `battle_end`. This means a Poison-tick KO at the very end of the unit's own turn correctly fires `battle_end` on the same turn boundary. Validated by the integration tests but worth flagging: the order is FIFO over the generated array, which is `[status_tick..., battle_end]` (status_ticks pushed first inside `reduceTurnEnd`, battle_end pushed at end).
+- **Pump waits on `renderer.isIdle()` per Pixi tick.** This means the orchestrator commits one chain-root per "free" frame. Long chains (Counter on attack, etc.) come through as a batch and play sequentially. The pacing is currently ~220ms per move-step + ~360ms per attack flash + ~240ms turn boundaries; tunable in `src/renderer/constants.ts`.
 
-- **`evaluateBattleOutcome` runs *before* the post-turn-end status-tick chain.** So turn-based-status-tick KOs at *the same* turn_end don't fire battle_end on this turn — they fire next turn_end. v1 has no turn-based statuses with damage hooks, so this is a future-content concern. When Bleed-on-turn-end content lands, decide whether to re-evaluate after status_tick fan-out commits or keep the current "evaluate at turn_end's own resolution time" rule. Lean toward the latter (keep checkpoints predictable); flag if surprising.
+- **BattleView handles React StrictMode double-mount correctly.** The cleanup function destroys the Pixi app and removes the canvas node; the `disposed` flag short-circuits the second async-init's late finish. Verified visually — no duplicate canvases, no stuck animations.
 
-- **The scheduler is the only thing that advances `state.tick`.** Reducers don't touch tick; the scheduler does. When charged-action resolution lands and we want fine-grained tick reasoning, the scheduler is where it goes.
+- **Demo orchestrator throws on unexpected commit failures.** Any `commitFailure` mid-loop (validation, hook_blocked) is a programmer error in the controller — the controller should never propose an invalid action. Surfacing the throw rather than swallowing keeps such bugs visible. The UI controller in session 11 should pre-validate its proposed actions to give the user feedback before commit (the engine will validate again on commit).
 
-- **`engine/ct/projection.ts` and `engine/turn/scheduler.ts` duplicate the "snapshot + tiebreak" math.** They do similar things (one is read-only projection over a horizon, one is mutate-state-to-next-event). Session 10 could refactor a shared helper if the duplication grates; today they're independent and the renderer hasn't shown what's needed.
-
-- **Projection doesn't filter KO'd units; scheduler does.** Already flagged above. The right fix is in `projection.ts` (filter by `unit.vitals.hp > 0` in `buildSnapshot`), which keeps both call sites aligned. Session 10 territory.
-
-- **Stop's `queryTurnSkipped` handler returns `{ reason: 'stopped' }` unconditionally.** Stop is "you can't act" full stop; no need to gate. Sleep would gate on incoming-damage tracking (wake on hit) which is a separate `onDamageReceived` handler that removes the Sleep status — not a `queryTurnSkipped` gate.
-
-- **Skipped turns don't fan out per-unit-CT status_tick actions.** The `status_tick` loop in `reduceTurnStart` is bypassed on skip. This means a Stopped unit's Haste doesn't tick down on the skipped turn — Stop "freezes the unit's clock entirely," which matches FFT. When Sleep lands and we want Sleep to *not* tick Sleep itself but still tick Poison, the skip path's tick logic refines — flagged in the ADR.
-
-- **`battle_decided` is a third `CommitFailure` stage.** UI code that branches on `result.stage` will need the new arm when UI lands. The only producer is `commitAction`'s top-of-loop guard.
-
-- **`reduceBattleEnd` is defensive against double-commit.** If a second `battle_end` somehow gets to the reducer (shouldn't — `commitAction`'s guard refuses), the existing outcome wins. Belt and suspenders.
-
-- **`speed_with_variance` initial-CT formula is stable per-(seed, unitId).** Mulberry32-style hash over `(masterSeed, unitId-string-hash)`. Two units with identical Speed land at different starting CT (deterministically); same unit at same seed lands at the same CT every replay. Default ruleset uses `'fixed'`; battle configs that opt into the variance variant override.
-
-- **The scheduler's `ticksAdvanced` field is exported.** UI can use it for animation pacing ("interpolate between turns over `ticksAdvanced` ticks of camera time"). The orchestrator passes the advanced state to commitAction; the scheduler doesn't commit on its own.
-
-- **`createInitialState` reads `battleConfig.masterSeed` for the variance formula.** The fixed path ignores it. Same masterSeed + same battle config → same opening state, every time.
-
-- **`makeGameState` test fixture has new optional fields: `teams`, `victoryConditions`, `outcome`.** Defaults preserve every existing test.
-
-- **Stop is a per-unit-CT-mode status.** Tested via `makeStatusInstance` with default duration; the duration ticks via the unit's *own* CT advancing — but its turn skips so the per-unit-CT tick doesn't fire on the skipped turn. This means Stop's duration doesn't decrement on a Stopped turn (the unit clock is frozen). FFT-faithful. When Sleep lands with `turn_based` duration, Sleep's duration would decrement on its own turn_end (which still fires after the skip's turn_start emits a turn_end as a generated action — turn-based statuses tick at turn_end, which still runs).
+- **`projectUpcoming` now filters KO'd units.** Aligned with the scheduler. New regression test in `src/engine/ct/projection.test.ts`. The scheduler still has its own filter — both call sites remain correct independently.
 
 ### Things considered but did not do
 
-- **Self-perpetuating turn loop (reduceTurnEnd emits next turn_start).** Considered. Rejected per ADR-0011 — keeps reducers narrow and gives the orchestrator (UI / AI / animation) a clean handoff point.
+- **Refactor projection.ts and scheduler.ts to share a snapshot helper.** Carried from session 9 handoff. Skipped — they're still independent, and the renderer didn't surface a shape that demanded a shared helper. Land if session 11 wants to project the queue alongside the scheduler in a shared shape (e.g., for a "show next 5 turns" UI panel).
 
-- **`evaluateBattleOutcome` taking a snapshot of pre-resolved condition predicates.** Considered as an optimization (don't re-walk units every turn). Rejected — the unit map is small (v1: ≤ ~16 units) and the predicate is a single pass. Premature.
+- **`reaction_fizzled` system event.** Carried from session 9 handoff. Skipped — no v1 consumer in the renderer (only one Counter content piece, and silently dropping is fine for the demo). Lands when there's a UI panel surface to show "Counter fizzled — out of range."
 
-- **Reaction-fizzle event.** Considered. Skipped — no v1 consumer (UI not yet written). One-line addition when the renderer wants visibility. Keeps the action log smaller for v1.
+- **Replay function from action log.** Carried. Still no consumer; renderer doesn't rewind. Defers to session 13's first playable battle if a "replay last battle" feature surfaces.
 
-- **A `reactor: UnitId` field on the `battle_end` action's outcome.** Considered for "X delivered the killing blow" UI. Rejected — that information is the *prior* action (the use_ability whose damage KO'd the last enemy). Battle_end records the *condition* that fired; the killing blow is one action earlier. UI computes the killer from the action log if it wants.
+- **Damage-number popups, easing curves, sprite atlases, particle effects.** All polish. Out of scope for the MVP renderer. Lands as a polish pass after session 13.
 
-- **Per-status "tick on skipped turn" rule.** Today skip = no ticks. Considered adding a `tickOnSkippedTurn: boolean` flag on StatusEffectType. Rejected for v1 — Stop is the only skip status, and the all-or-nothing rule is right for it. Refines when Sleep + Poison interact.
+- **Sprite per intermediate path tile.** The animator interpolates linearly along `pathTaken`, so a unit moving across multiple tiles slides through them rather than stepping discretely. v1 acceptable; the FFT-style "discrete step per tile" feel is a polish-pass concern.
 
-- **N-way (>2 teams) `defeat_all` winner derivation.** Considered. Rejected for v1 — two-team battles only. The current "first non-defeated team in state.teams" works for that case; falls apart on 3-way free-for-all. ADR-0011 flags it.
+- **Camera zoom / pan controls.** No user input; the camera lerps to the active unit only. UI session likely adds zoom + click-pan; not now.
 
-- **`survive_turns`, `reach_tile`, `protect_unit` condition kinds.** All additive. Skipped — no content needs them in the v1 scope. The evaluator's switch is exhaustive and TypeScript will flag missing variants when they're added.
+- **Tile elevation rendered visually.** The single-layer demo map is flat — `tile.elevation` is 0 everywhere. The tile layer ignores elevation. Lands when multi-elevation map content does.
 
-- **Mid-turn budget grants (`+1 Move` from a status).** Considered. Two paths floated (a `modifyTurnBudget` hook query at turn_start, or a `budget_grant` action emission). Skipped — no v1 content needs it. The action-emission pattern is the leading candidate when content forces. Flagged in ADR-0011.
+- **Unit class iconography on top of the team-color circle.** Visual identity for "this is a Knight" — out of scope; team color + position is enough for the demo.
 
-- **AI controller and forced turns (Berserk, Charm).** Out of scope per the session intro. The hook surface (`onActionAttempted` replacement) already supports these; the AI module that produces the forced action's choice lands in session 12.
+- **Pre-validation in the greedy controller.** The controller already calls `validateAction` to check "is this attack legal?", but doesn't pre-check moves (it relies on `getLegalMoves`). Symmetric pre-validation across both action paths would be cleaner; left for session 11 when the UI controller has a stronger reason to introspect validation results.
 
-- **Refactoring projection.ts and scheduler.ts to share a snapshot helper.** Considered. Skipped for now — they're independent, and refactoring a shared helper before the renderer surfaces what it needs feels premature. Land if session 10 wants the shared shape.
-
-- **Charged-action triggers in `advanceToNextEvent`.** The scheduler returns `'charged_action_resolve'` for charged-action triggers (the second branch of its return shape), but no test exercises that path because v1 doesn't yet ship charged-action content. The scheduler shape is forward-compatible; the path lands its first integration test alongside the first charged ability.
+- **Generalizing the orchestrator beyond two teams.** `ControllerMap` is a `ReadonlyMap<TeamId, Controller>` — N-team-friendly today. The throw on missing controller is the right behavior. No code change needed when 3+ teams arrive.
 
 ### Open questions for later sessions (not blocking)
 
-- **Battle-end checkpoint on damage-application (not just turn_end).** The design doc says "some conditions also check on damage application, e.g., 'objective unit defeated'." Today only turn_end checks. When a kill-the-leader victory condition ships, the damage pipeline's apply step (or `reduceUseAbility`'s post-damage state) needs to call `evaluateBattleOutcome` and emit `battle_end` mid-resolution. Refactor the emission path through a small helper so both call sites share it.
+- **Where does the UI controller live?** Session 11 territory. Likely `src/app/controllers/ui-controller.ts` — an object that exposes "dispatch an action" and "abort/retract" handles for click-driven input. The orchestrator doesn't change shape; it just delegates to a different controller.
 
-- **`reaction_fizzled` and `chain_truncated` system events.** Land alongside the renderer / debug-overlay sessions when there's something to show.
+- **Pause / step-by-step mode.** Useful for debugging the engine + renderer. The pump in BattleView could be gated behind a flag that requires manual frame-step. Not session-11-blocking; flag if the demo battle ever surfaces a bug that's hard to catch in real-time.
 
-- **Per-status flag for "tick on skipped turn".** Lands when Sleep + Poison-style content needs the distinction.
+- **Catalog hot-reload during development.** Carried (architecture overview's open question). Vite's HMR is loud about React changes but engine-state hot-reload during a live battle would be nice for content authoring. Lands when content authoring becomes a daily pain point.
 
-- **Initial-CT formula tuning.** Default ruleset stays on `'fixed'`. The `speed_with_variance` variant is available but no built-in battle uses it yet. Session 13 (first playable battle) may opt in for feel.
+- **Turn-skipped status_tick fan-out (Stop).** Carried from session 9. Today skipped turns don't tick statuses on the unit. When Sleep + Poison-style content forces the distinction, refines.
 
-- **Action-log compaction on long battles.** Mentioned in session-7 handoff. Still deferred; renderer / replay consumers will surface whether memory is an issue.
+- **Battle-end checkpoint on damage-application.** Carried from session 9. When a kill-the-leader victory condition ships, mid-resolution `evaluateBattleOutcome` lands.
 
-- **Out-of-range counter / "Counter Magic at non-magical attack" gating semantics.** Today reactions silently fizzle on validation failure. When more reaction content ships (Auto-Potion needs an item, Reflect needs a spell), validation may be the wrong gate — a Counter that the unit *wants* to fire but can't reach the target is a different case from "Counter shouldn't fire here at all." Reaction-handler-level gating (the ones already in session 8's Counter) is the cleanest path; flag if v1 content surfaces friction.
+- **Charged-action triggers in `advanceToNextEvent`.** Carried. Still no v1 consumer; `'charged_action_resolve'` branch of the scheduler awaits its first integration test alongside the first charged ability.
 
-- **Replay/spectator state-rebuild from action log.** The pieces exist (every action's outcome is stored, reducers are pure given seed). No replay function exists yet. Land alongside the first consumer (renderer's "rewind" feature, or online-play's "join in progress" feature).
+- **Per-status flag for "tick on skipped turn."** Carried. Lands with Sleep-like content.
+
+- **Initial-CT formula tuning.** Carried. Default ruleset stays on `'fixed'`. The demo battle's two units start at CT 0 simultaneously; the lex-id tiebreak gives `blue_knight` the first turn deterministically. Session 13 may opt into the variance variant for feel.
+
+- **Action-log compaction on long battles.** Still deferred; nothing surfaced this session.
+
+- **Out-of-range counter / "Counter Magic at non-magical attack" gating semantics.** Still deferred; renderer doesn't surface friction.
+
+- **Sandbox interaction with `vite dev`.** This session used `mcp__Claude_Preview` to start the dev server (sandboxed); direct `vite` invocation via Bash was denied. The launch config is checked in at `.claude/launch.json` for re-use.

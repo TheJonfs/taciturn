@@ -110,6 +110,19 @@ describe('nextEvent', () => {
     });
     expect(nextEvent(state, CATALOG)?.entityId).toBe('alpha');
   });
+
+  it('skips KO\'d units (hp <= 0) — they cannot trigger turns', () => {
+    // The fast unit is KO'd; the slow one wins the next event despite
+    // its lower Speed. Mirrors the scheduler's KO filter.
+    const state = makeGameState({
+      units: [
+        makeUnit({ id: 'ko_fast', spd: 50, ct: 0, hp: 0 }),
+        makeUnit({ id: 'alive_slow', spd: 10, ct: 0 }),
+      ],
+    });
+    const event = nextEvent(state, CATALOG);
+    expect(event?.entityId).toBe('alive_slow');
+  });
 });
 
 describe('projectUpcoming', () => {

@@ -1,20 +1,31 @@
+import { BattleView } from './BattleView.tsx';
+
 export function App() {
   return (
     <main
       style={{
         fontFamily: 'system-ui, sans-serif',
-        display: 'grid',
-        placeItems: 'center',
-        minHeight: '100vh',
         margin: 0,
         background: '#0e0f12',
         color: '#e7e9ee',
+        minHeight: '100vh',
+        display: 'grid',
+        gridTemplateRows: 'auto 1fr',
       }}
     >
-      <div style={{ textAlign: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '3rem', letterSpacing: '0.05em' }}>Taciturn</h1>
-        <p style={{ marginTop: '0.5rem', opacity: 0.7 }}>Foundation in place. No battle yet.</p>
-      </div>
+      <header
+        style={{
+          padding: '0.75rem 1.25rem',
+          borderBottom: '1px solid #1c1e23',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          fontSize: '0.85rem',
+          opacity: 0.85,
+        }}
+      >
+        Taciturn — demo battle
+      </header>
+      <BattleView />
     </main>
   );
 }

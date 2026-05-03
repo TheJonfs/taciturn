@@ -67,6 +67,11 @@ function compareForTrigger(
 function buildSnapshot(state: GameState, catalog: Catalog): SimEntry[] {
   const entries: SimEntry[] = [];
   for (const unit of state.units.values()) {
+    // KO'd units don't appear in the projection — they can't trigger turns.
+    // Mirrors the same filter in engine/turn/scheduler.ts so the renderer's
+    // upcoming-queue UI and the actual turn driver agree on who's in the
+    // queue.
+    if (unit.vitals.hp <= 0) continue;
     entries.push({
       entityKind: 'unit',
       entityId: unit.id,

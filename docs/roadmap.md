@@ -85,9 +85,15 @@ ADR-0011 captures the decisions.
 
 References: `docs/design/turn-structure.md`, ADR-0011.
 
-### 10. Renderer skeleton
+### 10. Renderer skeleton ✅
 
-PixiJS application setup, basic tile rendering, unit sprites, camera/viewport. Reads engine state read-only; never writes. MVP only — one demo battle visible, no animation polish.
+*Completed 2026-05-03.* PixiJS-based renderer in `src/renderer/`: `BattleRenderer` owns a layered stage (world container with camera-driven translation; tile + unit sublayers). `TileLayer` draws one flat-color square per tile per terrain type with a subtle outline grid. `UnitSprite` renders team-colored circles with facing tick, HP bar (low-HP recolor), KO grayscale, and active-unit ring. `Animator` consumes committed `Action`s one at a time — `move` interpolates linearly along `outcome.pathTaken`, `use_ability` flashes the target and applies the HP delta, `turn_start`/`turn_end` toggle the active highlight, `battle_end` holds for a beat. Camera lerps toward the active unit each frame; recenters between turns.
+
+Demo orchestration in `src/app/demo/`: `DemoOrchestrator` drives the `advanceToNextEvent` → `commitAction` loop, dispatching to a per-team `Controller`. `greedyMeleeController` is a placeholder dumb controller (closest-enemy, attack-if-in-range, otherwise step-toward) that drives both teams in the demo until session 11/12 land real input/AI. Demo battle (`src/content/battles/demo.ts`) is two Knights on a 6×6 ground map with symmetric `defeat_all` victory conditions.
+
+App glue in `src/app/BattleView.tsx`: mounts a Pixi `Application`, builds the renderer + orchestrator, and pumps `orchestrator.step()` whenever the renderer's animator reports idle. React StrictMode-safe (cleanup destroys the Pixi app + canvas; `disposed` flag short-circuits late init). Win banner overlay renders when `state.outcome` lands.
+
+Carried fix from session 9: `projectUpcoming` now filters KO'd units, aligning with the scheduler. Regression test added.
 
 References: `docs/architecture/architecture-overview.md` ("Renderer").
 

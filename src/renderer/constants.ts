@@ -1,0 +1,73 @@
+// Renderer constants. Centralized so a single edit re-tunes the visual
+// feel; nothing on the renderer reaches past these for dimensions or
+// timings. v1 only — colors are flat fills until texture authoring lands.
+
+import { teamId, type TeamId } from '@engine/index.ts';
+
+// Pixel size of one tile on the world plane (orthographic top-down).
+export const TILE_SIZE = 48;
+
+// Half-step inset for drawing inside a tile cell so the unit and tile
+// don't share borders.
+export const TILE_INSET = 4;
+
+// Solid background fill (renderer's clear color).
+export const BACKGROUND_COLOR = 0x14171c;
+
+// Terrain palette. v1 ships only `'ground'`; new terrains added by
+// content extend this map (default fallback is a debug magenta so a
+// missing entry is loud).
+export const TERRAIN_COLORS: Readonly<Record<string, number>> = {
+  ground: 0x4a5b3c,
+  water: 0x274c70,
+  wall: 0x3b3c41,
+};
+
+export const TERRAIN_FALLBACK_COLOR = 0xff00ff;
+
+// Outline color for tiles. A subtle grid line so units are easier to
+// place visually.
+export const TILE_OUTLINE_COLOR = 0x000000;
+export const TILE_OUTLINE_ALPHA = 0.18;
+
+// Team colors for the unit layer. Hardcoded by id rather than read from
+// data — `Team` doesn't carry visual style today, and shoehorning it in
+// would mix UI concerns into engine types. The renderer owns visuals.
+export const TEAM_COLORS: ReadonlyMap<TeamId, number> = new Map([
+  [teamId('team_a'), 0x4a90e2], // blue
+  [teamId('team_b'), 0xd0533d], // red
+]);
+export const TEAM_COLOR_FALLBACK = 0xaaaaaa;
+
+// KO'd units render as a flat gray circle.
+export const KO_COLOR = 0x55585d;
+
+// Outline + facing-tick details on unit sprites.
+export const UNIT_OUTLINE_COLOR = 0x000000;
+export const UNIT_OUTLINE_ALPHA = 0.6;
+export const FACING_TICK_COLOR = 0xf6e5a8;
+export const FACING_TICK_LENGTH = 0.55; // fraction of unit radius
+
+// HP bar (small under-circle bar). Just enough so visible HP loss
+// reads while damage numbers are pending UI work.
+export const HP_BAR_BG = 0x000000;
+export const HP_BAR_FG = 0x6dc66d;
+export const HP_BAR_FG_LOW = 0xd0533d;
+export const HP_BAR_LOW_THRESHOLD = 0.33;
+
+// Active-unit highlight ring color.
+export const ACTIVE_HIGHLIGHT_COLOR = 0xf6e5a8;
+
+// Hit flash color shown on a target when struck.
+export const HIT_FLASH_COLOR = 0xffe1a0;
+
+// Animation durations, in milliseconds. Linear tweens for v1; easing
+// belongs to a polish pass.
+export const MOVE_STEP_DURATION_MS = 220; // per tile of path
+export const ATTACK_FLASH_DURATION_MS = 360;
+export const TURN_START_PAUSE_MS = 240;
+export const TURN_END_PAUSE_MS = 140;
+export const BATTLE_END_HOLD_MS = 600;
+
+// Camera lerp factor per frame (0..1). Higher = snappier camera.
+export const CAMERA_LERP = 0.15;
