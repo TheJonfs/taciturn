@@ -120,12 +120,22 @@ When ending a session:
 - Any new architectural decisions captured as an ADR in `docs/decisions/`.
 - Tests passing.
 - If work is incomplete, leave a clear note (in commit message or `WIP.md`) about state and next steps.
+- Update `docs/handoff.md` with notes for the next session (see below).
 
 When starting a session:
 - Read this file.
+- Read `docs/handoff.md` and process every item.
 - Read any relevant design docs for the work at hand.
 - Check `docs/decisions/` for ADRs since you last looked.
 - Run tests to confirm starting state is healthy.
+
+### Handoff document
+
+`docs/handoff.md` is a transient note from one session to the next. It captures things that don't fit the other persistence mechanisms: things noticed but not acted on, choices considered and rejected, suggested scope for the next session, and watch-for items that aren't ADR-worthy.
+
+The discipline that keeps it useful rather than a junk drawer: it is *overwritten* each session, not appended. When starting a session, read every item and either (a) act on it, (b) promote it to an ADR / design-doc edit / GitHub issue, or (c) drop it explicitly. Items do not accumulate. When ending a session, replace the file with this session's outgoing notes — or with `_No handoff this session._` if there are none.
+
+Decisions go in ADRs. What changed goes in commit messages. System design goes in design docs. The handoff doc is for everything else worth carrying forward exactly once.
 
 ## Things to flag, not silently change
 
