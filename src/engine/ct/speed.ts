@@ -8,7 +8,7 @@
 // the unit's effective Speed at zero.
 
 import type { Catalog } from '../catalog/index.ts';
-import { runModifyStatQuery } from '../status/index.ts';
+import { runModifyStatQuery } from '../hooks/index.ts';
 import { getUnit, type ChargedAction, type GameState, type UnitId } from '../types/index.ts';
 import { SPEED_FLOOR } from './constants.ts';
 

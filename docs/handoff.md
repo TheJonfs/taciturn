@@ -16,51 +16,54 @@ What does *not* belong here:
 - Decisions (those are ADRs).
 - What changed (that's the commit message).
 - System design (that's the design docs).
-- Long-running plan (that's `docs/roadmap.md`, if/when it exists).
+- Long-running plan (that's `docs/roadmap.md`).
 
 ---
 
-## From session 2026-05-03 (map and movement)
+## From session 2026-05-03 (ability slots + hook refactor)
 
 ### Suggested next-session scope
 
-Roadmap session 5: **ability slots** — bucket capacity, per-character cost computation, loadout validation, equip operation. Pure functions; no integration with the reducer.
+Roadmap session 6: **Ruleset + BattleConfig + initial state construction.** Concrete deliverables per the design + architecture overview:
 
-Two mechanism gaps that *intersect* the ability-slots session and should be considered for landing alongside (not deferred further):
+- `RulesetDefinition` shape: CT costs (Move-only / Act-only / Move+Act / Wait / Defend), Speed bounds, default `TurnBudget`, default ranges (melee horizontal/vertical, default vertical tolerance for AoE), pathfinding defaults (per-terrain costs, layer transitions), hook ordering tiers (already in `engine/hooks/hooks.ts` — promote the constant), chain termination (depth cap, reaction cap), behaviors (friendly fire on/off, friendly pass-through), damage pipeline stage handler refs (session 8), default initial CT formula, **and bucket-capacity baselines** (currently in `engine/abilities/constants.ts` — move them).
+- `BattleConfig` shape: ruleset id, initial unit placements (with loadouts and progression state), victory conditions, initial conditions.
+- `createInitialState(battleConfig, catalog) → GameState` constructing the immutable starting state.
+- A `default` ruleset in `src/content/rulesets/` carrying the v1 baselines. Partial-overrides shape (per `architecture-overview.md` "Partial overrides") is structurally supported even if no overrides ship in v1.
 
-1. **Movement-bucket modifier hook surface.** Float adds `'water'` to `canEnter`; Fly sets `specialMovement = 'fly'`; Phase sets `specialMovement = 'phase'`. Per ADR-0006 these were deferred to session 5. Decide on hook shape (likely separate hooks: `modifyCanEnter`, `modifyTerrainCosts`, `modifySpecialMovement`) when the first concrete passive ability is being authored. Add the hook signatures to `HookSignatures` and runners to `engine/status/runners.ts` (or a new movement-side runner module). Any new hook is a one-edit addition per ADR-0005.
-2. **Special-movement pathfinding implementations.** `getLegalMoves` throws `SpecialMovementNotImplementedError` if a profile has `specialMovement` set. When session 5's first passive sets one of these, implement the corresponding pathfinding branch:
-   - **Fly:** standard adjacency but ignore the elevation-differential check (jump constraint doesn't apply).
-   - **Teleport:** all in-bounds tiles within `moveRange` Manhattan distance whose terrain is in `canEnter` and is unoccupied; path is `[source, destination]`.
-   - **Phase:** standard adjacency, but unit-occupancy check is skipped (still can't end on an occupied tile).
+Two specific carries from this session that session 6 *should* fold in (they're not big, and they make session 7 cleaner):
 
-   These are small, but add them only when a content ability needs them — same anti-pattern guard as the `onMoveStep` runner.
+1. **Friendly pass-through.** Pathfinding currently treats every other unit as impassable. The Ruleset is the natural home for this flag (per design doc). When session 6 lands, plumb it through to `canStep` in `engine/map/pathfinding.ts`.
+2. **Active bucket capacity / cost defaults via Ruleset.** Today First Action / Second Action are capacity 1, command-set cost 1. When the Ruleset owns those numbers, the existing call sites (`getCapacity`, `getCommandSetCost`) only need to read from the active ruleset instead of constants.
 
-### Things noticed during the map/movement session
+Session 7 is then unblocked for the action reducer (which needs `state.ruleset` resolved to actually know the CT costs).
 
-- **`Unit.classState` is a one-field shim** (`{ currentClass: ClassId }`) introduced this session because pathfinding needs the class. Session 6's full progression session will expand it to `{ currentClass; classProgress: Map<ClassId, ClassProgressionState> }`. The grouping is already in place, so session 6's change is purely additive — no field renames, no callsite migration.
-- **`Unit.classState.currentClass` defaults to `'knight'` in `makeUnit`.** All existing CT/status tests pass an `emptyCatalog` — they don't reach `computeMovementProfile`, so the default is harmless. Tests that *do* reach map code build their own catalog (as the new map test files demonstrate).
-- **`ASCII mapFrom` legend defaults are `G`/`W`/`S`/`.` only.** Real maps will need richer terrains; the legend is intentionally minimal — extend per-test via the `overrides` parameter or grow the defaults when content patterns emerge.
-- **`tilesAt` / `tileAt` / `unitAt` are O(N) over `map.tiles` / `state.units`.** At v1 scale (≤400 tiles, ≤20 units) this is trivial even when called per-step from pathfinding. Don't index until profiling shows a hotspot. Especially for `unitAt`: the unit map is keyed by ID, not position; building a position index would mean keeping it in sync as units move, which is the kind of bookkeeping ADR-0005 explicitly avoids ("recompute on read" wins for v1).
-- **`getLegalMoves` priority queue is a linear-scan dequeue.** Same calculation: trivial at v1 scale. Heap-based PQ is a known later optimization if profiling demands it.
-- **LoS algorithm is intentionally a v1 simplification** — Bresenham over the (x, y) line, strict inequality on grazing. The design doc flags rasterization tie-breaking as TBD; revisit when game-feel testing reveals false-pass / false-block cases. Likely upgrade path: "supercover" rasterization, or a thicker-line variant. `engine/map/line-of-sight.ts` has a comment noting the current rule.
-- **LoS does not consider unit blockers.** Per the design doc this is an ability flag (`pierces_units` / `blocked_by_units`) that lands when actions are typed; not the LoS function's concern.
-- **AoE line and cone shapes are deliberately not implemented.** Both depend on directional-anchor semantics that ride with the action layer (session 7). The shape-set is open for additions — adding `'line'` or `'cone'` is one new arm in `shapeOffsets`'s switch.
-- **AoE multi-layer "all qualifying tiles affected" is the implemented default.** The design doc flags this as overrideable per-ability; flag-driven variants land with the action authoring layer.
+### Things noticed during the slot/passive session
+
+- **The hook-system refactor was a structural cleanup, not just a new module.** `engine/status/collector.ts` is gone; the collector lives in `engine/hooks/collector.ts` and is ctx-erased — runners no longer know about `StatusHookContext` or `PassiveHookContext`. Each source kind contributes via a generator (`statusContributionsFor`, `passiveContributionsFor`) that the collector flattens. When Equipment and Class tiers land, each adds its own contributor (`equipmentContributionsFor`, `classTraitContributionsFor`) with no changes to the collector or runners.
+- **`Unit.loadout` defaults to `EMPTY_LOADOUT` in `makeUnit`.** Tests that don't care about the loadout get a frozen empty-record; tests that do care use the `loadoutOf({...})` helper in `engine/abilities/test-fixtures.ts`. That helper returns a fully-keyed Record (every active and passive bucket present, defaulting empty) so `validateLoadout` doesn't trip over absent keys.
+- **`UnknownDefinitionError` is caught explicitly in `validateLoadout` for the unknown-ability path.** Other unknown-id paths (unknown command set) use the `hasCommandSet` predicate. The asymmetry: catalogs throw on `getX` for missing ids per ADR-0002, and we want validation violations to be reported as-data rather than thrown — but for ability lookups we need the typed object back when present, hence the try/catch. If this gets repeated elsewhere, consider a `tryGetAbility(id) → AbilityDefinition | undefined` helper.
+- **`equipPassive` / `unequipPassive` / `setActiveBucket` are intentionally non-symmetric in their failure modes.** Validation failures return `{ ok: false }` (normal user-facing path); range errors (e.g., `unequipPassive` index out of bounds) throw (programmer bug). ADR-0002's split, applied to a new context.
+- **The cast pattern in `engine/abilities/contributions.ts` and `engine/status/contributions.ts` mirrors session 3.** Each casts the discriminated handler through its K-relative signature because TS can't carry K through the union narrowing. The inline comment in each file points to ADR-0005 for the rationale; if more source contributors land (Equipment, Class) and the cast multiplies, factor it into a shared `narrowHook<K>` helper. Not worth abstracting today.
+- **`HOOK_SOURCE_TIER_ORDER` is in `engine/hooks/hooks.ts`** — already a public constant, but no consumer reads the array. The `compareHandlers` function in `collector.ts` uses a private `TIER_ORDER` map directly. Consider deriving the map from the array if a future ruleset needs to override tier ordering. Today it's fine.
+- **Knight grants `move_plus_1` for free.** Smaller demo than session 3's Haste end-to-end but real: validates the `freeAbilities` path lights up. The session-5 catalog has 5 abilities (attack, cure, float, fly, move_plus_1), 1 command set (battle_skill), 1 class (knight), 1 status (haste), 1 item (long_sword). The loader test hard-codes those counts; it's the right canary for content additions.
+- **`AbilityDefinition` is now a discriminated union.** Active vs passive arms have different fields (passives carry `hooks`); call sites that previously assumed a flat shape need to discriminate. Today only the catalog test, the validator, and the passive contributor look at `kind` — narrow surface, easy to maintain.
 
 ### Things considered but did not do
 
-- **Implementing fly / teleport / phase pathfinding now.** Considered as "while we're here." Rejected — same anti-pattern as implementing runners with no consumers. The branches are small enough to add when the first passive demands them in session 5; the data shape (`specialMovement` field on `MovementProfile`) is in place.
-- **Implementing `onMoveStep` runner.** Confirmed deferred per the previous session's handoff note. No consumer until a movement-modifying status (Don't Move, Float as a movement-step thing if it gets that, etc.) needs it.
-- **Defaulting `canEnter` to "all standard ground terrains."** Considered for ergonomics. Rejected because `TerrainType` is an open string union — there's no canonical "all standard" set. Forced authors to declare canEnter explicitly. Defaults belong in a Ruleset (session 6) if they're useful.
-- **Storing tile-position → tile index on the BattleMap.** Trivial speed-up for `tilesAt` / `tileAt`. Rejected per "no caching computed values" and the v1-scale argument; revisit only on profiling evidence.
-- **Promoting `Vector2`/`Vector3`-style position math into a separate utility.** Considered as the spatial code grew. Rejected — current sites are short and direct, and the design doc's separation of (x, y) horizontal vs. layer/elevation makes a single `Vector` abstraction awkward (layer is structural; elevation is mechanical).
-- **A composite `TargetingValidation(action, source, target)` function.** It would call `inRange` + (LoS or arc) per ability targeting mode. Rejected as session-7 work; that's where ability targeting lives. Today's `inRange` / `hasLineOfSight` / `arcTargetable` are the building blocks.
+- **A combined `equipBatch(state, [changes])` operation.** Tempting for UI flows that need atomic multi-bucket updates. Skipped — every change can be chained today (`equipPassive(setActiveBucket(state, …).state, …)`); a batch helper buys nothing until a real flow demands one.
+- **Cascading-invalidation auto-resolution.** Per the design doc's open question. `validateLoadout` reports facts; resolution policy stays the UI's problem until UX decides on a convention.
+- **Implementing Teleport / Phase pathfinding.** Same anti-pattern guard as session 4: no consumer ability. Fly only got implemented because content (the `fly` passive) needed it. When the first Teleport ability lands, the branch is small (~10 lines: all in-bounds tiles within `moveRange` Manhattan distance, respecting `canEnter` and unit-occupancy at destination).
+- **An `equipmentHooks` / `classTraitHooks` surface.** ADR-0005 already named these; not added because no source kind exists. Each lands with its owning session per the same "no surface without consumer" rule.
+- **Within-command-set learning state on Unit.** `Unit.loadout` carries the bucket/CommandSet/Ability references; learning ("does this unit actually know `attack` from `battle_skill`?") is part of the deferred progression session. For session 7 (reducer), the assumption "all command-set members are usable" is fine; flag it then.
+- **A capacity-modifier hook surface.** Per design ("+1 Active capacity, -2 Reaction capacity"). No consumer; deferred.
+- **`bucketKind` as part of `BucketId`'s brand.** Considered making active and passive buckets distinct types so the type system catches "active id passed to `equipPassive`." Rejected — the runtime `bucketKind()` check + validator is enough; the brand split would propagate noise across every callsite.
 
 ### Open questions for later sessions (not blocking)
 
-- **Friendly pass-through.** Pathfinding currently treats every other unit (regardless of team) as impassable. The design doc lists this as a Ruleset flag; v1 default likely "allies pass through, enemies block" per FFT. Lands with session 6's RulesetDefinition.
-- **`onMoveStep` hook payload shape.** Currently `{ unit, fromTile: unknown, toTile: unknown }` in `HookSignatures` — `unknown` because no consumer has demanded a real shape. When the first per-step status arrives, replace the `unknown`s with real types.
-- **"Highest-layer-only" / "lowest-layer-only" AoE flag.** Per the design doc's open question; lands when an ability needs to opt out of the "all qualifying layers affected" default.
-- **Whether `getLegalMoves` should also report illegal but in-range tiles** (e.g., tiles a unit could *almost* reach but for one rule). UI may want to grey them out distinctly. Defer until UI/AI need it; probably a separate `getMovementCandidates` rather than complicating `getLegalMoves`.
-- **`Position` vs `RangeEndpoint` vs `ArcEndpoint` vs `AoeAnchor` proliferation.** Today they're distinct shapes with deliberately small surface areas (each carries only the fields its consumer needs). If they start growing in lockstep, consider a unified spatial-target type — but only if the asymmetry becomes painful.
+- **First Action being class-pinned.** `validateLoadout` doesn't enforce that the loadout's `actionBuckets[first_action]` matches the class's `firstActionCommandSet`. The reducer (session 7) is the natural enforcement point — when `equipAbility` lands as a player action, refuse changes that would break the pin. Until then, hand-built test loadouts can violate it without complaint.
+- **`UnknownDefinitionError` swallowing in validate.** `validateLoadout` catches the throw to produce a violation. If we add more "report-as-data" lookups elsewhere, the try/catch boilerplate will multiply; a `tryGet` style might be worth introducing then.
+- **`Loadout`'s `Record<BucketId, …>` vs explicit per-bucket fields.** Today the loadout uses indexed Record so the shape doesn't need updates when buckets are added. The cost: TS doesn't know which bucket keys are present. A concrete-fields shape (`{ firstAction; secondAction; reaction; support; movement }`) would give better autocomplete but bake the bucket list into the type. Defer the choice; reconsider if the indexed access becomes a friction point.
+- **Cascading invalidation policy.** Still open per design. Once UX prototyping decides, write an ADR and the resolver lands.
+- **Hook ordering between passive sources of the same hook.** Today: bucket order (Reaction → Support → Movement) outer, then equip order within each bucket. Per-handler priority is an additional knob. Not exercised by any v1 content; if a real conflict arises (two passives both modifying canEnter in incompatible ways), document the precedence in the relevant ability's comment.
+- **Teleport / Phase pathfinding.** Each ~10 lines when their content lands; no consumer in v1.

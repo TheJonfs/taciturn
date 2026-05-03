@@ -51,6 +51,7 @@ export function catalogWith(types: ReadonlyArray<StatusEffectType>): Catalog {
   return createCatalog({
     statusTypes: types,
     abilities: [],
+    commandSets: [],
     classes: [],
     items: [],
   });

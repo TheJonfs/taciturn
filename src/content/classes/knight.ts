@@ -1,15 +1,21 @@
 // Knight — placeholder stub used to verify the catalog loader end-to-end
-// and to seed the movement subsystem with a class that has a real
-// MovementProfile baseline.
-// Real class content (command sets, bucket capacities, stat baselines
-// beyond movement) arrives with the ability-slots, ruleset, and
-// class-catalog expansion sessions.
+// and to seed the movement / ability-slot subsystems with a class that
+// has real baselines.
+// Real class content (additional command sets, R/S/M grants beyond the
+// session-5 demo, level/equipment baselines) arrives with the
+// ability-slots and class-catalog expansion sessions.
 //
 // Movement values (moveRange 3, jump 2, ground-only) match FFT's iconic
-// Knight. They're tunable as content lands; v1 has no other classes
-// to relativize against.
+// Knight. First Action is pinned to `battle_skill`. `freeAbilities`
+// includes Move +1 to demonstrate the cost-0 modulation path; players
+// can still spend Movement-bucket capacity on Float / Fly etc. on top.
 
-import { classId, type ClassDefinition } from '@engine/index.ts';
+import {
+  abilityId,
+  classId,
+  commandSetId,
+  type ClassDefinition,
+} from '@engine/index.ts';
 
 export const knight: ClassDefinition = {
   id: classId('knight'),
@@ -20,4 +26,6 @@ export const knight: ClassDefinition = {
     terrainCosts: new Map(),
     canEnter: new Set(['ground']),
   },
+  firstActionCommandSet: commandSetId('battle_skill'),
+  freeAbilities: new Set([abilityId('move_plus_1')]),
 };

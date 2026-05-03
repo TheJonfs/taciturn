@@ -1,13 +1,13 @@
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { collectActiveHandlers } from './collector.ts';
-import { statusHook } from './hooks.ts';
 import { runModifyStatQuery } from './runners.ts';
+import { statusHook } from '../status/hooks.ts';
 import {
   asStatusTypeId,
   catalogWith,
   makeStatusInstance,
   makeStatusType,
-} from './test-fixtures.ts';
+} from '../status/test-fixtures.ts';
 
 describe('collectActiveHandlers', () => {
   it('returns no handlers for a unit with no statuses', () => {

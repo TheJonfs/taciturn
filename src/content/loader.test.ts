@@ -28,12 +28,18 @@ describe('loadDefaultCatalog', () => {
     expect(cat.getItem(itemId('long_sword')).name).toBe('Long Sword');
   });
 
-  it('contains exactly one definition per kind in the v1 stub set', () => {
-    // Reminds the next session that the default catalog is intentionally
-    // skeletal. When real content lands, this assertion is expected to
-    // change; failing it from new content additions is the correct signal.
+  it('contains the session-5 baseline content set', () => {
+    // The default catalog is intentionally narrow — one demo per
+    // mechanism. When real content lands, this assertion is expected
+    // to change; failing it from new content additions is the correct
+    // signal that the baseline expanded.
+    //
+    // Session 5 expanded abilities (4 new: attack, float, fly, move+1
+    // alongside the existing cure) and added the first command set
+    // (battle_skill).
     expect(cat.statusTypes()).toHaveLength(1);
-    expect(cat.abilities()).toHaveLength(1);
+    expect(cat.abilities()).toHaveLength(5);
+    expect(cat.commandSets()).toHaveLength(1);
     expect(cat.classes()).toHaveLength(1);
     expect(cat.items()).toHaveLength(1);
   });

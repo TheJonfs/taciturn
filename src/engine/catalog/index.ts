@@ -5,9 +5,12 @@
 export { Catalog, createCatalog, type CatalogInput } from './catalog.ts';
 export {
   type AbilityDefinition,
+  type ActiveAbilityDefinition,
   type ClassDefinition,
   type ClassMovementBaseline,
+  type CommandSetDefinition,
   type ItemDefinition,
+  type PassiveAbilityDefinition,
   type StatusEffectType,
 } from './definitions/index.ts';
 export { DuplicateDefinitionError, UnknownDefinitionError } from './errors.ts';

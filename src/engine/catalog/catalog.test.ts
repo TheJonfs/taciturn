@@ -1,10 +1,18 @@
-import { abilityId, classId, itemId, statusTypeId } from '../types/index.ts';
+import {
+  abilityId,
+  bucketId,
+  classId,
+  commandSetId,
+  itemId,
+  statusTypeId,
+} from '../types/index.ts';
 import {
   createCatalog,
   DuplicateDefinitionError,
   UnknownDefinitionError,
   type AbilityDefinition,
   type ClassDefinition,
+  type CommandSetDefinition,
   type ItemDefinition,
   type StatusEffectType,
 } from './index.ts';
@@ -22,8 +30,26 @@ function makeStatusType(id: string, name: string): StatusEffectType {
 
 const haste: StatusEffectType = makeStatusType('haste', 'Haste');
 const slow: StatusEffectType = makeStatusType('slow', 'Slow');
-const cure: AbilityDefinition = { id: abilityId('cure'), name: 'Cure' };
-const fire: AbilityDefinition = { id: abilityId('fire'), name: 'Fire' };
+const cure: AbilityDefinition = {
+  id: abilityId('cure'),
+  name: 'Cure',
+  kind: 'active',
+  bucket: bucketId('second_action'),
+  baseCost: 1,
+};
+const fire: AbilityDefinition = {
+  id: abilityId('fire'),
+  name: 'Fire',
+  kind: 'active',
+  bucket: bucketId('second_action'),
+  baseCost: 1,
+};
+const battleSkill: CommandSetDefinition = {
+  id: commandSetId('battle_skill'),
+  name: 'Battle Skill',
+  members: [],
+  baseCost: 1,
+};
 const knight: ClassDefinition = {
   id: classId('knight'),
   name: 'Knight',
@@ -33,6 +59,8 @@ const knight: ClassDefinition = {
     terrainCosts: new Map(),
     canEnter: new Set(['ground']),
   },
+  firstActionCommandSet: commandSetId('battle_skill'),
+  freeAbilities: new Set(),
 };
 const longSword: ItemDefinition = { id: itemId('long_sword'), name: 'Long Sword' };
 
@@ -40,6 +68,7 @@ function defaults() {
   return {
     statusTypes: [haste, slow],
     abilities: [cure, fire],
+    commandSets: [battleSkill],
     classes: [knight],
     items: [longSword],
   };
@@ -62,7 +91,13 @@ describe('createCatalog', () => {
   });
 
   it('reports the kind name in the duplicate error', () => {
-    const dupe: AbilityDefinition = { id: abilityId('cure'), name: 'Cure (dupe)' };
+    const dupe: AbilityDefinition = {
+      id: abilityId('cure'),
+      name: 'Cure (dupe)',
+      kind: 'active',
+      bucket: bucketId('second_action'),
+      baseCost: 1,
+    };
     try {
       createCatalog({ ...defaults(), abilities: [cure, dupe] });
       throw new Error('expected throw');
@@ -135,11 +170,13 @@ describe('Catalog with empty kinds', () => {
     const cat = createCatalog({
       statusTypes: [],
       abilities: [],
+      commandSets: [],
       classes: [],
       items: [],
     });
     expect(cat.statusTypes()).toEqual([]);
     expect(cat.abilities()).toEqual([]);
+    expect(cat.commandSets()).toEqual([]);
     expect(cat.classes()).toEqual([]);
     expect(cat.items()).toEqual([]);
     expect(cat.hasAbility(abilityId('cure'))).toBe(false);

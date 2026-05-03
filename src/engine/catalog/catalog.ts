@@ -11,15 +11,23 @@
 import type {
   AbilityDefinition,
   ClassDefinition,
+  CommandSetDefinition,
   ItemDefinition,
   StatusEffectType,
 } from './definitions/index.ts';
 import { Registry } from './registry.ts';
-import type { AbilityId, ClassId, ItemId, StatusTypeId } from '../types/index.ts';
+import type {
+  AbilityId,
+  ClassId,
+  CommandSetId,
+  ItemId,
+  StatusTypeId,
+} from '../types/index.ts';
 
 export interface CatalogInput {
   readonly statusTypes: ReadonlyArray<StatusEffectType>;
   readonly abilities: ReadonlyArray<AbilityDefinition>;
+  readonly commandSets: ReadonlyArray<CommandSetDefinition>;
   readonly classes: ReadonlyArray<ClassDefinition>;
   readonly items: ReadonlyArray<ItemDefinition>;
 }
@@ -27,12 +35,14 @@ export interface CatalogInput {
 export class Catalog {
   private readonly statusTypeRegistry: Registry<StatusTypeId, StatusEffectType>;
   private readonly abilityRegistry: Registry<AbilityId, AbilityDefinition>;
+  private readonly commandSetRegistry: Registry<CommandSetId, CommandSetDefinition>;
   private readonly classRegistry: Registry<ClassId, ClassDefinition>;
   private readonly itemRegistry: Registry<ItemId, ItemDefinition>;
 
   constructor(input: CatalogInput) {
     this.statusTypeRegistry = new Registry(input.statusTypes, 'StatusEffectType');
     this.abilityRegistry = new Registry(input.abilities, 'Ability');
+    this.commandSetRegistry = new Registry(input.commandSets, 'CommandSet');
     this.classRegistry = new Registry(input.classes, 'Class');
     this.itemRegistry = new Registry(input.items, 'Item');
   }
@@ -55,6 +65,16 @@ export class Catalog {
   }
   abilities(): ReadonlyArray<AbilityDefinition> {
     return this.abilityRegistry.all();
+  }
+
+  getCommandSet(id: CommandSetId): CommandSetDefinition {
+    return this.commandSetRegistry.get(id);
+  }
+  hasCommandSet(id: CommandSetId): boolean {
+    return this.commandSetRegistry.has(id);
+  }
+  commandSets(): ReadonlyArray<CommandSetDefinition> {
+    return this.commandSetRegistry.all();
   }
 
   getClass(id: ClassId): ClassDefinition {

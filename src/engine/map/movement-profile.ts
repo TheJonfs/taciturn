@@ -3,17 +3,22 @@
 // ADR-0006 (composition rule).
 //
 // The unit's class supplies a baseline (moveRange, jump, terrainCosts,
-// canEnter, optional specialMovement). The two scalar fields flow
-// through `runModifyStatQuery` so statuses (and, later, equipment and
-// passives) can stack modifiers — Move+1 / Jump+2 / Slow movement etc.
-// The set/map fields and `specialMovement` come straight from the
-// class today; their modifier hook lands with session 5 (passives).
+// canEnter, optional specialMovement). Each field flows through its
+// dedicated hook chain so statuses, equipment, passives, and class
+// traits can stack modifiers — Move+1 / Jump+2 (modifyStatQuery),
+// Float (modifyCanEnter), Fly (modifySpecialMovement), and so on.
 //
 // Pure function. Same `(state, unitId, catalog)` always yields the
-// same profile (subject to whatever is in state — statuses, etc.).
+// same profile (subject to whatever is in state — statuses, equipped
+// passives, etc.).
 
 import type { Catalog } from '../catalog/index.ts';
-import { runModifyStatQuery } from '../status/index.ts';
+import {
+  runModifyCanEnter,
+  runModifySpecialMovement,
+  runModifyStatQuery,
+  runModifyTerrainCosts,
+} from '../hooks/index.ts';
 import {
   getUnit,
   type GameState,
@@ -40,14 +45,24 @@ export function computeMovementProfile(
     statName: 'jump',
     baseValue: baseline.jump,
   });
+  const canEnter = runModifyCanEnter(state, catalog, {
+    unit,
+    baseValue: baseline.canEnter,
+  });
+  const terrainCosts = runModifyTerrainCosts(state, catalog, {
+    unit,
+    baseValue: baseline.terrainCosts,
+  });
+  const specialMovement = runModifySpecialMovement(state, catalog, {
+    unit,
+    baseValue: baseline.specialMovement,
+  });
 
   return {
     moveRange,
     jump,
-    terrainCosts: baseline.terrainCosts,
-    canEnter: baseline.canEnter,
-    ...(baseline.specialMovement !== undefined
-      ? { specialMovement: baseline.specialMovement }
-      : {}),
+    terrainCosts,
+    canEnter,
+    ...(specialMovement !== undefined ? { specialMovement } : {}),
   };
 }

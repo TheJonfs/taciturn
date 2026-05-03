@@ -9,11 +9,13 @@ import {
   abilityId as mkAbilityId,
   chargedActionId as mkChargedActionId,
   classId as mkClassId,
+  EMPTY_LOADOUT,
   rulesetId,
   teamId,
   unitId as mkUnitId,
   type ChargedAction,
   type GameState,
+  type Loadout,
   type Position,
   type StatusInstance,
   type Unit,
@@ -30,12 +32,14 @@ export function makeUnit(overrides: {
   readonly statuses?: ReadonlyArray<StatusInstance>;
   readonly classId?: string;
   readonly position?: Position;
+  readonly loadout?: Loadout;
 }): Unit {
   return {
     id: mkUnitId(overrides.id),
     team: teamId(overrides.team ?? 'team_a'),
     name: overrides.id,
     classState: { currentClass: mkClassId(overrides.classId ?? 'knight') },
+    loadout: overrides.loadout ?? EMPTY_LOADOUT,
     position: overrides.position ?? { x: 0, y: 0, layer: 0 },
     facing: 'N',
     ct: overrides.ct ?? 0,
@@ -52,6 +56,7 @@ export function emptyCatalog(): Catalog {
   return createCatalog({
     statusTypes: [],
     abilities: [],
+    commandSets: [],
     classes: [],
     items: [],
   });

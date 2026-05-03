@@ -6,10 +6,14 @@
 //
 // Graph definition (adjacency, step legality) is driven entirely by the
 // composed MovementProfile — pathfinding is profile-blind beyond reading
-// its fields. Special-movement profiles (fly / teleport / phase) replace
-// standard pathfinding; v1 has no consumer for those, so this function
-// throws if a profile carries `specialMovement`. The data shape is in
-// place; the implementation lands when an ability needs it (session 5+).
+// its fields. Special-movement profiles fork the algorithm:
+//   - undefined → standard Dijkstra (default).
+//   - 'fly'     → standard Dijkstra but the jump constraint is dropped;
+//                 terrain costs and canEnter still apply (a flying unit
+//                 with no canEnter for water still can't land on it).
+//   - 'teleport' / 'phase' → not implemented yet; throws. No content
+//                 consumer in v1; lands when the corresponding ability
+//                 arrives.
 //
 // Why Dijkstra and not A*: we want every reachable tile and its path,
 // not a single shortest path. A* would buy nothing; per-terrain costs
@@ -92,7 +96,9 @@ function popLowest(frontier: FrontierEntry[]): FrontierEntry | undefined {
 //   2. Destination is not occupied by another unit. (Friendly pass-through
 //      is an open question in the design doc and will land as a Ruleset
 //      flag in session 6; for v1 every other unit blocks.)
-//   3. Elevation differential ≤ jump.
+//   3. Elevation differential ≤ jump — *unless* the unit is flying,
+//      in which case the jump check is dropped (per design doc:
+//      "Fly — moves over tiles ignoring elevation differentials").
 function canStep(
   state: GameState,
   movingUnitId: UnitId,
@@ -101,7 +107,12 @@ function canStep(
   profile: MovementProfile,
 ): boolean {
   if (!profile.canEnter.has(toTile.terrain)) return false;
-  if (Math.abs(toTile.elevation - fromTile.elevation) > profile.jump) return false;
+  if (
+    profile.specialMovement !== 'fly' &&
+    Math.abs(toTile.elevation - fromTile.elevation) > profile.jump
+  ) {
+    return false;
+  }
   const occupant = unitAt(state, toTile.x, toTile.y, toTile.layer);
   if (occupant !== undefined && occupant.id !== movingUnitId) return false;
   return true;
@@ -119,7 +130,7 @@ export function getLegalMoves(
   const unit = getUnit(state, unitId);
   const profile = computeMovementProfile(state, unitId, catalog);
 
-  if (profile.specialMovement !== undefined) {
+  if (profile.specialMovement !== undefined && profile.specialMovement !== 'fly') {
     throw new SpecialMovementNotImplementedError(profile.specialMovement);
   }
 

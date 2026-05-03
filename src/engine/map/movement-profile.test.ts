@@ -2,17 +2,17 @@ import { createCatalog, type ClassDefinition } from '../catalog/index.ts';
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { statusHook } from '../status/index.ts';
 import { catalogWith, makeStatusInstance, makeStatusType } from '../status/test-fixtures.ts';
-import { classId } from '../types/index.ts';
+import { classId, commandSetId } from '../types/index.ts';
 import { computeMovementProfile } from './movement-profile.ts';
 
-function makeCatalogWithKnight(args?: {
+function knightDef(args?: {
   readonly moveRange?: number;
   readonly jump?: number;
   readonly canEnter?: ReadonlyArray<string>;
   readonly terrainCosts?: ReadonlyArray<readonly [string, number]>;
   readonly specialMovement?: 'fly' | 'teleport' | 'phase';
-}) {
-  const knight: ClassDefinition = {
+}): ClassDefinition {
+  return {
     id: classId('knight'),
     name: 'Knight',
     movement: {
@@ -22,8 +22,19 @@ function makeCatalogWithKnight(args?: {
       canEnter: new Set(args?.canEnter ?? ['ground']),
       ...(args?.specialMovement !== undefined ? { specialMovement: args.specialMovement } : {}),
     },
+    firstActionCommandSet: commandSetId('battle_skill'),
+    freeAbilities: new Set(),
   };
-  return createCatalog({ statusTypes: [], abilities: [], classes: [knight], items: [] });
+}
+
+function makeCatalogWithKnight(args?: Parameters<typeof knightDef>[0]) {
+  return createCatalog({
+    statusTypes: [],
+    abilities: [],
+    commandSets: [],
+    classes: [knightDef(args)],
+    items: [],
+  });
 }
 
 describe('computeMovementProfile', () => {
@@ -72,20 +83,11 @@ describe('computeMovementProfile', () => {
       ],
     });
     // Combine the knight class with the status type in one catalog.
-    const knight: ClassDefinition = {
-      id: classId('knight'),
-      name: 'Knight',
-      movement: {
-        moveRange: 3,
-        jump: 2,
-        terrainCosts: new Map(),
-        canEnter: new Set(['ground']),
-      },
-    };
     const cat = createCatalog({
       statusTypes: [movePlusOne],
       abilities: [],
-      classes: [knight],
+      commandSets: [],
+      classes: [knightDef()],
       items: [],
     });
     const u = makeUnit({
@@ -106,20 +108,11 @@ describe('computeMovementProfile', () => {
         ),
       ],
     });
-    const knight: ClassDefinition = {
-      id: classId('knight'),
-      name: 'Knight',
-      movement: {
-        moveRange: 3,
-        jump: 2,
-        terrainCosts: new Map(),
-        canEnter: new Set(['ground']),
-      },
-    };
     const cat = createCatalog({
       statusTypes: [jumpPlusTwo],
       abilities: [],
-      classes: [knight],
+      commandSets: [],
+      classes: [knightDef()],
       items: [],
     });
     const u = makeUnit({
@@ -142,20 +135,11 @@ describe('computeMovementProfile', () => {
         ),
       ],
     });
-    const knight: ClassDefinition = {
-      id: classId('knight'),
-      name: 'Knight',
-      movement: {
-        moveRange: 3,
-        jump: 2,
-        terrainCosts: new Map(),
-        canEnter: new Set(['ground']),
-      },
-    };
     const cat = createCatalog({
       statusTypes: [haste],
       abilities: [],
-      classes: [knight],
+      commandSets: [],
+      classes: [knightDef()],
       items: [],
     });
     const u = makeUnit({

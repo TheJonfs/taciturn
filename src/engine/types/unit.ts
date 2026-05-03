@@ -2,15 +2,14 @@
 // See docs/design/core-types.md ("Unit").
 //
 // Session 1 carried the CT-relevant fields; session 4 added `classState`
-// (just `currentClass` for now) so the movement subsystem can find the
-// unit's class baseline. The grouping shape matches the design doc's
-// `classState: { currentClass; classProgress }`; the progression map
-// (`classProgress`) lands with the progression session.
-//
-// Equipment, loadout, and learning land as their owning sessions arrive
-// (5, 5, 5 per the roadmap). The shape stays open for those additions.
+// (just `currentClass` for now); session 5 added `loadout` so the
+// ability-slot system has somewhere to read equip state from. The
+// grouping shapes match the design doc; the deferred fields
+// (`classProgress`, `equipment`, per-command-set `learning`) land
+// alongside their owning sessions.
 
 import type { ClassId, TeamId, UnitId } from './ids.ts';
+import type { Loadout } from './loadout.ts';
 import type { Direction, Position } from './spatial.ts';
 import type { BaseStats, Vitals } from './stats.ts';
 import type { StatusInstance } from './status.ts';
@@ -27,6 +26,7 @@ export interface Unit {
   readonly name: string;
 
   readonly classState: UnitClassState;
+  readonly loadout: Loadout;
 
   position: Position;
   facing: Direction;

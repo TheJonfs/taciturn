@@ -49,9 +49,9 @@ References: `docs/design/status-effects.md`.
 
 References: `docs/design/map-and-battlefield.md`.
 
-### 5. Ability slots
+### 5. Ability slots ✅
 
-Bucket capacity, per-character cost computation, loadout validation, equip operation. Pure functions; no integration with the reducer yet.
+*Completed 2026-05-03.* Bucket-and-cost system in `engine/abilities/`: five v1 buckets (First/Second Action active; Reaction/Support/Movement passive) with baseline capacities (1/1/3/3/3) in `constants.ts`. `Loadout` on `Unit` (active buckets → CommandSetId; passive buckets → AbilityId list). `getCost` (class `freeAbilities` zeroes); `getCapacity` (baseline). `validateLoadout` enumerates structured violations; `equipPassive` / `unequipPassive` / `setActiveBucket` return `{ ok; state | validation }` (per ADR-0007). New catalog kind `CommandSetDefinition`; `AbilityDefinition` discriminated by `kind: 'active' | 'passive'`; `ClassDefinition` gains `firstActionCommandSet` and `freeAbilities`. Hook system refactored: source-agnostic core (`HookSignatures`, collector, chain runners) moved to `engine/hooks/`; `CollectedHandler` is now ctx-erased so runners dispatch uniformly across source kinds. Passive hook surface (`PassiveHookRegistration`, `passiveHook`) parallels the status one; new chain hooks `modifyCanEnter` / `modifyTerrainCosts` / `modifySpecialMovement` for movement-profile structural modifiers. Pathfinding's Fly branch (drops jump check); Teleport / Phase still throw. Content: `attack` ability + `battle_skill` command set + Knight extensions; passives `move_plus_1` (modifyStatQuery moveRange+1), `float` (modifyCanEnter +water), `fly` (modifySpecialMovement = 'fly'). End-to-end tests light up the full registration → collection → runner → consumer pipeline. ADR-0007 captures the validation surface.
 
 References: `docs/design/ability-slots.md`.
 

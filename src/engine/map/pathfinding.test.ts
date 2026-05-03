@@ -2,7 +2,7 @@ import { createCatalog, type ClassDefinition } from '../catalog/index.ts';
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { statusHook } from '../status/index.ts';
 import { makeStatusInstance, makeStatusType } from '../status/test-fixtures.ts';
-import { classId } from '../types/index.ts';
+import { classId, commandSetId } from '../types/index.ts';
 import {
   getLegalMoves,
   positionKey,
@@ -28,10 +28,13 @@ function knightCatalog(args?: {
       canEnter: new Set(args?.canEnter ?? ['ground']),
       ...(args?.specialMovement !== undefined ? { specialMovement: args.specialMovement } : {}),
     },
+    firstActionCommandSet: commandSetId('battle_skill'),
+    freeAbilities: new Set(),
   };
   return createCatalog({
     statusTypes: args?.extraStatusTypes ?? [],
     abilities: [],
+    commandSets: [],
     classes: [knight],
     items: [],
   });
@@ -245,9 +248,49 @@ describe('getLegalMoves — modifyStatQuery integration', () => {
   });
 });
 
-describe('getLegalMoves — special movement (deferred)', () => {
-  it('throws SpecialMovementNotImplementedError for fly profiles', () => {
-    const cat = knightCatalog({ specialMovement: 'fly' });
+describe('getLegalMoves — special movement', () => {
+  it('Fly: ignores the jump constraint', () => {
+    // Two-tile strip: (0,0) elev 0, (1,0) elev 5. Jump 2 standard
+    // movement cannot step; fly should.
+    const cat = knightCatalog({ moveRange: 5, jump: 2, specialMovement: 'fly' });
+    const u = makeUnit({ id: 'u1', spd: 10, position: { x: 0, y: 0, layer: 0 } });
+    const state = makeGameState({
+      units: [u],
+      map: mapWith({
+        width: 2,
+        height: 1,
+        tiles: [
+          { x: 0, y: 0 },
+          { x: 1, y: 0, elevation: 5 },
+        ],
+      }),
+    });
+    const { reachable } = getLegalMoves(state, u.id, cat);
+    expect(reachable.has(positionKey({ x: 1, y: 0, layer: 0 }))).toBe(true);
+  });
+
+  it('Fly: still respects canEnter (a flying unit with no canEnter for water cannot land)', () => {
+    const cat = knightCatalog({
+      moveRange: 5,
+      specialMovement: 'fly',
+      canEnter: ['ground'],
+    });
+    const u = makeUnit({ id: 'u1', spd: 10, position: { x: 0, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [u], map: mapFrom(['GWG']) });
+    const { reachable } = getLegalMoves(state, u.id, cat);
+    expect(reachable.has(positionKey({ x: 1, y: 0, layer: 0 }))).toBe(false);
+    expect(reachable.has(positionKey({ x: 2, y: 0, layer: 0 }))).toBe(false);
+  });
+
+  it('throws SpecialMovementNotImplementedError for teleport profiles (no v1 consumer)', () => {
+    const cat = knightCatalog({ specialMovement: 'teleport' });
+    const u = makeUnit({ id: 'u1', spd: 10 });
+    const state = makeGameState({ units: [u], map: flatMap(3, 3) });
+    expect(() => getLegalMoves(state, u.id, cat)).toThrow(SpecialMovementNotImplementedError);
+  });
+
+  it('throws SpecialMovementNotImplementedError for phase profiles (no v1 consumer)', () => {
+    const cat = knightCatalog({ specialMovement: 'phase' });
     const u = makeUnit({ id: 'u1', spd: 10 });
     const state = makeGameState({ units: [u], map: flatMap(3, 3) });
     expect(() => getLegalMoves(state, u.id, cat)).toThrow(SpecialMovementNotImplementedError);
