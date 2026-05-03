@@ -31,9 +31,9 @@ This means the roadmap below is the *mechanism* track. Content expansion is inte
 
 References: `docs/design/core-types.md`, `docs/design/ct-system.md`.
 
-### 2. Catalog infrastructure + minimal type definitions
+### 2. Catalog infrastructure + minimal type definitions ✅
 
-The lookup database for static definitions (status types, ability types, classes, items). One stub instance of each kind is enough to verify the loader and lookup APIs work. Real content arrives in later expansion passes.
+*Completed 2026-05-03.* Generic `Registry<TId, TDef>` and a `Catalog` class with per-kind getters / `has*` / listing methods (`StatusEffectType`, `AbilityDefinition`, `ClassDefinition`, `ItemDefinition`) — minimal `{ id, name }` shapes that grow in their owning sessions. `createCatalog` validates duplicate-id at construction; `getX` throws `UnknownDefinitionError` on miss. One stub per kind in `src/content/{statuses,abilities,classes,items}/`, combined by `loadDefaultCatalog()`. ADR-0004 fixes the catalog-injection pattern (alongside `state`, never on `GameState`, never a singleton).
 
 References: `docs/design/core-types.md` ("Catalogs vs. instances"), `docs/architecture/architecture-overview.md` ("What goes in `catalog/`").
 

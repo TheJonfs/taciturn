@@ -20,30 +20,35 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-03 (core types + CT system)
+## From session 2026-05-03 (catalog infrastructure)
 
 ### Suggested next-session scope
 
-Roadmap session 2: **catalog infrastructure + minimal type definitions.** The shape will be the loader + lookup APIs (`catalog.getStatusType('haste')`, etc.) plus one stub instance per kind to verify end-to-end. Real content arrives in later expansion passes.
+Roadmap session 3: **hook system + minimal status apply/remove.** This is the first session where the catalog earns its keep — `StatusEffectType` definitions will gain hook-handler registrations, and `computeSpeed` becomes the first hook-chain consumer (Haste's `modifyStatQuery` handler is the canonical demo). When that lands:
 
-Watch the boundary with `src/content/`: per `architecture-overview.md`, the catalog *loader* lives in `src/engine/catalog/`, but the *data files* live in `src/content/{classes,abilities,statuses,items,maps}/`. The eslint layer rules already forbid `@content` from importing from other layers, but not the other direction — the engine reading from `@content` is allowed and is exactly how the catalog gets populated.
+1. `StatusEffectType` grows beyond `{ id, name }` — at least `tags`, `durationMode`, `stackingRule`, `hookHandlers`. Match `docs/design/status-effects.md` carefully.
+2. `StatusInstance` (currently `{ readonly typeId: StatusTypeId }` placeholder in `engine/types/status.ts`) gains `source`, `remainingDuration`, `magnitude`, `stacks` per design doc.
+3. `computeSpeed(state, unitId, catalog)` — gains the `catalog` parameter per ADR-0004. The CT projection consumer threads it through.
+4. Resist → stack → instantiate → onApply pipeline; the full surface in `docs/design/status-effects.md`.
 
-### Things noticed during the CT session
+The handoff from session 1 already flagged that `computeSpeed`'s signature would change in session 3; ADR-0004 confirms the shape (`(state, unitId, catalog)`).
 
-- **`BattleMap` rather than `Map`.** The design doc names the container type `Map`, but the codebase uses `BattleMap` so the type name does not shadow `globalThis.Map` everywhere it is imported. Worth a one-line note in `core-types.md` next time it is touched, but not urgent enough to chase now.
-- **`compareForTrigger` in `ct/projection.ts` is internal.** If/when other CT-adjacent code (e.g., a future "is this Quick going to land before that spell?" query) needs the same tiebreaker, extract to `ct/tiebreakers.ts` and re-export. Don't extract speculatively.
-- **`test-fixtures.ts` lives in `ct/`** because that is where it is currently consumed. When session 2/3 also need fixtures, lift to `src/engine/test-fixtures.ts` (a single shared one is healthier than a per-subsystem proliferation).
-- **`computeActionSpeed` takes a `ChargedAction` directly,** not a `ChargedActionId`. Slight asymmetry with `computeSpeed(state, unitId)`. Reasoning: charged actions live in an array (no O(1) lookup), and projection iterates them anyway. Reconsider if a callsite ever needs the by-ID variant.
+### Things noticed during the catalog session
+
+- **`Registry` is generic over `TDef extends { readonly id: TId }`.** This means every definition kind has its `id` typed by the brand. Today the constraint catches duplicate-id within a kind; if a future kind needs richer keying (composite, namespaced), revisit the constraint rather than smuggling alternative keys past it.
+- **`Catalog`'s listing methods (`statusTypes()`, etc.) allocate a fresh array per call** via `Array.from(map.values())`. Fine at v1 scale (catalogs of dozens to hundreds of definitions, not hot-pathed). If a UI code-path ends up listing every frame, memoize then.
+- **`src/content/loader.test.ts` asserts the v1 stub set has exactly one definition per kind.** Intentional canary: when content-expansion passes land, this test fails. The failure is the signal to update the assertion (and possibly the test) deliberately, not silently.
+- **`Catalog` is a class, not an interface.** TypeScript treats it as both runtime value and type. If/when tests need to mock the Catalog (unlikely — tests build a tailored real Catalog instead), extract the interface then.
 
 ### Things considered but did not do
 
-- **A `state` mutation primitive in projection.** `projectUpcoming` could `structuredClone(state)` and walk it. Rejected because we only need the entities' CT and Speed for projection, and a flat `SimEntry[]` snapshot is both faster and clearer about what is actually being projected forward.
-- **An `advanceCT(state, ticks)` reducer hook.** Out of scope for session 1 — state mutation belongs in the reducer (session 7). The pure projection covers what session 1 needs.
-- **An `OutOfBoundsError` class.** ADR-0002 names both `UnknownEntityError` and `OutOfBoundsError`, but only the former has a use site today (`getUnit`, `getChargedAction`). Spatial accessors land in session 4; defining the error class then keeps it honest.
+- **Catalog hot-reload during development.** Architecture overview flags this as an open question. Skipped — no use site, and v1 startup is fast enough to just restart. Reconsider if content authoring becomes a bottleneck.
+- **Cross-kind reference validation at construction time** (e.g., an ability referencing a status type that's not in the catalog). Skipped because no definition currently references another. Add when those references exist (sessions 5+) — likely a separate `validateCatalog(cat)` function rather than constructor-time so partial catalogs can be built up in tests.
+- **Frozen registries.** `Object.freeze(definitions)` at construction. Skipped — `readonly` in the type system covers the consumer side, and freezing adds runtime cost without preventing the case it protects against (mutating shared definition objects from multiple battles). Revisit if a real bug shows up.
+- **Putting `loadDefaultCatalog()` inside the engine.** The function aggregates *content*, so it lives in `src/content/index.ts`. The engine only owns the catalog *machinery* (`Catalog`, `createCatalog`, definition types). Layer rule respected by lint.
 
 ### Open questions for later sessions (not blocking)
 
-- **`StatusInstance` shape** — the placeholder is `{ readonly typeId: StatusTypeId }`. Session 3 (status system) will fill it in. CT will consume statuses via the hook chain at that point; `computeSpeed` is the natural first hook consumer.
-- **Equipment / loadout / classState / learning fields on `Unit`** — intentionally omitted from the session 1 `Unit` type to keep it minimal. Sessions 5 and 6 add them. They should slot in without breaking the `Unit` shape because everything in session 1 is structural (no positional/variadic constructors).
-- **`TurnState`, `GlobalEffect`, `BattleOutcome`** — placeholder empty-marker interfaces (`{ readonly _placeholder?: never }`). Empty type literal would be assignable from anything; the marker keeps them distinct without committing to a shape. Replace with real shapes in their respective sessions (9, 3+, 9).
-- **The `as UnitId` / `as ChargedActionId` casts in `ct/projection.ts`** are inside `entryToEvent`, gated by the `entityKind` discriminant. Type-safe by construction but visible. Cleaner once session 7's reducer exposes a richer surface — we may revisit then.
+- **Definition equality / identity.** Tests `expect(cat.getStatusType('haste')).toBe(haste)` rely on referential identity through the registry. Fine today; if we ever clone definitions on read (for any reason — e.g., per-battle overrides), tests would need `.toEqual`. No reason to do that yet, just worth knowing.
+- **Naming convention for the `kindName` strings inside `Registry` errors.** Currently `'StatusEffectType'`, `'Ability'`, `'Class'`, `'Item'` — matching the type names. Fine. If error messages become user-facing somewhere (unlikely; these are programmer errors), reconsider.
+- **`@content` from `@engine`?** The lint rules forbid content from importing renderer/ui/ai/app, but engine importing content is *not* forbidden. That's deliberate per the architecture doc — but engine code that imports content would be wrong (would couple the engine to specific content). The rule could be tightened (engine forbidden from importing `@content/*`) to make this machine-checkable. Worth doing once the engine has more code to verify against. Not urgent — the discipline is currently held by review.
