@@ -36,6 +36,10 @@ const cure: AbilityDefinition = {
   kind: 'active',
   bucket: bucketId('second_action'),
   baseCost: 1,
+  targeting: { kind: 'self' },
+  chargeTicks: 0,
+  mpCost: 0,
+  effects: {},
 };
 const fire: AbilityDefinition = {
   id: abilityId('fire'),
@@ -43,6 +47,10 @@ const fire: AbilityDefinition = {
   kind: 'active',
   bucket: bucketId('second_action'),
   baseCost: 1,
+  targeting: { kind: 'self' },
+  chargeTicks: 0,
+  mpCost: 0,
+  effects: {},
 };
 const battleSkill: CommandSetDefinition = {
   id: commandSetId('battle_skill'),
@@ -98,6 +106,10 @@ describe('createCatalog', () => {
       kind: 'active',
       bucket: bucketId('second_action'),
       baseCost: 1,
+      targeting: { kind: 'self' },
+      chargeTicks: 0,
+      mpCost: 0,
+      effects: {},
     };
     try {
       createCatalog({ ...defaults(), abilities: [cure, dupe] });

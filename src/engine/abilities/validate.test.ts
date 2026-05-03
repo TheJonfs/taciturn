@@ -8,7 +8,7 @@ import {
   BUCKET_SUPPORT,
 } from './constants.ts';
 import {
-  loadoutOf,
+  knightLoadout,
   makeAbilitiesCatalog,
   makeActive,
   makeCommandSet,
@@ -18,11 +18,11 @@ import {
 import { validateLoadout } from './validate.ts';
 
 describe('validateLoadout — happy paths', () => {
-  it('accepts an empty loadout', () => {
+  it('accepts the minimum pin-satisfying loadout', () => {
     const cat = makeAbilitiesCatalog({});
     const u = makeUnit({ id: 'u1', spd: 10 });
     const state = makeGameState({ units: [u] });
-    expect(validateLoadout(state, u.id, loadoutOf({}), cat).ok).toBe(true);
+    expect(validateLoadout(state, u.id, knightLoadout(), cat).ok).toBe(true);
   });
 
   it('accepts a loadout that fits exactly within passive capacity', () => {
@@ -31,7 +31,7 @@ describe('validateLoadout — happy paths', () => {
     const cat = makeAbilitiesCatalog({ abilities: [a, b] });
     const u = makeUnit({ id: 'u1', spd: 10 });
     const state = makeGameState({ units: [u] });
-    const loadout = loadoutOf({
+    const loadout = knightLoadout({
       passive: [[BUCKET_MOVEMENT, [abilityId('a'), abilityId('b')]]],
     });
     expect(validateLoadout(state, u.id, loadout, cat).ok).toBe(true);
@@ -45,7 +45,7 @@ describe('validateLoadout — happy paths', () => {
     });
     const u = makeUnit({ id: 'u1', spd: 10 });
     const state = makeGameState({ units: [u] });
-    const loadout = loadoutOf({
+    const loadout = knightLoadout({
       passive: [
         // Three "heavy" instances would normally cost 9 (over capacity 3).
         // With the class grant they're cost 0 each — fits.
@@ -61,7 +61,7 @@ describe('validateLoadout — happy paths', () => {
     });
     const u = makeUnit({ id: 'u1', spd: 10 });
     const state = makeGameState({ units: [u] });
-    const loadout = loadoutOf({
+    const loadout = knightLoadout({
       active: [[BUCKET_FIRST_ACTION, commandSetId('battle_skill')]],
     });
     expect(validateLoadout(state, u.id, loadout, cat).ok).toBe(true);
@@ -75,7 +75,7 @@ describe('validateLoadout — violations', () => {
     const cat = makeAbilitiesCatalog({ abilities: [a, b] });
     const u = makeUnit({ id: 'u1', spd: 10 });
     const state = makeGameState({ units: [u] });
-    const loadout = loadoutOf({
+    const loadout = knightLoadout({
       passive: [[BUCKET_MOVEMENT, [abilityId('a'), abilityId('b')]]],
     });
     const result = validateLoadout(state, u.id, loadout, cat);
@@ -90,7 +90,7 @@ describe('validateLoadout — violations', () => {
     const cat = makeAbilitiesCatalog({});
     const u = makeUnit({ id: 'u1', spd: 10 });
     const state = makeGameState({ units: [u] });
-    const loadout = loadoutOf({
+    const loadout = knightLoadout({
       passive: [[BUCKET_REACTION, [abilityId('does_not_exist')]]],
     });
     const result = validateLoadout(state, u.id, loadout, cat);
@@ -108,7 +108,7 @@ describe('validateLoadout — violations', () => {
     const cat = makeAbilitiesCatalog({ abilities: [supportThing] });
     const u = makeUnit({ id: 'u1', spd: 10 });
     const state = makeGameState({ units: [u] });
-    const loadout = loadoutOf({
+    const loadout = knightLoadout({
       passive: [[BUCKET_MOVEMENT, [abilityId('support_thing')]]],
     });
     const result = validateLoadout(state, u.id, loadout, cat);
@@ -127,7 +127,7 @@ describe('validateLoadout — violations', () => {
     const cat = makeAbilitiesCatalog({ abilities: [attack] });
     const u = makeUnit({ id: 'u1', spd: 10 });
     const state = makeGameState({ units: [u] });
-    const loadout = loadoutOf({
+    const loadout = knightLoadout({
       passive: [[BUCKET_MOVEMENT, [abilityId('attack')]]],
     });
     const result = validateLoadout(state, u.id, loadout, cat);
@@ -146,7 +146,7 @@ describe('validateLoadout — violations', () => {
     const cat = makeAbilitiesCatalog({});
     const u = makeUnit({ id: 'u1', spd: 10 });
     const state = makeGameState({ units: [u] });
-    const loadout = loadoutOf({
+    const loadout = knightLoadout({
       active: [[BUCKET_SECOND_ACTION, commandSetId('not_in_catalog')]],
     });
     const result = validateLoadout(state, u.id, loadout, cat);
@@ -181,7 +181,7 @@ describe('validateLoadout — violations', () => {
     const cat = makeAbilitiesCatalog({ abilities: [aBad] });
     const u = makeUnit({ id: 'u1', spd: 10 });
     const state = makeGameState({ units: [u] });
-    const loadout = loadoutOf({
+    const loadout = knightLoadout({
       // Movement bucket: unknown ability AND would be over capacity if it weren't.
       passive: [
         [BUCKET_MOVEMENT, [abilityId('does_not_exist')]],

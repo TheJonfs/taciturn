@@ -1,12 +1,20 @@
 // Action — the unit of state transition in the engine.
-// See docs/design/core-types.md ("Action") and docs/design/action-resolution.md.
+// See docs/design/core-types.md ("Action") and
+// docs/design/action-resolution.md.
 //
-// Skeleton for session 1. The full discriminated union of payloads and
-// outcomes is filled in by session 7 (action types and reducer); the fields
-// here are the universal envelope shared by every action kind. Session 1
-// only needs the type to exist so GameState.actionLog is well-typed.
+// The session-1 skeleton (universal envelope + open `payload` /
+// `outcome`) was filled in by session 7: each `type` discriminant pairs
+// with its specific payload and outcome shape. The `Action` type is a
+// discriminated union over those pairs; the universal envelope (seq #,
+// seed, source, chain bookkeeping) lives in `ActionEnvelope` and is
+// intersected onto every variant.
+//
+// Adding a new action kind is one entry in the union plus a reducer
+// branch and (where applicable) a validator clause.
 
-import type { UnitId } from './ids.ts';
+import type { AbilityId, ChargedActionId, StatusTypeId, UnitId } from './ids.ts';
+import type { Direction, Position } from './spatial.ts';
+import type { StatusApplicationOutcome } from './status-application-outcome.ts';
 
 export type ActionType =
   | 'move'
@@ -20,17 +28,219 @@ export type ActionType =
 
 export type ActionSource = 'player' | 'system';
 
-// Payload and outcome shapes are per-action-type; pinned down in session 7.
-export type ActionPayload = unknown;
-export type ActionOutcome = unknown;
+// What target an ability action is aimed at. `self` for `targeting.kind:
+// 'self'` abilities; `unit` for single-unit targeting. Tile-targeting
+// and AoE land additively.
+export type AbilityTarget =
+  | { readonly kind: 'self' }
+  | { readonly kind: 'unit'; readonly unitId: UnitId };
 
-export interface Action {
+// Per-target result inside a UseAbility outcome. Damage is populated
+// session 8; v1 records hits and per-target status-application outcomes.
+export interface AbilityTargetResult {
+  readonly target: AbilityTarget;
+  readonly hit: boolean;
+  readonly damage?: number;
+  readonly healing?: number;
+  readonly statusesApplied?: ReadonlyArray<StatusApplicationOutcome>;
+}
+
+// === Per-action payload + outcome pairs ===
+
+export interface MovePayload {
+  readonly destination: Position;
+}
+export interface MoveOutcome {
+  readonly kind: 'move';
+  readonly pathTaken: ReadonlyArray<Position>;
+  readonly finalPosition: Position;
+  readonly facingAfter: Direction;
+}
+
+export interface UseAbilityPayload {
+  readonly abilityId: AbilityId;
+  readonly target: AbilityTarget;
+}
+export interface UseAbilityOutcome {
+  readonly kind: 'use_ability';
+  readonly abilityId: AbilityId;
+  readonly perTargetResults: ReadonlyArray<AbilityTargetResult>;
+  readonly mpSpent: number;
+  // When chargeTicks > 0, the UseAbility commit creates a ChargedAction
+  // and applies the Charging status; the actual effect resolution
+  // happens later via `charged_action_resolve`.
+  readonly chargedActionId?: ChargedActionId;
+}
+
+export interface WaitPayload {
+  readonly _empty?: never;
+}
+export interface WaitOutcome {
+  readonly kind: 'wait';
+}
+
+export interface SetFacingPayload {
+  readonly facing: Direction;
+}
+export interface SetFacingOutcome {
+  readonly kind: 'set_facing';
+  readonly from: Direction;
+  readonly to: Direction;
+}
+
+export interface TurnStartPayload {
+  readonly unitId: UnitId;
+}
+export interface TurnStartOutcome {
+  readonly kind: 'turn_start';
+  readonly unitId: UnitId;
+  readonly skipped: boolean;
+  readonly skipReason?: string;
+}
+
+export interface TurnEndPayload {
+  readonly unitId: UnitId;
+}
+export interface TurnEndOutcome {
+  readonly kind: 'turn_end';
+  readonly unitId: UnitId;
+  readonly ctSpent: number;
+}
+
+export interface ChargedActionResolvePayload {
+  readonly chargedActionId: ChargedActionId;
+}
+export interface ChargedActionResolveOutcome {
+  readonly kind: 'charged_action_resolve';
+  readonly chargedActionId: ChargedActionId;
+  readonly perTargetResults: ReadonlyArray<AbilityTargetResult>;
+}
+
+export interface StatusTickPayload {
+  readonly unitId: UnitId;
+  readonly statusTypeId: StatusTypeId;
+}
+export interface StatusTickOutcome {
+  readonly kind: 'status_tick';
+  readonly unitId: UnitId;
+  readonly statusTypeId: StatusTypeId;
+  readonly removed: boolean;
+}
+
+// === Universal envelope shared by every action ===
+
+export interface ActionEnvelope {
   readonly sequenceNumber: number;
-  readonly type: ActionType;
   readonly source: ActionSource;
   readonly actorId?: UnitId;
   readonly timestamp: { readonly tick: number; readonly ct: number };
   readonly seed: number;
-  readonly payload: ActionPayload;
-  readonly outcome?: ActionOutcome;
+  // Reaction-chain bookkeeping. `parentActionSeq` is set when this
+  // action was generated by another's resolution (Counter triggered by
+  // Attack, etc.). `chainDepth` is 0 for player/system root actions and
+  // increments per chain step. `isReaction` is true for actions that
+  // count against the reaction cap. See action-resolution.md
+  // ("Reactions and the action chain").
+  readonly parentActionSeq?: number;
+  readonly chainDepth: number;
+  readonly isReaction: boolean;
 }
+
+// === The discriminated union ===
+
+export type Action = ActionEnvelope &
+  (
+    | { readonly type: 'move'; readonly payload: MovePayload; readonly outcome?: MoveOutcome }
+    | {
+        readonly type: 'use_ability';
+        readonly payload: UseAbilityPayload;
+        readonly outcome?: UseAbilityOutcome;
+      }
+    | { readonly type: 'wait'; readonly payload: WaitPayload; readonly outcome?: WaitOutcome }
+    | {
+        readonly type: 'set_facing';
+        readonly payload: SetFacingPayload;
+        readonly outcome?: SetFacingOutcome;
+      }
+    | {
+        readonly type: 'turn_start';
+        readonly payload: TurnStartPayload;
+        readonly outcome?: TurnStartOutcome;
+      }
+    | {
+        readonly type: 'turn_end';
+        readonly payload: TurnEndPayload;
+        readonly outcome?: TurnEndOutcome;
+      }
+    | {
+        readonly type: 'charged_action_resolve';
+        readonly payload: ChargedActionResolvePayload;
+        readonly outcome?: ChargedActionResolveOutcome;
+      }
+    | {
+        readonly type: 'status_tick';
+        readonly payload: StatusTickPayload;
+        readonly outcome?: StatusTickOutcome;
+      }
+  );
+
+export type ActionOutcome =
+  | MoveOutcome
+  | UseAbilityOutcome
+  | WaitOutcome
+  | SetFacingOutcome
+  | TurnStartOutcome
+  | TurnEndOutcome
+  | ChargedActionResolveOutcome
+  | StatusTickOutcome;
+
+// `ProposedAction` is what a controller (player UI, AI) hands the
+// engine. The engine fills in the envelope (seq, seed, timestamp, chain
+// bookkeeping) at commit time. Controllers don't see the universal
+// envelope — they describe *what* to do, the engine answers *when* and
+// *what seed*.
+export type ProposedAction =
+  | {
+      readonly type: 'move';
+      readonly source: ActionSource;
+      readonly actorId: UnitId;
+      readonly payload: MovePayload;
+    }
+  | {
+      readonly type: 'use_ability';
+      readonly source: ActionSource;
+      readonly actorId: UnitId;
+      readonly payload: UseAbilityPayload;
+    }
+  | {
+      readonly type: 'wait';
+      readonly source: ActionSource;
+      readonly actorId: UnitId;
+      readonly payload: WaitPayload;
+    }
+  | {
+      readonly type: 'set_facing';
+      readonly source: ActionSource;
+      readonly actorId: UnitId;
+      readonly payload: SetFacingPayload;
+    }
+  | {
+      readonly type: 'turn_start';
+      readonly source: 'system';
+      readonly payload: TurnStartPayload;
+    }
+  | {
+      readonly type: 'turn_end';
+      readonly source: 'system';
+      readonly payload: TurnEndPayload;
+    }
+  | {
+      readonly type: 'charged_action_resolve';
+      readonly source: 'system';
+      readonly payload: ChargedActionResolvePayload;
+    }
+  | {
+      readonly type: 'status_tick';
+      readonly source: 'system';
+      readonly payload: StatusTickPayload;
+    };

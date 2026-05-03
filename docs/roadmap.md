@@ -61,11 +61,11 @@ References: `docs/design/ability-slots.md`.
 
 References: `docs/architecture/architecture-overview.md` ("Rulesets and content"), ADR-0008.
 
-### 7. Action types and reducer
+### 7. Action types and reducer ✅
 
-The full action lifecycle (propose → validate → seed → pre-hooks → reduce → resolution-hooks → commit → process-chain), `validateAction` as a pure separate function, the reducer for Move, UseAbility, Wait, SetFacing, and the system actions (turn_start, turn_end, status_tick, charged_action_resolve). Damage pipeline lands in the next session; UseAbility here covers non-damage paths.
+*Completed 2026-05-03.* `Action` is a discriminated union over per-kind payload + outcome shapes (Move, UseAbility, Wait, SetFacing, plus system actions turn_start, turn_end, status_tick, charged_action_resolve). `ProposedAction` is the controller-facing shape (no envelope); the engine fills in seq, seed, timestamp, and chain bookkeeping at commit time via `deriveActionSeed(masterSeed, sequenceNumber)`. `validateAction(state, action, catalog) → ValidationResult` is pure and exposed separately so UI can preview legality. Per-kind reducers (`engine/actions/reducers.ts`) are individually testable; `reduce.ts` holds the dispatcher. `TurnState` is now a real shape (`CurrentTurn | null`) carrying the active unit's TurnBudget, consumption counters, and per-reactor reaction tally. `commitAction` is the lifecycle wrapper: validate → fire `onActionAttempted` (block/replace short-circuit) → seed + envelope → reduce → append to log → process generated actions FIFO, with reaction caps and chain-depth caps from the ruleset. UseAbility ships the instant + non-damage status-application path; chargeTicks > 0 throws until session 8's first content consumer. AbilityDefinition gained `targeting`, `chargeTicks`, `mpCost`, `effects` (statusEffects + damage placeholder). First Action class-pinning lives in `validateLoadout` (single rule covers `equipPassive`, `setActiveBucket`, and `createInitialState`). `onActionAttempted` and `onActionTargeted` hook signatures refined from `unknown` to typed `ProposedAction`/`ActionAttemptResult` shapes; runners ship for both. ADR-0009 captures the decisions.
 
-References: `docs/design/action-resolution.md`.
+References: `docs/design/action-resolution.md`, ADR-0009.
 
 ### 8. Damage pipeline
 

@@ -14,12 +14,21 @@
 import type {
   HookSourceTier,
   MovementProfile,
+  ProposedAction,
   StatName,
   StatusInstance,
   TerrainType,
   Unit,
 } from '../types/index.ts';
 import { DEFAULT_HOOK_SOURCE_TIER_ORDER } from '../types/index.ts';
+
+// Result of `onActionAttempted` — what a handler decides about an
+// in-flight action. Handlers can leave it allowed, block it (Stop,
+// Silence-on-magical), or replace it (Berserk forces an attack).
+export type ActionAttemptResult =
+  | { readonly kind: 'allowed' }
+  | { readonly kind: 'blocked'; readonly reason: string }
+  | { readonly kind: 'replaced'; readonly with: ProposedAction };
 
 // Per-hook signature map. New hooks add an entry; that's it.
 export interface HookSignatures {
@@ -85,14 +94,22 @@ export interface HookSignatures {
     return: unknown;
   };
 
-  // Action filtering / reactions: session 7 (reducer + action types).
+  // Action filtering: fired pre-resolution against the actor's hooks
+  // (statuses, equipped passives, etc.) so they can block (Stop) or
+  // replace (Berserk) the in-flight action. The runner short-circuits
+  // on the first non-`allowed` result; downstream handlers do not run.
   onActionAttempted: {
-    args: { unit: Unit; action: unknown };
-    return: unknown;
+    args: { unit: Unit; action: ProposedAction };
+    return: ActionAttemptResult;
   };
+  // Reactions: fired post-application against the *target's* hooks so
+  // they can generate response actions (Counter, Auto-Potion, Reflect).
+  // Returns the list of reactions to enqueue — empty if no reaction.
+  // Session 7 ships the runner shape; session 8 wires the damage-driven
+  // call sites and the v1 Counter content.
   onActionTargeted: {
-    args: { unit: Unit; incomingAction: unknown };
-    return: unknown;
+    args: { unit: Unit; incomingAction: ProposedAction };
+    return: ReadonlyArray<ProposedAction>;
   };
 
   // Per-step movement event. Runner lands when a movement-modifying

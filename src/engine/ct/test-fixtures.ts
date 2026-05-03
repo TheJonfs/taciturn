@@ -15,6 +15,7 @@ import {
   teamId,
   unitId as mkUnitId,
   type ChargedAction,
+  type Direction,
   type GameState,
   type Loadout,
   type Position,
@@ -33,6 +34,7 @@ export function makeUnit(overrides: {
   readonly statuses?: ReadonlyArray<StatusInstance>;
   readonly classId?: string;
   readonly position?: Position;
+  readonly facing?: Direction;
   readonly loadout?: Loadout;
 }): Unit {
   return {
@@ -42,7 +44,7 @@ export function makeUnit(overrides: {
     classState: { currentClass: mkClassId(overrides.classId ?? 'knight') },
     loadout: overrides.loadout ?? EMPTY_LOADOUT,
     position: overrides.position ?? { x: 0, y: 0, layer: 0 },
-    facing: 'N',
+    facing: overrides.facing ?? 'N',
     ct: overrides.ct ?? 0,
     baseStats: { spd: overrides.spd },
     vitals: { hp: overrides.hp ?? 100, mp: overrides.mp ?? 0 },
@@ -89,6 +91,8 @@ export function makeGameState(args: {
   readonly chargedActions?: ReadonlyArray<ChargedAction>;
   readonly tick?: number;
   readonly map?: GameState['map'];
+  readonly turnState?: GameState['turnState'];
+  readonly masterSeed?: number;
 }): GameState {
   const unitMap = new Map<UnitId, Unit>();
   for (const u of args.units ?? []) unitMap.set(u.id, u);
@@ -101,8 +105,19 @@ export function makeGameState(args: {
     chargedActions: args.chargedActions ?? [],
     globalEffects: [],
     tick: args.tick ?? 0,
-    turnState: {},
-    rng: { masterSeed: 0, nextSeq: 0 },
+    turnState: args.turnState ?? null,
+    rng: { masterSeed: args.masterSeed ?? 0, nextSeq: 0 },
     actionLog: [],
+  };
+}
+
+// Build a turnState in-progress for the named unit. Used by tests that
+// need to commit player actions (Move, UseAbility, Wait, SetFacing).
+export function activeTurnFor(unitId: UnitId): NonNullable<GameState['turnState']> {
+  return {
+    unitId,
+    budget: { movesAvailable: 1, actsAvailable: 1 },
+    consumed: { movesConsumed: 0, actsConsumed: 0, waited: false },
+    reactionsUsedThisTurn: new Map(),
   };
 }

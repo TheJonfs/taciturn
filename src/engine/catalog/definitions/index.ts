@@ -1,7 +1,13 @@
 export type {
   AbilityDefinition,
+  AbilityEffects,
+  AbilityRange,
   ActiveAbilityDefinition,
+  DamageSpec,
   PassiveAbilityDefinition,
+  RangeMode,
+  StatusEffectSpec,
+  TargetingSpec,
 } from './ability-definition.ts';
 export type { ClassDefinition, ClassMovementBaseline } from './class-definition.ts';
 export type { CommandSetDefinition } from './command-set-definition.ts';

@@ -8,6 +8,7 @@
 import { createCatalog, type Catalog } from '../catalog/index.ts';
 import type {
   AbilityDefinition,
+  ActiveAbilityDefinition,
   ClassDefinition,
   CommandSetDefinition,
 } from '../catalog/index.ts';
@@ -49,13 +50,21 @@ export function makeActive(args: {
   readonly id: string;
   readonly bucket?: BucketId;
   readonly baseCost?: number;
-}): AbilityDefinition {
+  readonly targeting?: ActiveAbilityDefinition['targeting'];
+  readonly chargeTicks?: number;
+  readonly mpCost?: number;
+  readonly effects?: ActiveAbilityDefinition['effects'];
+}): ActiveAbilityDefinition {
   return {
     id: abilityId(args.id),
     name: args.id,
     kind: 'active',
     bucket: args.bucket ?? bucketId('first_action'),
     baseCost: args.baseCost ?? 1,
+    targeting: args.targeting ?? { kind: 'self' },
+    chargeTicks: args.chargeTicks ?? 0,
+    mpCost: args.mpCost ?? 0,
+    effects: args.effects ?? {},
   };
 }
 
@@ -116,6 +125,23 @@ export function loadoutOf(args: {
   for (const b of PASSIVE_BUCKET_IDS) passiveBuckets[b] = [];
   for (const [b, v] of args.passive ?? []) passiveBuckets[b] = v;
   return { actionBuckets, passiveBuckets };
+}
+
+// Class-pinned loadout helper. Sets first_action to the named command
+// set so the first_action class-pin (session 7) is satisfied by default.
+// Use this whenever a test goes through `validateLoadout` or
+// `createInitialState` for a Knight-class unit.
+export function knightLoadout(args?: {
+  readonly active?: ReadonlyArray<readonly [BucketId, CommandSetId | null]>;
+  readonly passive?: ReadonlyArray<readonly [BucketId, ReadonlyArray<AbilityId>]>;
+}): Loadout {
+  const active: Array<readonly [BucketId, CommandSetId | null]> = [
+    [bucketId('first_action'), commandSetId('battle_skill')],
+  ];
+  if (args?.active) {
+    for (const entry of args.active) active.push(entry);
+  }
+  return loadoutOf({ active, ...(args?.passive !== undefined ? { passive: args.passive } : {}) });
 }
 
 export { EMPTY_LOADOUT };

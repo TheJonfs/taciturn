@@ -41,6 +41,7 @@ import {
 import {
   ACTIVE_BUCKET_IDS,
   ALL_BUCKET_IDS,
+  BUCKET_FIRST_ACTION,
   PASSIVE_BUCKET_IDS,
 } from './constants.ts';
 import { getCapacity } from './capacity.ts';
@@ -79,6 +80,11 @@ export type LoadoutViolation =
   | {
       readonly kind: 'unknown_bucket';
       readonly bucketId: BucketId;
+    }
+  | {
+      readonly kind: 'first_action_pin_violated';
+      readonly expected: CommandSetId;
+      readonly actual: CommandSetId | null;
     };
 
 export type LoadoutValidation =
@@ -91,10 +97,25 @@ export function validateLoadout(
   loadout: Loadout,
   catalog: Catalog,
 ): LoadoutValidation {
-  // Confirm the unit exists; throws if not (programmer error).
-  void getUnit(state, unitId);
+  const unit = getUnit(state, unitId);
 
   const violations: LoadoutViolation[] = [];
+
+  // First Action class-pin: the first_action active bucket must hold
+  // the unit's class's `firstActionCommandSet`. Class is the source of
+  // truth for what command set lives there; loadout cannot deviate.
+  // The check runs against the catalog'd class definition; an unknown
+  // class throws (programmer error per ADR-0002).
+  const classDef = catalog.getClass(unit.classState.currentClass);
+  const firstActionSlot: CommandSetId | null =
+    loadout.actionBuckets[BUCKET_FIRST_ACTION] ?? null;
+  if (firstActionSlot !== classDef.firstActionCommandSet) {
+    violations.push({
+      kind: 'first_action_pin_violated',
+      expected: classDef.firstActionCommandSet,
+      actual: firstActionSlot,
+    });
+  }
 
   // Active buckets.
   for (const bucketId of ACTIVE_BUCKET_IDS) {

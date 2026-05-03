@@ -8,6 +8,7 @@
 export {
   DEFAULT_HOOK_PRIORITY,
   DEFAULT_HOOK_SOURCE_TIER_ORDER,
+  type ActionAttemptResult,
   type HookHandler,
   type HookName,
   type HookSignatures,
@@ -23,4 +24,6 @@ export {
   runModifySpecialMovement,
   runModifyStatQuery,
   runModifyTerrainCosts,
+  runOnActionAttempted,
+  runOnActionTargeted,
 } from './runners.ts';

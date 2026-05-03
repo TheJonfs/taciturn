@@ -5,13 +5,19 @@
 export { Catalog, createCatalog, type CatalogInput } from './catalog.ts';
 export {
   type AbilityDefinition,
+  type AbilityEffects,
+  type AbilityRange,
   type ActiveAbilityDefinition,
   type ClassDefinition,
   type ClassMovementBaseline,
   type CommandSetDefinition,
+  type DamageSpec,
   type ItemDefinition,
   type PassiveAbilityDefinition,
+  type RangeMode,
   type RulesetDefinition,
+  type StatusEffectSpec,
   type StatusEffectType,
+  type TargetingSpec,
 } from './definitions/index.ts';
 export { DuplicateDefinitionError, UnknownDefinitionError } from './errors.ts';

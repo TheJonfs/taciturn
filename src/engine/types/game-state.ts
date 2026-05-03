@@ -2,16 +2,17 @@
 // See docs/design/core-types.md ("GameState").
 //
 // Session 1 has the structural fields needed for CT projection and the
-// envelope for everything else. Concrete shapes for `TurnState` (session 9),
-// `GlobalEffect` (session 3+), and `BattleOutcome` (session 9) arrive when
-// those subsystems land; placeholders preserve the container's overall
-// shape today.
+// envelope for everything else. Concrete shapes for `GlobalEffect`
+// (session 3+) and `BattleOutcome` (session 9) arrive when those
+// subsystems land; placeholders preserve the container's overall shape
+// today. `TurnState` was concretized in session 7 (engine/types/turn-state.ts).
 
 import type { Action } from './action.ts';
 import type { ChargedAction } from './charged-action.ts';
 import type { RulesetId, UnitId } from './ids.ts';
 import type { Team } from './team.ts';
 import type { BattleMap } from './tile.ts';
+import type { TurnState } from './turn-state.ts';
 import type { Unit } from './unit.ts';
 
 // Held by ID; the resolved RulesetDefinition is fetched from the catalog
@@ -19,13 +20,6 @@ import type { Unit } from './unit.ts';
 // so the action log header and cross-battle state stay light.
 export interface RulesetRef {
   readonly id: RulesetId;
-}
-
-// Placeholder; session 9 fleshes this out (whose turn, what's been done).
-// Empty interfaces are flagged by some lints; a single optional marker keeps
-// the type valid without committing to a shape.
-export interface TurnState {
-  readonly _placeholder?: never;
 }
 
 // Placeholder; session 3 introduces the first GlobalEffect kind alongside

@@ -47,7 +47,7 @@ export function createInitialState(
     chargedActions: [],
     globalEffects: [],
     tick: 0,
-    turnState: {},
+    turnState: null,
     rng: { masterSeed: battleConfig.masterSeed, nextSeq: 0 },
     actionLog: [],
   };

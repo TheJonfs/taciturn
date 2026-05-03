@@ -1,7 +1,11 @@
 // Tests for createInitialState — the BattleConfig → GameState
 // constructor that battles instantiate from.
 
-import { makeAbilitiesCatalog, makeKnight } from '../abilities/test-fixtures.ts';
+import {
+  knightLoadout,
+  makeAbilitiesCatalog,
+  makeKnight,
+} from '../abilities/test-fixtures.ts';
 import { makeTestRuleset } from '../catalog/test-fixtures.ts';
 import { createCatalog } from '../catalog/index.ts';
 import { flatMap } from '../map/test-fixtures.ts';
@@ -10,11 +14,11 @@ import {
   bucketId,
   classId,
   commandSetId,
-  EMPTY_LOADOUT,
   rulesetId,
   teamId,
   unitId,
   type BattleConfig,
+  type Loadout,
   type UnitPlacement,
 } from '../types/index.ts';
 import { BattleConfigError, createInitialState } from './create-initial-state.ts';
@@ -25,6 +29,7 @@ function placementOf(overrides: {
   readonly classId?: string;
   readonly position?: { readonly x: number; readonly y: number; readonly layer: number };
   readonly initialCT?: number;
+  readonly loadout?: Loadout;
 }): UnitPlacement {
   return {
     id: unitId(overrides.id),
@@ -35,7 +40,7 @@ function placementOf(overrides: {
     facing: 'N',
     baseStats: { spd: 10 },
     vitals: { hp: 100, mp: 0 },
-    loadout: EMPTY_LOADOUT,
+    loadout: overrides.loadout ?? knightLoadout(),
     ...(overrides.initialCT !== undefined ? { initialCT: overrides.initialCT } : {}),
   };
 }
@@ -99,7 +104,9 @@ describe('createInitialState — basics', () => {
     const cat = createCatalog({
       statusTypes: [],
       abilities: [],
-      commandSets: [],
+      // Knight's first_action pins to battle_skill; the catalog must
+      // carry it to satisfy the validator.
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1 }],
       classes: [makeKnight()],
       items: [],
       rulesets: [customRuleset],
@@ -176,23 +183,28 @@ describe('createInitialState — validation', () => {
       items: [],
       rulesets: [makeTestRuleset()],
     });
-    const placement: UnitPlacement = {
-      id: unitId('u1'),
-      name: 'u1',
-      team: teamId('team_a'),
-      classId: classId('knight'),
-      position: { x: 0, y: 0, layer: 0 },
-      facing: 'N',
-      baseStats: { spd: 10 },
-      vitals: { hp: 100, mp: 0 },
-      loadout: {
-        actionBuckets: {},
-        passiveBuckets: { [bucketId('movement')]: [abilityId('helpful_thing')] },
-      },
-    };
+    const placement = placementOf({
+      id: 'u1',
+      loadout: knightLoadout({
+        passive: [[bucketId('movement'), [abilityId('helpful_thing')]]],
+      }),
+    });
     const cfg = configOf({ units: [placement] });
     expect(() => createInitialState(cfg, cat)).toThrow(BattleConfigError);
     expect(() => createInitialState(cfg, cat)).toThrow(/loadout/i);
+  });
+
+  it('throws BattleConfigError when first_action does not match the class pin', () => {
+    const cat = makeAbilitiesCatalog({});
+    const placement = placementOf({
+      id: 'u1',
+      // Empty loadout violates the pin: Knight.firstActionCommandSet
+      // is 'battle_skill' but EMPTY_LOADOUT has no first_action.
+      loadout: { actionBuckets: {}, passiveBuckets: {} },
+    });
+    const cfg = configOf({ units: [placement] });
+    expect(() => createInitialState(cfg, cat)).toThrow(BattleConfigError);
+    expect(() => createInitialState(cfg, cat)).toThrow(/first_action_pin/i);
   });
 });
 

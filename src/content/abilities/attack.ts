@@ -1,7 +1,9 @@
 // Attack — the basic melee strike that lives in Knight's Battle Skill.
-// Per design, every active ability is priced in its containing command
-// set's bucket; the v1 active baseline is capacity 1 / cost 1. Damage
-// parameters (PA-derived, melee weapon damage) land with session 8.
+// Session 5 carried the slot/cost shape; session 7 adds the targeting,
+// charge, MP, and damage declaration. Damage parameters (PA-derived,
+// melee weapon damage) drive a real pipeline starting session 8 — for
+// now the `damage` tag declaration is metadata; UseAbility's reducer
+// applies status effects and ignores damage until the pipeline lands.
 
 import {
   abilityId,
@@ -15,4 +17,14 @@ export const attack: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,
+  targeting: {
+    kind: 'single_unit',
+    range: { horizontal: 1, vertical: 3 },
+    rangeMode: 'melee',
+  },
+  chargeTicks: 0,
+  mpCost: 0,
+  effects: {
+    damage: { tags: ['physical', 'weapon'] },
+  },
 };

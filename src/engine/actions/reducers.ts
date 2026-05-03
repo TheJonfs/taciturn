@@ -1,0 +1,468 @@
+// Per-action-kind reducer branches.
+// See docs/design/action-resolution.md ("The reducer", "Specific action
+// types") and ADR-0009.
+//
+// Each branch is a pure function: `(state, action, catalog) → ReduceResult`.
+// The dispatcher in `reduce.ts` narrows by `action.type` and calls the
+// matching branch. State updates are structural (Immer-style spread of
+// the units Map plus the touched fields); no in-place mutation.
+//
+// Generated actions enter the action chain via the `commitAction`
+// wrapper — branches return them by reference; they are *not* applied
+// here.
+
+import type { Catalog } from '../catalog/index.ts';
+import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
+import { applyStatus } from '../status/apply.ts';
+import {
+  getUnit,
+  type Action,
+  type AbilityTarget,
+  type AbilityTargetResult,
+  type ChargedAction,
+  type ChargedActionResolveOutcome,
+  type Direction,
+  type GameState,
+  type MoveOutcome,
+  type Position,
+  type ProposedAction,
+  type SetFacingOutcome,
+  type StatusApplicationOutcome,
+  type StatusInstance,
+  type StatusTickOutcome,
+  type TurnEndOutcome,
+  type TurnStartOutcome,
+  type Unit,
+  type UnitId,
+  type UseAbilityOutcome,
+  type WaitOutcome,
+} from '../types/index.ts';
+import { expectActiveAbility } from './validate.ts';
+
+export interface ReduceResult<O> {
+  readonly newState: GameState;
+  readonly outcome: O;
+  readonly generatedActions: ReadonlyArray<ProposedAction>;
+}
+
+// --- Helpers ---
+
+// Replace one unit in the state with an updated copy. Returns a fresh
+// GameState whose `units` Map has the new entry. Other fields untouched.
+function withUnit(state: GameState, unit: Unit): GameState {
+  const units = new Map(state.units);
+  units.set(unit.id, unit);
+  return { ...state, units };
+}
+
+// Direction inferred from a single step (a → b on adjacent tiles). When
+// the step is non-adjacent or zero-distance, returns the unit's existing
+// facing — sensible no-op for path[0] = path[0] cases.
+function inferFacing(from: Position, to: Position, fallback: Direction): Direction {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  if (dx === 1 && dy === 0) return 'E';
+  if (dx === -1 && dy === 0) return 'W';
+  if (dx === 0 && dy === 1) return 'S';
+  if (dx === 0 && dy === -1) return 'N';
+  return fallback;
+}
+
+// --- Move ---
+
+export function reduceMove(
+  state: GameState,
+  action: Extract<Action, { type: 'move' }>,
+  catalog: Catalog,
+): ReduceResult<MoveOutcome> {
+  if (action.actorId === undefined) {
+    throw new Error('reduceMove: action has no actorId');
+  }
+  if (state.turnState === null) {
+    throw new Error('reduceMove: no turn in progress');
+  }
+  const actor = getUnit(state, action.actorId);
+  const dest = action.payload.destination;
+
+  const moves = getLegalMoves(state, actor.id, catalog);
+  const path = moves.reachable.get(positionKey(dest));
+  if (path === undefined) {
+    throw new Error(
+      `reduceMove: destination (${dest.x},${dest.y},${dest.layer}) is not reachable — validation should have caught this`,
+    );
+  }
+
+  // Final facing: from the last step. If path is single-tile (no move),
+  // facing is unchanged.
+  let facingAfter: Direction = actor.facing;
+  if (path.path.length >= 2) {
+    const last = path.path[path.path.length - 1]!;
+    const prev = path.path[path.path.length - 2]!;
+    facingAfter = inferFacing(prev, last, actor.facing);
+  }
+
+  const newActor: Unit = {
+    ...actor,
+    position: { x: dest.x, y: dest.y, layer: dest.layer },
+    facing: facingAfter,
+  };
+
+  // Decrement movesAvailable; bump consumed counter.
+  const newTurn = {
+    ...state.turnState,
+    budget: {
+      ...state.turnState.budget,
+      movesAvailable: state.turnState.budget.movesAvailable - 1,
+    },
+    consumed: {
+      ...state.turnState.consumed,
+      movesConsumed: state.turnState.consumed.movesConsumed + 1,
+    },
+  };
+
+  const newState: GameState = {
+    ...withUnit(state, newActor),
+    turnState: newTurn,
+  };
+
+  const outcome: MoveOutcome = {
+    kind: 'move',
+    pathTaken: path.path,
+    finalPosition: dest,
+    facingAfter,
+  };
+  return { newState, outcome, generatedActions: [] };
+}
+
+// --- Wait ---
+
+export function reduceWait(
+  state: GameState,
+  action: Extract<Action, { type: 'wait' }>,
+): ReduceResult<WaitOutcome> {
+  if (action.actorId === undefined) throw new Error('reduceWait: action has no actorId');
+  if (state.turnState === null) throw new Error('reduceWait: no turn in progress');
+
+  const newTurn = {
+    ...state.turnState,
+    budget: { movesAvailable: 0, actsAvailable: 0 },
+    consumed: { ...state.turnState.consumed, waited: true },
+  };
+
+  const newState: GameState = { ...state, turnState: newTurn };
+  return { newState, outcome: { kind: 'wait' }, generatedActions: [] };
+}
+
+// --- SetFacing ---
+
+export function reduceSetFacing(
+  state: GameState,
+  action: Extract<Action, { type: 'set_facing' }>,
+): ReduceResult<SetFacingOutcome> {
+  if (action.actorId === undefined) throw new Error('reduceSetFacing: action has no actorId');
+  const actor = getUnit(state, action.actorId);
+  const from = actor.facing;
+  const to = action.payload.facing;
+  const newActor: Unit = { ...actor, facing: to };
+  return {
+    newState: withUnit(state, newActor),
+    outcome: { kind: 'set_facing', from, to },
+    generatedActions: [],
+  };
+}
+
+// --- UseAbility ---
+
+export function reduceUseAbility(
+  state: GameState,
+  action: Extract<Action, { type: 'use_ability' }>,
+  catalog: Catalog,
+): ReduceResult<UseAbilityOutcome> {
+  if (action.actorId === undefined) {
+    throw new Error('reduceUseAbility: action has no actorId');
+  }
+  if (state.turnState === null) {
+    throw new Error('reduceUseAbility: no turn in progress');
+  }
+
+  const ability = expectActiveAbility(catalog, action.payload.abilityId);
+  const actor = getUnit(state, action.actorId);
+
+  // Charge-time gate: chargeTicks > 0 spawns a ChargedAction and
+  // applies the Charging status. Effect resolution happens later when
+  // the charged action triggers (charged_action_resolve). Session 7
+  // ships the chargeTicks: 0 path and the chargeTicks > 0 hookup
+  // arrives when its first content consumer ships.
+  if (ability.chargeTicks > 0) {
+    throw new Error(
+      `reduceUseAbility: chargeTicks > 0 not implemented yet (ability ${JSON.stringify(ability.id)})`,
+    );
+  }
+
+  // Deduct MP.
+  let workingState: GameState = withUnit(state, {
+    ...actor,
+    vitals: { ...actor.vitals, mp: actor.vitals.mp - ability.mpCost },
+  });
+
+  // Apply status effects (the v1 effect path; damage lands session 8).
+  const targetResult = buildTargetResult(action.payload.target);
+  const statusOutcomes: StatusApplicationOutcome[] = [];
+
+  if (ability.effects.statusEffects) {
+    for (const spec of ability.effects.statusEffects) {
+      const targetUnitId = spec.target === 'caster'
+        ? actor.id
+        : targetResult.target.kind === 'unit'
+          ? targetResult.target.unitId
+          : null;
+      if (targetUnitId === null) {
+        // Spec wants a primary_target but the action is self-targeted —
+        // author bug; surface it.
+        throw new Error(
+          `reduceUseAbility: status effect ${JSON.stringify(spec.typeId)} targets primary_target but ability ${JSON.stringify(ability.id)} has no unit target`,
+        );
+      }
+      const applied = applyStatus(
+        workingState,
+        {
+          targetId: targetUnitId,
+          typeId: spec.typeId,
+          sourceUnitId: actor.id,
+          sourceActionSeq: action.sequenceNumber,
+          ...(spec.magnitude !== undefined ? { magnitude: spec.magnitude } : {}),
+          ...(spec.duration !== undefined ? { duration: spec.duration } : {}),
+          ...(spec.customState !== undefined ? { customState: spec.customState } : {}),
+        },
+        catalog,
+      );
+      workingState = applied.newState;
+      statusOutcomes.push(applied.result);
+    }
+  }
+
+  // Decrement actsAvailable; bump consumed.
+  const turn = workingState.turnState;
+  if (turn === null) throw new Error('reduceUseAbility: turnState was null mid-flight');
+  const newTurn = {
+    ...turn,
+    budget: { ...turn.budget, actsAvailable: turn.budget.actsAvailable - 1 },
+    consumed: { ...turn.consumed, actsConsumed: turn.consumed.actsConsumed + 1 },
+  };
+  workingState = { ...workingState, turnState: newTurn };
+
+  const finalResult: AbilityTargetResult = {
+    target: targetResult.target,
+    hit: true,
+    ...(statusOutcomes.length > 0 ? { statusesApplied: statusOutcomes } : {}),
+  };
+
+  const outcome: UseAbilityOutcome = {
+    kind: 'use_ability',
+    abilityId: ability.id,
+    perTargetResults: [finalResult],
+    mpSpent: ability.mpCost,
+  };
+
+  return { newState: workingState, outcome, generatedActions: [] };
+}
+
+function buildTargetResult(target: AbilityTarget): { readonly target: AbilityTarget } {
+  return { target };
+}
+
+// --- turn_start ---
+
+export function reduceTurnStart(
+  state: GameState,
+  action: Extract<Action, { type: 'turn_start' }>,
+  catalog: Catalog,
+): ReduceResult<TurnStartOutcome> {
+  const unitId = action.payload.unitId;
+  // The actor must exist; it's the engine's contract that turn_start is
+  // only emitted when the projection queue lifts a unit.
+  const unit = getUnit(state, unitId);
+  if (state.turnState !== null) {
+    throw new Error(
+      `reduceTurnStart: a turn is already in progress for ${JSON.stringify(state.turnState.unitId)}`,
+    );
+  }
+
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  const newTurn = {
+    unitId,
+    budget: { ...ruleset.defaultTurnBudget },
+    consumed: { movesConsumed: 0, actsConsumed: 0, waited: false },
+    reactionsUsedThisTurn: new Map<UnitId, number>(),
+  };
+
+  // Generate status_tick actions for per-unit-CT-mode statuses on this
+  // unit. The chain processor runs them after this action commits.
+  const generated: ProposedAction[] = [];
+  for (const status of unit.statuses) {
+    const type = catalog.getStatusType(status.typeId);
+    if (type.durationMode === 'per_unit_ct') {
+      generated.push({
+        type: 'status_tick',
+        source: 'system',
+        payload: { unitId, statusTypeId: status.typeId },
+      });
+    }
+  }
+
+  const newState: GameState = { ...state, turnState: newTurn };
+  return {
+    newState,
+    outcome: { kind: 'turn_start', unitId, skipped: false },
+    generatedActions: generated,
+  };
+}
+
+// --- turn_end ---
+
+export function reduceTurnEnd(
+  state: GameState,
+  action: Extract<Action, { type: 'turn_end' }>,
+  catalog: Catalog,
+): ReduceResult<TurnEndOutcome> {
+  const unitId = action.payload.unitId;
+  const unit = getUnit(state, unitId);
+  if (state.turnState === null) {
+    throw new Error('reduceTurnEnd: no turn in progress');
+  }
+  if (state.turnState.unitId !== unitId) {
+    throw new Error(
+      `reduceTurnEnd: turn_end for ${JSON.stringify(unitId)} but active turn is ${JSON.stringify(state.turnState.unitId)}`,
+    );
+  }
+
+  // Determine CT cost based on what was consumed.
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  const consumed = state.turnState.consumed;
+  let ctCost: number;
+  if (consumed.waited) ctCost = ruleset.ctCosts.wait;
+  else if (consumed.movesConsumed > 0 && consumed.actsConsumed > 0) ctCost = ruleset.ctCosts.moveAndAct;
+  else if (consumed.actsConsumed > 0) ctCost = ruleset.ctCosts.actOnly;
+  else if (consumed.movesConsumed > 0) ctCost = ruleset.ctCosts.moveOnly;
+  else ctCost = ruleset.ctCosts.wait; // nothing consumed → equivalent to wait
+
+  // Subtract from actual CT, floor at 0 — same shape as projection.
+  const newCT = Math.max(0, unit.ct - ctCost);
+  const newUnit: Unit = { ...unit, ct: newCT };
+
+  // Generate status_tick for turn-based statuses on this unit (their
+  // duration ticks at turn end per turn-structure.md). Per-unit-CT
+  // statuses have already ticked at turn_start.
+  const generated: ProposedAction[] = [];
+  for (const status of unit.statuses) {
+    const type = catalog.getStatusType(status.typeId);
+    if (type.durationMode === 'turn_based') {
+      generated.push({
+        type: 'status_tick',
+        source: 'system',
+        payload: { unitId, statusTypeId: status.typeId },
+      });
+    }
+  }
+
+  const newState: GameState = {
+    ...withUnit(state, newUnit),
+    turnState: null,
+  };
+
+  return {
+    newState,
+    outcome: { kind: 'turn_end', unitId, ctSpent: ctCost },
+    generatedActions: generated,
+  };
+}
+
+// --- status_tick ---
+
+export function reduceStatusTick(
+  state: GameState,
+  action: Extract<Action, { type: 'status_tick' }>,
+  _catalog: Catalog,
+): ReduceResult<StatusTickOutcome> {
+  const { unitId, statusTypeId } = action.payload;
+  const unit = getUnit(state, unitId);
+
+  // Find the (first) instance of this type on the unit. Multiple
+  // STACK_INDEPENDENT instances all tick — but session 7 ticks one per
+  // emitted action. turn_start emits as many actions as instances, so
+  // this is fine. (Each emission decrements one slot.)
+  const idx = unit.statuses.findIndex((s) => s.typeId === statusTypeId);
+  if (idx < 0) {
+    // Already removed (turn_start emitted it but a prior tick removed
+    // it). Outcome reports `removed: false`; no state change.
+    return {
+      newState: state,
+      outcome: { kind: 'status_tick', unitId, statusTypeId, removed: false },
+      generatedActions: [],
+    };
+  }
+  const instance = unit.statuses[idx]!;
+  // Decrement remaining duration. null durations (permanent / conditional)
+  // never tick down and never expire here.
+  if (instance.remainingDuration === null) {
+    return {
+      newState: state,
+      outcome: { kind: 'status_tick', unitId, statusTypeId, removed: false },
+      generatedActions: [],
+    };
+  }
+  const nextDuration = instance.remainingDuration - 1;
+
+  if (nextDuration > 0) {
+    const newInstance: StatusInstance = { ...instance, remainingDuration: nextDuration };
+    const newStatuses = unit.statuses.map((s, i) => (i === idx ? newInstance : s));
+    const newUnit: Unit = { ...unit, statuses: newStatuses };
+    return {
+      newState: withUnit(state, newUnit),
+      outcome: { kind: 'status_tick', unitId, statusTypeId, removed: false },
+      generatedActions: [],
+    };
+  }
+
+  // Expired — remove the instance. (Calling fireOnRemove here would
+  // require duplicating the status-pipeline glue; for v1 we let
+  // applyStatus / removeStatus own that path. Once a status with a
+  // duration-expiry hook ships, this branch routes through
+  // engine/status/remove.ts.)
+  const newStatuses = unit.statuses.filter((_, i) => i !== idx);
+  const newUnit: Unit = { ...unit, statuses: newStatuses };
+  return {
+    newState: withUnit(state, newUnit),
+    outcome: { kind: 'status_tick', unitId, statusTypeId, removed: true },
+    generatedActions: [],
+  };
+}
+
+// --- charged_action_resolve ---
+
+export function reduceChargedActionResolve(
+  state: GameState,
+  action: Extract<Action, { type: 'charged_action_resolve' }>,
+  _catalog: Catalog,
+): ReduceResult<ChargedActionResolveOutcome> {
+  const id = action.payload.chargedActionId;
+  const ca = state.chargedActions.find((c: ChargedAction) => c.id === id);
+  if (ca === undefined) {
+    throw new Error(`reduceChargedActionResolve: no ChargedAction with id ${JSON.stringify(id)}`);
+  }
+  // Session 7 ships the skeleton: remove the ChargedAction from the
+  // queue, return an empty result list. The actual effect resolution
+  // and the paired Charging-status removal land alongside damage
+  // pipeline (session 8) and the first content consumer.
+  const newChargedActions = state.chargedActions.filter((c) => c.id !== id);
+  const newState: GameState = { ...state, chargedActions: newChargedActions };
+  return {
+    newState,
+    outcome: {
+      kind: 'charged_action_resolve',
+      chargedActionId: id,
+      perTargetResults: [],
+    },
+    generatedActions: [],
+  };
+}
