@@ -9,8 +9,19 @@ import {
   type StatusEffectType,
 } from './index.ts';
 
-const haste: StatusEffectType = { id: statusTypeId('haste'), name: 'Haste' };
-const slow: StatusEffectType = { id: statusTypeId('slow'), name: 'Slow' };
+function makeStatusType(id: string, name: string): StatusEffectType {
+  return {
+    id: statusTypeId(id),
+    name,
+    tags: [],
+    durationMode: 'per_unit_ct',
+    stackingRule: 'REFRESH',
+    hooks: [],
+  };
+}
+
+const haste: StatusEffectType = makeStatusType('haste', 'Haste');
+const slow: StatusEffectType = makeStatusType('slow', 'Slow');
 const cure: AbilityDefinition = { id: abilityId('cure'), name: 'Cure' };
 const fire: AbilityDefinition = { id: abilityId('fire'), name: 'Fire' };
 const knight: ClassDefinition = { id: classId('knight'), name: 'Knight' };
@@ -35,7 +46,7 @@ describe('createCatalog', () => {
   });
 
   it('throws DuplicateDefinitionError when a kind has duplicate ids', () => {
-    const dupe: StatusEffectType = { id: statusTypeId('haste'), name: 'Haste (dupe)' };
+    const dupe = makeStatusType('haste', 'Haste (dupe)');
     expect(() => createCatalog({ ...defaults(), statusTypes: [haste, dupe] })).toThrowError(
       DuplicateDefinitionError,
     );

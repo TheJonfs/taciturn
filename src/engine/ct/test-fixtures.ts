@@ -4,6 +4,7 @@
 // Keeps test setup lean and consistent across CT tests; the same factories
 // will be useful in adjacent subsystems as they land.
 
+import { createCatalog, type Catalog } from '../catalog/index.ts';
 import {
   abilityId as mkAbilityId,
   chargedActionId as mkChargedActionId,
@@ -12,6 +13,7 @@ import {
   unitId as mkUnitId,
   type ChargedAction,
   type GameState,
+  type StatusInstance,
   type Unit,
   type UnitId,
 } from '../types/index.ts';
@@ -23,6 +25,7 @@ export function makeUnit(overrides: {
   readonly team?: string;
   readonly hp?: number;
   readonly mp?: number;
+  readonly statuses?: ReadonlyArray<StatusInstance>;
 }): Unit {
   return {
     id: mkUnitId(overrides.id),
@@ -33,8 +36,20 @@ export function makeUnit(overrides: {
     ct: overrides.ct ?? 0,
     baseStats: { spd: overrides.spd },
     vitals: { hp: overrides.hp ?? 100, mp: overrides.mp ?? 0 },
-    statuses: [],
+    statuses: overrides.statuses ?? [],
   };
+}
+
+// An empty Catalog — every CT test that doesn't care about statuses
+// can pass this. Tests that exercise hooks build a Catalog with their
+// status types directly.
+export function emptyCatalog(): Catalog {
+  return createCatalog({
+    statusTypes: [],
+    abilities: [],
+    classes: [],
+    items: [],
+  });
 }
 
 export function makeChargedAction(overrides: {

@@ -1,6 +1,8 @@
 import { ASSUMED_TURN_CT_COST } from './constants.ts';
 import { nextEvent, projectUpcoming, ticksUntilTrigger } from './projection.ts';
-import { makeChargedAction, makeGameState, makeUnit } from './test-fixtures.ts';
+import { emptyCatalog, makeChargedAction, makeGameState, makeUnit } from './test-fixtures.ts';
+
+const CATALOG = emptyCatalog();
 
 describe('ticksUntilTrigger', () => {
   it('divides remaining CT by speed and rounds up', () => {
@@ -31,21 +33,21 @@ describe('ticksUntilTrigger', () => {
 describe('nextEvent', () => {
   it('returns null when no entities are present', () => {
     const state = makeGameState({});
-    expect(nextEvent(state)).toBeNull();
+    expect(nextEvent(state, CATALOG)).toBeNull();
   });
 
   it('returns null when every unit has speed 0', () => {
     const state = makeGameState({
       units: [makeUnit({ id: 'u1', spd: 0, ct: 50 })],
     });
-    expect(nextEvent(state)).toBeNull();
+    expect(nextEvent(state, CATALOG)).toBeNull();
   });
 
   it('reports the only unit as the next event when alone', () => {
     const state = makeGameState({
       units: [makeUnit({ id: 'u1', spd: 10, ct: 0 })],
     });
-    const event = nextEvent(state);
+    const event = nextEvent(state, CATALOG);
     expect(event).not.toBeNull();
     expect(event!.entityKind).toBe('unit');
     expect(event!.entityId).toBe('u1');
@@ -61,7 +63,7 @@ describe('nextEvent', () => {
         makeUnit({ id: 'fast', spd: 20, ct: 0 }), // 5 ticks
       ],
     });
-    expect(nextEvent(state)?.entityId).toBe('fast');
+    expect(nextEvent(state, CATALOG)?.entityId).toBe('fast');
   });
 
   it('treats a Charged Action as a peer of units in the queue', () => {
@@ -69,7 +71,7 @@ describe('nextEvent', () => {
       units: [makeUnit({ id: 'u1', spd: 10, ct: 0 })], // 10 ticks
       chargedActions: [makeChargedAction({ id: 'ca1', speed: 25, ct: 50 })], // 2 ticks
     });
-    const event = nextEvent(state);
+    const event = nextEvent(state, CATALOG);
     expect(event?.entityKind).toBe('charged_action');
     expect(event?.entityId).toBe('ca1');
   });
@@ -84,7 +86,7 @@ describe('nextEvent', () => {
         makeUnit({ id: 'a_higher_ct', spd: 30, ct: 50 }),
       ],
     });
-    const event = nextEvent(state);
+    const event = nextEvent(state, CATALOG);
     expect(event?.entityId).toBe('a_higher_ct');
     expect(event?.actualCT).toBe(110);
   });
@@ -99,7 +101,7 @@ describe('nextEvent', () => {
         makeUnit({ id: 'b_fast', spd: 20, ct: 60 }),
       ],
     });
-    const event = nextEvent(state);
+    const event = nextEvent(state, CATALOG);
     expect(event?.entityId).toBe('b_fast');
   });
 
@@ -107,7 +109,7 @@ describe('nextEvent', () => {
     const state = makeGameState({
       units: [makeUnit({ id: 'zebra', spd: 10, ct: 0 }), makeUnit({ id: 'alpha', spd: 10, ct: 0 })],
     });
-    expect(nextEvent(state)?.entityId).toBe('alpha');
+    expect(nextEvent(state, CATALOG)?.entityId).toBe('alpha');
   });
 });
 
@@ -116,14 +118,14 @@ describe('projectUpcoming', () => {
     const state = makeGameState({
       units: [makeUnit({ id: 'u1', spd: 10, ct: 0 })],
     });
-    expect(projectUpcoming(state, 0)).toEqual([]);
+    expect(projectUpcoming(state, 0, CATALOG)).toEqual([]);
   });
 
   it('returns the same first event as nextEvent when count is 1', () => {
     const state = makeGameState({
       units: [makeUnit({ id: 'u1', spd: 10, ct: 0 })],
     });
-    expect(projectUpcoming(state, 1)).toEqual([nextEvent(state)]);
+    expect(projectUpcoming(state, 1, CATALOG)).toEqual([nextEvent(state, CATALOG)]);
   });
 
   it('projects a unit cycling on its own per the assumed turn cost', () => {
@@ -133,7 +135,7 @@ describe('projectUpcoming', () => {
     const state = makeGameState({
       units: [makeUnit({ id: 'u1', spd: 10, ct: 0 })],
     });
-    const events = projectUpcoming(state, 3);
+    const events = projectUpcoming(state, 3, CATALOG);
     expect(events.map((e) => e.ticksFromNow)).toEqual([10, 20, 30]);
     expect(events.every((e) => e.entityId === 'u1')).toBe(true);
   });
@@ -143,7 +145,7 @@ describe('projectUpcoming', () => {
       units: [makeUnit({ id: 'u1', spd: 10, ct: 0 })],
       chargedActions: [makeChargedAction({ id: 'ca1', speed: 25, ct: 50 })],
     });
-    const events = projectUpcoming(state, 4);
+    const events = projectUpcoming(state, 4, CATALOG);
     const chargedActionEvents = events.filter((e) => e.entityKind === 'charged_action');
     expect(chargedActionEvents.length).toBe(1);
     expect(chargedActionEvents[0]!.entityId).toBe('ca1');
@@ -154,7 +156,7 @@ describe('projectUpcoming', () => {
     const state = makeGameState({
       chargedActions: [makeChargedAction({ id: 'ca1', speed: 50, ct: 0 })],
     });
-    const events = projectUpcoming(state, 5);
+    const events = projectUpcoming(state, 5, CATALOG);
     expect(events).toHaveLength(1);
     expect(events[0]!.entityId).toBe('ca1');
   });
@@ -165,7 +167,7 @@ describe('projectUpcoming', () => {
     // models CT pushes correctly even though session 1 has no push primitive.
     const unit = makeUnit({ id: 'u1', spd: 10, ct: 110 });
     const state = makeGameState({ units: [unit] });
-    const events = projectUpcoming(state, 2);
+    const events = projectUpcoming(state, 2, CATALOG);
     // First trigger is immediate (ticksFromNow 0, actualCT 110).
     expect(events[0]).toMatchObject({ ticksFromNow: 0, actualCT: 110 });
     // After consuming 100 CT the unit sits at 10; (100-10)/10 = 9 ticks
@@ -186,8 +188,8 @@ describe('projectUpcoming', () => {
         ],
         chargedActions: [makeChargedAction({ id: 'ca', speed: 15, ct: 25 })],
       });
-    const r1 = projectUpcoming(build(), 8);
-    const r2 = projectUpcoming(build(), 8);
+    const r1 = projectUpcoming(build(), 8, CATALOG);
+    const r2 = projectUpcoming(build(), 8, CATALOG);
     expect(r1).toEqual(r2);
   });
 
@@ -195,7 +197,7 @@ describe('projectUpcoming', () => {
     const unit = makeUnit({ id: 'u1', spd: 10, ct: 30 });
     const ca = makeChargedAction({ id: 'ca1', speed: 5, ct: 60 });
     const state = makeGameState({ units: [unit], chargedActions: [ca] });
-    projectUpcoming(state, 5);
+    projectUpcoming(state, 5, CATALOG);
     expect(unit.ct).toBe(30);
     expect(ca.ct).toBe(60);
     expect(state.chargedActions).toHaveLength(1);

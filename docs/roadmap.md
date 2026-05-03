@@ -37,9 +37,9 @@ References: `docs/design/core-types.md`, `docs/design/ct-system.md`.
 
 References: `docs/design/core-types.md` ("Catalogs vs. instances"), `docs/architecture/architecture-overview.md` ("What goes in `catalog/`").
 
-### 3. Hook system + minimal status apply/remove
+### 3. Hook system + minimal status apply/remove ✅
 
-Hook surface (named extension points, registration, ordering) and the status application pipeline (resistance → stacking → instantiate → onApply → side effects), built together as a vertical slice. Validated end-to-end by one trivial status — Haste affecting Speed via `modifyStatQuery` is the lightest realistic demo. Building these together guards against designing a hook surface that fits no real consumer.
+*Completed 2026-05-03.* Hook system in `src/engine/status/`: typed `HookSignatures` map enumerating every design-doc hook, discriminated `StatusHookRegistration` per hook name, `statusHook(name, handler, priority?)` author helper, lazy `collectActiveHandlers` ordered by source tier (Equipment → Class → Passive → Statuses) and per-handler priority, runners for `modifyStatQuery` / `fireOnApply` / `fireOnRemove`. Status application pipeline: resistance (no-op until `Unit.resistances` lands) → all six stacking rules (REFRESH / REPLACE / REPLACE_IF_STRONGER / STACK_INDEPENDENT / STACK_ADDITIVE / REJECT, each with explicit lifecycle decisions) → instantiate → onApply. `removeStatus` symmetric. `computeSpeed(state, unitId, catalog)` now dispatches `modifyStatQuery`; `nextEvent` / `projectUpcoming` thread the catalog through. Haste content rewritten with the canonical `modifyStatQuery` handler — end-to-end demo: apply → Speed scales 1.5× → remove → Speed returns to base. ADR-0005 fixes the typing pattern.
 
 References: `docs/design/status-effects.md`.
 

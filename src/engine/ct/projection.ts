@@ -7,6 +7,7 @@
 // CT and Speed values, simulate forward, and return events. They never
 // mutate `state`. State transitions are the reducer's job (session 7).
 
+import type { Catalog } from '../catalog/index.ts';
 import { type ChargedActionId, type GameState, type UnitId } from '../types/index.ts';
 import { ASSUMED_TURN_CT_COST, TRIGGER_THRESHOLD } from './constants.ts';
 import { computeActionSpeed, computeSpeed } from './speed.ts';
@@ -63,14 +64,14 @@ function compareForTrigger(
   return a.entityId < b.entityId ? -1 : 1;
 }
 
-function buildSnapshot(state: GameState): SimEntry[] {
+function buildSnapshot(state: GameState, catalog: Catalog): SimEntry[] {
   const entries: SimEntry[] = [];
   for (const unit of state.units.values()) {
     entries.push({
       entityKind: 'unit',
       entityId: unit.id,
       ct: unit.ct,
-      speed: computeSpeed(state, unit.id),
+      speed: computeSpeed(state, unit.id, catalog),
     });
   }
   for (const action of state.chargedActions) {
@@ -107,8 +108,8 @@ function entryToEvent(entry: SimEntry, ticksFromNow: number): ProjectedEvent {
 
 // The next entity that will trigger from the current state. Returns null
 // when no entity can trigger (empty state, or every entity has speed <= 0).
-export function nextEvent(state: GameState): ProjectedEvent | null {
-  const events = projectUpcoming(state, 1);
+export function nextEvent(state: GameState, catalog: Catalog): ProjectedEvent | null {
+  const events = projectUpcoming(state, 1, catalog);
   return events[0] ?? null;
 }
 
@@ -116,10 +117,14 @@ export function nextEvent(state: GameState): ProjectedEvent | null {
 // resolved per ADR-0003: a Unit's CT resets to 0 (assumed Move + Act, full
 // turn cost), a ChargedAction is removed from the simulation. Returns
 // fewer than `count` events if no entities remain that can trigger.
-export function projectUpcoming(state: GameState, count: number): ProjectedEvent[] {
+export function projectUpcoming(
+  state: GameState,
+  count: number,
+  catalog: Catalog,
+): ProjectedEvent[] {
   if (count <= 0) return [];
 
-  const snapshot = buildSnapshot(state);
+  const snapshot = buildSnapshot(state, catalog);
   const events: ProjectedEvent[] = [];
   let cumulativeTicks = 0;
 
