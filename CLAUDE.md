@@ -120,10 +120,12 @@ When ending a session:
 - Any new architectural decisions captured as an ADR in `docs/decisions/`.
 - Tests passing.
 - If work is incomplete, leave a clear note (in commit message or `WIP.md`) about state and next steps.
+- Update `docs/roadmap.md` if items completed, scope shifted, or sequencing changed.
 - Update `docs/handoff.md` with notes for the next session (see below).
 
 When starting a session:
 - Read this file.
+- Read `docs/roadmap.md` to know where the project is and what this session is meant to accomplish.
 - Read `docs/handoff.md` and process every item.
 - Read any relevant design docs for the work at hand.
 - Check `docs/decisions/` for ADRs since you last looked.
