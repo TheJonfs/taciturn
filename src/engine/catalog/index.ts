@@ -6,6 +6,7 @@ export { Catalog, createCatalog, type CatalogInput } from './catalog.ts';
 export {
   type AbilityDefinition,
   type ClassDefinition,
+  type ClassMovementBaseline,
   type ItemDefinition,
   type StatusEffectType,
 } from './definitions/index.ts';

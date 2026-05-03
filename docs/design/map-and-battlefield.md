@@ -13,7 +13,7 @@ Each unit has a **movement profile** — a computed value derived from base stat
 ```typescript
 interface MovementProfile {
   moveRange: number;             // how many "movement points" the unit has per turn
-  jumpHeight: number;            // max elevation differential per single tile step
+  jump: number;                  // max elevation differential per single tile step
   terrainCosts: Map<TerrainType, number>;  // overrides default of 1 per tile
   canEnter: Set<TerrainType>;    // which terrain types the unit can occupy
   specialMovement?: SpecialMovementType;   // teleport, fly, phase, etc.
@@ -24,10 +24,10 @@ Composition rules:
 
 - Base values come from class.
 - Equipment, level, and statuses contribute additive or multiplicative modifiers.
-- Movement-bucket abilities can modify any field (Move+1 increases moveRange, Jump+2 increases jumpHeight, Float adds Water to canEnter, Fly sets specialMovement).
+- Movement-bucket abilities can modify any field (Move+1 increases moveRange, Jump+2 increases jump, Float adds Water to canEnter, Fly sets specialMovement).
 - The composed profile is the input to pathfinding.
 
-This mirrors the CT pattern of computed Speed: base + sources of modification composed at query time.
+This mirrors the CT pattern of computed Speed: base + sources of modification composed at query time. See ADR-0006 for how composition is wired in v1: scalars (`moveRange`, `jump`) flow through `modifyStatQuery`; the structural fields (`terrainCosts`, `canEnter`, `specialMovement`) come from the class baseline today, with their own modifier hook surface deferred until the first consumer ability lands.
 
 ## Move engine
 
@@ -49,7 +49,7 @@ Pure function. Reads state, computes movement profile, runs pathfinding, returns
 1. Destination tile exists.
 2. Destination terrain is in `canEnter`.
 3. Destination is not occupied by another unit (allies pass-through is a separate rule, see open questions).
-4. Elevation differential ≤ `jumpHeight`.
+4. Elevation differential ≤ `jump`.
 5. (For non-flying units) layer transition rules apply — see below.
 
 **Layer transitions for non-flying units.** A walking unit can step to a tile at a different layer if the elevation differential is within Jump. This naturally handles bridge endpoints (the layer-0 ground tile and the layer-1 bridge surface differ by the bridge's height; if Jump permits, the unit climbs up). Hover/flight positions tend to have elevation = ground + N, so walking units with low Jump can't reach them, while flying units (which ignore jump constraints in favor of their own rules) can.

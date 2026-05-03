@@ -8,11 +8,13 @@ import { createCatalog, type Catalog } from '../catalog/index.ts';
 import {
   abilityId as mkAbilityId,
   chargedActionId as mkChargedActionId,
+  classId as mkClassId,
   rulesetId,
   teamId,
   unitId as mkUnitId,
   type ChargedAction,
   type GameState,
+  type Position,
   type StatusInstance,
   type Unit,
   type UnitId,
@@ -26,12 +28,15 @@ export function makeUnit(overrides: {
   readonly hp?: number;
   readonly mp?: number;
   readonly statuses?: ReadonlyArray<StatusInstance>;
+  readonly classId?: string;
+  readonly position?: Position;
 }): Unit {
   return {
     id: mkUnitId(overrides.id),
     team: teamId(overrides.team ?? 'team_a'),
     name: overrides.id,
-    position: { x: 0, y: 0, layer: 0 },
+    classState: { currentClass: mkClassId(overrides.classId ?? 'knight') },
+    position: overrides.position ?? { x: 0, y: 0, layer: 0 },
     facing: 'N',
     ct: overrides.ct ?? 0,
     baseStats: { spd: overrides.spd },
@@ -75,12 +80,13 @@ export function makeGameState(args: {
   readonly units?: ReadonlyArray<Unit>;
   readonly chargedActions?: ReadonlyArray<ChargedAction>;
   readonly tick?: number;
+  readonly map?: GameState['map'];
 }): GameState {
   const unitMap = new Map<UnitId, Unit>();
   for (const u of args.units ?? []) unitMap.set(u.id, u);
   return {
     battleId: 'test',
-    map: { width: 0, height: 0, tiles: [] },
+    map: args.map ?? { width: 0, height: 0, tiles: [] },
     teams: [],
     ruleset: { id: rulesetId('default') },
     units: unitMap,

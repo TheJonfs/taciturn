@@ -6,4 +6,5 @@
 export * from './types/index.ts';
 export * from './ct/index.ts';
 export * from './catalog/index.ts';
+export * from './map/index.ts';
 export * from './status/index.ts';

@@ -24,7 +24,16 @@ const haste: StatusEffectType = makeStatusType('haste', 'Haste');
 const slow: StatusEffectType = makeStatusType('slow', 'Slow');
 const cure: AbilityDefinition = { id: abilityId('cure'), name: 'Cure' };
 const fire: AbilityDefinition = { id: abilityId('fire'), name: 'Fire' };
-const knight: ClassDefinition = { id: classId('knight'), name: 'Knight' };
+const knight: ClassDefinition = {
+  id: classId('knight'),
+  name: 'Knight',
+  movement: {
+    moveRange: 3,
+    jump: 2,
+    terrainCosts: new Map(),
+    canEnter: new Set(['ground']),
+  },
+};
 const longSword: ItemDefinition = { id: itemId('long_sword'), name: 'Long Sword' };
 
 function defaults() {

@@ -7,6 +7,7 @@ export * from './duration-mode.ts';
 export * from './errors.ts';
 export * from './game-state.ts';
 export * from './ids.ts';
+export * from './movement.ts';
 export * from './spatial.ts';
 export * from './stacking-rule.ts';
 export * from './stat-name.ts';

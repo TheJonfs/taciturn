@@ -1,4 +1,31 @@
 // Public API of src/engine/map.
-// See docs/architecture/architecture-overview.md and the relevant design doc.
+// See docs/design/map-and-battlefield.md and ADR-0006.
 
-export {};
+export { tileAt, tilesAt, unitAt } from './accessors.ts';
+export { computeMovementProfile } from './movement-profile.ts';
+export {
+  getLegalMoves,
+  positionKey,
+  SpecialMovementNotImplementedError,
+  type MovePath,
+  type MovementResult,
+  type PositionKey,
+} from './pathfinding.ts';
+export {
+  endpointFrom,
+  horizontalDistance,
+  inRange,
+  verticalDistance,
+  type RangeEndpoint,
+  type RangeParams,
+} from './range.ts';
+export { hasLineOfSight } from './line-of-sight.ts';
+export { arcTargetable, type ArcEndpoint } from './arc.ts';
+export {
+  aoeFootprint,
+  shapeOffsets,
+  type AoeAnchor,
+  type AoeFootprintArgs,
+  type AoeOffset,
+  type AoeShape,
+} from './aoe.ts';

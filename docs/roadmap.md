@@ -43,9 +43,9 @@ References: `docs/design/core-types.md` ("Catalogs vs. instances"), `docs/archit
 
 References: `docs/design/status-effects.md`.
 
-### 4. Map and movement
+### 4. Map and movement ✅
 
-Tile/map accessors with the chosen `noUncheckedIndexedAccess` pattern (resolve early — see handoff notes if relevant), `MovementProfile` computation, Dijkstra pathfinding, range calculations, line-of-sight, and AoE shape resolution. Pure computation, well-tested, no dependencies on the action reducer.
+*Completed 2026-05-03.* Spatial accessors (`tilesAt`, `tileAt`, `unitAt`) + `OutOfBoundsError` per ADR-0002. `MovementProfile` (with `SpecialMovementType` and a required `ClassMovementBaseline` on `ClassDefinition`); `computeMovementProfile` reads the class baseline and threads `moveRange` / `jump` through `modifyStatQuery` per ADR-0006. Dijkstra `getLegalMoves` over 4-cardinal-across-all-layers adjacency, honoring `canEnter` / `terrainCosts` / `jump` / unit occupancy. Range geometry (`horizontalDistance`, `verticalDistance`, `inRange` with min/max). Bresenham-based `hasLineOfSight` over the (x, y) line with elevation interpolation; strict-inequality "doesn't block on grazing." `arcTargetable` checks source/target are uncovered. AoE shapes (single, diamond, square, cross, custom) + `aoeFootprint` honoring vertical tolerance and the multi-layer-affected default. Special movement (fly/teleport/phase) data shape in place; pathfinding throws `SpecialMovementNotImplementedError` until a session-5 consumer needs it. Knight stub gains its movement baseline (`moveRange 3, jump 2, canEnter ground`). `Unit` gains a minimal `classState: { currentClass }` shim that session 6 expands. ADR-0006 captures the composition rule.
 
 References: `docs/design/map-and-battlefield.md`.
 
