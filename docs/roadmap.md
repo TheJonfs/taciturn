@@ -25,9 +25,9 @@ This means the roadmap below is the *mechanism* track. Content expansion is inte
 
 ## Sessions
 
-### 1. Core types + CT system
+### 1. Core types + CT system ✅
 
-Lay down the types CT needs (`Unit`, `ChargedAction`, `GameState`, branded IDs, `Action` discriminated union skeleton) as the first task; treat the shapes in `core-types.md` as illustrative. Then implement Speed computation, the projection queue, fast-forward to next event, and tiebreakers. Establishes time as a primitive.
+*Completed 2026-05-03.* Branded IDs, spatial primitives, `Unit`, `ChargedAction`, `Action` skeleton, and `GameState` landed in `src/engine/types/`. CT system in `src/engine/ct/`: `computeSpeed` / `computeActionSpeed` (single floor at 0; hook chain pending session 3), `ticksUntilTrigger`, `nextEvent`, `projectUpcoming` with the actual-CT > Speed > stable-ID tiebreaker. Two ADRs: 0002 (accessor return-type pattern: throw on programmer error, `T | undefined` on meaningful absence) and 0003 (ChargedAction shape + the "assumed full Move + Act turn" projection-after-trigger constant pending session 6's Ruleset).
 
 References: `docs/design/core-types.md`, `docs/design/ct-system.md`.
 

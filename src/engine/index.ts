@@ -3,4 +3,5 @@
 // Subsystem internals live in their respective directories and are not re-exported
 // unless they belong to the public surface defined in docs/architecture/architecture-overview.md.
 
-export {};
+export * from './types/index.ts';
+export * from './ct/index.ts';

@@ -20,25 +20,30 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-03 (foundation scaffold)
+## From session 2026-05-03 (core types + CT system)
 
 ### Suggested next-session scope
 
-**Combined "core types + CT system."** The CT system needs `Unit`, `ChargedAction`, `GameState`, and branded ID types to exist. The shapes in `docs/design/core-types.md` are explicitly illustrative; we'll discover the real shapes by implementing CT. Doing core types as a small first task within the CT session avoids a dangling micro-session that produces only types nothing consumes yet.
+Roadmap session 2: **catalog infrastructure + minimal type definitions.** The shape will be the loader + lookup APIs (`catalog.getStatusType('haste')`, etc.) plus one stub instance per kind to verify end-to-end. Real content arrives in later expansion passes.
 
-### Open questions to resolve early in the next session
+Watch the boundary with `src/content/`: per `architecture-overview.md`, the catalog *loader* lives in `src/engine/catalog/`, but the *data files* live in `src/content/{classes,abilities,statuses,items,maps}/`. The eslint layer rules already forbid `@content` from importing from other layers, but not the other direction — the engine reading from `@content` is allowed and is exactly how the catalog gets populated.
 
-- **Accessor return-type pattern.** `tilesAt`, `tileAt`, `unitAt`, and similar accessors will be called everywhere. With `noUncheckedIndexedAccess` on, every indexed read is `T | undefined`. Pick one pattern up front and apply it consistently: throw on missing (callers narrow before calling), return `undefined` (callers handle), or return a `Result<T>` shape. This decision affects every consumer in CT, map, status, and turn modules.
-- **`ChargedAction` concrete shape.** `core-types.md` describes Charged Actions as first-class CT entities but doesn't pin the type. The CT session is where this gets nailed down — likely worth an ADR if the shape diverges from anything implied by the design doc.
+### Things noticed during the CT session
 
-### Things I considered but did not do
+- **`BattleMap` rather than `Map`.** The design doc names the container type `Map`, but the codebase uses `BattleMap` so the type name does not shadow `globalThis.Map` everywhere it is imported. Worth a one-line note in `core-types.md` next time it is touched, but not urgent enough to chase now.
+- **`compareForTrigger` in `ct/projection.ts` is internal.** If/when other CT-adjacent code (e.g., a future "is this Quick going to land before that spell?" query) needs the same tiebreaker, extract to `ct/tiebreakers.ts` and re-export. Don't extract speculatively.
+- **`test-fixtures.ts` lives in `ct/`** because that is where it is currently consumed. When session 2/3 also need fixtures, lift to `src/engine/test-fixtures.ts` (a single shared one is healthier than a per-subsystem proliferation).
+- **`computeActionSpeed` takes a `ChargedAction` directly,** not a `ChargedActionId`. Slight asymmetry with `computeSpeed(state, unitId)`. Reasoning: charged actions live in an array (no O(1) lookup), and projection iterates them anyway. Reconsider if a callsite ever needs the by-ID variant.
 
-- **Type-aware ESLint** (`@typescript-eslint/recommended-type-checked`). Cost is too high relative to the empty code surface. Revisit when engine code exists; `no-floating-promises` becomes valuable as soon as async appears.
-- **Zod or similar runtime validation.** Not needed yet — `GameState` is constructed only by the reducer, never deserialized from untrusted input. Reconsider when save/load lands.
-- **`.gitattributes` for line endings.** Currently relying on `core.autocrlf` (CRLF in working tree on Windows, LF in repo). Skipped because the project is single-contributor on Windows. Add `* text=auto eol=lf` if a non-Windows contributor joins or if line-ending diff noise appears.
+### Things considered but did not do
 
-### Things to flag (not blocking)
+- **A `state` mutation primitive in projection.** `projectUpcoming` could `structuredClone(state)` and walk it. Rejected because we only need the entities' CT and Speed for projection, and a flat `SimEntry[]` snapshot is both faster and clearer about what is actually being projected forward.
+- **An `advanceCT(state, ticks)` reducer hook.** Out of scope for session 1 — state mutation belongs in the reducer (session 7). The pure projection covers what session 1 needs.
+- **An `OutOfBoundsError` class.** ADR-0002 names both `UnknownEntityError` and `OutOfBoundsError`, but only the former has a use site today (`getUnit`, `getChargedAction`). Spatial accessors land in session 4; defining the error class then keeps it honest.
 
-- **Branch protection on `main`** is not enabled on the GitHub remote. Direct push to `main` works. If this project moves to a "branch per feature with PR review" workflow, enable required-status-checks once CI exists.
-- **No CI yet.** Add a GitHub Actions workflow running `typecheck`, `test:run`, `lint`, `build` on push and PR once meaningful tests exist (likely mid-CT-session).
-- **Repository description on GitHub.** Currently empty; might want a short one-line summary visible from the repo home page.
+### Open questions for later sessions (not blocking)
+
+- **`StatusInstance` shape** — the placeholder is `{ readonly typeId: StatusTypeId }`. Session 3 (status system) will fill it in. CT will consume statuses via the hook chain at that point; `computeSpeed` is the natural first hook consumer.
+- **Equipment / loadout / classState / learning fields on `Unit`** — intentionally omitted from the session 1 `Unit` type to keep it minimal. Sessions 5 and 6 add them. They should slot in without breaking the `Unit` shape because everything in session 1 is structural (no positional/variadic constructors).
+- **`TurnState`, `GlobalEffect`, `BattleOutcome`** — placeholder empty-marker interfaces (`{ readonly _placeholder?: never }`). Empty type literal would be assignable from anything; the marker keeps them distinct without committing to a shape. Replace with real shapes in their respective sessions (9, 3+, 9).
+- **The `as UnitId` / `as ChargedActionId` casts in `ct/projection.ts`** are inside `entryToEvent`, gated by the `entityKind` discriminant. Type-safe by construction but visible. Cleaner once session 7's reducer exposes a richer surface — we may revisit then.

@@ -1,0 +1,65 @@
+// GameState — the container for everything in a single battle.
+// See docs/design/core-types.md ("GameState").
+//
+// Session 1 has the structural fields needed for CT projection and the
+// envelope for everything else. Concrete shapes for `TurnState` (session 9),
+// `RulesetRef` (session 6), `GlobalEffect` (session 3+), and `BattleOutcome`
+// (session 9) arrive when those subsystems land; placeholders preserve the
+// container's overall shape today.
+
+import type { Action } from './action.ts';
+import type { ChargedAction } from './charged-action.ts';
+import type { RulesetId, UnitId } from './ids.ts';
+import type { Team } from './team.ts';
+import type { BattleMap } from './tile.ts';
+import type { Unit } from './unit.ts';
+
+// Placeholder; session 6 fleshes this out. Held by ID; the active ruleset
+// definition is fetched from the catalog by id.
+export interface RulesetRef {
+  readonly id: RulesetId;
+}
+
+// Placeholder; session 9 fleshes this out (whose turn, what's been done).
+// Empty interfaces are flagged by some lints; a single optional marker keeps
+// the type valid without committing to a shape.
+export interface TurnState {
+  readonly _placeholder?: never;
+}
+
+// Placeholder; session 3 introduces the first GlobalEffect kind alongside
+// the hook system.
+export interface GlobalEffect {
+  readonly _placeholder?: never;
+}
+
+// Placeholder; session 9 defines win/loss representation.
+export interface BattleOutcome {
+  readonly _placeholder?: never;
+}
+
+export interface RngState {
+  readonly masterSeed: number;
+  readonly nextSeq: number;
+}
+
+export interface GameState {
+  readonly battleId: string;
+
+  readonly map: BattleMap;
+  readonly teams: ReadonlyArray<Team>;
+  readonly ruleset: RulesetRef;
+
+  readonly units: ReadonlyMap<UnitId, Unit>;
+  readonly chargedActions: ReadonlyArray<ChargedAction>;
+  readonly globalEffects: ReadonlyArray<GlobalEffect>;
+
+  readonly tick: number;
+  readonly turnState: TurnState;
+
+  readonly rng: RngState;
+
+  readonly actionLog: ReadonlyArray<Action>;
+
+  readonly outcome?: BattleOutcome;
+}

@@ -1,0 +1,79 @@
+// Test-only fixture builders. Does not match Vitest's test pattern, so it
+// is not picked up as a test file but can be imported from real test files.
+//
+// Keeps test setup lean and consistent across CT tests; the same factories
+// will be useful in adjacent subsystems as they land.
+
+import {
+  abilityId as mkAbilityId,
+  chargedActionId as mkChargedActionId,
+  rulesetId,
+  teamId,
+  unitId as mkUnitId,
+  type ChargedAction,
+  type GameState,
+  type Unit,
+  type UnitId,
+} from '../types/index.ts';
+
+export function makeUnit(overrides: {
+  readonly id: string;
+  readonly spd: number;
+  readonly ct?: number;
+  readonly team?: string;
+  readonly hp?: number;
+  readonly mp?: number;
+}): Unit {
+  return {
+    id: mkUnitId(overrides.id),
+    team: teamId(overrides.team ?? 'team_a'),
+    name: overrides.id,
+    position: { x: 0, y: 0, layer: 0 },
+    facing: 'N',
+    ct: overrides.ct ?? 0,
+    baseStats: { spd: overrides.spd },
+    vitals: { hp: overrides.hp ?? 100, mp: overrides.mp ?? 0 },
+    statuses: [],
+  };
+}
+
+export function makeChargedAction(overrides: {
+  readonly id: string;
+  readonly speed: number;
+  readonly ct?: number;
+  readonly casterId?: string;
+  readonly abilityId?: string;
+  readonly sourceSequenceNumber?: number;
+}): ChargedAction {
+  return {
+    id: mkChargedActionId(overrides.id),
+    casterId: mkUnitId(overrides.casterId ?? 'caster'),
+    ct: overrides.ct ?? 0,
+    speed: overrides.speed,
+    abilityId: mkAbilityId(overrides.abilityId ?? 'fireball'),
+    targets: [],
+    sourceSequenceNumber: overrides.sourceSequenceNumber ?? 0,
+  };
+}
+
+export function makeGameState(args: {
+  readonly units?: ReadonlyArray<Unit>;
+  readonly chargedActions?: ReadonlyArray<ChargedAction>;
+  readonly tick?: number;
+}): GameState {
+  const unitMap = new Map<UnitId, Unit>();
+  for (const u of args.units ?? []) unitMap.set(u.id, u);
+  return {
+    battleId: 'test',
+    map: { width: 0, height: 0, tiles: [] },
+    teams: [],
+    ruleset: { id: rulesetId('default') },
+    units: unitMap,
+    chargedActions: args.chargedActions ?? [],
+    globalEffects: [],
+    tick: args.tick ?? 0,
+    turnState: {},
+    rng: { masterSeed: 0, nextSeq: 0 },
+    actionLog: [],
+  };
+}
