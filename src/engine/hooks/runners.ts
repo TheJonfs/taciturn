@@ -9,6 +9,8 @@
 
 import type { Catalog } from '../catalog/index.ts';
 import type {
+  DamageContext,
+  DamageTag,
   GameState,
   MovementProfile,
   ProposedAction,
@@ -98,19 +100,62 @@ export function runOnActionAttempted(
 }
 
 // Post-application hook firing — collects reactions every handler
-// produces. The reducer enqueues these onto the action chain. Session 8
-// drives this from the damage pipeline; the runner ships now so the
-// shape is stable.
+// produces. The reducer enqueues these onto the action chain. Damage-
+// bearing actions enrich the args with the final damage amount and tag
+// set so reaction handlers (Counter, Auto-Potion) can gate without a
+// catalog re-lookup.
 export function runOnActionTargeted(
   state: GameState,
   catalog: Catalog,
-  args: { unit: Unit; incomingAction: ProposedAction },
+  args: {
+    unit: Unit;
+    incomingAction: ProposedAction;
+    damageDealt?: number;
+    damageTags?: ReadonlySet<DamageTag>;
+  },
 ): ReadonlyArray<ProposedAction> {
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onActionTargeted');
   const reactions: ProposedAction[] = [];
   for (const h of handlers) {
-    const result = h.invoke({ unit: args.unit, incomingAction: args.incomingAction });
+    const result = h.invoke({
+      unit: args.unit,
+      incomingAction: args.incomingAction,
+      ...(args.damageDealt !== undefined ? { damageDealt: args.damageDealt } : {}),
+      ...(args.damageTags !== undefined ? { damageTags: args.damageTags } : {}),
+    });
     for (const r of result) reactions.push(r);
   }
   return reactions;
+}
+
+// Damage-pipeline chain hooks — fired at the attacker / target stages
+// of the seven-stage damage pipeline (action-resolution.md "Damage
+// pipeline"). Each handler reads the in-flight `DamageContext`, may
+// contribute multipliers / additives / hit overrides, and returns the
+// next ctx. The pipeline orchestrator threads the chain through all
+// stages; these runners thread it through one stage's handlers.
+export function runOnDamageDealt(
+  state: GameState,
+  catalog: Catalog,
+  args: { unit: Unit; ctx: DamageContext },
+): DamageContext {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onDamageDealt');
+  let ctx = args.ctx;
+  for (const h of handlers) {
+    ctx = h.invoke({ unit: args.unit, ctx });
+  }
+  return ctx;
+}
+
+export function runOnDamageReceived(
+  state: GameState,
+  catalog: Catalog,
+  args: { unit: Unit; ctx: DamageContext },
+): DamageContext {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onDamageReceived');
+  let ctx = args.ctx;
+  for (const h of handlers) {
+    ctx = h.invoke({ unit: args.unit, ctx });
+  }
+  return ctx;
 }

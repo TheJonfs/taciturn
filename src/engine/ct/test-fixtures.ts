@@ -27,6 +27,9 @@ import {
 export function makeUnit(overrides: {
   readonly id: string;
   readonly spd: number;
+  readonly pa?: number;
+  readonly ma?: number;
+  readonly maxHpBase?: number;
   readonly ct?: number;
   readonly team?: string;
   readonly hp?: number;
@@ -46,7 +49,12 @@ export function makeUnit(overrides: {
     position: overrides.position ?? { x: 0, y: 0, layer: 0 },
     facing: overrides.facing ?? 'N',
     ct: overrides.ct ?? 0,
-    baseStats: { spd: overrides.spd },
+    baseStats: {
+      spd: overrides.spd,
+      pa: overrides.pa ?? 5,
+      ma: overrides.ma ?? 4,
+      maxHpBase: overrides.maxHpBase ?? 100,
+    },
     vitals: { hp: overrides.hp ?? 100, mp: overrides.mp ?? 0 },
     statuses: overrides.statuses ?? [],
   };

@@ -67,11 +67,11 @@ References: `docs/architecture/architecture-overview.md` ("Rulesets and content"
 
 References: `docs/design/action-resolution.md`, ADR-0009.
 
-### 8. Damage pipeline
+### 8. Damage pipeline ✅
 
-Seven-stage damage pipeline (base → attacker → target → environment → variance → cap → finalize), healing as the same pipeline with tag inversion, integration with the UseAbility reducer.
+*Completed 2026-05-03.* `DamageContext` lives in `engine/types/` (alongside the existing types tier so `HookSignatures.onDamageDealt` / `onDamageReceived` can name it without a layering violation). `engine/damage/` ships the seven-stage orchestrator (`runDamagePipeline`), the default handler registry (`physical_pa_wp`, `healing_base`, `fire_on_damage_dealt`, `fire_on_damage_received`, `variance_roll`, `clamp_min_max`, `finalize`), and the per-stage handler implementations. v1 covers physical + healing only — magical, elemental, evasion, environmental, holy/dark amplifications are content-expansion-pass adds that grow the handler list without touching the orchestrator. `BaseStats` gained `pa` / `ma` / `maxHpBase`; `StatName` gained `'pa'` / `'ma'` / `'maxHp'`. `DamageSpec` gained `power` and an optional `variance` band. `reduceUseAbility` runs the pipeline before status application, applies finalDamage to vitals (floor 0; ceil at maxHp for healing), and fires `onActionTargeted` post-application with enriched `damageDealt` + `damageTags` args. Reactions ride a new optional `generatedReactions` field on `ReduceResult`; `commitAction` enqueues them with `isReaction: true` and the per-unit-per-turn cap applies. Counter passive content lights up the chain end-to-end (physical hit → counter-attack → reaction-cap-respected on follow-ups). `validateAction` accepts an `isReaction` opt; reaction-validated UseAbility skips active-turn / actsAvailable checks but still runs structural / range / MP checks. Default ruleset's `damagePipeline.stages.*` filled with the v1 ref list. ADR-0010 captures the decisions.
 
-References: `docs/design/action-resolution.md` ("Damage pipeline").
+References: `docs/design/action-resolution.md` ("Damage pipeline"), ADR-0010.
 
 ### 9. Turn flow
 

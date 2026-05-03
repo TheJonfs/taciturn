@@ -44,6 +44,21 @@ const EMPTY_DAMAGE_PIPELINE: Readonly<Record<DamageStage, ReadonlyArray<DamageHa
   finalize: [],
 };
 
+// V1 default-equivalent stage list, exported for damage-flow tests
+// that want to exercise the real pipeline without importing content.
+// Mirrors `src/content/rulesets/default.ts`'s DEFAULT_DAMAGE_PIPELINE.
+export const DEFAULT_TEST_DAMAGE_PIPELINE: Readonly<
+  Record<DamageStage, ReadonlyArray<DamageHandlerRef>>
+> = {
+  base: ['physical_pa_wp', 'healing_base'],
+  attacker: ['fire_on_damage_dealt'],
+  target: ['fire_on_damage_received'],
+  environment: [],
+  variance: ['variance_roll'],
+  cap: ['clamp_min_max'],
+  finalize: ['finalize'],
+};
+
 export function makeTestRuleset(overrides?: {
   readonly id?: RulesetId;
   readonly friendlyPassThrough?: boolean;
@@ -51,6 +66,10 @@ export function makeTestRuleset(overrides?: {
   readonly speedFloor?: number;
   readonly moveAndActCost?: number;
   readonly bucketCapacities?: ReadonlyMap<BucketId, number>;
+  readonly damagePipelineStages?: Readonly<
+    Record<DamageStage, ReadonlyArray<DamageHandlerRef>>
+  >;
+  readonly perUnitPerTurnReactions?: number;
 }): RulesetDefinition {
   return {
     id: overrides?.id ?? rulesetId('default'),
@@ -83,13 +102,13 @@ export function makeTestRuleset(overrides?: {
       unitsBlockLineOfSight: false,
     },
     chainTermination: {
-      perUnitPerTurnReactions: 1,
+      perUnitPerTurnReactions: overrides?.perUnitPerTurnReactions ?? 1,
       chainDepthCap: 8,
     },
     hookOrdering: {
       sourceTiers: DEFAULT_HOOK_SOURCE_TIER_ORDER,
     },
-    damagePipeline: { stages: EMPTY_DAMAGE_PIPELINE },
+    damagePipeline: { stages: overrides?.damagePipelineStages ?? EMPTY_DAMAGE_PIPELINE },
     initialCT: { kind: 'fixed', value: 0 },
     bucketCapacities: overrides?.bucketCapacities ?? TEST_BUCKET_CAPACITIES,
   };

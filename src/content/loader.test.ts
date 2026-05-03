@@ -33,7 +33,7 @@ describe('loadDefaultCatalog', () => {
     expect(cat.getRuleset(rulesetId('default')).name).toBe('Default');
   });
 
-  it('contains the session-6 baseline content set', () => {
+  it('contains the session-8 baseline content set', () => {
     // The default catalog is intentionally narrow — one demo per
     // mechanism. When real content lands, this assertion is expected
     // to change; failing it from new content additions is the correct
@@ -41,9 +41,10 @@ describe('loadDefaultCatalog', () => {
     //
     // Session 5 expanded abilities (4 new: attack, float, fly, move+1
     // alongside the existing cure) and added the first command set
-    // (battle_skill). Session 6 added the default ruleset.
+    // (battle_skill). Session 6 added the default ruleset. Session 8
+    // added the Counter passive (the v1 reaction demo).
     expect(cat.statusTypes()).toHaveLength(1);
-    expect(cat.abilities()).toHaveLength(5);
+    expect(cat.abilities()).toHaveLength(6);
     expect(cat.commandSets()).toHaveLength(1);
     expect(cat.classes()).toHaveLength(1);
     expect(cat.items()).toHaveLength(1);

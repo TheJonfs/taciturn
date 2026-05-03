@@ -31,16 +31,24 @@ const DEFAULT_BUCKET_CAPACITIES: ReadonlyMap<BucketId, number> = new Map([
   [BUCKET_MOVEMENT, 3],
 ]);
 
-// Stage list with empty handler arrays. Session 8 fills these in with the
-// FFT-flavored damage formulas per docs/design/action-resolution.md.
-const EMPTY_DAMAGE_PIPELINE: Readonly<Record<DamageStage, ReadonlyArray<DamageHandlerRef>>> = {
-  base: [],
-  attacker: [],
-  target: [],
+// Stage handler refs. Each ref names a function in the engine's damage-
+// handler registry (`engine/damage/default-handlers.ts`). Order within
+// a stage matters: each handler sees the previous handler's context and
+// may compose on it. The seven-stage order is architectural and is not
+// reorderable by the ruleset (see docs/design/action-resolution.md).
+//
+// v1 covers physical damage and healing — magical, elemental, evasion,
+// holy/dark amplification, environmental modifiers all add as new
+// handlers in future content-expansion passes; the ruleset references
+// them once they exist in the registry.
+const DEFAULT_DAMAGE_PIPELINE: Readonly<Record<DamageStage, ReadonlyArray<DamageHandlerRef>>> = {
+  base: ['physical_pa_wp', 'healing_base'],
+  attacker: ['fire_on_damage_dealt'],
+  target: ['fire_on_damage_received'],
   environment: [],
-  variance: [],
-  cap: [],
-  finalize: [],
+  variance: ['variance_roll'],
+  cap: ['clamp_min_max'],
+  finalize: ['finalize'],
 };
 
 export const defaultRuleset: RulesetDefinition = {
@@ -110,7 +118,7 @@ export const defaultRuleset: RulesetDefinition = {
   },
 
   damagePipeline: {
-    stages: EMPTY_DAMAGE_PIPELINE,
+    stages: DEFAULT_DAMAGE_PIPELINE,
   },
 
   // v1 simplest plausible formula: every unit starts at CT 0. The

@@ -148,7 +148,9 @@ export function commitAction(
     const entry = queue.shift()!;
 
     // Pre-validate.
-    const validation: ValidationResult = validateAction(state, entry.action, catalog);
+    const validation: ValidationResult = validateAction(state, entry.action, catalog, {
+      isReaction: entry.isReaction,
+    });
     if (!validation.valid) {
       if (isRoot) {
         return {
@@ -219,7 +221,8 @@ export function commitAction(
       entry.depth,
       entry.isReaction,
     );
-    const { newState, outcome, generatedActions } = reduce(stateWithSeq, built, catalog);
+    const reduced = reduce(stateWithSeq, built, catalog);
+    const { newState, outcome, generatedActions } = reduced;
 
     // Commit: the action with its outcome is appended to the log.
     const final: Action = { ...built, outcome } as Action;
@@ -229,15 +232,26 @@ export function commitAction(
     };
     committed.push(final);
 
-    // Enqueue generated actions FIFO. They become reactions if their
-    // generator marks them so (today only the damage pipeline will set
-    // isReaction = true; turn_start's status_tick generations don't).
+    // Enqueue generated actions FIFO. Non-reaction generated actions
+    // (turn_start's status_tick fan-out, future emissions) get isReaction
+    // = false. Reactions (Counter, Auto-Potion, Reflect emitted by the
+    // damage pipeline's onActionTargeted call) come back on the optional
+    // `generatedReactions` field with isReaction = true so the per-unit
+    // reaction cap accounts them.
     for (const gen of generatedActions) {
       queue.push({
         action: gen,
         parentSeq: seq,
         depth: entry.depth + 1,
         isReaction: false,
+      });
+    }
+    for (const rxn of reduced.generatedReactions ?? []) {
+      queue.push({
+        action: rxn,
+        parentSeq: seq,
+        depth: entry.depth + 1,
+        isReaction: true,
       });
     }
 

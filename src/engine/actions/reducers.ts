@@ -12,6 +12,9 @@
 // here.
 
 import type { Catalog } from '../catalog/index.ts';
+import { defaultDamageHandlers } from '../damage/default-handlers.ts';
+import { runDamagePipeline } from '../damage/pipeline.ts';
+import { runOnActionTargeted } from '../hooks/runners.ts';
 import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
 import { applyStatus } from '../status/apply.ts';
 import {
@@ -21,6 +24,7 @@ import {
   type AbilityTargetResult,
   type ChargedAction,
   type ChargedActionResolveOutcome,
+  type DamageContext,
   type Direction,
   type GameState,
   type MoveOutcome,
@@ -43,6 +47,14 @@ export interface ReduceResult<O> {
   readonly newState: GameState;
   readonly outcome: O;
   readonly generatedActions: ReadonlyArray<ProposedAction>;
+  // Reactions emitted by this reducer. Same shape as `generatedActions`
+  // but `commitAction` enqueues them with `isReaction: true` so they
+  // count against the per-unit-per-turn reaction cap. Today only the
+  // damage-bearing UseAbility branch produces these (Counter et al. via
+  // onActionTargeted); reducers that don't emit reactions simply omit
+  // the field. See docs/design/action-resolution.md ("Reactions and
+  // the action chain").
+  readonly generatedReactions?: ReadonlyArray<ProposedAction>;
 }
 
 // --- Helpers ---
@@ -205,18 +217,50 @@ export function reduceUseAbility(
     vitals: { ...actor.vitals, mp: actor.vitals.mp - ability.mpCost },
   });
 
-  // Apply status effects (the v1 effect path; damage lands session 8).
-  const targetResult = buildTargetResult(action.payload.target);
+  // Resolve the primary target unit (if any).
+  const targetUnit = resolveUnitTarget(workingState, action.payload.target);
+
+  // Damage / healing pipeline. Runs before status application so a unit
+  // that dies to the damage doesn't get the statuses (per the design's
+  // "Status application runs after damage application" rule). v1 only
+  // runs the pipeline when the ability declares damage *and* has a unit
+  // target — self-target healing lands when its content consumer ships.
+  let damageContext: DamageContext | null = null;
+  let damageDealt: number | undefined;
+  let healingDealt: number | undefined;
+  if (ability.effects.damage !== undefined && targetUnit !== null) {
+    damageContext = runDamagePipeline({
+      state: workingState,
+      catalog,
+      attacker: actor,
+      target: targetUnit,
+      ability,
+      sourceActionSeq: action.sequenceNumber,
+      seed: action.seed,
+      registry: defaultDamageHandlers,
+    });
+    workingState = applyDamageToTarget(workingState, damageContext);
+    if (damageContext.damageTags.has('healing')) {
+      healingDealt = damageContext.finalDamage ?? 0;
+    } else {
+      damageDealt = damageContext.finalDamage ?? 0;
+    }
+  }
+
+  // Apply status effects (the v1 effect path). Skipped if damage KO'd
+  // the target — the post-damage HP read gates the status path.
+  const targetKO =
+    targetUnit !== null && workingState.units.get(targetUnit.id)?.vitals.hp === 0;
   const statusOutcomes: StatusApplicationOutcome[] = [];
 
-  if (ability.effects.statusEffects) {
+  if (ability.effects.statusEffects && !targetKO) {
     for (const spec of ability.effects.statusEffects) {
-      const targetUnitId = spec.target === 'caster'
+      const targetStatusUnitId = spec.target === 'caster'
         ? actor.id
-        : targetResult.target.kind === 'unit'
-          ? targetResult.target.unitId
+        : targetUnit !== null
+          ? targetUnit.id
           : null;
-      if (targetUnitId === null) {
+      if (targetStatusUnitId === null) {
         // Spec wants a primary_target but the action is self-targeted —
         // author bug; surface it.
         throw new Error(
@@ -226,7 +270,7 @@ export function reduceUseAbility(
       const applied = applyStatus(
         workingState,
         {
-          targetId: targetUnitId,
+          targetId: targetStatusUnitId,
           typeId: spec.typeId,
           sourceUnitId: actor.id,
           sourceActionSeq: action.sequenceNumber,
@@ -251,9 +295,34 @@ export function reduceUseAbility(
   };
   workingState = { ...workingState, turnState: newTurn };
 
+  // Post-application reactions: fire onActionTargeted on the *target*'s
+  // hooks (Counter, Reflect, Auto-Potion). Only applies when there's a
+  // unit target. The runner is enriched with the final damage amount
+  // and tag set so reaction handlers can gate without a catalog lookup.
+  const reactions: ProposedAction[] = [];
+  if (targetUnit !== null && damageContext !== null) {
+    const postTarget = workingState.units.get(targetUnit.id) ?? targetUnit;
+    const targetedReactions = runOnActionTargeted(workingState, catalog, {
+      unit: postTarget,
+      incomingAction: {
+        type: 'use_ability',
+        source: action.source,
+        actorId: actor.id,
+        payload: action.payload,
+      },
+      damageDealt: damageContext.damageTags.has('healing')
+        ? -(damageContext.finalDamage ?? 0)
+        : damageContext.finalDamage ?? 0,
+      damageTags: damageContext.damageTags,
+    });
+    for (const r of targetedReactions) reactions.push(r);
+  }
+
   const finalResult: AbilityTargetResult = {
-    target: targetResult.target,
-    hit: true,
+    target: action.payload.target,
+    hit: damageContext !== null ? damageContext.hit : true,
+    ...(damageDealt !== undefined ? { damage: damageDealt } : {}),
+    ...(healingDealt !== undefined ? { healing: healingDealt } : {}),
     ...(statusOutcomes.length > 0 ? { statusesApplied: statusOutcomes } : {}),
   };
 
@@ -264,11 +333,40 @@ export function reduceUseAbility(
     mpSpent: ability.mpCost,
   };
 
-  return { newState: workingState, outcome, generatedActions: [] };
+  return {
+    newState: workingState,
+    outcome,
+    generatedActions: [],
+    ...(reactions.length > 0 ? { generatedReactions: reactions } : {}),
+  };
 }
 
-function buildTargetResult(target: AbilityTarget): { readonly target: AbilityTarget } {
-  return { target };
+// Resolve a unit ref for an UseAbility's target. `self` returns null so
+// callers can branch — `self` actions don't drive the damage pipeline
+// or onActionTargeted reactions in v1.
+function resolveUnitTarget(state: GameState, target: AbilityTarget): Unit | null {
+  if (target.kind === 'self') return null;
+  return getUnit(state, target.unitId);
+}
+
+// Apply finalDamage to the target's vitals. Damage lowers HP (floor 0
+// already enforced by the cap stage); healing raises HP (max-HP cap
+// already enforced by the cap stage).
+function applyDamageToTarget(state: GameState, ctx: DamageContext): GameState {
+  if (!ctx.hit) return state;
+  const finalDamage = ctx.finalDamage ?? 0;
+  if (finalDamage === 0) return state;
+  const currentTarget = state.units.get(ctx.target.id);
+  if (currentTarget === undefined) return state;
+  const isHealing = ctx.damageTags.has('healing');
+  const nextHp = isHealing
+    ? currentTarget.vitals.hp + finalDamage
+    : Math.max(0, currentTarget.vitals.hp - finalDamage);
+  const updated: Unit = {
+    ...currentTarget,
+    vitals: { ...currentTarget.vitals, hp: nextHp },
+  };
+  return withUnit(state, updated);
 }
 
 // --- turn_start ---

@@ -1,8 +1,9 @@
 // Cure — placeholder healing ability. Active (would live in a White
 // Magic command set when one exists). Healing is the damage pipeline
-// with tag inversion; session 8 wires it. Session 7 carries the
-// targeting/charge/MP/effects shape so the catalog stays loadable
-// end-to-end.
+// with tag inversion: the 'healing' tag triggers the MA × power formula
+// at the base stage and flips the finalize stage's polarity (HP rises
+// rather than falls). The cap stage clamps to (maxHp − currentHp) so
+// healing never overflows.
 
 import {
   abilityId,
@@ -24,6 +25,10 @@ export const cure: ActiveAbilityDefinition = {
   chargeTicks: 0,
   mpCost: 4,
   effects: {
-    damage: { tags: ['holy', 'healing'] },
+    damage: {
+      tags: ['holy', 'healing'],
+      power: 5,
+      variance: { min: 0.95, max: 1.05 },
+    },
   },
 };

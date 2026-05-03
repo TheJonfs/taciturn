@@ -25,6 +25,10 @@ export interface ReducerOutput {
   readonly newState: GameState;
   readonly outcome: ActionOutcome;
   readonly generatedActions: ReadonlyArray<ProposedAction>;
+  // Reactions are forwarded as-is from the per-kind reducer's
+  // ReduceResult.generatedReactions. Absent for branches that don't
+  // emit reactions; commitAction tags these with isReaction = true.
+  readonly generatedReactions?: ReadonlyArray<ProposedAction>;
 }
 
 export function reduce(state: GameState, action: Action, catalog: Catalog): ReducerOutput {

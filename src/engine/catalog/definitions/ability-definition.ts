@@ -14,7 +14,7 @@
 //   handlers (per ADR-0005's typing pattern) fire while equipped via
 //   the source-agnostic engine/hooks/ collector and runners.
 
-import type { AbilityId, BucketId, StatusTypeId } from '../../types/index.ts';
+import type { AbilityId, BucketId, DamageTag, StatusTypeId } from '../../types/index.ts';
 import type { PassiveHookRegistration } from '../../abilities/hooks.ts';
 
 interface AbilityCommon {
@@ -75,13 +75,25 @@ export interface StatusEffectSpec {
   readonly customState?: Readonly<Record<string, unknown>>;
 }
 
-// Damage spec — placeholder shape for session 7. Session 8 fleshes this
-// out with the seven-stage pipeline's input shape (PA/MA/WP, formula
-// references, variance bands, tag set used for resistance lookups).
-// Session 7 only needs enough that abilities can *declare* they do
-// damage; the UseAbility reducer ignores this field until session 8.
+// Damage spec — input to the seven-stage damage pipeline. The base
+// stage handlers read `power` and the tag set to compute baseDamage
+// (e.g., 'physical' → PA × power; 'healing' → MA × power). Variance is
+// the [min, max] multiplier band for the variance stage; omitted →
+// pipeline default (no variance).
+//
+// `tags` is the set used both for handler dispatch (each base handler
+// gates on a specific tag) and for resistance / immunity lookups.
+// Authors list every tag that applies; the pipeline composes.
 export interface DamageSpec {
-  readonly tags: ReadonlyArray<string>;
+  readonly tags: ReadonlyArray<DamageTag>;
+  // Per-ability scalar fed into the base formula. For 'physical', this
+  // is the weapon-power coefficient (PA × power); for 'magical' /
+  // 'healing', the spell multiplier (MA × power). Defaults handled by
+  // each base handler when omitted.
+  readonly power?: number;
+  // Variance band as [min, max] on the unit-multiplier scale. Omitted
+  // → use the pipeline default (no variance, i.e., { min: 1, max: 1 }).
+  readonly variance?: { readonly min: number; readonly max: number };
 }
 
 export interface AbilityEffects {

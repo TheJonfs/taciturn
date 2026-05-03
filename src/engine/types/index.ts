@@ -4,6 +4,7 @@ export * from './accessors.ts';
 export * from './action.ts';
 export * from './battle-config.ts';
 export * from './charged-action.ts';
+export * from './damage.ts';
 export * from './duration-mode.ts';
 export * from './errors.ts';
 export * from './game-state.ts';

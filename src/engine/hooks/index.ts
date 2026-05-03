@@ -26,4 +26,6 @@ export {
   runModifyTerrainCosts,
   runOnActionAttempted,
   runOnActionTargeted,
+  runOnDamageDealt,
+  runOnDamageReceived,
 } from './runners.ts';

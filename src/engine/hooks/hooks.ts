@@ -12,6 +12,8 @@
 // stay correct because each handler discriminates on its hook's args.
 
 import type {
+  DamageContext,
+  DamageTag,
   HookSourceTier,
   MovementProfile,
   ProposedAction,
@@ -82,16 +84,19 @@ export interface HookSignatures {
     return: void;
   };
 
-  // Damage pipeline: session 8. The `damage` shape is fleshed out then;
-  // declaring `unknown` here keeps the surface non-binding until a real
-  // type exists.
+  // Damage pipeline (session 8). Handlers fire at the attacker / target
+  // stages of the seven-stage pipeline (see action-resolution.md
+  // "Damage pipeline"). They contribute multipliers / additives via the
+  // returned context — the finalize stage folds everything in. The
+  // attacker handler reads `args.unit === ctx.attacker`; the target
+  // handler reads `args.unit === ctx.target`.
   onDamageReceived: {
-    args: { unit: Unit; damage: unknown };
-    return: unknown;
+    args: { unit: Unit; ctx: DamageContext };
+    return: DamageContext;
   };
   onDamageDealt: {
-    args: { unit: Unit; damage: unknown };
-    return: unknown;
+    args: { unit: Unit; ctx: DamageContext };
+    return: DamageContext;
   };
 
   // Action filtering: fired pre-resolution against the actor's hooks
@@ -105,10 +110,20 @@ export interface HookSignatures {
   // Reactions: fired post-application against the *target's* hooks so
   // they can generate response actions (Counter, Auto-Potion, Reflect).
   // Returns the list of reactions to enqueue — empty if no reaction.
-  // Session 7 ships the runner shape; session 8 wires the damage-driven
-  // call sites and the v1 Counter content.
+  //
+  // Damage-bearing actions enrich the args with `damageDealt` (the final
+  // amount applied; positive for damage, negative for healing) and
+  // `damageTags` (the action's tag set). Non-damage incoming actions
+  // leave both undefined so reaction handlers that gate on damage can
+  // skip them. The runner does not pre-filter — handlers decide for
+  // themselves whether they care.
   onActionTargeted: {
-    args: { unit: Unit; incomingAction: ProposedAction };
+    args: {
+      unit: Unit;
+      incomingAction: ProposedAction;
+      damageDealt?: number;
+      damageTags?: ReadonlySet<DamageTag>;
+    };
     return: ReadonlyArray<ProposedAction>;
   };
 

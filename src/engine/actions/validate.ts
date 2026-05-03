@@ -50,18 +50,31 @@ function invalid(reason: string): ValidationResult {
 // ProposedAction split: ProposedAction is what controllers hand the
 // engine (no envelope yet); Action is what's in the log. validate
 // accepts either — it only reads payload + actor + type.
+//
+// `opts.isReaction` lets reactions skip the active-turn / turn-budget
+// checks: a reaction (Counter, Auto-Potion, Reflect) fires during
+// another unit's turn and consumes from a separate per-unit-per-turn
+// reaction counter — both bookkept by `commitAction`. Universal
+// invariants (actor exists, KO check, ability exists, MP cost, range)
+// still apply.
+export interface ValidateOptions {
+  readonly isReaction?: boolean;
+}
+
 export function validateAction(
   state: GameState,
   action: ProposedAction | Action,
   catalog: Catalog,
+  opts?: ValidateOptions,
 ): ValidationResult {
+  const isReaction = opts?.isReaction ?? false;
   // Per-kind dispatch. Each branch handles its own universal checks
   // before falling into the contextual ones.
   switch (action.type) {
     case 'move':
       return validateMove(state, action, catalog);
     case 'use_ability':
-      return validateUseAbility(state, action, catalog);
+      return validateUseAbility(state, action, catalog, isReaction);
     case 'wait':
       return validateWait(state, action);
     case 'set_facing':
@@ -150,15 +163,29 @@ function validateUseAbility(
     readonly payload: { readonly abilityId: AbilityId; readonly target: AbilityTarget };
   },
   catalog: Catalog,
+  isReaction: boolean,
 ): ValidationResult {
   if (action.actorId === undefined) return invalid('UseAbility action requires an actorId');
-  const actor = getCurrentTurnActor(state, action.actorId);
-  if ('valid' in actor) return actor;
 
-  // Budget: UseAbility requires actsAvailable > 0.
-  const turn = state.turnState!;
-  if (turn.budget.actsAvailable <= 0) {
-    return invalid('No Act budget remaining this turn');
+  // Reactions skip both the active-turn check and the actsAvailable
+  // budget check — they fire during another unit's turn and draw from
+  // a separate per-unit-per-turn counter. The actor still has to exist
+  // and not be KO'd.
+  let actor: Unit;
+  if (isReaction) {
+    const probe = getActorIfActive(state, action.actorId);
+    if ('valid' in probe) return probe;
+    actor = probe;
+  } else {
+    const probe = getCurrentTurnActor(state, action.actorId);
+    if ('valid' in probe) return probe;
+    actor = probe;
+
+    // Budget: UseAbility requires actsAvailable > 0 (non-reaction path).
+    const turn = state.turnState!;
+    if (turn.budget.actsAvailable <= 0) {
+      return invalid('No Act budget remaining this turn');
+    }
   }
 
   // Ability must exist and be active.

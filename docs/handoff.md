@@ -20,57 +20,87 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-03 (action types + reducer + commitAction)
+## From session 2026-05-03 (damage pipeline + reactions)
 
 ### Suggested next-session scope
 
-Roadmap session 8: **Damage pipeline.** With the action loop in place, damage is the natural next layer. Concrete deliverables per `docs/design/action-resolution.md` ("Damage pipeline"):
+Roadmap session 9: **Turn flow.** Wraps the engine into a complete turn cycle. Concrete deliverables per `docs/design/turn-structure.md`:
 
-- `DamageContext` shape: attacker, target, sourceAction, sourceAbility, damageTags, baseDamage, multipliers, additives, variance, finalDamage. The seven-stage flow (base → attacker → target → environment → variance → cap → finalize). Stage handler refs in the ruleset (`damagePipeline.stages.*`) currently ship as empty arrays — session 8 fills them with v1 default handlers (FFT-flavored PA × WP for physical, MA × spellMultiplier for magical, holy/elemental tag amplifications, evasion / hit checks).
-- Wire UseAbility's `effects.damage` path: the reducer reads the ability's damage spec, runs the pipeline against the target, applies finalDamage to vitals, fires `onDamageDealt` / `onDamageReceived` hooks at the appropriate stages.
-- Healing as the same pipeline with tag inversion (the `'healing'` tag triggers the inverse application — handlers that read tags to decide direction).
-- `chargeTicks > 0` plumbing: UseAbility creates the ChargedAction + applies the Charging status. `charged_action_resolve` runs the held effect through the same pipeline and removes the Charging status from the caster. The session-7 placeholder for `charged_action_resolve` (currently just removes from the chargedActions array) gets the real resolution body.
-- `onActionTargeted` -driven reactions (Counter, Auto-Potion, Reflect): the runner exists in `engine/hooks/runners.ts`; session 8 calls it from the damage-application stage and enqueues returned reactions onto the action chain. Reaction caps in commitAction already do the accounting.
-- A demonstration ability set: a real damage attack (Knight's `attack`), a real heal (`cure`), and at least one Counter reaction status to exercise the chain. Damage variance uses the per-action seed.
+- Turn-skip handling: Stop blocks the whole turn (skip turn_start budget setup, skip to turn_end). Sleep / Petrify likewise. The skip path emits `turn_start` with `outcome.skipped: true` and a `skipReason`; `turn_end` follows immediately with the right CT cost.
+- Facing choice handling. After a unit's last act commits, the engine prompts for a final facing direction; the action loop hands the controller a `set_facing` opportunity before `turn_end`. Wait skips this (the design doc says wait-with-facing is a UI affordance, not an engine concept).
+- Battle-outcome evaluation. After every turn_end, `evaluateBattleOutcome(state)` checks each `BattleConfig.victoryConditions` clause and produces an `OngoingOutcome | DecidedOutcome`. v1 conditions: `'eliminate_team'`, `'eliminate_unit'`, optional turn-limit. Once the outcome decides, no further turns are scheduled; the action log carries a `battle_decided` system event.
+- Turn-budget mid-turn modifiers. Today the budget is set at turn_start and decremented as actions commit. Statuses that *grant* an extra Move or Act mid-turn (a one-shot Quicken-style effect) need the budget to be readable / writable through a hook surface. The design doc names "Per-turn budgets" as the answer; session 9 lights up the `modifyStatQuery`-equivalent for budgets (a new hook name like `modifyTurnBudget`), or — alternative — actions emit `budget_grant` system actions that the reducer applies. Pick at session 9; lean toward the action-emission pattern since it's already how everything else works.
+- The `evaluateBattleOutcome` test should include the case where a Counter chain's final reaction KOs the last enemy unit — proving the chain processor reaches a stable state before victory is read.
 
-Two specific carries from this session that session 8 should fold in:
+Two specific carries from this session that session 9 should fold in:
 
-1. **`ASSUMED_TURN_CT_COST` is gone, but the projection still uses `ruleset.ctCosts.moveAndAct` as its conservative estimate.** When session 8 introduces actual per-action CT pushes (Quick, Slow), the projection won't see them — projection assumes the full Move+Act cost regardless. Per ADR-0003 this is intentional, but session 8 may want a flag for projection to consult ChargedAction CT pushes when they're predictable.
-2. **`onActionAttempted` runner short-circuits on `blocked`.** Today no v1 content blocks; the runner is exercised only by tests. When Stop / Silence / Don't Move ship as content, verify the short-circuit is what you want — a Stop status applied alongside a Berserk replacement should still Stop (the cap-of-multiple-handlers test in `commit.test.ts` already covers this case but content may surface edge cases).
+1. **Reaction validation throws on out-of-range counters.** Today validation runs the full range check on a reaction; if Counter's target is out of (the ability's) range, the chain action fails and `commitAction` throws because mid-chain validation failure is a programmer-error path. The right behavior per the design intent is a "fizzle" — the reaction silently drops. Session 9 lands the fizzle (probably by relaxing the chain validation rule to "validation failure on a chain action drops it rather than throwing, with a `reaction_fizzled` system event"). The session-7 chain-depth-cap throw stays loud; this is a different category.
+2. **Reaction cap applies even when the reaction would change the world meaningfully.** Today a unit gets one Counter per turn; the second physical hit produces no reaction. That's correct for v1 but worth flagging — "more than one reaction per turn" is on the FFT-feature radar (Counter Magic + regular Counter, etc.) and the ruleset's `perUnitPerTurnReactions` is the single knob. When a content design needs per-passive reaction caps (Counter once, Magic Counter once independently), the bookkeeping shape on `turnState.reactionsUsedThisTurn` widens from `Map<UnitId, number>` to a per-passive map. Defer until content forces.
 
-### Things noticed during the action-system session
+### Things noticed during the damage-pipeline session
 
-- **`HookSourceTier` and `DEFAULT_HOOK_SOURCE_TIER_ORDER` are leaf types in `engine/types/`.** They migrated there in session 6 so `RulesetDefinition` can name them; the session-7 hook signature refinements (`onActionAttempted`'s `ProposedAction` arg) now reach back through `engine/types/action.ts` from `engine/hooks/hooks.ts`. The `types/ → hooks/` arrow stays clean: `hooks/hooks.ts` imports types from `types/`, never the reverse.
-- **`StatusApplicationOutcome` moved from `engine/status/result.ts` to `engine/types/`.** Action outcomes (UseAbility's `perTargetResults`) need it; putting it in types/ keeps the engine types/ → engine/status/ arrow correct. The old name `StatusApplicationResult` is re-exported from `engine/status/result.ts` for back-compat — drop the alias if no v1 consumer relies on the legacy name.
-- **`computeActionSpeed` gained a `catalog` parameter (session 6 carry).** Its session-1 signature was `(state, action)`; it's now `(state, action, catalog)`. The single existing call site in `projection.ts` was updated; `speed.test.ts` was updated. Future call sites should match.
-- **`knightLoadout(args?)` is the canonical Knight-class loadout helper for tests.** It pre-sets `first_action: battle_skill` so the class-pin is satisfied. Use it instead of `loadoutOf({})` for any test that goes through `validateLoadout`, `setActiveBucket`, `equipPassive`, or `createInitialState`. Tests that bypass validation (just build state via `makeGameState`) can keep using `EMPTY_LOADOUT`.
-- **`activeTurnFor(unitId)` builds a turnState with default budget for tests that need a unit mid-turn.** Saves the inline-construction noise; everything in `engine/actions/`'s tests uses it.
-- **The reducer `ReduceResult<T>`'s `T` is the kind-specific outcome; the dispatcher widens to `ActionOutcome` via a small cast.** TS can't narrow a switch's return type back to the union without help; the cast is local and documented in `reduce.ts`. Don't propagate it outward.
-- **`commitAction`'s reaction-cap accounting only fires for actions tagged `isReaction: true`.** Today no reducer marks a generated action as a reaction (status_tick from turn_start isn't one). Session 8's damage-pipeline reactions should set the flag on enqueued reactions so the cap actually applies; the runner in `commitAction` is ready.
-- **`chargeTicks > 0` in UseAbility throws.** Tested for. Session 8's first charged ability lights up the branch; the throw makes the gap visible.
-- **`charged_action_resolve` is a skeleton.** The reducer removes the ChargedAction from the queue and returns an empty `perTargetResults`. The actual effect resolution + Charging-status removal land in session 8 alongside the chargeTicks > 0 path.
-- **`onMoveStep` hook still has `unknown` in its args.** Session 7 refined `onActionAttempted` and `onActionTargeted`; `onMoveStep` was left because no reducer fires it yet. When the move reducer or a movement-step trigger needs it (forced movement, trap tiles), refine the args at that time.
-- **The `committed` array on `CommitSuccess` mirrors the action log delta.** It's the same actions that were appended to `state.actionLog`, in the same order, with their outcomes. Tests use it to assert on what happened without diffing the whole log. Some users may prefer reading state.actionLog directly; both are valid.
-- **Chain depth is throw-on-exceed today.** When the design's `chain_truncated` system event ships, the throw becomes a logged outcome instead. Until then, throw is loud and right.
+- **The damage pipeline does not write the `hit` field; it stays `true` for v1.** `DamageContext.hit` is initialized to `true` and no v1 handler flips it. The reducer reads `ctx.hit` when applying damage (a missed attack still goes through the pipeline but applies 0 damage) — when an evasion handler ships, it sets `hit: false` at the target stage, the cap stage clamps to 0, and the apply step is a no-op. The shape works; just no consumer yet.
+
+- **`resolveUnitTarget` returns `null` for `self`-targeted abilities.** The damage path is gated on `targetUnit !== null`, so self-target damage abilities don't run the pipeline today. When a self-heal (self-targeted Cure) ships, the gate widens — pass `actor` as both attacker and target. v1 has no such ability; the gate is the right v1 behavior.
+
+- **`DamageContext.attacker` and `DamageContext.target` are full Unit refs, not IDs.** Pipeline handlers use them inline rather than re-resolving from state every time. This is safe because the pipeline is read-only against state — handlers may update `ctx.attacker`/`ctx.target` (a hypothetical "swap target" handler), and the reducer reads from `ctx.target.id` to apply final damage to the *current* state's view of that unit (which may differ from `ctx.target` if a chain action mutated the target between the pipeline run and the apply step — but that doesn't happen in v1; the pipeline runs and the apply happens in the same reducer call without intervening commits).
+
+- **`maxHpBase` is on `BaseStats`; `'maxHp'` is the queried name.** This matches the `spd` / `'spd'` pattern. Future content writes Max HP modifiers as `modifyStatQuery` handlers gating on `args.statName === 'maxHp'`. Status / passive / equipment authors don't need to think about whether they're modifying a stored or computed value — they hook the query name.
+
+- **Default-ruleset `damagePipeline.stages.base` lists *both* `physical_pa_wp` and `healing_base`.** Each gates on its tag and short-circuits when the tag isn't present. Listing both is fine because the wrong-tag handler is a no-op. This is forward-compatible with multi-tag abilities (a Smite that's both physical and holy-healing in one fire).
+
+- **`runOnActionTargeted`'s args got `damageDealt` and `damageTags` as optional fields.** Reaction handlers gate on these without re-resolving the catalog. The runner does not pre-filter; reaction passives that *don't* care about damage (a hypothetical "react to any incoming UseAbility" passive) still get a useful `incomingAction`.
+
+- **Status application now branches on post-damage HP.** A target that died to the damage doesn't get the status. The reducer reads `state.units.get(target.id)?.vitals.hp === 0` after the pipeline applies and skips the status path if so. A status-only ability (no `effects.damage`) skips the pipeline and applies unconditionally as before.
+
+- **`ReduceResult<T>` gained an optional `generatedReactions` field.** Only `reduceUseAbility` populates it; the dispatcher (`reduce.ts`) forwards it; `commitAction` reads both arrays. Future reducers that want to emit reactions (a damage-dealing status_tick that triggers reactions, say) populate the same field.
+
+- **`validateAction(state, action, catalog, opts?)` — opts adds `{ isReaction?: boolean }`.** Reaction-aware. Existing call sites still work; the flag defaults to false.
+
+- **The variance roll is mulberry32-style.** Deterministic given `(seed, subIndex)`. Single sub-index (0) per pipeline run today; multi-target abilities will need stable per-target sub-indices (target ID or per-target ordinal).
+
+- **`makeUnit` test fixture defaults: pa=5, ma=4, maxHpBase=100.** Knight-ish. Tests that need a glass-cannon / tank can override per-call.
+
+- **`makeTestRuleset` gained `damagePipelineStages` and `perUnitPerTurnReactions` overrides.** Default still ships the empty stage list (so existing reducer tests stay damage-free); damage-flow tests opt in via `DEFAULT_TEST_DAMAGE_PIPELINE`.
+
+- **Counter content lives at `src/content/abilities/counter.ts`.** Reaction-bucket passive; gates on damageDealt > 0, physical tag, and not-self. Future reactions (Auto-Potion, Reflect) follow the same shape with different gates.
+
+- **The session-7 carry "`onActionTargeted` short-circuits on `blocked`" stays unaddressed because no blocker content shipped.** Counter doesn't block; it returns reactions. When Stop / Don't Move / Silence content lands as `onActionAttempted` blockers, that surface gets exercised. Counter's `onActionTargeted` is post-application; semantics are unrelated.
 
 ### Things considered but did not do
 
-- **Per-kind reducer files (one file per branch).** Considered. With 8 branches at ~40 lines each, one file totaling ~320 lines is more navigable than 8 files. The per-function exports keep individual reducers testable. Revisit if any single branch grows past ~100 lines.
-- **`onActionAttempted` threading allowed/blocked through every handler.** Rejected. Short-circuit-on-blocked matches the design's "Stop blocks all actions" intent; threading would let a downstream handler "unblock" which has no use case in v1.
-- **`commitAction` retrying replaced actions through the runner a second time.** Rejected. A handler that replaces returns the new action; subsequent handlers in the same firing see the replacement. Re-firing the runner against the replaced action would re-invoke the same handler that just replaced it — infinite loops in the limit. The current single-pass with replacement-thread is enough.
-- **A `commitProposed` helper that wraps a proposed action in an envelope without committing.** Considered as a UI affordance for displaying "what the seed would be." Rejected — UI doesn't need that; if it does, expose `deriveActionSeed` directly (already exported).
-- **Per-handler state-mutating hooks.** `onTurnStart` / `onTurnEnd` hook handlers return void today — they can't mutate state. The design intent is they fire as side effects (e.g., regen logs but doesn't apply HP — apply via a separate emitted action). For v1 we don't have any consumer; the void return stays. When status_tick handlers want to apply damage from Poison or healing from Regen, the action emission pattern is the answer (status_tick emits a damage/heal action that goes through commitAction).
-- **`reduceStatusTick` calling `engine/status/remove.ts` for the duration-expiry path.** Considered for cleanness. Today the tick reducer just filters the instance out of the array. When a status with an `onRemove` handler that needs to fire on duration expiry ships, route through `removeStatus` (which handles the lifecycle); flag the change here.
-- **A `commit_log_replay` helper that walks an action log and re-applies through the reducer.** Considered for replay testing. Skipped — replay reads `outcome` from the log rather than re-computing, per the design's "outcome is source of truth" rule. A separate `replayLog` function lands when there's a real consumer (the renderer's animation pacing, for example).
-- **First Action class-pin enforcement at the reducer level.** Considered (per session-5 handoff). Rejected — `validateLoadout` is the single rule cover for every loadout-changing path. Cleaner; one less special case.
+- **A separate healing pipeline.** Rejected per the design doc's explicit guidance: "Healing follows the same pipeline structure with sign flipped — worth modeling as the same pipeline with a tag rather than a parallel system, so that effects like 'your healing is reduced when poisoned' are one hook handler rather than duplicated logic." The polarity flip at finalize + clamp at maxHp − hp at cap is the whole difference.
+
+- **Charged-action resolution.** Per the session intro discussion (Q2), kept the session-7 throw. The full plumbing — `reduceUseAbility` creates the ChargedAction + applies Charging; `reduceChargedActionResolve` runs the held effect through the pipeline and removes Charging — needs interruption rules (KO / displacement / target loss) that warrant their own session.
+
+- **Magical formula handler.** Per the session intro discussion (Q1), MVP'd to physical + healing. Cure is healing; no v1 ability is "magical damage." When magical-damage content (Fire, Bolt, etc.) ships in a content-expansion pass, `magical_ma_mult` lands as a new handler ref and joins the base stage list.
+
+- **Evasion / hit checks.** Out of scope. Today every action hits. When evasion ships, it's an attacker-stage handler that runs an accuracy roll (using a sub-index of the seed) and may set `ctx.hit = false`; the cap stage clamps to 0 on miss; the apply step no-ops.
+
+- **`ctx.attacker` / `ctx.target` as IDs only (no Unit refs).** Considered for the rule-4 (identity by ID) purity, but the pipeline doesn't mutate state mid-run, so refs stay valid. Inline refs save handlers a `getUnit` call per access.
+
+- **Per-handler reaction caps.** Considered for the design's "Counter once + Magic Counter once independently" path. Rejected as future-proofing without a v1 consumer; today's `Map<UnitId, number>` is enough. Widens to `Map<UnitId, Map<HandlerKey, number>>` when content forces.
+
+- **Threading the catalog into PassiveHookContext.** Considered as an alternative to enriching `onActionTargeted`'s args with `damageDealt` / `damageTags`. Rejected: the args-enrichment path is the right shape because the runner already has the catalog, the handler doesn't need to re-look-up the ability, and future hook surfaces (an Auto-Potion checking the target's items) will need richer args anyway.
+
+- **Tracking `direction: 'damage' | 'healing'` on the `DamageContext`.** Defined the field on `DamageResolution` (the post-pipeline summary shape) but the pipeline itself doesn't carry it — handlers read `ctx.damageTags.has('healing')` directly. Less indirection. The `DamageResolution` type ships exported but isn't yet returned to any consumer; reducer consumers read finalDamage + tags directly. Drop `DamageResolution` if no v1 consumer materializes by session 9.
+
+- **Pre-filtering the `onActionTargeted` runner on damage > 0.** Considered — would let Counter-style handlers ignore damage gates. Rejected: the runner knows nothing about handler intent, and handlers that *want* to fire on every targeted action (a "react when targeted" passive) need the un-filtered call. Handlers gate.
+
+- **Computed `maxHp(state, unitId, catalog)` helper alongside `computeSpeed`.** Considered. The cap stage already calls `runModifyStatQuery` with `'maxHp'` and the unit's `baseStats.maxHpBase`. Extracting that into a named helper is cosmetic; `runModifyStatQuery` is already a helper. Add when a second consumer (UI HP-bar render) materializes.
 
 ### Open questions for later sessions (not blocking)
 
-- **Status_tick lifecycle: when does a tick fire onTick handlers?** Today the reducer decrements duration and removes on expiry. Per design, `onTick` handlers fire (for Poison damage, Regen healing). The runner shape exists (`onTick: { args: { unit }; return: void }`); no consumer drives it yet. Session 8 likely lands the first onTick handler when Poison content ships.
-- **Charging-status removal on caster KO / displacement / target loss.** Per `ct-system.md` and `action-resolution.md`. The skeleton in `reduceChargedActionResolve` doesn't handle interruption. Add when content forces the question.
-- **AoE / multi-target UseAbility.** Today targeting is `'self'` or `'single_unit'`. AoE shape data from `engine/map/aoe.ts` exists; UseAbility doesn't consume it. Add the `'aoe'` targeting variant (and AoeTargetSpec on the action payload) when an AoE ability lands.
-- **`onMoveStep` runner.** Hook signature still has `unknown` in its args. Land alongside the first movement-modifier consumer (forced-movement statuses, trap tiles).
-- **Reaction limit reset point.** Today `reactionsUsedThisTurn` resets at the *reactor's* turn_start (zero is the initial value when CurrentTurn is built). Per turn-structure.md's open question, "reactor's own turn_start" is the right answer; double-check if session 8's Counter content surfaces edge cases.
-- **`ProposedAction.source: 'system'` for non-system kinds.** Today Move/UseAbility/Wait/SetFacing have `source: ActionSource` (player or system). System reductions of those kinds aren't a v1 use case; flag if AI controllers want to commit player-shaped actions tagged as system for distinction.
-- **Action log compaction.** For long battles the log grows unbounded. Replay needs it complete; session 8+ playtesting will surface whether memory is an issue. ADR territory if it does.
-- **Cross-action determinism: same masterSeed + same proposed action sequence → same final state.** Action seeds derive from `(masterSeed, seq)` so replays are deterministic. Add an explicit determinism test (replay + compare states) when the first ability with damage variance ships.
+- **Reaction fizzle vs. throw on chain validation failure.** When a Counter targets an attacker who's out of the Counter's ability range, validation fails. Today `commitAction` throws on mid-chain validation failure (it's a programmer-error path). The design intent is "fizzle silently" with a `reaction_fizzled` system event. Land alongside session 9's turn-flow / battle-outcome work since it touches the same chain processor.
+
+- **`DamageResolution` shape.** Exported from `engine/types/damage.ts` but no consumer reads it today. The reducer composes its own slice of pipeline output (finalDamage, tags) inline. Either drop the type or wire it through as the pipeline's public return alongside the context. Defer until a UI / log consumer wants a structured per-damage-event shape.
+
+- **Variance sub-indexing.** Single sub-index (0) per pipeline run. Multi-target AoE needs stable per-target sub-indices. Lands when the AoE targeting variant ships.
+
+- **Mid-pipeline status applications affecting resolution.** Per the design's open question — a status saying "next attack against me automatically misses" — when does it fire? Currently positioned at target stage (an `onDamageReceived` handler can set `ctx.hit = false`). When the first such content lands, verify the position holds.
+
+- **Per-ability formula overrides.** v1 ships PA × power and MA × power as the only base formulas. Per-ability formulas (FFT's MA × Y squared for some spells, Charge +X effects, etc.) land as either ability-specific handler refs or a richer DamageSpec with formula refs. Defer until ability content needs it.
+
+- **`charged_action_resolve` running through the same pipeline.** When charged actions land, the resolver runs the held effect through `runDamagePipeline` exactly the same way. The Charging-status removal pairs with the pipeline's apply step. Watch-for: the seed for the charged effect is the *charged-action-resolve* action's seed, not the original UseAbility's seed. Per ADR-0009 / ADR-0010 that's correct (each action gets its own seed); cite it explicitly when content arrives.
+
+- **Onlooker hooks (third-party damage observation).** A status on a *third* unit observing damage between A and B — not modeled today. The hook surface fires on attacker (`onDamageDealt`) and target (`onDamageReceived`) only. Land if content needs it (probably as an `onAnyDamage` runner that walks every unit in the battle).
