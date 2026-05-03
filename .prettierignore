@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+*.tsbuildinfo
+pnpm-lock.yaml
+
+# Documentation is hand-authored prose. Do not reflow it.
+*.md
