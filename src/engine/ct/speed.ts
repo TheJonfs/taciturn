@@ -1,16 +1,16 @@
 // Speed computation.
-// See docs/design/ct-system.md and ADR-0004 (catalog injection).
+// See docs/design/ct-system.md and ADR-0004 (catalog injection) /
+// ADR-0008 (ruleset surface).
 //
 // Computed on read, not stored. Pulls baseStats.spd through the
 // modifyStatQuery hook chain so statuses (Haste, Slow), and eventually
-// equipment, class traits, and equipped passives, can modify it.
-// SPEED_FLOOR (0) clamps the result — Stop and similar effects floor
-// the unit's effective Speed at zero.
+// equipment, class traits, and equipped passives, can modify it. The
+// speed floor (Stop, etc.) is read from the active ruleset's
+// `speedBounds.floor` so an alternate ruleset can change it.
 
 import type { Catalog } from '../catalog/index.ts';
 import { runModifyStatQuery } from '../hooks/index.ts';
 import { getUnit, type ChargedAction, type GameState, type UnitId } from '../types/index.ts';
-import { SPEED_FLOOR } from './constants.ts';
 
 export function computeSpeed(state: GameState, unitId: UnitId, catalog: Catalog): number {
   const unit = getUnit(state, unitId);
@@ -19,12 +19,20 @@ export function computeSpeed(state: GameState, unitId: UnitId, catalog: Catalog)
     statName: 'spd',
     baseValue: unit.baseStats.spd,
   });
-  return Math.max(SPEED_FLOOR, modified);
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  return Math.max(ruleset.speedBounds.floor, modified);
 }
 
 // Action Speed is stored on the ChargedAction (ADR-0003) and modified
 // by abilities that mutate it directly (Hasten Charge, Slow Action).
 // No hook chain at read time — the field is the canonical value.
-export function computeActionSpeed(_state: GameState, action: ChargedAction): number {
-  return Math.max(SPEED_FLOOR, action.speed);
+// Floored against the same ruleset speed floor as unit Speed for
+// consistency.
+export function computeActionSpeed(
+  state: GameState,
+  action: ChargedAction,
+  catalog: Catalog,
+): number {
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  return Math.max(ruleset.speedBounds.floor, action.speed);
 }

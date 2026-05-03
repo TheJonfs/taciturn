@@ -50,17 +50,34 @@ interface ComparableForOrder {
   readonly tieBreakIndex: number;
 }
 
-const TIER_ORDER: Readonly<Record<HookSourceTier, number>> = {
-  equipment: 0,
-  class: 1,
-  passive: 2,
-  status: 3,
-};
+// Build a tier-rank map from the active ruleset's source-tier ordering.
+// The ruleset is read once per `collectActiveHandlers` call; the map is
+// closed over by the comparator. A tier missing from the ruleset's list
+// is ranked after every named tier (defensive — should not happen with
+// a well-formed ruleset, but a missing entry should not silently mean
+// "tier 0").
+function buildTierRank(
+  sourceTiers: ReadonlyArray<HookSourceTier>,
+): Readonly<Record<HookSourceTier, number>> {
+  const rank: Partial<Record<HookSourceTier, number>> = {};
+  for (let i = 0; i < sourceTiers.length; i++) {
+    rank[sourceTiers[i]!] = i;
+  }
+  const fallback = sourceTiers.length;
+  return {
+    equipment: rank.equipment ?? fallback,
+    class: rank.class ?? fallback,
+    passive: rank.passive ?? fallback,
+    status: rank.status ?? fallback,
+  };
+}
 
-function compareHandlers(a: ComparableForOrder, b: ComparableForOrder): number {
-  if (TIER_ORDER[a.tier] !== TIER_ORDER[b.tier]) return TIER_ORDER[a.tier] - TIER_ORDER[b.tier];
-  if (a.priority !== b.priority) return a.priority - b.priority;
-  return a.tieBreakIndex - b.tieBreakIndex;
+function makeCompareHandlers(tierRank: Readonly<Record<HookSourceTier, number>>) {
+  return function compareHandlers(a: ComparableForOrder, b: ComparableForOrder): number {
+    if (tierRank[a.tier] !== tierRank[b.tier]) return tierRank[a.tier] - tierRank[b.tier];
+    if (a.priority !== b.priority) return a.priority - b.priority;
+    return a.tieBreakIndex - b.tieBreakIndex;
+  };
 }
 
 // Per-source contributors return a (tier, ordered) list of handler
@@ -88,7 +105,9 @@ export function collectActiveHandlers<K extends HookName>(
     collected.push(c);
   }
 
-  collected.sort(compareHandlers);
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  const tierRank = buildTierRank(ruleset.hookOrdering.sourceTiers);
+  collected.sort(makeCompareHandlers(tierRank));
   return collected;
 }
 

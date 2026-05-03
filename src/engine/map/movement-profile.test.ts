@@ -1,4 +1,5 @@
 import { createCatalog, type ClassDefinition } from '../catalog/index.ts';
+import { defaultTestRulesets } from '../catalog/test-fixtures.ts';
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { statusHook } from '../status/index.ts';
 import { catalogWith, makeStatusInstance, makeStatusType } from '../status/test-fixtures.ts';
@@ -34,6 +35,7 @@ function makeCatalogWithKnight(args?: Parameters<typeof knightDef>[0]) {
     commandSets: [],
     classes: [knightDef(args)],
     items: [],
+    rulesets: defaultTestRulesets,
   });
 }
 
@@ -89,6 +91,7 @@ describe('computeMovementProfile', () => {
       commandSets: [],
       classes: [knightDef()],
       items: [],
+      rulesets: defaultTestRulesets,
     });
     const u = makeUnit({
       id: 'u1',
@@ -114,6 +117,7 @@ describe('computeMovementProfile', () => {
       commandSets: [],
       classes: [knightDef()],
       items: [],
+      rulesets: defaultTestRulesets,
     });
     const u = makeUnit({
       id: 'u1',
@@ -141,6 +145,7 @@ describe('computeMovementProfile', () => {
       commandSets: [],
       classes: [knightDef()],
       items: [],
+      rulesets: defaultTestRulesets,
     });
     const u = makeUnit({
       id: 'u1',

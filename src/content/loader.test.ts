@@ -1,4 +1,4 @@
-import { abilityId, classId, itemId, statusTypeId } from '@engine/index.ts';
+import { abilityId, classId, itemId, rulesetId, statusTypeId } from '@engine/index.ts';
 import { loadDefaultCatalog } from './index.ts';
 
 describe('loadDefaultCatalog', () => {
@@ -28,7 +28,12 @@ describe('loadDefaultCatalog', () => {
     expect(cat.getItem(itemId('long_sword')).name).toBe('Long Sword');
   });
 
-  it('contains the session-5 baseline content set', () => {
+  it('exposes the default Ruleset', () => {
+    expect(cat.hasRuleset(rulesetId('default'))).toBe(true);
+    expect(cat.getRuleset(rulesetId('default')).name).toBe('Default');
+  });
+
+  it('contains the session-6 baseline content set', () => {
     // The default catalog is intentionally narrow — one demo per
     // mechanism. When real content lands, this assertion is expected
     // to change; failing it from new content additions is the correct
@@ -36,11 +41,12 @@ describe('loadDefaultCatalog', () => {
     //
     // Session 5 expanded abilities (4 new: attack, float, fly, move+1
     // alongside the existing cure) and added the first command set
-    // (battle_skill).
+    // (battle_skill). Session 6 added the default ruleset.
     expect(cat.statusTypes()).toHaveLength(1);
     expect(cat.abilities()).toHaveLength(5);
     expect(cat.commandSets()).toHaveLength(1);
     expect(cat.classes()).toHaveLength(1);
     expect(cat.items()).toHaveLength(1);
+    expect(cat.rulesets()).toHaveLength(1);
   });
 });

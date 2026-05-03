@@ -71,6 +71,7 @@ function defaults() {
     commandSets: [battleSkill],
     classes: [knight],
     items: [longSword],
+    rulesets: [],
   };
 }
 
@@ -173,12 +174,14 @@ describe('Catalog with empty kinds', () => {
       commandSets: [],
       classes: [],
       items: [],
+      rulesets: [],
     });
     expect(cat.statusTypes()).toEqual([]);
     expect(cat.abilities()).toEqual([]);
     expect(cat.commandSets()).toEqual([]);
     expect(cat.classes()).toEqual([]);
     expect(cat.items()).toEqual([]);
+    expect(cat.rulesets()).toEqual([]);
     expect(cat.hasAbility(abilityId('cure'))).toBe(false);
   });
 });

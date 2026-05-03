@@ -11,6 +11,7 @@ import type {
   ClassDefinition,
   CommandSetDefinition,
 } from '../catalog/index.ts';
+import { defaultTestRulesets } from '../catalog/test-fixtures.ts';
 import {
   abilityId,
   bucketId,
@@ -100,6 +101,7 @@ export function makeAbilitiesCatalog(args: {
     commandSets: args.commandSets ?? [makeCommandSet({ id: 'battle_skill' })],
     classes: args.classes ?? [makeKnight()],
     items: [],
+    rulesets: defaultTestRulesets,
   });
 }
 

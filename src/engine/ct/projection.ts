@@ -9,7 +9,7 @@
 
 import type { Catalog } from '../catalog/index.ts';
 import { type ChargedActionId, type GameState, type UnitId } from '../types/index.ts';
-import { ASSUMED_TURN_CT_COST, TRIGGER_THRESHOLD } from './constants.ts';
+import { TRIGGER_THRESHOLD } from './constants.ts';
 import { computeActionSpeed, computeSpeed } from './speed.ts';
 
 export type ProjectedEntityKind = 'unit' | 'charged_action';
@@ -79,7 +79,7 @@ function buildSnapshot(state: GameState, catalog: Catalog): SimEntry[] {
       entityKind: 'charged_action',
       entityId: action.id,
       ct: action.ct,
-      speed: computeActionSpeed(state, action),
+      speed: computeActionSpeed(state, action, catalog),
     });
   }
   return entries;
@@ -124,6 +124,9 @@ export function projectUpcoming(
 ): ProjectedEvent[] {
   if (count <= 0) return [];
 
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  const turnCTCost = ruleset.ctCosts.moveAndAct;
+
   const snapshot = buildSnapshot(state, catalog);
   const events: ProjectedEvent[] = [];
   let cumulativeTicks = 0;
@@ -162,8 +165,11 @@ export function projectUpcoming(
       // Subtract the per-turn cost from the *actual* CT, not from the
       // threshold. CT pushes can leave a unit above 100 at trigger time;
       // a unit with actual CT 110 should land at 10 after consuming 100,
-      // not at 0. Floors at 0 (cost cannot push CT negative).
-      winner.ct = Math.max(0, winner.ct - ASSUMED_TURN_CT_COST);
+      // not at 0. Floors at 0 (cost cannot push CT negative). The cost
+      // assumes a full Move+Act turn per ADR-0003 (a conservative
+      // tempo forecast for projection); the reducer applies the actual
+      // cost on commit based on what the turn consumed.
+      winner.ct = Math.max(0, winner.ct - turnCTCost);
     }
   }
 

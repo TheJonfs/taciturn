@@ -2,13 +2,16 @@
 
 export * from './accessors.ts';
 export * from './action.ts';
+export * from './battle-config.ts';
 export * from './charged-action.ts';
 export * from './duration-mode.ts';
 export * from './errors.ts';
 export * from './game-state.ts';
+export * from './hook-source.ts';
 export * from './ids.ts';
 export * from './loadout.ts';
 export * from './movement.ts';
+export * from './ruleset.ts';
 export * from './spatial.ts';
 export * from './stacking-rule.ts';
 export * from './stat-name.ts';

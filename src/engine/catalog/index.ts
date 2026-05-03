@@ -11,6 +11,7 @@ export {
   type CommandSetDefinition,
   type ItemDefinition,
   type PassiveAbilityDefinition,
+  type RulesetDefinition,
   type StatusEffectType,
 } from './definitions/index.ts';
 export { DuplicateDefinitionError, UnknownDefinitionError } from './errors.ts';

@@ -1,6 +1,7 @@
 // Test-only fixtures for status tests. Not picked up by Vitest's pattern.
 
 import { createCatalog, type Catalog, type StatusEffectType } from '../catalog/index.ts';
+import { defaultTestRulesets } from '../catalog/test-fixtures.ts';
 import type { StatusHookRegistration } from './hooks.ts';
 import {
   statusTypeId,
@@ -54,6 +55,7 @@ export function catalogWith(types: ReadonlyArray<StatusEffectType>): Catalog {
     commandSets: [],
     classes: [],
     items: [],
+    rulesets: defaultTestRulesets,
   });
 }
 

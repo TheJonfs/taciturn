@@ -4,6 +4,7 @@
 // from multiple kinds are active on the same unit.
 
 import { createCatalog } from '../catalog/index.ts';
+import { defaultTestRulesets } from '../catalog/test-fixtures.ts';
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import {
   loadoutOf,
@@ -46,6 +47,7 @@ describe('passive vs status hook ordering', () => {
       commandSets: [],
       classes: [makeKnight()],
       items: [],
+      rulesets: defaultTestRulesets,
     });
     const u = makeUnit({
       id: 'u1',
@@ -87,6 +89,7 @@ describe('passive vs status hook ordering', () => {
       commandSets: [],
       classes: [makeKnight()],
       items: [],
+      rulesets: defaultTestRulesets,
     });
     const u = makeUnit({
       id: 'u1',
@@ -139,6 +142,7 @@ describe('passive vs status hook ordering', () => {
       commandSets: [],
       classes: [makeKnight()],
       items: [],
+      rulesets: defaultTestRulesets,
     });
     const u = makeUnit({
       id: 'u1',
@@ -170,6 +174,7 @@ describe('passive vs status hook ordering', () => {
       commandSets: [],
       classes: [makeKnight()],
       items: [],
+      rulesets: defaultTestRulesets,
     });
     const u = makeUnit({
       id: 'u1',

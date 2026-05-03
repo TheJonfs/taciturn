@@ -55,11 +55,11 @@ References: `docs/design/map-and-battlefield.md`.
 
 References: `docs/design/ability-slots.md`.
 
-### 6. Ruleset + BattleConfig + initial state construction
+### 6. Ruleset + BattleConfig + initial state construction ✅
 
-`RulesetDefinition` (CT costs, Speed bounds, default `TurnBudget`, hook ordering tiers, etc.), `BattleConfig` (initial unit placements, victory conditions, ruleset reference), and `createInitialState(battleConfig) → GameState`. The reducer in the next session needs all of this; isolating it as its own session keeps reducer work focused on action logic rather than configuration plumbing.
+*Completed 2026-05-03.* `RulesetDefinition` (in `engine/types/ruleset.ts`) bundles every parameterizable engine value as data: CT costs, speed bounds, default TurnBudget, range defaults, pathfinding defaults, behavior toggles (friendly fire, friendly pass-through, units-block-LoS), chain termination caps, hook ordering tiers, damage pipeline stage refs (empty arrays for v1; session 8 fills), initial-CT formula (one `'fixed'` variant), and bucket capacities. `BattleConfig` carries battleId, rulesetId, map (inline for v1; catalog-references when map content lands), teams, unit placements (with optional per-placement initialCT override), victory conditions, and masterSeed. `createInitialState(battleConfig, catalog) → GameState` validates the config (duplicate ids, undeclared teams, unknown classes, invalid loadouts via the canonical `validateLoadout`) and returns the immutable starting state. Ruleset added as a catalog kind (`getRuleset` / `hasRuleset` / `rulesets`). `BASELINE_BUCKET_CAPACITIES` moved to `ruleset.bucketCapacities`; `ASSUMED_TURN_CT_COST` to `ruleset.ctCosts.moveAndAct`; `SPEED_FLOOR` to `ruleset.speedBounds.floor`. `friendlyPassThrough` plumbed through `canStep`: allies are routable past but not settle-able on; enemies always block. Source-tier ordering moved from a private collector map to `ruleset.hookOrdering.sourceTiers` (read per `collectActiveHandlers` call); `HookSourceTier` and `DEFAULT_HOOK_SOURCE_TIER_ORDER` relocated to `engine/types/` so the ruleset can name them without a layering violation. Default ruleset shipped at `src/content/rulesets/default.ts`. ADR-0008 captures the decisions.
 
-References: `docs/architecture/architecture-overview.md` ("Rulesets and content").
+References: `docs/architecture/architecture-overview.md` ("Rulesets and content"), ADR-0008.
 
 ### 7. Action types and reducer
 

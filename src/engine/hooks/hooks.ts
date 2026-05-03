@@ -12,12 +12,14 @@
 // stay correct because each handler discriminates on its hook's args.
 
 import type {
+  HookSourceTier,
   MovementProfile,
   StatName,
   StatusInstance,
   TerrainType,
   Unit,
 } from '../types/index.ts';
+import { DEFAULT_HOOK_SOURCE_TIER_ORDER } from '../types/index.ts';
 
 // Per-hook signature map. New hooks add an entry; that's it.
 export interface HookSignatures {
@@ -103,17 +105,13 @@ export interface HookSignatures {
 
 export type HookName = keyof HookSignatures;
 
-// Source-tier ordering for hook dispatch. Lower tier fires first.
-// Per docs/design/status-effects.md ("Ordering"). Equipment lands with
-// session 6+; until then `'equipment'` is reserved but unused at runtime.
-export type HookSourceTier = 'equipment' | 'class' | 'passive' | 'status';
-
-export const HOOK_SOURCE_TIER_ORDER: ReadonlyArray<HookSourceTier> = [
-  'equipment',
-  'class',
-  'passive',
-  'status',
-];
+// Source-tier ordering for hook dispatch. The ordering itself lives on
+// the active ruleset (see engine/types/ruleset.ts hookOrdering); the
+// default tier list is re-exported from `types/` for callers that need
+// the v1 ordering without resolving a ruleset (e.g., source contributors
+// computing their own tier label).
+export type { HookSourceTier };
+export { DEFAULT_HOOK_SOURCE_TIER_ORDER };
 
 // Shared per-hook handler shape that source-specific registrations conform
 // to (modulo their own context). The handler returns by hook contract;

@@ -29,6 +29,7 @@ import {
   type GameState,
   type MovementProfile,
   type Position,
+  type TeamId,
   type Tile,
   type UnitId,
 } from '../types/index.ts';
@@ -93,18 +94,21 @@ function popLowest(frontier: FrontierEntry[]): FrontierEntry | undefined {
 // Step legality between two adjacent tiles. The destination tile is
 // guaranteed in-bounds by the caller; this checks the per-step rules:
 //   1. Destination terrain is in canEnter.
-//   2. Destination is not occupied by another unit. (Friendly pass-through
-//      is an open question in the design doc and will land as a Ruleset
-//      flag in session 6; for v1 every other unit blocks.)
+//   2. Occupant rule: another unit on the tile blocks the step *unless*
+//      `friendlyPassThrough` is on and the occupant is on the same team
+//      as the moving unit. Path-routing through allies is allowed in
+//      that case; settling on an ally tile is filtered separately by
+//      `getLegalMoves` after Dijkstra completes.
 //   3. Elevation differential ≤ jump — *unless* the unit is flying,
 //      in which case the jump check is dropped (per design doc:
 //      "Fly — moves over tiles ignoring elevation differentials").
 function canStep(
   state: GameState,
-  movingUnitId: UnitId,
+  movingUnit: { readonly id: UnitId; readonly team: TeamId },
   fromTile: Tile,
   toTile: Tile,
   profile: MovementProfile,
+  friendlyPassThrough: boolean,
 ): boolean {
   if (!profile.canEnter.has(toTile.terrain)) return false;
   if (
@@ -114,7 +118,10 @@ function canStep(
     return false;
   }
   const occupant = unitAt(state, toTile.x, toTile.y, toTile.layer);
-  if (occupant !== undefined && occupant.id !== movingUnitId) return false;
+  if (occupant !== undefined && occupant.id !== movingUnit.id) {
+    if (!friendlyPassThrough) return false;
+    if (occupant.team !== movingUnit.team) return false;
+  }
   return true;
 }
 
@@ -129,6 +136,8 @@ export function getLegalMoves(
 ): MovementResult {
   const unit = getUnit(state, unitId);
   const profile = computeMovementProfile(state, unitId, catalog);
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  const friendlyPassThrough = ruleset.behaviors.friendlyPassThrough;
 
   if (profile.specialMovement !== undefined && profile.specialMovement !== 'fly') {
     throw new SpecialMovementNotImplementedError(profile.specialMovement);
@@ -174,7 +183,7 @@ export function getLegalMoves(
       // Adjacency considers all tiles at (nx, ny) regardless of layer.
       const candidates = tilesAt(state.map, nx, ny);
       for (const toTile of candidates) {
-        if (!canStep(state, unitId, fromTile, toTile, profile)) continue;
+        if (!canStep(state, unit, fromTile, toTile, profile, friendlyPassThrough)) continue;
         const newCost = current.cost + stepCost(profile, toTile);
         if (newCost > profile.moveRange) continue;
         const toPos: Position = { x: toTile.x, y: toTile.y, layer: toTile.layer };
@@ -193,9 +202,17 @@ export function getLegalMoves(
   // Reconstruct paths. The starting tile is reachable at cost 0 with a
   // single-element path; every other reachable tile chains back through
   // cameFrom until the start.
+  //
+  // With friendly pass-through on, an ally's tile shows up in `bestCost`
+  // because Dijkstra was allowed to step onto it — but a unit cannot
+  // *settle* on an ally tile. Filter those out of the reachable set
+  // here; intermediate ally tiles still appear in any further-out
+  // tile's `path` because the predecessor chain is unaffected.
   const reachable = new Map<PositionKey, MovePath>();
   for (const [key, cost] of bestCost) {
     const pos = positions.get(key)!;
+    const occupant = unitAt(state, pos.x, pos.y, pos.layer);
+    if (occupant !== undefined && occupant.id !== unit.id) continue;
     const path: Position[] = [];
     let cursor: PositionKey | undefined = key;
     while (cursor !== undefined) {

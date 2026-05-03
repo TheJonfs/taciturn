@@ -3,9 +3,9 @@
 //
 // Session 1 has the structural fields needed for CT projection and the
 // envelope for everything else. Concrete shapes for `TurnState` (session 9),
-// `RulesetRef` (session 6), `GlobalEffect` (session 3+), and `BattleOutcome`
-// (session 9) arrive when those subsystems land; placeholders preserve the
-// container's overall shape today.
+// `GlobalEffect` (session 3+), and `BattleOutcome` (session 9) arrive when
+// those subsystems land; placeholders preserve the container's overall
+// shape today.
 
 import type { Action } from './action.ts';
 import type { ChargedAction } from './charged-action.ts';
@@ -14,8 +14,9 @@ import type { Team } from './team.ts';
 import type { BattleMap } from './tile.ts';
 import type { Unit } from './unit.ts';
 
-// Placeholder; session 6 fleshes this out. Held by ID; the active ruleset
-// definition is fetched from the catalog by id.
+// Held by ID; the resolved RulesetDefinition is fetched from the catalog
+// per ADR-0008. GameState carries the reference, not the resolved shape,
+// so the action log header and cross-battle state stay light.
 export interface RulesetRef {
   readonly id: RulesetId;
 }

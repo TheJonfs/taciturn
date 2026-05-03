@@ -1,4 +1,5 @@
 import { createCatalog, type ClassDefinition } from '../catalog/index.ts';
+import { defaultTestRulesets, makeTestRuleset } from '../catalog/test-fixtures.ts';
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { statusHook } from '../status/index.ts';
 import { makeStatusInstance, makeStatusType } from '../status/test-fixtures.ts';
@@ -17,6 +18,7 @@ function knightCatalog(args?: {
   readonly terrainCosts?: ReadonlyArray<readonly [string, number]>;
   readonly specialMovement?: 'fly' | 'teleport' | 'phase';
   readonly extraStatusTypes?: Parameters<typeof createCatalog>[0]['statusTypes'];
+  readonly friendlyPassThrough?: boolean;
 }) {
   const knight: ClassDefinition = {
     id: classId('knight'),
@@ -31,12 +33,17 @@ function knightCatalog(args?: {
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
   };
+  const rulesets =
+    args?.friendlyPassThrough === undefined
+      ? defaultTestRulesets
+      : [makeTestRuleset({ friendlyPassThrough: args.friendlyPassThrough })];
   return createCatalog({
     statusTypes: args?.extraStatusTypes ?? [],
     abilities: [],
     commandSets: [],
     classes: [knight],
     items: [],
+    rulesets,
   });
 }
 
@@ -185,15 +192,25 @@ describe('getLegalMoves — elevation and jump', () => {
 });
 
 describe('getLegalMoves — occupancy', () => {
-  it('treats tiles occupied by other units as impassable', () => {
+  it('treats tiles occupied by enemy units as impassable', () => {
     const cat = knightCatalog({ moveRange: 3 });
-    const mover = makeUnit({ id: 'mover', spd: 10, position: { x: 0, y: 0, layer: 0 } });
-    const blocker = makeUnit({ id: 'blocker', spd: 10, position: { x: 1, y: 0, layer: 0 } });
+    const mover = makeUnit({
+      id: 'mover',
+      spd: 10,
+      team: 'team_a',
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const blocker = makeUnit({
+      id: 'blocker',
+      spd: 10,
+      team: 'team_b',
+      position: { x: 1, y: 0, layer: 0 },
+    });
     const state = makeGameState({ units: [mover, blocker], map: flatMap(3, 1) });
     const { reachable } = getLegalMoves(state, mover.id, cat);
     expect(reachable.has(positionKey({ x: 1, y: 0, layer: 0 }))).toBe(false);
     // Behind the blocker is also unreachable on a 1-row map (the only
-    // route is through the blocked tile).
+    // route is through the blocked tile, and enemies block fully).
     expect(reachable.has(positionKey({ x: 2, y: 0, layer: 0 }))).toBe(false);
   });
 
@@ -204,6 +221,68 @@ describe('getLegalMoves — occupancy', () => {
     const { reachable } = getLegalMoves(state, u.id, cat);
     expect(reachable.has(positionKey({ x: 0, y: 0, layer: 0 }))).toBe(true);
     expect(reachable.has(positionKey({ x: 1, y: 0, layer: 0 }))).toBe(true);
+  });
+
+  it('with friendlyPassThrough on: allies route through but cannot be settled on', () => {
+    // mover and ally on same team. With friendly pass-through (the v1
+    // default), the mover can route past the ally to reach the tile
+    // beyond, but the ally's tile itself is not a settle-able destination.
+    const cat = knightCatalog({ moveRange: 3, friendlyPassThrough: true });
+    const mover = makeUnit({
+      id: 'mover',
+      spd: 10,
+      team: 'team_a',
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const ally = makeUnit({
+      id: 'ally',
+      spd: 10,
+      team: 'team_a',
+      position: { x: 1, y: 0, layer: 0 },
+    });
+    const state = makeGameState({ units: [mover, ally], map: flatMap(3, 1) });
+    const { reachable } = getLegalMoves(state, mover.id, cat);
+    expect(reachable.has(positionKey({ x: 1, y: 0, layer: 0 }))).toBe(false);
+    expect(reachable.has(positionKey({ x: 2, y: 0, layer: 0 }))).toBe(true);
+  });
+
+  it('with friendlyPassThrough off: allies block movement just like enemies', () => {
+    const cat = knightCatalog({ moveRange: 3, friendlyPassThrough: false });
+    const mover = makeUnit({
+      id: 'mover',
+      spd: 10,
+      team: 'team_a',
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const ally = makeUnit({
+      id: 'ally',
+      spd: 10,
+      team: 'team_a',
+      position: { x: 1, y: 0, layer: 0 },
+    });
+    const state = makeGameState({ units: [mover, ally], map: flatMap(3, 1) });
+    const { reachable } = getLegalMoves(state, mover.id, cat);
+    expect(reachable.has(positionKey({ x: 1, y: 0, layer: 0 }))).toBe(false);
+    expect(reachable.has(positionKey({ x: 2, y: 0, layer: 0 }))).toBe(false);
+  });
+
+  it('friendly pass-through does not let an enemy be passed through', () => {
+    const cat = knightCatalog({ moveRange: 3, friendlyPassThrough: true });
+    const mover = makeUnit({
+      id: 'mover',
+      spd: 10,
+      team: 'team_a',
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const enemy = makeUnit({
+      id: 'enemy',
+      spd: 10,
+      team: 'team_b',
+      position: { x: 1, y: 0, layer: 0 },
+    });
+    const state = makeGameState({ units: [mover, enemy], map: flatMap(3, 1) });
+    const { reachable } = getLegalMoves(state, mover.id, cat);
+    expect(reachable.has(positionKey({ x: 2, y: 0, layer: 0 }))).toBe(false);
   });
 });
 

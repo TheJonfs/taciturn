@@ -5,6 +5,7 @@
 // will be useful in adjacent subsystems as they land.
 
 import { createCatalog, type Catalog } from '../catalog/index.ts';
+import { defaultTestRulesets } from '../catalog/test-fixtures.ts';
 import {
   abilityId as mkAbilityId,
   chargedActionId as mkChargedActionId,
@@ -50,8 +51,9 @@ export function makeUnit(overrides: {
 }
 
 // An empty Catalog — every CT test that doesn't care about statuses
-// can pass this. Tests that exercise hooks build a Catalog with their
-// status types directly.
+// can pass this. Includes the default test ruleset so consumers that
+// resolve `state.ruleset.id` find it. Tests that exercise hooks build
+// a Catalog with their status types directly.
 export function emptyCatalog(): Catalog {
   return createCatalog({
     statusTypes: [],
@@ -59,6 +61,7 @@ export function emptyCatalog(): Catalog {
     commandSets: [],
     classes: [],
     items: [],
+    rulesets: defaultTestRulesets,
   });
 }
 

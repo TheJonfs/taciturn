@@ -1,12 +1,12 @@
-// Bucket identifiers and v1 baseline capacities.
-// See docs/design/ability-slots.md ("v1 bucket configuration") and ADR-0007.
+// Bucket identifiers — the engine surface for the v1 bucket set.
+// See docs/design/ability-slots.md ("v1 bucket configuration") and
+// ADR-0007.
 //
-// These constants are the source of truth in v1. Session 6 promotes the
-// capacity baseline into `RulesetDefinition` so alternate rulesets can
-// override it (a hardcore ruleset might give 4-capacity Movement, etc.)
-// — same pattern as `engine/ct/constants.ts`. Bucket *identity* (the
-// five named buckets) stays here as engine surface; only the per-bucket
-// numeric capacity moves to the ruleset.
+// Per-bucket numeric capacity moved to the active ruleset in session 6
+// (RulesetDefinition.bucketCapacities); this file is the source of
+// truth only for *bucket identity*, the closed set of named buckets the
+// engine recognizes. Adding a new bucket is an engine change here plus
+// a matching entry in every ruleset's `bucketCapacities`.
 
 import { bucketId, type BucketId } from '../types/index.ts';
 
@@ -34,17 +34,6 @@ export const ALL_BUCKET_IDS: ReadonlyArray<BucketId> = [
   ...ACTIVE_BUCKET_IDS,
   ...PASSIVE_BUCKET_IDS,
 ];
-
-// v1 baseline per-bucket capacity. Each entry is the cap when no
-// modifiers apply. Class / equipment / status modifiers compose on top
-// at query time.
-export const BASELINE_BUCKET_CAPACITIES: ReadonlyMap<BucketId, number> = new Map([
-  [BUCKET_FIRST_ACTION, 1],
-  [BUCKET_SECOND_ACTION, 1],
-  [BUCKET_REACTION, 3],
-  [BUCKET_SUPPORT, 3],
-  [BUCKET_MOVEMENT, 3],
-]);
 
 export type BucketKind = 'active' | 'passive';
 

@@ -7,7 +7,7 @@
 
 export {
   DEFAULT_HOOK_PRIORITY,
-  HOOK_SOURCE_TIER_ORDER,
+  DEFAULT_HOOK_SOURCE_TIER_ORDER,
   type HookHandler,
   type HookName,
   type HookSignatures,

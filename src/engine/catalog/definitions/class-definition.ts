@@ -5,8 +5,7 @@
 // computeMovementProfile). Session 5 added `firstActionCommandSet` (the
 // CommandSet pinned into the unit's First Action active bucket — class-
 // determined per design) and `freeAbilities` (abilities the class grants
-// at cost 0 per the design's "cost-0 modulation" mechanism). Session 6
-// adds Speed and other stat baselines.
+// at cost 0 per the design's "cost-0 modulation" mechanism).
 //
 // `ClassMovementBaseline` is the per-class anchor for the move profile.
 // Required so authors must consciously declare what their class can enter

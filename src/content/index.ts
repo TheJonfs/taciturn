@@ -9,8 +9,9 @@ import { abilities } from './abilities/index.ts';
 import { classes } from './classes/index.ts';
 import { commandSets } from './command-sets/index.ts';
 import { items } from './items/index.ts';
+import { rulesets } from './rulesets/index.ts';
 import { statusTypes } from './statuses/index.ts';
 
 export function loadDefaultCatalog(): Catalog {
-  return createCatalog({ statusTypes, abilities, commandSets, classes, items });
+  return createCatalog({ statusTypes, abilities, commandSets, classes, items, rulesets });
 }

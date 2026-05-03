@@ -11,7 +11,7 @@ describe('computeSpeed', () => {
     expect(computeSpeed(state, unit.id, CATALOG)).toBe(12);
   });
 
-  it('floors a non-positive base Speed at SPEED_FLOOR (0)', () => {
+  it("floors a non-positive base Speed at the ruleset's speed floor (0)", () => {
     const unit = makeUnit({ id: 'u1', spd: -5 });
     const state = makeGameState({ units: [unit] });
     expect(computeSpeed(state, unit.id, CATALOG)).toBe(0);
@@ -28,12 +28,12 @@ describe('computeActionSpeed', () => {
   it('returns the stored Action Speed of the ChargedAction', () => {
     const action = makeChargedAction({ id: 'ca1', speed: 7 });
     const state = makeGameState({ chargedActions: [action] });
-    expect(computeActionSpeed(state, action)).toBe(7);
+    expect(computeActionSpeed(state, action, CATALOG)).toBe(7);
   });
 
-  it('floors a non-positive Action Speed at SPEED_FLOOR (0)', () => {
+  it("floors a non-positive Action Speed at the ruleset's speed floor (0)", () => {
     const action = makeChargedAction({ id: 'ca1', speed: -3 });
     const state = makeGameState({ chargedActions: [action] });
-    expect(computeActionSpeed(state, action)).toBe(0);
+    expect(computeActionSpeed(state, action, CATALOG)).toBe(0);
   });
 });

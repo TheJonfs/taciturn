@@ -1,4 +1,3 @@
-import { ASSUMED_TURN_CT_COST } from './constants.ts';
 import { nextEvent, projectUpcoming, ticksUntilTrigger } from './projection.ts';
 import { emptyCatalog, makeChargedAction, makeGameState, makeUnit } from './test-fixtures.ts';
 
@@ -171,11 +170,9 @@ describe('projectUpcoming', () => {
     // First trigger is immediate (ticksFromNow 0, actualCT 110).
     expect(events[0]).toMatchObject({ ticksFromNow: 0, actualCT: 110 });
     // After consuming 100 CT the unit sits at 10; (100-10)/10 = 9 ticks
-    // to the next trigger.
+    // to the next trigger. The 100 figure comes from the test ruleset's
+    // ctCosts.moveAndAct (see catalog test fixtures).
     expect(events[1]).toMatchObject({ ticksFromNow: 9, actualCT: 100 });
-
-    // Sanity: the assumed cost matches the constant used in projection.
-    expect(ASSUMED_TURN_CT_COST).toBe(100);
   });
 
   it('is deterministic given identical state', () => {

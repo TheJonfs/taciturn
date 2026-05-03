@@ -13,6 +13,7 @@ import type {
   ClassDefinition,
   CommandSetDefinition,
   ItemDefinition,
+  RulesetDefinition,
   StatusEffectType,
 } from './definitions/index.ts';
 import { Registry } from './registry.ts';
@@ -21,6 +22,7 @@ import type {
   ClassId,
   CommandSetId,
   ItemId,
+  RulesetId,
   StatusTypeId,
 } from '../types/index.ts';
 
@@ -30,6 +32,7 @@ export interface CatalogInput {
   readonly commandSets: ReadonlyArray<CommandSetDefinition>;
   readonly classes: ReadonlyArray<ClassDefinition>;
   readonly items: ReadonlyArray<ItemDefinition>;
+  readonly rulesets: ReadonlyArray<RulesetDefinition>;
 }
 
 export class Catalog {
@@ -38,6 +41,7 @@ export class Catalog {
   private readonly commandSetRegistry: Registry<CommandSetId, CommandSetDefinition>;
   private readonly classRegistry: Registry<ClassId, ClassDefinition>;
   private readonly itemRegistry: Registry<ItemId, ItemDefinition>;
+  private readonly rulesetRegistry: Registry<RulesetId, RulesetDefinition>;
 
   constructor(input: CatalogInput) {
     this.statusTypeRegistry = new Registry(input.statusTypes, 'StatusEffectType');
@@ -45,6 +49,7 @@ export class Catalog {
     this.commandSetRegistry = new Registry(input.commandSets, 'CommandSet');
     this.classRegistry = new Registry(input.classes, 'Class');
     this.itemRegistry = new Registry(input.items, 'Item');
+    this.rulesetRegistry = new Registry(input.rulesets, 'Ruleset');
   }
 
   getStatusType(id: StatusTypeId): StatusEffectType {
@@ -95,6 +100,16 @@ export class Catalog {
   }
   items(): ReadonlyArray<ItemDefinition> {
     return this.itemRegistry.all();
+  }
+
+  getRuleset(id: RulesetId): RulesetDefinition {
+    return this.rulesetRegistry.get(id);
+  }
+  hasRuleset(id: RulesetId): boolean {
+    return this.rulesetRegistry.has(id);
+  }
+  rulesets(): ReadonlyArray<RulesetDefinition> {
+    return this.rulesetRegistry.all();
   }
 }
 
