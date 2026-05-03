@@ -3,6 +3,7 @@
 export * from './accessors.ts';
 export * from './action.ts';
 export * from './battle-config.ts';
+export * from './battle-outcome.ts';
 export * from './charged-action.ts';
 export * from './damage.ts';
 export * from './duration-mode.ts';

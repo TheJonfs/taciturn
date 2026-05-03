@@ -13,6 +13,7 @@
 // reasoning as session 5's loadout-on-Unit: defer the indirection until
 // a consumer needs it.
 
+import type { VictoryCondition } from './battle-outcome.ts';
 import type { ClassId, RulesetId, TeamId, UnitId } from './ids.ts';
 import type { Loadout } from './loadout.ts';
 import type { Direction, Position } from './spatial.ts';
@@ -43,17 +44,10 @@ export interface UnitPlacement {
   readonly initialCT?: number;
 }
 
-// Victory conditions are data-as-config. The evaluator (which reads
-// state and answers `won?`) lands in session 9 alongside turn flow; v1
-// ships only the shape and the most common variant ("defeat all enemies
-// of side X"). Extending the union — survive_turns, reach_tile,
-// protect_units — is additive and lands when each variant's evaluator
-// does.
-export type VictoryCondition = {
-  readonly kind: 'defeat_all';
-  readonly side: TeamId;
-  readonly description: string;
-};
+// Victory conditions are data-as-config. The shape lives in
+// `battle-outcome.ts` alongside the evaluated-outcome / decided-outcome
+// shapes; this module just re-exports it for `BattleConfig` callers.
+export type { VictoryCondition };
 
 export interface BattleConfig {
   readonly battleId: string;

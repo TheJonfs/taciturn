@@ -99,23 +99,28 @@ export function makeGameState(args: {
   readonly chargedActions?: ReadonlyArray<ChargedAction>;
   readonly tick?: number;
   readonly map?: GameState['map'];
+  readonly teams?: GameState['teams'];
   readonly turnState?: GameState['turnState'];
   readonly masterSeed?: number;
+  readonly victoryConditions?: GameState['victoryConditions'];
+  readonly outcome?: GameState['outcome'];
 }): GameState {
   const unitMap = new Map<UnitId, Unit>();
   for (const u of args.units ?? []) unitMap.set(u.id, u);
   return {
     battleId: 'test',
     map: args.map ?? { width: 0, height: 0, tiles: [] },
-    teams: [],
+    teams: args.teams ?? [],
     ruleset: { id: rulesetId('default') },
     units: unitMap,
     chargedActions: args.chargedActions ?? [],
     globalEffects: [],
+    victoryConditions: args.victoryConditions ?? [],
     tick: args.tick ?? 0,
     turnState: args.turnState ?? null,
     rng: { masterSeed: args.masterSeed ?? 0, nextSeq: 0 },
     actionLog: [],
+    ...(args.outcome !== undefined ? { outcome: args.outcome } : {}),
   };
 }
 

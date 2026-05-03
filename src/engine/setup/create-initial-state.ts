@@ -18,6 +18,7 @@ import {
   type UnitPlacement,
 } from '../types/index.ts';
 import { validateLoadout } from '../abilities/validate.ts';
+import { TRIGGER_THRESHOLD } from '../ct/constants.ts';
 
 export class BattleConfigError extends Error {
   override readonly name = 'BattleConfigError';
@@ -34,7 +35,7 @@ export function createInitialState(
 
   const unitMap = new Map<UnitId, Unit>();
   for (const placement of battleConfig.units) {
-    const unit = placementToUnit(placement, ruleset);
+    const unit = placementToUnit(placement, ruleset, battleConfig.masterSeed);
     unitMap.set(unit.id, unit);
   }
 
@@ -46,6 +47,7 @@ export function createInitialState(
     units: unitMap,
     chargedActions: [],
     globalEffects: [],
+    victoryConditions: battleConfig.victoryConditions,
     tick: 0,
     turnState: null,
     rng: { masterSeed: battleConfig.masterSeed, nextSeq: 0 },
@@ -68,8 +70,12 @@ export function createInitialState(
   return state;
 }
 
-function placementToUnit(placement: UnitPlacement, ruleset: RulesetDefinition): Unit {
-  const ct = placement.initialCT ?? resolveInitialCT(ruleset);
+function placementToUnit(
+  placement: UnitPlacement,
+  ruleset: RulesetDefinition,
+  masterSeed: number,
+): Unit {
+  const ct = placement.initialCT ?? resolveInitialCT(ruleset, placement, masterSeed);
   return {
     id: placement.id,
     team: placement.team,
@@ -85,14 +91,47 @@ function placementToUnit(placement: UnitPlacement, ruleset: RulesetDefinition): 
   };
 }
 
-// Resolve the ruleset's initial-CT formula. v1 only ships the `fixed`
-// kind; the exhaustive switch lights up when new kinds (speed-based +
-// variance, etc.) are added so the new variant is consciously handled.
-function resolveInitialCT(ruleset: RulesetDefinition): number {
+// Resolve the ruleset's initial-CT formula. The exhaustive switch
+// lights up when new kinds are added so the new variant is consciously
+// handled.
+function resolveInitialCT(
+  ruleset: RulesetDefinition,
+  placement: UnitPlacement,
+  masterSeed: number,
+): number {
   switch (ruleset.initialCT.kind) {
     case 'fixed':
       return ruleset.initialCT.value;
+    case 'speed_with_variance': {
+      const { speedFactor, variancePct } = ruleset.initialCT;
+      const base = placement.baseStats.spd * speedFactor;
+      // Stable per-unit variance: hash (masterSeed, unitId) into a unit
+      // float, scale to ±(variancePct/2) of the threshold, add to base.
+      const v = unitFloatFromKey(masterSeed, placement.id);
+      const swing = (variancePct / 100) * TRIGGER_THRESHOLD;
+      const offset = (v - 0.5) * swing;
+      const raw = base + offset;
+      // Floor at 0; ceil one below threshold so no unit starts pre-
+      // triggered (the scheduler is the path that lifts CT to ≥ 100).
+      return Math.max(0, Math.min(TRIGGER_THRESHOLD - 1, Math.round(raw)));
+    }
   }
+}
+
+// mulberry32-style mixer over (masterSeed XOR string-hash(id)) → unit
+// float in [0, 1). Stable by construction: same masterSeed + same
+// unit id always produces the same value.
+function unitFloatFromKey(masterSeed: number, key: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < key.length; i++) {
+    h = Math.imul(h ^ key.charCodeAt(i), 16777619);
+  }
+  let s = (masterSeed ^ h) >>> 0;
+  s = (s + 0x6d2b79f5) >>> 0;
+  let t = s;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
 // Pre-build checks. Catches obvious authoring errors before state is

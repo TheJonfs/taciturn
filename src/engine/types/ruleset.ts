@@ -138,11 +138,33 @@ export interface RulesetDamagePipeline {
   readonly stages: Readonly<Record<DamageStage, ReadonlyArray<DamageHandlerRef>>>;
 }
 
-// Initial-CT formula for battle start. v1 ships only the `fixed` variant
-// (every unit starts at the named CT). turn-structure.md describes a
-// speed-based + variance formula as the eventual default; that lands as
-// an additional discriminant when its tuning is decided.
-export type RulesetInitialCT = { readonly kind: 'fixed'; readonly value: number };
+// Initial-CT formula for battle start.
+//
+// Two v1 variants:
+// - `fixed`: every unit starts at the named CT. Used by tests and
+//   simple deterministic openings.
+// - `speed_with_variance`: each unit starts at a value derived from
+//   `(masterSeed, unitId, speed)`. The base value scales with Speed
+//   (faster units start with higher CT and tend to act first) and the
+//   per-unit-stable variance keeps openings feeling distinct rather
+//   than purely deterministic — same battle config + same masterSeed
+//   always yields the same opening, but two units with identical Speed
+//   land at different starting CT values.
+//
+//   The base is `clamp(speed * speedFactor, 0, 99)` (so no unit starts
+//   pre-triggered) plus a stable-hashed offset in `[-variancePct/2,
+//   +variancePct/2]` of the threshold. v1 default ruleset uses
+//   `speedFactor = 5` and `variancePct = 20` (±10 around the base).
+//
+// Adding a new variant: a new discriminant here plus a clause in
+// `engine/setup/create-initial-state.ts`'s `resolveInitialCT`.
+export type RulesetInitialCT =
+  | { readonly kind: 'fixed'; readonly value: number }
+  | {
+      readonly kind: 'speed_with_variance';
+      readonly speedFactor: number;
+      readonly variancePct: number;
+    };
 
 // Per-bucket capacity baseline. The capacity *floor* — equipment, status,
 // and class traits with capacity-modifier hooks compose on top at query

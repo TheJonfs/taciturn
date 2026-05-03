@@ -12,7 +12,7 @@
 // Adding a new action kind is one entry in the union plus a reducer
 // branch and (where applicable) a validator clause.
 
-import type { AbilityId, ChargedActionId, StatusTypeId, UnitId } from './ids.ts';
+import type { AbilityId, ChargedActionId, StatusTypeId, TeamId, UnitId } from './ids.ts';
 import type { Direction, Position } from './spatial.ts';
 import type { StatusApplicationOutcome } from './status-application-outcome.ts';
 
@@ -24,7 +24,8 @@ export type ActionType =
   | 'turn_start'
   | 'turn_end'
   | 'charged_action_resolve'
-  | 'status_tick';
+  | 'status_tick'
+  | 'battle_end';
 
 export type ActionSource = 'player' | 'system';
 
@@ -127,6 +128,23 @@ export interface StatusTickOutcome {
   readonly removed: boolean;
 }
 
+// `battle_end` is the terminal system action that commits when a
+// victory condition fires. Carries the winning team and the index of
+// the satisfied condition (back-pointer into `state.victoryConditions`
+// — same condition the post-action `state.outcome` reads from). After
+// `battle_end` commits, `state.outcome` is set; further action commits
+// are refused.
+export interface BattleEndPayload {
+  readonly winner: TeamId;
+  readonly conditionIndex: number;
+}
+export interface BattleEndOutcome {
+  readonly kind: 'battle_end';
+  readonly winner: TeamId;
+  readonly conditionIndex: number;
+  readonly description: string;
+}
+
 // === Universal envelope shared by every action ===
 
 export interface ActionEnvelope {
@@ -182,6 +200,11 @@ export type Action = ActionEnvelope &
         readonly payload: StatusTickPayload;
         readonly outcome?: StatusTickOutcome;
       }
+    | {
+        readonly type: 'battle_end';
+        readonly payload: BattleEndPayload;
+        readonly outcome?: BattleEndOutcome;
+      }
   );
 
 export type ActionOutcome =
@@ -192,7 +215,8 @@ export type ActionOutcome =
   | TurnStartOutcome
   | TurnEndOutcome
   | ChargedActionResolveOutcome
-  | StatusTickOutcome;
+  | StatusTickOutcome
+  | BattleEndOutcome;
 
 // `ProposedAction` is what a controller (player UI, AI) hands the
 // engine. The engine fills in the envelope (seq, seed, timestamp, chain
@@ -243,4 +267,9 @@ export type ProposedAction =
       readonly type: 'status_tick';
       readonly source: 'system';
       readonly payload: StatusTickPayload;
+    }
+  | {
+      readonly type: 'battle_end';
+      readonly source: 'system';
+      readonly payload: BattleEndPayload;
     };

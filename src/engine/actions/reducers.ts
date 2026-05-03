@@ -15,13 +15,16 @@ import type { Catalog } from '../catalog/index.ts';
 import { defaultDamageHandlers } from '../damage/default-handlers.ts';
 import { runDamagePipeline } from '../damage/pipeline.ts';
 import { runOnActionTargeted } from '../hooks/runners.ts';
+import { runQueryTurnSkipped } from '../hooks/runners.ts';
 import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
 import { applyStatus } from '../status/apply.ts';
+import { evaluateBattleOutcome } from '../turn/evaluate-battle-outcome.ts';
 import {
   getUnit,
   type Action,
   type AbilityTarget,
   type AbilityTargetResult,
+  type BattleEndOutcome,
   type ChargedAction,
   type ChargedActionResolveOutcome,
   type DamageContext,
@@ -387,12 +390,37 @@ export function reduceTurnStart(
   }
 
   const ruleset = catalog.getRuleset(state.ruleset.id);
+
+  // Turn-skip query: if any active hook (status, passive, equipment,
+  // class trait) decides this unit can't act this turn, set up a
+  // minimal turnState (so turn_end has the structure to read), record
+  // the skip on the outcome, and emit a turn_end as a generated
+  // action. No status_tick fan-out — the unit's per-unit-CT statuses
+  // skip their tick this turn (Stop's design intent). The skip status
+  // itself ticks via its own duration mode (turn-based or per-unit-CT
+  // — author's call); a Stop with `turn_based` duration would expire
+  // on the (skipped) turn's end.
+  const skip = runQueryTurnSkipped(state, catalog, { unit });
+
   const newTurn = {
     unitId,
-    budget: { ...ruleset.defaultTurnBudget },
+    budget: skip !== null ? { movesAvailable: 0, actsAvailable: 0 } : { ...ruleset.defaultTurnBudget },
     consumed: { movesConsumed: 0, actsConsumed: 0, waited: false },
     reactionsUsedThisTurn: new Map<UnitId, number>(),
   };
+
+  if (skip !== null) {
+    const turnEnd: ProposedAction = {
+      type: 'turn_end',
+      source: 'system',
+      payload: { unitId },
+    };
+    return {
+      newState: { ...state, turnState: newTurn },
+      outcome: { kind: 'turn_start', unitId, skipped: true, skipReason: skip.reason },
+      generatedActions: [turnEnd],
+    };
+  }
 
   // Generate status_tick actions for per-unit-CT-mode statuses on this
   // unit. The chain processor runs them after this action commits.
@@ -468,10 +496,85 @@ export function reduceTurnEnd(
     turnState: null,
   };
 
+  // Battle-outcome evaluation. Per turn-structure.md, turn_end is the
+  // standard checkpoint. When a condition fires, emit a `battle_end`
+  // action — the chain processor commits it next, sets state.outcome,
+  // and refuses further commits. Generated `status_tick` for turn-based
+  // statuses runs *first* (FIFO), but the design says the duration
+  // decrement is part of turn_end's resolution; in practice the chain
+  // order is status_tick → battle_end, which means a Poison-tick KO at
+  // the end of the unit's own turn correctly triggers battle_end on
+  // the same turn boundary.
+  const evaluated = evaluateBattleOutcome(newState);
+  if (evaluated.kind === 'decided') {
+    generated.push({
+      type: 'battle_end',
+      source: 'system',
+      payload: {
+        winner: evaluated.decided.winner,
+        conditionIndex: evaluated.decided.conditionIndex,
+      },
+    });
+  }
+
   return {
     newState,
     outcome: { kind: 'turn_end', unitId, ctSpent: ctCost },
     generatedActions: generated,
+  };
+}
+
+// --- battle_end ---
+
+export function reduceBattleEnd(
+  state: GameState,
+  action: Extract<Action, { type: 'battle_end' }>,
+): ReduceResult<BattleEndOutcome> {
+  if (state.outcome !== undefined) {
+    // Defensive: a second battle_end shouldn't happen — commitAction
+    // refuses commits past the first — but if it does, the outcome
+    // already on state wins.
+    return {
+      newState: state,
+      outcome: {
+        kind: 'battle_end',
+        winner: state.outcome.winner,
+        conditionIndex: state.outcome.conditionIndex,
+        description: state.outcome.description,
+      },
+      generatedActions: [],
+    };
+  }
+
+  const condIndex = action.payload.conditionIndex;
+  const cond = state.victoryConditions[condIndex];
+  if (cond === undefined) {
+    throw new Error(
+      `reduceBattleEnd: payload.conditionIndex ${condIndex} is out of range (state has ${state.victoryConditions.length} conditions)`,
+    );
+  }
+  const decided = {
+    winner: action.payload.winner,
+    conditionIndex: condIndex,
+    description: cond.description,
+  };
+  const newState: GameState = {
+    ...state,
+    outcome: decided,
+    // Clear any stray turn state — battle ends mid-chain after turn_end
+    // already nulled turnState, but a victory condition that fires from
+    // a non-turn-end checkpoint (future) would land on this guard.
+    turnState: null,
+  };
+  return {
+    newState,
+    outcome: {
+      kind: 'battle_end',
+      winner: decided.winner,
+      conditionIndex: decided.conditionIndex,
+      description: decided.description,
+    },
+    generatedActions: [],
   };
 }
 

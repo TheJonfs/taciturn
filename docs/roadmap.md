@@ -73,11 +73,17 @@ References: `docs/design/action-resolution.md`, ADR-0009.
 
 References: `docs/design/action-resolution.md` ("Damage pipeline"), ADR-0010.
 
-### 9. Turn flow
+### 9. Turn flow ✅
 
-Turn start/end semantics, `TurnBudget` reset and consumption, turn-skip handling (Stop, Sleep), facing choice handling, battle outcome evaluation. Wraps the engine into a complete turn cycle.
+*Completed 2026-05-03.* Battle-outcome evaluation lives in `engine/turn/evaluate-battle-outcome.ts`; `reduceTurnEnd` calls it and emits a `battle_end` system action when a victory condition fires. `BattleOutcome` concretized (was a placeholder); the Decided shape lives on `state.outcome`, with `undefined` meaning ongoing. New `battle_end` action type + `reduceBattleEnd` set the outcome and clear residual turn state. `commitAction` gained a `battle_decided` failure stage and silently drains the chain past battle-end. `victoryConditions` are copied from `BattleConfig` to `GameState` at `createInitialState` so the reducer reads them directly.
 
-References: `docs/design/turn-structure.md`.
+Turn-skip is a new `queryTurnSkipped` hook fired at turn_start. Returns `{ reason }` to skip or `null` to proceed; the runner short-circuits on the first non-null. Stop status content demonstrates: Stopped unit's `reduceTurnStart` sets `outcome.skipped: true`, zeroes the budget, and emits a `turn_end` as a generated action. No `status_tick` fan-out on skipped turns. `engine/turn/scheduler.ts` ships `advanceToNextEvent(state, catalog)` — the orchestrator-facing CT advancement that returns the next system action (`turn_start` or `charged_action_resolve`) with state.tick + unit ct mutated to the trigger boundary. KO'd units filter out of the snapshot.
+
+Reaction fizzle: `commitAction` silently drops a reaction whose validation fails mid-chain (the design's "Counter target moves out of range" pattern), keeping the throw path for genuine programmer errors (chain-depth-cap, non-reaction generated actions). Initial-CT `speed_with_variance` variant added: `clamp(spd × speedFactor, 0, 99) + variance(seed, unitId) × variancePct% × threshold`. Stable per-(seed, unitId) for replay.
+
+ADR-0011 captures the decisions.
+
+References: `docs/design/turn-structure.md`, ADR-0011.
 
 ### 10. Renderer skeleton
 

@@ -13,6 +13,7 @@ export {
   type HookName,
   type HookSignatures,
   type HookSourceTier,
+  type TurnSkipResult,
 } from './hooks.ts';
 export {
   collectActiveHandlers,
@@ -28,4 +29,5 @@ export {
   runOnActionTargeted,
   runOnDamageDealt,
   runOnDamageReceived,
+  runQueryTurnSkipped,
 } from './runners.ts';

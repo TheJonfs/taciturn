@@ -1,4 +1,8 @@
 // Public API of src/engine/turn.
-// See docs/architecture/architecture-overview.md and the relevant design doc.
+// See docs/design/turn-structure.md.
 
-export {};
+export { evaluateBattleOutcome } from './evaluate-battle-outcome.ts';
+export {
+  advanceToNextEvent,
+  type ScheduledAction,
+} from './scheduler.ts';

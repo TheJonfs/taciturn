@@ -19,7 +19,7 @@ import type {
   Unit,
 } from '../types/index.ts';
 import { collectActiveHandlers } from './collector.ts';
-import type { ActionAttemptResult } from './hooks.ts';
+import type { ActionAttemptResult, TurnSkipResult } from './hooks.ts';
 
 export function runModifyStatQuery(
   state: GameState,
@@ -158,4 +158,25 @@ export function runOnDamageReceived(
     ctx = h.invoke({ unit: args.unit, ctx });
   }
   return ctx;
+}
+
+// Turn-skip query: fires at turn_start, returns the first non-null
+// result (the first handler that decides "skip"). Stop / Sleep / Petrify
+// register handlers that return `{ reason }` while active; default-
+// acting statuses don't register on this hook. Tier order applies; a
+// status registered later in the tier chain that wants to *override* a
+// prior skip directive isn't supported (the runner short-circuits).
+// Today no v1 case needs override semantics; revisit if future content
+// surfaces one.
+export function runQueryTurnSkipped(
+  state: GameState,
+  catalog: Catalog,
+  args: { unit: Unit },
+): TurnSkipResult {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'queryTurnSkipped');
+  for (const h of handlers) {
+    const result = h.invoke({ unit: args.unit });
+    if (result !== null) return result;
+  }
+  return null;
 }

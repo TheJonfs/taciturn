@@ -32,6 +32,13 @@ export type ActionAttemptResult =
   | { readonly kind: 'blocked'; readonly reason: string }
   | { readonly kind: 'replaced'; readonly with: ProposedAction };
 
+// Result of `queryTurnSkipped` — fired once at turn_start to ask
+// "can this unit take its turn at all?" Stop / Sleep / Petrify return
+// a `skip` directive with a human-readable reason; everything else
+// returns `null` (the default — turn proceeds normally). The runner
+// returns the *first* non-null result; downstream handlers don't run.
+export type TurnSkipResult = { readonly reason: string } | null;
+
 // Per-hook signature map. New hooks add an entry; that's it.
 export interface HookSignatures {
   // Stat query: consumed by computeSpeed today and computeMovementProfile
@@ -132,6 +139,16 @@ export interface HookSignatures {
   onMoveStep: {
     args: { unit: Unit; fromTile: unknown; toTile: unknown };
     return: unknown;
+  };
+
+  // Turn-skip query: fired once at turn_start to decide whether the
+  // unit can act this turn at all. Stop / Sleep / Petrify return a
+  // `{ reason }` directive; default-acting statuses return `null`.
+  // The runner short-circuits on the first non-null result. See
+  // docs/design/turn-structure.md ("Turn start").
+  queryTurnSkipped: {
+    args: { unit: Unit };
+    return: TurnSkipResult;
   };
 }
 

@@ -36,7 +36,7 @@ export interface CommitSuccess {
 
 export interface CommitFailure {
   readonly ok: false;
-  readonly stage: 'validation' | 'hook_blocked';
+  readonly stage: 'validation' | 'hook_blocked' | 'battle_decided';
   readonly reason: string;
   readonly rejected: ProposedAction;
 }
@@ -83,6 +83,7 @@ function envelopeFor(
     proposed.type !== 'turn_end' &&
     proposed.type !== 'status_tick' &&
     proposed.type !== 'charged_action_resolve' &&
+    proposed.type !== 'battle_end' &&
     'actorId' in proposed
       ? { actorId: proposed.actorId }
       : {}),
@@ -110,6 +111,8 @@ function envelopeFor(
       return { ...envelope, type: 'status_tick', payload: proposed.payload };
     case 'charged_action_resolve':
       return { ...envelope, type: 'charged_action_resolve', payload: proposed.payload };
+    case 'battle_end':
+      return { ...envelope, type: 'battle_end', payload: proposed.payload };
   }
 }
 
@@ -147,6 +150,26 @@ export function commitAction(
   while (queue.length > 0) {
     const entry = queue.shift()!;
 
+    // Battle-decided guard — once `state.outcome` is set, refuse
+    // further commits. The chain may still hold queued reactions or
+    // status_ticks emitted before battle_end; drain them silently. The
+    // root action's caller saw `ok: true` for the action that produced
+    // battle_end; subsequent commits return `ok: false; stage: 'battle_decided'`.
+    if (state.outcome !== undefined) {
+      if (isRoot) {
+        return {
+          ok: false,
+          stage: 'battle_decided',
+          reason: 'battle has already decided',
+          rejected: entry.action,
+        };
+      }
+      // Mid-chain entry post-battle-end — silently drop. The drained
+      // queue entries are not committed and not logged.
+      isRoot = false;
+      continue;
+    }
+
     // Pre-validate.
     const validation: ValidationResult = validateAction(state, entry.action, catalog, {
       isReaction: entry.isReaction,
@@ -160,8 +183,17 @@ export function commitAction(
           rejected: entry.action,
         };
       }
-      // Mid-chain validation failure for a system-generated action
-      // is a programmer error — fail loud.
+      // Mid-chain validation failure: reactions fizzle silently
+      // (the design intent — see ADR-0011); non-reaction system-
+      // emitted actions failing validation are programmer errors and
+      // throw. v1 doesn't have non-reaction generated actions whose
+      // validation is non-trivial (status_tick / turn_end / battle_end
+      // / charged_action_resolve all skip validation), so the throw
+      // path stays loud for actual bugs.
+      if (entry.isReaction) {
+        isRoot = false;
+        continue;
+      }
       throw new Error(
         `commitAction: chain action of type ${JSON.stringify(entry.action.type)} failed validation: ${validation.reason ?? 'unknown'}`,
       );

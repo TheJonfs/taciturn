@@ -3,11 +3,13 @@
 //
 // Session 1 has the structural fields needed for CT projection and the
 // envelope for everything else. Concrete shapes for `GlobalEffect`
-// (session 3+) and `BattleOutcome` (session 9) arrive when those
-// subsystems land; placeholders preserve the container's overall shape
-// today. `TurnState` was concretized in session 7 (engine/types/turn-state.ts).
+// (session 3+) and `BattleOutcome` arrive when those subsystems land;
+// `TurnState` was concretized in session 7 (engine/types/turn-state.ts);
+// `BattleOutcome` and `victoryConditions` arrive in session 9 alongside
+// the turn-end battle-outcome evaluator.
 
 import type { Action } from './action.ts';
+import type { BattleOutcome, VictoryCondition } from './battle-outcome.ts';
 import type { ChargedAction } from './charged-action.ts';
 import type { RulesetId, UnitId } from './ids.ts';
 import type { Team } from './team.ts';
@@ -28,11 +30,6 @@ export interface GlobalEffect {
   readonly _placeholder?: never;
 }
 
-// Placeholder; session 9 defines win/loss representation.
-export interface BattleOutcome {
-  readonly _placeholder?: never;
-}
-
 export interface RngState {
   readonly masterSeed: number;
   readonly nextSeq: number;
@@ -49,6 +46,11 @@ export interface GameState {
   readonly chargedActions: ReadonlyArray<ChargedAction>;
   readonly globalEffects: ReadonlyArray<GlobalEffect>;
 
+  // Victory conditions copied from BattleConfig at createInitialState
+  // time. The reducer reads them at turn_end via `evaluateBattleOutcome`;
+  // first-satisfied-wins per `docs/design/turn-structure.md`.
+  readonly victoryConditions: ReadonlyArray<VictoryCondition>;
+
   readonly tick: number;
   readonly turnState: TurnState;
 
@@ -56,5 +58,8 @@ export interface GameState {
 
   readonly actionLog: ReadonlyArray<Action>;
 
+  // `undefined` while the battle is ongoing; set to a `Decided` shape
+  // when `battle_end` commits. After it's set, no further actions
+  // process — `validateAction` and the chain processor short-circuit.
   readonly outcome?: BattleOutcome;
 }

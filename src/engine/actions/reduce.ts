@@ -10,6 +10,7 @@
 import type { Catalog } from '../catalog/index.ts';
 import type { Action, ActionOutcome, GameState, ProposedAction } from '../types/index.ts';
 import {
+  reduceBattleEnd,
   reduceChargedActionResolve,
   reduceMove,
   reduceSetFacing,
@@ -49,5 +50,7 @@ export function reduce(state: GameState, action: Action, catalog: Catalog): Redu
       return reduceStatusTick(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'charged_action_resolve':
       return reduceChargedActionResolve(state, action, catalog) as ReduceResult<ActionOutcome>;
+    case 'battle_end':
+      return reduceBattleEnd(state, action) as ReduceResult<ActionOutcome>;
   }
 }
