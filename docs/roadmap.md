@@ -109,9 +109,15 @@ Renderer gained a `HighlightLayer` between tiles and units (translucent fills, b
 
 References: ADR-0012, `src/ui/`, `src/app/controllers/`.
 
-### 12. AI
+### 12. AI ✅
 
-Basic enemy controller. Reads engine state, produces Actions through the same path the UI uses. MVP — heuristic decisions sufficient to make a battle playable to completion, not a real opponent.
+*Completed 2026-05-03.* Pure decision function `decideBasicAi(state, catalog) → BasicAiDecision` in `src/ai/basic.ts` — engine-only dependency tier per the architecture overview. Heuristic upgrades the placeholder greedy controller along two axes: target selection prefers the lowest-HP enemy (lex-id tiebreak) over the closest, and move selection scores every legal destination by "what's the lowest-HP enemy I'd threaten from here" instead of stepping naively toward the closest enemy. Falls back to "minimize distance to lowest-HP enemy globally" when no destination puts anyone in attack range. Offensive ability enumeration walks the loadout's command sets and filters to single_unit damage abilities (excludes healing); the `attack` ability is the only v1 consumer.
+
+Adapter `createBasicAiController()` in `src/app/controllers/ai-controller.ts` wraps the pure decision function in the orchestrator's `Controller` interface — mirrors `ui-controller.ts`'s shape so both decision sources plug into the same orchestrator wiring. BattleView's `team_b` now uses the basic AI; the greedy placeholder remains in `src/app/demo/` as the integration-test baseline.
+
+Coverage: 11 unit tests for `decideBasicAi` (target selection, ability enumeration, move scoring, budget gating, determinism); 3 integration tests in `src/app/controllers/ai-controller.integration.test.ts` that pit greedy vs basic AI in the demo battle across 5 seeds × both team assignments — assert termination, no-strict-regression-vs-greedy, and per-(seed, assignment) determinism. Visual end-to-end verified in the browser preview: AI moves into melee range and attacks, repeatedly.
+
+References: `src/ai/`, `src/app/controllers/ai-controller.ts`.
 
 ### 13. First playable end-to-end battle
 

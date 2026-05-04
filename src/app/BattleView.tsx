@@ -9,8 +9,10 @@
 //   - Mounts the React HUD (action menu, current-unit panel, turn
 //     queue) and feeds it the latest GameState from the pump.
 //   - Wires the HUD's UiController into the orchestrator for team_a
-//     (the player team in the v1 demo). team_b stays on the greedy
-//     melee controller until session 12 lands a real AI.
+//     (the player team in the v1 demo) and the basic AI controller for
+//     team_b. The greedy placeholder controller is no longer used by
+//     the demo; it remains in `src/app/demo/` as a baseline that the
+//     integration test pits the AI against.
 //
 // The orchestrator/renderer split keeps engine work synchronous and
 // renderer work animated — the React component is the glue.
@@ -22,10 +24,9 @@ import { demoBattle } from '@content/battles/demo.ts';
 import { createInitialState, type Catalog, type GameState } from '@engine/index.ts';
 import { BattleRenderer } from '@renderer/index.ts';
 import { BattleHud, useBattleUi } from '@ui/index.ts';
-import { createUiController } from './controllers/index.ts';
+import { createBasicAiController, createUiController } from './controllers/index.ts';
 import {
   DemoOrchestrator,
-  greedyMeleeController,
   type ControllerMap,
 } from './demo/index.ts';
 
@@ -100,7 +101,7 @@ export function BattleView() {
 
       const controllers: ControllerMap = new Map([
         [demoBattle.teams[0]!.id, uiController.controller],
-        [demoBattle.teams[1]!.id, greedyMeleeController()],
+        [demoBattle.teams[1]!.id, createBasicAiController()],
       ]);
       const orchestrator = new DemoOrchestrator(initialState, catalog, controllers);
 

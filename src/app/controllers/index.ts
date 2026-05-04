@@ -3,3 +3,4 @@
 // `Controller` interface defined in `src/app/demo/orchestrator.ts`.
 
 export { createUiController, type UiController } from './ui-controller.ts';
+export { createBasicAiController } from './ai-controller.ts';
