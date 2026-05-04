@@ -26,27 +26,31 @@ import {
 import type { Controller } from './orchestrator.ts';
 
 const ATTACK = mkAbilityId('attack');
+const END_TURN = { kind: 'end-turn' as const };
 
 export function greedyMeleeController(): Controller {
   return (state, catalog) => {
-    if (state.turnState === null) return null;
+    if (state.turnState === null) return END_TURN;
     const actor = state.units.get(state.turnState.unitId);
-    if (actor === undefined) return null;
+    if (actor === undefined) return END_TURN;
 
     const enemies = livingEnemies(state, actor);
-    if (enemies.length === 0) return null;
+    if (enemies.length === 0) return END_TURN;
 
     // 1. Attack if any enemy is in melee range and we still have an Act.
     if (state.turnState.budget.actsAvailable > 0) {
       const target = pickReachableMeleeTarget(state, catalog, actor, enemies);
       if (target !== null) {
         return {
-          type: 'use_ability',
-          source: 'player',
-          actorId: actor.id,
-          payload: {
-            abilityId: ATTACK,
-            target: { kind: 'unit', unitId: target.id },
+          kind: 'commit',
+          action: {
+            type: 'use_ability',
+            source: 'player',
+            actorId: actor.id,
+            payload: {
+              abilityId: ATTACK,
+              target: { kind: 'unit', unitId: target.id },
+            },
           },
         };
       }
@@ -58,16 +62,19 @@ export function greedyMeleeController(): Controller {
       const dest = pickStepToward(state, catalog, actor, closest);
       if (dest !== null) {
         return {
-          type: 'move',
-          source: 'player',
-          actorId: actor.id,
-          payload: { destination: dest },
+          kind: 'commit',
+          action: {
+            type: 'move',
+            source: 'player',
+            actorId: actor.id,
+            payload: { destination: dest },
+          },
         };
       }
     }
 
-    // 3. Nothing left to do — orchestrator will commit `turn_end`.
-    return null;
+    // 3. Nothing left to do — orchestrator commits `turn_end`.
+    return END_TURN;
   };
 }
 

@@ -5,4 +5,5 @@
 // pushes committed actions into it as the orchestrator drives the
 // engine forward. The renderer never calls back into the engine.
 
-export { BattleRenderer } from './battle-renderer.ts';
+export { BattleRenderer, type TileClickHandler } from './battle-renderer.ts';
+export { type HighlightKind } from './highlight-layer.ts';

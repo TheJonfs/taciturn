@@ -97,9 +97,17 @@ Carried fix from session 9: `projectUpcoming` now filters KO'd units, aligning w
 
 References: `docs/architecture/architecture-overview.md` ("Renderer").
 
-### 11. UI skeleton
+### 11. UI skeleton ✅
 
-React components for battle screen, action menu, current-unit panel, projection-queue display. Communicates with the engine via Action commits. MVP — enough to drive the Renderer's demo battle from clicks.
+*Completed 2026-05-03.* React HUD in `src/ui/`: `BattleHud` composes `CurrentUnitPanel` (HP / MP / Speed / status strip), `ActionMenu` (Move / Attack / Wait + Cancel during sub-modes, gated on budget + isOurTurn + waiting), and `TurnQueuePanel` (top 5 from `projectUpcoming` with team-colored dots). The `useBattleUi` hook runs the input state machine (idle → picking-move → picking-attack), pre-computes legal move destinations and attack targets, paints renderer highlights via a new `BattleRenderer.setHighlights(positions, kind)` API, and dispatches tile-click events from the renderer's stage.
+
+UI controller in `src/app/controllers/ui-controller.ts`: a single-slot adapter from imperative React calls (`submit` / `endTurn` / `cancel`) to the orchestrator's `Controller` interface. Returns `'pending'` while empty so the orchestrator commits nothing and re-asks each pump tick. Throws on double-submit (programmer-error guard).
+
+Orchestrator's `Controller` interface refactored from `ProposedAction | null` to a discriminated `ControllerDecision = commit | end-turn | pending`. Greedy controller updated to return `{ kind: 'end-turn' }` explicitly; orchestrator switches on `decision.kind`. ADR-0012 captures the decisions.
+
+Renderer gained a `HighlightLayer` between tiles and units (translucent fills, blue/red/gold for move/attack/aoe), and a `setOnTileClick(handler)` API that hit-tests stage `pointertap` events against the world transform and resolves to (Position, Unit | null). `BattleView` now syncs `latestState` and `waiting` into React state from inside the pump and wires `team_a` to the UiController; `team_b` stays on the greedy controller until session 12 lands the AI.
+
+References: ADR-0012, `src/ui/`, `src/app/controllers/`.
 
 ### 12. AI
 

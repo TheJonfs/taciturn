@@ -16,24 +16,29 @@
 // architecture overview ("UI depends on Engine and may depend on
 // Renderer for the battle view component").
 
-import { Container, type Application } from 'pixi.js';
-import type { Action, GameState, UnitId } from '@engine/index.ts';
+import { Container, type Application, type FederatedPointerEvent } from 'pixi.js';
+import { tilesAt, unitAt, type Action, type GameState, type Position, type Unit, type UnitId } from '@engine/index.ts';
 import { CAMERA_LERP, TILE_SIZE } from './constants.ts';
 import { TileLayer } from './tile-layer.ts';
 import { UnitSprite } from './unit-layer.ts';
+import { HighlightLayer, type HighlightKind } from './highlight-layer.ts';
 import { Animator } from './animator.ts';
 import { positionCenter, type ScreenPoint } from './world.ts';
+
+export type TileClickHandler = (pos: Position, unit: Unit | null) => void;
 
 export class BattleRenderer {
   readonly app: Application;
   private readonly world: Container;
   private readonly tileLayer: TileLayer;
+  private readonly highlightLayer: HighlightLayer;
   private readonly unitLayer: Container;
   private readonly sprites: Map<UnitId, UnitSprite> = new Map();
   private readonly animator: Animator = new Animator();
   private cameraPos: ScreenPoint = { x: 0, y: 0 };
   private cameraTarget: ScreenPoint = { x: 0, y: 0 };
   private lastState: GameState | null = null;
+  private tileClickHandler: TileClickHandler | null = null;
 
   constructor(app: Application) {
     this.app = app;
@@ -42,9 +47,21 @@ export class BattleRenderer {
     this.app.stage.addChild(this.world);
 
     this.tileLayer = new TileLayer();
+    this.highlightLayer = new HighlightLayer();
     this.unitLayer = new Container();
     this.unitLayer.label = 'units';
-    this.world.addChild(this.tileLayer.container, this.unitLayer);
+    this.world.addChild(
+      this.tileLayer.container,
+      this.highlightLayer.container,
+      this.unitLayer,
+    );
+
+    // Pointer events on the stage. Stage covers the full canvas, so
+    // clicks outside the map area still arrive — the hit-test below
+    // filters by map bounds.
+    this.app.stage.eventMode = 'static';
+    this.app.stage.hitArea = this.app.screen;
+    this.app.stage.on('pointertap', (e) => this.onPointerTap(e));
   }
 
   // Build initial sprites and tile geometry from the starting state.
@@ -92,8 +109,45 @@ export class BattleRenderer {
     return this.animator.isIdle();
   }
 
+  // Set (or clear, by passing `null`) a single handler that fires on a
+  // tile-click. Receives the (x, y, layer) Position and the unit at
+  // that tile if any. Clicks outside the map are silently dropped.
+  setOnTileClick(handler: TileClickHandler | null): void {
+    this.tileClickHandler = handler;
+  }
+
+  // Replace the highlight overlay set. UI uses this to communicate
+  // "these are your legal moves" / "these are valid targets" / etc.
+  // Pass `kind: 'none'` or an empty array to clear.
+  setHighlights(positions: ReadonlyArray<Position>, kind: HighlightKind): void {
+    this.highlightLayer.set(positions, kind);
+  }
+
   destroy(): void {
     this.app.destroy(true, { children: true, texture: false });
+  }
+
+  // ---- pointer events ----
+
+  private onPointerTap(e: FederatedPointerEvent): void {
+    if (this.tileClickHandler === null || this.lastState === null) return;
+    const local = this.world.toLocal(e.global);
+    const tileX = Math.floor(local.x / TILE_SIZE);
+    const tileY = Math.floor(local.y / TILE_SIZE);
+    const map = this.lastState.map;
+    if (tileX < 0 || tileY < 0 || tileX >= map.width || tileY >= map.height) return;
+    const tiles = tilesAt(map, tileX, tileY);
+    if (tiles.length === 0) return;
+    // Topmost layer wins for hit-testing — matches the visual stacking
+    // in TileLayer.draw.
+    let top = tiles[0]!;
+    for (let i = 1; i < tiles.length; i++) {
+      const t = tiles[i]!;
+      if (t.layer > top.layer) top = t;
+    }
+    const pos: Position = { x: tileX, y: tileY, layer: top.layer };
+    const occupant = unitAt(this.lastState, tileX, tileY, top.layer) ?? null;
+    this.tileClickHandler(pos, occupant);
   }
 
   // ---- per-frame ----

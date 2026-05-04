@@ -26,11 +26,24 @@ import {
   type Unit,
 } from '@engine/index.ts';
 
-// A controller decides the next action the active unit will take, or
-// returns `null` to end the turn (orchestrator commits `turn_end`).
+// A controller's decision for the active unit's next step. One of three:
+//   - `commit`: take this concrete ProposedAction.
+//   - `end-turn`: I'm done; orchestrator commits `turn_end`.
+//   - `pending`: I have nothing yet (e.g., the UI is waiting on user
+//     input). Orchestrator commits nothing this step and re-asks later.
+//
+// The `commit` wrapper is a deliberate type-discrimination wedge: a
+// bare ProposedAction has a `type` field but no `kind`, so wrapping
+// gives the union a clean discriminator without forcing each
+// non-action variant to invent a fake action shape.
+export type ControllerDecision =
+  | { readonly kind: 'commit'; readonly action: ProposedAction }
+  | { readonly kind: 'end-turn' }
+  | { readonly kind: 'pending' };
+
 // Called only when `state.turnState !== null` and the active unit's
 // team matches this controller. Pure: no side effects, no I/O.
-export type Controller = (state: GameState, catalog: Catalog) => ProposedAction | null;
+export type Controller = (state: GameState, catalog: Catalog) => ControllerDecision;
 
 export type ControllerMap = ReadonlyMap<TeamId, Controller>;
 
@@ -92,20 +105,24 @@ export class DemoOrchestrator {
     }
 
     // A turn is in progress. Ask this team's controller for the next
-    // action; null means "I'm done — end the turn."
+    // decision.
     const actor = this.state.units.get(this.state.turnState.unitId);
     if (actor === undefined) {
       throw new Error('DemoOrchestrator: active unit missing from state');
     }
     const controller = this.pickController(actor);
-    const proposed = controller(this.state, this.catalog);
+    const decision = controller(this.state, this.catalog);
+
+    if (decision.kind === 'pending') {
+      // Controller has no decision yet (UI awaiting input). Commit
+      // nothing; pump will re-ask next tick.
+      return { newState: this.state, committed: [], done: false };
+    }
 
     const action: ProposedAction =
-      proposed ?? {
-        type: 'turn_end',
-        source: 'system',
-        payload: { unitId: actor.id },
-      };
+      decision.kind === 'end-turn'
+        ? { type: 'turn_end', source: 'system', payload: { unitId: actor.id } }
+        : decision.action;
 
     const result = commitAction(this.state, action, this.catalog);
     if (!result.ok) {

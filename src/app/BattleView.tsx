@@ -6,17 +6,23 @@
 //     idle. The orchestrator commits one action chain per pump; the
 //     renderer plays them out, signals idle, and the cycle continues
 //     until the battle decides.
-//   - Renders the win banner when state.outcome lands.
+//   - Mounts the React HUD (action menu, current-unit panel, turn
+//     queue) and feeds it the latest GameState from the pump.
+//   - Wires the HUD's UiController into the orchestrator for team_a
+//     (the player team in the v1 demo). team_b stays on the greedy
+//     melee controller until session 12 lands a real AI.
 //
 // The orchestrator/renderer split keeps engine work synchronous and
 // renderer work animated — the React component is the glue.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { demoBattle } from '@content/battles/demo.ts';
-import { createInitialState, type GameState } from '@engine/index.ts';
+import { createInitialState, type Catalog, type GameState } from '@engine/index.ts';
 import { BattleRenderer } from '@renderer/index.ts';
+import { BattleHud, useBattleUi } from '@ui/index.ts';
+import { createUiController } from './controllers/index.ts';
 import {
   DemoOrchestrator,
   greedyMeleeController,
@@ -27,7 +33,38 @@ const BACKGROUND = '#0e0f12';
 
 export function BattleView() {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [outcome, setOutcome] = useState<GameState['outcome']>(undefined);
+
+  // Catalog is loaded once and is referentially stable for the lifetime
+  // of the component — UI memos lean on this.
+  const catalog = useMemo<Catalog>(() => loadDefaultCatalog(), []);
+
+  // The UiController is created once, captured by both the orchestrator
+  // (inside the effect) and the React HUD (via useBattleUi). Stable
+  // identity is required so the hook's effects don't re-fire each
+  // render.
+  const uiController = useMemo(() => createUiController(), []);
+
+  // Engine state surfaced to React. Updated from inside the pump after
+  // each commit. The renderer's visual state is independent of this and
+  // tweens between commits.
+  const [latestState, setLatestState] = useState<GameState | null>(null);
+  const [waiting, setWaiting] = useState<boolean>(true);
+  const [renderer, setRenderer] = useState<BattleRenderer | null>(null);
+
+  // Player team — for the demo, team_a is click-driven, team_b is
+  // greedy. The HUD's "is it our turn" gating reads this.
+  const uiTeam = demoBattle.teams[0]!.id;
+
+  // Hook owns the input state machine, mounts tile-click and highlight
+  // wiring on the renderer.
+  const ui = useBattleUi({
+    state: latestState,
+    catalog,
+    uiController,
+    renderer,
+    uiTeam,
+    waiting,
+  });
 
   useEffect(() => {
     const host = containerRef.current;
@@ -37,7 +74,6 @@ export function BattleView() {
     let cleanup: (() => void) | null = null;
 
     void (async () => {
-      const catalog = loadDefaultCatalog();
       const initialState = createInitialState(demoBattle, catalog);
 
       const app = new Application();
@@ -57,30 +93,41 @@ export function BattleView() {
 
       host.appendChild(app.canvas);
 
-      const renderer = new BattleRenderer(app);
-      renderer.mount(initialState);
+      const battleRenderer = new BattleRenderer(app);
+      battleRenderer.mount(initialState);
+      setRenderer(battleRenderer);
+      setLatestState(initialState);
 
-      const controller = greedyMeleeController();
       const controllers: ControllerMap = new Map([
-        [demoBattle.teams[0]!.id, controller],
-        [demoBattle.teams[1]!.id, controller],
+        [demoBattle.teams[0]!.id, uiController.controller],
+        [demoBattle.teams[1]!.id, greedyMeleeController()],
       ]);
       const orchestrator = new DemoOrchestrator(initialState, catalog, controllers);
 
       // Pump: whenever the renderer's animator is idle, ask the
       // orchestrator for the next step and feed the actions to the
-      // renderer. Stops naturally once the orchestrator reports done.
+      // renderer. Sync engine state into React after each commit so
+      // the HUD re-renders. Stops naturally once the orchestrator
+      // reports done.
       let finished = false;
+      let lastIdle = false;
       const pump = () => {
         if (finished) return;
-        if (!renderer.isIdle()) return;
+        const idleNow = battleRenderer.isIdle();
+        // Surface "is the engine waiting on us" to React lazily so the
+        // HUD doesn't re-render every frame.
+        if (idleNow !== lastIdle) {
+          lastIdle = idleNow;
+          setWaiting(!idleNow);
+        }
+        if (!idleNow) return;
         const step = orchestrator.step();
         if (step.committed.length > 0) {
-          renderer.playActions(step.committed, step.newState);
+          battleRenderer.playActions(step.committed, step.newState);
+          setLatestState(step.newState);
         }
         if (step.done) {
           finished = true;
-          setOutcome(step.newState.outcome);
         }
       };
       app.ticker.add(pump);
@@ -88,10 +135,11 @@ export function BattleView() {
       cleanup = () => {
         finished = true;
         app.ticker.remove(pump);
-        renderer.destroy();
+        battleRenderer.destroy();
         if (host.contains(app.canvas)) {
           host.removeChild(app.canvas);
         }
+        setRenderer(null);
       };
     })();
 
@@ -99,7 +147,9 @@ export function BattleView() {
       disposed = true;
       if (cleanup !== null) cleanup();
     };
-  }, []);
+  }, [catalog, uiController]);
+
+  const outcome = latestState?.outcome;
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -111,6 +161,7 @@ export function BattleView() {
           background: BACKGROUND,
         }}
       />
+      <BattleHud state={latestState} catalog={catalog} ui={ui} />
       {outcome !== undefined && <WinOverlay description={outcome.description} winner={String(outcome.winner)} />}
     </div>
   );
