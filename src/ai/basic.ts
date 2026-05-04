@@ -17,11 +17,19 @@
 // This matches the existing greedy-controller cadence and keeps the AI
 // composable with the same pump that drives the UI.
 //
-// Scope intentionally narrow: only single_unit damage abilities are
-// considered for attacking. Healing, buffing, charged actions, AoE,
-// reactions all wait for the content that introduces them — adding
-// them piecemeal here would invent decision policy without a content
-// consumer to constrain it.
+// Session 13 added a healing phase: when an ally (incl self) is below
+// the wound threshold (50% maxHpBase) and a healing ability is in
+// range, the AI casts heal in preference to attacking. The threshold
+// and the heal-over-attack priority are deliberately blunt — there's
+// no notion of "an attack that would KO is worth more than the heal."
+// That kind of stat-aware projection lands when content has more than
+// one option to choose between. Move-to-heal (closing distance to a
+// wounded ally) also waits — v1 only heals allies already in range.
+//
+// Scope still narrow elsewhere: buffing, charged actions, AoE, and
+// reaction-aware play wait for the content that introduces them —
+// adding them piecemeal here would invent decision policy without a
+// content consumer to constrain it.
 
 import {
   endpointFrom,
@@ -51,24 +59,50 @@ export type BasicAiDecision =
 
 const END_TURN: BasicAiDecision = { kind: 'end-turn' };
 
+// Heal threshold: an ally is "wounded enough to justify a heal" when
+// their hp / maxHpBase ratio is at or below this fraction. 0.5 means
+// "half health or less." Tuned for the v1 demo where Cure restores
+// ~20 HP on a 60-HP knight (~33%) — healing a near-full ally is mostly
+// wasted, so we wait until a real chunk has been taken.
+const HEAL_THRESHOLD = 0.5;
+
 export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecision {
   if (state.turnState === null) return END_TURN;
   const actor = state.units.get(state.turnState.unitId);
   if (actor === undefined) return END_TURN;
+  // KO'd actor is a guard against the orchestrator pumping us with a
+  // dead-actor turn (see DemoOrchestrator's mid-turn-KO defensive
+  // path); the orchestrator already handles this, but a defensive
+  // controller-side return keeps the AI honest.
+  if (actor.vitals.hp <= 0) return END_TURN;
 
   const enemies = livingEnemies(state, actor);
-  if (enemies.length === 0) return END_TURN;
+  const allies = livingAllies(state, actor);
 
   const offensive = enumerateOffensiveAbilities(actor, catalog);
+  const healing = enumerateHealingAbilities(actor, catalog);
 
-  // Phase 1: attack if anything is in range.
-  if (state.turnState.budget.actsAvailable > 0 && offensive.length > 0) {
+  // Phase 0: heal if an ally is wounded and in range.
+  if (state.turnState.budget.actsAvailable > 0 && healing.length > 0) {
+    const heal = pickBestHeal(state, catalog, actor, allies, healing);
+    if (heal !== null) return { kind: 'commit', action: heal };
+  }
+
+  // Phase 1: attack if anything is in range. Skip if no enemies remain
+  // (heal phase still runs above so a "nobody to attack but a wounded
+  // ally" turn still does useful work).
+  if (
+    state.turnState.budget.actsAvailable > 0 &&
+    offensive.length > 0 &&
+    enemies.length > 0
+  ) {
     const attack = pickBestAttack(state, catalog, actor, enemies, offensive);
     if (attack !== null) return { kind: 'commit', action: attack };
   }
 
-  // Phase 2: move toward an attack opportunity.
-  if (state.turnState.budget.movesAvailable > 0) {
+  // Phase 2: move toward an attack opportunity. Skipped when no enemies
+  // remain — there's nowhere meaningful to advance.
+  if (state.turnState.budget.movesAvailable > 0 && enemies.length > 0) {
     const move = pickBestMove(state, catalog, actor, enemies, offensive);
     if (move !== null) return { kind: 'commit', action: move };
   }
@@ -82,6 +116,20 @@ function livingEnemies(state: GameState, actor: Unit): Unit[] {
   const out: Unit[] = [];
   for (const u of state.units.values()) {
     if (u.team === actor.team) continue;
+    if (u.vitals.hp <= 0) continue;
+    out.push(u);
+  }
+  return out;
+}
+
+// Living allies (same team), including the actor itself — self-heal
+// is a valid move when no other allies are in range or the actor is
+// the most-wounded one. KO'd allies aren't healable via Cure (Raise
+// is a different ability that lands later); filter them.
+function livingAllies(state: GameState, actor: Unit): Unit[] {
+  const out: Unit[] = [];
+  for (const u of state.units.values()) {
+    if (u.team !== actor.team) continue;
     if (u.vitals.hp <= 0) continue;
     out.push(u);
   }
@@ -124,6 +172,100 @@ function isOffensiveSingleUnit(ability: ActiveAbilityDefinition): boolean {
   // `statusEffects`, which the AI doesn't reason about yet.)
   if (damage.tags.includes('healing')) return false;
   return true;
+}
+
+// Healing-side parallel of `enumerateOffensiveAbilities`. Walks the
+// actor's loadout and keeps active, single_unit, healing-tagged
+// abilities. The 'healing' tag is what the damage pipeline's finalize
+// stage uses to flip polarity (HP rises rather than falls).
+function enumerateHealingAbilities(
+  actor: Unit,
+  catalog: Catalog,
+): ActiveAbilityDefinition[] {
+  const seen = new Set<AbilityId>();
+  const out: ActiveAbilityDefinition[] = [];
+  for (const commandSetId of Object.values(actor.loadout.actionBuckets)) {
+    if (commandSetId === null) continue;
+    if (!catalog.hasCommandSet(commandSetId)) continue;
+    const cs = catalog.getCommandSet(commandSetId);
+    for (const memberId of cs.members) {
+      if (seen.has(memberId)) continue;
+      seen.add(memberId);
+      if (!catalog.hasAbility(memberId)) continue;
+      const ability = catalog.getAbility(memberId);
+      if (ability.kind !== 'active') continue;
+      if (!isHealingSingleUnit(ability)) continue;
+      out.push(ability);
+    }
+  }
+  return out;
+}
+
+function isHealingSingleUnit(ability: ActiveAbilityDefinition): boolean {
+  if (ability.targeting.kind !== 'single_unit') return false;
+  const damage = ability.effects.damage;
+  if (damage === undefined) return false;
+  return damage.tags.includes('healing');
+}
+
+// Pick the best heal action this turn. Filters allies down to those
+// below the HEAL_THRESHOLD ratio, sorts most-wounded first, and tries
+// each ability in order against each candidate. Returns null when no
+// wounded ally is in range — the caller falls through to attack /
+// move phases.
+//
+// "Best" is currently shallow: lowest-HP-ratio ally wins; among
+// abilities, the highest-power one. With Cure as the only v1 healer
+// the inner sort is a no-op; it's there for the second healing
+// ability to land cleanly.
+function pickBestHeal(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  allies: ReadonlyArray<Unit>,
+  healing: ReadonlyArray<ActiveAbilityDefinition>,
+): ProposedAction | null {
+  const wounded = allies.filter((u) => woundedRatio(u) <= HEAL_THRESHOLD);
+  if (wounded.length === 0) return null;
+
+  const sortedTargets = [...wounded].sort(compareWounded);
+
+  for (const target of sortedTargets) {
+    const sortedAbilities = [...healing].sort((a, b) => abilityScore(b) - abilityScore(a));
+    for (const ability of sortedAbilities) {
+      if (!targetIsInAbilityRange(state, actor.position, target, ability, catalog)) continue;
+      const proposed: ProposedAction = {
+        type: 'use_ability',
+        source: 'player',
+        actorId: actor.id,
+        payload: {
+          abilityId: ability.id,
+          target: { kind: 'unit', unitId: target.id },
+        },
+      };
+      if (validateAction(state, proposed, catalog).valid) return proposed;
+    }
+  }
+  return null;
+}
+
+// Approximation of "how wounded is this unit?" — current HP divided by
+// `baseStats.maxHpBase`. The truly correct denominator is the
+// `modifyStatQuery`'d maxHp (composed against the unit's status /
+// equipment hooks), but for v1 content nothing modifies maxHp at
+// runtime, so the cheap base is identical. Switch to the full query
+// when a maxHp-modifying status / equipment effect ships.
+function woundedRatio(u: Unit): number {
+  if (u.baseStats.maxHpBase <= 0) return 1;
+  return u.vitals.hp / u.baseStats.maxHpBase;
+}
+
+// Most-wounded first, then lex-id for stable tiebreaks.
+function compareWounded(a: Unit, b: Unit): number {
+  const ra = woundedRatio(a);
+  const rb = woundedRatio(b);
+  if (ra !== rb) return ra - rb;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
 // Score an offensive ability for a given (actor, target). Higher = more

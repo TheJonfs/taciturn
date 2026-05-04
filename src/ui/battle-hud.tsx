@@ -28,8 +28,10 @@ export function BattleHud(props: BattleHudProps): ReactElement {
         isOurTurn={ui.isOurTurn}
         waiting={ui.waiting}
         turnState={state?.turnState ?? null}
+        hasCure={ui.hasCure}
         onMove={ui.startMove}
         onAttack={ui.startAttack}
+        onCure={ui.startCure}
         onWait={ui.submitWait}
         onCancel={ui.cancelSelection}
       />

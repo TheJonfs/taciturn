@@ -32,8 +32,11 @@ const TEAM_A = teamId('team_a');
 const TEAM_B = teamId('team_b');
 const KNIGHT = classId('knight');
 const FIRST = bucketId('first_action');
+const SECOND = bucketId('second_action');
 const ATTACK_ID = abilityId('attack');
+const CURE_ID = abilityId('cure');
 const BATTLE_SKILL = commandSetId('battle_skill');
+const WHITE_MAGIC = commandSetId('white_magic');
 
 function flatGround(width: number, height: number): Tile[] {
   const tiles: Tile[] = [];
@@ -57,10 +60,29 @@ const attack: ActiveAbilityDefinition = {
   effects: { damage: { tags: ['physical', 'weapon'], power: 4 } },
 };
 
+const cure: ActiveAbilityDefinition = {
+  id: CURE_ID,
+  name: 'Cure',
+  kind: 'active',
+  bucket: SECOND,
+  baseCost: 1,
+  targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
+  chargeTicks: 0,
+  mpCost: 4,
+  effects: { damage: { tags: ['holy', 'healing'], power: 5 } },
+};
+
 const battleSkill: CommandSetDefinition = {
   id: BATTLE_SKILL,
   name: 'Battle Skill',
   members: [ATTACK_ID],
+  baseCost: 1,
+};
+
+const whiteMagic: CommandSetDefinition = {
+  id: WHITE_MAGIC,
+  name: 'White Magic',
+  members: [CURE_ID],
   baseCost: 1,
 };
 
@@ -75,8 +97,8 @@ const knight: ClassDefinition = {
 function buildCatalog(): Catalog {
   return createCatalog({
     statusTypes: [],
-    abilities: [attack],
-    commandSets: [battleSkill],
+    abilities: [attack, cure],
+    commandSets: [battleSkill, whiteMagic],
     classes: [knight],
     items: [],
     rulesets: defaultTestRulesets,
@@ -92,6 +114,11 @@ interface BuildOpts {
     readonly x: number;
     readonly y: number;
     readonly hp?: number;
+    readonly mp?: number;
+    // When true, this unit also has White Magic (Cure) on second_action
+    // and enough MP to cast it. Defaults to false to match the original
+    // session-12 fixture (Attack-only Knights).
+    readonly cure?: boolean;
   }>;
   // Which placement to grant the active turn (by id). Defaults to placements[0].
   readonly activeId?: string;
@@ -117,9 +144,11 @@ function buildBattle(opts: BuildOpts): { state: GameState; catalog: Catalog } {
       position: { x: p.x, y: p.y, layer: 0 },
       facing: 'E',
       baseStats: { spd: 10, pa: 6, ma: 4, maxHpBase: 60 },
-      vitals: { hp: p.hp ?? 60, mp: 0 },
+      vitals: { hp: p.hp ?? 60, mp: p.mp ?? (p.cure ? 10 : 0) },
       loadout: {
-        actionBuckets: { [FIRST]: BATTLE_SKILL },
+        actionBuckets: p.cure
+          ? { [FIRST]: BATTLE_SKILL, [SECOND]: WHITE_MAGIC }
+          : { [FIRST]: BATTLE_SKILL },
         passiveBuckets: {},
       },
     })),
@@ -320,5 +349,116 @@ describe('decideBasicAi', () => {
     const first = decideBasicAi(state, catalog);
     const second = decideBasicAi(state, catalog);
     expect(first).toEqual(second);
+  });
+
+  it('heals a wounded ally over attacking when both options exist', () => {
+    // Healer is in cure range of a wounded ally and in attack range of
+    // an enemy. Phase ordering puts heal first.
+    const { state, catalog } = buildBattle({
+      placements: [
+        { id: 'healer', team: 'team_a', x: 1, y: 1, cure: true },
+        { id: 'wounded', team: 'team_a', x: 2, y: 1, hp: 20 },
+        { id: 'enemy', team: 'team_b', x: 0, y: 1 },
+      ],
+    });
+    const action = expectAttack(decideBasicAi(state, catalog));
+    expect(action.payload.abilityId).toEqual(CURE_ID);
+    expect(targetUnitId(action)).toEqual(unitId('wounded'));
+  });
+
+  it('targets the most-wounded ally among multiple', () => {
+    const { state, catalog } = buildBattle({
+      placements: [
+        { id: 'healer', team: 'team_a', x: 1, y: 1, cure: true },
+        { id: 'lightly_hurt', team: 'team_a', x: 2, y: 1, hp: 28 },
+        { id: 'badly_hurt', team: 'team_a', x: 0, y: 1, hp: 10 },
+      ],
+    });
+    const action = expectAttack(decideBasicAi(state, catalog));
+    expect(action.payload.abilityId).toEqual(CURE_ID);
+    expect(targetUnitId(action)).toEqual(unitId('badly_hurt'));
+  });
+
+  it('self-heals when the actor is the most-wounded ally in range', () => {
+    const { state, catalog } = buildBattle({
+      placements: [
+        { id: 'healer', team: 'team_a', x: 1, y: 1, hp: 12, cure: true },
+        // Healthy ally in range — wouldn't be a heal target.
+        { id: 'fine', team: 'team_a', x: 2, y: 1, hp: 60 },
+      ],
+    });
+    const action = expectAttack(decideBasicAi(state, catalog));
+    expect(action.payload.abilityId).toEqual(CURE_ID);
+    expect(targetUnitId(action)).toEqual(unitId('healer'));
+  });
+
+  it('does not heal an ally above the wound threshold', () => {
+    // 31/60 hp = ~0.52 ratio; just over the 0.5 threshold. Ally is not
+    // considered "wounded enough" — fall through to attacking.
+    const { state, catalog } = buildBattle({
+      placements: [
+        { id: 'healer', team: 'team_a', x: 1, y: 1, cure: true },
+        { id: 'mostly_fine', team: 'team_a', x: 2, y: 1, hp: 31 },
+        { id: 'enemy', team: 'team_b', x: 0, y: 1 },
+      ],
+    });
+    const action = expectAttack(decideBasicAi(state, catalog));
+    expect(action.payload.abilityId).toEqual(ATTACK_ID);
+    expect(targetUnitId(action)).toEqual(unitId('enemy'));
+  });
+
+  it('falls through to attacking when MP is too low for a heal', () => {
+    const { state, catalog } = buildBattle({
+      placements: [
+        { id: 'healer', team: 'team_a', x: 1, y: 1, cure: true, mp: 0 },
+        { id: 'wounded', team: 'team_a', x: 2, y: 1, hp: 20 },
+        { id: 'enemy', team: 'team_b', x: 0, y: 1 },
+      ],
+    });
+    const action = expectAttack(decideBasicAi(state, catalog));
+    expect(action.payload.abilityId).toEqual(ATTACK_ID);
+    expect(targetUnitId(action)).toEqual(unitId('enemy'));
+  });
+
+  it('does not consider enemy units as heal targets', () => {
+    // Wounded enemy + no enemies in attack range from current position.
+    // The AI must not "heal" the enemy; it should fall through to
+    // moving toward an attack opportunity.
+    const { state, catalog } = buildBattle({
+      placements: [
+        { id: 'healer', team: 'team_a', x: 0, y: 0, cure: true },
+        { id: 'wounded_enemy', team: 'team_b', x: 2, y: 0, hp: 5 },
+      ],
+    });
+    const decision = decideBasicAi(state, catalog);
+    expect(decision.kind).toEqual('commit');
+    if (decision.kind !== 'commit') return;
+    expect(decision.action.type).toEqual('move');
+  });
+
+  it('does not move toward a wounded ally when no enemies remain', () => {
+    // Wounded ally is out of cure range. No enemies on the field. The
+    // current heuristic does not implement move-to-heal, so the AI
+    // ends the turn rather than chasing the heal target.
+    const { state, catalog } = buildBattle({
+      placements: [
+        { id: 'healer', team: 'team_a', x: 0, y: 0, cure: true },
+        { id: 'wounded', team: 'team_a', x: 5, y: 5, hp: 10 },
+      ],
+    });
+    expect(decideBasicAi(state, catalog)).toEqual({ kind: 'end-turn' });
+  });
+
+  it('ends the turn when KO\'d mid-turn (defensive guard)', () => {
+    // The orchestrator handles mid-turn KOs of the active unit, but the
+    // controller-side guard returns end-turn so the controller is
+    // honest standalone.
+    const { state, catalog } = buildBattle({
+      placements: [
+        { id: 'a', team: 'team_a', x: 1, y: 1, hp: 0 },
+        { id: 'b', team: 'team_b', x: 2, y: 1 },
+      ],
+    });
+    expect(decideBasicAi(state, catalog)).toEqual({ kind: 'end-turn' });
   });
 });

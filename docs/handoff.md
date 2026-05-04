@@ -17,78 +17,57 @@ What does *not* belong here:
 - What changed (that's the commit message).
 - System design (that's the design docs).
 - Long-running plan (that's `docs/roadmap.md`).
+- Comprehensive progress / deferred-work review (`docs/progress.md` is the durable home for that — refreshed periodically, not session-by-session).
 
 ---
 
-## From session 2026-05-03 (basic AI)
+## From session 2026-05-03 (first playable battle)
 
 ### Suggested next-session scope
 
-Roadmap session 13: **first playable end-to-end battle.** The mechanism stack is now complete (engine + renderer + UI + AI). Session 13 is an integration milestone, not a new mechanism — sit down with the demo battle, play it through, and surface what's missing or wrong.
+This session closed roadmap entry 13 ("first playable end-to-end battle"). The roadmap's main numbered sequence ends here; the next session is the first one that doesn't have a pre-numbered slot. Two reasonable framings, both real:
 
-Concrete shape suggested:
-- Audit the v1 demo for "feels off" friction. Likely candidates: only one ability per side (Attack), 6×6 flat-ground map, no terrain variation, no facing-direction tactics, no log of what happened.
-- Pick the smallest content addition that materially improves the play experience. Candidates in rough cost order: a second ability for Knight (e.g., a charged attack to exercise the `chargeTicks > 0` path), terrain variation on the demo map (introduce elevation differences that exercise jump + LoS), or a battle log surface in the HUD.
-- Don't conflate this with content-expansion. Session 13 is about proving "the playable loop works"; broad content (full class roster, full status catalog) is a separate interleaved pass.
+1. **Take `docs/progress.md` to a planning conversation** to scope the next round of engine vs content work. The progress doc was written specifically for this. Output of that planning session is one or more new roadmap entries.
 
-The integration test added this session pits greedy vs basic AI in the demo battle. When richer content lands, expand it to use a varied map / multi-ability loadouts to stress the heuristic and surface any missing decision policy.
+2. **Pick a small content-expansion pass** without going through planning, on the grounds that one or two more passes will surface the right scoping signal. Concrete candidates:
+   - **Add a second class** (Priest is the obvious one — gives the demo battle Knight + Priest per side, makes White Magic on a non-Knight class thematically clean, exercises class-pinned First Action across two distinct values).
+   - **Add a new map with elevation.** Exercises jump and LoS in actual play.
+   - **Generalize the ActionMenu to the FFT-style ability picker.** Replaces the hardcoded Attack/Cure buttons with a generic per-command-set submenu. Modest UI session.
 
-### Things noticed during the AI session
+My recommendation if forced: framing 1 (planning) — the deferred-work surface is broad enough now that picking the next thing without a plan risks doubling back on a different priority later. But framing 2's content sessions are all small and any of them is fine to land first.
 
-- **Symmetric 1v1 demo battle is dominated by first-mover.** Both knights have identical stats and the side that goes first lands the first hit, then snowballs. Initial CT tiebreaks by lex-id (`blue_knight` < `red_knight`), so blue (team_a) reliably wins regardless of which controller is on which side. This is not an AI bug — it's a property of the test fixture. The integration test handles this by running both team assignments and checking "AI doesn't underperform greedy across the matrix" rather than "AI wins outright."
+### Things noticed during the session
 
-- **The `BasicAiDecision` type is structurally a subset of `ControllerDecision`.** I considered re-exporting `ControllerDecision` from `src/app/demo/orchestrator.ts` and using it directly in `src/ai/`, but that would push the AI layer into a dependency on the app layer (violates `architecture-overview.md`'s arrow). Defined a parallel shape locally in `src/ai/basic.ts` instead — it's two variants. The adapter in `src/app/controllers/ai-controller.ts` is the only place that needs to know about both.
+- **`docs/progress.md` is new.** It was created this session as input to the planning conversation Chris flagged. It's intended to live as a durable, periodically-refreshed snapshot — distinct from the roadmap (sequenced) and the handoff (transient). Refresh discipline is open: probably "refresh after every 3–4 sessions" or "refresh whenever it goes meaningfully out of date." Worth deciding when the next planning session lands.
 
-- **AI ignores statuses, MP cost beyond range checking, and reactions.** The heuristic considers single_unit damage abilities only and uses `validateAction` as the final gate (so MP-gated abilities won't fire if the actor is out of MP). Status-aware decisions (don't attack a Reflect-buffed enemy without thinking about it; prefer a target who's about to be skipped by Stop; etc.) wait for content that makes those situations possible.
+- **Dev-only debug hook in `BattleView`.** `import.meta.env.DEV`-gated `window.__taciturnDebug` with `tick(ms)`, `pump(n, msPerTick)`, `getState()`, `isIdle()`, `uiEndTurn()`, `uiSubmit(action)`. Replaces the temporary "add and remove before commit" pattern session 12 used. Future browser verifications can use this directly. The synthetic-clock detail (Pixi's `app.ticker.update()` reads wall-clock `performance.now()`, which barely advances inside a tight JS loop) is comment-documented in the source — anyone driving the orchestrator from a preview eval needs to use `pump(n, msPerTick)` and not a tight `update()` loop.
 
-- **Browser-preview verification needed a temporary debug hook.** Session 11's handoff already documented that the preview tab is hidden, which throttles Pixi's ticker so the orchestrator pump doesn't fire. To verify the AI end-to-end I added `window.__taciturnApp = app` to `BattleView` temporarily, manually drove `app.ticker.update()` from `preview_eval`, confirmed the AI moves into melee range and attacks (Blue Knight took 22 damage on the first AI-driven turn), then removed the hook before commit. If a future session wants a permanent debug surface, gate on `import.meta.env.DEV` rather than always-on.
+- **The `uiSubmit` debug helper accepts ProposedAction.** Not validated against the catalog before submission — `validateAction` runs at commit time, so an invalid debug submit fails loudly through the orchestrator. That's fine for a dev surface.
+
+- **Mid-turn KO bug surfaced during integration testing.** Counter creates a chain that can KO the *active* turn-holder, leaving `turnState` pointing at a corpse. ADR-0013 captures the orchestrator-side defensive guard and the deferred engine-side fix. The defensive guard inside `decideBasicAi` was added too — belt-and-suspenders, makes the AI honest as a standalone library.
+
+- **No second AI tier evaluation infrastructure.** The integration test runs 5 seeds × 2 team assignments and asserts coarse properties (terminate, AI ≥ greedy). Healing didn't break this. When a meaningfully-stronger AI tier ships, the eval bar wants to grow — a tournament suite, summary stats, etc. Not blocking today; flagging because the next AI session will want this on day 1.
 
 ### Things considered but did not do
 
-- **Two-action turn planning.** The basic AI returns one decision per call; the orchestrator re-asks. A planner that reasons about the full turn ("Move to A, then Attack B from A") could pick better destinations because it sees the attack consequence. Skipped — the per-call heuristic already chooses move destinations *as if* an attack will follow ("from this destination, which lowest-HP enemy could I threaten?"), which captures most of the planner's value without the complexity. Lands when content surfaces a case where a planner's view is materially different (e.g., abilities that require ending the turn at a specific facing).
+- **Generalize the ActionMenu to a real ability picker.** The session-13 cure UI hardcodes a Cure button alongside the Attack button. The right design is "ActionMenu reads each equipped command set and renders one button per active member; the picker submenu drives target-selection." Skipped — would have doubled the session scope; the hardcoded approach matches the existing Attack pattern and is forward-compatible (the picker is a future refactor).
 
-- **Stat-aware damage projection.** `abilityScore()` returns just the ability's `power` coefficient as a stand-in. A real expected-damage projection would multiply by the actor's PA (or MA), variance midpoint, and a target-resistance estimate. Skipped — with `attack` as the only offensive ability in the v1 catalog, all candidates score the same and the work is unobservable. Refines when a class gets ≥2 offensive abilities and the AI needs to *choose between* them.
+- **Engine-side auto-emit `turn_end` on active-unit KO.** Architecturally cleaner than the orchestrator-side guard. Skipped — real policy decision (when exactly does it fire?), warrants its own ADR session. ADR-0013 captures this explicitly.
 
-- **Threat-aware positioning.** The AI doesn't consider what enemies will do to it next turn — it picks destinations purely on what *it* can do *to* enemies. A "don't end turn adjacent to a heavy hitter" pass is the obvious next refinement. Skipped — symmetric demo battle gives no cover/positioning to exploit. Lands with map-content expansion.
+- **AI move-to-heal.** Heal phase only fires when a wounded ally is in cure range from the actor's *current* position. A heal-aware move-scoring pass is the obvious next refinement. Skipped — the v1 demo already shows useful heal behavior (red_knight_n cured red_knight_s mid-battle, observed in browser); the move-to-heal refinement waits for content where it's distinguishably needed.
 
-- **Wait as a tactic.** The AI never commits a `wait` action; it ends the turn via `turn_end` (the orchestrator's path when the controller returns `'end-turn'`). Same CT outcome today (per `reduceTurnEnd`'s "nothing consumed → wait cost"). Lands distinctly if a future status hooks `wait` differently than budget-exhaust.
+- **Stat-hooks-aware maxHp in the AI heal threshold.** The threshold uses `unit.baseStats.maxHpBase` directly. The architecturally correct version walks `runModifyStatQuery(state, catalog, { unit, statName: 'maxHp', baseValue: u.baseStats.maxHpBase })`. Skipped — no v1 content modifies maxHp at runtime, so the values are identical. Lands when the first maxHp-modifying status / equipment effect ships.
 
-- **Reaction-aware AI.** The AI doesn't model that an enemy with Counter equipped will hit back. Skipped — modeling reactions is non-trivial (depends on damage spec lookup + the reactor's stats); the v1 demo doesn't equip Counter on the AI's targets. Lands when a content scenario forces it.
+- **A `'mp'` stat-name + MP-cost validation via the modify-stat-query pipeline.** Same shape as the maxHp note. Currently MP cost is gated against `unit.vitals.mp` directly in `validateAction`. Skipped on the same "no consumer yet" grounds.
 
-- **Multi-target / AoE ability handling.** `enumerateOffensiveAbilities` filters to single_unit only. AoE adds a layer: pick the *best AoE center*, not just the best single target. Skipped — no AoE in v1 catalog. Lands with the first AoE-content session.
-
-- **Caching `getLegalMoves` across the move-scoring loop.** `pickBestMove` calls `getLegalMoves` once and iterates the result; `targetIsInAbilityRange` is called O(destinations × enemies × abilities) but each call is just an `inRange` arithmetic check. Profiled mentally: at v1 scales (≤6×6 map, ≤2 enemies, ≤1 ability) this is ~70 cheap calls per AI decision. Skipped — premature optimization. Revisit if the AI is in the frame budget at large scales.
-
-- **Move the `Controller` type out of `src/app/demo/orchestrator.ts`.** Carried from session 11. Still three import sites, three controllers (UI, greedy, basic AI). Same deferral logic — lands when the demo orchestrator generalizes.
+- **Charged AI ability handling.** Cure happens to be `chargeTicks: 0`. When charged abilities ship (engine session, deferred), the AI will need to reason about commit-now / cast-at-trigger; today it'd just commit and the engine would throw. Skipped — gated on the charged-action engine session.
 
 ### Open questions for later sessions (not blocking)
 
-- **Greedy controller's place going forward.** The basic AI strictly supersedes the greedy controller for the demo. Greedy still has value as the integration-test baseline (testing "AI ≥ greedy"). Carrying it indefinitely costs almost nothing — it's one file. If and when a meaningfully-stronger AI tier ships, the question becomes "what does basic-AI become the baseline of?" Lands with a stronger AI tier.
+These are NOT carried forward in the "carried, carried, carried" pattern this file used to use. The detailed durable record now lives in `docs/progress.md` (sections "Engine policy / cleanup gaps" and onwards). Future sessions should *read progress.md*, not look here for the deferred-work catalog.
 
-- **AI-vs-AI evals as a tuning surface.** The integration test runs ~10 matchups and asserts a coarse property. With richer content, there's room for a "tournament" suite: a richer set of seeds + matchup configurations that produces summary stats the next AI iteration can target. Premature today. Lands when a stronger AI tier needs an eval bar.
+What this section is for instead: things genuinely specific to *this* session's state that the next session might want to know about.
 
-- **Where does charge-action UI live?** Carried from session 11. Still no v1 consumer.
+- **The dev `__taciturnDebug` hook should probably get a documented usage note** somewhere (CLAUDE.md? `docs/architecture/`?). Right now its existence is only discoverable via the `BattleView.tsx` source. Low priority; flag for the next time someone touches that area.
 
-- **Battle log / damage popups.** Carried from session 11. Becomes more useful when the AI is doing things the player can't directly see ("the AI moved into range and attacked" right now is observable via the HP bar; a richer AI is worth narrating).
-
-- **Pause / step-by-step debug mode.** Carried from session 10/11. The TEMP debug hook in this session was a manual workaround; a real "step one action at a time" mode would be more ergonomic for AI-vs-AI debugging.
-
-- **Catalog hot-reload during development.** Carried.
-
-- **Turn-skipped status_tick fan-out (Stop).** Carried.
-
-- **Battle-end checkpoint on damage-application.** Carried.
-
-- **Charged-action triggers in `advanceToNextEvent`.** Carried.
-
-- **Per-status flag for "tick on skipped turn."** Carried.
-
-- **Initial-CT formula tuning.** Carried.
-
-- **Action-log compaction on long battles.** Carried.
-
-- **Out-of-range counter / "Counter Magic at non-magical attack" gating semantics.** Carried.
-
-- **`reaction_fizzled` system event.** Carried from session 9.
-
-- **Refactor projection.ts and scheduler.ts to share a snapshot helper.** Carried from session 9/10.
+- **2v2 still has the symmetric-fixture property** that the session-12 handoff flagged for 1v1. Both teams have identical stats, loadouts, and Counter, so first-mover bias still dominates the `0xDEC0DE` seed playthrough. The integration test handles this by running both team assignments. When asymmetric content ships (a Knight + Priest setup with different roles per unit), the bias relaxes naturally.

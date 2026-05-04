@@ -33,7 +33,7 @@ describe('loadDefaultCatalog', () => {
     expect(cat.getRuleset(rulesetId('default')).name).toBe('Default');
   });
 
-  it('contains the session-9 baseline content set', () => {
+  it('contains the session-13 baseline content set', () => {
     // The default catalog is intentionally narrow — one demo per
     // mechanism. When real content lands, this assertion is expected
     // to change; failing it from new content additions is the correct
@@ -44,9 +44,11 @@ describe('loadDefaultCatalog', () => {
     // (battle_skill). Session 6 added the default ruleset. Session 8
     // added the Counter passive (the v1 reaction demo). Session 9
     // added Stop (the v1 turn-skip demo) — second status type.
+    // Session 13 added the white_magic command set so the demo battle
+    // can equip Cure on the Second Action bucket.
     expect(cat.statusTypes()).toHaveLength(2);
     expect(cat.abilities()).toHaveLength(6);
-    expect(cat.commandSets()).toHaveLength(1);
+    expect(cat.commandSets()).toHaveLength(2);
     expect(cat.classes()).toHaveLength(1);
     expect(cat.items()).toHaveLength(1);
     expect(cat.rulesets()).toHaveLength(1);

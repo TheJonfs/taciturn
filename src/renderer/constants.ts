@@ -61,9 +61,10 @@ export const ACTIVE_HIGHLIGHT_COLOR = 0xf6e5a8;
 // Tile-overlay highlight palette (HighlightLayer). One color per UI
 // selection kind. Alpha is shared so the underlying tile color reads
 // through.
-export const HIGHLIGHT_COLORS: Readonly<Record<'move' | 'attack' | 'aoe', number>> = {
+export const HIGHLIGHT_COLORS: Readonly<Record<'move' | 'attack' | 'heal' | 'aoe', number>> = {
   move: 0x4a90e2,   // blue — reachable destinations
   attack: 0xd0533d, // red — valid attack targets
+  heal: 0x6dc66d,   // green — valid heal targets (matches HP_BAR_FG)
   aoe: 0xf6e5a8,    // gold — area-of-effect preview
 };
 export const HIGHLIGHT_ALPHA = 0.32;
