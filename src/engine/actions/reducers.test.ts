@@ -148,6 +148,7 @@ describe('reduceUseAbility — instant + status-application', () => {
           id: { __brand: 'ClassId' } as never,
           name: 'Knight',
           movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
+          evasion: { front: 0, side: 0, back: 0 },
           firstActionCommandSet: commandSetId('battle_skill'),
           freeAbilities: new Set(),
         } as Parameters<typeof createCatalog>[0]['classes'][number],

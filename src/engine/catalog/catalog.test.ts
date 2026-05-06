@@ -67,6 +67,7 @@ const knight: ClassDefinition = {
     terrainCosts: new Map(),
     canEnter: new Set(['ground']),
   },
+  evasion: { front: 0, side: 0, back: 0 },
   firstActionCommandSet: commandSetId('battle_skill'),
   freeAbilities: new Set(),
 };

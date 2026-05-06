@@ -90,6 +90,7 @@ const knight: ClassDefinition = {
   id: KNIGHT,
   name: 'Knight',
   movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
+  evasion: { front: 0, side: 0, back: 0 },
   firstActionCommandSet: BATTLE_SKILL,
   freeAbilities: new Set(),
 };

@@ -29,6 +29,7 @@ function knightClass(): ClassDefinition {
     id: classId('knight'),
     name: 'Knight',
     movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
+    evasion: { front: 0, side: 0, back: 0 },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
   };
