@@ -93,6 +93,28 @@ export interface StatusEffectSpec {
   readonly customState?: Readonly<Record<string, unknown>>;
 }
 
+// Hit-determination spec for physical attacks. Per the ability format
+// spec, the *presence* of `hitRoll` on an ActiveAbilityDefinition means
+// "this ability rolls to hit"; absence means auto-hit. Magical-only
+// damage skips the roll regardless of the field's presence (the
+// evasion_check pipeline handler short-circuits on missing `'physical'`).
+//
+// `accuracy` is the weapon-accuracy term in the formula
+// `hit_chance = weapon_accuracy × (1 − target_evasion[facing] / 100) ×
+// elevation_modifier × hit_modifiers` (see docs/battle-mechanics-guide.md
+// "Hit chance — physical attacks"). The Battle Mechanics Guide lists
+// realistic values per weapon in the [85, 100] range and documents the
+// "no weapon / unarmed → 100" default.
+//
+// v1 placeholder: equipment integration is deferred to session 17 per
+// ADR-0014, so there is no equipped weapon to read accuracy from. Until
+// then, abilities author `accuracy` directly. Default at the handler is
+// 100. When session 17 lands, weapon-sourced accuracy replaces this
+// per-ability override and `accuracy` becomes the optional override only.
+export interface HitRollSpec {
+  readonly accuracy?: number;
+}
+
 // Damage spec — input to the seven-stage damage pipeline. The base
 // stage handlers read `power` and the tag set to compute baseDamage
 // (e.g., 'physical' → PA × power; 'healing' → MA × power). Variance is
@@ -132,6 +154,12 @@ export interface ActiveAbilityDefinition extends AbilityCommon {
   // lands its full plumbing in session 15 alongside ChargedAction.
   readonly actionSpeed: number;
   readonly mpCost: number;
+  // Hit-determination spec for physical attacks. Absent → auto-hit
+  // (the convention: omit for "no roll"). Present → physical hit chance
+  // applies per docs/battle-mechanics-guide.md "Hit chance — physical
+  // attacks", read by the evasion_check pipeline handler. Magical-only
+  // abilities skip the roll regardless. See ADR-0019.
+  readonly hitRoll?: HitRollSpec;
   readonly effects: AbilityEffects;
 }
 

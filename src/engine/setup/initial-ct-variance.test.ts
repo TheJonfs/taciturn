@@ -31,7 +31,7 @@ function placement(args: {
     classId: classId('knight'),
     position: { x: 0, y: 0, layer: 0 },
     facing: 'N',
-    baseStats: { spd: args.spd ?? 10, pa: 5, ma: 4, maxHpBase: 100, brave: 100, faith: 70 },
+    baseStats: { spd: args.spd ?? 10, pa: 5, ma: 4, maxHpBase: 100, brave: 100, faith: 80 },
     vitals: { hp: 100, mp: 0 },
     loadout: knightLoadout(),
   };

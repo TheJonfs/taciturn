@@ -50,7 +50,7 @@ Magical damage doesn't roll to hit — per the guide, magical damage always land
 
 - **Class evasion data lands in session 14.** Per the plan's "Type extensions" list, ClassDefinition gains `evasion: { front: number; side: number; back: number }`. The evasion_check handler reads this from the target's class, optionally modified by `modifyStatQuery` against a future `'evasion'` stat name (deferred until status content needs it).
 
-- **Reactions still trigger on hit, not on miss.** The Counter check today gates on `damageDealt > 0`. A missed attack produces `damageDealt = 0`, so Counter doesn't fire — that's the correct behavior; you don't counter what didn't connect.
+- ~~**Reactions still trigger on hit, not on miss.** The Counter check today gates on `damageDealt > 0`. A missed attack produces `damageDealt = 0`, so Counter doesn't fire — that's the correct behavior; you don't counter what didn't connect.~~ **Superseded by ADR-0021 in session 14.** The FFT-canonical behavior is that Reactions fire on attempt regardless of damage outcome; the probabilistic gate is the per-reactor Brave roll. Counter's `damageDealt > 0` gate was removed; a Brave-based per-reaction trigger roll lives in `runOnActionTargeted` and gates all reactions uniformly. See ADR-0021.
 
 - **Critical hits and variance still roll on a miss.** The rolls are wasted work but deterministic. If profiling ever shows it matters, the variance/crit handlers can early-return when `hit = false`. Today, premature optimization.
 

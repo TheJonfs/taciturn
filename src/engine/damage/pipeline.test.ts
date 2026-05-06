@@ -10,6 +10,7 @@ import {
   makeTestRuleset,
 } from '../catalog/test-fixtures.ts';
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
+import { flatMap, mapWith } from '../map/test-fixtures.ts';
 import { passiveHook } from '../abilities/hooks.ts';
 import { statusHook } from '../status/hooks.ts';
 import { makeStatusInstance, makeStatusType } from '../status/test-fixtures.ts';
@@ -20,6 +21,7 @@ import {
   commandSetId,
   type ActiveAbilityDefinition,
   type ClassDefinition,
+  type DamageTag,
 } from '@engine/index.ts';
 import { defaultDamageHandlers } from './default-handlers.ts';
 import { runDamagePipeline } from './pipeline.ts';
@@ -126,8 +128,10 @@ describe('runDamagePipeline — physical (PA × power)', () => {
       seed: 0,
       registry: defaultDamageHandlers,
     });
-    // healing_base ran (ma × power = 20), physical_pa_wp short-circuited.
-    expect(ctx.baseDamage).toBe(20);
+    // healing_base ran with Faith_factor symmetric on faith 80 / 80:
+    // ma × power × (0.8 × 0.8) = 4 × 5 × 0.64 = 12.8.
+    // physical_pa_wp short-circuited (no 'physical' tag).
+    expect(ctx.baseDamage).toBeCloseTo(12.8);
   });
 });
 
@@ -439,6 +443,641 @@ describe('runDamagePipeline — error surfacing', () => {
         registry: defaultDamageHandlers,
       }),
     ).toThrow(/unknown handler ref/);
+  });
+});
+
+// --- Session 14 additions: magical / evasion / resistance ---
+
+function basicSpell(args: {
+  readonly id?: string;
+  readonly tags?: ReadonlyArray<DamageTag>;
+  readonly power?: number;
+  readonly mpCost?: number;
+} = {}): ActiveAbilityDefinition {
+  return {
+    id: abilityId(args.id ?? 'spell'),
+    name: 'Spell',
+    kind: 'active',
+    bucket: bucketId('first_action'),
+    baseCost: 1,
+    targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
+    actionSpeed: 0,
+    mpCost: args.mpCost ?? 0,
+    effects: { damage: { tags: args.tags ?? ['magical'], power: args.power ?? 5 } },
+  };
+}
+
+function evasiveClass(args: {
+  readonly front?: number;
+  readonly side?: number;
+  readonly back?: number;
+}): ClassDefinition {
+  return {
+    id: classId('evasive'),
+    name: 'Evasive',
+    movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
+    evasion: { front: args.front ?? 0, side: args.side ?? 0, back: args.back ?? 0 },
+    firstActionCommandSet: commandSetId('battle_skill'),
+    freeAbilities: new Set(),
+  };
+}
+
+describe('runDamagePipeline — magical (MA × power × Faith_factor)', () => {
+  it('produces baseDamage = MA × power × Faith_factor with symmetric Faith', () => {
+    // Caster faith 80, target faith 80 → factor 0.64. MA 5 × power 4 × 0.64 = 12.8.
+    const spell = basicSpell({ power: 4 });
+    const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 80 });
+    const target = makeUnit({ id: 'b', spd: 10, hp: 100, faith: 80 });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({ units: [attacker, target] });
+    const ctx = runDamagePipeline({
+      state,
+      catalog: cat,
+      attacker,
+      target,
+      ability: spell,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    });
+    expect(ctx.baseDamage).toBeCloseTo(12.8);
+    expect(ctx.finalDamage).toBe(12);
+  });
+
+  it('asymmetric Faith — low caster faith reduces damage; symmetric high faith maximizes it', () => {
+    // Same MA/power; vary faith. Faith_factor scales linearly per side.
+    const spell = basicSpell({ power: 4 });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [ruleset],
+    });
+
+    function damageAt(faithA: number, faithB: number): number {
+      const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: faithA });
+      const target = makeUnit({ id: 'b', spd: 10, hp: 100, faith: faithB });
+      const state = makeGameState({ units: [attacker, target] });
+      return runDamagePipeline({
+        state,
+        catalog: cat,
+        attacker,
+        target,
+        ability: spell,
+        sourceActionSeq: 0,
+        seed: 0,
+        registry: defaultDamageHandlers,
+      }).finalDamage ?? 0;
+    }
+
+    // Faith 100 / 100 → factor 1.0 → 20.
+    expect(damageAt(100, 100)).toBe(20);
+    // Faith 100 / 50 → factor 0.5 → 10.
+    expect(damageAt(100, 50)).toBe(10);
+    // Faith 50 / 100 → factor 0.5 → 10 (symmetric).
+    expect(damageAt(50, 100)).toBe(10);
+    // Faith 50 / 50 → factor 0.25 → 5.
+    expect(damageAt(50, 50)).toBe(5);
+  });
+
+  it("does not run the magical formula when the 'magical' tag is absent", () => {
+    const physical = basicSpell({ tags: ['physical', 'weapon'], power: 4 });
+    const attacker = makeUnit({ id: 'a', spd: 10, pa: 5, ma: 99, faith: 1 });
+    const target = makeUnit({ id: 'b', spd: 10, hp: 100, faith: 1 });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [physical],
+      commandSets: [],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({ units: [attacker, target] });
+    const ctx = runDamagePipeline({
+      state,
+      catalog: cat,
+      attacker,
+      target,
+      ability: physical,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    });
+    // physical_pa_wp ran (PA × power = 20); magical_ma_power short-circuited.
+    // Faith doesn't enter the physical formula.
+    expect(ctx.baseDamage).toBe(20);
+  });
+});
+
+describe('runDamagePipeline — resistance (signedMax composition, healing short-circuit, cap-at-immune)', () => {
+  it('half resistance halves damage; full resistance immune', () => {
+    const spell = basicSpell({ power: 4 });
+    const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
+    // Faith 100/100 → factor 1.0 → MA × power = 20 base.
+    const halfResist = makeUnit({
+      id: 'b',
+      spd: 10,
+      hp: 100,
+      faith: 100,
+      resistances: new Map<DamageTag, number>([['magical', 50]]),
+    });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({ units: [attacker, halfResist] });
+    const ctx = runDamagePipeline({
+      state,
+      catalog: cat,
+      attacker,
+      target: halfResist,
+      ability: spell,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    });
+    // 20 × 0.5 = 10.
+    expect(ctx.finalDamage).toBe(10);
+  });
+
+  it('weakness (negative resistance) increases damage', () => {
+    const spell = basicSpell({ power: 4 });
+    const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
+    const weakTarget = makeUnit({
+      id: 'b',
+      spd: 10,
+      hp: 100,
+      faith: 100,
+      resistances: new Map<DamageTag, number>([['magical', -50]]),
+    });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({ units: [attacker, weakTarget] });
+    const ctx = runDamagePipeline({
+      state,
+      catalog: cat,
+      attacker,
+      target: weakTarget,
+      ability: spell,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    });
+    // 20 × 1.5 = 30.
+    expect(ctx.finalDamage).toBe(30);
+  });
+
+  it('multi-tag composition takes signed maximum (resistance wins ties per ADR-0015)', () => {
+    // Holy fire spell. Target has fire +50 and holy -50; ties resolve to
+    // resistance side. signedMax(50, -50) = 50 → half damage.
+    const holyFire = basicSpell({ tags: ['magical', 'fire', 'holy'], power: 4 });
+    const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
+    const target = makeUnit({
+      id: 'b',
+      spd: 10,
+      hp: 100,
+      faith: 100,
+      resistances: new Map<DamageTag, number>([
+        ['fire', 50],
+        ['holy', -50],
+      ]),
+    });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [holyFire],
+      commandSets: [],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({ units: [attacker, target] });
+    const ctx = runDamagePipeline({
+      state,
+      catalog: cat,
+      attacker,
+      target,
+      ability: holyFire,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    });
+    // 20 × 0.5 = 10.
+    expect(ctx.finalDamage).toBe(10);
+  });
+
+  it('healing-tagged effects skip resistance entirely (ADR-0016)', () => {
+    // Cure on a target with holy +100 (would be immune if resistance applied).
+    const cure = basicCure(/* power */ 5);
+    const attacker = makeUnit({ id: 'a', spd: 10, ma: 4, faith: 100 });
+    const target = makeUnit({
+      id: 'b',
+      spd: 10,
+      hp: 50,
+      maxHpBase: 100,
+      faith: 100,
+      resistances: new Map<DamageTag, number>([['holy', 100]]),
+    });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [cure],
+      commandSets: [],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({ units: [attacker, target] });
+    const ctx = runDamagePipeline({
+      state,
+      catalog: cat,
+      attacker,
+      target,
+      ability: cure,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    });
+    // Faith 100/100 → factor 1.0 → MA × power = 20. Resistance skipped.
+    expect(ctx.finalDamage).toBe(20);
+  });
+
+  it('caps resistance at 100 — values >100 read as immune (absorption deferred per ADR-0022)', () => {
+    const spell = basicSpell({ power: 4 });
+    const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
+    const absorbTarget = makeUnit({
+      id: 'b',
+      spd: 10,
+      hp: 50,
+      maxHpBase: 100,
+      faith: 100,
+      // Per ADR-0022, 200 reads as 100 (immune). Absorption (heal-on-hit)
+      // ships when the first content consumer arrives.
+      resistances: new Map<DamageTag, number>([['magical', 200]]),
+    });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({ units: [attacker, absorbTarget] });
+    const ctx = runDamagePipeline({
+      state,
+      catalog: cat,
+      attacker,
+      target: absorbTarget,
+      ability: spell,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    });
+    // 20 × 0.0 = 0. (Not negative-multiplied for absorption.)
+    expect(ctx.finalDamage).toBe(0);
+    expect(ctx.hit).toBe(true); // immune is a damage-zero outcome, not a miss.
+  });
+
+  it('missing tag entries default to 0 resistance (no implicit immunity)', () => {
+    const spell = basicSpell({ power: 4 });
+    const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
+    // Empty resistance map: every tag reads as 0.
+    const target = makeUnit({ id: 'b', spd: 10, hp: 100, faith: 100 });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({ units: [attacker, target] });
+    const ctx = runDamagePipeline({
+      state,
+      catalog: cat,
+      attacker,
+      target,
+      ability: spell,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    });
+    // 20 × 1.0 = 20.
+    expect(ctx.finalDamage).toBe(20);
+  });
+});
+
+describe('runDamagePipeline — evasion check (ADR-0019)', () => {
+  it('auto-hits when the ability omits hitRoll', () => {
+    // No hitRoll on the ability → evasion_check short-circuits.
+    const spell = basicSpell({ tags: ['physical', 'weapon'], power: 4 });
+    const attacker = makeUnit({ id: 'a', spd: 10, pa: 5 });
+    // Target has 99 evasion in every facing — would always miss if rolled.
+    const target = makeUnit({ id: 'b', spd: 10, hp: 100, classId: 'evasive' });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass(), evasiveClass({ front: 99, side: 99, back: 99 })],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({ units: [attacker, target] });
+    const ctx = runDamagePipeline({
+      state,
+      catalog: cat,
+      attacker,
+      target,
+      ability: spell,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    });
+    expect(ctx.hit).toBe(true);
+    expect(ctx.finalDamage).toBe(20);
+  });
+
+  it("magical-only damage skips the roll (no 'physical' tag → always lands)", () => {
+    // hitRoll is present but tag set is purely magical → handler short-circuits.
+    const spell: ActiveAbilityDefinition = {
+      ...basicSpell({ tags: ['magical'], power: 4 }),
+      hitRoll: {},
+    };
+    const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
+    const target = makeUnit({ id: 'b', spd: 10, hp: 100, classId: 'evasive', faith: 100 });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass(), evasiveClass({ front: 99, side: 99, back: 99 })],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({ units: [attacker, target] });
+    const ctx = runDamagePipeline({
+      state,
+      catalog: cat,
+      attacker,
+      target,
+      ability: spell,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    });
+    expect(ctx.hit).toBe(true);
+    expect(ctx.finalDamage).toBe(20);
+  });
+
+  it('rolls against evasion when hitRoll is present and the tag is physical; high evasion produces miss across many seeds', () => {
+    // Target with front evasion 90 → hit chance ~10% against frontal attack.
+    // Roll across many seeds and expect at least one miss (ctx.hit = false).
+    const spell: ActiveAbilityDefinition = {
+      ...basicSpell({ tags: ['physical', 'weapon'], power: 4 }),
+      hitRoll: {},
+    };
+    const attacker = makeUnit({
+      id: 'a',
+      spd: 10,
+      pa: 5,
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    // Target faces south (toward attacker is south of target) — i.e. attacker
+    // at y=0, target at y=1, target facing 'N' so attacker is in *front*.
+    const target = makeUnit({
+      id: 'b',
+      spd: 10,
+      hp: 100,
+      classId: 'evasive',
+      position: { x: 0, y: 1, layer: 0 },
+      facing: 'N',
+    });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass(), evasiveClass({ front: 90, side: 0, back: 0 })],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({
+      units: [attacker, target],
+      map: flatMap(2, 2),
+    });
+    const seeds = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233];
+    const outcomes = seeds.map((seed) =>
+      runDamagePipeline({
+        state,
+        catalog: cat,
+        attacker,
+        target,
+        ability: spell,
+        sourceActionSeq: 0,
+        seed,
+        registry: defaultDamageHandlers,
+      }),
+    );
+    const misses = outcomes.filter((c) => !c.hit).length;
+    expect(misses).toBeGreaterThan(0);
+    expect(misses).toBeLessThan(seeds.length);
+  });
+
+  it('ctx.hit = false produces finalDamage = 0 at finalize', () => {
+    // Set evasion to 99 to nearly guarantee a miss; the [0.05, 1.0] clamp
+    // keeps a 5% chance, so we pick a seed that produces a miss.
+    // (Determinism: seed = 0 with our mulberry32 mixer is deterministic;
+    // we can find a seed that misses.)
+    const spell: ActiveAbilityDefinition = {
+      ...basicSpell({ tags: ['physical', 'weapon'], power: 4 }),
+      hitRoll: {},
+    };
+    const attacker = makeUnit({ id: 'a', spd: 10, pa: 5 });
+    const target = makeUnit({ id: 'b', spd: 10, hp: 100, classId: 'evasive' });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass(), evasiveClass({ front: 99, side: 99, back: 99 })],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({ units: [attacker, target] });
+    // Try several seeds; the first one that misses verifies the hit→0 path.
+    let foundMiss = false;
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]) {
+      const ctx = runDamagePipeline({
+        state,
+        catalog: cat,
+        attacker,
+        target,
+        ability: spell,
+        sourceActionSeq: 0,
+        seed,
+        registry: defaultDamageHandlers,
+      });
+      if (!ctx.hit) {
+        expect(ctx.finalDamage).toBe(0);
+        foundMiss = true;
+        break;
+      }
+    }
+    expect(foundMiss).toBe(true);
+  });
+
+  it('elevation modifier: attacker on higher tile gets +5% hit chance', () => {
+    // Construct a 2-tile map where attacker stands on elevation 5 and
+    // target on elevation 0. Run many seeds; the attacker-higher case
+    // should land hits more often than attacker-lower for the same setup.
+    const spell: ActiveAbilityDefinition = {
+      ...basicSpell({ tags: ['physical', 'weapon'], power: 4 }),
+      hitRoll: { accuracy: 50 }, // mid-band so elevation +5% / -5% is observable
+    };
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+
+    function landings(highElevAttacker: boolean): number {
+      const attacker = makeUnit({
+        id: 'a',
+        spd: 10,
+        pa: 5,
+        position: { x: 0, y: 0, layer: 0 },
+      });
+      const target = makeUnit({
+        id: 'b',
+        spd: 10,
+        hp: 100,
+        classId: 'knight',
+        position: { x: 0, y: 1, layer: 0 },
+        facing: 'N',
+      });
+      const map = mapWith({
+        width: 2,
+        height: 2,
+        tiles: [
+          { x: 0, y: 0, elevation: highElevAttacker ? 5 : 0 },
+          { x: 1, y: 0 },
+          { x: 0, y: 1, elevation: highElevAttacker ? 0 : 5 },
+          { x: 1, y: 1 },
+        ],
+      });
+      const cat = createCatalog({
+        statusTypes: [],
+        abilities: [spell],
+        commandSets: [],
+        classes: [knightClass()],
+        items: [],
+        rulesets: [ruleset],
+      });
+      const state = makeGameState({ units: [attacker, target], map });
+      let hits = 0;
+      for (let seed = 0; seed < 200; seed++) {
+        const ctx = runDamagePipeline({
+          state,
+          catalog: cat,
+          attacker,
+          target,
+          ability: spell,
+          sourceActionSeq: 0,
+          seed,
+          registry: defaultDamageHandlers,
+        });
+        if (ctx.hit) hits++;
+      }
+      return hits;
+    }
+
+    const highHits = landings(true);
+    const lowHits = landings(false);
+    // Strict: elevation advantage → more landings. The 5% elevation
+    // modifier shifts roll-against-50% probability noticeably across 200
+    // seeds.
+    expect(highHits).toBeGreaterThan(lowHits);
+  });
+
+  it('back attacks read back-evasion (lower than front for the same target)', () => {
+    // Attacker behind a target with front 90 / back 0. Hit lands every
+    // seed because back evasion is 0.
+    const spell: ActiveAbilityDefinition = {
+      ...basicSpell({ tags: ['physical', 'weapon'], power: 4 }),
+      hitRoll: {},
+    };
+    const attacker = makeUnit({
+      id: 'a',
+      spd: 10,
+      pa: 5,
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    // Target faces N; attacker is at (0, 0) and target at (0, 1) → attacker
+    // is to the *north* of target → front. To put attacker at back, flip
+    // facing: target facing 'S' means north is its back.
+    const target = makeUnit({
+      id: 'b',
+      spd: 10,
+      hp: 100,
+      classId: 'evasive',
+      position: { x: 0, y: 1, layer: 0 },
+      facing: 'S',
+    });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass(), evasiveClass({ front: 90, side: 0, back: 0 })],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({
+      units: [attacker, target],
+      map: flatMap(2, 2),
+    });
+    let allHit = true;
+    for (let seed = 0; seed < 50; seed++) {
+      const ctx = runDamagePipeline({
+        state,
+        catalog: cat,
+        attacker,
+        target,
+        ability: spell,
+        sourceActionSeq: 0,
+        seed,
+        registry: defaultDamageHandlers,
+      });
+      if (!ctx.hit) {
+        allHit = false;
+        break;
+      }
+    }
+    expect(allHit).toBe(true);
   });
 });
 

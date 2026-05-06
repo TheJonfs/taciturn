@@ -4,11 +4,15 @@
 
 export {
   clampMinMax,
+  computeFaithFactor,
+  evasionCheck,
   finalize,
   fireOnDamageDealt,
   fireOnDamageReceived,
   healingBase,
+  magicalMaPower,
   physicalPaWp,
+  resistanceCheck,
   varianceRoll,
 } from './handlers.ts';
 export { defaultDamageHandlers } from './default-handlers.ts';

@@ -143,6 +143,24 @@ Code refactors land additive shape changes for the upcoming sessions: `chargeTic
 
 Battle Mechanics Guide, Ability Format Spec, and sessions 14–20 roadmap all updated to reflect the ADR resolutions and the renames. 345 tests pass throughout. References: ADRs 0014–0019, `docs/session-13-7-plan.md`, `docs/reconciliation.md`.
 
+### 14. Magical damage foundation ✅
+
+*Completed 2026-05-06.* Engine-only session — magical damage handler, Faith pipeline, resistance system wiring, evasion check landed, Brave-gated reaction triggers, MP cost timing confirmed.
+
+`magical_ma_power` ships in `src/engine/damage/handlers.ts` as the third base-stage handler alongside `physical_pa_wp` and `healing_base`; gates on the `'magical'` tag and computes `MA × power × Faith_factor`. `computeFaithFactor(state, catalog, attacker, target)` is the shared helper — symmetric `(Faith_user/100) × (Faith_target/100)`, faith reads through `modifyStatQuery` so future faith-modifying buffs compose. Healing now Faith-factors too (BMG-faithful: high-Faith targets receive more healing). v1 default Faith bumped 70 → 80 in `engine/types/stats.ts`, demo battle, and test fixtures (Faith_factor 0.64 for symmetric demo casts; placeholder discipline noted with realistic spreads landing in tuning passes).
+
+`evasion_check` lands at the target stage per ADR-0019 — auto-hit short-circuit when the ability omits `hitRoll`; magical-only damage (no `'physical'` tag) skips the roll; otherwise computes `hit_chance = weapon_accuracy × (1 − target_evasion[facing] / 100) × elevation_modifier`, clamped to `[0.05, 1.0]`. Facing classification uses cardinal-direction dot product (front/side/back per BMG ±45°/45-135°/135-180°). Elevation modifier reads source/target tile elevation. `finalize` updated to zero `finalDamage` when `ctx.hit === false`. `HitRollSpec` shape lives on `ActiveAbilityDefinition`; v1 placeholder `accuracy` defaults to 100 (unarmed, per BMG); equipment-sourced accuracy lands in session 17 per ADR-0014. Knight `attack` declares `hitRoll: {}` (rolls happen; against today's zero-evasion classes the [0.05, 1.0] clamp lands at 1.0 — every attack hits).
+
+`resistance_check` lands at the target stage between `evasion_check` and `fire_on_damage_received` — composes per-tag resistances via `signedMax` (per ADR-0015), short-circuits on the `'healing'` tag (per ADR-0016), and caps the effective resistance at 100 (per ADR-0022 — absorption deferred until first consumer; values > 100 read as immune, not as healing).
+
+`runOnActionTargeted` gained Brave-gated reaction triggering (ADR-0021): Brave 100 → deterministic; lower Brave → probabilistic per-reaction roll using a sub-stream of the action seed (sub-stream constant 2; variance is 0, evasion is 1). Counter's `damageDealt > 0` gate removed — fires on physical UseAbility attempts, FFT-canonical. Healing-tagged effects skip Counter; reactor doesn't counter their own attack. ADR-0019's "reactions trigger on hit only" consequence superseded by ADR-0021.
+
+MP cost timing confirmed: `reduceUseAbility` deducts on commit (no path refunds today). `validateAction` rejects insufficient-MP UseAbility before reduce runs.
+
+ADRs: 0020 (magical damage formula + Faith pipeline), 0021 (Brave-gated reaction trigger; Counter flip; supersedes part of ADR-0019), 0022 (resistance absorption deferred). Battle Mechanics Guide updated with absorption note and ADR-0021 reference. Test count: 345 → 369 (24 new — 15 in pipeline.test.ts for magical/evasion/resistance, 4 in runners.test.ts for Brave roll, 5 in damage-integration.test.ts for Counter-on-miss / magical end-to-end / MP timing).
+
+References: ADRs 0019–0022, `src/engine/damage/handlers.ts`, `src/engine/hooks/runners.ts`, `src/content/abilities/counter.ts`, `src/content/abilities/attack.ts`, `docs/battle-mechanics-guide.md`.
+
 ## Content-expansion passes (interleaved)
 
 These are not numbered in the main sequence because their timing depends on what mechanisms exist. The general pattern: once a mechanism's MVP is in place, an expansion pass adds the breadth of content that uses it.

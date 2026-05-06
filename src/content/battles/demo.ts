@@ -62,7 +62,12 @@ const KNIGHT_LOADOUT: UnitPlacement['loadout'] = {
   },
 };
 
-const KNIGHT_BASE_STATS = { spd: 10, pa: 6, ma: 4, maxHpBase: 60, brave: 100, faith: 70 } as const;
+// faith 80 is a v1 placeholder; produces Faith_factor = 0.64 for symmetric
+// demo casts (visible Cure / status numbers without overwhelming damage).
+// Realistic faith spreads across classes land with content/tuning passes
+// in sessions 16+. brave 100 keeps Counter and other reaction triggers
+// deterministic for testing.
+const KNIGHT_BASE_STATS = { spd: 10, pa: 6, ma: 4, maxHpBase: 60, brave: 100, faith: 80 } as const;
 // 10 MP is enough for two Cures (mpCost 4 each) with a little slack —
 // gives the AI / player a real "do I save it?" call without making the
 // resource trivially infinite.

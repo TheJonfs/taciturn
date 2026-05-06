@@ -224,6 +224,8 @@ This produces:
 
 When `resistance_modifier` is negative, the engine applies the result as healing rather than damage (positive HP change rather than subtraction).
 
+> **v1 implementation note (per ADR-0022):** absorption (`resistance > 100` → healing) is deferred until the first content consumer. The session 14 `resistance_check` handler caps the effective resistance at 100 (immune); values above 100 read as 100 and produce zero damage rather than negative-multiplier healing. The full scale stays documented here as the design intent; the cap is removed alongside the first content with resistance > 100.
+
 ### Tag-based application
 
 Resistances are stored per tag in a map: `{ fire: 50, ice: -50, holy: 100, mental: 25, ... }`. Damage tags and status tags are the same namespace.
@@ -495,6 +497,8 @@ trigger_chance = Brave / 100
 ```
 
 A unit with Brave 100 triggers Reactions deterministically (matches the v1 design intent of "early units have Brave 100 for testing"). Lower Brave introduces probability — a Brave 50 unit reacts ~50% of the time.
+
+The Brave roll is the *only* gate on whether a Reaction fires for an in-scope incoming action — Counter, for example, fires on physical attempts regardless of whether damage landed. A miss against a high-evasion target still triggers a Brave-passing Counter. See ADR-0021 for the rationale and the engine implementation in `runOnActionTargeted`.
 
 ### Physical damage modifier
 

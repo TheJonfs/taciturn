@@ -26,11 +26,18 @@ export interface BaseStats {
   // Character-layer stats. Stored on BaseStats for v1 simplicity; their
   // "character layer" property in the design (durability across battles,
   // class changes, equipment swaps) describes their progression model,
-  // not where they're laid out on the per-battle Unit. Consumers ship
-  // in session 14 (Faith_factor in magical formulas, Brave/100 in
-  // reaction trigger chance). Range [1, 100]; v1 test units default to
-  // brave 100 (deterministic Counter triggering) and faith 70 (typical
-  // mid-tier).
+  // not where they're laid out on the per-battle Unit. Consumers
+  // landed in session 14: Faith_factor in magical damage / healing
+  // formulas; Brave/100 in reaction trigger chance. Range [1, 100].
+  //
+  // v1 test units default to brave 100 (deterministic Counter triggering
+  // — see docs/battle-mechanics-guide.md "Reaction trigger chance") and
+  // faith 80 (placeholder — produces Faith_factor 0.64 for symmetric
+  // demo casts; visible damage/heals without overpowering them). The
+  // 80 default is a tuning placeholder; realistic faith spreads land
+  // with the content/tuning passes in sessions 16+ as classes ship and
+  // playtest reveals appropriate ranges. Brave's similar tuning question
+  // applies once non-100-Brave content arrives.
   readonly brave: number;
   readonly faith: number;
 }

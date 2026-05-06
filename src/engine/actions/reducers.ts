@@ -318,6 +318,7 @@ export function reduceUseAbility(
         ? -(damageContext.finalDamage ?? 0)
         : damageContext.finalDamage ?? 0,
       damageTags: damageContext.damageTags,
+      seed: action.seed,
     });
     for (const r of targetedReactions) reactions.push(r);
   }

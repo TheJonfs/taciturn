@@ -59,7 +59,7 @@ export function makeUnit(overrides: {
       ma: overrides.ma ?? 4,
       maxHpBase: overrides.maxHpBase ?? 100,
       brave: overrides.brave ?? 100,
-      faith: overrides.faith ?? 70,
+      faith: overrides.faith ?? 80,
     },
     vitals: { hp: overrides.hp ?? 100, mp: overrides.mp ?? 0 },
     resistances: overrides.resistances ?? new Map(),

@@ -100,10 +100,32 @@ export function runOnActionAttempted(
 }
 
 // Post-application hook firing — collects reactions every handler
-// produces. The reducer enqueues these onto the action chain. Damage-
-// bearing actions enrich the args with the final damage amount and tag
-// set so reaction handlers (Counter, Auto-Potion) can gate without a
-// catalog re-lookup.
+// produces, then gates each by a Brave-based trigger roll on the
+// reactor (per docs/battle-mechanics-guide.md "Reaction trigger
+// chance"): `trigger_chance = Brave / 100`. A unit at Brave 100 (the
+// v1 demo default) triggers deterministically; lower-Brave units skip
+// reactions probabilistically.
+//
+// Brave is read through `modifyStatQuery` so future buff/debuff statuses
+// modifying brave compose. v1 has no such status — the chain is
+// identity today.
+//
+// Seed determinism: the per-action `seed` is folded with a sub-stream
+// constant (BRAVE_REACTION_SUB_STREAM) plus a per-reaction index. Same
+// action seed + same proposed reactions list always produce the same
+// trigger pattern. Brave is rolled per *proposed* reaction, not per
+// handler — multiple reactions from one handler each roll separately.
+//
+// The reducer enqueues the surviving reactions onto the action chain.
+// Damage-bearing actions enrich the args with the final damage amount
+// and tag set so reaction handlers (Counter, Auto-Potion) can gate
+// without a catalog re-lookup.
+//
+// Seed contract: `seed` is the per-action seed of the *incoming* action
+// (the one that fired onActionTargeted). Stable across replay because
+// the action's seed is recorded on its envelope.
+const BRAVE_REACTION_SUB_STREAM = 2;
+
 export function runOnActionTargeted(
   state: GameState,
   catalog: Catalog,
@@ -112,10 +134,11 @@ export function runOnActionTargeted(
     incomingAction: ProposedAction;
     damageDealt?: number;
     damageTags?: ReadonlySet<DamageTag>;
+    seed: number;
   },
 ): ReadonlyArray<ProposedAction> {
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onActionTargeted');
-  const reactions: ProposedAction[] = [];
+  const proposed: ProposedAction[] = [];
   for (const h of handlers) {
     const result = h.invoke({
       unit: args.unit,
@@ -123,9 +146,41 @@ export function runOnActionTargeted(
       ...(args.damageDealt !== undefined ? { damageDealt: args.damageDealt } : {}),
       ...(args.damageTags !== undefined ? { damageTags: args.damageTags } : {}),
     });
-    for (const r of result) reactions.push(r);
+    for (const r of result) proposed.push(r);
   }
-  return reactions;
+  if (proposed.length === 0) return proposed;
+
+  const brave = runModifyStatQuery(state, catalog, {
+    unit: args.unit,
+    statName: 'brave',
+    baseValue: args.unit.baseStats.brave,
+  });
+  const triggerChance = Math.max(0, Math.min(1, brave / 100));
+  if (triggerChance >= 1) return proposed; // deterministic at Brave 100+
+  if (triggerChance <= 0) return [];        // deterministic at Brave 0
+
+  const surviving: ProposedAction[] = [];
+  for (let i = 0; i < proposed.length; i++) {
+    const subSeed = args.seed ^ ((BRAVE_REACTION_SUB_STREAM + i) >>> 0);
+    const r = unitFloatFromSeed(subSeed);
+    if (r < triggerChance) {
+      const reaction = proposed[i];
+      if (reaction !== undefined) surviving.push(reaction);
+    }
+  }
+  return surviving;
+}
+
+// mulberry32-style mixer matching engine/damage/handlers.ts's variance
+// roll. Kept here so reaction-roll determinism doesn't depend on a
+// damage-package import. Returns a unit float in [0, 1).
+function unitFloatFromSeed(seed: number): number {
+  let s = seed >>> 0;
+  s = (s + 0x6d2b79f5) >>> 0;
+  let t = s;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
 // Damage-pipeline chain hooks — fired at the attacker / target stages

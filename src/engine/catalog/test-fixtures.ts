@@ -47,12 +47,16 @@ const EMPTY_DAMAGE_PIPELINE: Readonly<Record<DamageStage, ReadonlyArray<DamageHa
 // V1 default-equivalent stage list, exported for damage-flow tests
 // that want to exercise the real pipeline without importing content.
 // Mirrors `src/content/rulesets/default.ts`'s DEFAULT_DAMAGE_PIPELINE.
+//
+// Session 14 added magical_ma_power (base), evasion_check + resistance_check
+// (target). Target order matters: evasion_check first per ADR-0019,
+// then resistance_check, then onDamageReceived hooks.
 export const DEFAULT_TEST_DAMAGE_PIPELINE: Readonly<
   Record<DamageStage, ReadonlyArray<DamageHandlerRef>>
 > = {
-  base: ['physical_pa_wp', 'healing_base'],
+  base: ['physical_pa_wp', 'magical_ma_power', 'healing_base'],
   attacker: ['fire_on_damage_dealt'],
-  target: ['fire_on_damage_received'],
+  target: ['evasion_check', 'resistance_check', 'fire_on_damage_received'],
   environment: [],
   variance: ['variance_roll'],
   cap: ['clamp_min_max'],

@@ -55,11 +55,14 @@ describe('defaultRuleset', () => {
     expect(defaultRuleset.hookOrdering.sourceTiers).toEqual(DEFAULT_HOOK_SOURCE_TIER_ORDER);
   });
 
-  it('damage pipeline ships the v1 stage handlers (physical + healing only; magical/elemental land later)', () => {
+  it('damage pipeline ships the v1 stage handlers (physical, magical, healing; elemental amplification lands later)', () => {
     const stages = defaultRuleset.damagePipeline.stages;
-    expect(stages.base).toEqual(['physical_pa_wp', 'healing_base']);
+    expect(stages.base).toEqual(['physical_pa_wp', 'magical_ma_power', 'healing_base']);
     expect(stages.attacker).toEqual(['fire_on_damage_dealt']);
-    expect(stages.target).toEqual(['fire_on_damage_received']);
+    // Target-stage order matters: evasion_check first (ADR-0019), then
+    // resistance_check, then onDamageReceived hooks see the resolved
+    // hit + post-resistance ctx.
+    expect(stages.target).toEqual(['evasion_check', 'resistance_check', 'fire_on_damage_received']);
     expect(stages.environment).toEqual([]);
     expect(stages.variance).toEqual(['variance_roll']);
     expect(stages.cap).toEqual(['clamp_min_max']);
