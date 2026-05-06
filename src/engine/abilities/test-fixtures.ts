@@ -51,7 +51,7 @@ export function makeActive(args: {
   readonly bucket?: BucketId;
   readonly baseCost?: number;
   readonly targeting?: ActiveAbilityDefinition['targeting'];
-  readonly chargeTicks?: number;
+  readonly actionSpeed?: number;
   readonly mpCost?: number;
   readonly effects?: ActiveAbilityDefinition['effects'];
 }): ActiveAbilityDefinition {
@@ -62,7 +62,7 @@ export function makeActive(args: {
     bucket: args.bucket ?? bucketId('first_action'),
     baseCost: args.baseCost ?? 1,
     targeting: args.targeting ?? { kind: 'self' },
-    chargeTicks: args.chargeTicks ?? 0,
+    actionSpeed: args.actionSpeed ?? 0,
     mpCost: args.mpCost ?? 0,
     effects: args.effects ?? {},
   };

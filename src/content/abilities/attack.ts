@@ -23,7 +23,7 @@ export const attack: ActiveAbilityDefinition = {
     range: { horizontal: 1, vertical: 3 },
     rangeMode: 'melee',
   },
-  chargeTicks: 0,
+  actionSpeed: 0,
   mpCost: 0,
   effects: {
     damage: {

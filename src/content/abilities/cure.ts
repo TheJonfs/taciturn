@@ -22,7 +22,7 @@ export const cure: ActiveAbilityDefinition = {
     range: { horizontal: 4, vertical: 3 },
     rangeMode: 'arc',
   },
-  chargeTicks: 0,
+  actionSpeed: 0,
   mpCost: 4,
   effects: {
     damage: {

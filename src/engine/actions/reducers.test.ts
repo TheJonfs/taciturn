@@ -192,11 +192,11 @@ describe('reduceUseAbility — instant + status-application', () => {
     expect(outcome.mpSpent).toBe(4);
   });
 
-  it('throws when chargeTicks > 0 (deferred until the first content consumer)', () => {
+  it('throws when actionSpeed > 0 (deferred until the first content consumer)', () => {
     const slowSpell = makeActive({
       id: 'slow_spell',
       targeting: { kind: 'self' },
-      chargeTicks: 50,
+      actionSpeed: 50,
     });
     const cat = makeAbilitiesCatalog({ abilities: [slowSpell] });
     const u = makeUnit({ id: 'u1', spd: 10, loadout: knightLoadout() });
@@ -205,7 +205,7 @@ describe('reduceUseAbility — instant + status-application', () => {
       abilityId: abilityId('slow_spell'),
       target: { kind: 'self' },
     });
-    expect(() => reduceUseAbility(state, action, cat)).toThrow(/chargeTicks/);
+    expect(() => reduceUseAbility(state, action, cat)).toThrow(/actionSpeed/);
   });
 });
 

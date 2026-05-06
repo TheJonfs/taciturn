@@ -71,7 +71,7 @@ function attackAbility(power = 4): ActiveAbilityDefinition {
     bucket: bucketId('first_action'),
     baseCost: 1,
     targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
-    chargeTicks: 0,
+    actionSpeed: 0,
     mpCost: 0,
     effects: { damage: { tags: ['physical', 'weapon'], power } },
   };

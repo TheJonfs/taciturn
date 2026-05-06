@@ -37,7 +37,7 @@ const cure: AbilityDefinition = {
   bucket: bucketId('second_action'),
   baseCost: 1,
   targeting: { kind: 'self' },
-  chargeTicks: 0,
+  actionSpeed: 0,
   mpCost: 0,
   effects: {},
 };
@@ -48,7 +48,7 @@ const fire: AbilityDefinition = {
   bucket: bucketId('second_action'),
   baseCost: 1,
   targeting: { kind: 'self' },
-  chargeTicks: 0,
+  actionSpeed: 0,
   mpCost: 0,
   effects: {},
 };
@@ -107,7 +107,7 @@ describe('createCatalog', () => {
       bucket: bucketId('second_action'),
       baseCost: 1,
       targeting: { kind: 'self' },
-      chargeTicks: 0,
+      actionSpeed: 0,
       mpCost: 0,
       effects: {},
     };

@@ -55,7 +55,7 @@ const attack: ActiveAbilityDefinition = {
   bucket: FIRST,
   baseCost: 1,
   targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
-  chargeTicks: 0,
+  actionSpeed: 0,
   mpCost: 0,
   effects: { damage: { tags: ['physical', 'weapon'], power: 4 } },
 };
@@ -67,7 +67,7 @@ const cure: ActiveAbilityDefinition = {
   bucket: SECOND,
   baseCost: 1,
   targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
-  chargeTicks: 0,
+  actionSpeed: 0,
   mpCost: 4,
   effects: { damage: { tags: ['holy', 'healing'], power: 5 } },
 };

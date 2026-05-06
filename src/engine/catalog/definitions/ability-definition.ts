@@ -106,12 +106,13 @@ export interface AbilityEffects {
 export interface ActiveAbilityDefinition extends AbilityCommon {
   readonly kind: 'active';
   readonly targeting: TargetingSpec;
-  // CT charge cost. 0 = instant (resolves immediately on UseAbility);
-  // > 0 = creates a ChargedAction with this initial CT-shaped charge
-  // time and pairs a Charging status onto the caster. Session 7 wires
-  // the chargeTicks: 0 path; chargeTicks > 0 lands its full plumbing
-  // when the first content consumer ships.
-  readonly chargeTicks: number;
+  // Action Speed — the rate at which the spawned ChargedAction
+  // accumulates CT each tick (see docs/design/ct-system.md). 0 = instant
+  // (resolves immediately on UseAbility); > 0 = creates a ChargedAction
+  // with `ct: 0, speed: actionSpeed` and pairs a Charging status onto
+  // the caster. Session 7 wires the actionSpeed: 0 path; the > 0 path
+  // lands its full plumbing in session 15 alongside ChargedAction.
+  readonly actionSpeed: number;
   readonly mpCost: number;
   readonly effects: AbilityEffects;
 }
