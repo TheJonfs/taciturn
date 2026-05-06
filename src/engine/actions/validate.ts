@@ -213,8 +213,19 @@ function validateUseAbility(
   }
 
   // Target check. v1 supports `self` and `single_unit` targeting.
+  // The `tile` targeting kind is declared on the type but not yet
+  // validated — its consumers ship in session 15 (charged tile-AoE)
+  // and session 17 (AoE per-target dispatch). Throwing now means an
+  // ability authored with `tile` targeting fails fast, surfacing the
+  // missing implementation rather than silently passing validation.
   const targetingKind = ability.targeting.kind;
   const payloadTargetKind = action.payload.target.kind;
+
+  if (targetingKind === 'tile') {
+    throw new Error(
+      `validateUseAbility: tile target not yet implemented (ability ${JSON.stringify(ability.id)})`,
+    );
+  }
 
   if (targetingKind === 'self') {
     if (payloadTargetKind !== 'self') {

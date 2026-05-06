@@ -44,14 +44,26 @@ export interface AbilityRange {
 }
 
 // Targeting specification — what the ability needs to be aimed at and
-// how its target is validated. v1 covers the two modes session 7 needs:
-// `self` (no target argument) and `single_unit` (target is a unit, with
-// range + range-mode validation). AoE / multi-target / tile-targeting
-// land additively when their content consumers do.
+// how its target is validated. Three kinds:
+//
+//   'self'        — no target argument; the ability targets the actor.
+//   'single_unit' — target is a unit; range + rangeMode gate validation.
+//   'tile'        — target is a tile (Position); range + rangeMode gate
+//                   validation. AoE-anchored and tile-anchored single-
+//                   target abilities use this kind. Type added 13.7;
+//                   validation lands in session 15 (charged tile-AoE)
+//                   and the AoE per-target dispatch lands in session 17.
+//                   `validateAction` throws "tile target not yet
+//                   implemented" until those consumers ship.
 export type TargetingSpec =
   | { readonly kind: 'self' }
   | {
       readonly kind: 'single_unit';
+      readonly range: AbilityRange;
+      readonly rangeMode: RangeMode;
+    }
+  | {
+      readonly kind: 'tile';
       readonly range: AbilityRange;
       readonly rangeMode: RangeMode;
     };
