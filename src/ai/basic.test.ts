@@ -143,7 +143,7 @@ function buildBattle(opts: BuildOpts): { state: GameState; catalog: Catalog } {
       classId: KNIGHT,
       position: { x: p.x, y: p.y, layer: 0 },
       facing: 'E',
-      baseStats: { spd: 10, pa: 6, ma: 4, maxHpBase: 60 },
+      baseStats: { spd: 10, pa: 6, ma: 4, maxHpBase: 60, brave: 100, faith: 70 },
       vitals: { hp: p.hp ?? 60, mp: p.mp ?? (p.cure ? 10 : 0) },
       loadout: {
         actionBuckets: p.cure

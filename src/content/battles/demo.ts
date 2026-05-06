@@ -62,7 +62,7 @@ const KNIGHT_LOADOUT: UnitPlacement['loadout'] = {
   },
 };
 
-const KNIGHT_BASE_STATS = { spd: 10, pa: 6, ma: 4, maxHpBase: 60 } as const;
+const KNIGHT_BASE_STATS = { spd: 10, pa: 6, ma: 4, maxHpBase: 60, brave: 100, faith: 70 } as const;
 // 10 MP is enough for two Cures (mpCost 4 each) with a little slack —
 // gives the AI / player a real "do I save it?" call without making the
 // resource trivially infinite.

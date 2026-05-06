@@ -30,6 +30,8 @@ export function makeUnit(overrides: {
   readonly pa?: number;
   readonly ma?: number;
   readonly maxHpBase?: number;
+  readonly brave?: number;
+  readonly faith?: number;
   readonly ct?: number;
   readonly team?: string;
   readonly hp?: number;
@@ -54,6 +56,8 @@ export function makeUnit(overrides: {
       pa: overrides.pa ?? 5,
       ma: overrides.ma ?? 4,
       maxHpBase: overrides.maxHpBase ?? 100,
+      brave: overrides.brave ?? 100,
+      faith: overrides.faith ?? 70,
     },
     vitals: { hp: overrides.hp ?? 100, mp: overrides.mp ?? 0 },
     statuses: overrides.statuses ?? [],
