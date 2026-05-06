@@ -28,6 +28,12 @@ interface AbilityCommon {
   // Pre-modifier base cost. Per-character cost (`getCost`) may reduce
   // this to 0 via class grants or other modulations.
   readonly baseCost: number;
+  // Optional tags for category-based interactions (Silence blocking
+  // 'voice'-tagged actions, Fire Mage Support adding Burn to all
+  // 'magical'-tagged hits, etc.). Open string union — adding a new tag
+  // is content work. The first consumer ships in session 16 (Silence's
+  // 'voice' gating); the field is here in 13.7 so spec and engine align.
+  readonly tags?: ReadonlyArray<string>;
 }
 
 // Ranged targeting modes. `melee` requires only inRange; `straight_line`
@@ -44,14 +50,26 @@ export interface AbilityRange {
 }
 
 // Targeting specification — what the ability needs to be aimed at and
-// how its target is validated. v1 covers the two modes session 7 needs:
-// `self` (no target argument) and `single_unit` (target is a unit, with
-// range + range-mode validation). AoE / multi-target / tile-targeting
-// land additively when their content consumers do.
+// how its target is validated. Three kinds:
+//
+//   'self'        — no target argument; the ability targets the actor.
+//   'single_unit' — target is a unit; range + rangeMode gate validation.
+//   'tile'        — target is a tile (Position); range + rangeMode gate
+//                   validation. AoE-anchored and tile-anchored single-
+//                   target abilities use this kind. Type added 13.7;
+//                   validation lands in session 15 (charged tile-AoE)
+//                   and the AoE per-target dispatch lands in session 17.
+//                   `validateAction` throws "tile target not yet
+//                   implemented" until those consumers ship.
 export type TargetingSpec =
   | { readonly kind: 'self' }
   | {
       readonly kind: 'single_unit';
+      readonly range: AbilityRange;
+      readonly rangeMode: RangeMode;
+    }
+  | {
+      readonly kind: 'tile';
       readonly range: AbilityRange;
       readonly rangeMode: RangeMode;
     };
@@ -106,12 +124,13 @@ export interface AbilityEffects {
 export interface ActiveAbilityDefinition extends AbilityCommon {
   readonly kind: 'active';
   readonly targeting: TargetingSpec;
-  // CT charge cost. 0 = instant (resolves immediately on UseAbility);
-  // > 0 = creates a ChargedAction with this initial CT-shaped charge
-  // time and pairs a Charging status onto the caster. Session 7 wires
-  // the chargeTicks: 0 path; chargeTicks > 0 lands its full plumbing
-  // when the first content consumer ships.
-  readonly chargeTicks: number;
+  // Action Speed — the rate at which the spawned ChargedAction
+  // accumulates CT each tick (see docs/design/ct-system.md). 0 = instant
+  // (resolves immediately on UseAbility); > 0 = creates a ChargedAction
+  // with `ct: 0, speed: actionSpeed` and pairs a Charging status onto
+  // the caster. Session 7 wires the actionSpeed: 0 path; the > 0 path
+  // lands its full plumbing in session 15 alongside ChargedAction.
+  readonly actionSpeed: number;
   readonly mpCost: number;
   readonly effects: AbilityEffects;
 }

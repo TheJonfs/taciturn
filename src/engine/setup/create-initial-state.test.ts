@@ -38,7 +38,7 @@ function placementOf(overrides: {
     classId: classId(overrides.classId ?? 'knight'),
     position: overrides.position ?? { x: 0, y: 0, layer: 0 },
     facing: 'N',
-    baseStats: { spd: 10, pa: 5, ma: 4, maxHpBase: 100 },
+    baseStats: { spd: 10, pa: 5, ma: 4, maxHpBase: 100, brave: 100, faith: 70 },
     vitals: { hp: 100, mp: 0 },
     loadout: overrides.loadout ?? knightLoadout(),
     ...(overrides.initialCT !== undefined ? { initialCT: overrides.initialCT } : {}),

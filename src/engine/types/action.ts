@@ -67,7 +67,7 @@ export interface UseAbilityOutcome {
   readonly abilityId: AbilityId;
   readonly perTargetResults: ReadonlyArray<AbilityTargetResult>;
   readonly mpSpent: number;
-  // When chargeTicks > 0, the UseAbility commit creates a ChargedAction
+  // When actionSpeed > 0, the UseAbility commit creates a ChargedAction
   // and applies the Charging status; the actual effect resolution
   // happens later via `charged_action_resolve`.
   readonly chargedActionId?: ChargedActionId;

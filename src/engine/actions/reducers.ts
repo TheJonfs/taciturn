@@ -203,14 +203,15 @@ export function reduceUseAbility(
   const ability = expectActiveAbility(catalog, action.payload.abilityId);
   const actor = getUnit(state, action.actorId);
 
-  // Charge-time gate: chargeTicks > 0 spawns a ChargedAction and
-  // applies the Charging status. Effect resolution happens later when
-  // the charged action triggers (charged_action_resolve). Session 7
-  // ships the chargeTicks: 0 path and the chargeTicks > 0 hookup
-  // arrives when its first content consumer ships.
-  if (ability.chargeTicks > 0) {
+  // Action Speed gate: actionSpeed > 0 spawns a ChargedAction with
+  // `ct: 0, speed: actionSpeed` and applies the Charging status. Effect
+  // resolution happens later when the charged action triggers
+  // (charged_action_resolve). Session 7 ships the actionSpeed: 0 path
+  // and the actionSpeed > 0 hookup arrives in session 15 when the
+  // first content consumer ships.
+  if (ability.actionSpeed > 0) {
     throw new Error(
-      `reduceUseAbility: chargeTicks > 0 not implemented yet (ability ${JSON.stringify(ability.id)})`,
+      `reduceUseAbility: actionSpeed > 0 not implemented yet (ability ${JSON.stringify(ability.id)})`,
     );
   }
 

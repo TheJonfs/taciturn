@@ -87,6 +87,7 @@ function placementToUnit(
     ct,
     baseStats: placement.baseStats,
     vitals: placement.vitals,
+    resistances: placement.resistances ?? new Map(),
     statuses: placement.statuses ?? [],
   };
 }

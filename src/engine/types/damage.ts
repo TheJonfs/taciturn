@@ -23,8 +23,14 @@ import type { Unit } from './unit.ts';
 // Damage / healing tags used by stage handlers and resistance checks.
 // The set is closed today; new tags arrive with the content that needs
 // them (see docs/design/status-effects.md "Tags" for the parallel
-// status-tag pattern). 'healing' is the polarity flip — its presence
-// causes the finalize stage to add to HP rather than subtract.
+// status-tag pattern). The convention: a class or ability that
+// introduces a new tag extends this union in the same change. Adding a
+// tag here is one edit; existing handlers stay correct because they
+// discriminate on tag presence.
+//
+// 'healing' is the polarity flip — its presence causes the finalize
+// stage to add to HP rather than subtract. Per ADR-0016, 'healing'
+// also opts out of resistance modulation entirely.
 export type DamageTag =
   | 'physical'
   | 'magical'
@@ -34,6 +40,7 @@ export type DamageTag =
   | 'fire'
   | 'ice'
   | 'lightning'
+  | 'earth'    // Added 13.7 ahead of Earth Mage (session 16).
   | 'healing';
 
 // Per-source labelled multiplier applied at finalize. The product of

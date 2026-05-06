@@ -14,6 +14,7 @@
 // a consumer needs it.
 
 import type { VictoryCondition } from './battle-outcome.ts';
+import type { DamageTag } from './damage.ts';
 import type { ClassId, RulesetId, TeamId, UnitId } from './ids.ts';
 import type { Loadout } from './loadout.ts';
 import type { Direction, Position } from './spatial.ts';
@@ -41,6 +42,7 @@ export interface UnitPlacement {
   readonly vitals: Vitals;
   readonly loadout: Loadout;
   readonly statuses?: ReadonlyArray<StatusInstance>;
+  readonly resistances?: ReadonlyMap<DamageTag, number>;
   readonly initialCT?: number;
 }
 

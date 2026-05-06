@@ -17,7 +17,7 @@ import {
   TILE_SIZE,
 } from './constants.ts';
 
-export type HighlightKind = 'move' | 'attack' | 'aoe' | 'none';
+export type HighlightKind = 'move' | 'attack' | 'heal' | 'aoe' | 'none';
 
 export class HighlightLayer {
   readonly container: Container;

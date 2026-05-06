@@ -35,10 +35,25 @@ export interface ClassMovementBaseline {
   readonly specialMovement?: SpecialMovementType;
 }
 
+// Per-facing evasion baseline. Front/Side/Back follow the FFT-style
+// "front cone, two side cones, back cone" facing model (see
+// docs/battle-mechanics-guide.md "Evasion and accuracy"). Values are
+// percentages on the [0, 99] scale; they compose with equipment and
+// status-tier evasion modifiers (additive composition is v1's default).
+//
+// Added 13.7 ahead of session 14's evasion_check pipeline handler
+// (per ADR-0019). v1 classes set zero evasion until tuning lands.
+export interface ClassEvasionBaseline {
+  readonly front: number;
+  readonly side: number;
+  readonly back: number;
+}
+
 export interface ClassDefinition {
   readonly id: ClassId;
   readonly name: string;
   readonly movement: ClassMovementBaseline;
+  readonly evasion: ClassEvasionBaseline;
   readonly firstActionCommandSet: CommandSetId;
   readonly freeAbilities: ReadonlySet<AbilityId>;
 }

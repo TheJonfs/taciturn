@@ -30,6 +30,7 @@ function knightCatalog(args?: {
       canEnter: new Set(args?.canEnter ?? ['ground']),
       ...(args?.specialMovement !== undefined ? { specialMovement: args.specialMovement } : {}),
     },
+    evasion: { front: 0, side: 0, back: 0 },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
   };

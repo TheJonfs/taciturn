@@ -10,10 +10,12 @@
 //     deadlocked, or regressed below the placeholder controller.
 //
 //   - It is NOT a strength benchmark. The demo battle is a symmetric
-//     1v1 with identical stats: whichever side goes first lands the
-//     first hit and tends to snowball. To factor out that bias each
-//     seed is run twice with team assignments swapped — the AI must
-//     win at least its share of the matchups it plausibly should.
+//     2v2 with identical stats and loadouts: whichever side acts first
+//     gets to set the tempo, and Counter / Cure now muddy the picture
+//     further (counter-fire, mid-fight heals). To factor out the
+//     first-mover bias each seed is run twice with team assignments
+//     swapped — the AI must win at least its share of the matchups it
+//     plausibly should.
 //
 // The test deliberately uses real content (loadDefaultCatalog,
 // demoBattle) — that's the integration surface we ship.
@@ -97,7 +99,7 @@ describe('basic AI vs greedy controller — full demo battle', () => {
       m.result.winner !== null && m.result.winner !== String(m.aiTeam),
     ).length;
 
-    // The demo battle is a symmetric duel where first-mover tends to
+    // The demo battle is a symmetric 2v2 where first-mover tends to
     // win. Across both team assignments the AI should not lose more
     // matchups than greedy — i.e., the heuristic isn't strictly worse
     // than picking the closest enemy.

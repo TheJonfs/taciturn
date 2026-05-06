@@ -48,6 +48,7 @@ function knightClass(): ClassDefinition {
     id: classId('knight'),
     name: 'Knight',
     movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
+    evasion: { front: 0, side: 0, back: 0 },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
   };
@@ -71,7 +72,7 @@ function attackAbility(power = 4): ActiveAbilityDefinition {
     bucket: bucketId('first_action'),
     baseCost: 1,
     targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
-    chargeTicks: 0,
+    actionSpeed: 0,
     mpCost: 0,
     effects: { damage: { tags: ['physical', 'weapon'], power } },
   };

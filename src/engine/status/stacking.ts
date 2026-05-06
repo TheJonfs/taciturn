@@ -133,5 +133,15 @@ export function applyStackingRule(
         lifecycle: NO_LIFECYCLE,
       };
     }
+
+    case 'STACK_COUNT_ADDITIVE': {
+      // Per ADR-0018: stack count increments on existing instance;
+      // magnitude is a per-stack constant (not summed); duration
+      // refreshes. First consumer is Burn in session 19; the throw
+      // surfaces any earlier accidental use of the rule.
+      throw new Error(
+        `applyStackingRule: STACK_COUNT_ADDITIVE not yet implemented (status type ${JSON.stringify(type.id)}); lands session 19 alongside Burn`,
+      );
+    }
   }
 }

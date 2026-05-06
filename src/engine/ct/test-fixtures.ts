@@ -15,6 +15,7 @@ import {
   teamId,
   unitId as mkUnitId,
   type ChargedAction,
+  type DamageTag,
   type Direction,
   type GameState,
   type Loadout,
@@ -30,11 +31,14 @@ export function makeUnit(overrides: {
   readonly pa?: number;
   readonly ma?: number;
   readonly maxHpBase?: number;
+  readonly brave?: number;
+  readonly faith?: number;
   readonly ct?: number;
   readonly team?: string;
   readonly hp?: number;
   readonly mp?: number;
   readonly statuses?: ReadonlyArray<StatusInstance>;
+  readonly resistances?: ReadonlyMap<DamageTag, number>;
   readonly classId?: string;
   readonly position?: Position;
   readonly facing?: Direction;
@@ -54,8 +58,11 @@ export function makeUnit(overrides: {
       pa: overrides.pa ?? 5,
       ma: overrides.ma ?? 4,
       maxHpBase: overrides.maxHpBase ?? 100,
+      brave: overrides.brave ?? 100,
+      faith: overrides.faith ?? 70,
     },
     vitals: { hp: overrides.hp ?? 100, mp: overrides.mp ?? 0 },
+    resistances: overrides.resistances ?? new Map(),
     statuses: overrides.statuses ?? [],
   };
 }

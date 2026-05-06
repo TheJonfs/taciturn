@@ -1,4 +1,4 @@
-// ActionMenu — Move / Attack / Wait buttons for the active unit.
+// ActionMenu — Move / Attack / Cure / Wait buttons for the active unit.
 //
 // Buttons are gated on:
 //   - `waiting`: engine is busy (animations playing or scheduler
@@ -6,14 +6,16 @@
 //   - `isOurTurn`: the active unit belongs to a non-UI team — menu is
 //     hidden.
 //   - per-button budget checks: Move requires movesAvailable > 0,
-//     Attack requires actsAvailable > 0.
+//     Attack and Cure require actsAvailable > 0.
+//   - per-ability availability: Cure only renders if the active unit
+//     has it equipped (`hasCure`).
 //
-// While the user is in a sub-mode (`picking-move` / `picking-attack`)
-// the corresponding button reads as the "active" one, and a Cancel
-// button appears to back out without committing.
+// While the user is in a sub-mode (`picking-move` / `picking-attack` /
+// `picking-cure`) the corresponding button reads as the "active" one,
+// and a Cancel button appears to back out without committing.
 //
-// v1 only — the Attack button hardcodes the basic `attack` ability.
-// The full FFT-style command menu (read class.firstActionCommandSet,
+// v1 only — Attack and Cure are each hardcoded against their ability
+// id. The full FFT-style command menu (read class.firstActionCommandSet,
 // list each ability) lands during the class/ability content-expansion
 // pass.
 
@@ -26,14 +28,27 @@ export interface ActionMenuProps {
   readonly isOurTurn: boolean;
   readonly waiting: boolean;
   readonly turnState: TurnState;
+  readonly hasCure: boolean;
   readonly onMove: () => void;
   readonly onAttack: () => void;
+  readonly onCure: () => void;
   readonly onWait: () => void;
   readonly onCancel: () => void;
 }
 
 export function ActionMenu(props: ActionMenuProps): ReactElement {
-  const { mode, isOurTurn, waiting, turnState, onMove, onAttack, onWait, onCancel } = props;
+  const {
+    mode,
+    isOurTurn,
+    waiting,
+    turnState,
+    hasCure,
+    onMove,
+    onAttack,
+    onCure,
+    onWait,
+    onCancel,
+  } = props;
 
   const movesAvail = turnState?.budget.movesAvailable ?? 0;
   const actsAvail = turnState?.budget.actsAvailable ?? 0;
@@ -56,6 +71,14 @@ export function ActionMenu(props: ActionMenuProps): ReactElement {
         disabled={baseDisabled || actsAvail <= 0}
         active={mode.kind === 'picking-attack'}
       />
+      {hasCure && (
+        <Button
+          label={`Cure (${actsAvail})`}
+          onClick={onCure}
+          disabled={baseDisabled || actsAvail <= 0}
+          active={mode.kind === 'picking-cure'}
+        />
+      )}
       <Button
         label="Wait"
         onClick={onWait}
@@ -75,6 +98,9 @@ export function ActionMenu(props: ActionMenuProps): ReactElement {
       )}
       {isOurTurn && !waiting && mode.kind === 'picking-attack' && (
         <div style={statusLineStyle}>Click a red tile to attack</div>
+      )}
+      {isOurTurn && !waiting && mode.kind === 'picking-cure' && (
+        <div style={statusLineStyle}>Click a green tile to heal</div>
       )}
     </div>
   );

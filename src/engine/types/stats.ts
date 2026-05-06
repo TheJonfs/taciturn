@@ -23,6 +23,16 @@ export interface BaseStats {
   // `maxHp` query (modifyStatQuery hook chain) consumed by healing's
   // cap stage. Damage's lower-bound cap is 0 and doesn't read this.
   readonly maxHpBase: number;
+  // Character-layer stats. Stored on BaseStats for v1 simplicity; their
+  // "character layer" property in the design (durability across battles,
+  // class changes, equipment swaps) describes their progression model,
+  // not where they're laid out on the per-battle Unit. Consumers ship
+  // in session 14 (Faith_factor in magical formulas, Brave/100 in
+  // reaction trigger chance). Range [1, 100]; v1 test units default to
+  // brave 100 (deterministic Counter triggering) and faith 70 (typical
+  // mid-tier).
+  readonly brave: number;
+  readonly faith: number;
 }
 
 export interface Vitals {

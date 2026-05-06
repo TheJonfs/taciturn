@@ -26,6 +26,11 @@ export const knight: ClassDefinition = {
     terrainCosts: new Map(),
     canEnter: new Set(['ground']),
   },
+  // Heavy class baseline per docs/battle-mechanics-guide.md "Evasion and
+  // accuracy" (most classes 5-15 front, 3-8 side, 0 back). Values stay
+  // at 0 until session 14's evasion_check handler ships and tuning takes
+  // a real pass — see ADR-0019.
+  evasion: { front: 0, side: 0, back: 0 },
   firstActionCommandSet: commandSetId('battle_skill'),
   freeAbilities: new Set([abilityId('move_plus_1')]),
 };

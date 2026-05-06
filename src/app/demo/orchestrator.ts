@@ -110,6 +110,38 @@ export class DemoOrchestrator {
     if (actor === undefined) {
       throw new Error('DemoOrchestrator: active unit missing from state');
     }
+    // The active unit can be KO'd mid-turn by a Counter (or other
+    // reaction that draws from the chain). Their TurnState is still
+    // present, but they can't act — `validateAction` would reject any
+    // proposed action with "Unit is KO'd and cannot act". Force a
+    // turn_end so the chain unwinds and the scheduler advances.
+    //
+    // This is a defensive guard at the orchestrator level. The
+    // architecturally cleaner fix lives in the engine: `commitAction`
+    // could auto-emit turn_end as a generated action when its chain
+    // leaves the active unit KO'd, parallel to Stop's skipped-turn
+    // mechanism. That's a real policy decision (and warrants an ADR);
+    // session 13 ships the orchestrator-level guard and defers the
+    // engine change to a later session.
+    if (actor.vitals.hp <= 0) {
+      const turnEnd: ProposedAction = {
+        type: 'turn_end',
+        source: 'system',
+        payload: { unitId: actor.id },
+      };
+      const result = commitAction(this.state, turnEnd, this.catalog);
+      if (!result.ok) {
+        throw new Error(
+          `DemoOrchestrator: forced turn_end for KO'd active unit failed: ${result.reason}`,
+        );
+      }
+      this.state = result.newState;
+      return {
+        newState: this.state,
+        committed: result.committed,
+        done: this.state.outcome !== undefined,
+      };
+    }
     const controller = this.pickController(actor);
     const decision = controller(this.state, this.catalog);
 

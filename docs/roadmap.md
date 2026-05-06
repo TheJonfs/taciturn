@@ -119,9 +119,29 @@ Coverage: 11 unit tests for `decideBasicAi` (target selection, ability enumerati
 
 References: `src/ai/`, `src/app/controllers/ai-controller.ts`.
 
-### 13. First playable end-to-end battle
+### 13. First playable end-to-end battle ✅
 
-Integration milestone. One unit per side, one map, a small but real ability set drawn from prior content-expansion passes. Goal: the engine, renderer, UI, and AI together produce a battle that someone can sit down and play through to a win/loss conclusion. Bugs and gaps surfaced here drive the next round of session priorities.
+*Completed 2026-05-03.* Demo battle expanded from symmetric 1v1 to 2v2: each side has two Knights with Battle Skill on First Action, **White Magic (Cure) on Second Action**, **Counter** in the Reaction bucket, and Move +1 in Movement. A new `white_magic` command set (currently containing just Cure) lives in `src/content/command-sets/`. Knights start at 60 HP / 10 MP — enough for two Cures with slack.
+
+UI: ActionMenu gained a `Cure` button (gated on `hasCure`, which checks whether Cure is in any of the active unit's equipped command sets); `useBattleUi` gained a `picking-cure` mode that paints green ('heal') highlights on legal ally targets and routes clicks to a `use_ability` submission with `cure`. Renderer's `HighlightLayer` got a `'heal'` highlight kind (green, matches the HP bar). The Attack and Cure paths each remain hardcoded against their ability id; the FFT-style ability-picker (read each equipped command set, render one button per active member) is deferred to a later session as its own scoped concern.
+
+AI: `decideBasicAi` gained a heal phase that runs before the existing attack/move phases. When any living ally (including the actor) is at or below `HEAL_THRESHOLD = 0.5` of `maxHpBase` and is in cure range from the actor's current position, the AI casts the highest-power healing ability on the most-wounded ally (lex-id tiebreak). Move-to-heal (closing distance to a wounded ally out of range) is deferred. Eight new unit tests in `src/ai/basic.test.ts` cover the heal/attack precedence, target selection, threshold, MP gating, enemy-unit filtering, and the no-move-to-heal property.
+
+Bug surfaced and fixed: Counter creates mid-turn KOs of the active unit (turn-holder gets countered, dies, `turnState` still points at them, controller proposes an action for the corpse, `validateAction` rejects). Fixed in the demo orchestrator with a defensive guard: KO'd active unit → force `turn_end` before consulting the controller. The engine-side auto-emit (parallel to Stop's skipped-turn pattern) is the architecturally cleaner long-term fix and is deferred. **ADR-0013** captures the orchestrator-vs-engine choice and the deferred engine work.
+
+Dev-only browser preview hook: `import.meta.env.DEV`-gated `window.__taciturnDebug` with `tick(ms?)`, `pump(n, msPerTick?)`, `getState()`, `isIdle()`, `uiEndTurn()`, `uiSubmit(action)`. Replaces the temporary debug hook session 12 used and the manual add/remove cycle. Synthetic clock since wall-clock time barely advances in a tight JS loop.
+
+345 tests pass (was 337; added 8 AI healing tests). End-to-end browser verified: 2v2 demo loads, Cure button appears in HUD on player's turn, AI casts Cure mid-battle (red_knight_n's MP went 10 → 6), Counter chains fire visibly through the damage-and-reaction pipeline, battle decides cleanly with the win banner.
+
+References: `src/content/command-sets/white-magic.ts`, `src/content/battles/demo.ts`, `src/ui/`, `src/ai/basic.ts`, `src/app/demo/orchestrator.ts`, ADR-0013.
+
+### 13.7. Reconciliation resolution ✅
+
+*Completed 2026-05-06.* Infrastructure-and-documentation session that processed the reconciliation report and aligned the new reference docs (Battle Mechanics Guide, Ability Format Spec, sessions 14–20 roadmap) with the engine code. Six new ADRs (0014–0019) record the architectural decisions: equipment integration deferred to session 17 (0014), multi-tag damage composition uses signed maximum (0015), healing opts out of resistance modulation (0016), system actions for status side effects (0017, infrastructure lands session 16), STACK_COUNT_ADDITIVE stacking rule (0018, implementation lands session 19), physical hit roll fires at the target stage (0019, lands session 14).
+
+Code refactors land additive shape changes for the upcoming sessions: `chargeTicks` → `actionSpeed` rename (CT-accumulation-rate, not initial CT charge time); `brave`/`faith` added to `BaseStats` and `StatName` (defaults brave 100, faith 70); `'earth'` added to `DamageTag` ahead of Earth Mage; `resistances: ReadonlyMap<DamageTag, number>` added to `Unit` and `UnitPlacement`; `evasion: { front, side, back }` added to `ClassDefinition` (Knight defaults to 0/0/0); `TargetingSpec` extended with `'tile'` kind (validateAction throws "not yet implemented" until consumers ship); `STACK_COUNT_ADDITIVE` added to `StackingRule` (apply throws on the branch); optional `tags?: ReadonlyArray<string>` added to `AbilityDefinition`. Behavior-changing infrastructure (system actions for status side effects, reaction compiler, Counter refactor) defers to session 16 per ADR-0017 timing.
+
+Battle Mechanics Guide, Ability Format Spec, and sessions 14–20 roadmap all updated to reflect the ADR resolutions and the renames. 345 tests pass throughout. References: ADRs 0014–0019, `docs/session-13-7-plan.md`, `docs/reconciliation.md`.
 
 ## Content-expansion passes (interleaved)
 

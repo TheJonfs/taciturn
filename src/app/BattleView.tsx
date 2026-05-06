@@ -133,6 +133,44 @@ export function BattleView() {
       };
       app.ticker.add(pump);
 
+      // Dev-only debug surface. Browser-preview verification needs a
+      // way to drive the orchestrator when the tab is hidden (Pixi
+      // throttles its ticker, the pump never fires). Calling
+      // `window.__taciturnDebug.tick()` from a preview eval pumps once;
+      // `pump(N)` pumps N times. `uiEndTurn()` submits an end-turn
+      // through the UiController without waiting for React to enable
+      // the Wait button. Available only in dev builds — Vite
+      // tree-shakes the entire branch out of production.
+      if (import.meta.env.DEV) {
+        // Synthetic clock for the debug ticker. Pixi's ticker derives
+        // deltaMS from wall-clock `performance.now()`, which barely
+        // advances inside a tight JS loop (sub-ms per iteration), so a
+        // straight `update()` call doesn't progress animations. We
+        // maintain our own monotonic clock and pass it explicitly.
+        let debugClock = performance.now();
+        const debug = {
+          tick: (ms = 16) => {
+            debugClock += ms;
+            app.ticker.update(debugClock);
+          },
+          pump: (n: number, msPerTick = 16) => {
+            for (let i = 0; i < n; i++) {
+              debugClock += msPerTick;
+              app.ticker.update(debugClock);
+            }
+          },
+          getState: () => orchestrator.getState(),
+          isIdle: () => battleRenderer.isIdle(),
+          uiEndTurn: () => {
+            if (!uiController.hasPending()) uiController.endTurn();
+          },
+          uiSubmit: (action: import('@engine/index.ts').ProposedAction) => {
+            if (!uiController.hasPending()) uiController.submit(action);
+          },
+        };
+        (window as unknown as { __taciturnDebug: typeof debug }).__taciturnDebug = debug;
+      }
+
       cleanup = () => {
         finished = true;
         app.ticker.remove(pump);
@@ -141,6 +179,9 @@ export function BattleView() {
           host.removeChild(app.canvas);
         }
         setRenderer(null);
+        if (import.meta.env.DEV) {
+          delete (window as unknown as { __taciturnDebug?: unknown }).__taciturnDebug;
+        }
       };
     })();
 
