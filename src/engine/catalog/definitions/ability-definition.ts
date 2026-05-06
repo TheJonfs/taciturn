@@ -28,6 +28,12 @@ interface AbilityCommon {
   // Pre-modifier base cost. Per-character cost (`getCost`) may reduce
   // this to 0 via class grants or other modulations.
   readonly baseCost: number;
+  // Optional tags for category-based interactions (Silence blocking
+  // 'voice'-tagged actions, Fire Mage Support adding Burn to all
+  // 'magical'-tagged hits, etc.). Open string union — adding a new tag
+  // is content work. The first consumer ships in session 16 (Silence's
+  // 'voice' gating); the field is here in 13.7 so spec and engine align.
+  readonly tags?: ReadonlyArray<string>;
 }
 
 // Ranged targeting modes. `melee` requires only inRange; `straight_line`
