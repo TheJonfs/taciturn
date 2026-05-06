@@ -21,53 +21,54 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-03 (first playable battle)
+## From session 2026-05-06 (13.7 reconciliation resolution)
 
 ### Suggested next-session scope
 
-This session closed roadmap entry 13 ("first playable end-to-end battle"). The roadmap's main numbered sequence ends here; the next session is the first one that doesn't have a pre-numbered slot. Two reasonable framings, both real:
+Session 14 — Magical damage foundation. Per `docs/roadmap-sessions-14-20.md`, this is an engine-only session: magical damage handler, Faith pipeline, resistance system wiring, MP cost timing, healing as a tag-flipped variant. The 13.7 cleanup means the type substrate is ready — `Unit.resistances` exists, `BaseStats.faith` exists, `DamageTag` has `'earth'`, and `evasion_check` placement is settled per ADR-0019.
 
-1. **Take `docs/progress.md` to a planning conversation** to scope the next round of engine vs content work. The progress doc was written specifically for this. Output of that planning session is one or more new roadmap entries.
+The prerequisites for session 14 that I want to flag explicitly:
 
-2. **Pick a small content-expansion pass** without going through planning, on the grounds that one or two more passes will surface the right scoping signal. Concrete candidates:
-   - **Add a second class** (Priest is the obvious one — gives the demo battle Knight + Priest per side, makes White Magic on a non-Knight class thematically clean, exercises class-pinned First Action across two distinct values).
-   - **Add a new map with elevation.** Exercises jump and LoS in actual play.
-   - **Generalize the ActionMenu to the FFT-style ability picker.** Replaces the hardcoded Attack/Cure buttons with a generic per-command-set submenu. Modest UI session.
-
-My recommendation if forced: framing 1 (planning) — the deferred-work surface is broad enough now that picking the next thing without a plan risks doubling back on a different priority later. But framing 2's content sessions are all small and any of them is fine to land first.
+- **Unit.resistances is empty by default** in current fixtures and demo battles. Session 14's resistance stage handler ships and reads it; until content lands per-class baseline resistances (session 16 for Earth's `earth: 25`), the existing demo battle plays through with all-zero resistances and damage numbers stay identical.
+- **Brave 100 / Faith 70** on demo units is documented in `engine/types/stats.ts`'s comment; session 14's Faith_factor consumers will produce `0.7 × 0.7 = 0.49` for symmetric Faith on the demo. That's a damage-and-heal hit of about half. May want to bump faith higher for testability before tuning lands. Worth a one-line check at session start.
+- **`evasion_check` handler reads class baselines (currently 0/0/0)**. Until tuning takes a real pass, every physical attack effectively auto-hits. That's fine; it preserves current test behavior.
 
 ### Things noticed during the session
 
-- **`docs/progress.md` is new.** It was created this session as input to the planning conversation Chris flagged. It's intended to live as a durable, periodically-refreshed snapshot — distinct from the roadmap (sequenced) and the handoff (transient). Refresh discipline is open: probably "refresh after every 3–4 sessions" or "refresh whenever it goes meaningfully out of date." Worth deciding when the next planning session lands.
+- **The reconciliation report's section 6 listed 15 design questions.** All 15 are resolved by the six 13.7 ADRs plus the four scope/shape decisions Chris confirmed at the start of the session (split-scope land-now vs defer; Brave 100 / Faith 70; resistance map keyed by DamageTag; tags? on AbilityDefinition; flat evasion). No question from the original report should be carried forward; each is either an ADR, a doc update, or a code change.
 
-- **Dev-only debug hook in `BattleView`.** `import.meta.env.DEV`-gated `window.__taciturnDebug` with `tick(ms)`, `pump(n, msPerTick)`, `getState()`, `isIdle()`, `uiEndTurn()`, `uiSubmit(action)`. Replaces the temporary "add and remove before commit" pattern session 12 used. Future browser verifications can use this directly. The synthetic-clock detail (Pixi's `app.ticker.update()` reads wall-clock `performance.now()`, which barely advances inside a tight JS loop) is comment-documented in the source — anyone driving the orchestrator from a preview eval needs to use `pump(n, msPerTick)` and not a tight `update()` loop.
+- **The plan called for renaming `displayName` → `name` and `bucketCost` → `baseCost` in the spec.** The engine already used `name` and `baseCost` — no engine code change. Only the spec text changed.
 
-- **The `uiSubmit` debug helper accepts ProposedAction.** Not validated against the catalog before submission — `validateAction` runs at commit time, so an invalid debug submit fails loudly through the orchestrator. That's fine for a dev surface.
+- **`abilityType` (4-way) → `kind` (2-way) in the spec** matched the engine's existing 2-way discriminator with bucket as the sub-discriminator (per ADR-0005). Spec rewritten to match the engine; no engine code changed.
 
-- **Mid-turn KO bug surfaced during integration testing.** Counter creates a chain that can KO the *active* turn-holder, leaving `turnState` pointing at a corpse. ADR-0013 captures the orchestrator-side defensive guard and the deferred engine-side fix. The defensive guard inside `decideBasicAi` was added too — belt-and-suspenders, makes the AI honest as a standalone library.
+- **Reaction compiler / Counter refactor explicitly deferred to session 16** per the ADR-0017 implementation note. The plan's "Refactoring of existing definitions" listed Counter refactor; on the read of the conflict between ADR scope and code-refactor scope, we settled on (b) — defer behavior-changing items per their owning ADRs. The reaction compiler ships in session 16.
 
-- **No second AI tier evaluation infrastructure.** The integration test runs 5 seeds × 2 team assignments and asserts coarse properties (terminate, AI ≥ greedy). Healing didn't break this. When a meaningfully-stronger AI tier ships, the eval bar wants to grow — a tournament suite, summary stats, etc. Not blocking today; flagging because the next AI session will want this on day 1.
+- **The plan flagged a contradiction between ADR scope and Code Refactors scope** for several items (hook handler `emittedActions`, `status_remove`/`status_decrement_stack` action types, STACK_COUNT_ADDITIVE apply.ts logic, reaction compiler / Counter refactor). Resolution: ADRs document the architectural decision; code refactors land *additive* shape changes (enum value, throw-on-unimplemented branch) but defer *behavior* implementation to the owning session. This kept 13.7 to mechanical work and avoided shipping infrastructure with no consumer.
+
+- **No new test failed at any checkpoint.** 345 tests pass start to end. The mechanical nature of the renames (engine had `name`/`baseCost` already; `chargeTicks` → `actionSpeed` was a rename with the same semantics) made for a low-risk session.
 
 ### Things considered but did not do
 
-- **Generalize the ActionMenu to a real ability picker.** The session-13 cure UI hardcodes a Cure button alongside the Attack button. The right design is "ActionMenu reads each equipped command set and renders one button per active member; the picker submenu drives target-selection." Skipped — would have doubled the session scope; the hardcoded approach matches the existing Attack pattern and is forward-compatible (the picker is a future refactor).
+- **Writing the reaction compiler in 13.7.** Considered as part of the "Counter refactor" code path. Skipped per ADR-0017 timing — the compiler's first new consumer is Earth's Reaction in session 16, and building it ahead of the spec's first content consumer risks the shape being wrong. When session 16 lands the compiler, Counter refactors as the worked example simultaneously.
 
-- **Engine-side auto-emit `turn_end` on active-unit KO.** Architecturally cleaner than the orchestrator-side guard. Skipped — real policy decision (when exactly does it fire?), warrants its own ADR session. ADR-0013 captures this explicitly.
+- **Implementing the `'tile'` TargetingSpec validation in 13.7.** The type lands; the validation throws. Per the plan's split-scope rule, validation lands when the first consumer (session 15's charged tile-AoE) ships. The throw means an ability authored with `tile` targeting fails fast, not silently.
 
-- **AI move-to-heal.** Heal phase only fires when a wounded ally is in cure range from the actor's *current* position. A heal-aware move-scoring pass is the obvious next refinement. Skipped — the v1 demo already shows useful heal behavior (red_knight_n cured red_knight_s mid-battle, observed in browser); the move-to-heal refinement waits for content where it's distinguishably needed.
+- **Adding evasion to a `baselines` group on ClassDefinition.** Current `ClassDefinition` doesn't have a `baselines` group; movement is its own field. Going flat with a top-level `evasion` field. When more baseline values arrive (resistance baseline per class, brave/faith class modifiers), reconsider grouping.
 
-- **Stat-hooks-aware maxHp in the AI heal threshold.** The threshold uses `unit.baseStats.maxHpBase` directly. The architecturally correct version walks `runModifyStatQuery(state, catalog, { unit, statName: 'maxHp', baseValue: u.baseStats.maxHpBase })`. Skipped — no v1 content modifies maxHp at runtime, so the values are identical. Lands when the first maxHp-modifying status / equipment effect ships.
-
-- **A `'mp'` stat-name + MP-cost validation via the modify-stat-query pipeline.** Same shape as the maxHp note. Currently MP cost is gated against `unit.vitals.mp` directly in `validateAction`. Skipped on the same "no consumer yet" grounds.
-
-- **Charged AI ability handling.** Cure happens to be `chargeTicks: 0`. When charged abilities ship (engine session, deferred), the AI will need to reason about commit-now / cast-at-trigger; today it'd just commit and the engine would throw. Skipped — gated on the charged-action engine session.
+- **Updating the catalog's class-trait field per the spec's `traits?: ClassTrait[]`.** Engine `ClassDefinition` doesn't have `traits` yet; the spec describes a future-state field. No content uses class traits in v1; deferring until first consumer ships.
 
 ### Open questions for later sessions (not blocking)
 
-These are NOT carried forward in the "carried, carried, carried" pattern this file used to use. The detailed durable record now lives in `docs/progress.md` (sections "Engine policy / cleanup gaps" and onwards). Future sessions should *read progress.md*, not look here for the deferred-work catalog.
+- **Burn's per-stack damage value.** Battle Mechanics Guide and roadmap both list it as TBD. Recommended starting value 5–8 per ADR-0018 examples. Lands in session 19's Burn definition.
 
-What this section is for instead: things genuinely specific to *this* session's state that the next session might want to know about.
+- **Speed ceiling specific value.** Per the Battle Mechanics Guide, the 3.0× base suggestion is a starting point. Tuning question; lands when Haste-stacking content makes it real (session 16+ may surface this).
 
-- **The dev `__taciturnDebug` hook should probably get a documented usage note** somewhere (CLAUDE.md? `docs/architecture/`?). Right now its existence is only discoverable via the `BattleView.tsx` source. Low priority; flag for the next time someone touches that area.
+- **Tags on `AbilityDefinition` use string, not a closed union.** Per the spec's "AbilityTagId is open string." If session 16 (Silence) wants stricter typing (e.g., literal-union over the known tags), the engine type can tighten then. Today: open string, no v1 ability declares tags.
 
-- **2v2 still has the symmetric-fixture property** that the session-12 handoff flagged for 1v1. Both teams have identical stats, loadouts, and Counter, so first-mover bias still dominates the `0xDEC0DE` seed playthrough. The integration test handles this by running both team assignments. When asymmetric content ships (a Knight + Priest setup with different roles per unit), the bias relaxes naturally.
+- **The `'tile'` validation throw is a programmer-error throw, not a return-invalid.** Matches the convention for "not yet implemented" engine paths — throwing means the throw stack identifies which ability tried tile targeting. When session 15 lands real tile validation, this branch becomes the working code path.
+
+- **Faith 70 may be too low for session 14 demo damage.** Faith_factor for caster→target both at 70 produces 0.49× on magical formulas — significant. May want to bump v1 default to 80 or 85 before session 14 to keep damage numbers feeling right out of the box. Quick tweak; defer to session 14 start.
+
+### Notes for future ADRs
+
+When the engine-side `turn_end` on KO ADR lands (session 15 fold-in per the updated roadmap), it'll supersede ADR-0013's "deferred" status. Mark ADR-0013 as superseded in its frontmatter and add a back-reference to the new ADR.

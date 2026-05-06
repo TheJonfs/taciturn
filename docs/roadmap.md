@@ -135,6 +135,14 @@ Dev-only browser preview hook: `import.meta.env.DEV`-gated `window.__taciturnDeb
 
 References: `src/content/command-sets/white-magic.ts`, `src/content/battles/demo.ts`, `src/ui/`, `src/ai/basic.ts`, `src/app/demo/orchestrator.ts`, ADR-0013.
 
+### 13.7. Reconciliation resolution ✅
+
+*Completed 2026-05-06.* Infrastructure-and-documentation session that processed the reconciliation report and aligned the new reference docs (Battle Mechanics Guide, Ability Format Spec, sessions 14–20 roadmap) with the engine code. Six new ADRs (0014–0019) record the architectural decisions: equipment integration deferred to session 17 (0014), multi-tag damage composition uses signed maximum (0015), healing opts out of resistance modulation (0016), system actions for status side effects (0017, infrastructure lands session 16), STACK_COUNT_ADDITIVE stacking rule (0018, implementation lands session 19), physical hit roll fires at the target stage (0019, lands session 14).
+
+Code refactors land additive shape changes for the upcoming sessions: `chargeTicks` → `actionSpeed` rename (CT-accumulation-rate, not initial CT charge time); `brave`/`faith` added to `BaseStats` and `StatName` (defaults brave 100, faith 70); `'earth'` added to `DamageTag` ahead of Earth Mage; `resistances: ReadonlyMap<DamageTag, number>` added to `Unit` and `UnitPlacement`; `evasion: { front, side, back }` added to `ClassDefinition` (Knight defaults to 0/0/0); `TargetingSpec` extended with `'tile'` kind (validateAction throws "not yet implemented" until consumers ship); `STACK_COUNT_ADDITIVE` added to `StackingRule` (apply throws on the branch); optional `tags?: ReadonlyArray<string>` added to `AbilityDefinition`. Behavior-changing infrastructure (system actions for status side effects, reaction compiler, Counter refactor) defers to session 16 per ADR-0017 timing.
+
+Battle Mechanics Guide, Ability Format Spec, and sessions 14–20 roadmap all updated to reflect the ADR resolutions and the renames. 345 tests pass throughout. References: ADRs 0014–0019, `docs/session-13-7-plan.md`, `docs/reconciliation.md`.
+
 ## Content-expansion passes (interleaved)
 
 These are not numbered in the main sequence because their timing depends on what mechanisms exist. The general pattern: once a mechanism's MVP is in place, an expansion pass adds the breadth of content that uses it.
