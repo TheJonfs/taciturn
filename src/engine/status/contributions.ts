@@ -38,6 +38,7 @@ export function* statusContributionsFor<K extends HookName>(
         tier: 'status',
         priority: typedReg.priority ?? DEFAULT_HOOK_PRIORITY,
         tieBreakIndex: i,
+        sourceTypeId: instance.typeId,
         invoke: (args: HookSignatures[K]['args']) => handler(args, { instance }),
       };
     }

@@ -41,6 +41,12 @@ export const charging: StatusEffectType = {
   durationMode: 'conditional',
   stackingRule: 'REJECT',
   hooks: [
-    statusHook('queryTurnSkipped', () => ({ reason: 'charging' })),
+    statusHook('queryTurnSkipped', () => ({
+      reason: 'charging',
+      // The caster is conscious — per-unit-CT statuses (Poison, Regen,
+      // Burn) tick on the skipped turn. The caster sits idle re: their
+      // own action, but DoTs still progress. Per ADR-0024.
+      suppressStatusTicks: false,
+    })),
   ],
 };

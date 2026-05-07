@@ -54,6 +54,7 @@ The design docs in `docs/design/` are authoritative. When working on a subsystem
 | Turn flow, battle outcomes, validation | `docs/design/turn-structure.md` |
 | Terminology and proper nouns | `docs/design/glossary.md` |
 | Code organization, module boundaries | `docs/architecture/overview.md` |
+| Existing content (id ↔ name lookup) | `docs/content-id-registry.md` |
 
 For decisions made during implementation, check `docs/decisions/` (ADR-style records).
 

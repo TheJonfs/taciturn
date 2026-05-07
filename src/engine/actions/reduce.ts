@@ -14,7 +14,11 @@ import {
   reduceChargedActionResolve,
   reduceMove,
   reduceSetFacing,
+  reduceStatusDecrementStack,
+  reduceStatusRemove,
   reduceStatusTick,
+  reduceSystemApplyStatus,
+  reduceSystemHeal,
   reduceTurnEnd,
   reduceTurnStart,
   reduceUseAbility,
@@ -48,6 +52,14 @@ export function reduce(state: GameState, action: Action, catalog: Catalog): Redu
       return reduceTurnEnd(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'status_tick':
       return reduceStatusTick(state, action, catalog) as ReduceResult<ActionOutcome>;
+    case 'system_heal':
+      return reduceSystemHeal(state, action, catalog) as ReduceResult<ActionOutcome>;
+    case 'system_apply_status':
+      return reduceSystemApplyStatus(state, action, catalog) as ReduceResult<ActionOutcome>;
+    case 'status_remove':
+      return reduceStatusRemove(state, action, catalog) as ReduceResult<ActionOutcome>;
+    case 'status_decrement_stack':
+      return reduceStatusDecrementStack(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'charged_action_resolve':
       return reduceChargedActionResolve(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'battle_end':

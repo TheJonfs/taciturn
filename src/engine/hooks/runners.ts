@@ -7,7 +7,7 @@
 // (e.g., status-specific `fireOnApply`) live with their owning lifecycle
 // instead.
 
-import type { Catalog } from '../catalog/index.ts';
+import type { ActiveAbilityDefinition, Catalog, StatusEffectType } from '../catalog/index.ts';
 import type {
   DamageContext,
   DamageTag,
@@ -15,6 +15,7 @@ import type {
   MovementProfile,
   ProposedAction,
   StatName,
+  StatusTypeId,
   TerrainType,
   Unit,
 } from '../types/index.ts';
@@ -30,6 +31,71 @@ export function runModifyStatQuery(
   let value = args.baseValue;
   for (const h of handlers) {
     value = h.invoke({ unit: args.unit, statName: args.statName, baseValue: value });
+  }
+  return value;
+}
+
+// Multiplicative chain over hit-chance modifiers. Each handler returns
+// a multiplier (1.0 = no change). The product is then folded into the
+// BMG hit_chance formula by `evasion_check`. The base value passed in
+// is the formula's value before the modifier product (typically 1.0;
+// the caller multiplies the returned product into the running chance).
+export function runModifyHitChance(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    target: Unit;
+    attacker: Unit;
+    ability: ActiveAbilityDefinition;
+    baseHitChance: number;
+  },
+): number {
+  // Hooks fire against the *target's* registrations — Blind, etc., live
+  // on the target. (Concentration on the attacker would fire on a
+  // separate handler against the attacker's hooks; the chain here
+  // composes target-side modifiers.)
+  const handlers = collectActiveHandlers(state, args.target.id, catalog, 'modifyHitChance');
+  let value = args.baseHitChance;
+  for (const h of handlers) {
+    value = h.invoke({
+      unit: args.target,
+      attacker: args.attacker,
+      ability: args.ability,
+      baseHitChance: value,
+    });
+  }
+  return value;
+}
+
+// Multiplicative chain over status-application-chance modifiers. Each
+// handler returns a multiplier (1.0 = no change). Hooks fire against
+// the *caster's* registrations — Earth Communion lives on the caster.
+export function runModifyStatusApplicationChance(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    caster: Unit;
+    target: Unit;
+    statusType: StatusEffectType;
+    ability: ActiveAbilityDefinition | null;
+    baseChance: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(
+    state,
+    args.caster.id,
+    catalog,
+    'modifyStatusApplicationChance',
+  );
+  let value = args.baseChance;
+  for (const h of handlers) {
+    value = h.invoke({
+      unit: args.caster,
+      target: args.target,
+      statusType: args.statusType,
+      ability: args.ability,
+      baseChance: value,
+    });
   }
   return value;
 }
@@ -81,15 +147,21 @@ export function runModifySpecialMovement(
 // short-circuit means the most-recently-applied source wins by default
 // when multiple sources contend — a knob the per-handler priority
 // adjusts).
+//
+// `abilityTags` is pre-resolved here: when the action is a use_ability,
+// the runner looks up the ability and forwards its tag set so handlers
+// (Silence on 'magical'/'voice') can gate without a catalog read of
+// their own. Non-use_ability actions get an empty set.
 export function runOnActionAttempted(
   state: GameState,
   catalog: Catalog,
   args: { unit: Unit; action: ProposedAction },
 ): ActionAttemptResult {
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onActionAttempted');
+  const abilityTags = resolveAbilityTags(args.action, catalog);
   let current = args.action;
   for (const h of handlers) {
-    const result = h.invoke({ unit: args.unit, action: current });
+    const result = h.invoke({ unit: args.unit, action: current, abilityTags });
     if (result.kind === 'blocked') return result;
     if (result.kind === 'replaced') {
       current = result.with;
@@ -97,6 +169,15 @@ export function runOnActionAttempted(
   }
   if (current === args.action) return { kind: 'allowed' };
   return { kind: 'replaced', with: current };
+}
+
+const EMPTY_ABILITY_TAGS: ReadonlySet<string> = new Set();
+
+function resolveAbilityTags(action: ProposedAction, catalog: Catalog): ReadonlySet<string> {
+  if (action.type !== 'use_ability') return EMPTY_ABILITY_TAGS;
+  const ability = catalog.getAbility(action.payload.abilityId);
+  if (ability.tags === undefined || ability.tags.length === 0) return EMPTY_ABILITY_TAGS;
+  return new Set(ability.tags);
 }
 
 // Post-application hook firing — collects reactions every handler
@@ -234,4 +315,44 @@ export function runQueryTurnSkipped(
     if (result !== null) return result;
   }
   return null;
+}
+
+// Status-tick side effects: gathers `emittedActions` from each onTick
+// handler registered against the unit. Returns the flat list of
+// emissions for the reducer to enqueue. Handlers can read state and
+// catalog from the args (Regen reads MaxHP and Faith via
+// `runModifyStatQuery` to compute its heal amount).
+//
+// Filtering: only handlers whose statusTypeId matches `statusTypeId` are
+// fired. The caller (status_tick reducer) names the type that's being
+// ticked; handlers register against arbitrary hook names but a status
+// type's tick should only fire that type's handlers, not other statuses
+// on the same unit. The handler receives the type id back so it can
+// confirm — and for paranoia, the runner also matches on source.
+export function runOnTick(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    statusTypeId: StatusTypeId;
+  },
+): ReadonlyArray<ProposedAction> {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onTick');
+  const emissions: ProposedAction[] = [];
+  for (const h of handlers) {
+    // Only the ticking status's own handlers participate. Other
+    // statuses on the unit may have onTick handlers that fire on
+    // *their* tick, not this one.
+    if (h.sourceTypeId !== args.statusTypeId) continue;
+    const result = h.invoke({
+      unit: args.unit,
+      state,
+      catalog,
+      statusTypeId: args.statusTypeId,
+    });
+    if (result.emittedActions !== undefined) {
+      for (const a of result.emittedActions) emissions.push(a);
+    }
+  }
+  return emissions;
 }

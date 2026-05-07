@@ -12,6 +12,7 @@
 // Adding a new action kind is one entry in the union plus a reducer
 // branch and (where applicable) a validator clause.
 
+import type { DamageTag } from './damage.ts';
 import type { AbilityId, ChargedActionId, StatusTypeId, TeamId, UnitId } from './ids.ts';
 import type { Direction, Position } from './spatial.ts';
 import type { StatusApplicationOutcome } from './status-application-outcome.ts';
@@ -25,6 +26,10 @@ export type ActionType =
   | 'turn_end'
   | 'charged_action_resolve'
   | 'status_tick'
+  | 'system_heal'
+  | 'system_apply_status'
+  | 'status_remove'
+  | 'status_decrement_stack'
   | 'battle_end';
 
 export type ActionSource = 'player' | 'system';
@@ -133,6 +138,93 @@ export interface StatusTickOutcome {
   readonly removed: boolean;
 }
 
+// `system_heal` — engine-emitted heal-the-target action used by
+// onTick handlers (Regen) and other status side effects. Distinct from
+// healing-tagged use_ability because it has no caster / ability /
+// reaction surface — it's a pure HP modification driven by a status
+// in flight. Per ADR-0024.
+//
+// `amount` is precomputed by the emitting handler (Regen reads MaxHP and
+// Faith via runModifyStatQuery, computes (Faith/100) × 0.10 × MaxHP, and
+// emits the rounded amount). The reducer applies the floor at MaxHP and
+// records the actual delta.
+export interface SystemHealPayload {
+  readonly targetId: UnitId;
+  readonly amount: number;
+  readonly tags: ReadonlyArray<DamageTag>;
+  readonly source: SystemHealSource;
+}
+export interface SystemHealOutcome {
+  readonly kind: 'system_heal';
+  readonly targetId: UnitId;
+  readonly amount: number;
+  readonly applied: number; // post-cap-at-maxHp delta
+}
+// Provenance for a system_heal — which subsystem emitted it. Lets the
+// log (and a future debug overlay) trace "this 4 HP came from Regen,
+// not from a Cure ability." StatusType-anchored emissions name the
+// type id; future broader sources add new variants.
+export type SystemHealSource =
+  | { readonly kind: 'status_tick'; readonly statusTypeId: StatusTypeId; readonly unitId: UnitId };
+
+// `system_apply_status` — engine-emitted action that applies a status
+// to a target unit *without* running the BMG application chance formula.
+// Used by the reaction compiler when a reaction's effect is "apply
+// status to self/attacker" (Earth Resilience's Move/Jump self-buff
+// when triggered, etc.). The triggering Brave roll has already gated
+// whether the reaction fires; the application itself is deterministic.
+//
+// For ability-driven status applications (Earth Strike's debuff rider,
+// Earth Curse's Blind+Silence), the formula path inside
+// `resolveAbilityEffect` is the right entry point — that path *does*
+// run Faith × MA × resistance × modifiers. Per ADR-0024.
+export interface SystemApplyStatusPayload {
+  readonly targetId: UnitId;
+  readonly statusTypeId: StatusTypeId;
+  readonly sourceUnitId: UnitId | null;
+  readonly magnitude?: number;
+  readonly duration?: number;
+  readonly customState?: Readonly<Record<string, unknown>>;
+}
+export interface SystemApplyStatusOutcome {
+  readonly kind: 'system_apply_status';
+  readonly targetId: UnitId;
+  readonly statusTypeId: StatusTypeId;
+  readonly result: StatusApplicationOutcome;
+}
+
+// `status_remove` — engine-emitted action that removes a named status
+// instance from a target unit. Idempotent: a no-op if the status is
+// not present (logged as `removed: false`). Used by ADR-0017 patterns
+// (Sleep wake-on-damage, Vulnerable consume-on-damage). Per ADR-0024.
+export interface StatusRemovePayload {
+  readonly targetId: UnitId;
+  readonly statusTypeId: StatusTypeId;
+}
+export interface StatusRemoveOutcome {
+  readonly kind: 'status_remove';
+  readonly targetId: UnitId;
+  readonly statusTypeId: StatusTypeId;
+  readonly removed: boolean;
+}
+
+// `status_decrement_stack` — decrement an existing instance's stack
+// count by 1; remove the instance if stacks reach 0. Used by Burn
+// (per ADR-0017) when its CT-100 trigger fires. v1 has no consumer;
+// the reducer ships now alongside status_remove for the ADR-0017
+// commit. Per ADR-0024.
+export interface StatusDecrementStackPayload {
+  readonly targetId: UnitId;
+  readonly statusTypeId: StatusTypeId;
+}
+export interface StatusDecrementStackOutcome {
+  readonly kind: 'status_decrement_stack';
+  readonly targetId: UnitId;
+  readonly statusTypeId: StatusTypeId;
+  readonly newStackCount: number; // 0 means the instance was removed
+  readonly removed: boolean;
+}
+
 // `battle_end` is the terminal system action that commits when a
 // victory condition fires. Carries the winning team and the index of
 // the satisfied condition (back-pointer into `state.victoryConditions`
@@ -206,6 +298,26 @@ export type Action = ActionEnvelope &
         readonly outcome?: StatusTickOutcome;
       }
     | {
+        readonly type: 'system_heal';
+        readonly payload: SystemHealPayload;
+        readonly outcome?: SystemHealOutcome;
+      }
+    | {
+        readonly type: 'system_apply_status';
+        readonly payload: SystemApplyStatusPayload;
+        readonly outcome?: SystemApplyStatusOutcome;
+      }
+    | {
+        readonly type: 'status_remove';
+        readonly payload: StatusRemovePayload;
+        readonly outcome?: StatusRemoveOutcome;
+      }
+    | {
+        readonly type: 'status_decrement_stack';
+        readonly payload: StatusDecrementStackPayload;
+        readonly outcome?: StatusDecrementStackOutcome;
+      }
+    | {
         readonly type: 'battle_end';
         readonly payload: BattleEndPayload;
         readonly outcome?: BattleEndOutcome;
@@ -221,6 +333,10 @@ export type ActionOutcome =
   | TurnEndOutcome
   | ChargedActionResolveOutcome
   | StatusTickOutcome
+  | SystemHealOutcome
+  | SystemApplyStatusOutcome
+  | StatusRemoveOutcome
+  | StatusDecrementStackOutcome
   | BattleEndOutcome;
 
 // `ProposedAction` is what a controller (player UI, AI) hands the
@@ -272,6 +388,26 @@ export type ProposedAction =
       readonly type: 'status_tick';
       readonly source: 'system';
       readonly payload: StatusTickPayload;
+    }
+  | {
+      readonly type: 'system_heal';
+      readonly source: 'system';
+      readonly payload: SystemHealPayload;
+    }
+  | {
+      readonly type: 'system_apply_status';
+      readonly source: 'system';
+      readonly payload: SystemApplyStatusPayload;
+    }
+  | {
+      readonly type: 'status_remove';
+      readonly source: 'system';
+      readonly payload: StatusRemovePayload;
+    }
+  | {
+      readonly type: 'status_decrement_stack';
+      readonly source: 'system';
+      readonly payload: StatusDecrementStackPayload;
     }
   | {
       readonly type: 'battle_end';

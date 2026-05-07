@@ -14,11 +14,17 @@
 import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
 import { defaultDamageHandlers } from '../damage/default-handlers.ts';
 import { runDamagePipeline } from '../damage/pipeline.ts';
-import { runOnActionAttempted, runOnActionTargeted } from '../hooks/runners.ts';
-import { runQueryTurnSkipped } from '../hooks/runners.ts';
+import {
+  runModifyStatQuery,
+  runOnActionAttempted,
+  runOnActionTargeted,
+  runOnTick,
+  runQueryTurnSkipped,
+} from '../hooks/runners.ts';
 import { unitAt } from '../map/accessors.ts';
 import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
 import { applyStatus } from '../status/apply.ts';
+import { rollStatusChance } from '../status/chance.ts';
 import { removeStatus } from '../status/remove.ts';
 import { evaluateBattleOutcome } from '../turn/evaluate-battle-outcome.ts';
 import {
@@ -38,8 +44,12 @@ import {
   type ProposedAction,
   type SetFacingOutcome,
   type StatusApplicationOutcome,
+  type StatusDecrementStackOutcome,
   type StatusInstance,
+  type StatusRemoveOutcome,
   type StatusTickOutcome,
+  type SystemApplyStatusOutcome,
+  type SystemHealOutcome,
   type TargetRef,
   type TurnEndOutcome,
   type TurnStartOutcome,
@@ -431,11 +441,26 @@ function resolveAbilityEffect(
   }
 
   // Apply status effects. Skipped if damage KO'd the target.
+  // The application chance formula (BMG / ADR-0024) is rolled before
+  // the apply pipeline runs:
+  //   hit_chance = base_chance × Faith_factor × MA_factor
+  //              × (1 - target_resistance/100) × ∏modifiers
+  // A failed roll emits a `missed` outcome and skips the apply. The
+  // damage-pipeline `'hit'` and the status-application roll are
+  // independent — a magical attack can deal full damage and the rider
+  // status can still miss.
+  //
+  // Auto-apply: `baseChance` omitted from the spec is treated as 100%
+  // — the formula still runs (Faith / MA / resistance / modifiers
+  // still affect the chance), but the base term is 1.0. For purely
+  // engine-driven applications (Charging via commitCharged) we bypass
+  // this path entirely with applyStatus directly.
   const targetKO =
     args.targetUnit !== null &&
     workingState.units.get(args.targetUnit.id)?.vitals.hp === 0;
   const statusOutcomes: StatusApplicationOutcome[] = [];
   if (args.ability.effects.statusEffects && !targetKO) {
+    let effectIndex = 0;
     for (const spec of args.ability.effects.statusEffects) {
       const targetStatusUnitId =
         spec.target === 'caster'
@@ -447,6 +472,28 @@ function resolveAbilityEffect(
         throw new Error(
           `resolveAbilityEffect: status effect ${JSON.stringify(spec.typeId)} targets primary_target but ability ${JSON.stringify(args.ability.id)} has no unit target`,
         );
+      }
+      const targetUnit = getUnit(workingState, targetStatusUnitId);
+      const statusType = catalog.getStatusType(spec.typeId);
+      const chanceResult = rollStatusChance({
+        state: workingState,
+        catalog,
+        caster: args.attacker,
+        target: targetUnit,
+        statusType,
+        ability: args.ability,
+        baseChance: spec.baseChance ?? 100,
+        seed: args.seed,
+        effectIndex,
+      });
+      effectIndex++;
+      if (!chanceResult.applied) {
+        statusOutcomes.push({
+          kind: 'missed',
+          chance: chanceResult.chance,
+          roll: chanceResult.roll,
+        });
+        continue;
       }
       const applied = applyStatus(
         workingState,
@@ -539,12 +586,14 @@ export function reduceTurnStart(
   // Turn-skip query: if any active hook (status, passive, equipment,
   // class trait) decides this unit can't act this turn, set up a
   // minimal turnState (so turn_end has the structure to read), record
-  // the skip on the outcome, and emit a turn_end as a generated
-  // action. No status_tick fan-out — the unit's per-unit-CT statuses
-  // skip their tick this turn (Stop's design intent). The skip status
-  // itself ticks via its own duration mode (turn-based or per-unit-CT
-  // — author's call); a Stop with `turn_based` duration would expire
-  // on the (skipped) turn's end.
+  // the skip on the outcome, and emit a turn_end as a generated action.
+  //
+  // Per-unit-CT status ticks: governed by the skip's
+  // `suppressStatusTicks` flag (ADR-0024). Stop suppresses ticks (frozen
+  // in time); Charging does not (caster is conscious — DoTs still
+  // progress). When skipping with ticks suppressed, only the turn_end
+  // is emitted. When skipping without suppression, ticks are emitted
+  // *before* the turn_end so they fire first in the chain.
   const skip = runQueryTurnSkipped(state, catalog, { unit });
 
   const newTurn = {
@@ -555,15 +604,29 @@ export function reduceTurnStart(
   };
 
   if (skip !== null) {
+    const generated: ProposedAction[] = [];
+    if (!skip.suppressStatusTicks) {
+      for (const status of unit.statuses) {
+        const type = catalog.getStatusType(status.typeId);
+        if (type.durationMode === 'per_unit_ct') {
+          generated.push({
+            type: 'status_tick',
+            source: 'system',
+            payload: { unitId, statusTypeId: status.typeId },
+          });
+        }
+      }
+    }
     const turnEnd: ProposedAction = {
       type: 'turn_end',
       source: 'system',
       payload: { unitId },
     };
+    generated.push(turnEnd);
     return {
       newState: { ...state, turnState: newTurn },
       outcome: { kind: 'turn_start', unitId, skipped: true, skipReason: skip.reason },
-      generatedActions: [turnEnd],
+      generatedActions: generated,
     };
   }
 
@@ -724,11 +787,20 @@ export function reduceBattleEnd(
 }
 
 // --- status_tick ---
+//
+// status_tick fires onTick handlers (Regen heals, future Poison damages),
+// then decrements the duration. The order is intentional — the tick
+// "happens" while the status is still on the unit, then the duration
+// counter consumes one unit of progress. Per ADR-0024.
+//
+// Emissions from onTick handlers (system_heal for Regen, etc.) are
+// returned as generatedActions; commitAction enqueues them after this
+// reducer's outcome is appended to the log.
 
 export function reduceStatusTick(
   state: GameState,
   action: Extract<Action, { type: 'status_tick' }>,
-  _catalog: Catalog,
+  catalog: Catalog,
 ): ReduceResult<StatusTickOutcome> {
   const { unitId, statusTypeId } = action.payload;
   const unit = getUnit(state, unitId);
@@ -748,13 +820,21 @@ export function reduceStatusTick(
     };
   }
   const instance = unit.statuses[idx]!;
+
+  // Fire onTick handlers — collect emissions. Handlers read state and
+  // catalog from args (Regen reads MaxHP and Faith via runModifyStatQuery
+  // to compute its heal amount). The runner filters to handlers
+  // registered by *this* status type (other statuses on the unit don't
+  // tick when statusTypeId fires).
+  const emissions = runOnTick(state, catalog, { unit, statusTypeId });
+
   // Decrement remaining duration. null durations (permanent / conditional)
   // never tick down and never expire here.
   if (instance.remainingDuration === null) {
     return {
       newState: state,
       outcome: { kind: 'status_tick', unitId, statusTypeId, removed: false },
-      generatedActions: [],
+      generatedActions: emissions,
     };
   }
   const nextDuration = instance.remainingDuration - 1;
@@ -766,7 +846,7 @@ export function reduceStatusTick(
     return {
       newState: withUnit(state, newUnit),
       outcome: { kind: 'status_tick', unitId, statusTypeId, removed: false },
-      generatedActions: [],
+      generatedActions: emissions,
     };
   }
 
@@ -780,6 +860,242 @@ export function reduceStatusTick(
   return {
     newState: withUnit(state, newUnit),
     outcome: { kind: 'status_tick', unitId, statusTypeId, removed: true },
+    generatedActions: emissions,
+  };
+}
+
+// --- system_heal ---
+//
+// Engine-emitted heal-the-target action used by onTick (Regen) and
+// other status side effects. Distinct from healing-tagged use_ability
+// because it has no caster / ability / reaction surface — it's a pure
+// HP modification driven by a status in flight. Per ADR-0024.
+//
+// Caps the heal at the target's effective max HP (read through
+// modifyStatQuery, so HP-buff statuses compose). KO'd targets (HP 0)
+// are skipped — Regen on a fallen unit is a no-op until they're raised.
+// (Per BMG: "DoT statuses do not tick while KO'd"; the symmetric rule
+// for HoT means Regen also pauses while KO'd.)
+export function reduceSystemHeal(
+  state: GameState,
+  action: Extract<Action, { type: 'system_heal' }>,
+  catalog: Catalog,
+): ReduceResult<SystemHealOutcome> {
+  const { targetId, amount } = action.payload;
+  const target = state.units.get(targetId);
+  if (target === undefined) {
+    // Target removed mid-chain — silent no-op.
+    return {
+      newState: state,
+      outcome: { kind: 'system_heal', targetId, amount, applied: 0 },
+      generatedActions: [],
+    };
+  }
+  if (target.vitals.hp <= 0) {
+    return {
+      newState: state,
+      outcome: { kind: 'system_heal', targetId, amount, applied: 0 },
+      generatedActions: [],
+    };
+  }
+  const maxHp = runModifyStatQuery(state, catalog, {
+    unit: target,
+    statName: 'maxHp',
+    baseValue: target.baseStats.maxHpBase,
+  });
+  const room = Math.max(0, maxHp - target.vitals.hp);
+  const applied = Math.max(0, Math.min(amount, room));
+  if (applied === 0) {
+    return {
+      newState: state,
+      outcome: { kind: 'system_heal', targetId, amount, applied: 0 },
+      generatedActions: [],
+    };
+  }
+  const newTarget: Unit = {
+    ...target,
+    vitals: { ...target.vitals, hp: target.vitals.hp + applied },
+  };
+  return {
+    newState: withUnit(state, newTarget),
+    outcome: { kind: 'system_heal', targetId, amount, applied },
+    generatedActions: [],
+  };
+}
+
+// --- system_apply_status ---
+//
+// Engine-emitted action that applies a status to a target unit
+// *without* running the BMG application chance formula. Used by the
+// reaction compiler when a reaction's effect is "apply status to
+// self/attacker" (Earth Resilience's Move/Jump self-buff). The
+// triggering Brave roll has already gated whether the reaction fires;
+// the application itself is deterministic. Per ADR-0024.
+export function reduceSystemApplyStatus(
+  state: GameState,
+  action: Extract<Action, { type: 'system_apply_status' }>,
+  catalog: Catalog,
+): ReduceResult<SystemApplyStatusOutcome> {
+  const { targetId, statusTypeId, sourceUnitId, magnitude, duration, customState } = action.payload;
+  const target = state.units.get(targetId);
+  if (target === undefined || target.vitals.hp <= 0) {
+    // KO'd targets don't receive new statuses (parallel to BMG: DoTs
+    // don't tick on KO'd units; symmetric for fresh applies). Outcome
+    // reports a `rejected` shape using the existing stacking-rejection
+    // signal — no separate "skipped because KO'd" code today.
+    return {
+      newState: state,
+      outcome: {
+        kind: 'system_apply_status',
+        targetId,
+        statusTypeId,
+        result: { kind: 'rejected', reason: 'stacking_rule' },
+      },
+      generatedActions: [],
+    };
+  }
+  const applied = applyStatus(
+    state,
+    {
+      targetId,
+      typeId: statusTypeId,
+      sourceUnitId,
+      sourceActionSeq: action.sequenceNumber,
+      ...(magnitude !== undefined ? { magnitude } : {}),
+      ...(duration !== undefined ? { duration } : {}),
+      ...(customState !== undefined ? { customState } : {}),
+    },
+    catalog,
+  );
+  return {
+    newState: applied.newState,
+    outcome: {
+      kind: 'system_apply_status',
+      targetId,
+      statusTypeId,
+      result: applied.result,
+    },
+    generatedActions: [],
+  };
+}
+
+// --- status_remove ---
+//
+// Engine-emitted action that removes a named status instance from a
+// target unit. Idempotent: a no-op if the status is not present
+// (logged as `removed: false`). Used by ADR-0017 patterns (Sleep
+// wake-on-damage, Vulnerable consume-on-damage). Per ADR-0024.
+//
+// When multiple instances exist (STACK_INDEPENDENT), removes them all —
+// the action is "remove this type from this unit," not "remove one
+// instance." Future session can add a per-instance variant if needed.
+export function reduceStatusRemove(
+  state: GameState,
+  action: Extract<Action, { type: 'status_remove' }>,
+  catalog: Catalog,
+): ReduceResult<StatusRemoveOutcome> {
+  const { targetId, statusTypeId } = action.payload;
+  const target = state.units.get(targetId);
+  if (target === undefined) {
+    return {
+      newState: state,
+      outcome: { kind: 'status_remove', targetId, statusTypeId, removed: false },
+      generatedActions: [],
+    };
+  }
+  const has = target.statuses.some((s) => s.typeId === statusTypeId);
+  if (!has) {
+    return {
+      newState: state,
+      outcome: { kind: 'status_remove', targetId, statusTypeId, removed: false },
+      generatedActions: [],
+    };
+  }
+  const removed = removeStatus(state, { targetId, typeId: statusTypeId }, catalog);
+  return {
+    newState: removed.newState,
+    outcome: { kind: 'status_remove', targetId, statusTypeId, removed: true },
+    generatedActions: [],
+  };
+}
+
+// --- status_decrement_stack ---
+//
+// Decrement an existing instance's stack count by 1; remove the
+// instance if stacks reach 0. Used by Burn (per ADR-0017) when its
+// CT-100 trigger fires. v1 has no consumer; the reducer ships now
+// alongside status_remove for the ADR-0017 commit. Per ADR-0024.
+//
+// When the status type doesn't define a stack count (older statuses
+// using REFRESH/REPLACE rules), the reducer treats it as "remove the
+// instance" — equivalent to a status_remove on a one-stack effect.
+export function reduceStatusDecrementStack(
+  state: GameState,
+  action: Extract<Action, { type: 'status_decrement_stack' }>,
+  catalog: Catalog,
+): ReduceResult<StatusDecrementStackOutcome> {
+  const { targetId, statusTypeId } = action.payload;
+  const target = state.units.get(targetId);
+  if (target === undefined) {
+    return {
+      newState: state,
+      outcome: {
+        kind: 'status_decrement_stack',
+        targetId,
+        statusTypeId,
+        newStackCount: 0,
+        removed: false,
+      },
+      generatedActions: [],
+    };
+  }
+  const idx = target.statuses.findIndex((s) => s.typeId === statusTypeId);
+  if (idx < 0) {
+    return {
+      newState: state,
+      outcome: {
+        kind: 'status_decrement_stack',
+        targetId,
+        statusTypeId,
+        newStackCount: 0,
+        removed: false,
+      },
+      generatedActions: [],
+    };
+  }
+  const instance = target.statuses[idx]!;
+  const currentStacks = instance.stacks ?? 1;
+  const nextStacks = currentStacks - 1;
+
+  if (nextStacks <= 0) {
+    // Stack count reached 0 — remove the instance (fires onRemove via
+    // removeStatus).
+    const removed = removeStatus(state, { targetId, typeId: statusTypeId }, catalog);
+    return {
+      newState: removed.newState,
+      outcome: {
+        kind: 'status_decrement_stack',
+        targetId,
+        statusTypeId,
+        newStackCount: 0,
+        removed: true,
+      },
+      generatedActions: [],
+    };
+  }
+
+  const newInstance: StatusInstance = { ...instance, stacks: nextStacks };
+  const newStatuses = target.statuses.map((s, i) => (i === idx ? newInstance : s));
+  const newTarget: Unit = { ...target, statuses: newStatuses };
+  return {
+    newState: withUnit(state, newTarget),
+    outcome: {
+      kind: 'status_decrement_stack',
+      targetId,
+      statusTypeId,
+      newStackCount: nextStacks,
+      removed: false,
+    },
     generatedActions: [],
   };
 }

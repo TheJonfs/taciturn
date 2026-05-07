@@ -33,7 +33,7 @@ describe('loadDefaultCatalog', () => {
     expect(cat.getRuleset(rulesetId('default')).name).toBe('Default');
   });
 
-  it('contains the session-13 baseline content set', () => {
+  it('contains the session-16 baseline content set', () => {
     // The default catalog is intentionally narrow — one demo per
     // mechanism. When real content lands, this assertion is expected
     // to change; failing it from new content additions is the correct
@@ -49,10 +49,16 @@ describe('loadDefaultCatalog', () => {
     // Charging (third status type) and the throwaway charged ability
     // Bolt (seventh ability) plus its arcane_skill command set
     // (third command set) for the charged-action-lifecycle demo.
-    expect(cat.statusTypes()).toHaveLength(3);
-    expect(cat.abilities()).toHaveLength(7);
-    expect(cat.commandSets()).toHaveLength(3);
-    expect(cat.classes()).toHaveLength(1);
+    // Session 16 added Earth Mage content: 5 new statuses (regen,
+    // movement_debuff, movement_self_buff, blind, silence) for 8 total;
+    // 5 new abilities (earth_strike, earth_blessing, earth_curse,
+    // earth_resilience, earth_communion) for 12 total; the
+    // earth_spells command set (4 total); the earth_mage class (2
+    // total).
+    expect(cat.statusTypes()).toHaveLength(8);
+    expect(cat.abilities()).toHaveLength(12);
+    expect(cat.commandSets()).toHaveLength(4);
+    expect(cat.classes()).toHaveLength(2);
     expect(cat.items()).toHaveLength(1);
     expect(cat.rulesets()).toHaveLength(1);
   });

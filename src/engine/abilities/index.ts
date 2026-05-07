@@ -19,6 +19,14 @@ export {
   type PassiveHookRegistration,
 } from './hooks.ts';
 export { passiveContributionsFor } from './contributions.ts';
+export {
+  compileReaction,
+  type ReactionAbilityFields,
+  type ReactionEffect,
+  type ReactionTargetSelector,
+  type ReactionTriggerCondition,
+  type ReactionTriggerHook,
+} from './reaction-compiler.ts';
 export { getCommandSetCost, getCost } from './cost.ts';
 export { getCapacity } from './capacity.ts';
 export {

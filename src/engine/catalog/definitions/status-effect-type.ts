@@ -5,7 +5,7 @@
 // here in the catalog and carries everything universal: tags, duration
 // mode, stacking rule, default magnitude, and hook handlers.
 
-import type { DurationMode, StackingRule, StatusTag, StatusTypeId } from '../../types/index.ts';
+import type { DamageTag, DurationMode, StackingRule, StatusTag, StatusTypeId } from '../../types/index.ts';
 import type { StatusHookRegistration } from '../../status/hooks.ts';
 
 export interface StatusEffectType {
@@ -16,4 +16,9 @@ export interface StatusEffectType {
   readonly stackingRule: StackingRule;
   readonly defaultMagnitude?: number;
   readonly hooks: ReadonlyArray<StatusHookRegistration>;
+  // Optional resistance tag — when set, the BMG status application
+  // formula reads `target.resistances[resistanceTag]` and multiplies
+  // `(1 - resistance/100)` into the chance. Omitted → status can't
+  // be resisted. Per ADR-0024 / BMG "Status application chance".
+  readonly resistanceTag?: DamageTag;
 }

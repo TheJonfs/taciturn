@@ -12,13 +12,20 @@
 // stay correct because each handler discriminates on its hook's args.
 
 import type {
+  ActiveAbilityDefinition,
+  Catalog,
+  StatusEffectType,
+} from '../catalog/index.ts';
+import type {
   DamageContext,
   DamageTag,
+  GameState,
   HookSourceTier,
   MovementProfile,
   ProposedAction,
   StatName,
   StatusInstance,
+  StatusTypeId,
   TerrainType,
   Unit,
 } from '../types/index.ts';
@@ -34,10 +41,30 @@ export type ActionAttemptResult =
 
 // Result of `queryTurnSkipped` — fired once at turn_start to ask
 // "can this unit take its turn at all?" Stop / Sleep / Petrify return
-// a `skip` directive with a human-readable reason; everything else
-// returns `null` (the default — turn proceeds normally). The runner
+// a `skip` directive; Charging returns one with `suppressStatusTicks:
+// false` so per-unit-CT statuses (Poison, Regen, etc.) still tick on
+// the skipped turn. Default-acting statuses return `null`. The runner
 // returns the *first* non-null result; downstream handlers don't run.
-export type TurnSkipResult = { readonly reason: string } | null;
+//
+// `suppressStatusTicks` defaults to `true` in semantic intent — Stop's
+// "frozen in time" behavior. Charging is the v1 outlier; new skip
+// statuses should default to `true` and opt out only when the design
+// calls for it (a unit that's still "alive but unable to act" — Charging,
+// not Stop). See ADR-0024.
+export type TurnSkipResult =
+  | { readonly reason: string; readonly suppressStatusTicks: boolean }
+  | null;
+
+// Result of `onTick` — fired during status_tick reduction so a status
+// can produce side-effects on its tick (Regen heals, Poison damages).
+// Per ADR-0024, on*-and-query* hooks gain an `emittedActions` slot when
+// a v1 consumer needs it. v1 emitting consumer is Regen via
+// `system_heal`; future statuses (Sleep wakeup, Burn damage, Vulnerable
+// consume) plug additional emissions onto their hosting hook (onDamageReceived
+// for Sleep, etc.) with the same wrapping pattern.
+export interface OnTickResult {
+  readonly emittedActions?: ReadonlyArray<ProposedAction>;
+}
 
 // Per-hook signature map. New hooks add an entry; that's it.
 export interface HookSignatures {
@@ -45,6 +72,42 @@ export interface HookSignatures {
   // (for moveRange / jump). Damage stat reads, accuracy/evasion follow.
   modifyStatQuery: {
     args: { unit: Unit; statName: StatName; baseValue: number };
+    return: number;
+  };
+
+  // Hit-chance modifier — multiplicative on physical hit chance.
+  // Consumers: Blind (negative status, factor < 1.0), Concentration
+  // (future positive support, factor > 1.0). The evasion_check handler
+  // collects the chain product and folds it into the BMG formula:
+  //   hit_chance = weapon_accuracy × (1 − evasion/100) × elevation × ∏modifiers
+  // before clamping to [0.05, 1.0]. Composition is multiplicative across
+  // all returned factors.
+  modifyHitChance: {
+    args: {
+      unit: Unit;
+      attacker: Unit;
+      ability: ActiveAbilityDefinition;
+      baseHitChance: number;
+    };
+    return: number;
+  };
+
+  // Status application chance modifier — multiplicative on status
+  // application chance. Consumers: Earth Communion (× 1.25), Mediator-
+  // style accuracy boosters. The applyStatus pipeline collects the chain
+  // product against the *caster* (attacking unit) and folds it into the
+  // BMG status hit_chance formula:
+  //   hit_chance = base_chance × Faith_factor × MA_factor × (1 - resist/100)
+  //              × ∏modifiers
+  // Composition is multiplicative.
+  modifyStatusApplicationChance: {
+    args: {
+      unit: Unit;          // the caster (attacking unit) whose hooks fire
+      target: Unit;
+      statusType: StatusEffectType;
+      ability: ActiveAbilityDefinition | null;
+      baseChance: number;  // post-Faith, post-MA, post-resistance
+    };
     return: number;
   };
 
@@ -74,11 +137,21 @@ export interface HookSignatures {
     return: void;
   };
 
-  // Tick: fired by the turn loop / duration scheduler. Session 9 wires
-  // the runner; the signature is declared so handlers can register early.
+  // Tick: fired during status_tick reduction so duration-counted statuses
+  // can produce side effects (Regen heals via system_heal emission,
+  // future Poison damages, etc.). Args include `state`, `catalog`, and
+  // `instance` so handlers can read the current world (compute heal
+  // amount from MaxHP × Faith, etc.) and reference the instance's
+  // magnitude/customState. Return shape carries an optional
+  // `emittedActions` list per ADR-0024.
   onTick: {
-    args: { unit: Unit };
-    return: void;
+    args: {
+      unit: Unit;
+      state: GameState;
+      catalog: Catalog;
+      statusTypeId: StatusTypeId;
+    };
+    return: OnTickResult;
   };
 
   // Turn boundaries: session 9 fires these.
@@ -110,8 +183,18 @@ export interface HookSignatures {
   // (statuses, equipped passives, etc.) so they can block (Stop) or
   // replace (Berserk) the in-flight action. The runner short-circuits
   // on the first non-`allowed` result; downstream handlers do not run.
+  //
+  // `abilityTags` is the resolved tag set from the use_ability target's
+  // catalog entry — pre-resolved by the runner so handlers can gate
+  // on tags (Silence on `'magical'`/`'voice'`) without a catalog
+  // lookup of their own. Empty set when the action isn't a use_ability,
+  // or when the ability declares no tags. Per ADR-0024.
   onActionAttempted: {
-    args: { unit: Unit; action: ProposedAction };
+    args: {
+      unit: Unit;
+      action: ProposedAction;
+      abilityTags: ReadonlySet<string>;
+    };
     return: ActionAttemptResult;
   };
   // Reactions: fired post-application against the *target's* hooks so

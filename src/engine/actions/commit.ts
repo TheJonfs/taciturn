@@ -83,6 +83,10 @@ function envelopeFor(
     proposed.type !== 'turn_end' &&
     proposed.type !== 'status_tick' &&
     proposed.type !== 'charged_action_resolve' &&
+    proposed.type !== 'system_heal' &&
+    proposed.type !== 'system_apply_status' &&
+    proposed.type !== 'status_remove' &&
+    proposed.type !== 'status_decrement_stack' &&
     proposed.type !== 'battle_end' &&
     'actorId' in proposed
       ? { actorId: proposed.actorId }
@@ -111,6 +115,14 @@ function envelopeFor(
       return { ...envelope, type: 'status_tick', payload: proposed.payload };
     case 'charged_action_resolve':
       return { ...envelope, type: 'charged_action_resolve', payload: proposed.payload };
+    case 'system_heal':
+      return { ...envelope, type: 'system_heal', payload: proposed.payload };
+    case 'system_apply_status':
+      return { ...envelope, type: 'system_apply_status', payload: proposed.payload };
+    case 'status_remove':
+      return { ...envelope, type: 'status_remove', payload: proposed.payload };
+    case 'status_decrement_stack':
+      return { ...envelope, type: 'status_decrement_stack', payload: proposed.payload };
     case 'battle_end':
       return { ...envelope, type: 'battle_end', payload: proposed.payload };
   }

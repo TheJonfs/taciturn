@@ -101,7 +101,7 @@ const defeatB: VictoryCondition = {
 const stopStatus = makeStatusType({
   id: 'stop',
   stackingRule: 'REFRESH',
-  hooks: [statusHook('queryTurnSkipped', () => ({ reason: 'stopped' }))],
+  hooks: [statusHook('queryTurnSkipped', () => ({ reason: 'stopped', suppressStatusTicks: true }))],
 });
 
 describe('turn-skip — Stop status', () => {

@@ -23,4 +23,14 @@ export type StatusApplicationOutcome =
       readonly instance: StatusInstance;
     }
   | { readonly kind: 'resisted' }
-  | { readonly kind: 'rejected'; readonly reason: 'stacking_rule' };
+  | { readonly kind: 'rejected'; readonly reason: 'stacking_rule' }
+  // Application chance roll failed — `chance` is the computed
+  // post-modifier value in [0, 1], `roll` is the unit float drawn from
+  // the seed. The status was not applied. Emitted by the status
+  // application formula path (ability-driven applications); the auto-
+  // apply path (Charging via commitCharged) doesn't roll.
+  | {
+      readonly kind: 'missed';
+      readonly chance: number;
+      readonly roll: number;
+    };

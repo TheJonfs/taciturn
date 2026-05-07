@@ -83,6 +83,14 @@ export type TargetingSpec =
 export interface StatusEffectSpec {
   readonly typeId: StatusTypeId;
   readonly target: 'caster' | 'primary_target';
+  // Application chance — the `base_chance` term in the BMG status
+  // application formula:
+  //   hit_chance = base_chance × Faith_factor × MA_factor
+  //              × (1 - target_resistance/100) × ∏modifiers
+  // Expressed as [0, 100]. Omit → 100% (always applies, modulo Faith /
+  // MA / resistance / modifiers). v1 ranges per BMG: a reliable
+  // applier ~70%, a coin-flip 50%, a "lucky shot" 30%.
+  readonly baseChance?: number;
   // Override the type's defaultMagnitude. Omitted → use default.
   readonly magnitude?: number;
   // Required when the status type's durationMode is duration-counted

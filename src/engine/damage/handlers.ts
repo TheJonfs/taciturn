@@ -17,8 +17,12 @@
 // pipeline orchestrator does that at the appropriate stage).
 
 import { expectActiveAbility } from '../actions/validate.ts';
-import { runOnDamageDealt, runOnDamageReceived } from '../hooks/runners.ts';
-import { runModifyStatQuery } from '../hooks/runners.ts';
+import {
+  runModifyHitChance,
+  runModifyStatQuery,
+  runOnDamageDealt,
+  runOnDamageReceived,
+} from '../hooks/runners.ts';
 import {
   getUnit,
   type DamageContext,
@@ -161,9 +165,11 @@ export const fireOnDamageDealt: DamageHandler = (ctx, env) => {
 //    — keep the miss; don't roll again).
 //
 // `hit_modifiers` is the multiplicative product of any hooks that
-// contributed during attacker / target stages. v1 has no such
-// handlers; the term is reserved for Concentration / Blind in later
-// content. The composed `hit_chance` is clamped to [0.05, 1.0] last.
+// contributed during attacker / target stages — composed via
+// `runModifyHitChance` against the target's hooks. Blind (negative
+// status, factor < 1.0) and future Concentration (positive support,
+// factor > 1.0) live on this hook. The composed `hit_chance` is
+// clamped to [0.05, 1.0] last.
 //
 // Seed sub-stream: index 1. (variance uses 0; brave roll uses 2.) Keeps
 // each random-rolling subsystem on a distinct sub-stream so a change in
@@ -183,8 +189,16 @@ export const evasionCheck: DamageHandler = (ctx, env) => {
 
   const elevationModifier = computeElevationModifier(env.state, ctx.attacker.position, ctx.target.position);
 
-  const rawChance = accuracy * evasionFactor * elevationModifier;
-  const hitChance = Math.max(0.05, Math.min(1.0, rawChance));
+  const baseChance = accuracy * evasionFactor * elevationModifier;
+  // Apply hit-chance modifiers (Blind, etc.). The runner threads the
+  // value through each handler's multiplicative return.
+  const modifiedChance = runModifyHitChance(env.state, env.catalog, {
+    target: ctx.target,
+    attacker: ctx.attacker,
+    ability,
+    baseHitChance: baseChance,
+  });
+  const hitChance = Math.max(0.05, Math.min(1.0, modifiedChance));
 
   const r = unitFloatFromSeed(env.seed, /* sub-index */ 1);
   if (r < hitChance) return ctx;

@@ -23,7 +23,7 @@
 import type { Catalog } from '../catalog/index.ts';
 import { passiveContributionsFor } from '../abilities/contributions.ts';
 import { statusContributionsFor } from '../status/contributions.ts';
-import { getUnit, type GameState, type UnitId } from '../types/index.ts';
+import { getUnit, type GameState, type StatusTypeId, type UnitId } from '../types/index.ts';
 import {
   DEFAULT_HOOK_PRIORITY,
   type HookName,
@@ -34,13 +34,18 @@ import {
 // One collected handler ready to fire. Ctx-erased: the collector wraps
 // the original handler in an `invoke` closure that has captured its
 // source-specific context.
+//
+// `sourceTypeId` is set when the handler came from a status; it's the
+// id of the StatusEffectType that registered the handler. Used by
+// runOnTick to filter to the ticking status's own handlers (other
+// statuses on the unit may have onTick handlers that fire on *their*
+// tick, not this one). Passive / equipment / class sources leave it
+// undefined.
 export interface CollectedHandler<K extends HookName> {
   readonly tier: HookSourceTier;
   readonly priority: number;
-  // Stable index within the source's collection — for statuses, position
-  // in `unit.statuses` (application order); for passives, position in the
-  // bucket's ability list (equip order).
   readonly tieBreakIndex: number;
+  readonly sourceTypeId?: StatusTypeId;
   readonly invoke: (args: HookSignatures[K]['args']) => HookSignatures[K]['return'];
 }
 
@@ -86,6 +91,7 @@ export interface SourceContribution<K extends HookName> {
   readonly tier: HookSourceTier;
   readonly priority: number;
   readonly tieBreakIndex: number;
+  readonly sourceTypeId?: StatusTypeId;
   readonly invoke: (args: HookSignatures[K]['args']) => HookSignatures[K]['return'];
 }
 

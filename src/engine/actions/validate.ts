@@ -83,6 +83,10 @@ export function validateAction(
     case 'turn_end':
     case 'status_tick':
     case 'charged_action_resolve':
+    case 'system_heal':
+    case 'system_apply_status':
+    case 'status_remove':
+    case 'status_decrement_stack':
     case 'battle_end':
       // System actions are engine-emitted; the engine is trusted to
       // emit them only when state allows. Validation is a pass-through.

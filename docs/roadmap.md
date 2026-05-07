@@ -181,6 +181,20 @@ ADRs: 0023 (charged-action lifecycle, Charging, Stop-pause derivation, engine-si
 
 References: ADR-0023, `src/engine/actions/reducers.ts`, `src/engine/actions/commit.ts`, `src/engine/actions/validate.ts`, `src/engine/ct/speed.ts`, `src/engine/types/ruleset.ts`, `src/content/statuses/charging.ts`, `src/content/abilities/bolt.ts`.
 
+### 16. Earth Mage (part 1) ✅
+
+*Completed 2026-05-06.* Engine + content session — status application formula wired into `resolveAbilityEffect`, two new modify hooks (`modifyHitChance`, `modifyStatusApplicationChance`), the `queryTurnSkipped` extension for `suppressStatusTicks`, the ADR-0017 emission infrastructure (four new system actions: `system_heal`, `system_apply_status`, `status_remove`, `status_decrement_stack`), the spec-driven reaction compiler with Counter as the worked example, and Earth Mage's first 5 abilities + 5 statuses + class + command set.
+
+`onTick` runner ships with emission support; `reduceStatusTick` fires onTick handlers, queuing emitted actions onto the chain. Stop suppresses per-unit-CT status ticks (`suppressStatusTicks: true`); Charging does not (`false`) — DoTs/HoTs progress on a Charging caster's skipped turn. Per-effect seed branching in `rollStatusChance` makes Earth Curse's Blind + Silence rolls independent.
+
+Reaction compiler (`compileReaction`) takes `ReactionAbilityFields` → `PassiveHookRegistration[]`. Two effect kinds (`use_ability`, `apply_status`) and two trigger conditions (`damage_received`, `always`). Counter refactored to use it; Earth Resilience flows through it with `apply_status` emitting `system_apply_status` (bypassing the BMG formula because the Brave gate already ran).
+
+Earth Mage class: moveRange 3, jump 3, evasion 8/5/0, default First Action `earth_spells`. Five abilities ship: **earth_strike** (charged magical damage + Move/Jump debuff rider, 60% baseChance), **earth_blessing** (charged Regen on ally, 100% baseChance), **earth_curse** (charged Blind + Silence, 50%/50% independent rolls), **earth_resilience** (passive reaction, STACK_INDEPENDENT +1/+1 Move/Jump self-buff on damage), **earth_communion** (universal × 1.25 status application chance, baseCost 1). Five statuses ship: **regen** (Faith × MaxHP × 0.10 per tick on recipient's CT), **movement_debuff** (Move/Jump -1, REFRESH, earth-resistance-tagged), **movement_self_buff / Earthen Resolve** (Move/Jump +1, STACK_INDEPENDENT), **blind** (× 0.5 hit chance via modifyHitChance, REFRESH), **silence** (blocks magical/voice via onActionAttempted, REFRESH).
+
+ADR-0024 captures the decisions. Test count: 381 → 395 (14 new in `session-16-integration.test.ts`). New documentation: `docs/content-id-registry.md` (name → id lookup table for ongoing creative passes). Loader test updated for the expanded baseline (8 statuses, 12 abilities, 4 command sets, 2 classes).
+
+References: ADR-0024, `src/engine/hooks/hooks.ts`, `src/engine/hooks/runners.ts`, `src/engine/status/chance.ts`, `src/engine/abilities/reaction-compiler.ts`, `src/engine/actions/reducers.ts`, `src/content/classes/earth-mage.ts`, `src/content/abilities/earth-*.ts`, `src/content/statuses/{regen,movement-debuff,movement-self-buff,blind,silence}.ts`, `docs/content-id-registry.md`.
+
 ## Content-expansion passes (interleaved)
 
 These are not numbered in the main sequence because their timing depends on what mechanisms exist. The general pattern: once a mechanism's MVP is in place, an expansion pass adds the breadth of content that uses it.

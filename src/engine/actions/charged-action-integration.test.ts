@@ -63,7 +63,7 @@ function chargingType(): StatusEffectType {
     durationMode: 'conditional',
     stackingRule: 'REJECT',
     hooks: [
-      statusHook('queryTurnSkipped', () => ({ reason: 'charging' })),
+      statusHook('queryTurnSkipped', () => ({ reason: 'charging', suppressStatusTicks: false })),
     ],
   };
 }
@@ -75,7 +75,7 @@ function stopType(): StatusEffectType {
     tags: ['negative'],
     durationMode: 'per_unit_ct',
     stackingRule: 'REFRESH',
-    hooks: [statusHook('queryTurnSkipped', () => ({ reason: 'stopped' }))],
+    hooks: [statusHook('queryTurnSkipped', () => ({ reason: 'stopped', suppressStatusTicks: true }))],
   };
 }
 

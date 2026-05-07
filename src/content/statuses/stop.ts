@@ -22,6 +22,11 @@ export const stop: StatusEffectType = {
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
   hooks: [
-    statusHook('queryTurnSkipped', () => ({ reason: 'stopped' })),
+    statusHook('queryTurnSkipped', () => ({
+      reason: 'stopped',
+      // Stop is "frozen in time" — per-unit-CT statuses (Poison, Regen,
+      // Burn) skip their tick on a Stopped turn. Per ADR-0024.
+      suppressStatusTicks: true,
+    })),
   ],
 };
