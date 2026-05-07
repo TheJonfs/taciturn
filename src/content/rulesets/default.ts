@@ -14,6 +14,7 @@ import {
   BUCKET_SUPPORT,
   DEFAULT_HOOK_SOURCE_TIER_ORDER,
   rulesetId,
+  statusTypeId,
   type BucketId,
   type DamageHandlerRef,
   type DamageStage,
@@ -135,4 +136,14 @@ export const defaultRuleset: RulesetDefinition = {
   initialCT: { kind: 'fixed', value: 0 },
 
   bucketCapacities: DEFAULT_BUCKET_CAPACITIES,
+
+  // Charged-action policy: the v1 Charging status type id is what the
+  // engine applies to the caster while a UseAbility with actionSpeed > 0
+  // is in flight. Stop is the v1 pause status — Sleep and Petrify will
+  // join the list when those status types ship.
+  // See `src/content/statuses/charging.ts` and ADR-0023.
+  chargedActions: {
+    chargingStatusTypeId: statusTypeId('charging'),
+    pausingStatusTypeIds: [statusTypeId('stop')],
+  },
 };

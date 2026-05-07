@@ -268,8 +268,8 @@ This keeps the two systems coordinated through a single reducer step.
 ## Open questions / deferred
 
 - **Specific damage formulas per ability.** v1 default is FFT-flavored (PA×WP, MA×Mult), but per-ability formulas are data and need to be specified when we build the ability catalog.
-- **MP cost system.** Spells that cost MP — when is MP deducted (on commit, on resolve)? FFT deducts on commit and refunds on cancel; we should follow that pattern but confirm.
-- **Cancellation of charged actions.** When a charging unit is KO'd, displaced, statused, or loses target validity, what happens? Options: silent fizzle, partial resolution, immediate refund. Probably ability-specific; needs a `onChargeInterrupted` hook.
+- ~~**MP cost system.**~~ Resolved per BMG ("MP system") and ADR-0023: deduct on commit, no refund on fizzle.
+- ~~**Cancellation of charged actions.**~~ Resolved by ADR-0023: caster KO and `onActionAttempted` block both fizzle silently with full cleanup (ChargedAction removed, Charging status removed). No dedicated `onChargeInterrupted` hook — `onActionAttempted` reused. MP not refunded.
 - **AoE friendly fire.** Default — does an AoE hit allies in its footprint? FFT yes (and this was a major tactical consideration). Lean toward yes for v1 with per-ability override.
 - **Critical hits and other special damage outcomes.** Where in the pipeline? Likely a multiplier added at the variance stage based on a separate roll.
 - **Status applications that affect resolution mid-pipeline.** A status that says "next attack against me automatically misses" — when does it fire to prevent damage? Currently positioned at target stage; should review with concrete examples.

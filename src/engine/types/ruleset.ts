@@ -17,7 +17,7 @@
 // them) and a `kind: 'fixed'` initial-CT variant (turn-structure.md's
 // speed-based + variance formula lands as another variant later).
 
-import type { BucketId, RulesetId } from './ids.ts';
+import type { BucketId, RulesetId, StatusTypeId } from './ids.ts';
 import type { TerrainType } from './tile.ts';
 import type { HookSourceTier } from './hook-source.ts';
 
@@ -172,6 +172,26 @@ export type RulesetInitialCT =
 // every BucketId in `ALL_BUCKET_IDS` with a non-negative integer.
 export type RulesetBucketCapacities = ReadonlyMap<BucketId, number>;
 
+// Charged-action policy. The engine applies the named status type to
+// the caster when a UseAbility with actionSpeed > 0 commits, and removes
+// it when the paired ChargedAction resolves or is canceled. Pinning the
+// id on the ruleset (rather than hardcoding a content reference in
+// engine code) keeps the engine catalog-driven: an alternate ruleset
+// could ship a differently-named or differently-behaving "charging"
+// effect without touching the reducer.
+//
+// `pausingStatusTypeIds` enumerates statuses that pause an in-flight
+// charge while present on the caster. When any listed status is on the
+// caster, `computeActionSpeed` returns 0 — the charged action's CT is
+// frozen until the status clears. v1 lists only Stop; Sleep / Petrify
+// land here when those statuses ship. Per the BMG ("Pause mechanic for
+// Stop"), pause is distinct from fizzle: the charged action waits in
+// the queue at its current CT.
+export interface RulesetChargedActions {
+  readonly chargingStatusTypeId: StatusTypeId;
+  readonly pausingStatusTypeIds: ReadonlyArray<StatusTypeId>;
+}
+
 export interface RulesetDefinition {
   readonly id: RulesetId;
   readonly name: string;
@@ -187,4 +207,5 @@ export interface RulesetDefinition {
   readonly damagePipeline: RulesetDamagePipeline;
   readonly initialCT: RulesetInitialCT;
   readonly bucketCapacities: RulesetBucketCapacities;
+  readonly chargedActions: RulesetChargedActions;
 }

@@ -136,6 +136,20 @@ function runPreHook(
   return { outcome: 'allowed', action: proposed };
 }
 
+// Post-chain auto-emit checkpoint: if the active unit is KO'd at the
+// end of the chain (e.g., Counter chain killed them mid-turn, charged
+// spell with self-damage KO'd the caster, etc.), the engine emits a
+// `turn_end` so the turn unwinds and the scheduler can advance. This
+// supersedes the orchestrator-level guard ADR-0013 introduced; any
+// caller of commitAction (demo orchestrator, future replay-driven or
+// networked drivers) inherits the behavior. Captured in ADR-0023.
+function shouldAutoEndTurn(state: GameState): boolean {
+  if (state.turnState === null) return false;
+  if (state.outcome !== undefined) return false;
+  const actor = state.units.get(state.turnState.unitId);
+  return actor !== undefined && actor.vitals.hp <= 0;
+}
+
 export function commitAction(
   initialState: GameState,
   proposed: ProposedAction,
@@ -147,7 +161,25 @@ export function commitAction(
   let state = initialState;
   let isRoot = true;
 
-  while (queue.length > 0) {
+  while (true) {
+    if (queue.length === 0) {
+      // Post-chain checkpoint. The auto-emitted turn_end may itself
+      // emit further system actions (status_tick fan-out, battle_end);
+      // they enter the queue and the loop continues. The outer
+      // condition guarantees we never enter this branch when the
+      // checkpoint is satisfied.
+      if (!shouldAutoEndTurn(state)) break;
+      const turnEndAction: ProposedAction = {
+        type: 'turn_end',
+        source: 'system',
+        payload: { unitId: state.turnState!.unitId },
+      };
+      queue.push({ action: turnEndAction, depth: 0, isReaction: false });
+      // Auto-emitted turn_end is never the *root* action — by
+      // definition the chain has drained and we're in the post-root
+      // path. Failures in this turn_end would be programmer errors.
+      isRoot = false;
+    }
     const entry = queue.shift()!;
 
     // Battle-decided guard — once `state.outcome` is set, refuse

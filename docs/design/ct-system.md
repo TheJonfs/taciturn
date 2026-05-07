@@ -105,6 +105,7 @@ CT abilities are particularly dangerous because action economy compounds — ove
 
 - Per-class Speed baselines and per-ability Action Speed baselines (tuning).
 - Speed ceiling value (tuning, but should be picked early to bound Haste stacking).
-- Behavior of Charged Actions when the caster is interrupted (KO'd, statused, moved, target lost). Tracked as an open question in *action-resolution.md*.
+- ~~Behavior of Charged Actions when the caster is interrupted (KO'd, statused, moved, target lost).~~ Resolved by ADR-0023: caster KO → fizzle; `onActionAttempted` block (Silence / Don't Act when shipped) → fizzle; Stop → pause via derived `computeActionSpeed = 0`; damage / movement → no interruption. Target validity per ADR-0023 follows BMG's "Interruption rules."
 - Whether equipment and JP investments modify Speed.
 - Whether to include a "tempo asymmetry" archetype in v1 or defer to later.
+- Edge case: a Quick-style ability pushing a paused charge's CT past 100 currently still triggers (the scheduler's `ct >= threshold` shortcut wins). No v1 ability targets ChargedActions for CT push, so unhittable; tracked in ADR-0023 for the day a content consumer surfaces it.

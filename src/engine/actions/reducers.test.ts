@@ -193,20 +193,72 @@ describe('reduceUseAbility — instant + status-application', () => {
     expect(outcome.mpSpent).toBe(4);
   });
 
-  it('throws when actionSpeed > 0 (deferred until the first content consumer)', () => {
-    const slowSpell = makeActive({
-      id: 'slow_spell',
-      targeting: { kind: 'self' },
-      actionSpeed: 50,
+  it('actionSpeed > 0 spawns a ChargedAction + applies Charging without resolving effects', () => {
+    // Tile-anchored charged spell. The reducer should:
+    //   - deduct MP and decrement actsAvailable at commit time
+    //   - push a ChargedAction onto state.chargedActions
+    //   - apply the Charging status (from the ruleset) to the caster
+    //     with customState.chargedActionId pointing to the new ChargedAction
+    //   - return an empty perTargetResults (resolution is deferred)
+    const charging = makeStatusType({
+      id: 'charging',
+      stackingRule: 'REJECT',
+      durationMode: 'conditional',
     });
-    const cat = makeAbilitiesCatalog({ abilities: [slowSpell] });
-    const u = makeUnit({ id: 'u1', spd: 10, loadout: knightLoadout() });
-    const state = makeGameState({ units: [u], turnState: activeTurnFor(u.id) });
-    const action = asAction('use_ability', { sequenceNumber: 1, actorId: 'u1' }, {
-      abilityId: abilityId('slow_spell'),
-      target: { kind: 'self' },
+    const cat = createCatalog({
+      statusTypes: [charging],
+      abilities: [
+        makeActive({
+          id: 'bolt_test',
+          targeting: {
+            kind: 'tile',
+            range: { horizontal: 4, vertical: 3 },
+            rangeMode: 'arc',
+          },
+          actionSpeed: 25,
+          mpCost: 6,
+        }),
+      ],
+      commandSets: [],
+      classes: [],
+      items: [],
+      rulesets: defaultTestRulesets,
     });
-    expect(() => reduceUseAbility(state, action, cat)).toThrow(/actionSpeed/);
+    const u = makeUnit({ id: 'u1', spd: 10, mp: 10, loadout: knightLoadout() });
+    const state = makeGameState({
+      units: [u],
+      map: flatMap(5, 5),
+      turnState: activeTurnFor(u.id),
+    });
+    const action = asAction('use_ability', { sequenceNumber: 7, actorId: 'u1' }, {
+      abilityId: abilityId('bolt_test'),
+      target: { kind: 'tile', position: { x: 1, y: 0, layer: 0 } },
+    });
+    const { newState, outcome } = reduceUseAbility(state, action, cat);
+    // MP deducted, act consumed.
+    expect(newState.units.get(u.id)!.vitals.mp).toBe(4);
+    expect(newState.turnState!.budget.actsAvailable).toBe(0);
+    expect(newState.turnState!.consumed.actsConsumed).toBe(1);
+    // ChargedAction pushed.
+    expect(newState.chargedActions).toHaveLength(1);
+    const ca = newState.chargedActions[0]!;
+    expect(ca.casterId).toBe(u.id);
+    expect(ca.abilityId).toBe(abilityId('bolt_test'));
+    expect(ca.ct).toBe(0);
+    expect(ca.speed).toBe(25);
+    expect(ca.targets).toEqual([
+      { kind: 'tile', position: { x: 1, y: 0, layer: 0 } },
+    ]);
+    expect(ca.sourceSequenceNumber).toBe(7);
+    // Charging status on caster, customState linking to the ChargedAction.
+    const casterStatuses = newState.units.get(u.id)!.statuses;
+    expect(casterStatuses).toHaveLength(1);
+    expect(casterStatuses[0]!.typeId).toBe(statusTypeId('charging'));
+    expect(casterStatuses[0]!.customState?.chargedActionId).toBe(ca.id);
+    // Outcome carries the ChargedAction's id and empty per-target results.
+    expect(outcome.chargedActionId).toBe(ca.id);
+    expect(outcome.perTargetResults).toHaveLength(0);
+    expect(outcome.mpSpent).toBe(6);
   });
 });
 
@@ -345,12 +397,90 @@ describe('reducer dispatcher', () => {
   });
 });
 
-describe('reduceChargedActionResolve (skeleton)', () => {
-  it('removes the charged action from the queue and returns an empty result list', () => {
-    const cat = makeAbilitiesCatalog({});
-    const ca: ChargedAction = makeChargedAction({ id: 'ca1', speed: 10 });
-    const state = makeGameState({ chargedActions: [ca] });
-    const action = asAction('charged_action_resolve', { sequenceNumber: 1 }, {
+describe('reduceChargedActionResolve', () => {
+  it('removes the ChargedAction and the casters Charging status; resolves to no-op when ability has no effects', () => {
+    const charging = makeStatusType({
+      id: 'charging',
+      stackingRule: 'REJECT',
+      durationMode: 'conditional',
+    });
+    const noopAbility = makeActive({
+      id: 'noop_charged',
+      targeting: { kind: 'self' },
+      actionSpeed: 25,
+    });
+    const cat = createCatalog({
+      statusTypes: [charging],
+      abilities: [noopAbility],
+      commandSets: [],
+      classes: [],
+      items: [],
+      rulesets: defaultTestRulesets,
+    });
+    const u = makeUnit({
+      id: 'u1',
+      spd: 10,
+      loadout: knightLoadout(),
+      statuses: [
+        makeStatusInstance({
+          typeId: 'charging',
+          remainingDuration: null,
+          customState: { chargedActionId: chargedActionId('ca1') },
+        }),
+      ],
+    });
+    const ca = makeChargedAction({
+      id: 'ca1',
+      speed: 25,
+      casterId: 'u1',
+      abilityId: 'noop_charged',
+    });
+    const state = makeGameState({
+      units: [u],
+      chargedActions: [ca],
+      map: flatMap(3, 3),
+    });
+    const action = asAction('charged_action_resolve', { sequenceNumber: 5 }, {
+      chargedActionId: chargedActionId('ca1'),
+    });
+    const result = reduce(state, action, cat);
+    expect(result.newState.chargedActions).toHaveLength(0);
+    expect(result.newState.units.get(u.id)!.statuses).toHaveLength(0);
+  });
+
+  it('fizzles silently when the caster is KO\'d (no effects, no Charging cleanup needed if status absent)', () => {
+    const charging = makeStatusType({
+      id: 'charging',
+      stackingRule: 'REJECT',
+      durationMode: 'conditional',
+    });
+    const cat = createCatalog({
+      statusTypes: [charging],
+      abilities: [
+        makeActive({
+          id: 'noop_charged',
+          targeting: { kind: 'self' },
+          actionSpeed: 25,
+        }),
+      ],
+      commandSets: [],
+      classes: [],
+      items: [],
+      rulesets: defaultTestRulesets,
+    });
+    const u = makeUnit({ id: 'u1', spd: 10, hp: 0, loadout: knightLoadout() });
+    const ca = makeChargedAction({
+      id: 'ca1',
+      speed: 25,
+      casterId: 'u1',
+      abilityId: 'noop_charged',
+    });
+    const state = makeGameState({
+      units: [u],
+      chargedActions: [ca],
+      map: flatMap(3, 3),
+    });
+    const action = asAction('charged_action_resolve', { sequenceNumber: 5 }, {
       chargedActionId: chargedActionId('ca1'),
     });
     const result = reduce(state, action, cat);

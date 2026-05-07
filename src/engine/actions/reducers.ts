@@ -11,15 +11,18 @@
 // wrapper — branches return them by reference; they are *not* applied
 // here.
 
-import type { Catalog } from '../catalog/index.ts';
+import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
 import { defaultDamageHandlers } from '../damage/default-handlers.ts';
 import { runDamagePipeline } from '../damage/pipeline.ts';
-import { runOnActionTargeted } from '../hooks/runners.ts';
+import { runOnActionAttempted, runOnActionTargeted } from '../hooks/runners.ts';
 import { runQueryTurnSkipped } from '../hooks/runners.ts';
+import { unitAt } from '../map/accessors.ts';
 import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
 import { applyStatus } from '../status/apply.ts';
+import { removeStatus } from '../status/remove.ts';
 import { evaluateBattleOutcome } from '../turn/evaluate-battle-outcome.ts';
 import {
+  chargedActionId,
   getUnit,
   type Action,
   type AbilityTarget,
@@ -37,6 +40,7 @@ import {
   type StatusApplicationOutcome,
   type StatusInstance,
   type StatusTickOutcome,
+  type TargetRef,
   type TurnEndOutcome,
   type TurnStartOutcome,
   type Unit,
@@ -203,44 +207,219 @@ export function reduceUseAbility(
   const ability = expectActiveAbility(catalog, action.payload.abilityId);
   const actor = getUnit(state, action.actorId);
 
-  // Action Speed gate: actionSpeed > 0 spawns a ChargedAction with
-  // `ct: 0, speed: actionSpeed` and applies the Charging status. Effect
-  // resolution happens later when the charged action triggers
-  // (charged_action_resolve). Session 7 ships the actionSpeed: 0 path
-  // and the actionSpeed > 0 hookup arrives in session 15 when the
-  // first content consumer ships.
-  if (ability.actionSpeed > 0) {
-    throw new Error(
-      `reduceUseAbility: actionSpeed > 0 not implemented yet (ability ${JSON.stringify(ability.id)})`,
-    );
-  }
-
-  // Deduct MP.
+  // Deduct MP up front. Per BMG ("MP system"): MP is committed at
+  // commit time and not refunded on fizzle — applies to both instant
+  // and charged abilities.
   let workingState: GameState = withUnit(state, {
     ...actor,
     vitals: { ...actor.vitals, mp: actor.vitals.mp - ability.mpCost },
   });
 
+  // Decrement actsAvailable. The Act is consumed at commit even for
+  // charged spells (the caster spent their action; the spell resolves
+  // later). Charging then skips subsequent turns via `queryTurnSkipped`.
+  workingState = decrementActBudget(workingState);
+
+  // Action Speed gate. actionSpeed > 0 → spawn a ChargedAction with
+  // `ct: 0, speed: actionSpeed` and apply the Charging status to the
+  // caster. Effect resolution happens later via charged_action_resolve.
+  // actionSpeed === 0 → resolve immediately.
+  if (ability.actionSpeed > 0) {
+    return commitCharged(workingState, action, ability, actor, catalog);
+  }
+
   // Resolve the primary target unit (if any).
   const targetUnit = resolveUnitTarget(workingState, action.payload.target);
 
-  // Damage / healing pipeline. Runs before status application so a unit
-  // that dies to the damage doesn't get the statuses (per the design's
-  // "Status application runs after damage application" rule). v1 only
-  // runs the pipeline when the ability declares damage *and* has a unit
-  // target — self-target healing lands when its content consumer ships.
+  const incomingProposed: ProposedAction = {
+    type: 'use_ability',
+    source: action.source,
+    actorId: actor.id,
+    payload: action.payload,
+  };
+
+  const resolved = resolveAbilityEffect(workingState, catalog, {
+    ability,
+    attacker: actor,
+    targetUnit,
+    payloadTargetForResult: action.payload.target,
+    incomingProposed,
+    sourceActionSeq: action.sequenceNumber,
+    seed: action.seed,
+  });
+
+  const outcome: UseAbilityOutcome = {
+    kind: 'use_ability',
+    abilityId: ability.id,
+    perTargetResults: resolved.perTargetResults,
+    mpSpent: ability.mpCost,
+  };
+
+  return {
+    newState: resolved.newState,
+    outcome,
+    generatedActions: [],
+    ...(resolved.generatedReactions.length > 0
+      ? { generatedReactions: resolved.generatedReactions }
+      : {}),
+  };
+}
+
+// Resolve a unit ref for an UseAbility's target. `self` and `tile`
+// return null so the caller can branch — `self` actions don't drive
+// the damage pipeline today, and tile-anchored resolution looks up the
+// unit at the position dynamically (different code path).
+function resolveUnitTarget(state: GameState, target: AbilityTarget): Unit | null {
+  if (target.kind === 'unit') return getUnit(state, target.unitId);
+  return null;
+}
+
+// Decrement actsAvailable on the active turn; bump consumed.actsConsumed.
+function decrementActBudget(state: GameState): GameState {
+  const turn = state.turnState;
+  if (turn === null) throw new Error('decrementActBudget: turnState was null');
+  return {
+    ...state,
+    turnState: {
+      ...turn,
+      budget: { ...turn.budget, actsAvailable: turn.budget.actsAvailable - 1 },
+      consumed: { ...turn.consumed, actsConsumed: turn.consumed.actsConsumed + 1 },
+    },
+  };
+}
+
+// Commit-charged path: spawn the ChargedAction, apply Charging status,
+// return the use_ability outcome with chargedActionId set and empty
+// per-target results (resolution lands later in
+// `reduceChargedActionResolve`).
+function commitCharged(
+  state: GameState,
+  action: Extract<Action, { type: 'use_ability' }>,
+  ability: ActiveAbilityDefinition,
+  actor: Unit,
+  catalog: Catalog,
+): ReduceResult<UseAbilityOutcome> {
+  const targets = buildTargetRefs(action.payload.target);
+  const caId = chargedActionId(`ca:${actor.id}:${action.sequenceNumber}`);
+
+  const charged: ChargedAction = {
+    id: caId,
+    casterId: actor.id,
+    abilityId: ability.id,
+    ct: 0,
+    speed: ability.actionSpeed,
+    targets,
+    sourceSequenceNumber: action.sequenceNumber,
+  };
+
+  let workingState: GameState = {
+    ...state,
+    chargedActions: [...state.chargedActions, charged],
+  };
+
+  // Apply the Charging status to the caster. The named type id comes
+  // from the active ruleset so the engine stays content-agnostic.
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  const chargingTypeId = ruleset.chargedActions.chargingStatusTypeId;
+  const applied = applyStatus(
+    workingState,
+    {
+      targetId: actor.id,
+      typeId: chargingTypeId,
+      sourceUnitId: actor.id,
+      sourceActionSeq: action.sequenceNumber,
+      customState: { chargedActionId: caId },
+    },
+    catalog,
+  );
+  workingState = applied.newState;
+
+  const outcome: UseAbilityOutcome = {
+    kind: 'use_ability',
+    abilityId: ability.id,
+    perTargetResults: [],
+    mpSpent: ability.mpCost,
+    chargedActionId: caId,
+  };
+
+  return {
+    newState: workingState,
+    outcome,
+    generatedActions: [],
+  };
+}
+
+// Convert the proposed `AbilityTarget` to the ChargedAction-stored
+// `TargetRef` shape. Self-targeting charged abilities are unusual but
+// supported (caster's id captured at commit; FFT-pinning to the unit
+// applies — caster still resolves on themselves even if displaced).
+function buildTargetRefs(target: AbilityTarget): TargetRef[] {
+  switch (target.kind) {
+    case 'self':
+      throw new Error(
+        'buildTargetRefs: charged self-target not yet specified — ' +
+          "no v1 content uses 'self' targeting on a charged ability",
+      );
+    case 'unit':
+      return [{ kind: 'unit', unitId: target.unitId }];
+    case 'tile':
+      return [{ kind: 'tile', position: target.position }];
+  }
+}
+
+// Per-target resolver shared by the instant UseAbility path and the
+// deferred charged_action_resolve path. Drives:
+//   - The damage pipeline (when the ability declares damage AND has a
+//     unit target).
+//   - Status application (per-effect spec).
+//   - Post-application onActionTargeted reactions on the unit target.
+//
+// Returns one AbilityTargetResult plus state updates and any reactions.
+// AoE callers (session 17) drive this per-target with an appropriate
+// per-target seed branching.
+interface ResolveAbilityEffectArgs {
+  readonly ability: ActiveAbilityDefinition;
+  readonly attacker: Unit;
+  readonly targetUnit: Unit | null;
+  // What goes into the AbilityTargetResult.target field. For unit
+  // targets this is `{ kind: 'unit', unitId }`; for self this is
+  // `{ kind: 'self' }`; for tile-anchored this is the tile or the unit
+  // ultimately resolved on it (caller decides).
+  readonly payloadTargetForResult: AbilityTarget;
+  // The synthetic ProposedAction passed to onActionTargeted's
+  // `incomingAction` arg. Reaction handlers see this to gate on
+  // ability id / tags / actor.
+  readonly incomingProposed: ProposedAction;
+  readonly sourceActionSeq: number;
+  readonly seed: number;
+}
+
+interface ResolveAbilityEffectResult {
+  readonly newState: GameState;
+  readonly perTargetResults: ReadonlyArray<AbilityTargetResult>;
+  readonly generatedReactions: ReadonlyArray<ProposedAction>;
+}
+
+function resolveAbilityEffect(
+  state: GameState,
+  catalog: Catalog,
+  args: ResolveAbilityEffectArgs,
+): ResolveAbilityEffectResult {
+  let workingState = state;
+
+  // Damage / healing pipeline.
   let damageContext: DamageContext | null = null;
   let damageDealt: number | undefined;
   let healingDealt: number | undefined;
-  if (ability.effects.damage !== undefined && targetUnit !== null) {
+  if (args.ability.effects.damage !== undefined && args.targetUnit !== null) {
     damageContext = runDamagePipeline({
       state: workingState,
       catalog,
-      attacker: actor,
-      target: targetUnit,
-      ability,
-      sourceActionSeq: action.sequenceNumber,
-      seed: action.seed,
+      attacker: args.attacker,
+      target: args.targetUnit,
+      ability: args.ability,
+      sourceActionSeq: args.sourceActionSeq,
+      seed: args.seed,
       registry: defaultDamageHandlers,
     });
     workingState = applyDamageToTarget(workingState, damageContext);
@@ -251,24 +430,22 @@ export function reduceUseAbility(
     }
   }
 
-  // Apply status effects (the v1 effect path). Skipped if damage KO'd
-  // the target — the post-damage HP read gates the status path.
+  // Apply status effects. Skipped if damage KO'd the target.
   const targetKO =
-    targetUnit !== null && workingState.units.get(targetUnit.id)?.vitals.hp === 0;
+    args.targetUnit !== null &&
+    workingState.units.get(args.targetUnit.id)?.vitals.hp === 0;
   const statusOutcomes: StatusApplicationOutcome[] = [];
-
-  if (ability.effects.statusEffects && !targetKO) {
-    for (const spec of ability.effects.statusEffects) {
-      const targetStatusUnitId = spec.target === 'caster'
-        ? actor.id
-        : targetUnit !== null
-          ? targetUnit.id
-          : null;
+  if (args.ability.effects.statusEffects && !targetKO) {
+    for (const spec of args.ability.effects.statusEffects) {
+      const targetStatusUnitId =
+        spec.target === 'caster'
+          ? args.attacker.id
+          : args.targetUnit !== null
+            ? args.targetUnit.id
+            : null;
       if (targetStatusUnitId === null) {
-        // Spec wants a primary_target but the action is self-targeted —
-        // author bug; surface it.
         throw new Error(
-          `reduceUseAbility: status effect ${JSON.stringify(spec.typeId)} targets primary_target but ability ${JSON.stringify(ability.id)} has no unit target`,
+          `resolveAbilityEffect: status effect ${JSON.stringify(spec.typeId)} targets primary_target but ability ${JSON.stringify(args.ability.id)} has no unit target`,
         );
       }
       const applied = applyStatus(
@@ -276,8 +453,8 @@ export function reduceUseAbility(
         {
           targetId: targetStatusUnitId,
           typeId: spec.typeId,
-          sourceUnitId: actor.id,
-          sourceActionSeq: action.sequenceNumber,
+          sourceUnitId: args.attacker.id,
+          sourceActionSeq: args.sourceActionSeq,
           ...(spec.magnitude !== undefined ? { magnitude: spec.magnitude } : {}),
           ...(spec.duration !== undefined ? { duration: spec.duration } : {}),
           ...(spec.customState !== undefined ? { customState: spec.customState } : {}),
@@ -289,69 +466,35 @@ export function reduceUseAbility(
     }
   }
 
-  // Decrement actsAvailable; bump consumed.
-  const turn = workingState.turnState;
-  if (turn === null) throw new Error('reduceUseAbility: turnState was null mid-flight');
-  const newTurn = {
-    ...turn,
-    budget: { ...turn.budget, actsAvailable: turn.budget.actsAvailable - 1 },
-    consumed: { ...turn.consumed, actsConsumed: turn.consumed.actsConsumed + 1 },
-  };
-  workingState = { ...workingState, turnState: newTurn };
-
-  // Post-application reactions: fire onActionTargeted on the *target*'s
-  // hooks (Counter, Reflect, Auto-Potion). Only applies when there's a
-  // unit target. The runner is enriched with the final damage amount
-  // and tag set so reaction handlers can gate without a catalog lookup.
+  // Post-application reactions: onActionTargeted on the target's hooks.
   const reactions: ProposedAction[] = [];
-  if (targetUnit !== null && damageContext !== null) {
-    const postTarget = workingState.units.get(targetUnit.id) ?? targetUnit;
+  if (args.targetUnit !== null && damageContext !== null) {
+    const postTarget = workingState.units.get(args.targetUnit.id) ?? args.targetUnit;
     const targetedReactions = runOnActionTargeted(workingState, catalog, {
       unit: postTarget,
-      incomingAction: {
-        type: 'use_ability',
-        source: action.source,
-        actorId: actor.id,
-        payload: action.payload,
-      },
+      incomingAction: args.incomingProposed,
       damageDealt: damageContext.damageTags.has('healing')
         ? -(damageContext.finalDamage ?? 0)
         : damageContext.finalDamage ?? 0,
       damageTags: damageContext.damageTags,
-      seed: action.seed,
+      seed: args.seed,
     });
     for (const r of targetedReactions) reactions.push(r);
   }
 
-  const finalResult: AbilityTargetResult = {
-    target: action.payload.target,
+  const result: AbilityTargetResult = {
+    target: args.payloadTargetForResult,
     hit: damageContext !== null ? damageContext.hit : true,
     ...(damageDealt !== undefined ? { damage: damageDealt } : {}),
     ...(healingDealt !== undefined ? { healing: healingDealt } : {}),
     ...(statusOutcomes.length > 0 ? { statusesApplied: statusOutcomes } : {}),
   };
 
-  const outcome: UseAbilityOutcome = {
-    kind: 'use_ability',
-    abilityId: ability.id,
-    perTargetResults: [finalResult],
-    mpSpent: ability.mpCost,
-  };
-
   return {
     newState: workingState,
-    outcome,
-    generatedActions: [],
-    ...(reactions.length > 0 ? { generatedReactions: reactions } : {}),
+    perTargetResults: [result],
+    generatedReactions: reactions,
   };
-}
-
-// Resolve a unit ref for an UseAbility's target. `self` returns null so
-// callers can branch — `self` actions don't drive the damage pipeline
-// or onActionTargeted reactions in v1.
-function resolveUnitTarget(state: GameState, target: AbilityTarget): Unit | null {
-  if (target.kind === 'self') return null;
-  return getUnit(state, target.unitId);
 }
 
 // Apply finalDamage to the target's vitals. Damage lowers HP (floor 0
@@ -642,30 +785,254 @@ export function reduceStatusTick(
 }
 
 // --- charged_action_resolve ---
+//
+// Lifecycle: the scheduler emits this when a ChargedAction's CT crosses
+// the trigger threshold. Resolution applies the deferred ability effects
+// to the targets recorded at commit time, fires the standard
+// onActionTargeted reaction surface per unit target, then removes both
+// the ChargedAction and the paired Charging status from the caster.
+//
+// Interruption matrix (per BMG "Interruption rules"):
+//
+//   - **Caster KO** → fizzle. No damage, no status applied. Reactions
+//     never fire. ChargedAction and Charging status both removed.
+//   - **onActionAttempted blocks** → fizzle. The same hook that vetoes
+//     instant UseAbility commits also vetoes resolution; Silence
+//     (`'magical'`/`'voice'` block) and Don't Act will register here
+//     when they ship in session 16. v1 has no consumers — the wiring
+//     is in place so the addition is one status-side change.
+//   - **Stop on caster** → cannot reach this reducer. Stop pauses CT
+//     accumulation via `computeActionSpeed` returning 0; the scheduler
+//     never picks the ChargedAction. (Edge case noted on
+//     computeActionSpeed: post-trigger CT push under Stop is out of v1
+//     scope.)
+//   - **Damage / movement on caster during charge** → no interruption
+//     (the charge is its own entity; range is checked at resolution
+//     against the caster's current position).
+//
+// Target validity (per BMG "Interruption rules"):
+//
+//   - **Single-unit target KO'd before resolution** → fizzles for that
+//     target. v1 has only single-target charged abilities, so the
+//     whole resolution becomes empty per-target results.
+//   - **Single-unit target moved out of range** → resolves on the
+//     original target anyway (FFT pinning).
+//   - **Tile-anchored** → resolves at the tile regardless of which unit
+//     (if any) is on it at resolution time.
+//
+// MP refund-on-fizzle: never. Per BMG "MP system": MP was deducted at
+// commit time; this reducer does not touch the caster's MP.
 
 export function reduceChargedActionResolve(
   state: GameState,
   action: Extract<Action, { type: 'charged_action_resolve' }>,
-  _catalog: Catalog,
+  catalog: Catalog,
 ): ReduceResult<ChargedActionResolveOutcome> {
   const id = action.payload.chargedActionId;
   const ca = state.chargedActions.find((c: ChargedAction) => c.id === id);
   if (ca === undefined) {
     throw new Error(`reduceChargedActionResolve: no ChargedAction with id ${JSON.stringify(id)}`);
   }
-  // Session 7 ships the skeleton: remove the ChargedAction from the
-  // queue, return an empty result list. The actual effect resolution
-  // and the paired Charging-status removal land alongside damage
-  // pipeline (session 8) and the first content consumer.
-  const newChargedActions = state.chargedActions.filter((c) => c.id !== id);
-  const newState: GameState = { ...state, chargedActions: newChargedActions };
+
+  const ability = expectActiveAbility(catalog, ca.abilityId);
+  const caster = state.units.get(ca.casterId);
+
+  // Caster KO → fizzle. Remove the ChargedAction; if the caster still
+  // exists in state, also remove their Charging status (Charging is
+  // only removed on resolve/cancel, so it lingers post-KO until cleaned
+  // up here).
+  if (caster === undefined || caster.vitals.hp <= 0) {
+    return finalizeResolution(
+      state,
+      catalog,
+      ca,
+      caster ?? null,
+      [],
+      [],
+    );
+  }
+
+  // Caster onActionAttempted check. Silence on 'magical' / 'voice'
+  // tagged abilities, Don't Act in general, etc. — these statuses
+  // register a handler that returns `{ kind: 'blocked' }`, which means
+  // the charge fizzles at resolution.
+  //
+  // We synthesize a UseAbility ProposedAction reflecting the caster +
+  // ability so existing handler shapes apply. We don't honor
+  // `replaced` here: a charged-spell resolution that's "replaced" with
+  // a different action is not in any v1 design space; if a future hook
+  // wants that behavior it'll need its own resolution-time hook.
+  const proposedAtResolve: ProposedAction = synthesizeProposed(ca, caster);
+  const attempt = runOnActionAttempted(state, catalog, {
+    unit: caster,
+    action: proposedAtResolve,
+  });
+  if (attempt.kind === 'blocked') {
+    return finalizeResolution(state, catalog, ca, caster, [], []);
+  }
+
+  // Per-target resolution. v1 has single-target charged abilities only;
+  // the loop pre-stages session 17's AoE per-target dispatch.
+  let workingState: GameState = state;
+  const allResults: AbilityTargetResult[] = [];
+  const allReactions: ProposedAction[] = [];
+
+  for (const targetRef of ca.targets) {
+    const { resolvedUnit, payloadTargetForResult } = resolveTargetAtResolve(
+      workingState,
+      targetRef,
+    );
+
+    if (targetRef.kind === 'unit' && resolvedUnit === null) {
+      // Single-unit target gone (KO'd before resolution and pruned, or
+      // never present): silent fizzle for this target.
+      continue;
+    }
+    if (targetRef.kind === 'unit' && resolvedUnit !== null && resolvedUnit.vitals.hp <= 0) {
+      // Single-unit target KO'd before resolution: fizzle for this target.
+      continue;
+    }
+    if (targetRef.kind === 'tile' && resolvedUnit === null) {
+      // Tile-anchored, no unit on tile: resolution lands but has no
+      // damage/status effect (no target unit to apply to). v1 emits no
+      // per-target result for the empty tile; AoE in session 17 will
+      // emit per-tile results when relevant.
+      if (ability.effects.statusEffects && ability.effects.statusEffects.some(
+        (s) => s.target === 'caster',
+      )) {
+        // Caster-targeted status effects still apply on empty-tile
+        // resolution (the caster is always present). Run the resolver
+        // with targetUnit=caster so the caster's effects fire; per-target
+        // result reports the original tile.
+        const resolved = resolveAbilityEffect(workingState, catalog, {
+          ability,
+          attacker: caster,
+          targetUnit: null, // skip damage/onActionTargeted
+          payloadTargetForResult,
+          incomingProposed: proposedAtResolve,
+          sourceActionSeq: action.sequenceNumber,
+          seed: action.seed,
+        });
+        workingState = resolved.newState;
+        allResults.push(...resolved.perTargetResults);
+        allReactions.push(...resolved.generatedReactions);
+      }
+      continue;
+    }
+
+    // Resolve for the unit (either named-unit target or tile-resolved
+    // unit). Both paths share the same per-target resolver.
+    const resolved = resolveAbilityEffect(workingState, catalog, {
+      ability,
+      attacker: caster,
+      targetUnit: resolvedUnit,
+      payloadTargetForResult,
+      incomingProposed: proposedAtResolve,
+      sourceActionSeq: action.sequenceNumber,
+      seed: action.seed,
+    });
+    workingState = resolved.newState;
+    allResults.push(...resolved.perTargetResults);
+    allReactions.push(...resolved.generatedReactions);
+  }
+
+  return finalizeResolution(workingState, catalog, ca, caster, allResults, allReactions);
+}
+
+// Synthesize the ProposedAction passed into hook chains at resolution
+// time. The `target` is the first TargetRef rendered as an
+// AbilityTarget — for v1 single-target charged abilities this is
+// unambiguous; for AoE the target list is broader and per-target hook
+// firing inside `resolveAbilityEffect` is what reaction handlers see.
+function synthesizeProposed(ca: ChargedAction, caster: Unit): ProposedAction {
+  const head = ca.targets[0];
+  let target: AbilityTarget;
+  if (head === undefined) {
+    target = { kind: 'self' };
+  } else if (head.kind === 'unit') {
+    target = { kind: 'unit', unitId: head.unitId };
+  } else {
+    target = { kind: 'tile', position: head.position };
+  }
+  return {
+    type: 'use_ability',
+    source: 'system',
+    actorId: caster.id,
+    payload: { abilityId: ca.abilityId, target },
+  };
+}
+
+// Resolve a TargetRef to a concrete (Unit | null) at resolution time,
+// alongside the AbilityTarget shape used in the per-target result.
+// Unit refs do *not* re-look up by position (FFT pinning — the unit's
+// id is canonical even if they moved); tile refs look up the unit
+// currently at the position.
+function resolveTargetAtResolve(
+  state: GameState,
+  ref: TargetRef,
+): { resolvedUnit: Unit | null; payloadTargetForResult: AbilityTarget } {
+  if (ref.kind === 'unit') {
+    const unit = state.units.get(ref.unitId);
+    return {
+      resolvedUnit: unit ?? null,
+      payloadTargetForResult: { kind: 'unit', unitId: ref.unitId },
+    };
+  }
+  // Tile-anchored: search every layer at (x,y) for an occupant; v1 uses
+  // `unitAt(state, x, y, layer)` keyed on the recorded layer.
+  const tileUnit = unitAt(state, ref.position.x, ref.position.y, ref.position.layer);
+  return {
+    resolvedUnit: tileUnit ?? null,
+    payloadTargetForResult: { kind: 'tile', position: ref.position },
+  };
+}
+
+// Finalize: remove the ChargedAction from state.chargedActions, remove
+// the Charging status from the caster (if present), produce the
+// outcome, and return reactions to enqueue.
+function finalizeResolution(
+  state: GameState,
+  catalog: Catalog,
+  ca: ChargedAction,
+  caster: Unit | null,
+  perTargetResults: ReadonlyArray<AbilityTargetResult>,
+  reactions: ReadonlyArray<ProposedAction>,
+): ReduceResult<ChargedActionResolveOutcome> {
+  let newState: GameState = {
+    ...state,
+    chargedActions: state.chargedActions.filter((c) => c.id !== ca.id),
+  };
+
+  // Remove the Charging status from the caster (if they still exist
+  // and have one). The match is by typeId — even though Charging uses
+  // STACK_INDEPENDENT-style customState pointers in principle, v1's
+  // REJECT stacking ensures at most one Charging instance per caster,
+  // so removing all instances of the type is correct.
+  if (caster !== null) {
+    const chargingTypeId = catalog.getRuleset(state.ruleset.id).chargedActions
+      .chargingStatusTypeId;
+    const stillHasCharging = newState.units
+      .get(caster.id)
+      ?.statuses.some((s) => s.typeId === chargingTypeId);
+    if (stillHasCharging === true) {
+      newState = removeStatus(
+        newState,
+        { targetId: caster.id, typeId: chargingTypeId },
+        catalog,
+      ).newState;
+    }
+  }
+
+  const outcome: ChargedActionResolveOutcome = {
+    kind: 'charged_action_resolve',
+    chargedActionId: ca.id,
+    perTargetResults,
+  };
+
   return {
     newState,
-    outcome: {
-      kind: 'charged_action_resolve',
-      chargedActionId: id,
-      perTargetResults: [],
-    },
+    outcome,
     generatedActions: [],
+    ...(reactions.length > 0 ? { generatedReactions: reactions } : {}),
   };
 }

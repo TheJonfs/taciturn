@@ -45,10 +45,13 @@ describe('loadDefaultCatalog', () => {
     // added the Counter passive (the v1 reaction demo). Session 9
     // added Stop (the v1 turn-skip demo) — second status type.
     // Session 13 added the white_magic command set so the demo battle
-    // can equip Cure on the Second Action bucket.
-    expect(cat.statusTypes()).toHaveLength(2);
-    expect(cat.abilities()).toHaveLength(6);
-    expect(cat.commandSets()).toHaveLength(2);
+    // can equip Cure on the Second Action bucket. Session 15 added
+    // Charging (third status type) and the throwaway charged ability
+    // Bolt (seventh ability) plus its arcane_skill command set
+    // (third command set) for the charged-action-lifecycle demo.
+    expect(cat.statusTypes()).toHaveLength(3);
+    expect(cat.abilities()).toHaveLength(7);
+    expect(cat.commandSets()).toHaveLength(3);
     expect(cat.classes()).toHaveLength(1);
     expect(cat.items()).toHaveLength(1);
     expect(cat.rulesets()).toHaveLength(1);

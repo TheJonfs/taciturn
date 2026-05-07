@@ -19,11 +19,13 @@ import {
 import {
   DEFAULT_HOOK_SOURCE_TIER_ORDER,
   rulesetId,
+  statusTypeId,
   type BucketId,
   type DamageHandlerRef,
   type DamageStage,
   type RulesetDefinition,
   type RulesetId,
+  type StatusTypeId,
 } from '../types/index.ts';
 
 const TEST_BUCKET_CAPACITIES: ReadonlyMap<BucketId, number> = new Map([
@@ -74,6 +76,8 @@ export function makeTestRuleset(overrides?: {
     Record<DamageStage, ReadonlyArray<DamageHandlerRef>>
   >;
   readonly perUnitPerTurnReactions?: number;
+  readonly chargingStatusTypeId?: StatusTypeId;
+  readonly pausingStatusTypeIds?: ReadonlyArray<StatusTypeId>;
 }): RulesetDefinition {
   return {
     id: overrides?.id ?? rulesetId('default'),
@@ -115,6 +119,10 @@ export function makeTestRuleset(overrides?: {
     damagePipeline: { stages: overrides?.damagePipelineStages ?? EMPTY_DAMAGE_PIPELINE },
     initialCT: { kind: 'fixed', value: 0 },
     bucketCapacities: overrides?.bucketCapacities ?? TEST_BUCKET_CAPACITIES,
+    chargedActions: {
+      chargingStatusTypeId: overrides?.chargingStatusTypeId ?? statusTypeId('charging'),
+      pausingStatusTypeIds: overrides?.pausingStatusTypeIds ?? [statusTypeId('stop')],
+    },
   };
 }
 

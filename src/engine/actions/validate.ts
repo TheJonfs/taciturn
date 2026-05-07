@@ -212,24 +212,58 @@ function validateUseAbility(
     );
   }
 
-  // Target check. v1 supports `self` and `single_unit` targeting.
-  // The `tile` targeting kind is declared on the type but not yet
-  // validated — its consumers ship in session 15 (charged tile-AoE)
-  // and session 17 (AoE per-target dispatch). Throwing now means an
-  // ability authored with `tile` targeting fails fast, surfacing the
-  // missing implementation rather than silently passing validation.
+  // Target check. The targeting union has three kinds: `self`,
+  // `single_unit`, and `tile`. Tile-anchored validation lands here in
+  // session 15 alongside the throwaway charged ability that exercises
+  // it. Per-target dispatch within an AoE (session 17) reuses the same
+  // tile validation for the anchor.
   const targetingKind = ability.targeting.kind;
   const payloadTargetKind = action.payload.target.kind;
-
-  if (targetingKind === 'tile') {
-    throw new Error(
-      `validateUseAbility: tile target not yet implemented (ability ${JSON.stringify(ability.id)})`,
-    );
-  }
 
   if (targetingKind === 'self') {
     if (payloadTargetKind !== 'self') {
       return invalid(`Ability ${JSON.stringify(ability.id)} targets self only`);
+    }
+    return VALID;
+  }
+
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  const sourceTile = tileAt(state.map, actor.position.x, actor.position.y, actor.position.layer);
+  if (sourceTile === undefined) {
+    return invalid('Source tile does not exist');
+  }
+
+  if (targetingKind === 'tile') {
+    if (payloadTargetKind !== 'tile') {
+      return invalid(`Ability ${JSON.stringify(ability.id)} requires a tile target`);
+    }
+    const tilePos = (action.payload.target as Extract<AbilityTarget, { kind: 'tile' }>).position;
+    const destTile = tileAt(state.map, tilePos.x, tilePos.y, tilePos.layer);
+    if (destTile === undefined) {
+      return invalid(`Target tile (${tilePos.x},${tilePos.y},${tilePos.layer}) does not exist`);
+    }
+    const tileInRange = inRange({
+      source: endpointFrom(actor.position, sourceTile.elevation),
+      target: endpointFrom(tilePos, destTile.elevation),
+      params: {
+        horizontalMax: ability.targeting.range.horizontal,
+        horizontalMin: ability.targeting.range.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
+        verticalMax: ability.targeting.range.vertical,
+      },
+    });
+    if (!tileInRange) return invalid('Target tile is out of range');
+
+    const tileRangeMode: RangeMode = ability.targeting.rangeMode;
+    if (tileRangeMode === 'straight_line') {
+      const losOk = hasLineOfSight(
+        state.map,
+        endpointFrom(actor.position, sourceTile.elevation),
+        endpointFrom(tilePos, destTile.elevation),
+      );
+      if (!losOk) return invalid('Line of sight is blocked');
+    } else if (tileRangeMode === 'arc') {
+      const arcOk = arcTargetable(state.map, actor.position, tilePos);
+      if (!arcOk) return invalid('Arc target is covered');
     }
     return VALID;
   }
@@ -246,13 +280,11 @@ function validateUseAbility(
     return invalid(`Target unit ${JSON.stringify(targetUnitId)} does not exist`);
   }
 
-  // Range + targeting-mode checks. Resolve source/target tiles for
-  // elevation lookups; tile-not-found is an inconsistency caught here.
-  const ruleset = catalog.getRuleset(state.ruleset.id);
-  const sourceTile = tileAt(state.map, actor.position.x, actor.position.y, actor.position.layer);
+  // Range + targeting-mode checks. Resolve target tile for elevation
+  // lookups; tile-not-found is an inconsistency caught here.
   const targetTile = tileAt(state.map, targetUnit.position.x, targetUnit.position.y, targetUnit.position.layer);
-  if (sourceTile === undefined || targetTile === undefined) {
-    return invalid('Source or target tile does not exist');
+  if (targetTile === undefined) {
+    return invalid('Target tile does not exist');
   }
   const inRangeOk = inRange({
     source: endpointFrom(actor.position, sourceTile.elevation),

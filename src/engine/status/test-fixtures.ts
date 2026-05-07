@@ -5,6 +5,7 @@ import { defaultTestRulesets } from '../catalog/test-fixtures.ts';
 import type { StatusHookRegistration } from './hooks.ts';
 import {
   statusTypeId,
+  type DurationMode,
   type StackingRule,
   type StatusInstance,
   type StatusTypeId,
@@ -14,6 +15,7 @@ import {
 export interface MakeStatusTypeArgs {
   readonly id: string;
   readonly stackingRule?: StackingRule;
+  readonly durationMode?: DurationMode;
   readonly defaultMagnitude?: number;
   readonly hooks?: ReadonlyArray<StatusHookRegistration>;
   readonly tags?: ReadonlyArray<string>;
@@ -24,7 +26,7 @@ export function makeStatusType(args: MakeStatusTypeArgs): StatusEffectType {
     id: statusTypeId(args.id),
     name: args.id,
     tags: args.tags ?? [],
-    durationMode: 'per_unit_ct',
+    durationMode: args.durationMode ?? 'per_unit_ct',
     stackingRule: args.stackingRule ?? 'REFRESH',
     ...(args.defaultMagnitude !== undefined ? { defaultMagnitude: args.defaultMagnitude } : {}),
     hooks: args.hooks ?? [],
@@ -38,6 +40,7 @@ export function makeStatusInstance(args: {
   readonly stacks?: number;
   readonly sourceUnitId?: UnitId | null;
   readonly sourceActionSeq?: number | null;
+  readonly customState?: Readonly<Record<string, unknown>>;
 }): StatusInstance {
   return {
     typeId: statusTypeId(args.typeId),
@@ -45,6 +48,7 @@ export function makeStatusInstance(args: {
     remainingDuration: args.remainingDuration ?? 5,
     ...(args.magnitude !== undefined ? { magnitude: args.magnitude } : {}),
     ...(args.stacks !== undefined ? { stacks: args.stacks } : {}),
+    ...(args.customState !== undefined ? { customState: args.customState } : {}),
   };
 }
 

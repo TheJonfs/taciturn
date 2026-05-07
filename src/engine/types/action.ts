@@ -30,11 +30,16 @@ export type ActionType =
 export type ActionSource = 'player' | 'system';
 
 // What target an ability action is aimed at. `self` for `targeting.kind:
-// 'self'` abilities; `unit` for single-unit targeting. Tile-targeting
-// and AoE land additively.
+// 'self'` abilities; `unit` for single-unit targeting; `tile` for
+// tile-anchored targeting (resolves at the position regardless of which
+// unit is there at resolution time — FFT location-deterministic
+// behavior). AoE per-target dispatch lands additively in session 17;
+// per-target results for AoE / tile-anchored damage are still
+// unit-keyed.
 export type AbilityTarget =
   | { readonly kind: 'self' }
-  | { readonly kind: 'unit'; readonly unitId: UnitId };
+  | { readonly kind: 'unit'; readonly unitId: UnitId }
+  | { readonly kind: 'tile'; readonly position: Position };
 
 // Per-target result inside a UseAbility outcome. Damage is populated
 // session 8; v1 records hits and per-target status-application outcomes.

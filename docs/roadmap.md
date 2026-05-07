@@ -161,6 +161,26 @@ ADRs: 0020 (magical damage formula + Faith pipeline), 0021 (Brave-gated reaction
 
 References: ADRs 0019–0022, `src/engine/damage/handlers.ts`, `src/engine/hooks/runners.ts`, `src/content/abilities/counter.ts`, `src/content/abilities/attack.ts`, `docs/battle-mechanics-guide.md`.
 
+### 15. Charged action lifecycle ✅
+
+*Completed 2026-05-06.* Engine session — ChargedAction lifecycle, Charging status, the `actionSpeed > 0` UseAbility path, full interruption matrix, engine-side `turn_end` on active-unit KO, `'tile'` TargetingSpec validation, and a throwaway tile-anchored charged spell to drive end-to-end coverage. ADR-0023 captures the decisions and supersedes ADR-0013.
+
+`reduceUseAbility` factored into a shared `resolveAbilityEffect` helper (instant path's per-target body) plus `commitCharged` (the actionSpeed > 0 path: deduct MP, decrement actsAvailable, push ChargedAction, apply Charging via `ruleset.chargedActions.chargingStatusTypeId`). Charging carries `customState: { chargedActionId }` for future hook coupling and registers `queryTurnSkipped` so the caster sits idle while the spell is in flight.
+
+`reduceChargedActionResolve` ships the full lifecycle: caster-KO short-circuits to fizzle; otherwise the caster's `onActionAttempted` chain fires (Silence / Don't Act will register here when those statuses ship in session 16). Per-target resolution: unit-target uses FFT pinning (canonical id, even if displaced); tile-target uses `unitAt` lookup at the position. KO'd unit-target → that target fizzles silently. Empty tile → resolution lands but applies no per-target effects. The reducer then removes the ChargedAction and the Charging status from the caster.
+
+`computeActionSpeed` reads caster status to derive the pause: when the caster has any status listed in `RulesetChargedActions.pausingStatusTypeIds` (v1: Stop), effective speed is 0. The projection / scheduler treat speed=0 entities as non-advanceable, so paused charges sit at their current CT until the pause clears. Edge case (Quick-style CT push past 100 while paused) is documented as out-of-v1-scope — no v1 ability targets ChargedActions for CT push.
+
+`commitAction` gained a post-chain checkpoint: when the chain drains and `state.turnState !== null && state.outcome === undefined && active unit hp <= 0`, the engine appends a `turn_end` and re-enters the loop. Supersedes ADR-0013's orchestrator-level guard, which was removed from `DemoOrchestrator.step`. Any caller of `commitAction` (replay, networked, headless) inherits the behavior.
+
+`'tile'` TargetingSpec validation: tile exists, in range, rangeMode-specific (LoS / arc / melee). The `AbilityTarget` union grew a `'tile'` variant so payloads can carry `{ kind: 'tile', position }`.
+
+Content: `bolt` ability (tile-anchored magical damage, power 5, mpCost 8, actionSpeed 25) lives in `src/content/abilities/bolt.ts`; `arcane_skill` placeholder command set lives in `src/content/command-sets/arcane-skill.ts`. The throwaway exists to exercise the engine — real Mage class content lands in 16+.
+
+ADRs: 0023 (charged-action lifecycle, Charging, Stop-pause derivation, engine-side turn_end on KO; supersedes 0013). Test count: 369 → 381 (12 new — 11 lifecycle/interruption/tile-validation/KO-auto-end integration tests, 1 replaced commit-charged unit test).
+
+References: ADR-0023, `src/engine/actions/reducers.ts`, `src/engine/actions/commit.ts`, `src/engine/actions/validate.ts`, `src/engine/ct/speed.ts`, `src/engine/types/ruleset.ts`, `src/content/statuses/charging.ts`, `src/content/abilities/bolt.ts`.
+
 ## Content-expansion passes (interleaved)
 
 These are not numbered in the main sequence because their timing depends on what mechanisms exist. The general pattern: once a mechanism's MVP is in place, an expansion pass adds the breadth of content that uses it.

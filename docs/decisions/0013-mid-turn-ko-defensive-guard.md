@@ -1,6 +1,6 @@
 ## ADR-0013: Mid-turn KO of the active unit — orchestrator-side defensive guard
 
-**Status:** Accepted (provisional)
+**Status:** Superseded by ADR-0023 (2026-05-06).
 **Date:** 2026-05-03
 
 ## Context
