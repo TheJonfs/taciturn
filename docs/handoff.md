@@ -21,69 +21,83 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-06 (session 16: Earth Mage part 1)
+## From session 2026-05-06 (session 17a: AoE substrate)
 
 ### Suggested next-session scope
 
-Session 17 — Earth Mage (part 2) + Knight expansion. Per `docs/roadmap-sessions-14-20.md`: AoE damage application (per-target dispatch with seed branching from `resolveAbilityEffect`), AoE shape modifier hook, vertical tolerance enforcement on AoE, knockback / forced movement, equipment integration (per ADR-0014), Earth's AoE + Ultimate, Knight Battle Skill expansion, the long-form Poison status (non-expiring, cleared by ability/item).
+Session 17 was split into 17a/17b/17c per the user's call mid-session. 17a (this session, just landed) is the engine substrate: AoE per-target dispatch, per-target seed branching, `modifyAoeShape` hook, vertical tolerance enforcement, reaction-cap accounting fix. ADR-0025 captures the decisions.
 
-The session 16 substrate that session 17 inherits:
+**Session 17b** — Earth Mage (part 2) + new statuses. Per `docs/roadmap-sessions-14-20.md`:
 
-- **Status application formula is fully wired** in `resolveAbilityEffect`. Per-target dispatch in session 17's AoE work calls `resolveAbilityEffect` per target with index-branched seed; status rolls are already index-aware via `effectIndex` on `rollStatusChance`. Need to thread the per-target index *through* `resolveAbilityEffect` alongside the per-effect index — currently `effectIndex` only varies across effects within one ability call.
-- **Reaction compiler is the canonical author surface.** New reactions in 17+ extend `ReactionEffect` and `ReactionTriggerCondition` as needed. Damage / heal / knockback effect kinds will join `use_ability` / `apply_status` when their consumers ship.
-- **System action infrastructure is in place** (`system_heal`, `system_apply_status`, `status_remove`, `status_decrement_stack`). Sleep's wake-on-damage (the canonical ADR-0017 use case) ships in 17 and is the first non-Earth consumer of `status_remove`.
-- **Earth Mage demo battle is not wired yet.** The class, command set, abilities, and statuses are in the catalog and load successfully (loader test passes), but the demo battle (`src/content/battles/demo.ts`) still uses 2v2 Knights from session 13. An Earth Mage vs Knight demo would exercise the new content end-to-end in the browser preview. Optional for session 17 — could be a small interleaved task or part of the Earth AoE rollout.
+- Earth's AoE spell (Cross-shape damage + Move/Jump debuff rider) and Ultimate (Cross-shape with Poison + Don't Act + Don't Move).
+- New status types: **non-expiring Poison** (no duration tick, cleared by ability/item), **Don't Act**, **Don't Move**, content **Stop** (the engine Stop already exists for Charging interaction; this is the content-side debuff).
+- Knockback / forced movement (lay groundwork; Water Mage in 18 is the heavy user). Forced movement collision policy decision: recommend "cancel" per the roadmap.
+- **`onDamageReceived` emission shape extension** — Sleep's wake-on-damage is the canonical worked example. v1 doesn't have Sleep yet, but the pattern lands here cleanly so 17b's content can opt in. Shape: `OnDamageReceivedResult = { ctx: DamageContext; emittedActions?: ProposedAction[] }`. Backward-compatible with handlers that just return `ctx`.
+- Plaintext-first review for the AoE/Ultimate ability designs and the four new statuses.
+
+**Session 17c** — Knight expansion + equipment integration (per ADR-0014).
+
+- Equipment integration: `Equipment` type on Unit, equipment-slot definitions on classes, equipped-weapon WP read at the physical base stage, refactor of `physicalPaWp` to compose `PA × WP × power_coefficient`.
+- Knight Battle Skill expansion: Power Attack, Stasis Sword (status applier — applies Stop with low chance), defensive ability.
+- Knight R/S/M abilities: Damage Reduction support, class-flavored movement passive.
+- 1–2 starter equipment items: stat-buff (Strength Ring +1 PA), status-applying (Boots of Haste — Haste while equipped).
+
+The session 17a substrate that 17b/17c inherits:
+
+- **`AoeSpec` on `AbilityEffects`** is the canonical AoE author surface. Earth's AoE/Ultimate set `effects.aoe = { shape: { kind: 'cross', radius: 1 } }` and the dispatcher handles per-target fan-out automatically. Per-effect `target: 'caster'` rejects under AoE today — surface if a future ability needs both.
+- **`perTargetSeed(actionSeed, targetIndex)`** is the convention for per-target RNG independence. `targetIndex === 0` is identity (single-target callers see no RNG drift). Earth's AoE/Ultimate inherit per-target seed branching automatically by routing through the dispatcher.
+- **`modifyAoeShape` hook** is the engine surface for shape-modifying riders. Fire's "larger AoE" rider in session 19 plugs in here; v1 chain is identity. A potential Knight 17c equipment passive could legitimately register here too (e.g., a "Cleave Helm" that turns single-tile attacks into cross-shape), though no such item is on the 17c shortlist.
+- **`GeneratedReaction { action, reactorId }`** is the chain-control shape for emitted reactions. The cap-accounting fix is in place: any 17b/17c reaction (Counter chains in equipment, Stasis-Sword counter-style, etc.) accounts correctly without thinking about it.
+- **`AoeShape` lives in `engine/types/aoe-shape.ts`** — content authors and the catalog tier name it from `@engine/index.ts`. Algorithms (`shapeOffsets`, `aoeFootprint`) stay in `engine/map/`.
+- **Friendly fire is sourced from the ruleset** (`ruleset.behaviors.friendlyFire`, v1 default `true`). Per-ability override is not implemented; if 17b/17c needs "this ability ignores allies," add `affectsAllies?: boolean` to AoeSpec then.
+- **Caster exclusion defaults to `true`** — FFT-canonical. Earth AoE / Ultimate omit the flag. Lightning Mage's "Nova" in session 20 will be the first `excludeCaster: false` consumer.
+- **Vertical tolerance enforcement** is on by default (ruleset value 1, per-ability override). Earth's AoE on a multi-layer feature (bridge) hits both layers within tolerance per spec.
+- **Earth Mage demo battle** — still not wired (carried from session 16's handoff). Remains a small interleaved task; could land as part of 17b after Earth's AoE/Ultimate ship.
 
 ### Things noticed during the session
 
-- **Reaction-cap accounting limitation for `system_apply_status`.** The cap check in `commitAction` (`commit.ts:254`) keys on `'actorId' in effectiveProposed`. `system_apply_status` ProposedActions don't carry actorId, so apply_status reactions don't count against the per-unit-per-turn reaction cap. Unhittable in session 16 (Earth Resilience triggers at most once per attacker turn), but session 17's AoE will exercise the case if an AoE hits the same reactor multiple times in one cluster. Fix: extend `QueueEntry` with `reactorId` (or carry it on `generatedReactions` items) so the cap key isn't tied to the action's actorId field.
+- **Caster-target status effects in AoE throw** in the dispatcher. v1 has no consumer, but if 17b's plaintext review surfaces a "self-buff while AoE-damaging" design, the dispatcher needs a once-per-cast caster-effect application step before the per-target loop. The throw makes the constraint surface immediately rather than silently dropping one effect.
 
-- **`onTick` is the only emission-bearing hook today.** Other event hooks (`onApply`, `onRemove`, `onDamageReceived`, `onDamageDealt`, `onActionAttempted`, `onActionTargeted`) still use their pre-session-16 return shapes. They extend to `{ result, emittedActions? }` when their first emission consumer ships:
-  - **Sleep (session 17):** `onDamageReceived` returns `{ ctx, emittedActions: [status_remove] }` to wake-on-damage.
-  - **Burn (session 19):** custom-trigger pattern — likely a new hook variant rather than an existing-hook extension.
-  - **Vulnerable (session 20):** `onDamageReceived` returns `{ ctx (with multiplier applied), emittedActions: [status_remove] }`.
-  Session 17 should land the `onDamageReceived` shape change cleanly, with Sleep as the worked example. ADR follow-up to ADR-0024.
+- **Empty AoE footprint is allowed.** A tile-anchored AoE on a tile where no one stands and no nearby tiles have units returns `perTargetResults: []`. MP and Act budget were already deducted by the reducer pre-flight; the empty result is the deserved fizzle. Renderer's animator treats `perTargetResults[0] === undefined` as a brief pause (doesn't crash).
 
-- **`onTick` handler signature includes `state` and `catalog` in args.** This is the exception in the hook surface — most handlers don't see state/catalog directly. Justified by the inherent need for tick effects to compute against current world state (Regen reads MaxHP and Faith via `runModifyStatQuery`). When session 19's Burn lands, its custom-trigger handler will likely need the same access; the pattern can extend to a `state`/`catalog` slot on other hooks if a similar need arises. For now, only `onTick` carries it.
+- **Stable target order is by lexicographic UnitId.** Tests rely on this for deterministic per-target assertions. `'b' < 'c' < 'd' < 'e'` in the test fixture is an example; production unit ids (e.g., `red_knight_n`, `blue_mage_s`) sort the same way. Session 17b's content tests inherit the property without thinking about it.
 
-- **Per-effect seed branching is in place but per-target seed branching is not.** `rollStatusChance` accepts an `effectIndex`. Session 17's AoE per-target dispatch needs a per-target index *in addition* — when an AoE hits 3 targets and applies a status to each, target 0's roll, target 1's roll, target 2's roll should all be independent. The `effectIndex` slot is already there; the AoE caller will compute `target_idx * effects.length + effect_idx` or similar and pass it through. Document the convention when AoE lands.
+- **`reduceChargedActionResolve`'s pre-flight silent-fizzle cases stay in the reducer.** The dispatcher would emit a hit=true result for empty-tile-no-caster-effects cases; the reducer pre-flight preserves the existing "no per-target result emitted" semantics. AoE-flagged charged spells (none in v1, but a future "Charged Cross-Quake" pattern) skip the pre-flight and go through the dispatcher even on empty anchors — the AoE expansion may find nearby units regardless.
 
-- **The reaction compiler doesn't propagate the reactor id to system_apply_status.** Today the compiler embeds `sourceUnitId: args.unit.id` in the system_apply_status payload. The cap-accounting issue (above) means the reactor isn't credited against the per-turn cap. Resolution lands alongside the AoE per-target work in session 17.
+- **`onDamageReceived` emission shape extension is genuinely small.** The handler return becomes `{ ctx, emittedActions? }`; the runner collects emissions and the reducer enqueues them. Sleep's wake-on-damage is the canonical example. Worth landing in 17b alongside Earth's AoE/Ultimate as a focused, testable change. ADR follow-up to ADR-0024.
 
-- **Silence's onActionAttempted handler reads `args.abilityTags`.** The runner now pre-resolves the ability's tag set via the catalog and passes it through. This is a one-hook extension — other hooks could grow similar pre-resolved fields (e.g., `abilityKind`, `damageTags`) when consumers need them. The pattern is "the runner resolves what handlers can't reach without state/catalog." Worth flagging when a new hook's handler design surfaces a similar lookup.
+- **Per-target seed branching has an implicit upper bound on AoE size.** Each target gets its own derived seed; `targetIndex` is a 32-bit integer in practice. The mixer step disperses well across the 32-bit space, so collision risk is negligible for any realistic AoE. Worth noting only if a future content authoring guide describes the convention.
 
-- **Earth Mage demo battle is not yet wired.** The demo battle still pits 2v2 Knights. Test coverage for Earth Mage uses inline fixtures. End-to-end browser verification (cast Earth Strike on a target in the preview, see damage + debuff land, verify the AI handles a Mage class) is deferred. Optional first task in session 17 — would also exercise the AI's response to charged spells on the opposing side.
+- **`GeneratedReaction.reactorId` is now the canonical reaction-bookkeeping field.** Future reaction surfaces (a hypothetical `runOnAllyDamaged` for "Cover" reactions) inherit the contract: emit `{ action, reactorId }` pairs. The runner's contract is "the reactor is `args.unit.id` at the time the hook fires" — stable and pure.
 
 ### Things considered but did not do
 
-- **Removing the ADR-0024 reaction-cap limitation by routing all reactions through a `use_ability` synthetic ability.** Considered: have Earth Resilience emit a `use_ability` with a hidden self-buff ability id; the existing `actorId`-based cap accounting catches it. Rejected: pollutes the ability catalog with content-internal ability ids, and the synthetic ability is reachable from any caller that can enumerate the catalog. The clean fix (queue-entry-carries-reactor-id) is small; deferred to session 17 with a note here.
+- **AoE per-target dispatch threading the index *into* the existing seed sub-streams** (e.g., `seed XOR (targetIndex << 12)` instead of a separate `perTargetSeed` helper). Considered: avoids the helper indirection. Rejected: the XOR approach correlates low-bit positions across targets when sub-stream offsets are also low (variance 0, evasion 1, brave 2, status chance 3). The mixer-based `perTargetSeed` produces well-distributed independent streams.
 
-- **Wrapping every event hook's return type at once (uniform Option A) rather than per-hook (Option B).** Considered: ship `{ result, emittedActions? }` on `onApply`, `onRemove`, `onDamageReceived`, `onDamageDealt`, `onActionAttempted`, `onActionTargeted` in session 16. Rejected per ADR-0024: Option B is more honest (pure-compute hooks don't need emissions); session 17's Sleep ships the `onDamageReceived` extension as a focused, testable change. The migration cost is paid per-hook, when each first consumer arrives.
+- **Folding AoE expansion *into* `resolveAbilityEffect`** (single function handles both per-target and AoE). Considered: fewer functions. Rejected: `resolveAbilityEffect` is the per-target body; AoE is the fan-out. Mixing them would couple two concerns. Splitting them keeps each focused (and each testable).
 
-- **Implementing `system_apply_status` to run the BMG formula.** Considered: the system action could re-run Faith / MA / resistance / modifiers and only apply on a successful roll. Rejected: would double-gate reactions (Brave roll already filtered the trigger, then the formula filters again). The flavor "Earth Resilience triggered, but the buff missed" feels wrong. `system_apply_status` is deterministic by design.
+- **Per-ability `affectsAllies` flag on AoeSpec** to override the ruleset's friendly-fire policy for specific abilities. Considered as a hedge. Rejected: v1 has no consumer; YAGNI. Adding the flag when a future "Selective Storm" consumer ships is one line of code.
 
-- **A `system_damage` or `system_apply_hp_change` action to unify with `system_heal`.** Considered: a single action variant with a signed delta. Rejected: damage and healing have different validation, capping, and visual semantics. v1 ships `system_heal` only; Burn's CT-100 trigger (session 19) will spawn a `system_damage` action when it ships, with its own reducer and pipeline integration.
+- **Caster status effects in AoE applied once before the per-target loop** (vs. throwing). Considered: more flexible. Rejected: v1 has no consumer; the throw makes the constraint surface immediately rather than silently dropping behavior. The "apply once before loop" pattern is one block to add when it lands.
 
-- **Adding `resistanceTag` to all 5 new statuses.** Only Movement Debuff carries one (`'earth'`). Blind, Silence, Regen, and Movement Self-Buff don't have a resistance tag in v1. The format spec allows the field to be optional; absent means "can't be resisted via tag." When session 17+ adds Mental / Holy / Time resistance tags or similar, the relevant statuses can declare them.
+- **Multi-target charged spell AoE expansion at the TargetRef level.** Today's `reduceChargedActionResolve` loops over `ca.targets`, then dispatches per ref. A multi-ref AoE (e.g., a charged spell that anchors at multiple tiles) would expand each ref's anchor into its own footprint. v1 has only single-ref charged spells; if a future spell needs multi-ref AoE, the loop structure already supports it without reducer changes.
 
-- **Writing AI heuristics for Earth Mage.** The AI (`decideBasicAi`) was tuned for Knight + Cure in session 13. It doesn't know about charged spells, debuff stat-mod rolls, or status-chance modifiers. Session 17's Knight expansion + Earth's AoE will probably produce some incidentally-poor AI plays; session 20's tier 1.5 AI refresh is the planned fix. Worth re-checking against an Earth Mage demo battle in session 17 to surface the worst behaviors.
+- **A separate `runApplyCasterEffects` extracted out of `resolveAbilityEffect`.** Considered: cleanly separates the caster-effect-once-per-cast concern. Rejected: would require restructuring single-target callers too. The `applyCasterEffects: boolean` flag on `resolveAbilityEffect` is a smaller intrusion that gets the AoE behavior right without touching the single-target path.
 
 ### Open questions for later sessions (not blocking)
 
-- **How does AoE damage interact with the `runOnActionTargeted` Brave roll?** Counter on each target rolls independently against the same incoming action's seed. v1 has the seed sub-stream constant 2 for the brave roll; per-target index needs to be folded in. Resolves when AoE per-target dispatch lands in session 17.
+- **AoE-as-rider vs. AoE-as-base.** Today every AoE *is* the ability — the AoE shape is fixed in the spec. Future "AoE rider" abilities (e.g., a Berserker passive that turns single-target attacks into AoEs) would either use `modifyAoeShape` (if the ability already declares an AoE the passive can rewrite) or need a separate hook to *introduce* an AoE on a non-AoE ability. Surface when a consumer ships.
 
-- **Should Earth Resilience's instances be inspectable from UI?** STACK_INDEPENDENT means a unit can have 3 separate instances with 3 timers. The HUD's status-strip currently shows one icon per instance type, not per instance. With STACK_INDEPENDENT, the unit might want a "× 3" badge or expanded per-instance hover. UI work, not engine; surface when status-display tooling lands.
+- **Per-target ordering and reaction Counter chains.** When AoE target 0's reaction (Counter) damages target 1 (a teammate), target 1's resolution may now find them KO'd. The dispatcher's per-target guard skips KO'd targets — but what about the Counter chain that ran *during* target 0's resolution? In v1 the chain processes synchronously inside `commitAction`, so target 1's resolution runs after target 0's reaction chain has fully drained. Confirmed by the test suite. Worth re-verifying when 17b's Earth AoE actually lands a Counter-bearing reactor.
 
-- **Faith asymmetry on Regen.** Regen's tick reads the *recipient's* Faith. The application chance reads symmetric (caster × target Faith). This is the only symmetric-vs-asymmetric Faith case so far. When Burn lands (session 19), its damage trigger should read either caster Faith (the original applier) or target Faith — design call. The handoff note is "remember Regen's recipient-Faith convention when designing Burn's tick math."
+- **Reaction cap interaction with multi-hit-on-same-reactor AoE.** A future AoE that hits the same reactor twice (e.g., a chain-lightning AoE that bounces back to a unit it already hit) would account two reactions. With cap = 1, the second is dropped. Today the cap is per-reactor-per-turn so this just works; documenting here in case a future "Reflect" reaction needs different semantics.
 
-- **`system_apply_status` rejecting on KO'd targets emits `{ kind: 'rejected', reason: 'stacking_rule' }`.** This is a slight semantic abuse — the status wasn't rejected by stacking rules, it was rejected because the target is KO'd. A future StatusApplicationOutcome variant could distinguish (`{ kind: 'rejected', reason: 'target_ko' }`); for now, the existing variant is reused. Surface if UI/replay gets confused by it.
+- **`modifyAoeShape` priority semantics.** The chain composes in source-tier and per-handler priority order. If a Status sets the shape to cross-radius-1 and a Class trait sets it to diamond-radius-2, which wins? Today: the last handler in the chain wins (the chain is left-to-right; the final shape is whatever the last handler returned). When a content author writes a passive that should "force" the shape regardless of other modifiers, they'd need a high priority value to run last. Worth surfacing in a content-authoring doc when the first modifier consumer ships.
 
 ### Notes for future ADRs
 
-- ADR-0017 (system actions for status side effects, deferred to session 16) is now committed. ADR-0024 captures the implementation. The Sleep / Burn / Vulnerable consumers are still future work; the architecture is in place.
+- A future ADR on `onDamageReceived` emission shape extension — when 17b lands Sleep's wake-on-damage, capture the per-hook extension pattern (parallels ADR-0024's `onTick` extension).
 
-- ADR-0019 (physical hit roll fires at the target stage) is partly superseded by ADR-0024's `modifyHitChance` extension — the hit-chance formula now reads a hook chain product. ADR-0019's stage placement and seed sub-stream are unchanged.
+- A future ADR on equipment integration — 17c's first concrete consumer lands the `Equipment` type, equipment-slot definitions, and the WP base-stage refactor. ADR-0014 anticipated the work; the implementing ADR captures the shape decisions.
 
-- A future ADR on per-target seed branching for AoE — when session 17 lands, the convention for `seed XOR (target_idx * stride + effect_idx)` should be captured so future content authors don't reinvent it.
-
-- A future ADR on the reaction-cap accounting fix — session 17 will land the `QueueEntry.reactorId` change; brief ADR documenting why "actorId on the action" was insufficient.
+- A future ADR on forced-movement collision policy — 17b's knockback foundation has to pick a policy (cancel / damage / swap). Recommendation: cancel.

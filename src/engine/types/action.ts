@@ -339,6 +339,26 @@ export type ActionOutcome =
   | StatusDecrementStackOutcome
   | BattleEndOutcome;
 
+// `GeneratedReaction` pairs a reaction's `ProposedAction` with the id
+// of the unit whose hook produced it. The reactor id is needed for
+// per-unit-per-turn reaction-cap accounting in `commitAction` —
+// `system_apply_status` reactions (Earth Resilience self-buff) don't
+// carry actorId on the action itself, so cap accounting can't read the
+// reactor from the action alone. Carrying the reactor id alongside the
+// action keeps the cap key tight to "which unit reacted," independent
+// of the action shape. Per ADR-0024's noted limitation and the session
+// 17 fix.
+//
+// Only emitted by `runOnActionTargeted` today; future reaction surfaces
+// extend this shape if they introduce new generation points. Non-
+// reaction generated actions (turn_start's status_tick fan-out, system_
+// heal from onTick) don't go through the cap and stay on the
+// `generatedActions` field.
+export interface GeneratedReaction {
+  readonly action: ProposedAction;
+  readonly reactorId: UnitId;
+}
+
 // `ProposedAction` is what a controller (player UI, AI) hands the
 // engine. The engine fills in the envelope (seq, seed, timestamp, chain
 // bookkeeping) at commit time. Controllers don't see the universal

@@ -25,3 +25,31 @@ export function deriveActionSeed(masterSeed: number, sequenceNumber: number): nu
   z = (z ^ (z >>> 15)) >>> 0;
   return z >>> 0;
 }
+
+// Per-target seed derivation for AoE per-target dispatch (session 17).
+// Branches the action seed by `targetIndex` so an AoE that hits N units
+// runs N independent random sub-streams — variance, evasion, status
+// chance, and Brave reaction rolls all roll independently per target.
+//
+// `targetIndex === 0` is the identity case: returns the action seed
+// unchanged. This keeps single-target callers' RNG behavior bit-identical
+// to pre-AoE (no replay drift on existing logs), so `resolveAbilityEffect`
+// can call `perTargetSeed(seed, 0)` unconditionally without changing
+// outcomes for any non-AoE caller.
+//
+// For `targetIndex >= 1`, runs the same splitmix32 mixer as
+// `deriveActionSeed` so a single derivation step is enough to disperse
+// the seed across all sub-streams. Mixing into the high bits is what
+// keeps the per-target streams independent of the per-sub-stream offset
+// (variance 0, evasion 1, brave 2, status chance 3) that callers XOR
+// in on top.
+export function perTargetSeed(actionSeed: number, targetIndex: number): number {
+  if (targetIndex === 0) return actionSeed >>> 0;
+  let z = (actionSeed ^ Math.imul(targetIndex, 0x9e3779b9)) >>> 0;
+  z = (z ^ (z >>> 16)) >>> 0;
+  z = Math.imul(z, 0x21f0aaad) >>> 0;
+  z = (z ^ (z >>> 15)) >>> 0;
+  z = Math.imul(z, 0x735a2d97) >>> 0;
+  z = (z ^ (z >>> 15)) >>> 0;
+  return z >>> 0;
+}

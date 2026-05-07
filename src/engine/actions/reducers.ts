@@ -11,22 +11,25 @@
 // wrapper — branches return them by reference; they are *not* applied
 // here.
 
-import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
+import type { ActiveAbilityDefinition, AoeSpec, Catalog } from '../catalog/index.ts';
 import { defaultDamageHandlers } from '../damage/default-handlers.ts';
 import { runDamagePipeline } from '../damage/pipeline.ts';
 import {
+  runModifyAoeShape,
   runModifyStatQuery,
   runOnActionAttempted,
   runOnActionTargeted,
   runOnTick,
   runQueryTurnSkipped,
 } from '../hooks/runners.ts';
-import { unitAt } from '../map/accessors.ts';
+import { tileAt, unitAt } from '../map/accessors.ts';
+import { aoeFootprint } from '../map/aoe.ts';
 import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
 import { applyStatus } from '../status/apply.ts';
 import { rollStatusChance } from '../status/chance.ts';
 import { removeStatus } from '../status/remove.ts';
 import { evaluateBattleOutcome } from '../turn/evaluate-battle-outcome.ts';
+import { perTargetSeed } from './seed.ts';
 import {
   chargedActionId,
   getUnit,
@@ -39,6 +42,7 @@ import {
   type DamageContext,
   type Direction,
   type GameState,
+  type GeneratedReaction,
   type MoveOutcome,
   type Position,
   type ProposedAction,
@@ -64,14 +68,16 @@ export interface ReduceResult<O> {
   readonly newState: GameState;
   readonly outcome: O;
   readonly generatedActions: ReadonlyArray<ProposedAction>;
-  // Reactions emitted by this reducer. Same shape as `generatedActions`
-  // but `commitAction` enqueues them with `isReaction: true` so they
-  // count against the per-unit-per-turn reaction cap. Today only the
-  // damage-bearing UseAbility branch produces these (Counter et al. via
-  // onActionTargeted); reducers that don't emit reactions simply omit
-  // the field. See docs/design/action-resolution.md ("Reactions and
-  // the action chain").
-  readonly generatedReactions?: ReadonlyArray<ProposedAction>;
+  // Reactions emitted by this reducer. `commitAction` enqueues them
+  // with `isReaction: true` and uses `.reactorId` (the unit whose hook
+  // fired the reaction) for the per-unit-per-turn reaction cap —
+  // independent of whether the emitted action carries `actorId`.
+  // Today only the damage-bearing UseAbility branch (Counter et al. via
+  // onActionTargeted) produces these; reducers that don't emit reactions
+  // simply omit the field. See docs/design/action-resolution.md
+  // ("Reactions and the action chain") and the session 17 fix to
+  // ADR-0024's noted reaction-cap limitation.
+  readonly generatedReactions?: ReadonlyArray<GeneratedReaction>;
 }
 
 // --- Helpers ---
@@ -238,9 +244,6 @@ export function reduceUseAbility(
     return commitCharged(workingState, action, ability, actor, catalog);
   }
 
-  // Resolve the primary target unit (if any).
-  const targetUnit = resolveUnitTarget(workingState, action.payload.target);
-
   const incomingProposed: ProposedAction = {
     type: 'use_ability',
     source: action.source,
@@ -248,11 +251,10 @@ export function reduceUseAbility(
     payload: action.payload,
   };
 
-  const resolved = resolveAbilityEffect(workingState, catalog, {
+  const resolved = resolveAbilityTargets(workingState, catalog, {
     ability,
     attacker: actor,
-    targetUnit,
-    payloadTargetForResult: action.payload.target,
+    payloadTarget: action.payload.target,
     incomingProposed,
     sourceActionSeq: action.sequenceNumber,
     seed: action.seed,
@@ -273,15 +275,6 @@ export function reduceUseAbility(
       ? { generatedReactions: resolved.generatedReactions }
       : {}),
   };
-}
-
-// Resolve a unit ref for an UseAbility's target. `self` and `tile`
-// return null so the caller can branch — `self` actions don't drive
-// the damage pipeline today, and tile-anchored resolution looks up the
-// unit at the position dynamically (different code path).
-function resolveUnitTarget(state: GameState, target: AbilityTarget): Unit | null {
-  if (target.kind === 'unit') return getUnit(state, target.unitId);
-  return null;
 }
 
 // Decrement actsAvailable on the active turn; bump consumed.actsConsumed.
@@ -386,7 +379,7 @@ function buildTargetRefs(target: AbilityTarget): TargetRef[] {
 //
 // Returns one AbilityTargetResult plus state updates and any reactions.
 // AoE callers (session 17) drive this per-target with an appropriate
-// per-target seed branching.
+// per-target seed branching via `perTargetSeed`.
 interface ResolveAbilityEffectArgs {
   readonly ability: ActiveAbilityDefinition;
   readonly attacker: Unit;
@@ -402,12 +395,18 @@ interface ResolveAbilityEffectArgs {
   readonly incomingProposed: ProposedAction;
   readonly sourceActionSeq: number;
   readonly seed: number;
+  // When false, status effects with `target: 'caster'` are skipped.
+  // Used by the AoE dispatcher: caster-targeted effects fire once per
+  // ability use, not once per AoE target. Defaults to true so single-
+  // target callers (and the existing charged_action_resolve loop)
+  // continue to resolve both kinds.
+  readonly applyCasterEffects?: boolean;
 }
 
 interface ResolveAbilityEffectResult {
   readonly newState: GameState;
   readonly perTargetResults: ReadonlyArray<AbilityTargetResult>;
-  readonly generatedReactions: ReadonlyArray<ProposedAction>;
+  readonly generatedReactions: ReadonlyArray<GeneratedReaction>;
 }
 
 function resolveAbilityEffect(
@@ -459,9 +458,14 @@ function resolveAbilityEffect(
     args.targetUnit !== null &&
     workingState.units.get(args.targetUnit.id)?.vitals.hp === 0;
   const statusOutcomes: StatusApplicationOutcome[] = [];
+  const applyCasterEffects = args.applyCasterEffects ?? true;
   if (args.ability.effects.statusEffects && !targetKO) {
     let effectIndex = 0;
     for (const spec of args.ability.effects.statusEffects) {
+      // AoE per-target callers pass `applyCasterEffects: false`; the
+      // dispatcher fires caster-target status effects once before the
+      // per-target loop, not per affected target.
+      if (spec.target === 'caster' && !applyCasterEffects) continue;
       const targetStatusUnitId =
         spec.target === 'caster'
           ? args.attacker.id
@@ -514,7 +518,10 @@ function resolveAbilityEffect(
   }
 
   // Post-application reactions: onActionTargeted on the target's hooks.
-  const reactions: ProposedAction[] = [];
+  // The runner stamps each emission with `reactorId: target.id`; the
+  // commit-time cap accounts on that field independent of the emitted
+  // action's `actorId` shape.
+  const reactions: GeneratedReaction[] = [];
   if (args.targetUnit !== null && damageContext !== null) {
     const postTarget = workingState.units.get(args.targetUnit.id) ?? args.targetUnit;
     const targetedReactions = runOnActionTargeted(workingState, catalog, {
@@ -542,6 +549,234 @@ function resolveAbilityEffect(
     perTargetResults: [result],
     generatedReactions: reactions,
   };
+}
+
+// Per-cast dispatcher (session 17). Bridges the proposed `AbilityTarget`
+// to the per-target `resolveAbilityEffect` body. Two modes:
+//
+//   - **Single-target** (no `effects.aoe`): identical to the pre-AoE
+//     shape — resolves the payload target to a unit (or null for empty-
+//     tile / self-no-unit) and calls `resolveAbilityEffect` once with
+//     `perTargetSeed(seed, 0)` (which is the action seed unchanged).
+//     RNG behavior is bit-identical to pre-session-17 for any caller
+//     that doesn't declare AoE.
+//
+//   - **AoE** (`effects.aoe` set): expands the proposed anchor (target
+//     unit's position, target tile, or caster's position for
+//     self-targeted) into the shape's footprint. Affected units are
+//     filtered by caster exclusion + friendly-fire policy and sorted by
+//     unit id for deterministic per-target ordering. Each affected unit
+//     resolves with `perTargetSeed(seed, i)` so variance / evasion /
+//     status-chance / brave-reaction rolls are independent per target.
+//     Caster-target status effects (rare; v1 has none in AoE) are
+//     applied once before the loop.
+//
+// Empty AoE footprint is allowed (no targets to affect) — perTargetResults
+// is empty and the caller's outcome reflects mpSpent + chargedActionId
+// regardless. KO'd targets are skipped at filtering and at the per-target
+// guard (a target may be KO'd by an earlier target's reaction).
+interface ResolveAbilityTargetsArgs {
+  readonly ability: ActiveAbilityDefinition;
+  readonly attacker: Unit;
+  readonly payloadTarget: AbilityTarget;
+  readonly incomingProposed: ProposedAction;
+  readonly sourceActionSeq: number;
+  readonly seed: number;
+}
+
+interface ResolveAbilityTargetsResult {
+  readonly newState: GameState;
+  readonly perTargetResults: ReadonlyArray<AbilityTargetResult>;
+  readonly generatedReactions: ReadonlyArray<GeneratedReaction>;
+}
+
+function resolveAbilityTargets(
+  state: GameState,
+  catalog: Catalog,
+  args: ResolveAbilityTargetsArgs,
+): ResolveAbilityTargetsResult {
+  const aoe = args.ability.effects.aoe;
+  if (aoe === undefined) {
+    return resolveSingleTargetDispatch(state, catalog, args);
+  }
+  return resolveAoeDispatch(state, catalog, args, aoe);
+}
+
+// Single-target dispatch: resolves the payload target to a Unit | null
+// and calls `resolveAbilityEffect` with `perTargetSeed(seed, 0)` (which
+// returns the action seed unchanged at index 0 — see seed.ts).
+function resolveSingleTargetDispatch(
+  state: GameState,
+  catalog: Catalog,
+  args: ResolveAbilityTargetsArgs,
+): ResolveAbilityTargetsResult {
+  const targetUnit = resolveSingleTargetUnit(state, args.payloadTarget, args.attacker);
+  const resolved = resolveAbilityEffect(state, catalog, {
+    ability: args.ability,
+    attacker: args.attacker,
+    targetUnit,
+    payloadTargetForResult: args.payloadTarget,
+    incomingProposed: args.incomingProposed,
+    sourceActionSeq: args.sourceActionSeq,
+    seed: perTargetSeed(args.seed, 0),
+  });
+  return {
+    newState: resolved.newState,
+    perTargetResults: resolved.perTargetResults,
+    generatedReactions: resolved.generatedReactions,
+  };
+}
+
+// Resolve the payload target to a Unit for the damage/onActionTargeted
+// path. `self` returns the caster (so caster-target status / self-buff
+// abilities can flow through the single-target body). `unit` looks up
+// by id. `tile` looks up the unit at the position; null when the tile
+// is empty (caller's body handles that — `resolveAbilityEffect` skips
+// damage and onActionTargeted when targetUnit is null).
+function resolveSingleTargetUnit(
+  state: GameState,
+  target: AbilityTarget,
+  attacker: Unit,
+): Unit | null {
+  switch (target.kind) {
+    case 'self':
+      return attacker;
+    case 'unit':
+      return getUnit(state, target.unitId);
+    case 'tile': {
+      const at = unitAt(state, target.position.x, target.position.y, target.position.layer);
+      return at ?? null;
+    }
+  }
+}
+
+// AoE dispatch: expand the anchor into the shape's footprint, filter
+// to affected units, sort deterministically, then call
+// `resolveAbilityEffect` per target with branched seeds.
+function resolveAoeDispatch(
+  state: GameState,
+  catalog: Catalog,
+  args: ResolveAbilityTargetsArgs,
+  aoe: AoeSpec,
+): ResolveAbilityTargetsResult {
+  // v1 constraint: AoE abilities cannot have caster-target status
+  // effects. The dispatcher would need to fire them once before the
+  // per-target loop; no v1 ability uses this combination. Throwing
+  // here surfaces violations clearly when a future ability adds the
+  // case (then we add the once-per-cast caster-effect handling).
+  for (const spec of args.ability.effects.statusEffects ?? []) {
+    if (spec.target === 'caster') {
+      throw new Error(
+        `resolveAbilityTargets: ability ${JSON.stringify(args.ability.id)} declares an AoE and a caster-target status effect (${JSON.stringify(spec.typeId)}) — this combination is not supported in v1`,
+      );
+    }
+  }
+
+  // Anchor position from the payload target.
+  const anchorPos = resolveAoeAnchor(state, args.payloadTarget, args.attacker);
+  const anchorTile = tileAt(state.map, anchorPos.x, anchorPos.y, anchorPos.layer);
+  if (anchorTile === undefined) {
+    throw new Error(
+      `resolveAoeDispatch: anchor tile (${anchorPos.x},${anchorPos.y},${anchorPos.layer}) does not exist — validation should have caught this`,
+    );
+  }
+
+  // Shape modifier hook on the caster (Fire Mage's "larger AoE" rider
+  // is the planned session 19 consumer; v1 chain is identity).
+  const finalShape = runModifyAoeShape(state, catalog, {
+    unit: args.attacker,
+    ability: args.ability,
+    baseShape: aoe.shape,
+  });
+
+  // Footprint: tiles within the shape's offsets and within vertical
+  // tolerance of the anchor's elevation. Per-ability override takes
+  // precedence over the ruleset's `rangeDefaults.aoeVerticalTolerance`.
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  const verticalTolerance =
+    aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
+  const tiles = aoeFootprint({
+    map: state.map,
+    anchor: { x: anchorPos.x, y: anchorPos.y, elevation: anchorTile.elevation },
+    shape: finalShape,
+    verticalTolerance,
+  });
+
+  // Affected unit set. A multi-layer footprint may include several tiles
+  // at the same (x, y); the dedup-by-unit-id keeps a unit from appearing
+  // twice when their tile and a neighbor at the same column both qualify.
+  const excludeCaster = aoe.excludeCaster ?? true;
+  const respectFriendlyFire = !ruleset.behaviors.friendlyFire;
+  const seen = new Set<UnitId>();
+  const affected: Unit[] = [];
+  for (const tile of tiles) {
+    const unit = unitAt(state, tile.x, tile.y, tile.layer);
+    if (unit === undefined) continue;
+    if (seen.has(unit.id)) continue;
+    if (unit.vitals.hp <= 0) continue;
+    if (excludeCaster && unit.id === args.attacker.id) continue;
+    if (respectFriendlyFire && unit.team === args.attacker.team && unit.id !== args.attacker.id) {
+      continue;
+    }
+    seen.add(unit.id);
+    affected.push(unit);
+  }
+
+  // Stable ordering. UnitId is a branded string, lexicographic compare.
+  affected.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+  // Per-target dispatch with branched seeds.
+  let workingState = state;
+  const allResults: AbilityTargetResult[] = [];
+  const allReactions: GeneratedReaction[] = [];
+  for (let i = 0; i < affected.length; i++) {
+    const target = affected[i]!;
+    // A prior target's reaction may have KO'd this target, or removed
+    // them from state in some other way. Re-fetch and skip if gone.
+    const current = workingState.units.get(target.id);
+    if (current === undefined || current.vitals.hp <= 0) continue;
+
+    const resolved = resolveAbilityEffect(workingState, catalog, {
+      ability: args.ability,
+      attacker: args.attacker,
+      targetUnit: current,
+      payloadTargetForResult: { kind: 'unit', unitId: current.id },
+      incomingProposed: args.incomingProposed,
+      sourceActionSeq: args.sourceActionSeq,
+      seed: perTargetSeed(args.seed, i),
+      applyCasterEffects: false,
+    });
+    workingState = resolved.newState;
+    for (const r of resolved.perTargetResults) allResults.push(r);
+    for (const r of resolved.generatedReactions) allReactions.push(r);
+  }
+
+  return {
+    newState: workingState,
+    perTargetResults: allResults,
+    generatedReactions: allReactions,
+  };
+}
+
+// Anchor position for AoE expansion. `self` is the caster's current
+// position; `tile` is the targeted tile; `unit` reads the target unit's
+// current position (FFT-canonical for unit-anchored AoE — the AoE
+// blooms from where the target stands at resolution time).
+function resolveAoeAnchor(
+  state: GameState,
+  target: AbilityTarget,
+  attacker: Unit,
+): Position {
+  switch (target.kind) {
+    case 'self':
+      return attacker.position;
+    case 'tile':
+      return target.position;
+    case 'unit': {
+      const unit = getUnit(state, target.unitId);
+      return unit.position;
+    }
+  }
 }
 
 // Apply finalDamage to the target's vitals. Damage lowers HP (floor 0
@@ -1191,7 +1426,7 @@ export function reduceChargedActionResolve(
   // the loop pre-stages session 17's AoE per-target dispatch.
   let workingState: GameState = state;
   const allResults: AbilityTargetResult[] = [];
-  const allReactions: ProposedAction[] = [];
+  const allReactions: GeneratedReaction[] = [];
 
   for (const targetRef of ca.targets) {
     const { resolvedUnit, payloadTargetForResult } = resolveTargetAtResolve(
@@ -1199,57 +1434,52 @@ export function reduceChargedActionResolve(
       targetRef,
     );
 
-    if (targetRef.kind === 'unit' && resolvedUnit === null) {
-      // Single-unit target gone (KO'd before resolution and pruned, or
-      // never present): silent fizzle for this target.
-      continue;
-    }
+    // Pre-flight silent fizzles. The dispatcher itself is willing to
+    // resolve every target ref, but charged spells have a few cases
+    // that should produce no per-target output at all:
+    //
+    //   - unit-anchored target gone (no longer in state): silent skip.
+    //   - unit-anchored target KO'd: silent skip (FFT-faithful — KO
+    //     dropouts don't emit per-target results).
+    //   - non-AoE tile-anchored with no unit at the tile and no
+    //     caster-target status effect: silent skip (avoids emitting an
+    //     empty hit=true result for "single-target charged spell hits
+    //     where nothing was").
+    //
+    // AoE-flagged tile-anchored abilities flow through the dispatcher
+    // even on empty anchor tiles — the AoE expansion may find nearby
+    // units even when the anchor itself is empty.
+    if (targetRef.kind === 'unit' && resolvedUnit === null) continue;
     if (targetRef.kind === 'unit' && resolvedUnit !== null && resolvedUnit.vitals.hp <= 0) {
-      // Single-unit target KO'd before resolution: fizzle for this target.
       continue;
     }
-    if (targetRef.kind === 'tile' && resolvedUnit === null) {
-      // Tile-anchored, no unit on tile: resolution lands but has no
-      // damage/status effect (no target unit to apply to). v1 emits no
-      // per-target result for the empty tile; AoE in session 17 will
-      // emit per-tile results when relevant.
-      if (ability.effects.statusEffects && ability.effects.statusEffects.some(
-        (s) => s.target === 'caster',
-      )) {
-        // Caster-targeted status effects still apply on empty-tile
-        // resolution (the caster is always present). Run the resolver
-        // with targetUnit=caster so the caster's effects fire; per-target
-        // result reports the original tile.
-        const resolved = resolveAbilityEffect(workingState, catalog, {
-          ability,
-          attacker: caster,
-          targetUnit: null, // skip damage/onActionTargeted
-          payloadTargetForResult,
-          incomingProposed: proposedAtResolve,
-          sourceActionSeq: action.sequenceNumber,
-          seed: action.seed,
-        });
-        workingState = resolved.newState;
-        allResults.push(...resolved.perTargetResults);
-        allReactions.push(...resolved.generatedReactions);
-      }
-      continue;
+    if (
+      targetRef.kind === 'tile' &&
+      resolvedUnit === null &&
+      ability.effects.aoe === undefined
+    ) {
+      const hasCasterEffect =
+        ability.effects.statusEffects?.some((s) => s.target === 'caster') ?? false;
+      if (!hasCasterEffect) continue;
+      // Else: fall through. The dispatcher's single-target path will
+      // call resolveAbilityEffect with targetUnit=null; only caster-
+      // target status effects will fire, which is exactly what we want.
     }
 
-    // Resolve for the unit (either named-unit target or tile-resolved
-    // unit). Both paths share the same per-target resolver.
-    const resolved = resolveAbilityEffect(workingState, catalog, {
+    // AoE-aware dispatch. Non-AoE abilities flow through the identity
+    // single-target path (perTargetSeed(seed, 0) === seed); AoE
+    // abilities expand the anchor.
+    const resolved = resolveAbilityTargets(workingState, catalog, {
       ability,
       attacker: caster,
-      targetUnit: resolvedUnit,
-      payloadTargetForResult,
+      payloadTarget: payloadTargetForResult,
       incomingProposed: proposedAtResolve,
       sourceActionSeq: action.sequenceNumber,
       seed: action.seed,
     });
     workingState = resolved.newState;
-    allResults.push(...resolved.perTargetResults);
-    allReactions.push(...resolved.generatedReactions);
+    for (const r of resolved.perTargetResults) allResults.push(r);
+    for (const r of resolved.generatedReactions) allReactions.push(r);
   }
 
   return finalizeResolution(workingState, catalog, ca, caster, allResults, allReactions);
@@ -1312,7 +1542,7 @@ function finalizeResolution(
   ca: ChargedAction,
   caster: Unit | null,
   perTargetResults: ReadonlyArray<AbilityTargetResult>,
-  reactions: ReadonlyArray<ProposedAction>,
+  reactions: ReadonlyArray<GeneratedReaction>,
 ): ReduceResult<ChargedActionResolveOutcome> {
   let newState: GameState = {
     ...state,

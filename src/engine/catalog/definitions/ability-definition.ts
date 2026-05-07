@@ -14,7 +14,13 @@
 //   handlers (per ADR-0005's typing pattern) fire while equipped via
 //   the source-agnostic engine/hooks/ collector and runners.
 
-import type { AbilityId, BucketId, DamageTag, StatusTypeId } from '../../types/index.ts';
+import type {
+  AbilityId,
+  AoeShape,
+  BucketId,
+  DamageTag,
+  StatusTypeId,
+} from '../../types/index.ts';
 import type { PassiveHookRegistration } from '../../abilities/hooks.ts';
 
 interface AbilityCommon {
@@ -144,11 +150,49 @@ export interface DamageSpec {
   readonly variance?: { readonly min: number; readonly max: number };
 }
 
+// Area-of-effect spec — when set, `resolveAbilityTargets` expands the
+// declared anchor (target unit's position or target tile) into the
+// shape's footprint, and dispatches `resolveAbilityEffect` per affected
+// unit. Per-target seed branching makes each affected unit's variance,
+// evasion, status, and Brave-reaction rolls independent (see
+// `perTargetSeed` in engine/actions/seed.ts).
+//
+// Optional fields:
+// - `verticalTolerance` — overrides the ruleset's
+//   `rangeDefaults.aoeVerticalTolerance` (v1 default: 1) for this
+//   ability. Tiles whose elevation differs from the anchor's by more
+//   than this value are excluded from the footprint per the design's
+//   multi-layer-affected default in map-and-battlefield.md.
+// - `excludeCaster` — when true (the FFT-canonical default), the
+//   caster never appears in the affected unit set even if they stand
+//   in the footprint. Set to `false` for self-centered AoEs that
+//   should also affect the caster (e.g., a sacrificial nova). v1
+//   content uses the default.
+//
+// Friendly fire is governed by `ruleset.behaviors.friendlyFire` (v1
+// default: true). When false, units on the caster's team are excluded
+// from the affected set; when true, they're included. The flag lives
+// on the ruleset (not on the AoE spec) because it's a global mode
+// rather than a per-ability decision.
+export interface AoeSpec {
+  readonly shape: AoeShape;
+  readonly verticalTolerance?: number;
+  readonly excludeCaster?: boolean;
+}
+
 export interface AbilityEffects {
   readonly statusEffects?: ReadonlyArray<StatusEffectSpec>;
   // `damage` is wired up session 8; declaring it on an ability today is
   // valid metadata that doesn't drive any reducer behavior yet.
   readonly damage?: DamageSpec;
+  // AoE — when present, the ability resolves against multiple targets
+  // (the anchor expanded by `shape`); when absent, the ability resolves
+  // against the single targeted unit (or self / tile-anchored single
+  // unit). Per-target seed branching is automatic — see `AoeSpec`.
+  // Wired up session 17. AoE without `damage` or `statusEffects` is
+  // a no-op and rejected by the dispatcher (a future use case might
+  // be a pure-knockback AoE; that surface lands when the consumer ships).
+  readonly aoe?: AoeSpec;
 }
 
 export interface ActiveAbilityDefinition extends AbilityCommon {

@@ -9,9 +9,11 @@
 
 import type { ActiveAbilityDefinition, Catalog, StatusEffectType } from '../catalog/index.ts';
 import type {
+  AoeShape,
   DamageContext,
   DamageTag,
   GameState,
+  GeneratedReaction,
   MovementProfile,
   ProposedAction,
   StatName,
@@ -139,6 +141,24 @@ export function runModifySpecialMovement(
   return value;
 }
 
+// AoE shape modifier — fires against the caster's hooks just before
+// `resolveAbilityTargets` computes the affected footprint. Each handler
+// transforms the running shape; the chain composes in source-tier and
+// per-handler priority order. v1 has no consumer; Fire Mage's "larger
+// AoE" rider in session 19 is the planned first user.
+export function runModifyAoeShape(
+  state: GameState,
+  catalog: Catalog,
+  args: { unit: Unit; ability: ActiveAbilityDefinition; baseShape: AoeShape },
+): AoeShape {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyAoeShape');
+  let shape = args.baseShape;
+  for (const h of handlers) {
+    shape = h.invoke({ unit: args.unit, ability: args.ability, baseShape: shape });
+  }
+  return shape;
+}
+
 // Pre-resolution hook firing — short-circuits on the first non-`allowed`
 // result. Stop returns `blocked`, Berserk returns `replaced`. Equipment
 // → Class → Passive → Status order is preserved so a class trait that
@@ -217,7 +237,7 @@ export function runOnActionTargeted(
     damageTags?: ReadonlySet<DamageTag>;
     seed: number;
   },
-): ReadonlyArray<ProposedAction> {
+): ReadonlyArray<GeneratedReaction> {
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onActionTargeted');
   const proposed: ProposedAction[] = [];
   for (const h of handlers) {
@@ -229,7 +249,13 @@ export function runOnActionTargeted(
     });
     for (const r of result) proposed.push(r);
   }
-  if (proposed.length === 0) return proposed;
+  if (proposed.length === 0) return [];
+
+  // Pair each surviving reaction with the reactor id (the unit whose
+  // hooks fired). `commitAction` reads `.reactorId` for per-unit-per-
+  // turn cap accounting independent of whether the emitted action
+  // carries `actorId` (e.g., system_apply_status doesn't).
+  const reactorId = args.unit.id;
 
   const brave = runModifyStatQuery(state, catalog, {
     unit: args.unit,
@@ -237,16 +263,19 @@ export function runOnActionTargeted(
     baseValue: args.unit.baseStats.brave,
   });
   const triggerChance = Math.max(0, Math.min(1, brave / 100));
-  if (triggerChance >= 1) return proposed; // deterministic at Brave 100+
-  if (triggerChance <= 0) return [];        // deterministic at Brave 0
+  if (triggerChance >= 1) {
+    // Deterministic at Brave 100+: every reaction proposed survives.
+    return proposed.map((action) => ({ action, reactorId }));
+  }
+  if (triggerChance <= 0) return []; // deterministic at Brave 0
 
-  const surviving: ProposedAction[] = [];
+  const surviving: GeneratedReaction[] = [];
   for (let i = 0; i < proposed.length; i++) {
     const subSeed = args.seed ^ ((BRAVE_REACTION_SUB_STREAM + i) >>> 0);
     const r = unitFloatFromSeed(subSeed);
     if (r < triggerChance) {
       const reaction = proposed[i];
-      if (reaction !== undefined) surviving.push(reaction);
+      if (reaction !== undefined) surviving.push({ action: reaction, reactorId });
     }
   }
   return surviving;

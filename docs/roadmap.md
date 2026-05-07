@@ -195,6 +195,26 @@ ADR-0024 captures the decisions. Test count: 381 → 395 (14 new in `session-16-
 
 References: ADR-0024, `src/engine/hooks/hooks.ts`, `src/engine/hooks/runners.ts`, `src/engine/status/chance.ts`, `src/engine/abilities/reaction-compiler.ts`, `src/engine/actions/reducers.ts`, `src/content/classes/earth-mage.ts`, `src/content/abilities/earth-*.ts`, `src/content/statuses/{regen,movement-debuff,movement-self-buff,blind,silence}.ts`, `docs/content-id-registry.md`.
 
+### 17a. AoE substrate ✅
+
+*Completed 2026-05-06.* Engine-only sub-session — the AoE per-target dispatch substrate ahead of the Earth/Knight content sessions. Per the user's mid-session call, session 17 is split into 17a (engine substrate, this entry), 17b (Earth Mage AoE/Ultimate + new statuses), 17c (Knight expansion + equipment integration).
+
+`AoeSpec` lands on `AbilityEffects`: `{ shape: AoeShape; verticalTolerance?: number; excludeCaster?: boolean }`. Targeting (`self` / `unit` / `tile`) and AoE expansion are orthogonal; abilities can pair any targeting kind with any shape. `AoeShape` / `AoeOffset` / `AoeAnchor` types relocated from `engine/map/aoe.ts` to `engine/types/aoe-shape.ts` so the catalog tier can name them without crossing layers. `engine/map/aoe.ts` re-exports for backward compatibility.
+
+`perTargetSeed(actionSeed, targetIndex)` ships in `engine/actions/seed.ts`. Identity at index 0 (single-target callers see no RNG drift; pre-session-17 replays unchanged); splitmix32 mixer at index >= 1 (independent per-target streams across all sub-streams: variance 0, evasion 1, brave 2, status chance 3).
+
+`resolveAbilityTargets` in `engine/actions/reducers.ts` is the new dispatcher — bridges `AbilityTarget` to the per-target `resolveAbilityEffect` body. Single-target mode: identity; AoE mode: anchor → `runModifyAoeShape` → `aoeFootprint` → caster + friendly-fire filter → stable lex-id ordering → per-target dispatch with branched seeds. `reduceUseAbility` and `reduceChargedActionResolve` both route through it. Caster excluded by default (`excludeCaster: true`), friendly fire from `ruleset.behaviors.friendlyFire` (v1: true).
+
+`modifyAoeShape` joins the closed hook surface (now 11 hooks). Pure-compute, no emission slot. Fires against the caster's hooks; sequential chain (last handler wins ties). v1 chain is identity; Fire's "larger AoE" rider in session 19 is the planned consumer.
+
+ADR-0024's noted reaction-cap accounting limitation is fixed: `GeneratedReaction { action, reactorId }` is the chain-control shape for emitted reactions. `runOnActionTargeted` stamps `reactorId: args.unit.id` on each emission; `commitAction`'s cap accounting reads `entry.reactorId` from the QueueEntry instead of the emitted action's `actorId`. `system_apply_status` reactions (Earth Resilience self-buff) account correctly without carrying actorId on the action.
+
+Caster-target status effects in AoE throw at the dispatcher — v1 has no consumer; the constraint surfaces explicitly when a future ability needs the combination.
+
+ADR-0025 captures the decisions. Test count: 395 → 407 (12 new — 4 in `seed.test.ts` for `perTargetSeed` properties, 8 in `aoe-substrate.test.ts` for per-target dispatch / seed branching / vertical tolerance / caster exclusion / friendly fire / `modifyAoeShape` / reaction-cap fix). All existing tests pass unchanged.
+
+References: ADR-0025, `src/engine/actions/seed.ts`, `src/engine/actions/reducers.ts`, `src/engine/hooks/hooks.ts`, `src/engine/hooks/runners.ts`, `src/engine/actions/commit.ts`, `src/engine/types/aoe-shape.ts`, `src/engine/types/action.ts`, `src/engine/actions/aoe-substrate.test.ts`.
+
 ## Content-expansion passes (interleaved)
 
 These are not numbered in the main sequence because their timing depends on what mechanisms exist. The general pattern: once a mechanism's MVP is in place, an expansion pass adds the breadth of content that uses it.

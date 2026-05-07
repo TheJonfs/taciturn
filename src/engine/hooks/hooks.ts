@@ -17,6 +17,7 @@ import type {
   StatusEffectType,
 } from '../catalog/index.ts';
 import type {
+  AoeShape,
   DamageContext,
   DamageTag,
   GameState,
@@ -125,6 +126,21 @@ export interface HookSignatures {
   modifySpecialMovement: {
     args: { unit: Unit; baseValue: MovementProfile['specialMovement'] };
     return: MovementProfile['specialMovement'];
+  };
+
+  // AoE shape modifier — fires against the *caster's* hooks just before
+  // `resolveAbilityTargets` computes the affected footprint. Each handler
+  // receives the running shape and returns a new one; the chain runs in
+  // tier/priority order so the last handler's return wins ties.
+  // v1 has no consumer; Fire Mage's "larger AoE" rider in session 19 is
+  // the planned first user. Pure-compute hook — no emission slot.
+  modifyAoeShape: {
+    args: {
+      unit: Unit;
+      ability: ActiveAbilityDefinition;
+      baseShape: AoeShape;
+    };
+    return: AoeShape;
   };
 
   // Lifecycle: fired by applyStatus / removeStatus.

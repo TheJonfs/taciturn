@@ -2,6 +2,7 @@
 
 export * from './accessors.ts';
 export * from './action.ts';
+export * from './aoe-shape.ts';
 export * from './battle-config.ts';
 export * from './battle-outcome.ts';
 export * from './charged-action.ts';

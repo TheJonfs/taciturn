@@ -48,6 +48,11 @@ interface QueueEntry {
   readonly parentSeq?: number;
   readonly depth: number;
   readonly isReaction: boolean;
+  // Set when `isReaction === true`. Identifies the unit whose hook
+  // produced the reaction — accounted against the per-unit-per-turn
+  // reaction cap independent of whether the emitted action carries
+  // `actorId` (system_apply_status reactions don't, per ADR-0024).
+  readonly reactorId?: UnitId;
 }
 
 // Thread-the-needle helper: produce the next sequence number and a
@@ -262,10 +267,14 @@ export function commitAction(
     const effectiveProposed =
       hookResult.outcome === 'replaced' ? hookResult.action : entry.action;
 
-    // Reaction-cap accounting (only for chain reactions).
-    if (entry.isReaction && state.turnState !== null && 'actorId' in effectiveProposed) {
-      const reactorId: UnitId = effectiveProposed.actorId;
-      const used = state.turnState.reactionsUsedThisTurn.get(reactorId) ?? 0;
+    // Reaction-cap accounting (only for chain reactions). The reactor
+    // id rides on the queue entry — set when the reaction was enqueued
+    // by the previous reducer's `generatedReactions`. Independent of
+    // the emitted action's `actorId` shape, so system_apply_status
+    // reactions (Earth Resilience self-buff) account correctly. Per
+    // the session 17 fix to ADR-0024's noted limitation.
+    if (entry.isReaction && state.turnState !== null && entry.reactorId !== undefined) {
+      const used = state.turnState.reactionsUsedThisTurn.get(entry.reactorId) ?? 0;
       if (used >= ruleset.chainTermination.perUnitPerTurnReactions) {
         // Capped — drop. Future: emit a `reaction_capped` system event
         // for visibility; for now the silent drop is fine.
@@ -273,7 +282,7 @@ export function commitAction(
         continue;
       }
       const updated = new Map(state.turnState.reactionsUsedThisTurn);
-      updated.set(reactorId, used + 1);
+      updated.set(entry.reactorId, used + 1);
       state = {
         ...state,
         turnState: { ...state.turnState, reactionsUsedThisTurn: updated },
@@ -324,10 +333,11 @@ export function commitAction(
     }
     for (const rxn of reduced.generatedReactions ?? []) {
       queue.push({
-        action: rxn,
+        action: rxn.action,
         parentSeq: seq,
         depth: entry.depth + 1,
         isReaction: true,
+        reactorId: rxn.reactorId,
       });
     }
 

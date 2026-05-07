@@ -24,25 +24,18 @@
 // directional ability.
 
 import { tilesAt } from './accessors.ts';
-import type { BattleMap, Tile } from '../types/index.ts';
+import type {
+  AoeAnchor,
+  AoeOffset,
+  AoeShape,
+  BattleMap,
+  Tile,
+} from '../types/index.ts';
 
-export interface AoeOffset {
-  readonly dx: number;
-  readonly dy: number;
-}
-
-export type AoeShape =
-  | { readonly kind: 'tile' }
-  | { readonly kind: 'diamond'; readonly radius: number }
-  | { readonly kind: 'square'; readonly radius: number }
-  | { readonly kind: 'cross'; readonly radius: number }
-  | { readonly kind: 'custom'; readonly offsets: ReadonlyArray<AoeOffset> };
-
-export interface AoeAnchor {
-  readonly x: number;
-  readonly y: number;
-  readonly elevation: number;
-}
+// Re-export the shape vocabulary so existing callers that import from
+// `engine/map/aoe.ts` keep working. The canonical home for the types
+// is `engine/types/aoe-shape.ts`; only the algorithms are owned here.
+export type { AoeAnchor, AoeOffset, AoeShape };
 
 // Resolve a shape into its relative-coordinate set. Stable enumeration
 // (radius outward, row-major) so the result is deterministic for tests.
