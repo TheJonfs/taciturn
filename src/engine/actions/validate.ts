@@ -84,6 +84,7 @@ export function validateAction(
     case 'status_tick':
     case 'charged_action_resolve':
     case 'system_heal':
+    case 'system_damage':
     case 'system_apply_status':
     case 'status_remove':
     case 'status_decrement_stack':

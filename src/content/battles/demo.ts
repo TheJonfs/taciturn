@@ -48,7 +48,7 @@ function buildFlatGround(): BattleMap {
 const TEAM_A = teamId('team_a');
 const TEAM_B = teamId('team_b');
 
-// Shared loadout for v1: Battle Skill on First Action (class-pinned),
+// Knight loadout: Battle Skill on First Action (class-pinned),
 // White Magic on Second Action (Cure), Counter in the Reaction bucket,
 // Move +1 in Movement.
 const KNIGHT_LOADOUT: UnitPlacement['loadout'] = {
@@ -58,6 +58,22 @@ const KNIGHT_LOADOUT: UnitPlacement['loadout'] = {
   },
   passiveBuckets: {
     [bucketId('reaction')]: [abilityId('counter')],
+    [bucketId('movement')]: [abilityId('move_plus_1')],
+  },
+};
+
+// Earth Mage loadout (session 17b — first non-Knight class wired into
+// the demo): Earth Spells on First Action (class-pinned), White Magic
+// on Second Action so the mage has a backup tool, Earth Resilience in
+// the Reaction bucket, Earth Communion in Support, Move +1 in Movement.
+const EARTH_MAGE_LOADOUT: UnitPlacement['loadout'] = {
+  actionBuckets: {
+    [bucketId('first_action')]: commandSetId('earth_spells'),
+    [bucketId('second_action')]: commandSetId('white_magic'),
+  },
+  passiveBuckets: {
+    [bucketId('reaction')]: [abilityId('earth_resilience')],
+    [bucketId('support')]: [abilityId('earth_communion')],
     [bucketId('movement')]: [abilityId('move_plus_1')],
   },
 };
@@ -73,58 +89,70 @@ const KNIGHT_BASE_STATS = { spd: 10, pa: 6, ma: 4, maxHpBase: 60, brave: 100, fa
 // resource trivially infinite.
 const KNIGHT_VITALS = { hp: 60, mp: 10 } as const;
 
+// Earth Mage stats: lower HP, lower PA, higher MA than Knight; speed
+// roughly comparable. The mage's identity is "stays-back caster," and
+// the lower HP plus higher MP exercise that. 40 MP buys one Earth
+// Cataclysm (mpCost 30) plus an Earth Strike (mpCost 4); generous on
+// purpose so Cataclysm gets seen across plays.
+const MAGE_BASE_STATS = { spd: 9, pa: 4, ma: 8, maxHpBase: 50, brave: 100, faith: 80 } as const;
+const MAGE_VITALS = { hp: 50, mp: 40 } as const;
+
 export const demoBattle: BattleConfig = {
-  battleId: 'demo_two_knights',
+  battleId: 'demo_knight_earth_mage',
   rulesetId: rulesetId('default'),
   map: buildFlatGround(),
   teams: [
     { id: TEAM_A, name: 'Blue' },
     { id: TEAM_B, name: 'Red' },
   ],
+  // Session 17b: Knight + Earth Mage per side. The Knight occupies the
+  // forward position (closer to the midline at column 2/3) so they meet
+  // in melee; the Earth Mage sits in the back column (1/4) so charged
+  // spells have a beat to land.
   units: [
     {
       id: unitId('blue_knight_n'),
-      name: 'Blue Knight N',
+      name: 'Blue Knight',
       team: TEAM_A,
       classId: classId('knight'),
-      position: { x: 1, y: 1, layer: 0 },
+      position: { x: 2, y: 2, layer: 0 },
       facing: 'E',
       baseStats: KNIGHT_BASE_STATS,
       vitals: KNIGHT_VITALS,
       loadout: KNIGHT_LOADOUT,
     },
     {
-      id: unitId('blue_knight_s'),
-      name: 'Blue Knight S',
+      id: unitId('blue_earth_mage'),
+      name: 'Blue Earth Mage',
       team: TEAM_A,
-      classId: classId('knight'),
-      position: { x: 1, y: 4, layer: 0 },
+      classId: classId('earth_mage'),
+      position: { x: 0, y: 3, layer: 0 },
       facing: 'E',
-      baseStats: KNIGHT_BASE_STATS,
-      vitals: KNIGHT_VITALS,
-      loadout: KNIGHT_LOADOUT,
+      baseStats: MAGE_BASE_STATS,
+      vitals: MAGE_VITALS,
+      loadout: EARTH_MAGE_LOADOUT,
     },
     {
       id: unitId('red_knight_n'),
-      name: 'Red Knight N',
+      name: 'Red Knight',
       team: TEAM_B,
       classId: classId('knight'),
-      position: { x: 4, y: 1, layer: 0 },
+      position: { x: 3, y: 3, layer: 0 },
       facing: 'W',
       baseStats: KNIGHT_BASE_STATS,
       vitals: KNIGHT_VITALS,
       loadout: KNIGHT_LOADOUT,
     },
     {
-      id: unitId('red_knight_s'),
-      name: 'Red Knight S',
+      id: unitId('red_earth_mage'),
+      name: 'Red Earth Mage',
       team: TEAM_B,
-      classId: classId('knight'),
-      position: { x: 4, y: 4, layer: 0 },
+      classId: classId('earth_mage'),
+      position: { x: 5, y: 2, layer: 0 },
       facing: 'W',
-      baseStats: KNIGHT_BASE_STATS,
-      vitals: KNIGHT_VITALS,
-      loadout: KNIGHT_LOADOUT,
+      baseStats: MAGE_BASE_STATS,
+      vitals: MAGE_VITALS,
+      loadout: EARTH_MAGE_LOADOUT,
     },
   ],
   victoryConditions: [

@@ -89,6 +89,7 @@ function envelopeFor(
     proposed.type !== 'status_tick' &&
     proposed.type !== 'charged_action_resolve' &&
     proposed.type !== 'system_heal' &&
+    proposed.type !== 'system_damage' &&
     proposed.type !== 'system_apply_status' &&
     proposed.type !== 'status_remove' &&
     proposed.type !== 'status_decrement_stack' &&
@@ -122,6 +123,8 @@ function envelopeFor(
       return { ...envelope, type: 'charged_action_resolve', payload: proposed.payload };
     case 'system_heal':
       return { ...envelope, type: 'system_heal', payload: proposed.payload };
+    case 'system_damage':
+      return { ...envelope, type: 'system_damage', payload: proposed.payload };
     case 'system_apply_status':
       return { ...envelope, type: 'system_apply_status', payload: proposed.payload };
     case 'status_remove':
@@ -135,11 +138,14 @@ function envelopeFor(
 
 // Run the pre-resolution hook for the actor. System actions skip it
 // (system actions originate from the engine; running hooks against
-// the engine's own emissions is design noise).
+// the engine's own emissions is design noise). The `isReaction` flag
+// (per ADR-0027) is threaded through so handlers like Don't Act can
+// distinguish volitional UseAbility (block) from reactions (allow).
 function runPreHook(
   state: GameState,
   proposed: ProposedAction,
   catalog: Catalog,
+  isReaction: boolean,
 ):
   | { readonly outcome: 'allowed'; readonly action: ProposedAction }
   | { readonly outcome: 'replaced'; readonly action: ProposedAction }
@@ -147,7 +153,11 @@ function runPreHook(
   if (proposed.source === 'system') return { outcome: 'allowed', action: proposed };
   if (!('actorId' in proposed)) return { outcome: 'allowed', action: proposed };
   const actor = getUnit(state, proposed.actorId);
-  const result = runOnActionAttempted(state, catalog, { unit: actor, action: proposed });
+  const result = runOnActionAttempted(state, catalog, {
+    unit: actor,
+    action: proposed,
+    isReaction,
+  });
   if (result.kind === 'blocked') return { outcome: 'blocked', reason: result.reason };
   if (result.kind === 'replaced') return { outcome: 'replaced', action: result.with };
   return { outcome: 'allowed', action: proposed };
@@ -249,7 +259,7 @@ export function commitAction(
     }
 
     // Pre-hook firing. Replaces or blocks per the actor's hooks.
-    const hookResult = runPreHook(state, entry.action, catalog);
+    const hookResult = runPreHook(state, entry.action, catalog, entry.isReaction);
     if (hookResult.outcome === 'blocked') {
       if (isRoot) {
         return {

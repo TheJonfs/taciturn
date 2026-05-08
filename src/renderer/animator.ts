@@ -209,7 +209,15 @@ export class Animator {
       case 'wait':
       case 'status_tick':
       case 'charged_action_resolve':
-        // No v1 visual; the renderer can pull the next action.
+      case 'system_heal':
+      case 'system_damage':
+      case 'system_apply_status':
+      case 'status_remove':
+      case 'status_decrement_stack':
+        // No v1 visual; the renderer can pull the next action. (System
+        // actions are bookkeeping plumbing; the visible HP / status
+        // changes are reflected on the next animatable action's snapshot
+        // refresh.)
         return null;
     }
   }

@@ -27,7 +27,7 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `battle_skill` | Battle Skill | `attack` | `src/content/command-sets/battle-skill.ts` |
 | `white_magic` | White Magic | `cure` | `src/content/command-sets/white-magic.ts` |
 | `arcane_skill` | Arcane Skill | `bolt` | `src/content/command-sets/arcane-skill.ts` |
-| `earth_spells` | Earth Spells | `earth_strike`, `earth_blessing`, `earth_curse` | `src/content/command-sets/earth-spells.ts` |
+| `earth_spells` | Earth Spells | `earth_strike`, `earth_blessing`, `earth_curse`, `earth_quake`, `earth_cataclysm` | `src/content/command-sets/earth-spells.ts` |
 
 ## Active abilities
 
@@ -36,9 +36,11 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `attack` | Attack | first_action | no | `src/content/abilities/attack.ts` |
 | `cure` | Cure | second_action | no | `src/content/abilities/cure.ts` |
 | `bolt` | Bolt | first_action | yes (actionSpeed 25) | `src/content/abilities/bolt.ts` |
-| `earth_strike` | Earth Strike | first_action | yes (actionSpeed 25) | `src/content/abilities/earth-strike.ts` |
+| `earth_strike` | Earth Strike | first_action | yes (actionSpeed 30) | `src/content/abilities/earth-strike.ts` |
 | `earth_blessing` | Earth's Blessing | first_action | yes (actionSpeed 30) | `src/content/abilities/earth-blessing.ts` |
 | `earth_curse` | Earth Curse | first_action | yes (actionSpeed 30) | `src/content/abilities/earth-curse.ts` |
+| `earth_quake` | Earth Quake | first_action | yes (actionSpeed 25, AoE cross-r1) | `src/content/abilities/earth-quake.ts` |
+| `earth_cataclysm` | Earth Cataclysm | first_action | yes (actionSpeed 18, AoE cross-r1) | `src/content/abilities/earth-cataclysm.ts` |
 
 ## Passive abilities
 
@@ -63,6 +65,9 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `movement_self_buff` | Earthen Resolve | positive, earth | STACK_INDEPENDENT | per_unit_ct | `src/content/statuses/movement-self-buff.ts` |
 | `blind` | Blind | negative, mental | REFRESH | per_unit_ct | `src/content/statuses/blind.ts` |
 | `silence` | Silence | negative, mental | REFRESH | per_unit_ct | `src/content/statuses/silence.ts` |
+| `poison` | Poison | negative, poison | REFRESH | permanent_per_unit_ct | `src/content/statuses/poison.ts` |
+| `dont_act` | Don't Act | negative, mental | REFRESH | per_unit_ct | `src/content/statuses/dont-act.ts` |
+| `dont_move` | Don't Move | negative, physical | REFRESH | per_unit_ct | `src/content/statuses/dont-move.ts` |
 
 ## Rulesets
 

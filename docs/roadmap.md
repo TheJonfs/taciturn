@@ -215,6 +215,24 @@ ADR-0025 captures the decisions. Test count: 395 → 407 (12 new — 4 in `seed.
 
 References: ADR-0025, `src/engine/actions/seed.ts`, `src/engine/actions/reducers.ts`, `src/engine/hooks/hooks.ts`, `src/engine/hooks/runners.ts`, `src/engine/actions/commit.ts`, `src/engine/types/aoe-shape.ts`, `src/engine/types/action.ts`, `src/engine/actions/aoe-substrate.test.ts`.
 
+### 17b. Earth Mage (part 2) + status side-effect infrastructure ✅
+
+*Completed 2026-05-06.* Content + targeted engine extensions — Earth's AoE/Ultimate + four new statuses (non-expiring Poison, Don't Act, Don't Move, content-Stop on bolt) + ADR-0026 forced-movement primitive + ADR-0027 status side-effect infrastructure. Earth Mage now wired into the demo battle as the first non-Knight class on the playable surface.
+
+Engine-side: `system_damage` system action lands as the symmetric counterpart to `system_heal` (Poison's tick + ADR-0026 falling-damage delivery). New `permanent_per_unit_ct` duration mode for non-expiring CT-cadence statuses (apply pipeline returns null duration; turn_start fans out status_tick; reduceStatusTick's null-duration branch already handled "tick fires, no decrement"). `onDamageReceived` hook return shape extended to accept `{ ctx, emittedActions? }`; runner normalizes legacy bare-ctx returns; pipeline threads emissions through `ctx.emittedActions` and `resolveAbilityEffect` forwards them to the reducer's `generatedActions`. `onActionAttempted` runner gains an `isReaction: boolean` arg threaded from `commitAction`'s queue entry; Don't Act blocks volitional UseAbility but allows reactions.
+
+Knockback primitive in `src/engine/map/knockback.ts`: pure function `applyKnockback(state, unit, direction, distance)` that computes the kinematic path, cancellation reason (`map_edge` / `unit_blocker` / `height_tolerance`), drop distance, and a `system_damage` falling-damage emission when drop > 1. Cancel-on-step-up (≥ 1 elevation higher); descent permitted; falling damage = 10 × dropDistance. v1 has no content consumer; Water Mage in session 18 is the first.
+
+Content: Earth Quake (cross-r1 AoE, power 6, mp 14, actionSpeed 25, 50% Movement Debuff per target), Earth Cataclysm (cross-r1 Ultimate, power 10, mp 30, actionSpeed 18, independent rolls of 60% Poison + 40% Don't Act + 40% Don't Move). Earth Strike's actionSpeed promoted 25 → 30 for FFT-faithful tier ordering (Strike 30 / Quake 25 / Cataclysm 18). Bolt formally applies Stop (25% baseChance, duration 12) so Stop has a content pull beyond the engine's pause-charged-action mechanism.
+
+Statuses: **Poison** uses `permanent_per_unit_ct` mode and emits flat MaxHP × 0.10 damage via `system_damage` per CT-100 trigger; never expires. **Don't Act** (`onActionAttempted` blocks UseAbility, allows when `isReaction === true`). **Don't Move** (`onActionAttempted` blocks Move actions). **Earth Mage** wired into the demo battle alongside the existing Knight (1 Knight + 1 Earth Mage per side; mage stats spd 9 / pa 4 / ma 8 / hp 50 / mp 40 with Earth Resilience + Earth Communion + Move +1 + White Magic).
+
+Renderer's `buildAnim` extended to recognize all session 17b system actions (`system_damage` plus the existing `system_heal` / `system_apply_status` / `status_remove` / `status_decrement_stack`) — they pull through to the next animatable action without their own visual, but the animator no longer crashes on the unmatched cases.
+
+ADRs: 0026 (forced-movement collision policy + falling damage), 0027 (system_damage + permanent_per_unit_ct + onDamageReceived emission + isReaction). Test count: 407 → 426 (19 new — 8 in `knockback.test.ts` for the primitive, 11 in `session-17b-integration.test.ts` for system_damage / Poison / Don't Act / Don't Move / Sleep emission pattern / Earth Quake AoE / Earth Cataclysm three-status combo). End-to-end browser verification: 4-unit demo battle plays through with Earth Strike's Movement Debuff landing, Earth Resilience stacking on hits, MP consumption from charged casts, and a clean victory condition.
+
+References: ADRs 0026–0027, `src/engine/types/action.ts` (system_damage), `src/engine/types/duration-mode.ts`, `src/engine/types/damage.ts` (DamageContext.emittedActions), `src/engine/hooks/hooks.ts` (onDamageReceived shape, isReaction), `src/engine/hooks/runners.ts`, `src/engine/actions/reducers.ts` (reduceSystemDamage + pipeline emission threading), `src/engine/actions/commit.ts`, `src/engine/map/knockback.ts`, `src/content/abilities/{earth-quake,earth-cataclysm,bolt,earth-strike}.ts`, `src/content/statuses/{poison,dont-act,dont-move}.ts`, `src/content/battles/demo.ts`, `src/renderer/animator.ts`, `docs/content-id-registry.md`.
+
 ## Content-expansion passes (interleaved)
 
 These are not numbered in the main sequence because their timing depends on what mechanisms exist. The general pattern: once a mechanism's MVP is in place, an expansion pass adds the breadth of content that uses it.

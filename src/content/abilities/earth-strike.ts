@@ -5,8 +5,10 @@
 // the resolve reducer's `resolveAbilityEffect` per-target body for
 // status application on charged spells (per session 15 → 16 handoff).
 //
-// Per session 16 plaintext review:
-//   - power 6, mpCost 4, actionSpeed 25 (fast tier)
+// Per session 16 plaintext review (numbers as updated in 17b):
+//   - power 6, mpCost 4, actionSpeed 30 (fast tier; promoted from 25
+//     in 17b for FFT-faithful tier ordering: Strike 30 / Quake 25 /
+//     Cataclysm 18 → bigger spells charge slower)
 //   - debuff baseChance 60%, duration 36
 //   - range horizontal 4 / vertical 2, arc
 //
@@ -35,7 +37,7 @@ export const earthStrike: ActiveAbilityDefinition = {
     range: { horizontal: 4, vertical: 2 },
     rangeMode: 'arc',
   },
-  actionSpeed: 25,
+  actionSpeed: 30,
   mpCost: 4,
   effects: {
     damage: {

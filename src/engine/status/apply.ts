@@ -125,7 +125,15 @@ function computeInitialDuration(
   type: StatusEffectType,
   requested: number | undefined,
 ): number | null {
-  if (type.durationMode === 'permanent' || type.durationMode === 'conditional') {
+  // No-decay modes always store null. `permanent_per_unit_ct` (ADR-0027)
+  // ticks at the unit's CT cadence but never expires — the apply pipeline
+  // discards any requested duration so the StatusEffectType stays the
+  // single source of truth on whether time decrements.
+  if (
+    type.durationMode === 'permanent' ||
+    type.durationMode === 'conditional' ||
+    type.durationMode === 'permanent_per_unit_ct'
+  ) {
     return null;
   }
   if (requested === undefined) {

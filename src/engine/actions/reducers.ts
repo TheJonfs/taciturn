@@ -53,6 +53,7 @@ import {
   type StatusRemoveOutcome,
   type StatusTickOutcome,
   type SystemApplyStatusOutcome,
+  type SystemDamageOutcome,
   type SystemHealOutcome,
   type TargetRef,
   type TurnEndOutcome,
@@ -270,7 +271,7 @@ export function reduceUseAbility(
   return {
     newState: resolved.newState,
     outcome,
-    generatedActions: [],
+    generatedActions: resolved.generatedActions,
     ...(resolved.generatedReactions.length > 0
       ? { generatedReactions: resolved.generatedReactions }
       : {}),
@@ -407,6 +408,12 @@ interface ResolveAbilityEffectResult {
   readonly newState: GameState;
   readonly perTargetResults: ReadonlyArray<AbilityTargetResult>;
   readonly generatedReactions: ReadonlyArray<GeneratedReaction>;
+  // Non-reaction system actions emitted by pipeline-stage hooks
+  // (onDamageReceived's `emittedActions` slot per ADR-0027 — Sleep
+  // wake-on-damage is the canonical worked example). The reducer adds
+  // these to its own `generatedActions` so commitAction enqueues them
+  // FIFO behind the use_ability outcome.
+  readonly generatedActions: ReadonlyArray<ProposedAction>;
 }
 
 function resolveAbilityEffect(
@@ -420,6 +427,7 @@ function resolveAbilityEffect(
   let damageContext: DamageContext | null = null;
   let damageDealt: number | undefined;
   let healingDealt: number | undefined;
+  const pipelineEmissions: ProposedAction[] = [];
   if (args.ability.effects.damage !== undefined && args.targetUnit !== null) {
     damageContext = runDamagePipeline({
       state: workingState,
@@ -436,6 +444,13 @@ function resolveAbilityEffect(
       healingDealt = damageContext.finalDamage ?? 0;
     } else {
       damageDealt = damageContext.finalDamage ?? 0;
+    }
+    // Per ADR-0027, onDamageReceived handlers may emit system actions
+    // (Sleep wake-on-damage's status_remove, future Vulnerable consume).
+    // The runner accumulates them onto ctx.emittedActions; forward to
+    // generatedActions so commitAction enqueues them.
+    if (damageContext.emittedActions !== undefined) {
+      for (const a of damageContext.emittedActions) pipelineEmissions.push(a);
     }
   }
 
@@ -548,6 +563,7 @@ function resolveAbilityEffect(
     newState: workingState,
     perTargetResults: [result],
     generatedReactions: reactions,
+    generatedActions: pipelineEmissions,
   };
 }
 
@@ -588,6 +604,7 @@ interface ResolveAbilityTargetsResult {
   readonly newState: GameState;
   readonly perTargetResults: ReadonlyArray<AbilityTargetResult>;
   readonly generatedReactions: ReadonlyArray<GeneratedReaction>;
+  readonly generatedActions: ReadonlyArray<ProposedAction>;
 }
 
 function resolveAbilityTargets(
@@ -624,6 +641,7 @@ function resolveSingleTargetDispatch(
     newState: resolved.newState,
     perTargetResults: resolved.perTargetResults,
     generatedReactions: resolved.generatedReactions,
+    generatedActions: resolved.generatedActions,
   };
 }
 
@@ -729,6 +747,7 @@ function resolveAoeDispatch(
   let workingState = state;
   const allResults: AbilityTargetResult[] = [];
   const allReactions: GeneratedReaction[] = [];
+  const allEmissions: ProposedAction[] = [];
   for (let i = 0; i < affected.length; i++) {
     const target = affected[i]!;
     // A prior target's reaction may have KO'd this target, or removed
@@ -749,12 +768,14 @@ function resolveAoeDispatch(
     workingState = resolved.newState;
     for (const r of resolved.perTargetResults) allResults.push(r);
     for (const r of resolved.generatedReactions) allReactions.push(r);
+    for (const a of resolved.generatedActions) allEmissions.push(a);
   }
 
   return {
     newState: workingState,
     perTargetResults: allResults,
     generatedReactions: allReactions,
+    generatedActions: allEmissions,
   };
 }
 
@@ -838,12 +859,15 @@ export function reduceTurnStart(
     reactionsUsedThisTurn: new Map<UnitId, number>(),
   };
 
+  // Per ADR-0027, `permanent_per_unit_ct` joins `per_unit_ct` for the
+  // status_tick fan-out — both modes tick at the unit's CT cadence; the
+  // difference (decrement-vs-not) lives downstream in reduceStatusTick.
   if (skip !== null) {
     const generated: ProposedAction[] = [];
     if (!skip.suppressStatusTicks) {
       for (const status of unit.statuses) {
         const type = catalog.getStatusType(status.typeId);
-        if (type.durationMode === 'per_unit_ct') {
+        if (type.durationMode === 'per_unit_ct' || type.durationMode === 'permanent_per_unit_ct') {
           generated.push({
             type: 'status_tick',
             source: 'system',
@@ -865,12 +889,12 @@ export function reduceTurnStart(
     };
   }
 
-  // Generate status_tick actions for per-unit-CT-mode statuses on this
-  // unit. The chain processor runs them after this action commits.
+  // Generate status_tick actions for CT-cadence statuses on this unit.
+  // The chain processor runs them after this action commits.
   const generated: ProposedAction[] = [];
   for (const status of unit.statuses) {
     const type = catalog.getStatusType(status.typeId);
-    if (type.durationMode === 'per_unit_ct') {
+    if (type.durationMode === 'per_unit_ct' || type.durationMode === 'permanent_per_unit_ct') {
       generated.push({
         type: 'status_tick',
         source: 'system',
@@ -1158,6 +1182,54 @@ export function reduceSystemHeal(
   };
 }
 
+// --- system_damage ---
+//
+// Engine-emitted damage-the-target action. Symmetric to system_heal.
+// Used by Poison's onTick and ADR-0026 falling damage. Bypasses the
+// seven-stage damage pipeline (no variance, no Faith, no resistance,
+// no Counter) — the emitter pre-computes the amount. Per ADR-0027.
+//
+// Floors HP at 0. KO'd / missing targets are silent no-ops. Does not
+// fire onActionTargeted, so reactions never trigger from system damage.
+export function reduceSystemDamage(
+  state: GameState,
+  action: Extract<Action, { type: 'system_damage' }>,
+): ReduceResult<SystemDamageOutcome> {
+  const { targetId, amount } = action.payload;
+  const target = state.units.get(targetId);
+  if (target === undefined) {
+    return {
+      newState: state,
+      outcome: { kind: 'system_damage', targetId, amount, applied: 0 },
+      generatedActions: [],
+    };
+  }
+  if (target.vitals.hp <= 0) {
+    return {
+      newState: state,
+      outcome: { kind: 'system_damage', targetId, amount, applied: 0 },
+      generatedActions: [],
+    };
+  }
+  const applied = Math.max(0, Math.min(amount, target.vitals.hp));
+  if (applied === 0) {
+    return {
+      newState: state,
+      outcome: { kind: 'system_damage', targetId, amount, applied: 0 },
+      generatedActions: [],
+    };
+  }
+  const newTarget: Unit = {
+    ...target,
+    vitals: { ...target.vitals, hp: target.vitals.hp - applied },
+  };
+  return {
+    newState: withUnit(state, newTarget),
+    outcome: { kind: 'system_damage', targetId, amount, applied },
+    generatedActions: [],
+  };
+}
+
 // --- system_apply_status ---
 //
 // Engine-emitted action that applies a status to a target unit
@@ -1400,6 +1472,7 @@ export function reduceChargedActionResolve(
       caster ?? null,
       [],
       [],
+      [],
     );
   }
 
@@ -1419,7 +1492,7 @@ export function reduceChargedActionResolve(
     action: proposedAtResolve,
   });
   if (attempt.kind === 'blocked') {
-    return finalizeResolution(state, catalog, ca, caster, [], []);
+    return finalizeResolution(state, catalog, ca, caster, [], [], []);
   }
 
   // Per-target resolution. v1 has single-target charged abilities only;
@@ -1427,6 +1500,7 @@ export function reduceChargedActionResolve(
   let workingState: GameState = state;
   const allResults: AbilityTargetResult[] = [];
   const allReactions: GeneratedReaction[] = [];
+  const allEmissions: ProposedAction[] = [];
 
   for (const targetRef of ca.targets) {
     const { resolvedUnit, payloadTargetForResult } = resolveTargetAtResolve(
@@ -1480,9 +1554,10 @@ export function reduceChargedActionResolve(
     workingState = resolved.newState;
     for (const r of resolved.perTargetResults) allResults.push(r);
     for (const r of resolved.generatedReactions) allReactions.push(r);
+    for (const a of resolved.generatedActions) allEmissions.push(a);
   }
 
-  return finalizeResolution(workingState, catalog, ca, caster, allResults, allReactions);
+  return finalizeResolution(workingState, catalog, ca, caster, allResults, allReactions, allEmissions);
 }
 
 // Synthesize the ProposedAction passed into hook chains at resolution
@@ -1543,6 +1618,7 @@ function finalizeResolution(
   caster: Unit | null,
   perTargetResults: ReadonlyArray<AbilityTargetResult>,
   reactions: ReadonlyArray<GeneratedReaction>,
+  pipelineEmissions: ReadonlyArray<ProposedAction>,
 ): ReduceResult<ChargedActionResolveOutcome> {
   let newState: GameState = {
     ...state,
@@ -1578,7 +1654,7 @@ function finalizeResolution(
   return {
     newState,
     outcome,
-    generatedActions: [],
+    generatedActions: pipelineEmissions,
     ...(reactions.length > 0 ? { generatedReactions: reactions } : {}),
   };
 }

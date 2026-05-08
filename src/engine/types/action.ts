@@ -27,6 +27,7 @@ export type ActionType =
   | 'charged_action_resolve'
   | 'status_tick'
   | 'system_heal'
+  | 'system_damage'
   | 'system_apply_status'
   | 'status_remove'
   | 'status_decrement_stack'
@@ -167,6 +168,34 @@ export interface SystemHealOutcome {
 export type SystemHealSource =
   | { readonly kind: 'status_tick'; readonly statusTypeId: StatusTypeId; readonly unitId: UnitId };
 
+// `system_damage` — engine-emitted damage-the-target action used by
+// onTick handlers (Poison) and ADR-0026 falling damage. Symmetric to
+// `system_heal`. Bypasses the seven-stage damage pipeline (no variance,
+// no Faith, no resistance, no Counter trigger). Per ADR-0027.
+//
+// `amount` is precomputed by the emitting handler (Poison computes
+// floor(MaxHP × 0.10) via runModifyStatQuery; falling damage computes
+// 10 × dropDistance per ADR-0026). The reducer floors HP at 0 and
+// records the actual delta.
+export interface SystemDamagePayload {
+  readonly targetId: UnitId;
+  readonly amount: number;
+  readonly tags: ReadonlyArray<DamageTag>;
+  readonly source: SystemDamageSource;
+}
+export interface SystemDamageOutcome {
+  readonly kind: 'system_damage';
+  readonly targetId: UnitId;
+  readonly amount: number;
+  readonly applied: number; // post-floor-at-0 delta
+}
+// Provenance for a system_damage. `status_tick` covers Poison; `falling`
+// covers ADR-0026 forced-movement landing damage; future variants extend
+// the union (environmental hazards, equipment thorns, etc.).
+export type SystemDamageSource =
+  | { readonly kind: 'status_tick'; readonly statusTypeId: StatusTypeId; readonly unitId: UnitId }
+  | { readonly kind: 'falling'; readonly unitId: UnitId; readonly dropDistance: number };
+
 // `system_apply_status` — engine-emitted action that applies a status
 // to a target unit *without* running the BMG application chance formula.
 // Used by the reaction compiler when a reaction's effect is "apply
@@ -303,6 +332,11 @@ export type Action = ActionEnvelope &
         readonly outcome?: SystemHealOutcome;
       }
     | {
+        readonly type: 'system_damage';
+        readonly payload: SystemDamagePayload;
+        readonly outcome?: SystemDamageOutcome;
+      }
+    | {
         readonly type: 'system_apply_status';
         readonly payload: SystemApplyStatusPayload;
         readonly outcome?: SystemApplyStatusOutcome;
@@ -334,6 +368,7 @@ export type ActionOutcome =
   | ChargedActionResolveOutcome
   | StatusTickOutcome
   | SystemHealOutcome
+  | SystemDamageOutcome
   | SystemApplyStatusOutcome
   | StatusRemoveOutcome
   | StatusDecrementStackOutcome
@@ -413,6 +448,11 @@ export type ProposedAction =
       readonly type: 'system_heal';
       readonly source: 'system';
       readonly payload: SystemHealPayload;
+    }
+  | {
+      readonly type: 'system_damage';
+      readonly source: 'system';
+      readonly payload: SystemDamagePayload;
     }
   | {
       readonly type: 'system_apply_status';

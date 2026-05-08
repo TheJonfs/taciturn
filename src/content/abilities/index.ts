@@ -4,8 +4,10 @@ import { bolt } from './bolt.ts';
 import { counter } from './counter.ts';
 import { cure } from './cure.ts';
 import { earthBlessing } from './earth-blessing.ts';
+import { earthCataclysm } from './earth-cataclysm.ts';
 import { earthCommunion } from './earth-communion.ts';
 import { earthCurse } from './earth-curse.ts';
+import { earthQuake } from './earth-quake.ts';
 import { earthResilience } from './earth-resilience.ts';
 import { earthStrike } from './earth-strike.ts';
 import { float } from './float.ts';
@@ -18,8 +20,10 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   counter,
   cure,
   earthBlessing,
+  earthCataclysm,
   earthCommunion,
   earthCurse,
+  earthQuake,
   earthResilience,
   earthStrike,
   float,

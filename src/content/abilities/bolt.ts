@@ -27,10 +27,17 @@
 // empty when Bolt resolves, Bolt resolves with no per-target effect
 // (no damage applied, no reactions triggered). MP is not refunded —
 // per BMG, MP is committed at cast time.
+//
+// Session 17b adds a Stop rider so the Stop status type has a content
+// consumer. Bolt is throwaway content that may grow more effects before
+// it's deleted (or Easter Egged elsewhere). The Stop rider is a low-
+// chance "rare but real" tactical wrinkle, short enough to be
+// interesting rather than punitive.
 
 import {
   abilityId,
   bucketId,
+  statusTypeId,
   type ActiveAbilityDefinition,
 } from '@engine/index.ts';
 
@@ -40,6 +47,7 @@ export const bolt: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,
+  tags: ['magical', 'lightning'],
   targeting: {
     kind: 'tile',
     range: { horizontal: 4, vertical: 3 },
@@ -53,5 +61,13 @@ export const bolt: ActiveAbilityDefinition = {
       power: 5,
       variance: { min: 0.95, max: 1.05 },
     },
+    statusEffects: [
+      {
+        typeId: statusTypeId('stop'),
+        target: 'primary_target',
+        baseChance: 25,
+        duration: 12,
+      },
+    ],
   },
 };

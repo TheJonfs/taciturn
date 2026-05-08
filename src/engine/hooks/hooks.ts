@@ -67,6 +67,17 @@ export interface OnTickResult {
   readonly emittedActions?: ReadonlyArray<ProposedAction>;
 }
 
+// Result of `onDamageReceived` (per ADR-0027). Handlers may either modify
+// the in-flight DamageContext (the legacy shape) or wrap it with
+// `emittedActions` to propose system actions in response — Sleep wake-on-
+// damage emits a `status_remove` against itself; Vulnerable consume-on-
+// damage will do the same. The runner accepts either shape: a bare ctx
+// return is normalized to `{ ctx, emittedActions: undefined }`.
+export interface OnDamageReceivedResult {
+  readonly ctx: DamageContext;
+  readonly emittedActions?: ReadonlyArray<ProposedAction>;
+}
+
 // Per-hook signature map. New hooks add an entry; that's it.
 export interface HookSignatures {
   // Stat query: consumed by computeSpeed today and computeMovementProfile
@@ -186,9 +197,13 @@ export interface HookSignatures {
   // returned context — the finalize stage folds everything in. The
   // attacker handler reads `args.unit === ctx.attacker`; the target
   // handler reads `args.unit === ctx.target`.
+  // `onDamageReceived` accepts either a bare `DamageContext` (legacy —
+  // handlers that only modify damage) or `OnDamageReceivedResult`
+  // (handlers that also propose system actions). The runner normalizes.
+  // Per ADR-0027.
   onDamageReceived: {
     args: { unit: Unit; ctx: DamageContext };
-    return: DamageContext;
+    return: DamageContext | OnDamageReceivedResult;
   };
   onDamageDealt: {
     args: { unit: Unit; ctx: DamageContext };
@@ -205,11 +220,21 @@ export interface HookSignatures {
   // on tags (Silence on `'magical'`/`'voice'`) without a catalog
   // lookup of their own. Empty set when the action isn't a use_ability,
   // or when the ability declares no tags. Per ADR-0024.
+  //
+  // `isReaction` (per ADR-0027) lets handlers distinguish volitional
+  // actions from reflexive ones. Don't Act blocks volitional UseAbility
+  // but allows reactions (Counter still fires on a Don't-Act-afflicted
+  // reactor). Silence's behavior is unchanged — Silence blocks
+  // 'magical'/'voice' regardless of whether the cast is a reaction
+  // (a Silenced unit can't speak the words to fire a magical reaction
+  // either). The flag is forwarded by `commitAction` from the queue
+  // entry's `isReaction`.
   onActionAttempted: {
     args: {
       unit: Unit;
       action: ProposedAction;
       abilityTags: ReadonlySet<string>;
+      isReaction: boolean;
     };
     return: ActionAttemptResult;
   };

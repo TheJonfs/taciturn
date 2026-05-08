@@ -18,6 +18,7 @@ import {
   reduceStatusRemove,
   reduceStatusTick,
   reduceSystemApplyStatus,
+  reduceSystemDamage,
   reduceSystemHeal,
   reduceTurnEnd,
   reduceTurnStart,
@@ -54,6 +55,8 @@ export function reduce(state: GameState, action: Action, catalog: Catalog): Redu
       return reduceStatusTick(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_heal':
       return reduceSystemHeal(state, action, catalog) as ReduceResult<ActionOutcome>;
+    case 'system_damage':
+      return reduceSystemDamage(state, action) as ReduceResult<ActionOutcome>;
     case 'system_apply_status':
       return reduceSystemApplyStatus(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'status_remove':

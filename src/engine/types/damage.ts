@@ -18,6 +18,7 @@
 // layer after all stages complete.
 
 import type { AbilityId, UnitId } from './ids.ts';
+import type { ProposedAction } from './action.ts';
 import type { Unit } from './unit.ts';
 
 // Damage / healing tags used by stage handlers and resistance checks.
@@ -41,6 +42,7 @@ export type DamageTag =
   | 'ice'
   | 'lightning'
   | 'earth'    // Added 13.7 ahead of Earth Mage (session 16).
+  | 'poison'   // Added 17b alongside Poison status (system_damage source).
   | 'healing';
 
 // Per-source labelled multiplier applied at finalize. The product of
@@ -89,6 +91,14 @@ export interface DamageContext {
 
   readonly hit: boolean;
   readonly finalDamage?: number;
+
+  // Per ADR-0027, pipeline-stage handlers may emit system actions
+  // (status_remove for Sleep wake-on-damage, future Vulnerable consume,
+  // etc.). The orchestrator threads this list across stages; the caller
+  // (`resolveAbilityEffect`) reads it after the pipeline returns and
+  // forwards the emissions onto the reducer's `generatedActions`.
+  // Defaults to an empty array — handlers that don't emit don't touch it.
+  readonly emittedActions?: ReadonlyArray<ProposedAction>;
 }
 
 // Resolved outcome of a single pipeline run. The orchestrator returns

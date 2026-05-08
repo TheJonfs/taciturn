@@ -1,16 +1,10 @@
 // Earth Spells — Earth Mage's First Action command set.
 //
-// Session 16 ships the 5 non-AoE / non-Ultimate abilities:
-//   - earth_strike  — Base spell (charged, magical damage + Move/Jump debuff)
-//   - earth_blessing — Buff (charged, Regen on ally)
-//   - earth_curse   — Debuff (charged, Blind + Silence)
-//
-// The reaction (earth_resilience) and support (earth_communion) live
-// in their respective passive buckets, not here.
-//
-// Session 17 will add the AoE spell (cross damage with debuff) and
-// Ultimate (cross damage applying Poison + Don't Act + Don't Move) to
-// this command set.
+// Session 16 shipped the 3 non-AoE actives (strike, blessing, curse).
+// Session 17b adds the AoE (earth_quake) and Ultimate (earth_cataclysm)
+// to round out Earth's First Action kit. The reaction (earth_resilience)
+// and support (earth_communion) live in their respective passive
+// buckets, not here.
 
 import {
   abilityId,
@@ -25,6 +19,8 @@ export const earthSpells: CommandSetDefinition = {
     abilityId('earth_strike'),
     abilityId('earth_blessing'),
     abilityId('earth_curse'),
+    abilityId('earth_quake'),
+    abilityId('earth_cataclysm'),
   ],
   baseCost: 1,
 };

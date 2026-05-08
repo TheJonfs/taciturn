@@ -175,13 +175,14 @@ export function runModifyAoeShape(
 export function runOnActionAttempted(
   state: GameState,
   catalog: Catalog,
-  args: { unit: Unit; action: ProposedAction },
+  args: { unit: Unit; action: ProposedAction; isReaction?: boolean },
 ): ActionAttemptResult {
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onActionAttempted');
   const abilityTags = resolveAbilityTags(args.action, catalog);
+  const isReaction = args.isReaction ?? false;
   let current = args.action;
   for (const h of handlers) {
-    const result = h.invoke({ unit: args.unit, action: current, abilityTags });
+    const result = h.invoke({ unit: args.unit, action: current, abilityTags, isReaction });
     if (result.kind === 'blocked') return result;
     if (result.kind === 'replaced') {
       current = result.with;
@@ -312,6 +313,15 @@ export function runOnDamageDealt(
   return ctx;
 }
 
+// onDamageReceived accepts either bare-ctx returns (legacy) or
+// `OnDamageReceivedResult` returns ({ ctx, emittedActions? }). The runner
+// normalizes: bare returns are treated as `{ ctx, emittedActions: undefined }`.
+// Emissions are appended onto `ctx.emittedActions` so the value flowing
+// out of the runner carries them — `fireOnDamageReceived` (the pipeline
+// stage handler) returns this ctx as-is, and the orchestrator threads
+// it through subsequent stages. The caller (`resolveAbilityEffect`)
+// reads `ctx.emittedActions` after the pipeline returns and forwards
+// them to the reducer's `generatedActions`. Per ADR-0027.
 export function runOnDamageReceived(
   state: GameState,
   catalog: Catalog,
@@ -319,10 +329,25 @@ export function runOnDamageReceived(
 ): DamageContext {
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onDamageReceived');
   let ctx = args.ctx;
+  const accumulatedEmissions: ProposedAction[] = ctx.emittedActions ? [...ctx.emittedActions] : [];
   for (const h of handlers) {
-    ctx = h.invoke({ unit: args.unit, ctx });
+    const result = h.invoke({ unit: args.unit, ctx });
+    if (isOnDamageReceivedResult(result)) {
+      ctx = result.ctx;
+      if (result.emittedActions !== undefined) {
+        for (const a of result.emittedActions) accumulatedEmissions.push(a);
+      }
+    } else {
+      ctx = result;
+    }
   }
-  return ctx;
+  return accumulatedEmissions.length > 0 ? { ...ctx, emittedActions: accumulatedEmissions } : ctx;
+}
+
+function isOnDamageReceivedResult(
+  value: DamageContext | { readonly ctx: DamageContext; readonly emittedActions?: ReadonlyArray<ProposedAction> },
+): value is { readonly ctx: DamageContext; readonly emittedActions?: ReadonlyArray<ProposedAction> } {
+  return typeof value === 'object' && value !== null && 'ctx' in value;
 }
 
 // Turn-skip query: fires at turn_start, returns the first non-null
