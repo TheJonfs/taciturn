@@ -1,6 +1,6 @@
 # Progress + deferred work
 
-*Snapshot as of 2026-05-03, end of session 13. Intended as input to a planning conversation about scoping the next round of engine vs content work.*
+*Snapshot as of 2026-05-09, end of session 20a. Refreshed at the close of the second-wave (sessions 14–20a) arc, ahead of wave-3 planning. Replaces the session-13 snapshot.*
 
 This document is a snapshot. It complements but does not replace:
 
@@ -8,154 +8,179 @@ This document is a snapshot. It complements but does not replace:
 - `docs/handoff.md` — transient note from the *most recent* session to the *next* (overwritten each session).
 - `docs/decisions/*` — ADRs for each architectural choice.
 
-What this doc does is collect, in one place, **what's been deferred so far and why**, so the planning session can reason about scope without spelunking through 12 commits and 13 ADRs.
+What this doc does is collect, in one place, **what the engine + content surfaces look like, what's been deferred so far and why**, so a planning session can reason about scope without spelunking through 20+ commits and 32 ADRs.
 
 ---
 
 ## Where we are
 
-Sessions 1–13 are complete. The engine + renderer + UI + AI mechanism stack is in place and the v1 demo battle plays through end-to-end as a 2v2 with Counter chains and AI healing. 345 tests pass; TypeScript strict-mode clean; browser-preview verified.
+Sessions 1 through 20a are complete. The engine + renderer + UI + AI mechanism stack is in place; the v1 demo battle plays through end-to-end as a 6-unit asymmetric class-mixed match (Knight, Earth Mage, Water Mage, Fire Mage, Lightning Mage all on the field). 540 tests pass; TypeScript strict-mode clean (modulo pre-existing test-file errors flagged below); browser-preview verified each session.
 
-Subsystems that are *fully* end-to-end (mechanism MVP done, ready for content expansion):
+Major subsystems that are *fully* end-to-end (mechanism MVP done, ready for content expansion):
 
 - **Core types + identity model** — branded IDs, immutable state, action log.
 - **CT system** — Speed, charged actions on the projection model, scheduler advances tick-by-tick.
 - **Catalog infrastructure** — `Registry` per kind, `loadDefaultCatalog()`, validated at construction.
-- **Hook system** — typed `HookSignatures`, ordered by source-tier (Equipment/Class/Passive/Statuses), shared between status / passive / future equipment registrations.
-- **Map and movement** — Dijkstra pathfinding over multi-layer 4-cardinal adjacency, line-of-sight, arc, AoE shapes, terrain costs, movement-profile composition via `modifyStatQuery` hooks.
-- **Ability slots** — buckets and costs (5 v1 buckets, baseline capacities), validated loadouts, `equipPassive` / `setActiveBucket` with structured violations.
-- **Ruleset + BattleConfig + initial-state construction** — every parameterizable engine value lives on the ruleset; `createInitialState` takes config + catalog, returns a validated initial `GameState`.
-- **Action lifecycle and reducer** — `validateAction` is pure, `commitAction` is the lifecycle wrapper (validate → onActionAttempted → reduce → log → process generated actions FIFO with reaction caps and chain-depth caps).
-- **Damage pipeline (orchestration only)** — seven-stage pipeline with handler registry; physical and healing handlers shipped. Reaction generation rides on `ReduceResult.generatedReactions` and respects per-reactor caps.
-- **Turn flow** — battle-outcome evaluation, `battle_end` system action, turn-skip via `queryTurnSkipped` hook (Stop demo), reaction fizzle, `advanceToNextEvent` scheduler entry point.
-- **Renderer skeleton** — Pixi-based, layered stage, animator consumes committed actions one at a time, camera lerp.
-- **UI skeleton** — React HUD with current-unit panel, action menu, turn queue; `useBattleUi` input state machine; `setHighlights` API on the renderer.
-- **Basic AI** — pure decision function, heuristic for attack target selection (lowest-HP first) and move scoring (best-future-threat); session 13 added a heal phase.
+- **Hook system** — typed `HookSignatures` (12 hooks today), ordered by source-tier (Equipment / Class / Passive / Statuses), shared between status / passive / equipment registrations.
+- **Map and movement** — Dijkstra pathfinding over multi-layer 4-cardinal adjacency, line-of-sight, arc, AoE shapes (single, diamond, square, cross, line, cone, custom), terrain costs, movement-profile composition via `modifyStatQuery` hooks.
+- **Ability slots** — buckets and costs (5 v1 buckets, baseline capacities), validated loadouts, `equipPassive` / `setActiveBucket` with structured violations, class-pinned First Action.
+- **Ruleset + BattleConfig + initial-state construction** — every parameterizable engine value lives on the ruleset; `createInitialState` takes config + catalog, returns a validated initial `GameState` with equipment applied.
+- **Action lifecycle and reducer** — `validateAction` is pure, `commitAction` is the lifecycle wrapper (validate → onActionAttempted → reduce → log → process generated actions FIFO with reaction caps and chain-depth caps), engine-side `turn_end` auto-emit on active-unit KO.
+- **Damage pipeline** — seven-stage orchestrator with handler registry. Shipping handlers: `physical_pa_wp`, `magical_ma_power`, `healing_base`, `evasion_check`, `resistance_check`, `variance_roll`, `crit_roll`, `clamp_min_max`, `finalize`. Faith × Faith composition, Vulnerable amplification, chainBonus cluster scaling, signed-max resistance, hit-roll with elevation modifier, Brave-gated reactions per ADR-0021. ADR-0032 wired the crit and chainBonus slots.
+- **Reaction substrate** — spec-driven `compileReaction` produces `PassiveHookRegistration[]` from `ReactionAbilityFields` (effect kinds: `use_ability`, `apply_status`, `ct_push`; trigger conditions: `damage_received` with tag filters / `always`). Counter, Discharge, Smolder, Tidal Pull, Earth Resilience all flow through it.
+- **Status side-effect infra** — system actions (`system_damage`, `system_heal`, `system_apply_status`, `system_ct_push`, `status_remove`, `status_decrement_stack`) for status hooks to emit follow-ups. Custom-trigger duration mode + `customTrigger.kind` for event-driven statuses (Burn's `on_unit_ct_100`, Vulnerable's `on_damage_received`). Source-KO sweep removes anchored statuses when the source unit dies.
+- **Charged-action lifecycle** — full spawn / sit / resolve / interrupt pipeline. `actionSpeed` controls CT accumulation rate; the `Charging` status holds the caster between commit and resolve; Stop pauses (`pausingStatusTypeIds`); KO during charge fizzles on resolve.
+- **Equipment integration** — `EquipmentDefinition` discriminated by slot kind; per-slot validated; weapon WP / accuracy feed the physical damage pipeline; `statusGrants` apply at battle start (Boots of Haste); `modifyStatQuery` hooks from the equipment source tier (Strength Ring, Iron Helm).
+- **AoE substrate** — per-target dispatch with branched seeds (`perTargetSeed`), shape resolution (caster-anchored cone / line via `cardinalFromTo`; tile/unit-anchored diamond/square/cross/custom), `modifyAoeShape` hook (Aether Bloom enlarges magical shapes by one step), friendly-fire toggle, caster-exclusion default. Reaction cap accounting respects emitting reactor.
+- **Forced-movement primitive** — `applyKnockback` with kinematic stop, falling-damage emission, cancellation reasons. v1 consumer is Water Mage's Tidal Wave + Maelstrom.
+- **Renderer skeleton** — Pixi-based, layered stage, animator consumes committed actions one at a time, camera lerp, exhaustiveness-checked anim resolution.
+- **UI skeleton** — React HUD with current-unit panel, action menu (Attack / Cure / Wait + targeting modes), turn queue, highlight layer (move/attack/heal/aoe).
+- **Basic AI (tier 1 + 1.5)** — pure decision function; tier-1.5 (session 20a) added status-aware target selection (Vulnerable bonus), reaction-aware planning (Brave-gated coarse penalty), AoE handling (cluster value with friendly-fire deduction), Lightning-specific awareness (self-damage refusal, Magnetic Mark setup→exploit, Static Embrace ally selection). Phases: heal → unified action pool (damage/debuff/AoE/buff) → move.
+
+### Content surface
+
+- **Classes (5):** Knight, Earth Mage, Water Mage, Fire Mage, Lightning Mage. Each has its full kit (5 actives + reaction + support, plus class-inherent freeAbilities). Knight extended in session 17c (Power Attack, Stasis Sword, Taunt, Damage Reduction, Bulwark Stance).
+- **Active abilities (~36):** attack, cure, bolt, earth_strike, earth_blessing, earth_curse, earth_quake, earth_cataclysm, earth_resilience, earth_communion, water_strike, tide_surge, tidal_wave, brine, maelstrom, tidal_pull, flow_state, fire_strike, fire_embrace, fire_storm, spark, flame_lance, smolder, ignition, aether_bloom, lightning_strike, static_embrace, chain_lightning, magnetic_mark, storm_caller, discharge, discharge_strike, conductor, plus Knight extensions and counter (hidden retaliation).
+- **Statuses (~22):** Haste, Stop, Charging, Regen, Movement Debuff, Movement Self Buff, Blind, Silence, Poison, Don't Act, Don't Move, Speed Down, Taunted, PA Up, PA Down, MA Up, MA Down, Burn, Crit_modifier, Vulnerable.
+- **Equipment (~5):** Long Sword, Strength Ring, Boots of Haste, Iron Helm, Iron Mail (only Long Sword wired into demo).
+- **Maps:** one — the 6×6 flat-ground demo. Real maps with elevation / multi-layer / terrain variety still pending.
+
+### What's resolved since session 13's snapshot
+
+The session-13 progress doc listed 5 deferred engine items + a stack of "AI heuristic refinements" + UI/renderer gaps. Status now:
+
+- **Charged action lifecycle** — done (session 15, ADR-0023). Full spawn / sit / resolve / interrupt + tile targeting + Stop-pause derivation.
+- **Magical damage handler + Faith pipeline + resistance + evasion** — done (session 14, ADRs 0019–0022). Plus crit added in session 20.
+- **Equipment composition with damage formulas** — done (session 17c, ADR-0028). Weapon WP / accuracy feeds the physical handler.
+- **AoE damage application** — done (session 17a, ADR-0025) + session 17b's content + session 19's line shape.
+- **Special movement (Teleport, Phase)** — still deferred. No content consumer yet; Fly works.
+- **Engine-side `turn_end` on active-unit KO** — done (session 15, supersedes ADR-0013).
+- **Status_tick fan-out on skipped turns** — resolved (ADR-0024 added per-skip-source `suppressStatusTicks` flag).
+- **Reaction compiler** — done (session 16, ADR-0024). `compileReaction` ships; Counter / Discharge / Smolder / Tidal Pull / Earth Resilience all flow through it.
+- **Counter Magic gating semantics** — resolved (Brave-gated trigger per ADR-0021; per-content tag filtering).
+- **Move-to-heal** — still deferred (handoff items 14–20 explicitly punted; not a content blocker).
+- **Status-aware AI decisions** — partial (tier 1.5 in session 20a covers Vulnerable; full status agnosticism waits for stat-aware projection in 20b).
+- **Reaction-aware AI play** — partial (tier 1.5 coarse penalty; tag-aware refinement in 20b).
+- **Stat-aware damage projection** — deferred to 20b.
+- **Two-action turn planning** — deferred to 20b.
+- **AoE / multi-target AI handling** — partial (tier 1.5 covers tile and unit-targeted AoEs; cone / line caster-anchored shapes deferred to 20b).
+- **General ability-picker UI** — still deferred (session 17c carried the deferral forward; ActionMenu still hardcodes a few buttons).
+- **Charged-action UI** — still deferred (no UI surface for "this caster is mid-charge"; no progress bar).
+
+### What's new since session 13 (engine surfaces that didn't exist then)
+
+- **Faith / Brave** as first-class stats with `(Faith_user / 100) × (Faith_target / 100)` composition for magical damage and healing, and Brave-gated reaction triggers.
+- **Resistance system** with the `[-100, 100]` scale (per ADR-0022, absorption deferred), `signedMax` composition across multiple tags per ADR-0015, healing skip per ADR-0016.
+- **Evasion** (per-class front/side/back baselines, per-ability accuracy, elevation modifier, [0.05, 1.0] clamp) — ADR-0019.
+- **Status application formula** with applyAlways override, per-effect factor selection (Faith, Brave, MA, PA), and `linkRoll` for paired effects sharing one Faith roll. Custom-trigger pattern per ADR-0030. STACK_COUNT_ADDITIVE per ADR-0018.
+- **Spec-driven reaction compiler** per ADR-0024. Brave-gated triggering per ADR-0021.
+- **System actions** per ADR-0017 / ADR-0027 — `system_damage`, `system_heal`, `system_apply_status`, `system_ct_push`, `status_remove`, `status_decrement_stack`, `battle_end`. Pipeline emissions threaded through `ctx.emittedActions`.
+- **Equipment substrate** per ADR-0028 — slot validation, weapon-tag composition, source-KO status sweep.
+- **AoE substrate** per ADR-0025 — per-target dispatch, seed branching, modifyAoeShape hook, reaction cap respecting emitting reactor.
+- **Forced-movement primitive** per ADR-0026 — knockback with kinematic stop, falling damage.
+- **CT-push primitives** per ADR-0029 — five flavors (damage rider, damage knockback, free-standing chance-gated, reaction-emitted, support-emitted); cone shape; line shape per ADR-0031.
+- **Crit infrastructure** per ADR-0032 — crit_chance / crit_multiplier on BaseStats; crit_roll handler at variance stage; chainBonus cluster scaling; selfDamage cost + `ability_self_cost` source.
 
 ---
 
-## Originally-scoped engine work that was deferred
+## Originally-scoped engine work that's still deferred
 
-These are the items that *were* in the scope of an earlier session but punted to a later session. They're called out separately because they aren't "we never planned this" — they're "we explicitly stopped short."
+### 1. Special movement: Teleport, Phase
 
-### 1. ChargedAction lifecycle (`chargeTicks > 0`)
+- **Status:** unchanged from session 13. Pathfinder throws `SpecialMovementNotImplementedError` for both kinds.
+- **Why deferred:** still no content consumer. Fly remains the only proven user.
 
-- **Originally scoped to:** session 7 (Action types + reducer).
-- **What landed:** the data shape of `ChargedAction`, the `chargeTicks` field on `AbilityDefinition`, the projection-after-trigger constant, the scheduler's awareness of charged-action triggers in projection.
-- **What was deferred:** actually spawning a `ChargedAction` when an ability with `chargeTicks > 0` is used. `reduceUseAbility` currently throws: *"chargeTicks > 0 not implemented yet."* The full lifecycle wants:
-  - Spawn on use: create the `ChargedAction`, apply the canonical `Charging` status to the actor.
-  - Sit in the schedule: the scheduler already projects trigger ticks; needs to commit a `charged_action_resolve` system action when the trigger fires.
-  - Resolve: run the deferred ability's effect at trigger time. Re-validate at trigger; the design says targets that have moved out of range cause the ability to fizzle.
-  - Interruption: damage / Move / Stop / KO during charge needs to cancel cleanly (and remove the `Charging` status).
-  - Reaction interplay: a reaction that triggers between use and resolve should not duplicate the resolve.
-- **Why deferred:** the surface is non-trivial and has zero v1 content consumers (no charged ability ships in the demo). Session 13 considered "second Knight ability = a charged attack" and rejected it on cost grounds. Adoption is content-driven: the first charged-ability content session is the right time to land it.
-- **Estimated shape:** one full session, dedicated. Touches `commitAction`, `reduceUseAbility`, `engine/ct/scheduler.ts`, `engine/ct/projection.ts`, the Charging status content, and a new family of tests for spawn/resolve/interrupt.
+### 2. Damage pipeline stage handlers (elemental, environmental, holy/dark amplification)
 
-### 2. Special movement: Teleport, Phase
+- **Status:** physical, magical, healing, evasion, resistance, variance, crit, finalize all ship. Elemental handler is folded into `resistance_check` (per-tag with signedMax). Environmental (terrain / weather) and holy/dark amplification stages are still empty.
+- **Why deferred:** no content consumer.
 
-- **Originally scoped to:** session 4 (Map and movement).
-- **What landed:** the `MovementProfile.specialMovement` data shape, the `modifySpecialMovement` hook (session 5), the `Fly` consumer (drops the jump check during pathfinding).
-- **What was deferred:** Teleport (free placement to any reachable tile, ignoring intermediate blockers) and Phase (pass through any tile, including walls). The pathfinder throws `SpecialMovementNotImplementedError` for both kinds.
-- **Why deferred:** no content consumers in v1. Fly was enough to prove the hook chain end-to-end.
-- **Estimated shape:** small. Both flavors are pathfinder branches that already have a hook signal. Probably half a session including content (a Teleport-flavored ability or item).
+### 3. AoE on healing / Caster-target self-damage chained with effects
 
-### 3. Damage pipeline stage handlers (magical, elemental, evasion, environmental, holy/dark amplification)
-
-- **Originally scoped to:** session 8 (Damage pipeline).
-- **What landed:** the seven-stage orchestrator (`runDamagePipeline`), the handler registry, the canonical handlers for **physical** and **healing**, the variance-roll / clamp / finalize stages.
-- **What was deferred:** every other handler. Magical (`MA × power`), elemental (resist / weak / absorb / null), evasion (physical/magical/blade-grab/equipment side, faith/zodiac modifiers), environmental (terrain / weather), and the holy/dark amplification stage. The orchestrator runs these stages with no registered handlers — the pipeline silently passes through.
-- **Why deferred:** none of these are observable without content. The handler registry is open and additive: each new content session that introduces a relevant ability adds the handler and its tests.
-- **Estimated shape:** spread across multiple content sessions. Each handler (or small handler family) is ~50 lines + tests. Magical handler will land with the first MA-scaling ability content; elemental will land with the first ability that has elemental tags; etc.
-
-### 4. Equipment composition with damage formulas
-
-- **Originally scoped to:** session 8 — comments on the `attack` ability note "when equipment lands, the equipped weapon's WP composes here instead of the ability's own coefficient."
-- **What landed:** `Item` catalog kind exists; `Long Sword` stub exists.
-- **What was deferred:** equipment slots on `Unit`, the `Equipped` source tier in the hook chain, weapon power feeding into the physical handler instead of the ability's hardcoded `power`.
-- **Why deferred:** the engine doesn't have equipped-item state on units yet. Items are catalog-only. Equipping is a content-data session that lands when classes/abilities/items co-evolve.
-
-### 5. AoE damage application
-
-- **Originally scoped to:** session 4 (AoE shapes), session 8 (damage pipeline that the AoE feeds into).
-- **What landed:** `aoeFootprint`, all AoE shapes (single, diamond, square, cross, custom), vertical tolerance, multi-layer-affected default. The damage pipeline runs per-target; iterating it across an AoE footprint is straightforward.
-- **What was deferred:** an actual AoE-targeted ability and its reducer path. v1 abilities are all `single_unit`. The reducer's per-target loop is implied but not exercised; AI's offensive-ability filter explicitly skips non-`single_unit` for the same reason.
-- **Why deferred:** no AoE content consumer. Lands with the first AoE ability content (likely Black Magic's Fire / Bolt / Ice family).
+- **Status:** chainBonus on healing not implemented (no AoE healing exists). Self-damage doesn't compose with effects (no consumer).
+- **Why deferred:** no content consumer; surfaces to the dispatcher when one ships.
 
 ---
 
-## Engine policy / cleanup gaps (open)
+## New engine policy / cleanup gaps surfaced during sessions 14–20
 
-These are not "deferred from a specific session" — they're things spotted along the way that warrant a deliberate decision in their own right. Most have an open question shape, not a clear "fix this" shape.
-
-- **Engine-side auto-emit `turn_end` when active unit becomes KO'd.** Currently orchestrator-side per ADR-0013. The architecturally cleaner long-term fix lives in `commitAction`, parallel to the Stop status's skipped-turn pattern. Real policy decision — when *exactly* should the auto-emit fire? After the root action's chain settles? After every action? What about KO during charged-action resolve? Worth its own session + ADR.
-- **`reaction_fizzled` system event.** When `commitAction` silently drops a reaction whose validation fails mid-chain, no log entry records the fizzle. A `reaction_fizzled` system action would let the renderer surface "Counter target moved out of range" and the replay model stay self-describing.
-- **Battle-end checkpoint on damage-application.** Right now `battle_end` is emitted at `turn_end`. A unit can be KO'd mid-chain and the battle is morally decided, but the chain unwinds further before `battle_end` fires. Open question whether this matters for any hook-driven mechanic.
-- **Status_tick fan-out on skipped turns.** A unit whose turn is skipped by Stop currently emits no `status_tick` actions for its turn-based statuses. The right behavior probably depends on the status: most should still tick (Stop *itself* shouldn't tick down on its target's skipped turn — that's how Stop locks); poisons probably should. Want a per-status flag.
-- **Per-status flag for "tick on skipped turn."** The flag above. Belongs on `StatusEffectType`.
-- **Charged-action triggers in `advanceToNextEvent`.** The scheduler currently picks turn_start as the only trigger kind. When charged actions are fully wired (item 1 above), the scheduler needs to recognize and emit `charged_action_resolve` at the right tick.
-- **Out-of-range counter / "Counter Magic at non-magical attack" gating semantics.** Open content/design question — what exactly are the gating rules around reaction abilities firing on non-matching incoming actions? Carried forward from session 8.
-
----
-
-## Engine refactors / DX (low priority, no rush)
-
-- **Refactor `engine/ct/projection.ts` and `engine/turn/scheduler.ts` to share a snapshot helper.** Both walk units to filter KO'd and project actual-CT > Speed > stable-ID. The duplication is small but real.
-- **Move the `Controller` type out of `src/app/demo/orchestrator.ts`.** Three import sites currently. Lands when the demo orchestrator generalizes (e.g., a non-demo orchestrator ships).
-- **Action-log compaction on long battles.** Performance concern that hasn't materialized; defer until profiling identifies it.
-- **Catalog hot-reload during development.** DX nicety.
-- **Initial-CT formula tuning.** Both variants exist (`fixed`, `speed_with_variance`). Default values are placeholders; tuning is a calibration pass after richer content lights up the variance.
+- **Pre-existing TS strict-mode errors in test files.** Carried since session 17c; npm test passes via Vitest's loose mode but `tsc -b --noEmit` surfaces them. Not blocking; defer to a focused cleanup session.
+- **Crit_chance / crit_multiplier upper bounds.** No explicit cap; runtime comparison handles >100 sensibly. Soft cap at `modifyStatQuery` if a future build pushes pathological territory.
+- **Crit + Vulnerable burst potential** per ADR-0032. v1 numbers can produce ~108-damage one-shots with Static Embrace + Magnetic Mark + Lightning Strike + crit. Flagged for the post-session-20 calibration pass — possibly cap the multiplicative composition or the Vulnerable amount.
+- **Storm Caller's 25% maxHpBase self-cost.** Uncapped at HP=0; a Lightning Mage at 11 HP self-KOs by casting. Design intent (real risk-taking lever); flagged for tuning if playtesting shows it's too punishing.
+- **Vulnerable double-fire in chain ordering.** Documented ADR-0032 edge case. v1 reaction patterns don't create the case. Surface if a content consumer creates it.
+- **Reactor MP semantics in `reduceUseAbility` for reactions.** v1 reactions are MP-free; the path is unexercised. Verify when an MP-costing reaction first ships.
+- **Self-cost scaling with caster's max-HP buffs.** Storm Caller reads `caster.baseStats.maxHpBase` (stored), not `runModifyStatQuery('maxHp')`. v1 has no max-HP-modifying status; decide when one ships.
+- **Polarity metadata on StatusEffectType.** Tier-1.5 AI hardcodes a known-buff status list to gate the buff phase (so Magnetic Mark doesn't try to apply Vulnerable to self). A clean fix is `aiHints?: { polarity?: 'buff' | 'debuff' }` on StatusEffectType. Lands when a meaningful number of new statuses make the hardcoded list painful.
+- **`reaction_fizzled` system event.** Carried from session 13. Still no log entry when a reaction's mid-chain validation fails. Surface when the renderer / replay model wants to narrate it.
+- **Battle-end checkpoint on damage-application.** Still emitted at `turn_end`. Open question whether mid-chain decision matters for any hook-driven mechanic.
+- **`StatusEffectType.removeOnSourceKO` — already shipped (session 17c).** Notable: the source-KO sweep is engine-side (in `resolveAbilityEffect` / `reduceSystemDamage`); v1 consumer is Taunted.
 
 ---
 
-## Content-expansion passes (always intended as separate from mechanism work)
+## AI heuristic refinements outstanding
 
-These are not deferrals — they're the explicit "horizontal MVP, then content breadth" methodology from `docs/roadmap.md`. Listing them here so the planning conversation sees the full content surface in one place.
+Tier-1.5 (20a) closed: status-aware targeting (Vulnerable), coarse reaction penalty, AoE cluster scoring, Lightning-specific (self-damage / mark setup / Static Embrace selection).
 
-- **Status catalog expansion.** v1 ships Haste (timing demo) and Stop (turn-skip demo). Full v1 status catalog (Poison, Sleep, Berserk, Reflect, Faith, Protect, etc.) per `docs/design/status-effects.md`. Each addition exercises hook-chain registration; some will surface engine policy gaps (the per-status "tick on skipped turn" flag is one).
-- **Class catalog expansion.** Only Knight ships. Real roster (Priest, Wizard, Chemist, Monk, Thief, etc.) — each class brings its command sets, base stats, R/S/M abilities. This pass is also when class-pinned First Action gets exercised across a real variety.
-- **Ability / command-set expansion.** Cure is the second active ability ever (after Attack). Full v1 ability surface lands across multiple content sessions, gated on the engine support for each ability shape (charge, AoE, multi-target, status-applying-only, etc.).
-- **Item catalog expansion.** Long Sword is a stub. Real weapon / armor / accessory catalog lands with equipment integration (item 4 above).
-- **Map content expansion.** Only the 6×6 flat-ground demo map exists. Real maps with elevation, terrain variety, multi-layer (bridge over water) all want content.
-- **Ruleset variants.** The default ruleset suffices today. Session 6 left this open ("only if needed").
+Tier-2 (20b — agreed split):
 
----
+- **Stat-aware damage projection.** AI should compute `expected_damage ≈ runDamagePipeline-derived estimate` per (actor, ability, target) — folding in PA/MA, weapon WP, Faith × Faith, resistance, Vulnerable, crit expectation, evasion. Replaces the `power_coefficient` proxy.
+- **Two-action turn planning.** Consider Move + Act jointly. Today's one-decision-per-call cadence misses "step here so I can hit the wounded enemy from the new tile" patterns that current move scoring approximates but doesn't optimize.
+- **Reaction tag-filter inspection.** Decompose `ReactionAbilityFields` per equipped reaction so the AI can recognize that Counter (physical-only) doesn't fire against a magical attack. Likely needs `reactionFields?: ReactionAbilityFields` decorative field on `PassiveAbilityDefinition` so the AI can read it without running closures.
 
-## AI heuristic refinements (interleaved with content)
+Still-deferred AI items (no scheduled session):
 
-Each of these is small individually but adds up. Not session-shaped on their own; they accrete as content makes them observable.
-
-- **Move-to-heal.** Currently the AI only heals allies *already* in cure range from its current position. A wounded ally out of range falls through to attack/move, with the move computed against enemies, not against the heal opportunity.
-- **Status-aware decisions.** AI ignores statuses on both itself and targets. Don't attack a Reflect-buffed mage with a magic spell; prefer a target who's about to be skipped by Stop; etc.
-- **Reaction-aware play.** Doesn't model that an enemy with Counter equipped will hit back. Today every Knight has Counter; the AI just walks into the chain.
-- **Stat-aware damage projection.** `abilityScore` returns ability `power` directly. Real expected-damage projection wants `PA × power × variance midpoint × target-resistance estimate`.
-- **Two-action turn planning.** One decision per call; orchestrator re-asks. No planner that reasons about "Move to A, then Attack B from A as one unit of decision."
-- **Wait as a tactic.** The AI never explicitly Waits; it ends the turn without consuming. CT-cost outcome is the same today (`reduceTurnEnd`'s "nothing consumed → wait cost"), but distinguishes when a future status hooks `wait` differently.
-- **AoE / multi-target ability handling.** `enumerateOffensiveAbilities` filters to `single_unit` only.
-- **Stat-hooks-aware maxHp in heal threshold.** AI uses `baseStats.maxHpBase` directly; no v1 content modifies maxHp at runtime, so this is identical today, but a modifyStatQuery pass on `'maxHp'` is the architecturally correct version.
+- **Move-to-heal / move-to-buff.** AI doesn't close distance to a wounded ally or a pre-cast buff target.
+- **Cone / line caster-anchored AoE direction planning.** AI skips Maelstrom and Flame Lance.
+- **Wait as a tactic.** AI never explicitly Waits (it ends without consuming, which has the same CT-cost outcome today; matters when a future status differentiates).
+- **Charged-action awareness.** AI casts charged abilities but doesn't model "I'll be skipped next turn while this resolves." For Lightning specifically, this means the AI doesn't always coordinate Mark resolution with a follow-up Strike cast on the next active turn.
 
 ---
 
 ## UI / renderer surfaces
 
-- **General ability-picker.** ActionMenu currently hardcodes one button each for Attack and Cure. The FFT-style "open Battle Skill submenu, see Hero Sword / Stasis Sword / etc." design wants ActionMenu to read each equipped command set and render one button per active member, with the targeting / range / cost driven from the ability definition. Replaces the hardcoded buttons cleanly. Probably its own UI session.
-- **Battle log surface / damage popups.** Right now the player sees HP bars change. As content gets richer (statuses applied, reactions fizzling, charged actions resolving), narration becomes load-bearing.
-- **Charged-action UI.** No v1 consumer. Lands with item 1.
-- **Pause / step-by-step debug mode.** Manual "advance one action at a time" for debugging. The session-13 dev-only `__taciturnDebug` hook is a programmatic version; a UI version would be more ergonomic.
-- **Layout polish.** Right-side HUD is the v1 placeholder. A proper layout (left-side roster, bottom log, etc.) lands during a deliberate UX pass.
+- **General ability-picker.** Still deferred. ActionMenu still hardcodes Attack / Cure / Wait. Each of the four mage classes ships ~5–7 abilities; the FFT-style submenu pattern is the cleanest path.
+- **Battle log surface / damage popups.** No surface narrates damage / status applications / reactions / charged-action resolutions to the player. Becomes load-bearing as kits get richer.
+- **Charged-action UI.** No "X is casting Y, resolves in Z ticks" indicator. Important for planning around Magnetic Mark / Storm Caller cadences.
+- **Status icons on the unit sprite / HUD.** Currently the status strip on the CurrentUnitPanel lists names; per-unit-on-map icons would make Vulnerable visible across the field.
+- **Pause / step-by-step debug mode.** Programmatic via `__taciturnDebug`; no UI affordance.
+- **Layout polish.** Right-side HUD is the v1 placeholder. Proper layout (left-side roster, bottom log, etc.) lands during a UX pass.
+- **Tile-targeted AoE preview.** When the player is choosing a tile for Chain Lightning / Earth Quake / Fire Storm, the cluster footprint should highlight as the cursor moves. Probably ships alongside the general ability-picker.
 
 ---
 
-## Things to think about in planning
+## Engine refactors / DX (low priority, no rush)
 
-A few framing questions that the planning conversation might want to pre-decide:
+- **Refactor `engine/ct/projection.ts` and `engine/turn/scheduler.ts` to share a snapshot helper.** Carried from session 13. Both walk units to filter KO'd and project actual-CT > Speed > stable-ID.
+- **Move the `Controller` type out of `src/app/demo/orchestrator.ts`.** Carried from session 13.
+- **Action-log compaction on long battles.** Performance concern that hasn't materialized.
+- **Catalog hot-reload during development.** DX nicety.
+- **Initial-CT formula tuning.** Still placeholder values; surfaces during the calibration pass.
+- **Faith / Brave / crit calibration.** Demo numbers (Faith 80, Brave 100, crit_chance 5, crit_multiplier 1.5) are placeholders. Realistic spreads land alongside the broader tuning pass post-session-20.
 
-1. **Engine session vs content session boundaries.** Several deferred items (charged actions, AoE, magical damage, equipment) are *engine work that's gated on a content consumer*. Two reasonable framings:
-   - "Content-led" — pick the next content session, identify the engine work it requires, land both together.
-   - "Engine-led" — pick the next engine subsystem and ship its minimum content alongside.
-   The roadmap's MVP-first methodology has been content-led so far (each engine session ships one demo content piece). Worth deciding whether that continues for the second pass.
+---
 
-2. **Bundling vs splitting "small" deferred items.** Items like `reaction_fizzled` and the per-status skipped-turn flag are each ~3 hours of work. They could be bundled into a "post-MVP cleanup" session, or interleaved with content sessions that surface them. The cleanup framing risks turning into a junk drawer; interleaving risks each of these never quite being important enough to land.
+## Content-expansion passes (intended as separate from mechanism work)
 
-3. **AI tier strategy.** The session-13 basic AI is one tier. The integration test asserts AI ≥ greedy. A meaningfully-stronger AI tier ("intermediate"? "advanced"?) is well-known as a roadmap item but unscheduled. Worth deciding when the bar moves and what content-readiness gates the next tier.
+- **Status catalog expansion.** v1 ships ~22 statuses across the Mage kits + Knight extensions. Future: Reflect, Protect, Shell, Float, Berserk, Sleep, Confuse, Charm, Disable, Innocent, Slow, etc. Each addition exercises hook-chain registration; some will surface engine policy gaps.
+- **Class catalog expansion.** Five classes ship. Future roster (Priest, Wizard, Chemist, Monk, Thief, Time Mage, etc.) — each brings its command sets, base stats, R/S/M abilities.
+- **Ability / command-set expansion.** ~36 abilities ship across First Action / passive buckets. Real coverage requires multiple content sessions per future class.
+- **Equipment catalog expansion.** Five items in catalog; only Long Sword equipped. Real weapon / armor / accessory catalog.
+- **Map content expansion.** Only 6×6 flat-ground demo. Real maps with elevation, terrain variety, multi-layer.
+- **Ruleset variants.** Default ruleset suffices; "only if needed."
 
-4. **What does "v1" actually mean as a deliverable?** The roadmap's "first playable battle" was session 13's goal and is met. There's no defined point at which "v1 feature-complete" happens. Planning could helpfully define that — e.g., "v1 ships when class roster ≥ 6, status catalog ≥ 12, and a 4v4 battle can run on a 12×12 map with elevation."
+---
+
+## Things to think about in wave-3 planning
+
+1. **Wave-2 was content-led (each Mage class drove its engine extension).** That worked well — engine extensions earned their keep through a real consumer. Wave-3 candidates can follow the same shape: pick the next class (Priest / Time Mage / Thief?), identify the engine extensions it needs, ship together. Or shift to a content-density pass (class roster expansion across existing engine surfaces) followed by the v1 calibration pass.
+
+2. **Calibration pass.** Demo stats are placeholders across Faith, Brave, evasion, resistance, crit, equipment WP/accuracy, action speeds, MP costs, mp pools, HP pools, and so on. A focused tuning pass once content density justifies it — likely between wave-3 content sessions and v1 declaration.
+
+3. **AI tier 2 (20b) timing.** Scheduled as the next AI session. Three sub-items (stat projection, two-action planning, reaction tag inspection) compose to ~one solid session. Could ship before or after wave-3 content sessions.
+
+4. **Pre-existing TS strict-mode test errors.** Worth a focused cleanup pass at some point. Not urgent; doesn't gate anything.
+
+5. **v1 deliverable definition.** Still undefined per session-13's framing. Suggested gates: class roster ≥ 6 (current 5), status catalog coverage of the v1 design doc, real maps shipped, calibration pass done, ability-picker UI shipped, battle log surface shipped. Probably a planning conversation in its own right.
+
+6. **What "second playable" looks like.** First playable = session 13's 2v2 Knight battle. We're past that. The next milestone might be "playable battle with mixed classes including a new map" — gates the ability-picker UI + map content + status icons.

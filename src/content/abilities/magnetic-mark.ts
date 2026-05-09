@@ -5,10 +5,11 @@
 // component — the entire payload is the Vulnerable application.
 //
 // Per session 20 plaintext review:
-//   - mpCost 8, actionSpeed 35 (deliberately *slower* than the Strike
-//     tier — Chris explicitly chose 35 over 25-30 so the player has
-//     time to plan a follow-up cast that exploits the mark before it's
-//     consumed; the slow charge is part of the kit's tactical loop)
+//   - mpCost 8, actionSpeed 35 (deliberately *faster* than the Strike
+//     tier — actionSpeed 35 > 30 means the charge's CT accumulates
+//     faster, so Mark resolves before a Strike or Storm Caller cast
+//     on the same or following turn; the fast charge is the
+//     mechanism that lets the kit's setup→exploit loop work)
 //   - baseChance 60 → with v1 demo Faith 80 → ~38% expected apply
 //     against a non-resistant target
 //   - range horizontal 4 / vertical 2, arc — parity with Lightning Strike

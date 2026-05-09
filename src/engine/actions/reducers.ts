@@ -11,7 +11,7 @@
 // wrapper — branches return them by reference; they are *not* applied
 // here.
 
-import type { ActiveAbilityDefinition, AoeSpec, Catalog } from '../catalog/index.ts';
+import type { ActiveAbilityDefinition, AoeSpec, Catalog, StatusEffectType } from '../catalog/index.ts';
 import { defaultDamageHandlers } from '../damage/default-handlers.ts';
 import { runDamagePipeline } from '../damage/pipeline.ts';
 import {
@@ -1192,6 +1192,18 @@ function detectKO(
   return before.vitals.hp > 0 && after.vitals.hp === 0;
 }
 
+// Whether a status's type ticks once per the holder's CT-100 boundary.
+// Both turn_start fan-outs (skipped + non-skipped) read this so they
+// can't drift — pre-session-20a, the non-skipped path was missing the
+// custom + on_unit_ct_100 case, so Burn never ticked on a normal turn.
+function ticksOnUnitCt100(type: StatusEffectType): boolean {
+  return (
+    type.durationMode === 'per_unit_ct' ||
+    type.durationMode === 'permanent_per_unit_ct' ||
+    (type.durationMode === 'custom' && type.customTrigger?.kind === 'on_unit_ct_100')
+  );
+}
+
 // --- turn_start ---
 
 export function reduceTurnStart(
@@ -1239,11 +1251,7 @@ export function reduceTurnStart(
     if (!skip.suppressStatusTicks) {
       for (const status of unit.statuses) {
         const type = catalog.getStatusType(status.typeId);
-        if (
-          type.durationMode === 'per_unit_ct' ||
-          type.durationMode === 'permanent_per_unit_ct' ||
-          (type.durationMode === 'custom' && type.customTrigger?.kind === 'on_unit_ct_100')
-        ) {
+        if (ticksOnUnitCt100(type)) {
           generated.push({
             type: 'status_tick',
             source: 'system',
@@ -1270,7 +1278,7 @@ export function reduceTurnStart(
   const generated: ProposedAction[] = [];
   for (const status of unit.statuses) {
     const type = catalog.getStatusType(status.typeId);
-    if (type.durationMode === 'per_unit_ct' || type.durationMode === 'permanent_per_unit_ct') {
+    if (ticksOnUnitCt100(type)) {
       generated.push({
         type: 'status_tick',
         source: 'system',

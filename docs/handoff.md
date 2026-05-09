@@ -21,82 +21,78 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-09 (session 20: Lightning Mage)
+## From session 2026-05-09 (session 20a: AI tier 1.5 + Burn fan-out fix + grand-handoff refresh)
 
 ### Suggested next-session scope
 
-**Session 20a — AI tier 1.5 + grand handoff.** Per session 19's handoff agreement, AI was deferred to a follow-up sub-session. Session 20a's deliverables:
+**Session 20b — AI tier 2** per the wave-2 split. Three sub-items composing one solid session:
 
-1. **AI tier 1.5 heuristics** (per `docs/roadmap-sessions-14-20.md` "Session 20"):
-   - Status-aware target selection (don't magic-attack Reflect-buffed targets — Reflect not yet shipped, but the AI should be agnostic to specific status names; check for damage-blocking conditions before attacking).
-   - Reaction-aware planning (don't walk into Counter chains; weight target choice by reaction-trigger probability).
-   - AoE handling (evaluate AoE by total expected damage across the cluster, including friendly-fire penalty).
-   - Stat-aware damage projection (use the real damage formula via `runDamagePipeline`-derived computation, not the stripped-down approximation in `decideBasicAi`).
-   - Two-action turn planning (consider Move + Act combinations, not independent evaluation).
-   - Lightning-specific AI awareness: setup → exploit (Magnetic Mark turn N → Lightning Strike turn N+1), self-damage avoidance (don't suicide-cast Storm Caller below the self-cost), Static Embrace target selection (buff a high-damage ally before they cast).
+1. **Stat-aware damage projection.** Replace tier 1.5's `power_coefficient` proxy with real expected-damage projection. The AI should compute, per (actor, ability, target) tuple, an estimate that folds in PA/MA, weapon WP, Faith × Faith, resistance (per-tag signedMax composition), Vulnerable amplification, evasion (with elevation modifier and facing), and crit expectation. The cleanest shape is probably a `projectExpectedDamage(state, catalog, actor, ability, target) → number` helper that mirrors `runDamagePipeline` but skips the side-effect plumbing and uses expected values for randomized stages (variance midpoint, evasion's hit_chance × full_damage, crit's crit_chance × multiplier weighted average). Lives in `src/ai/`.
 
-2. **Grand handoff document for planning sessions.** A comprehensive snapshot of the state of the project at the close of session 20 — the content surface, the engine surface, the deferred items, the design questions that have surfaced. Lives in `docs/progress.md` per the existing discipline (refreshed periodically, not per-session). The session 20a writer should consolidate the handoff items below + the recently-closed work into the durable progress doc, ready for wave-2 planning.
+2. **Reaction tag-filter inspection.** Add `reactionFields?: ReactionAbilityFields` decorative field on `PassiveAbilityDefinition` so the AI can introspect each reaction's trigger condition without running the closure. Extend `compileReaction`'s call sites to populate the field alongside the compiled hooks (or add a `compileReactionAbility(base, fields) → PassiveAbilityDefinition` helper). The AI's `reactionPenalty` then narrows from "any equipped reaction adds 0.15" to "for each reaction whose trigger condition's `damageTagsAny` / `damageTagsNone` filters match the proposed ability's tags, add brave-gated 0.15 × power-proxy of the reaction's effect." Net result: a Lightning Mage attacking a Counter-equipped target with Lightning Strike (magical) doesn't get penalized; a Knight attacking the same target with `attack` (physical) does.
 
-ADRs anticipated for session 20a:
-- ADR for AI tier 1.5 heuristic ordering (which checks run first, how cluster-damage projection composes with friendly-fire penalty).
+3. **Two-action turn planning.** Lift the AI from one-decision-per-call to (Move + Act) joint planning. The simplest correct shape: enumerate (destination, ability, target) triples; score each as the action's score plus a small "this destination is reachable" bonus; pick the highest. Handles patterns like "step to a tile that's adjacent to two enemies, then cast Chain Lightning anchored on the cluster" that today's two-call cadence fumbles. The orchestrator's one-decision-per-call cadence stays — the AI just commits whichever leg is needed first (Move first, then re-asked for Act). Determinism requires the planner to be a pure function of `(state, catalog)`.
 
-The session 20 substrate that 20a inherits:
-- **Crit infrastructure** (`crit_chance` / `crit_multiplier` `StatName`s; `crit_roll` damage handler at variance stage). The AI's damage projection should account for `expected_damage = base × (1 + (crit_chance/100) × (crit_multiplier - 1))` when crits are non-zero.
-- **chainBonus** on `DamageSpec`. AI's AoE evaluation should fold in the cluster-size scaling — a 3-cluster Chain Lightning hits 25% harder per target than a 1-cluster.
-- **selfDamage** on `ActiveAbilityDefinition` + `ability_self_cost` `SystemDamageSource` variant. AI should subtract the self-cost from the cast's expected value AND avoid casting when the cost would self-KO.
-- **Vulnerable** (custom-trigger `'on_damage_received'`). AI's setup→exploit chain awareness uses this — and any future status with `customTrigger.kind === 'on_damage_received'` plugs into the same evaluator.
-- **Magical reactions confirmed** (no engine work needed). Counter only fires on physical; Discharge fires on any tag. AI's reaction-trigger probability check should consume the reaction compiler's `damageTagsAny` / `damageTagsNone` filters, not assume physical-only.
+ADRs anticipated for 20b:
+
+- ADR for the projection helper's contract (which stages to include, how to handle randomized vs deterministic stages, where the helper lives architecturally).
+- ADR for `reactionFields` decorative field if the consensus is "this is the right shape" (likely yes; it's small and cleaner than the alternatives).
+
+Also worth bundling into 20b if scope allows (each is small):
+
+- **Polarity metadata on StatusEffectType.** Replaces tier 1.5's hardcoded `KNOWN_BUFF_STATUS_IDS` with `aiHints?: { polarity?: 'buff' | 'debuff' }` on the type. Each existing status declares its polarity in its definition. Removes content-side knowledge from the AI. ~30 minutes including content updates across the existing ~22 statuses.
+- **Cone / line caster-anchored AoE direction planning in the AI.** Lets the AI use Maelstrom and Flame Lance. Requires picking a cardinal direction that maximizes cluster value. Probably ~1 hour.
+
+If 20b already feels packed, defer those two to a 20c or interleave with content sessions.
 
 ### Things noticed during the session
 
-- **Pre-existing Burn fan-out bug at [reducers.ts:1259](src/engine/actions/reducers.ts:1259).** The active-unit `turn_start` fan-out generates `status_tick` for `per_unit_ct` and `permanent_per_unit_ct` durations, but NOT for `custom + customTrigger.kind === 'on_unit_ct_100'`. Burn uses `custom`, so Burn never actually ticks on a Burned unit's normal turn. The skipped-turn fan-out (line 1231) DOES include the custom case, so Burn ticks on a Stop'd unit — inconsistent. Discovered while planning Vulnerable's `'on_damage_received'` trigger (which uses a different surface — `onDamageReceived` in the damage pipeline — so it's not affected). **Real correctness bug, deferred from session 20 because orthogonal scope.** Fix: extend the line 1259 condition to mirror line 1231 (or extract to a `shouldTick` predicate read by both fan-outs). Session 19 integration tests don't catch this because they drive Burn via direct `applyStatus` and direct `reduceStatusDecrementStack` calls rather than through `turn_start`. End-to-end demo runs likely never landed Burn's tick — flag for next session.
+- **Hardcoded `KNOWN_BUFF_STATUS_IDS` in `src/ai/basic.ts`.** The buff-vs-debuff polarity is content-side knowledge leaking into the AI. Tier 1.5 needed this gate (otherwise Magnetic Mark passes `isAllyBuff` and self-targets the actor, since both Static Embrace and Mark are `single_unit + statusEffects + no damage`). The clean fix is `aiHints?: { polarity?: 'buff' | 'debuff' }` on StatusEffectType — declared in content, consumed by the AI. Listed for 20b.
 
-- **Reaction-on-charged-resolve bug fixed inline.** Pre-session-20 `reduceUseAbility` threw "no turn in progress" when called with `state.turnState === null`. This was reachable only via reactions chained off a `charged_action_resolve` (where there's no turn). Counter avoided it because its compiler filters to `'physical'` damage and charged abilities are magical; Discharge's any-tag filter exposed the gap. Fixed: the no-turn check now skips when `action.isReaction === true`, and `decrementActBudget` is also skipped for reactions or no-turn states. Captured in ADR-0032's "Magical reactions" section + a regression test in `session-20-integration.test.ts`.
+- **Magnetic Mark's actionSpeed direction was misdescribed in session 20.** Per Chris's mid-session clarification: actionSpeed 35 is *faster* than Strike's 30 (CT accumulates faster, charge resolves sooner). The session-20 handoff and ADR-0032's "Magnetic Mark's actionSpeed 35" paragraph both said "deliberately slow" — wrong direction. The value 35 was always correct; only the descriptive phrasing was inverted. The tactical setup→exploit pattern works precisely because Mark resolves *first*. Fixed inline in `magnetic-mark.ts` this session. Out-of-scope to retroactively amend the committed handoff or ADR.
 
-- **Storm Caller's 25% maxHp self-cost is uncapped at the floor.** A Lightning Mage at 11 HP casting Storm Caller drops to 0 (KO'd by their own cost). This is intentional design — the cost is a real risk-taking lever — but worth flagging for tuning. The dispatcher's `caster.vitals.hp > 0` guard before emission means the cost only fires while alive; the actual KO from cost is `system_damage` floor-at-0, which is correct.
+- **Buff dampening is a band-aid for missing multi-turn planning.** The AI's `BUFF_SCORE_DAMPING_FACTOR = 0.3` keeps Static Embrace from dominating because the heuristic doesn't capture "this buff lets next turn's Storm Caller crit harder." The right answer is two-action planning (item 3 above) — but full multi-turn planning is bigger than that. For 20b, the joint-action shape is enough; truly capturing the buff payoff would want N-turn lookahead, which is out of scope. The dampening factor is a knob to leave loose.
 
-- **Crit and Vulnerable compose multiplicatively, no cap.** Final damage = `base × variance × resistance × vulnerable × crit`. A Lightning Mage with Static Embrace-buffed ally lands a Magnetic Mark, then crits through Vulnerable: ×1.5 × ×1.5 = ×2.25 effective. Plus Conductor's MA × 1.25 in the base, plus Lightning Strike's premium power 12. Burst damage potential is ~12 × 8 × 1.25 × 0.64 (Faith) × 1.5 × 1.5 = ~108 — sufficient to one-shot a Mage. The numbers aren't broken — Lightning's identity is "burst when the setup lands" — but post-session-20 calibration may want to soften crit composition or cap Vulnerable+crit multiplicatively. Not v1-load-bearing; flag for the post-session-20 retune.
+- **AoE anchor enumeration is O(range² × abilities × enemies).** For Chain Lightning at horizontal range 4, that's a 9×9 candidate window per ability per enemy. Not a hot path today, but worth keeping in mind if the AI gets called on every render frame in a future debug mode. The current production-AI invocation rate (once per turn) makes this negligible.
 
-- **Pre-existing TS strict-mode errors in test files** (carried from sessions 17c, 18, 19 handoffs). Still not addressed; `npm test` passes via Vitest's loose mode. `tsc -b --noEmit` surfaces them but they're pre-existing. Worth a session of cleanup at some point — defer until a natural lull.
+- **Chain Lightning's aoeFootprint requires anchor.elevation, not anchor.layer.** Subtle Position-vs-AoeAnchor mismatch — the AI initially passed `{ x, y, layer }` and got empty footprints because `|tile.elevation - undefined| <= verticalTolerance` is always false. Fix: look up the anchor tile and read its elevation. Confirmed working via the AoE Chain Lightning test. Worth flagging for `aoeFootprint`'s caller surface — a more defensive shape would be `anchor: Position` with internal elevation lookup, but that's a bigger refactor across reducer.ts and renderer.
+
+- **Storm Caller's `SELF_COST_DAMPING_FACTOR = 0.25` is a tuned constant.** Tier 1.5's calibration: full-HP 60 target, Storm Caller damped to 36 × 0.25 = 9 (loses to Mark's 15); low-HP 8 target, Storm Caller damped to 270 × 0.25 = 67.5 (loses to Strike's 90). This means the AI essentially never picks Storm Caller — it's always inferior to Mark (high HP) or Strike (low HP). That matches the design intent ("ultimate, used at decisive moments — not casually"). 20b's stat-aware projection might re-enable Storm Caller in narrow scenarios (specifically: when Strike + reactions + crit math says Storm Caller's expected damage minus self-cost beats Strike's expected damage). Today the AI never reaches for it.
+
+- **Pre-existing TS strict-mode test errors persist.** Carried since session 17c; flagged again in this session's progress.md refresh. `tsc -b --noEmit` surfaces them; npm test passes via Vitest's loose mode. Defer to a focused cleanup pass.
 
 ### Things considered but did not do
 
-- **Capping crit_chance at 100.** Considered but rejected — the runtime comparison `r < crit_chance / 100` simply means `r < 1+` always succeeds when crit_chance > 100, which is the correct outcome (guaranteed crit). No bug, no waste. If a future passive stacks crit_chance into pathological territory, a soft cap on `modifyStatQuery` results would be the right place — not a hardcoded clamp in the handler.
+- **Adding `aiHints` polarity to StatusEffectType this session.** Considered as the alternative to hardcoding. Rejected for tier 1.5: the change touches every existing status definition (~22 of them) plus the catalog type. That's ~30 minutes of churn for an item that's not blocking the AI work. Listed for 20b instead, where it can land alongside the projection helper as part of the same content-protocol pass.
 
-- **Splitting Storm Caller's "×4 damage" into a separate `power_multiplier` field.** Considered alongside baking power 36 directly. Rejected per Chris's explicit call: with one v1 consumer, the field doesn't earn its keep. If a second consumer ships a power-multiplied form, decompose then.
+- **Per-tag reaction penalty inspection.** Considered (i.e., "Counter wouldn't fire on a magical attack — don't penalize the Lightning Mage for it"). Rejected for tier 1.5: requires either decomposing `ReactionAbilityFields` from a closed closure (not feasible) or adding the decorative `reactionFields` field on `PassiveAbilityDefinition` (~20 minutes of content updates). Listed for 20b as item 2.
 
-- **Routing self-damage through the seven-stage pipeline.** Considered (would compose with caster's own resistances, would let Counter fire on the caster's own self-hit). Rejected — self-cost is a *cost*, not a *hit*. A Lightning Mage shouldn't be able to Counter their own Storm Caller; a lightning-resistant caster shouldn't dodge their own ultimate. The labeled `system_damage` shape is the right mental model.
+- **Raising MARK_SETUP_WEIGHT to make Mark dominate Strike on full-HP targets.** Considered. Rejected — at the right scaling, Mark beats Strike (12 vs 15) on a fresh target but loses to Storm Caller's damped 9. Multi-turn projection would resolve this cleanly; today's heuristic is close enough that Mark fires when it should.
 
-- **A new `onSelfDamage` hook.** Considered as the avenue for a future preventer. Rejected — the existing `onActionAttempted` hook already runs against every action including system actions, and the labeled `payload.source.kind === 'ability_self_cost'` lets a preventer match precisely. No new hook surface needed; a future content consumer demonstrates the avenue when one ships.
+- **Two-action joint planning in tier 1.5.** Considered. Rejected per the session-20 handoff agreement to split — joint planning is half a session on its own and changes the AI's call shape (state-dependent (Move, Act) decisions vs pure-function call). 20b territory.
 
-- **Multiplicative MA buff status form (parallel to Conductor passive).** Considered alongside Conductor. Rejected — no spell in this kit applies a multiplicative MA buff. Conductor as an equipped passive covers the design intent. If a future content consumer wants a temporary multiplicative MA buff (a "Lightning Catalyst" status, etc.), the status form ships then.
+- **Move-to-buff (closing distance to a buff target).** Considered. Rejected — the buff phase already prefers nearby allies via `targetIsInAbilityRange`; move-to-buff is a multi-turn pattern that needs the joint planner. Tier 2.
 
-- **Vulnerable's resistance tag as `'magical'` rather than `'lightning'`.** Considered for symmetry with Fire's PA Down / MA Down (which use `'fire'`). Picked `'lightning'` for parity with Magnetic Mark's caster element — consistent with Fire's pattern. If a future content consumer wants a non-element-flavored Vulnerable, a parameterized resistance tag on the status definition would extend it.
+- **Inspecting `state.actionLog` for "did I just mark this target?" memory.** Considered as a way to make Mark→Strike sequences happen reliably. Rejected — the AI is stateless by design (pure function of `(state, catalog)`). The log inspection would work but conflates state with history. The cleaner answer is multi-turn projection — Tier 2.
 
-- **Discharge filtering by damage tag (excluding magical).** Considered and rejected — the whole point of Discharge in session 20's plaintext review is "magical reactions confirmation." Filtering would obscure the test. The Discharge tag-agnostic shape exposes the reaction-on-charged-resolve bug, which is good — better to surface and fix than to silently never trigger.
-
-- **Fixing the Burn fan-out bug inline.** Considered — the fix is one-line. Rejected — it's session 19 territory, my session 20 scope is content + crit/chain/self-damage substrate. Sometimes "leave the foreign drop in" is the right call; surfacing it in the handoff is the action that fits scope.
+- **Polish-pass refactors on `ai-controller.integration.test.ts`.** Considered when chasing the AoE bounds bug. The test still works as a coarse "AI doesn't crash and ≥ greedy" check; the bounds-check fix in `tilesInAbilityRange` was sufficient. No reshape needed.
 
 ### Open questions for later sessions (not blocking)
 
-- **Crit cap.** No explicit cap on `crit_chance` (>100 always crits) or `crit_multiplier` (no upper bound). v1 has no content that pushes either past sensible values. If progression / equipment later allows crit_chance stacking past 100, decide whether to soft-cap at the `modifyStatQuery` boundary or let "guaranteed crit" be a real outcome.
+- **Should AI tier 2's projection helper use `runDamagePipeline` directly or a parallel projector?** Direct invocation gets exact accuracy at the cost of running the seven-stage chain N × M × K times per AI decision (N abilities × M targets × K hypothetical scenarios). A parallel projector that mirrors the math without side-effects is cheaper but drifts when handlers change. Decide in 20b's ADR.
 
-- **Crit on healing.** v1 design: heals don't crit. If a future "miracle heal" mechanic wants crit-flavored heals, the handler's `if (ctx.damageTags.has('healing')) return ctx;` line moves to its consumer.
+- **Granularity of the `aiHints` shape.** Polarity is the obvious first hint. Other hints that might earn their keep: `damageBlocker?: boolean` (Reflect, Protect when they ship), `criticalForCaster?: boolean` (statuses the AI should prioritize re-applying when they decay). Decide as content surfaces them.
 
-- **Caster-target self-damage with effects.** Storm Caller's self-cost is just a `system_damage` against the caster. If a future ability wants "self-damage AND a debuff applies to caster" (e.g., a "Berserker Rage" ultimate), the dispatcher would need to chain through the apply-status path against the caster — doesn't exist today. Surface when the consumer ships.
+- **AI awareness of own ChargedAction.** When the Lightning Mage casts Magnetic Mark, the resulting `ChargedAction` sits in `state.chargedActions` with the caster's id. The AI's *next* decision call doesn't currently inspect this — it just sees the actor as still-alive. With actionSpeed 35, Mark resolves quickly and Charging clears, so the next AI turn is on a non-charging caster. But for slower Storm Caller casts, the AI would skip multiple turns mid-charge — the `queryTurnSkipped` mechanism handles the engine side, but the AI doesn't model "I'm committed to a follow-up that hasn't fired yet." Tier 2 + adjacent.
 
-- **chainBonus on healing.** No v1 healing AoE wants cluster-size scaling. If one ships, the helper extends to `healing_base`.
+- **`SELF_COST_DAMPING_FACTOR` interaction with maxHpBase.** If equipment ships that grants +X maxHpBase (Iron Helm +20, Iron Mail +30 — already in catalog but not equipped on demo), Storm Caller's self-cost rises proportionally. The AI's damping doesn't model that the caster has more *room* for the cost. 20b's projection helper would handle this naturally.
 
-- **Self-cost scaling with caster's max-HP buffs.** Storm Caller reads `caster.baseStats.maxHpBase` (the stored value), not `runModifyStatQuery(... 'maxHp', ...)`. So Iron Helm (+20 maxHpBase) increases the self-cost (correct — bigger HP pool, bigger cost), but a future "Maxed HP +20%" status would NOT increase the cost. v1 has no such status; decide when one ships.
-
-- **Vulnerable double-fire in chain ordering.** Documented edge case in ADR-0032 — if two damage events hit a Vulnerable target before the first `status_remove` processes (e.g., AoE that hits the same target twice via dedup-bypass; or a chain where a reactor counters and the counter targets the original Vulnerable holder), the multiplier would fire twice. v1 reaction patterns don't create this case (Counter targets the attacker, not the original target); flag if a future content consumer creates it.
-
-- **Magnetic Mark's actionSpeed 35 vs the rest of the kit.** Deliberately slow per Chris — the player should be able to plan a follow-up exploit. AI tier 1.5 should know this — a "Magnetic Mark, then setup another spell mid-charge" sequence is the kit's tactical signature. Tier 1.0 will probably mis-evaluate this.
-
-- **`reactor` semantics in `reduceUseAbility` for reactions.** The fix skips the no-turn check + budget decrement when `isReaction: true`. The reactor isn't the active unit — they consume MP from their own pool, not the active unit's. v1 reactions are MP-free, so the MP deduction `actor.vitals.mp - ability.mpCost` reads from the reactor (correct). If a future MP-costing reaction ships, verify the right unit pays.
+- **Move scoring and AoE.** Tier 1.5's `bestOffensiveScoreFrom` enumerates tiles for tile-AoEs from each candidate destination — a 9×9 × abilities × enemies × destinations call. Cheap today but worth profiling if the demo grows to 8v8 on a 16×16 map. Defer until empirical signal.
 
 ### Notes for future ADRs
 
-- **No new ADRs anticipated for session 20a's AI tier 1.5 work** unless the heuristic ordering surfaces a real architectural decision (e.g., new hook surface for "AI projection" — currently the AI just reads state directly). A heuristic ordering convention captured in `src/ai/basic.ts` comments is sufficient.
+- **ADR-00X: AI projection helper.** Whatever 20b lands. Cover: stage selection (skip evasion's randomness via expected hit_chance × damage; skip variance via midpoint; skip crit's randomness via E[crit_chance × multiplier]), where the helper lives (`src/ai/projection.ts` or similar), how it stays in sync with engine handler changes (probably: a test that asserts the projection ≈ 100 runs of `runDamagePipeline` for known scenarios).
 
-- **Burn fan-out fix is one-line; an ADR is overkill.** Direct fix + commit message is the right shape. Note in the commit that the line 1259 condition should mirror line 1231.
+- **ADR-00Y: Reaction decorative fields.** If the call is `reactionFields?: ReactionAbilityFields` on `PassiveAbilityDefinition`, document the populate-via-author or populate-via-helper choice and the AI's read path.
+
+- **ADR-00Z: Status polarity hint.** If we extend `StatusEffectType` with `aiHints`, document the hint enum (start with polarity; reserve room for damageBlocker, criticalForCaster). Likely a small ADR.

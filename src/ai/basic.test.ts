@@ -13,6 +13,7 @@ import {
   createCatalog,
   createInitialState,
   rulesetId,
+  statusTypeId,
   teamId,
   unitId,
   type ActiveAbilityDefinition,
@@ -461,5 +462,318 @@ describe('decideBasicAi', () => {
       ],
     });
     expect(decideBasicAi(state, catalog)).toEqual({ kind: 'end-turn' });
+  });
+});
+
+// =====================
+// Tier 1.5 (session 20a) — using the real default catalog so Lightning
+// content (Magnetic Mark, Static Embrace, Storm Caller, Chain
+// Lightning) is exercised against production ability definitions.
+// =====================
+
+describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', () => {
+  // Each test builds its own state on top of the demo battle's
+  // initial state, mutating only the units it cares about. Using the
+  // demo battle gives us all five class definitions, all abilities,
+  // all statuses already wired up, with realistic stat profiles.
+
+  // Helper: build a battle from a custom unit set on a 6x6 ground map.
+  // The unit list is complete (no other units exist), simplifying
+  // assertions. Statuses can be pre-seeded via the `statuses` field.
+  interface Tier15Placement {
+    readonly id: string;
+    readonly team: string;
+    readonly classId: string;
+    readonly x: number;
+    readonly y: number;
+    readonly hp?: number;
+    readonly mp?: number;
+    readonly statuses?: ReadonlyArray<{ readonly typeId: string; readonly remainingDuration?: number | null }>;
+    readonly loadout?: {
+      readonly first?: string;  // command set id
+      readonly second?: string;
+      readonly reaction?: ReadonlyArray<string>;
+      readonly support?: ReadonlyArray<string>;
+      readonly movement?: ReadonlyArray<string>;
+    };
+  }
+  // We use the DEFAULT demo content so Lightning ability ids resolve.
+  const buildLightningBattle = async (placements: ReadonlyArray<Tier15Placement>) => {
+    const { loadDefaultCatalog } = await import('../content/index.ts');
+    const cat = loadDefaultCatalog();
+    return { catalog: cat, placements };
+  };
+
+  it('prefers a Vulnerable target over a same-HP non-Vulnerable target', async () => {
+    // Two enemies at equal HP, far apart so AoE can't catch both. One
+    // is Vulnerable. The AI should favor the Vulnerable one (×1.5
+    // damage multiplier ⇒ higher kill value).
+    const { loadDefaultCatalog } = await import('../content/index.ts');
+    const { applyStatus } = await import('../engine/status/apply.ts');
+    const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
+    const cat = loadDefaultCatalog();
+    const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 2, y: 2, layer: 0 }, loadout: {
+      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      passiveBuckets: {},
+    } });
+    // Enemies on opposite sides of the attacker, far enough apart that
+    // no diamond-r1 cluster catches both — isolates single-target
+    // preference.
+    const tgtVuln = makeUnit({ id: 'tgt_vuln', team: 'team_b', spd: 10, hp: 30, classId: 'knight', position: { x: 5, y: 2, layer: 0 } });
+    const tgtPlain = makeUnit({ id: 'tgt_plain', team: 'team_b', spd: 10, hp: 30, classId: 'knight', position: { x: 0, y: 5, layer: 0 } });
+    let state = makeGameState({
+      units: [attacker, tgtVuln, tgtPlain],
+      map: { width: 6, height: 6, tiles: flatGround(6, 6) },
+      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      turnState: activeTurnFor(attacker.id),
+    });
+    state = applyStatus(state, {
+      targetId: tgtVuln.id,
+      typeId: statusTypeId('vulnerable'),
+      sourceUnitId: attacker.id,
+      sourceActionSeq: 0,
+    }, cat).newState;
+    const decision = decideBasicAi(state, cat);
+    if (decision.kind !== 'commit') throw new Error(`expected commit, got ${decision.kind}`);
+    if (decision.action.type !== 'use_ability') throw new Error(`expected use_ability`);
+    const target = decision.action.payload.target;
+    // The AI may pick a tile-targeted AoE that catches the Vulnerable
+    // enemy — accept that too. What we're asserting is "the Vulnerable
+    // enemy is the (or a) target."
+    if (target.kind === 'unit') {
+      expect(target.unitId).toEqual(tgtVuln.id);
+    } else if (target.kind === 'tile') {
+      // The chosen tile must be at or adjacent to the Vulnerable enemy.
+      const dx = Math.abs(target.position.x - tgtVuln.position.x);
+      const dy = Math.abs(target.position.y - tgtVuln.position.y);
+      expect(dx + dy).toBeLessThanOrEqual(1);
+    } else {
+      throw new Error(`unexpected target kind: ${(target as { kind: string }).kind}`);
+    }
+  });
+
+  it('refuses Storm Caller when the cast would self-KO', async () => {
+    // Storm Caller's 25% maxHpBase self-cost is 11 at maxHpBase 44.
+    // With caster at 11 HP, casting drops them to 0. The AI must refuse
+    // (Lightning Strike at power 12 stays viable as the alternative).
+    const { loadDefaultCatalog } = await import('../content/index.ts');
+    const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
+    const cat = loadDefaultCatalog();
+    const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, maxHpBase: 44, hp: 11, mp: 44, classId: 'lightning_mage', position: { x: 1, y: 1, layer: 0 }, loadout: {
+      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      passiveBuckets: {},
+    } });
+    const tgt = makeUnit({ id: 'tgt', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 2, y: 1, layer: 0 } });
+    const state = makeGameState({
+      units: [attacker, tgt],
+      map: { width: 6, height: 6, tiles: flatGround(6, 6) },
+      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      turnState: activeTurnFor(attacker.id),
+    });
+    const decision = decideBasicAi(state, cat);
+    if (decision.kind !== 'commit') throw new Error(`expected commit, got ${decision.kind}`);
+    if (decision.action.type !== 'use_ability') throw new Error('expected use_ability');
+    expect(decision.action.payload.abilityId).not.toEqual(abilityId('storm_caller'));
+  });
+
+  it('prefers Magnetic Mark on a full-HP non-Vulnerable target over Lightning Strike', async () => {
+    // Setup→exploit: a full-HP target benefits more from being marked
+    // (so a future hit gets the ×1.5 amplification) than from
+    // immediate damage. The AI should cast Magnetic Mark over
+    // Lightning Strike on a fresh full-HP target.
+    const { loadDefaultCatalog } = await import('../content/index.ts');
+    const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
+    const cat = loadDefaultCatalog();
+    const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 1, y: 1, layer: 0 }, loadout: {
+      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      passiveBuckets: {},
+    } });
+    const tgt = makeUnit({ id: 'tgt', team: 'team_b', spd: 10, maxHpBase: 60, hp: 60, classId: 'knight', position: { x: 2, y: 1, layer: 0 } });
+    const state = makeGameState({
+      units: [attacker, tgt],
+      map: { width: 6, height: 6, tiles: flatGround(6, 6) },
+      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      turnState: activeTurnFor(attacker.id),
+    });
+    const decision = decideBasicAi(state, cat);
+    if (decision.kind !== 'commit') throw new Error(`expected commit, got ${decision.kind}`);
+    if (decision.action.type !== 'use_ability') throw new Error('expected use_ability');
+    expect(decision.action.payload.abilityId).toEqual(abilityId('magnetic_mark'));
+  });
+
+  it('prefers Lightning Strike on a low-HP target (kill it) over Magnetic Mark', async () => {
+    // Mirror of the previous test: when the target is already low HP,
+    // killing it now beats setting up future damage (the kill removes
+    // a future threat).
+    const { loadDefaultCatalog } = await import('../content/index.ts');
+    const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
+    const cat = loadDefaultCatalog();
+    const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 1, y: 1, layer: 0 }, loadout: {
+      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      passiveBuckets: {},
+    } });
+    const tgt = makeUnit({ id: 'tgt', team: 'team_b', spd: 10, maxHpBase: 60, hp: 8, classId: 'knight', position: { x: 2, y: 1, layer: 0 } });
+    const state = makeGameState({
+      units: [attacker, tgt],
+      map: { width: 6, height: 6, tiles: flatGround(6, 6) },
+      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      turnState: activeTurnFor(attacker.id),
+    });
+    const decision = decideBasicAi(state, cat);
+    if (decision.kind !== 'commit') throw new Error(`expected commit, got ${decision.kind}`);
+    if (decision.action.type !== 'use_ability') throw new Error('expected use_ability');
+    expect(decision.action.payload.abilityId).toEqual(abilityId('lightning_strike'));
+  });
+
+  it('Static Embrace targets the highest-MA ally in range', async () => {
+    // Two allies in Static Embrace range: a low-MA Knight (4) and a
+    // high-MA Mage (8). The buff phase picks the Mage.
+    const { loadDefaultCatalog } = await import('../content/index.ts');
+    const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
+    const cat = loadDefaultCatalog();
+    const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 2, y: 2, layer: 0 }, loadout: {
+      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      passiveBuckets: {},
+    } });
+    const knight = makeUnit({ id: 'ally_knight', team: 'team_a', spd: 10, ma: 4, hp: 60, classId: 'knight', position: { x: 1, y: 2, layer: 0 }, loadout: {
+      actionBuckets: { [bucketId('first_action')]: commandSetId('battle_skill') },
+      passiveBuckets: {},
+    } });
+    const mage = makeUnit({ id: 'ally_mage', team: 'team_a', spd: 9, ma: 8, hp: 50, mp: 40, classId: 'earth_mage', position: { x: 3, y: 2, layer: 0 }, loadout: {
+      actionBuckets: { [bucketId('first_action')]: commandSetId('earth_spells') },
+      passiveBuckets: {},
+    } });
+    // No enemies — buff phase runs without offensive interference.
+    const enemy = makeUnit({ id: 'enemy', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 5, y: 5, layer: 0 } });
+    const state = makeGameState({
+      units: [attacker, knight, mage, enemy],
+      map: { width: 6, height: 6, tiles: flatGround(6, 6) },
+      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      turnState: activeTurnFor(attacker.id),
+    });
+    const decision = decideBasicAi(state, cat);
+    if (decision.kind !== 'commit') throw new Error(`expected commit, got ${decision.kind}`);
+    if (decision.action.type !== 'use_ability') throw new Error('expected use_ability');
+    expect(decision.action.payload.abilityId).toEqual(abilityId('static_embrace'));
+    const target = decision.action.payload.target;
+    if (target.kind !== 'unit') throw new Error('expected unit target');
+    expect(target.unitId).toEqual(mage.id);
+  });
+
+  it('AoE: Chain Lightning anchors on a tile that catches multiple enemies', async () => {
+    // Three enemies clustered at (3,2) (3,3) (4,3). A diamond r1 AoE
+    // anchored at (3,3) catches all three. Anchored at (3,2) catches
+    // just (3,2) + (3,3) (the south + center tiles). The AI should
+    // pick the anchor that maximizes cluster value — (3,3).
+    const { loadDefaultCatalog } = await import('../content/index.ts');
+    const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
+    const cat = loadDefaultCatalog();
+    const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 1, y: 1, layer: 0 }, loadout: {
+      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      passiveBuckets: {},
+    } });
+    const e1 = makeUnit({ id: 'e1', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 3, y: 2, layer: 0 } });
+    const e2 = makeUnit({ id: 'e2', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 3, y: 3, layer: 0 } });
+    const e3 = makeUnit({ id: 'e3', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 4, y: 3, layer: 0 } });
+    const state = makeGameState({
+      units: [attacker, e1, e2, e3],
+      map: { width: 6, height: 6, tiles: flatGround(6, 6) },
+      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      turnState: activeTurnFor(attacker.id),
+    });
+    const decision = decideBasicAi(state, cat);
+    if (decision.kind !== 'commit') throw new Error(`expected commit, got ${decision.kind}`);
+    if (decision.action.type !== 'use_ability') throw new Error('expected use_ability');
+    // Should be Chain Lightning, anchored on a tile that catches all
+    // three (or as many as possible). Single-target Lightning Strike
+    // would only get one enemy at e.g. (3, 2) — Chain Lightning's
+    // 3-cluster value (with chainBonus +2) outscores it.
+    expect(decision.action.payload.abilityId).toEqual(abilityId('chain_lightning'));
+  });
+
+  it('AoE: avoids anchoring where allies would catch friendly fire', async () => {
+    // One enemy clustered with one ally. Single-target Lightning Strike
+    // is preferred because the cluster value with friendly fire is
+    // worse than just hitting the enemy alone.
+    const { loadDefaultCatalog } = await import('../content/index.ts');
+    const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
+    const cat = loadDefaultCatalog();
+    const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 1, y: 1, layer: 0 }, loadout: {
+      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      passiveBuckets: {},
+    } });
+    const enemy = makeUnit({ id: 'enemy', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 3, y: 2, layer: 0 } });
+    const ally = makeUnit({ id: 'ally', team: 'team_a', spd: 10, hp: 60, classId: 'knight', position: { x: 3, y: 3, layer: 0 } });
+    const state = makeGameState({
+      units: [attacker, enemy, ally],
+      map: { width: 6, height: 6, tiles: flatGround(6, 6) },
+      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      turnState: activeTurnFor(attacker.id),
+    });
+    const decision = decideBasicAi(state, cat);
+    if (decision.kind !== 'commit') throw new Error(`expected commit, got ${decision.kind}`);
+    if (decision.action.type !== 'use_ability') throw new Error('expected use_ability');
+    // Either Lightning Strike (single-target, no friendly fire) or
+    // a Chain Lightning anchor that doesn't catch the ally. Both are
+    // acceptable — what matters is we don't anchor at (3, 2) or (3, 3)
+    // where the ally is in cluster.
+    const ability = decision.action.payload.abilityId;
+    if (ability === abilityId('chain_lightning')) {
+      const target = decision.action.payload.target;
+      if (target.kind !== 'tile') throw new Error('expected tile target for AoE');
+      // The cluster from this anchor must not include the ally's tile.
+      const ax = ally.position.x;
+      const ay = ally.position.y;
+      const dx = Math.abs(target.position.x - ax);
+      const dy = Math.abs(target.position.y - ay);
+      expect(dx + dy).toBeGreaterThan(1); // diamond r1 → cluster within Manhattan-1
+    }
+    // If lightning_strike was chosen, that's also fine — the test
+    // only assets the AI didn't fry its ally.
+  });
+
+  it('reaction-aware: prefers a target without reactions at equal HP', async () => {
+    // Two enemies at same HP, far apart so AoE can't catch both. One
+    // has Counter equipped. The AI should prefer the unprotected one
+    // for single-target offense.
+    const { loadDefaultCatalog } = await import('../content/index.ts');
+    const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
+    const cat = loadDefaultCatalog();
+    const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 2, y: 2, layer: 0 }, loadout: {
+      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      passiveBuckets: {},
+    } });
+    const tgtCounter = makeUnit({ id: 'tgt_counter', team: 'team_b', spd: 10, hp: 30, classId: 'knight', position: { x: 5, y: 2, layer: 0 }, loadout: {
+      actionBuckets: { [bucketId('first_action')]: commandSetId('battle_skill') },
+      passiveBuckets: { [bucketId('reaction')]: [abilityId('counter')] },
+    } });
+    // Same Manhattan distance from attacker (3) as tgtCounter, far
+    // enough from tgtCounter that no AoE catches both — isolates the
+    // single-target pick.
+    const tgtPlain = makeUnit({ id: 'tgt_plain', team: 'team_b', spd: 10, hp: 30, classId: 'knight', position: { x: 2, y: 5, layer: 0 }, loadout: {
+      actionBuckets: { [bucketId('first_action')]: commandSetId('battle_skill') },
+      passiveBuckets: {},
+    } });
+    const state = makeGameState({
+      units: [attacker, tgtCounter, tgtPlain],
+      map: { width: 6, height: 6, tiles: flatGround(6, 6) },
+      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      turnState: activeTurnFor(attacker.id),
+    });
+    const decision = decideBasicAi(state, cat);
+    if (decision.kind !== 'commit') throw new Error(`expected commit, got ${decision.kind}`);
+    if (decision.action.type !== 'use_ability') throw new Error('expected use_ability');
+    const target = decision.action.payload.target;
+    // Accept either single-target on tgtPlain or a tile AoE anchored
+    // closer to tgtPlain than tgtCounter.
+    if (target.kind === 'unit') {
+      expect(target.unitId).toEqual(tgtPlain.id);
+    } else if (target.kind === 'tile') {
+      const distPlain = Math.abs(target.position.x - tgtPlain.position.x) + Math.abs(target.position.y - tgtPlain.position.y);
+      const distCounter = Math.abs(target.position.x - tgtCounter.position.x) + Math.abs(target.position.y - tgtCounter.position.y);
+      expect(distPlain).toBeLessThan(distCounter);
+    } else {
+      throw new Error(`unexpected target kind: ${(target as { kind: string }).kind}`);
+    }
   });
 });
