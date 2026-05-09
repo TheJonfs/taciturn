@@ -24,7 +24,7 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 
 | ID | Name | Members | File |
 |---|---|---|---|
-| `battle_skill` | Battle Skill | `attack` | `src/content/command-sets/battle-skill.ts` |
+| `battle_skill` | Battle Skill | `attack`, `power_attack`, `stasis_sword`, `taunt` | `src/content/command-sets/battle-skill.ts` |
 | `white_magic` | White Magic | `cure` | `src/content/command-sets/white-magic.ts` |
 | `arcane_skill` | Arcane Skill | `bolt` | `src/content/command-sets/arcane-skill.ts` |
 | `earth_spells` | Earth Spells | `earth_strike`, `earth_blessing`, `earth_curse`, `earth_quake`, `earth_cataclysm` | `src/content/command-sets/earth-spells.ts` |
@@ -34,6 +34,9 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | ID | Name | Bucket | Charged? | File |
 |---|---|---|---|---|
 | `attack` | Attack | first_action | no | `src/content/abilities/attack.ts` |
+| `power_attack` | Power Attack | first_action | no | `src/content/abilities/power-attack.ts` |
+| `stasis_sword` | Stasis Sword | first_action | no | `src/content/abilities/stasis-sword.ts` |
+| `taunt` | Taunt | first_action | no | `src/content/abilities/taunt.ts` |
 | `cure` | Cure | second_action | no | `src/content/abilities/cure.ts` |
 | `bolt` | Bolt | first_action | yes (actionSpeed 25) | `src/content/abilities/bolt.ts` |
 | `earth_strike` | Earth Strike | first_action | yes (actionSpeed 30) | `src/content/abilities/earth-strike.ts` |
@@ -49,15 +52,17 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `move_plus_1` | Move +1 | movement | `src/content/abilities/move-plus-1.ts` |
 | `float` | Float | movement | `src/content/abilities/float.ts` |
 | `fly` | Fly | movement | `src/content/abilities/fly.ts` |
+| `bulwark_stance` | Bulwark Stance | movement | `src/content/abilities/bulwark-stance.ts` |
 | `counter` | Counter | reaction | `src/content/abilities/counter.ts` |
 | `earth_resilience` | Earth Resilience | reaction | `src/content/abilities/earth-resilience.ts` |
 | `earth_communion` | Earth Communion | support | `src/content/abilities/earth-communion.ts` |
+| `damage_reduction` | Damage Reduction | support | `src/content/abilities/damage-reduction.ts` |
 
 ## Status types
 
 | ID | Name | Tag(s) | Stacking | Duration | File |
 |---|---|---|---|---|---|
-| `haste` | Haste | positive, time | REFRESH | per_unit_ct | `src/content/statuses/haste.ts` |
+| `haste` | Haste | positive, time | REFRESH | permanent_per_unit_ct | `src/content/statuses/haste.ts` |
 | `stop` | Stop | negative, time, mental | REFRESH | per_unit_ct | `src/content/statuses/stop.ts` |
 | `charging` | Charging | neutral, time | REJECT | conditional | `src/content/statuses/charging.ts` |
 | `regen` | Regen | positive | REFRESH | per_unit_ct | `src/content/statuses/regen.ts` |
@@ -68,6 +73,17 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `poison` | Poison | negative, poison | REFRESH | permanent_per_unit_ct | `src/content/statuses/poison.ts` |
 | `dont_act` | Don't Act | negative, mental | REFRESH | per_unit_ct | `src/content/statuses/dont-act.ts` |
 | `dont_move` | Don't Move | negative, physical | REFRESH | per_unit_ct | `src/content/statuses/dont-move.ts` |
+| `taunted` | Taunted | negative, mental, dispellable | REFRESH | per_unit_ct (removeOnSourceKO) | `src/content/statuses/taunted.ts` |
+
+## Equipment
+
+| ID | Name | Slot | Effect | File |
+|---|---|---|---|---|
+| `long_sword` | Long Sword | weapon | WP 4, accuracy 95, tags `['sword']` | `src/content/items/long-sword.ts` |
+| `strength_ring` | Strength Ring | accessory | +1 PA | `src/content/items/strength-ring.ts` |
+| `boots_of_haste` | Boots of Haste | accessory | grants Haste while equipped | `src/content/items/boots-of-haste.ts` |
+| `iron_helm` | Iron Helm | headgear | +20 maxHpBase | `src/content/items/iron-helm.ts` |
+| `iron_mail` | Iron Mail | armor | +30 maxHpBase | `src/content/items/iron-mail.ts` |
 
 ## Rulesets
 

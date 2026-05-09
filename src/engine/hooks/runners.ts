@@ -69,6 +69,42 @@ export function runModifyHitChance(
   return value;
 }
 
+// Additive chain over per-facing evasion. Each handler receives the
+// running evasion value and the attacker / facing context, and returns
+// the next value. Hooks fire against the *defender's* registrations —
+// Bulwark Stance lives on the defender. Composition is additive
+// (handlers return `baseEvasion + delta`), which keeps Bulwark Stance's
+// flat +10 front evade composing intuitively with future evasion-
+// modifying content.
+//
+// Result is read into the BMG hit formula's
+// `(1 - target_evasion[facing] / 100)` term inside `evasionCheck`.
+// Negative results are valid (a "Concentration" support reducing
+// target evasion would land them); the formula's `Math.max(0.05, ...)`
+// floor keeps damage probabilistic even if a handler over-applies.
+export function runModifyEvasion(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    attacker: Unit;
+    baseEvasion: number;
+    facing: 'front' | 'side' | 'back';
+  },
+): number {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyEvasion');
+  let value = args.baseEvasion;
+  for (const h of handlers) {
+    value = h.invoke({
+      unit: args.unit,
+      attacker: args.attacker,
+      baseEvasion: value,
+      facing: args.facing,
+    });
+  }
+  return value;
+}
+
 // Multiplicative chain over status-application-chance modifiers. Each
 // handler returns a multiplier (1.0 = no change). Hooks fire against
 // the *caster's* registrations — Earth Communion lives on the caster.

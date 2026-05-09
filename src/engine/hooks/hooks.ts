@@ -123,6 +123,23 @@ export interface HookSignatures {
     return: number;
   };
 
+  // Evasion modifier — additive on per-facing evasion. Consumers:
+  // Bulwark Stance (+10 front evade), future Concentration support
+  // (-N target evasion), reaction abilities that condition evasion on
+  // active state. Fired against the *defender's* hooks inside
+  // `pickEvasion` so handlers see the relevant facing classification.
+  // Chain composes additively; the result is read into the BMG hit
+  // formula's `(1 - target_evasion[facing] / 100)` term. Per ADR-0028.
+  modifyEvasion: {
+    args: {
+      unit: Unit;        // the defender whose hooks fire
+      attacker: Unit;
+      baseEvasion: number;
+      facing: 'front' | 'side' | 'back';
+    };
+    return: number;
+  };
+
   // Movement-profile structural modifiers — chain hooks over the
   // class-baseline values. Float adds 'water' to canEnter; Fly sets
   // specialMovement = 'fly'; future: marsh-walking, road bonus, etc.

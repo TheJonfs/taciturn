@@ -12,7 +12,15 @@
 // apply Charging, etc.). Tests call it directly.
 
 import type { Catalog, StatusEffectType } from '../catalog/index.ts';
-import type { GameState, StatusInstance, StatusTypeId, Unit, UnitId } from '../types/index.ts';
+import type {
+  GameState,
+  ItemId,
+  StatusInstance,
+  StatusInstanceSource,
+  StatusTypeId,
+  Unit,
+  UnitId,
+} from '../types/index.ts';
 import { getUnit } from '../types/index.ts';
 import type { StatusApplicationResult } from './result.ts';
 import { fireOnApply, fireOnRemove } from './runners.ts';
@@ -23,6 +31,11 @@ export interface ApplyStatusArgs {
   readonly typeId: StatusTypeId;
   readonly sourceUnitId: UnitId | null;
   readonly sourceActionSeq: number | null;
+  // Source provenance discriminator (per ADR-0028). Default `'unit'`
+  // when omitted; the equipment apply path passes `'equipment'` plus
+  // the granting `sourceEquipmentId`.
+  readonly sourceKind?: 'unit' | 'equipment';
+  readonly sourceEquipmentId?: ItemId;
   // When omitted, the type's `defaultMagnitude` is used.
   readonly magnitude?: number;
   // Required for `per_unit_ct`, `global_ticks`, and `turn_based`
@@ -111,9 +124,16 @@ function buildCandidate(type: StatusEffectType, args: ApplyStatusArgs): StatusIn
   const remainingDuration = computeInitialDuration(type, args.duration);
   const magnitude = args.magnitude ?? type.defaultMagnitude;
 
+  const source: StatusInstanceSource = {
+    unitId: args.sourceUnitId,
+    actionSeq: args.sourceActionSeq,
+    ...(args.sourceKind !== undefined ? { kind: args.sourceKind } : {}),
+    ...(args.sourceEquipmentId !== undefined ? { equipmentId: args.sourceEquipmentId } : {}),
+  };
+
   const candidate: StatusInstance = {
     typeId: type.id,
-    source: { unitId: args.sourceUnitId, actionSeq: args.sourceActionSeq },
+    source,
     remainingDuration,
     ...(magnitude !== undefined ? { magnitude } : {}),
     ...(args.customState !== undefined ? { customState: args.customState } : {}),

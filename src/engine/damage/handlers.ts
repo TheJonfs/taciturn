@@ -18,11 +18,13 @@
 
 import { expectActiveAbility } from '../actions/validate.ts';
 import {
+  runModifyEvasion,
   runModifyHitChance,
   runModifyStatQuery,
   runOnDamageDealt,
   runOnDamageReceived,
 } from '../hooks/runners.ts';
+import { getEquippedWeapon } from '../items/equipment.ts';
 import {
   getUnit,
   type DamageContext,
@@ -64,6 +66,35 @@ export function computeFaithFactor(args: {
   return (userFaith / 100) * (targetFaith / 100);
 }
 
+// Brave_factor for hybrid physical-attack status applications (Stasis
+// Sword, future Knight Battle Skill content). Same symmetric shape as
+// Faith_factor — `(Brave_user / 100) × (Brave_target / 100)` — read
+// through `modifyStatQuery` so future brave-modifying statuses compose.
+// Per ADR-0028; first consumer is Stasis Sword's Stop application.
+//
+// Range: both factors are bounded by stat caps `[1, 100]`, producing a
+// Brave_factor in `(0.0001, 1.0]`. v1 demo units default to brave 100,
+// producing Brave_factor 1.0 — Stasis Sword's Stop chance reads cleanly
+// off baseChance × MA_factor at the demo's tuning point.
+export function computeBraveFactor(args: {
+  readonly state: import('../types/index.ts').GameState;
+  readonly catalog: import('../catalog/index.ts').Catalog;
+  readonly attacker: Unit;
+  readonly target: Unit;
+}): number {
+  const userBrave = runModifyStatQuery(args.state, args.catalog, {
+    unit: args.attacker,
+    statName: 'brave',
+    baseValue: args.attacker.baseStats.brave,
+  });
+  const targetBrave = runModifyStatQuery(args.state, args.catalog, {
+    unit: args.target,
+    statName: 'brave',
+    baseValue: args.target.baseStats.brave,
+  });
+  return (userBrave / 100) * (targetBrave / 100);
+}
+
 // Default weapon-accuracy when a hitRoll spec doesn't override it. Per
 // the Battle Mechanics Guide: "Default for 'no weapon / unarmed' is
 // 100." Equipment integration in session 17 (per ADR-0014) will replace
@@ -74,23 +105,55 @@ export function computeFaithFactor(args: {
 
 // --- base stage ---
 
-// Physical: baseDamage = PA × power. Gated by the 'physical' tag.
-// PA is read through `modifyStatQuery` so attack-up / strength buffs
-// compose. The ability's `damage.power` is the weapon-power coefficient
-// — when omitted, the conservative default of 1 keeps an ability that
-// declared `physical` without `power` doing visible damage rather than
-// silently zero.
+// Physical: baseDamage = PA × WP × power_coefficient. Gated by the
+// 'physical' tag. PA is read through `modifyStatQuery` so attack-up /
+// strength buffs compose. WP reads from the attacker's equipped weapon
+// (per ADR-0028); unarmed defaults to WP=1. The ability's
+// `damage.power_coefficient` is its share of the product — when
+// omitted, defaults to 1 (an ability that declares 'physical' without
+// a coefficient does at least visible damage rather than silently zero).
+//
+// Weapon tag composition (per ADR-0028): when the ability's damage
+// tags include 'weapon', the equipped weapon's `tags` are merged into
+// the in-flight `ctx.damageTags` set. Downstream stages (resistance
+// check, on-damage-dealt, on-damage-received) see the union, so a
+// fire-imbued sword gets `'fire'` resistance lookup naturally without
+// per-ability tag-redeclaration. Unarmed (no weapon equipped) skips
+// the merge — the attack still resolves, just without weapon tags.
 export const physicalPaWp: DamageHandler = (ctx, env) => {
   if (!ctx.damageTags.has('physical')) return ctx;
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
-  const power = ability.effects.damage?.power ?? 1;
+  const power_coefficient = ability.effects.damage?.power_coefficient ?? 1;
   const pa = runModifyStatQuery(env.state, env.catalog, {
     unit: ctx.attacker,
     statName: 'pa',
     baseValue: ctx.attacker.baseStats.pa,
   });
-  return { ...ctx, baseDamage: pa * power };
+  const weapon = getEquippedWeapon(ctx.attacker, env.catalog);
+  const wp = weapon?.wp ?? 1;
+  const baseDamage = pa * wp * power_coefficient;
+
+  // Weapon tag composition: merge the weapon's declared tags into the
+  // running tag set when the ability uses a weapon (signalled by the
+  // 'weapon' tag on the ability's damage spec). The merge happens at
+  // the base stage so subsequent stages see the complete tag set.
+  let damageTags = ctx.damageTags;
+  if (ctx.damageTags.has('weapon') && weapon !== null && weapon.tags !== undefined) {
+    damageTags = mergeTags(ctx.damageTags, weapon.tags);
+  }
+
+  return { ...ctx, baseDamage, damageTags };
 };
+
+function mergeTags(
+  base: ReadonlySet<DamageTag>,
+  extra: ReadonlyArray<DamageTag>,
+): ReadonlySet<DamageTag> {
+  if (extra.length === 0) return base;
+  const next = new Set(base);
+  for (const tag of extra) next.add(tag);
+  return next;
+}
 
 // Healing: MA × power × Faith_factor. The 'healing' tag is the polarity
 // flip — finalize sees it and adds rather than subtracts. Faith is
@@ -100,7 +163,7 @@ export const physicalPaWp: DamageHandler = (ctx, env) => {
 export const healingBase: DamageHandler = (ctx, env) => {
   if (!ctx.damageTags.has('healing')) return ctx;
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
-  const power = ability.effects.damage?.power ?? 1;
+  const power = ability.effects.damage?.power_coefficient ?? 1;
   const ma = runModifyStatQuery(env.state, env.catalog, {
     unit: ctx.attacker,
     statName: 'ma',
@@ -122,7 +185,7 @@ export const healingBase: DamageHandler = (ctx, env) => {
 export const magicalMaPower: DamageHandler = (ctx, env) => {
   if (!ctx.damageTags.has('magical')) return ctx;
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
-  const power = ability.effects.damage?.power ?? 1;
+  const power = ability.effects.damage?.power_coefficient ?? 1;
   const ma = runModifyStatQuery(env.state, env.catalog, {
     unit: ctx.attacker,
     statName: 'ma',
@@ -181,10 +244,25 @@ export const evasionCheck: DamageHandler = (ctx, env) => {
   const hitRoll = ability.hitRoll;
   if (hitRoll === undefined) return ctx;
 
-  const accuracy = (hitRoll.accuracy ?? 100) / 100;
+  // Accuracy precedence (per ADR-0028): per-ability `hitRoll.accuracy`
+  // override → equipped weapon's `accuracy` → unarmed default (100).
+  // The override path lets specific abilities depart from weapon
+  // accuracy (none in v1).
+  const weapon = getEquippedWeapon(ctx.attacker, env.catalog);
+  const accuracyPct = hitRoll.accuracy ?? weapon?.accuracy ?? 100;
+  const accuracy = accuracyPct / 100;
+
   const targetClass = env.catalog.getClass(ctx.target.classState.currentClass);
   const facing = computeAttackerFacing(ctx.attacker.position, ctx.target.position, ctx.target.facing);
-  const evasionPct = pickEvasion(targetClass.evasion, facing);
+  const baseEvasionPct = pickEvasion(targetClass.evasion, facing);
+  // Evasion modifier hook (per ADR-0028) — additive chain over
+  // per-facing evasion. Bulwark Stance and friends compose here.
+  const evasionPct = runModifyEvasion(env.state, env.catalog, {
+    unit: ctx.target,
+    attacker: ctx.attacker,
+    baseEvasion: baseEvasionPct,
+    facing,
+  });
   const evasionFactor = 1 - evasionPct / 100;
 
   const elevationModifier = computeElevationModifier(env.state, ctx.attacker.position, ctx.target.position);

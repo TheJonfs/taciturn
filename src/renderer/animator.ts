@@ -29,6 +29,14 @@ import {
 } from './constants.ts';
 import { lerp, tileCenter, type ScreenPoint } from './world.ts';
 
+// Exhaustiveness helper. Reaching this function means the discriminated
+// switch missed an `Action` type — TypeScript turns that into a compile
+// error here, and the runtime throw is a defensive fallback for
+// bypassed type checks.
+function assertNever(x: never): never {
+  throw new Error(`Animator.buildAnim: unhandled action type ${JSON.stringify((x as { type?: unknown }).type)}`);
+}
+
 export interface UnitVisualSnapshot {
   position: ScreenPoint;
   facing: Direction;
@@ -219,6 +227,15 @@ export class Animator {
         // changes are reflected on the next animatable action's snapshot
         // refresh.)
         return null;
+
+      default:
+        // Exhaustiveness guard (per session 17b's surfaced silent-
+        // fallthrough lesson). Adding a new Action type without giving
+        // it a case here used to leave `current = undefined` and crash
+        // the next tick on `a.elapsed`. The default here turns that
+        // into a TypeScript compile error and a runtime throw if the
+        // type system is bypassed.
+        return assertNever(action);
     }
   }
 

@@ -33,22 +33,26 @@ describe('loadDefaultCatalog', () => {
     expect(cat.getRuleset(rulesetId('default')).name).toBe('Default');
   });
 
-  it('contains the session-17b baseline content set', () => {
+  it('contains the session-17c baseline content set', () => {
     // The default catalog is intentionally narrow — one demo per
     // mechanism. When real content lands, this assertion is expected
     // to change; failing it from new content additions is the correct
     // signal that the baseline expanded.
     //
-    // Session 17b added Earth's AoE/Ultimate (earth_quake,
-    // earth_cataclysm) for 14 abilities; non-expiring Poison + Don't
-    // Act + Don't Move statuses for 11 statuses total. Earth Quake and
-    // Earth Cataclysm joined the earth_spells command set (count
-    // unchanged at 4). No new classes; class count remains 2.
-    expect(cat.statusTypes()).toHaveLength(11);
-    expect(cat.abilities()).toHaveLength(14);
+    // Session 17c added Knight Battle Skill expansion (power_attack,
+    // stasis_sword, taunt), Knight R/S/M passives (damage_reduction,
+    // bulwark_stance), the Taunted status, and four new equipment
+    // items (Strength Ring, Boots of Haste, Iron Helm, Iron Mail) on
+    // top of the existing Long Sword.
+    //   - statuses: 11 → 12 (taunted)
+    //   - abilities: 14 → 19 (5 new — 3 Battle Skill + 2 R/S/M)
+    //   - commandSets: unchanged (battle_skill members grew)
+    //   - items: 1 → 5
+    expect(cat.statusTypes()).toHaveLength(12);
+    expect(cat.abilities()).toHaveLength(19);
     expect(cat.commandSets()).toHaveLength(4);
     expect(cat.classes()).toHaveLength(2);
-    expect(cat.items()).toHaveLength(1);
+    expect(cat.items()).toHaveLength(5);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

@@ -5,15 +5,27 @@
 // (StatusEffectType, in catalog/) carries everything universal to that
 // kind of effect. Identity-by-ID — `typeId` references the catalog.
 
-import type { StatusTypeId, UnitId } from './ids.ts';
+import type { ItemId, StatusTypeId, UnitId } from './ids.ts';
 
 export interface StatusInstanceSource {
   // null when the status was applied by something other than a unit
-  // (e.g., environmental effect, system action, initial state).
+  // (e.g., environmental effect, system action, initial state, or an
+  // equipment grant — see `kind` below).
   readonly unitId: UnitId | null;
   // null when the status was not applied as part of a logged Action
   // (e.g., applied during initial state construction).
   readonly actionSeq: number | null;
+  // Source provenance discriminator (per ADR-0028). When omitted,
+  // implicit `'unit'` — preserves backward compatibility with sources
+  // built before equipment integration. `'equipment'` flags statuses
+  // applied by an equipped item (e.g., Boots of Haste granting Haste);
+  // these statuses are immune to in-battle removal until the equipment
+  // itself is removed.
+  readonly kind?: 'unit' | 'equipment';
+  // Set when `kind === 'equipment'` — the item id of the equipping
+  // source. Allows later lookup back to the granting equipment for the
+  // mid-battle-equipment-removal path (deferred per ADR-0028).
+  readonly equipmentId?: ItemId;
 }
 
 export interface StatusInstance {

@@ -27,7 +27,7 @@ export const cure: ActiveAbilityDefinition = {
   effects: {
     damage: {
       tags: ['holy', 'healing'],
-      power: 5,
+      power_coefficient: 5,
       variance: { min: 0.95, max: 1.05 },
     },
   },

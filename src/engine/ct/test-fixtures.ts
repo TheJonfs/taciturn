@@ -11,6 +11,7 @@ import {
   chargedActionId as mkChargedActionId,
   classId as mkClassId,
   EMPTY_LOADOUT,
+  EMPTY_UNIT_EQUIPMENT,
   rulesetId,
   teamId,
   unitId as mkUnitId,
@@ -22,6 +23,7 @@ import {
   type Position,
   type StatusInstance,
   type Unit,
+  type UnitEquipment,
   type UnitId,
 } from '../types/index.ts';
 
@@ -43,6 +45,7 @@ export function makeUnit(overrides: {
   readonly position?: Position;
   readonly facing?: Direction;
   readonly loadout?: Loadout;
+  readonly equipment?: UnitEquipment;
 }): Unit {
   return {
     id: mkUnitId(overrides.id),
@@ -50,6 +53,7 @@ export function makeUnit(overrides: {
     name: overrides.id,
     classState: { currentClass: mkClassId(overrides.classId ?? 'knight') },
     loadout: overrides.loadout ?? EMPTY_LOADOUT,
+    equipment: overrides.equipment ?? EMPTY_UNIT_EQUIPMENT,
     position: overrides.position ?? { x: 0, y: 0, layer: 0 },
     facing: overrides.facing ?? 'N',
     ct: overrides.ct ?? 0,

@@ -57,12 +57,13 @@ function knightClass(): ClassDefinition {
     name: 'Knight',
     movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
     evasion: { front: 0, side: 0, back: 0 },
+    equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
   };
 }
 
-function attackAbility(power = 4): ActiveAbilityDefinition {
+function attackAbility(power_coefficient = 4): ActiveAbilityDefinition {
   return {
     id: abilityId('attack'),
     name: 'Attack',
@@ -72,7 +73,7 @@ function attackAbility(power = 4): ActiveAbilityDefinition {
     targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
     actionSpeed: 0,
     mpCost: 0,
-    effects: { damage: { tags: ['physical', 'weapon'], power } },
+    effects: { damage: { tags: ['physical', 'weapon'], power_coefficient } },
     hitRoll: { accuracy: 100 },
   };
 }
@@ -685,7 +686,7 @@ describe('session 17b — Earth Quake AoE', () => {
       actionSpeed: 0, // instant for test simplicity
       mpCost: 14,
       effects: {
-        damage: { tags: ['magical', 'earth'], power: 6 },
+        damage: { tags: ['magical', 'earth'], power_coefficient: 6 },
         aoe: { shape: { kind: 'cross', radius: 1 } },
         statusEffects: [
           {
@@ -726,6 +727,7 @@ describe('session 17b — Earth Quake AoE', () => {
       name: 'Earth Mage',
       movement: { moveRange: 3, jump: 3, terrainCosts: new Map(), canEnter: new Set(['ground']) },
       evasion: { front: 0, side: 0, back: 0 },
+      equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
       firstActionCommandSet: commandSetId('earth_spells'),
       freeAbilities: new Set(),
     };
@@ -849,7 +851,7 @@ describe('session 17b — Earth Cataclysm AoE three-status combo', () => {
       actionSpeed: 0, // instant for test simplicity
       mpCost: 30,
       effects: {
-        damage: { tags: ['magical', 'earth'], power: 10 },
+        damage: { tags: ['magical', 'earth'], power_coefficient: 10 },
         aoe: { shape: { kind: 'cross', radius: 1 } },
         statusEffects: [
           { typeId: statusTypeId('poison'), target: 'primary_target', baseChance: 100 },
@@ -887,6 +889,7 @@ describe('session 17b — Earth Cataclysm AoE three-status combo', () => {
       name: 'Earth Mage',
       movement: { moveRange: 3, jump: 3, terrainCosts: new Map(), canEnter: new Set(['ground']) },
       evasion: { front: 0, side: 0, back: 0 },
+      equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
       firstActionCommandSet: commandSetId('earth_spells'),
       freeAbilities: new Set(),
     };

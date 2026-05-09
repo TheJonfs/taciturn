@@ -52,6 +52,7 @@ import {
   type StatusInstance,
   type StatusRemoveOutcome,
   type StatusTickOutcome,
+  type StatusTypeId,
   type SystemApplyStatusOutcome,
   type SystemDamageOutcome,
   type SystemHealOutcome,
@@ -429,6 +430,7 @@ function resolveAbilityEffect(
   let healingDealt: number | undefined;
   const pipelineEmissions: ProposedAction[] = [];
   if (args.ability.effects.damage !== undefined && args.targetUnit !== null) {
+    const targetBefore = workingState.units.get(args.targetUnit.id);
     damageContext = runDamagePipeline({
       state: workingState,
       catalog,
@@ -451,6 +453,16 @@ function resolveAbilityEffect(
     // generatedActions so commitAction enqueues them.
     if (damageContext.emittedActions !== undefined) {
       for (const a of damageContext.emittedActions) pipelineEmissions.push(a);
+    }
+    // Source-KO sweep (per ADR-0028): when the damage just KO'd the
+    // target, statuses anchored to that target with `removeOnSourceKO`
+    // should auto-remove. Emit one `status_remove` per affected
+    // (unit, type) pair onto the pipeline emissions list.
+    const targetAfter = workingState.units.get(args.targetUnit.id);
+    if (detectKO(targetBefore, targetAfter)) {
+      for (const a of collectSourceKoSweep(workingState, args.targetUnit.id, catalog)) {
+        pipelineEmissions.push(a);
+      }
     }
   }
 
@@ -504,6 +516,8 @@ function resolveAbilityEffect(
         baseChance: spec.baseChance ?? 100,
         seed: args.seed,
         effectIndex,
+        ...(spec.factors !== undefined ? { factors: spec.factors } : {}),
+        ...(spec.applyAlways !== undefined ? { applyAlways: spec.applyAlways } : {}),
       });
       effectIndex++;
       if (!chanceResult.applied) {
@@ -818,6 +832,56 @@ function applyDamageToTarget(state: GameState, ctx: DamageContext): GameState {
     vitals: { ...currentTarget.vitals, hp: nextHp },
   };
   return withUnit(state, updated);
+}
+
+// Source-KO sweep (per ADR-0028): when `koUnitId` just dropped to 0
+// HP, scan every unit's statuses for instances whose source.unitId
+// matches AND whose StatusEffectType.removeOnSourceKO === true; emit
+// one `status_remove` system action per affected (target, type) pair.
+//
+// v1 consumer is Taunted: when the Knight that taunted goes down, the
+// Taunted enemy reverts. Multiple instances of the same type on the
+// same unit collapse to a single emission — `removeStatus` strips all
+// matching instances at once.
+//
+// Read-only: this function returns the emissions but does not mutate
+// state. The caller threads them onto its `generatedActions` for
+// commitAction to enqueue.
+function collectSourceKoSweep(
+  state: GameState,
+  koUnitId: UnitId,
+  catalog: Catalog,
+): ProposedAction[] {
+  const emissions: ProposedAction[] = [];
+  for (const unit of state.units.values()) {
+    const seenTypes = new Set<StatusTypeId>();
+    for (const inst of unit.statuses) {
+      if (inst.source.unitId !== koUnitId) continue;
+      if (seenTypes.has(inst.typeId)) continue;
+      const type = catalog.getStatusType(inst.typeId);
+      if (type.removeOnSourceKO !== true) continue;
+      seenTypes.add(inst.typeId);
+      emissions.push({
+        type: 'status_remove',
+        source: 'system',
+        payload: { targetId: unit.id, statusTypeId: inst.typeId },
+      });
+    }
+  }
+  return emissions;
+}
+
+// Detect whether `unit` transitioned from alive (HP > 0) to KO'd
+// (HP === 0) between `before` and `after`. Defensive against the
+// damage handler's defensive returns that pass through unchanged
+// state — only fires when the unit's HP actually changed downward
+// across the boundary.
+function detectKO(
+  before: Unit | undefined,
+  after: Unit | undefined,
+): boolean {
+  if (before === undefined || after === undefined) return false;
+  return before.vitals.hp > 0 && after.vitals.hp === 0;
 }
 
 // --- turn_start ---
@@ -1194,6 +1258,7 @@ export function reduceSystemHeal(
 export function reduceSystemDamage(
   state: GameState,
   action: Extract<Action, { type: 'system_damage' }>,
+  catalog: Catalog,
 ): ReduceResult<SystemDamageOutcome> {
   const { targetId, amount } = action.payload;
   const target = state.units.get(targetId);
@@ -1223,10 +1288,19 @@ export function reduceSystemDamage(
     ...target,
     vitals: { ...target.vitals, hp: target.vitals.hp - applied },
   };
+  const newState = withUnit(state, newTarget);
+  // Source-KO sweep (per ADR-0028): system damage that KOs a unit
+  // triggers the same auto-removal sweep as ability damage.
+  const generatedActions: ProposedAction[] = [];
+  if (detectKO(target, newTarget)) {
+    for (const a of collectSourceKoSweep(newState, targetId, catalog)) {
+      generatedActions.push(a);
+    }
+  }
   return {
-    newState: withUnit(state, newTarget),
+    newState,
     outcome: { kind: 'system_damage', targetId, amount, applied },
-    generatedActions: [],
+    generatedActions,
   };
 }
 

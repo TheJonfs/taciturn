@@ -274,7 +274,7 @@ function compareWounded(a: Unit, b: Unit): number {
 // is worth wiring, this is where it goes; for the v1 single-attack
 // content set, all candidates score the same and lex-id breaks ties.
 function abilityScore(ability: ActiveAbilityDefinition): number {
-  return ability.effects.damage?.power ?? 1;
+  return ability.effects.damage?.power_coefficient ?? 1;
 }
 
 // Lowest-HP enemy first, then lex-id. The targeting bias of the AI:

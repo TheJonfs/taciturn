@@ -58,7 +58,7 @@ export const bolt: ActiveAbilityDefinition = {
   effects: {
     damage: {
       tags: ['magical', 'lightning'],
-      power: 5,
+      power_coefficient: 5,
       variance: { min: 0.95, max: 1.05 },
     },
     statusEffects: [

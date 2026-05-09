@@ -243,6 +243,7 @@ describe('runOnActionTargeted — Brave-gated reaction trigger (ADR-0021)', () =
       name: 'Knight',
       movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
       evasion: { front: 0, side: 0, back: 0 },
+      equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
       firstActionCommandSet: commandSetId('battle_skill'),
       freeAbilities: new Set(),
     };
@@ -258,7 +259,7 @@ describe('runOnActionTargeted — Brave-gated reaction trigger (ADR-0021)', () =
       targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
       actionSpeed: 0,
       mpCost: 0,
-      effects: { damage: { tags: ['physical', 'weapon'], power: 4 } },
+      effects: { damage: { tags: ['physical', 'weapon'], power_coefficient: 4 } },
     };
   }
 

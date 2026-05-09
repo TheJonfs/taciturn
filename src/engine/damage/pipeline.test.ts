@@ -32,12 +32,13 @@ function knightClass(): ClassDefinition {
     name: 'Knight',
     movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
     evasion: { front: 0, side: 0, back: 0 },
+    equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
   };
 }
 
-function basicAttack(power = 4): ActiveAbilityDefinition {
+function basicAttack(power_coefficient = 4): ActiveAbilityDefinition {
   return {
     id: abilityId('attack'),
     name: 'Attack',
@@ -47,11 +48,11 @@ function basicAttack(power = 4): ActiveAbilityDefinition {
     targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
     actionSpeed: 0,
     mpCost: 0,
-    effects: { damage: { tags: ['physical', 'weapon'], power } },
+    effects: { damage: { tags: ['physical', 'weapon'], power_coefficient } },
   };
 }
 
-function basicCure(power = 5): ActiveAbilityDefinition {
+function basicCure(power_coefficient = 5): ActiveAbilityDefinition {
   return {
     id: abilityId('cure'),
     name: 'Cure',
@@ -61,7 +62,7 @@ function basicCure(power = 5): ActiveAbilityDefinition {
     targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
     actionSpeed: 0,
     mpCost: 4,
-    effects: { damage: { tags: ['holy', 'healing'], power } },
+    effects: { damage: { tags: ['holy', 'healing'], power_coefficient } },
   };
 }
 
@@ -284,7 +285,7 @@ describe('runDamagePipeline — variance and determinism', () => {
     const attack: ActiveAbilityDefinition = {
       ...basicAttack(/* power */ 4),
       effects: {
-        damage: { tags: ['physical', 'weapon'], power: 4, variance: { min: 0.5, max: 1.5 } },
+        damage: { tags: ['physical', 'weapon'], power_coefficient: 4, variance: { min: 0.5, max: 1.5 } },
       },
     };
     const attacker = makeUnit({ id: 'a', spd: 10, pa: 5 });
@@ -318,7 +319,7 @@ describe('runDamagePipeline — variance and determinism', () => {
     const attack: ActiveAbilityDefinition = {
       ...basicAttack(/* power */ 4),
       effects: {
-        damage: { tags: ['physical', 'weapon'], power: 4, variance: { min: 0.5, max: 1.5 } },
+        damage: { tags: ['physical', 'weapon'], power_coefficient: 4, variance: { min: 0.5, max: 1.5 } },
       },
     };
     const attacker = makeUnit({ id: 'a', spd: 10, pa: 5 });
@@ -451,7 +452,7 @@ describe('runDamagePipeline — error surfacing', () => {
 function basicSpell(args: {
   readonly id?: string;
   readonly tags?: ReadonlyArray<DamageTag>;
-  readonly power?: number;
+  readonly power_coefficient?: number;
   readonly mpCost?: number;
 } = {}): ActiveAbilityDefinition {
   return {
@@ -463,7 +464,7 @@ function basicSpell(args: {
     targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
     actionSpeed: 0,
     mpCost: args.mpCost ?? 0,
-    effects: { damage: { tags: args.tags ?? ['magical'], power: args.power ?? 5 } },
+    effects: { damage: { tags: args.tags ?? ['magical'], power_coefficient: args.power_coefficient ?? 5 } },
   };
 }
 
@@ -477,6 +478,7 @@ function evasiveClass(args: {
     name: 'Evasive',
     movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
     evasion: { front: args.front ?? 0, side: args.side ?? 0, back: args.back ?? 0 },
+    equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
   };
@@ -485,7 +487,7 @@ function evasiveClass(args: {
 describe('runDamagePipeline — magical (MA × power × Faith_factor)', () => {
   it('produces baseDamage = MA × power × Faith_factor with symmetric Faith', () => {
     // Caster faith 80, target faith 80 → factor 0.64. MA 5 × power 4 × 0.64 = 12.8.
-    const spell = basicSpell({ power: 4 });
+    const spell = basicSpell({ power_coefficient: 4 });
     const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 80 });
     const target = makeUnit({ id: 'b', spd: 10, hp: 100, faith: 80 });
     const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
@@ -514,7 +516,7 @@ describe('runDamagePipeline — magical (MA × power × Faith_factor)', () => {
 
   it('asymmetric Faith — low caster faith reduces damage; symmetric high faith maximizes it', () => {
     // Same MA/power; vary faith. Faith_factor scales linearly per side.
-    const spell = basicSpell({ power: 4 });
+    const spell = basicSpell({ power_coefficient: 4 });
     const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
     const cat = createCatalog({
       statusTypes: [],
@@ -552,7 +554,7 @@ describe('runDamagePipeline — magical (MA × power × Faith_factor)', () => {
   });
 
   it("does not run the magical formula when the 'magical' tag is absent", () => {
-    const physical = basicSpell({ tags: ['physical', 'weapon'], power: 4 });
+    const physical = basicSpell({ tags: ['physical', 'weapon'], power_coefficient: 4 });
     const attacker = makeUnit({ id: 'a', spd: 10, pa: 5, ma: 99, faith: 1 });
     const target = makeUnit({ id: 'b', spd: 10, hp: 100, faith: 1 });
     const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
@@ -583,7 +585,7 @@ describe('runDamagePipeline — magical (MA × power × Faith_factor)', () => {
 
 describe('runDamagePipeline — resistance (signedMax composition, healing short-circuit, cap-at-immune)', () => {
   it('half resistance halves damage; full resistance immune', () => {
-    const spell = basicSpell({ power: 4 });
+    const spell = basicSpell({ power_coefficient: 4 });
     const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
     // Faith 100/100 → factor 1.0 → MA × power = 20 base.
     const halfResist = makeUnit({
@@ -618,7 +620,7 @@ describe('runDamagePipeline — resistance (signedMax composition, healing short
   });
 
   it('weakness (negative resistance) increases damage', () => {
-    const spell = basicSpell({ power: 4 });
+    const spell = basicSpell({ power_coefficient: 4 });
     const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
     const weakTarget = makeUnit({
       id: 'b',
@@ -654,7 +656,7 @@ describe('runDamagePipeline — resistance (signedMax composition, healing short
   it('multi-tag composition takes signed maximum (resistance wins ties per ADR-0015)', () => {
     // Holy fire spell. Target has fire +50 and holy -50; ties resolve to
     // resistance side. signedMax(50, -50) = 50 → half damage.
-    const holyFire = basicSpell({ tags: ['magical', 'fire', 'holy'], power: 4 });
+    const holyFire = basicSpell({ tags: ['magical', 'fire', 'holy'], power_coefficient: 4 });
     const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
     const target = makeUnit({
       id: 'b',
@@ -727,7 +729,7 @@ describe('runDamagePipeline — resistance (signedMax composition, healing short
   });
 
   it('caps resistance at 100 — values >100 read as immune (absorption deferred per ADR-0022)', () => {
-    const spell = basicSpell({ power: 4 });
+    const spell = basicSpell({ power_coefficient: 4 });
     const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
     const absorbTarget = makeUnit({
       id: 'b',
@@ -765,7 +767,7 @@ describe('runDamagePipeline — resistance (signedMax composition, healing short
   });
 
   it('missing tag entries default to 0 resistance (no implicit immunity)', () => {
-    const spell = basicSpell({ power: 4 });
+    const spell = basicSpell({ power_coefficient: 4 });
     const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
     // Empty resistance map: every tag reads as 0.
     const target = makeUnit({ id: 'b', spd: 10, hp: 100, faith: 100 });
@@ -797,7 +799,7 @@ describe('runDamagePipeline — resistance (signedMax composition, healing short
 describe('runDamagePipeline — evasion check (ADR-0019)', () => {
   it('auto-hits when the ability omits hitRoll', () => {
     // No hitRoll on the ability → evasion_check short-circuits.
-    const spell = basicSpell({ tags: ['physical', 'weapon'], power: 4 });
+    const spell = basicSpell({ tags: ['physical', 'weapon'], power_coefficient: 4 });
     const attacker = makeUnit({ id: 'a', spd: 10, pa: 5 });
     // Target has 99 evasion in every facing — would always miss if rolled.
     const target = makeUnit({ id: 'b', spd: 10, hp: 100, classId: 'evasive' });
@@ -828,7 +830,7 @@ describe('runDamagePipeline — evasion check (ADR-0019)', () => {
   it("magical-only damage skips the roll (no 'physical' tag → always lands)", () => {
     // hitRoll is present but tag set is purely magical → handler short-circuits.
     const spell: ActiveAbilityDefinition = {
-      ...basicSpell({ tags: ['magical'], power: 4 }),
+      ...basicSpell({ tags: ['magical'], power_coefficient: 4 }),
       hitRoll: {},
     };
     const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
@@ -861,7 +863,7 @@ describe('runDamagePipeline — evasion check (ADR-0019)', () => {
     // Target with front evasion 90 → hit chance ~10% against frontal attack.
     // Roll across many seeds and expect at least one miss (ctx.hit = false).
     const spell: ActiveAbilityDefinition = {
-      ...basicSpell({ tags: ['physical', 'weapon'], power: 4 }),
+      ...basicSpell({ tags: ['physical', 'weapon'], power_coefficient: 4 }),
       hitRoll: {},
     };
     const attacker = makeUnit({
@@ -917,7 +919,7 @@ describe('runDamagePipeline — evasion check (ADR-0019)', () => {
     // (Determinism: seed = 0 with our mulberry32 mixer is deterministic;
     // we can find a seed that misses.)
     const spell: ActiveAbilityDefinition = {
-      ...basicSpell({ tags: ['physical', 'weapon'], power: 4 }),
+      ...basicSpell({ tags: ['physical', 'weapon'], power_coefficient: 4 }),
       hitRoll: {},
     };
     const attacker = makeUnit({ id: 'a', spd: 10, pa: 5 });
@@ -959,7 +961,7 @@ describe('runDamagePipeline — evasion check (ADR-0019)', () => {
     // target on elevation 0. Run many seeds; the attacker-higher case
     // should land hits more often than attacker-lower for the same setup.
     const spell: ActiveAbilityDefinition = {
-      ...basicSpell({ tags: ['physical', 'weapon'], power: 4 }),
+      ...basicSpell({ tags: ['physical', 'weapon'], power_coefficient: 4 }),
       hitRoll: { accuracy: 50 }, // mid-band so elevation +5% / -5% is observable
     };
     const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
@@ -1027,7 +1029,7 @@ describe('runDamagePipeline — evasion check (ADR-0019)', () => {
     // Attacker behind a target with front 90 / back 0. Hit lands every
     // seed because back evasion is 0.
     const spell: ActiveAbilityDefinition = {
-      ...basicSpell({ tags: ['physical', 'weapon'], power: 4 }),
+      ...basicSpell({ tags: ['physical', 'weapon'], power_coefficient: 4 }),
       hitRoll: {},
     };
     const attacker = makeUnit({

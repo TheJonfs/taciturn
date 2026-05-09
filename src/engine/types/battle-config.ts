@@ -15,6 +15,7 @@
 
 import type { VictoryCondition } from './battle-outcome.ts';
 import type { DamageTag } from './damage.ts';
+import type { UnitEquipment } from './equipment-slot.ts';
 import type { ClassId, RulesetId, TeamId, UnitId } from './ids.ts';
 import type { Loadout } from './loadout.ts';
 import type { Direction, Position } from './spatial.ts';
@@ -39,8 +40,17 @@ export interface UnitPlacement {
   readonly position: Position;
   readonly facing: Direction;
   readonly baseStats: BaseStats;
-  readonly vitals: Vitals;
+  // Optional per ADR-0028 — when omitted, `createInitialState` fills
+  // current HP and current MP from the computed effective maxes (base
+  // + equipment + class + free-passive contributions). Authors who
+  // want a unit to start damaged still pass `vitals` explicitly.
+  readonly vitals?: Vitals;
   readonly loadout: Loadout;
+  // Equipment placed into the unit's five slots. Slot kind validation
+  // (weapons in hand slots, headgear in headgear slot, etc.) happens
+  // in `createInitialState`. Optional — when omitted, the unit walks
+  // in unequipped (empty equipment map). Per ADR-0028.
+  readonly equipment?: UnitEquipment;
   readonly statuses?: ReadonlyArray<StatusInstance>;
   readonly resistances?: ReadonlyMap<DamageTag, number>;
   readonly initialCT?: number;

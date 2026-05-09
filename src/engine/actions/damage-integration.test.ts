@@ -35,12 +35,13 @@ function knightClass(): ClassDefinition {
     name: 'Knight',
     movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
     evasion: { front: 0, side: 0, back: 0 },
+    equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
   };
 }
 
-function attackAbility(power = 4): ActiveAbilityDefinition {
+function attackAbility(power_coefficient = 4): ActiveAbilityDefinition {
   return {
     id: abilityId('attack'),
     name: 'Attack',
@@ -50,11 +51,11 @@ function attackAbility(power = 4): ActiveAbilityDefinition {
     targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
     actionSpeed: 0,
     mpCost: 0,
-    effects: { damage: { tags: ['physical', 'weapon'], power } },
+    effects: { damage: { tags: ['physical', 'weapon'], power_coefficient } },
   };
 }
 
-function cureAbility(power = 5): ActiveAbilityDefinition {
+function cureAbility(power_coefficient = 5): ActiveAbilityDefinition {
   return {
     id: abilityId('cure'),
     name: 'Cure',
@@ -64,7 +65,7 @@ function cureAbility(power = 5): ActiveAbilityDefinition {
     targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
     actionSpeed: 0,
     mpCost: 4,
-    effects: { damage: { tags: ['holy', 'healing'], power } },
+    effects: { damage: { tags: ['holy', 'healing'], power_coefficient } },
   };
 }
 
@@ -476,6 +477,7 @@ describe('Counter reaction chain', () => {
       movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
       // Front evasion 99 → roll lands ~5% of the time after [0.05, 1.0] clamp.
       evasion: { front: 99, side: 99, back: 99 },
+      equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
       firstActionCommandSet: commandSetId('battle_skill'),
       freeAbilities: new Set(),
     };
@@ -608,7 +610,7 @@ describe('Counter reaction chain', () => {
 });
 
 describe('Magical damage end-to-end (session 14)', () => {
-  function magicalSpell(args: { power?: number; mpCost?: number } = {}): ActiveAbilityDefinition {
+  function magicalSpell(args: { power_coefficient?: number; mpCost?: number } = {}): ActiveAbilityDefinition {
     return {
       id: abilityId('magical_bolt'),
       name: 'Magical Bolt',
@@ -618,12 +620,12 @@ describe('Magical damage end-to-end (session 14)', () => {
       targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
       actionSpeed: 0,
       mpCost: args.mpCost ?? 4,
-      effects: { damage: { tags: ['magical'], power: args.power ?? 5 } },
+      effects: { damage: { tags: ['magical'], power_coefficient: args.power_coefficient ?? 5 } },
     };
   }
 
   it('applies MA × power × Faith_factor as damage and deducts MP', () => {
-    const spell = magicalSpell({ power: 4, mpCost: 4 });
+    const spell = magicalSpell({ power_coefficient: 4, mpCost: 4 });
     const ruleset = rulesetWithFullPipeline();
     const cat = createCatalog({
       statusTypes: [],
@@ -680,7 +682,7 @@ describe('Magical damage end-to-end (session 14)', () => {
   });
 
   it('resistance reduces magical damage; healing-tag effects bypass resistance', () => {
-    const spell = magicalSpell({ power: 4, mpCost: 4 });
+    const spell = magicalSpell({ power_coefficient: 4, mpCost: 4 });
     const ruleset = rulesetWithFullPipeline();
     const cat = createCatalog({
       statusTypes: [],

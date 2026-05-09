@@ -51,7 +51,7 @@ export const earthCataclysm: ActiveAbilityDefinition = {
   effects: {
     damage: {
       tags: ['magical', 'earth'],
-      power: 10,
+      power_coefficient: 10,
     },
     aoe: {
       shape: { kind: 'cross', radius: 1 },

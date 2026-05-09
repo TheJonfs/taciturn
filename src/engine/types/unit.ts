@@ -3,12 +3,14 @@
 //
 // Session 1 carried the CT-relevant fields; session 4 added `classState`
 // (just `currentClass` for now); session 5 added `loadout` so the
-// ability-slot system has somewhere to read equip state from. The
-// grouping shapes match the design doc; the deferred fields
-// (`classProgress`, `equipment`, per-command-set `learning`) land
-// alongside their owning sessions.
+// ability-slot system has somewhere to read equip state from. Session
+// 17c added `equipment` per ADR-0028 — five-slot map (left/right hand,
+// headgear, armor, accessory). The grouping shapes match the design
+// doc; the deferred fields (`classProgress`, per-command-set `learning`)
+// land alongside their owning sessions.
 
 import type { DamageTag } from './damage.ts';
+import type { UnitEquipment } from './equipment-slot.ts';
 import type { ClassId, TeamId, UnitId } from './ids.ts';
 import type { Loadout } from './loadout.ts';
 import type { Direction, Position } from './spatial.ts';
@@ -28,6 +30,7 @@ export interface Unit {
 
   readonly classState: UnitClassState;
   readonly loadout: Loadout;
+  readonly equipment: UnitEquipment;
 
   position: Position;
   facing: Direction;

@@ -16,12 +16,14 @@ import {
   bucketId,
   classId,
   commandSetId,
+  itemId,
   rulesetId,
   teamId,
   unitId,
   type BattleConfig,
   type BattleMap,
   type Tile,
+  type UnitEquipment,
   type UnitPlacement,
 } from '@engine/index.ts';
 
@@ -47,6 +49,19 @@ function buildFlatGround(): BattleMap {
 
 const TEAM_A = teamId('team_a');
 const TEAM_B = teamId('team_b');
+
+// Knight equipment: Long Sword in the right hand for v1 (per
+// ADR-0028). Headgear / armor / accessory slots stay open in the demo
+// so equipment integration is exercised without changing the demo's
+// damage tuning. WP=4 from the long_sword × power_coefficient=1.0 from
+// the basic Attack ability reproduces the prior demo damage exactly.
+const KNIGHT_EQUIPMENT: UnitEquipment = {
+  leftHand: null,
+  rightHand: itemId('long_sword'),
+  headgear: null,
+  armor: null,
+  accessory: null,
+};
 
 // Knight loadout: Battle Skill on First Action (class-pinned),
 // White Magic on Second Action (Cure), Counter in the Reaction bucket,
@@ -120,6 +135,7 @@ export const demoBattle: BattleConfig = {
       baseStats: KNIGHT_BASE_STATS,
       vitals: KNIGHT_VITALS,
       loadout: KNIGHT_LOADOUT,
+      equipment: KNIGHT_EQUIPMENT,
     },
     {
       id: unitId('blue_earth_mage'),
@@ -142,6 +158,7 @@ export const demoBattle: BattleConfig = {
       baseStats: KNIGHT_BASE_STATS,
       vitals: KNIGHT_VITALS,
       loadout: KNIGHT_LOADOUT,
+      equipment: KNIGHT_EQUIPMENT,
     },
     {
       id: unitId('red_earth_mage'),

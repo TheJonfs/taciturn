@@ -21,4 +21,11 @@ export interface StatusEffectType {
   // `(1 - resistance/100)` into the chance. Omitted → status can't
   // be resisted. Per ADR-0024 / BMG "Status application chance".
   readonly resistanceTag?: DamageTag;
+  // When `true`, instances of this type are auto-removed when their
+  // source unit (status.source.unitId) drops to 0 HP. The reducer
+  // emits a `status_remove` for each affected instance after any
+  // damage step that KOs a unit. Default `false` — preserves
+  // existing statuses' lifecycles. v1 consumer: Taunted (per
+  // ADR-0028).
+  readonly removeOnSourceKO?: boolean;
 }

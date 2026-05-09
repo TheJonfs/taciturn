@@ -46,3 +46,9 @@ export interface Vitals {
   hp: number;
   mp: number;
 }
+
+// Equipment / status / passive stat-mod input. Sparse: only the stats
+// the modifier touches are present. Composes additively against
+// `BaseStats` via `modifyStatQuery` handlers (per ADR-0028). Sentinel
+// values are omitted; consumers default missing entries to 0.
+export type PartialBaseStats = Partial<BaseStats>;

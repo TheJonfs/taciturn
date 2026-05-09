@@ -80,6 +80,24 @@ export type TargetingSpec =
       readonly rangeMode: RangeMode;
     };
 
+// Per-ability factor selection for the status application formula.
+// Per ADR-0028, abilities can opt in to which stat factors compose into
+// the chance. Default (when `factors` is omitted on a StatusEffectSpec)
+// is `{ faith: true, ma: true }` — preserves the BMG-canonical Earth
+// Magic shape. Stasis Sword sets `{ brave: true, ma: true }` for a
+// hybrid Knight build. Future PA-based abilities set `pa: true`; the
+// formula throws `NotYetImplementedError` until a PA-using consumer
+// ships.
+//
+// Resistance and `modifyStatusApplicationChance` modifiers compose
+// unconditionally — they're outside the factor-selection model.
+export interface StatusFormulaFactors {
+  readonly faith?: boolean;
+  readonly brave?: boolean;
+  readonly ma?: boolean;
+  readonly pa?: boolean;
+}
+
 // Status-application sub-effect — what status is applied, to whom, with
 // what magnitude/duration. Session 7's UseAbility resolver iterates these
 // and calls into `applyStatus`. `target` selects the unit to receive the
@@ -97,6 +115,16 @@ export interface StatusEffectSpec {
   // MA / resistance / modifiers). v1 ranges per BMG: a reliable
   // applier ~70%, a coin-flip 50%, a "lucky shot" 30%.
   readonly baseChance?: number;
+  // When `true`, the formula short-circuits — the status applies
+  // unconditionally (resistance, factors, and base chance are all
+  // bypassed). The `modifyStatusApplicationChance` chain still runs in
+  // case a future hook wants to gate even applyAlways effects. Per
+  // ADR-0028; first consumer is Taunt.
+  readonly applyAlways?: boolean;
+  // Per-effect factor selection for the BMG status application formula.
+  // When omitted, defaults to `{ faith: true, ma: true }`. Per
+  // ADR-0028.
+  readonly factors?: StatusFormulaFactors;
   // Override the type's defaultMagnitude. Omitted → use default.
   readonly magnitude?: number;
   // Required when the status type's durationMode is duration-counted
@@ -130,21 +158,29 @@ export interface HitRollSpec {
 }
 
 // Damage spec — input to the seven-stage damage pipeline. The base
-// stage handlers read `power` and the tag set to compute baseDamage
-// (e.g., 'physical' → PA × power; 'healing' → MA × power). Variance is
-// the [min, max] multiplier band for the variance stage; omitted →
-// pipeline default (no variance).
+// stage handlers read `power_coefficient` and the tag set to compute
+// baseDamage (e.g., 'physical' → PA × WP × power_coefficient; 'magical'
+// / 'healing' → MA × power_coefficient × Faith_factor). Variance is the
+// [min, max] multiplier band for the variance stage; omitted → pipeline
+// default (no variance).
 //
 // `tags` is the set used both for handler dispatch (each base handler
 // gates on a specific tag) and for resistance / immunity lookups.
-// Authors list every tag that applies; the pipeline composes.
+// Authors list every tag that applies; the pipeline composes. The
+// `'weapon'` tag triggers weapon-tag composition per ADR-0028: the
+// equipped weapon's `tags` merge into the resolved damage tags so a
+// fire-imbued sword carries `'fire'` into resistance lookups without
+// per-ability re-declaration.
 export interface DamageSpec {
   readonly tags: ReadonlyArray<DamageTag>;
   // Per-ability scalar fed into the base formula. For 'physical', this
-  // is the weapon-power coefficient (PA × power); for 'magical' /
-  // 'healing', the spell multiplier (MA × power). Defaults handled by
-  // each base handler when omitted.
-  readonly power?: number;
+  // is the ability's portion of the weapon × ability product
+  // (`PA × WP × power_coefficient`); for 'magical' / 'healing', the
+  // spell multiplier (`MA × power_coefficient × Faith_factor`).
+  // Renamed from `power` per ADR-0028 — the field's meaning changed
+  // (combined WP × coefficient → just the coefficient) when WP became
+  // weapon-sourced. Defaults to 1 in each base handler when omitted.
+  readonly power_coefficient?: number;
   // Variance band as [min, max] on the unit-multiplier scale. Omitted
   // → use the pipeline default (no variance, i.e., { min: 1, max: 1 }).
   readonly variance?: { readonly min: number; readonly max: number };

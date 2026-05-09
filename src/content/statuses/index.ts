@@ -10,6 +10,7 @@ import { poison } from './poison.ts';
 import { regen } from './regen.ts';
 import { silence } from './silence.ts';
 import { stop } from './stop.ts';
+import { taunted } from './taunted.ts';
 
 export const statusTypes: ReadonlyArray<StatusEffectType> = [
   blind,
@@ -23,4 +24,5 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   regen,
   silence,
   stop,
+  taunted,
 ];

@@ -21,81 +21,76 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-06 (session 17b: Earth Mage part 2 + status side-effect infrastructure)
+## From session 2026-05-08 (session 17c: Knight expansion + equipment integration)
 
 ### Suggested next-session scope
 
-**Session 17c — Knight expansion + equipment integration** (per `docs/roadmap-sessions-14-20.md`).
+**Session 18 — Water Mage** (per `docs/roadmap-sessions-14-20.md`).
 
-Equipment integration (per ADR-0014) is the foundational engine work:
-- `Equipment` type on Unit; equipment-slot definitions on `ClassDefinition`.
-- Equipped-weapon WP read at the physical base stage. Refactor `physicalPaWp` to compose `PA × WP × power_coefficient`. Existing `attack`'s power = 4 splits into `WP × coefficient` (e.g., long_sword WP 4 × ability coefficient 1).
-- 1–2 starter equipment items: a stat-buff item (Strength Ring +1 PA) and a status-applying item (Boots of Haste — Haste while equipped). Tests the equipment-as-status-source path.
+Engine work:
+- CT push as damage rider: damage spec gains a `ctPush?: { factor }` field (or similar) so abilities can declare `target CT -= 2 × MA` mid-resolve. Water Base spell is the first consumer.
+- Self-CT manipulation by reactions (Water Reaction = "self +20 CT on hit"). Flows through `onActionTargeted` with a CT-push side effect.
+- CT refund hook (Water Support: "magic actions refund 10 CT after use"). New post-action-resolve consumer; first hook of its kind.
+- Knockback: Water Mage's AoE spell + Ultimate are the first content consumers of the `applyKnockback` primitive shipped in 17b. Forced-movement collision policy lands as a real test (cancel-on-blocker per ADR-0026).
+- New status: **Speed -1** (multiplicative debuff via modifyStatQuery — clean addition).
 
-Knight Battle Skill expansion:
-- **Power Attack** (single-target physical with extra coefficient).
-- **Stasis Sword** (single-target physical that applies Stop with low chance — first content using the status-applier-on-physical pattern).
-- A defensive ability — TBD between Taunt and a damage-reducer; plaintext review will pick.
+Content work (plaintext-first):
+- Full 7-ability Water Mage kit: Base spell (damage + CT push), Buff (CT gain on ally), AoE (damage + chance of knockback 1), Debuff (Speed -1 status), Ultimate (cone shape, always knocks back), Reaction (self +20 CT on hit), Support (magic actions refund 10 CT).
 
-Knight R/S/M:
-- **Damage Reduction** support passive (multiplicative reduction on incoming physical damage; first consumer of a new `modifyIncomingDamage`-flavored hook... or composes via existing `onDamageReceived` with a multiplier; settle in plaintext).
-- A class-flavored movement passive ("Slow but Steady" or similar — Knight-specific).
+ADR-0029 (anticipated): CT-push primitive + CT-refund hook.
 
-Plaintext-first review applies to: Power Attack, Stasis Sword, Knight defensive, Damage Reduction, the Knight movement passive, the two starter equipment items.
-
-ADR-0028 (anticipated): equipment integration shape — the type, the apply path, the WP refactor.
-
-The session 17b substrate that 17c inherits:
-
-- **`system_damage`** is the symmetric counterpart to `system_heal`; equipment "thorns" (a future Cactuar-style passive that damages attackers) would emit through it.
-- **`permanent_per_unit_ct` duration mode** lands; equipment "haste-while-equipped" can use plain `per_unit_ct` (since the status is anchored to equipment lifecycle, not to a duration timer). Equipment-driven status source is `'equipment'` rather than `'unit'` — the StatusInstanceSource.unitId can be null, which is already supported.
-- **`onDamageReceived` emission shape** is in place; equipment with "wake-on-damage" or "consume-on-damage" semantics can plug in.
-- **`onActionAttempted` `isReaction` flag** lets equipment-driven gates (a ring that suppresses voice abilities while equipped, etc.) distinguish player actions from reactions.
-- **Knockback primitive** (`src/engine/map/knockback.ts`) is shipped but unused; Water Mage in session 18 is the first consumer. Knight expansion doesn't need it.
-- **Earth Mage demo wiring is done** — the demo battle now has 1 Knight + 1 Earth Mage per side. Knight expansion in 17c may want to reshape the demo (more Knights with the new Battle Skill content, perhaps?) or leave it alone.
+The 17c substrate that 18 inherits:
+- **`factors` selection** is in place; Water content can opt in to `{ faith: true, ma: true }` or other shapes per ability. PA-factor still NotYetImplementedError until a consumer ships.
+- **`applyAlways: true`** is available for Water statuses that should bypass the formula (Speed -1 from the Debuff might not need it; Ultimate's knockback is a side effect, not a status).
+- **`modifyEvasion`** hook is live; Water doesn't currently use it but a future "Water Veil" support that grants evasion would be a natural consumer.
+- **Equipment integration** is fully wired. Water Mage's class definition needs `equipmentSlots`. v1 demo doesn't equip Water Mages; the slots can default to all-true for parity with Earth Mage.
+- **Source-KO status sweep** — no v1 consumer beyond Taunted; Water content unlikely to need it but it's available.
+- **`removeStatus(... force: true)`** is available for the deferred mid-battle equipment-removal path. Water content shouldn't need it.
 
 ### Things noticed during the session
 
-- **Renderer's `buildAnim` had a silent fallthrough bug.** Adding the new `system_damage` action surfaced it: the function's switch was missing cases for `system_heal`, `system_apply_status`, `status_remove`, `status_decrement_stack` (and now `system_damage`). Unmatched cases returned `undefined` (not `null`), and `startNext()`'s while loop checked `current === null` (not `null` or `undefined`), so unmatched actions left `current = undefined` and the next `tick` crashed on `a.elapsed`. Fix: explicit `return null` for all system-action types in `buildAnim`. **Worth a defensive `assertNever` exhaustiveness check** (a small follow-up — not session-blocking but the next time someone adds an action type they'll thank us).
+- **Pre-existing TS strict-mode errors in test files surfaced by `npm run typecheck`.** These existed before 17c (knockback.test.ts using `makeUnit({ id, position })` without `spd`; runners.test.ts onTick handler returning void). Vitest doesn't full-typecheck so they don't surface in `npm test`. Worth a session of cleanup at some point — `tsc -b --noEmit` should be green, not a list of pre-existing baggage. **Not session-blocking, but flagged.**
 
-- **Cataclysm test fixture lesson.** When a high-MA caster casts Cataclysm at the test fixture's default 60 HP target, the damage step KOs the target before the status branch runs, and `resolveAbilityEffect` skips `statusEffects` on KO'd targets. Tests for status application need to either (a) use a target with enough HP to survive, or (b) lower the spell's damage. The integration test bumped the test target to 200 HP. Worth noting in a future ability-content authoring guide so the same fixture issue doesn't keep recurring.
+- **Status hook firing direction inconsistency.** `modifyHitChance` runs against the *target's* hooks (Blind on the defender). Taunted needed to gate by *attacker's* behavior — so its handler is on `onActionAttempted` (a probabilistic block) rather than `modifyHitChance`. Worked, but the pattern is "Taunted blocks 40% of attempted attacks against non-source targets," not a clean hit-chance modifier. If a future session needs "Taunted reduces accuracy" as a hit-chance modifier, the right shape is a new `modifyHitChance` runner that fires against the attacker's hooks (parallel to the existing target-side runner). Document/decide when content surfaces it.
 
-- **Sleep test fixture predicate.** The worked example uses `ctx.hit` rather than `ctx.finalDamage > 0` because `fireOnDamageReceived` runs at the target stage, before `finalize` settles `finalDamage`. When a real Sleep status ships (session 18+ tentative), the predicate may want to refine to "damage actually applied" — that requires either reading `ctx.baseDamage` + considering downstream stages, or moving the wake-on-damage fire to a post-finalize stage. Documented as future work in ADR-0027.
+- **Per-ability cost field is currently vestigial for active members of command sets.** Looking at attack.ts and the new Battle Skill members (power_attack, stasis_sword, taunt) — they each declare `baseCost: 1`, but command-set membership is the real gate. Validation doesn't read individual ability `baseCost` on actives. The field exists for symmetry with passive abilities (where it's the real cost). When a future system needs "command-set members each cost something against a budget" (a Mimic-style "you can equip 2 abilities from a command set" pattern), this field becomes meaningful. v1 fine.
 
-- **AoE `applyCasterEffects: false` + caster-target effect throws.** v1 has no consumer; if a future Earth-style ability needs "AoE damage *plus* a self-buff for the caster," the dispatcher needs a once-per-cast caster-effect application step. Earth's existing kit doesn't trigger this; Knight expansion in 17c is unlikely to either; surface when it does.
+- **Bulwark Stance's Move/Jump min-clamp at 0.** `Math.max(0, args.baseValue - 1)` so a baseline-Move-1 Knight doesn't go negative. v1 has no baseline-Move-1 Knight, but the clamp is defensive. If a future "Move 0" stance is desired, the floor would be -1. v1 fine.
 
-- **Default ruleset's `chargedActions.pausingStatusTypeIds`** still lists only `stop`. If a new pausing status arrives (Sleep would be a candidate — a Sleeping caster's spell pauses while they're asleep), the ruleset gains an entry. v1 default is correct for current content.
+- **Default factors merge semantics.** The first impl was sparse override (declared keys merge over defaults), which silently kept faith for Stasis Sword. Switched to full-override (declared `factors` replaces default entirely). Watch for: when a future ability adds a new factor (PA), the existing Earth Magic content that omits `factors` keeps default `{ faith: true, ma: true }` — no migration needed. New abilities that want PA + faith + ma must list all three explicitly. Cleaner, but the verbosity grows with the factor list.
 
-- **Movement Debuff has no `resistanceTag`.** It used to (the type was tagged `'earth'` in the type's `tags`), but it doesn't have a `resistanceTag` field. Earth Quake's Movement Debuff rider rolls without any resistance check today. When 'earth' resistance content arrives (a future passive like "Earth-Walker" granting +50 earth resistance), the status type needs `resistanceTag: 'earth'` added so the formula reads it. v1 is fine — no unit has earth resistance yet.
+- **`'sword'` damage tag.** Added to the closed `DamageTag` union for Long Sword. Future weapon types (axe, bow, spear) extend the union as content arrives. The `'weapon'` tag stays the marker that "ability uses the equipped weapon"; per-weapon types are additional tags that compose for resistance/category interactions.
 
 ### Things considered but did not do
 
-- **A new hook for "react to system_damage"** (e.g., a Counter-flavored reaction that fires on Poison ticks). Considered: would let "poison-trigger reflex" abilities ship. Rejected: v1 has no consumer; the architectural surface stays closed until a content consumer needs it. The structural answer is "add a hook then" — not "leave a flag for later."
+- **Renaming `AbilityDefinition.tags` from `ReadonlyArray<string>` to a closed enum.** Considered: tighter typing for hook gating (Silence on `'voice'`, Earth Mage's resistance-stop, etc.). Rejected: ability-level tags are a content convention, not an engine-layer constraint; growing the enum every time a new tag ships would be friction. The string union is fine for hook-gating purposes.
 
-- **Refactoring `runOnDamageReceived` to require the wrapper return shape** (instead of accepting both bare-ctx and wrapped). Considered: type-uniformity argument. Rejected: existing tests use bare-ctx returns; backward compat keeps them passing. The runner's normalization is one branch — small cost.
+- **Auto-recompute MaxHp when equipment changes mid-battle.** Per ADR-0028, deferred. v1 has no mid-battle equipment changes; the recompute-and-clamp policy (current HP retained, clamped at new max? scaled proportionally?) is its own ADR when content surfaces it.
 
-- **Sleep as v1 content.** The ADR-0027 worked example is a *test fixture*, not a shipped status. Sleep ships when a class needs it (Lightning's Crit_modifier interacts with Sleep, but Lightning lands in session 20). Surfacing the emission shape now lets 17b's content (Earth's Cataclysm + non-expiring Poison) prove out the broader pattern without committing to one specific status' tuning.
+- **`modifyHitChance` runner against the attacker's hooks** (parallel to the existing target-side runner). Considered: would let Taunted's effect compose as a hit-chance modifier rather than a probabilistic block. Rejected: v1 has no consumer for the attacker-side direction beyond Taunted, and the probabilistic-block path works without growing the closed surface. Surface when content needs it.
 
-- **Multi-status reaction-cap accounting under AoE.** A future "Counter that fires multiple times per turn" would interact with the per-unit-per-turn cap; today the cap is per reactor regardless of source action. v1 default cap is generous enough (3 per turn in test rulesets) that this isn't load-bearing.
+- **Per-equipment-source priority on hook handlers.** Considered: equipment that wants to compose in a specific order (a "Strength Ring +1 PA" applying before "Cursed Ring -1 PA" produces 0; reversed produces 0 too — order doesn't matter for additive PA mods). Rejected: additive composition is order-independent. When multiplicative equipment mods land (a "Berserker's Mantle ×1.5 PA" + Strength Ring +1), order matters, and we'd want explicit priority. Surface when content ships.
 
-- **A separate `applyKnockback` reducer** (rather than a pure function). Considered: structural symmetry with other engine effects. Rejected: knockback is a side effect of an effect, not a player-proposed action. Pure function is the right shape; the first ability consumer (Water Mage's Base spell in 18) will call it inline during effect resolution.
+- **`AbilityDefinition.tags` propagating into the equipment damage tag set.** Considered: an ability whose `tags` includes `'fire'` could compose that into damage tags for content that uses ability tags vs. damage tags interchangeably. Rejected: today the two tag sets are separate (ability tags for hook gating, damage tags for resistance lookups). The split is intentional. If a future ability wants the cross-pollination, adding `'fire'` to its damage tag set is the right answer.
 
-- **Earth Communion in the Cataclysm test fixture.** Adding Earth Communion to the caster would push the status-application chance well above the [0, 1] clamp regardless. Cleaner to test the formula in `session-16-integration.test.ts` (where Earth Communion is the focus) and the Cataclysm AoE in 17b without it.
+- **Stasis Sword defaulting to `actionSpeed > 0`** (charged version). Considered: a "Sword Tech" feel where Knight Battle Skills take a beat to land. Rejected per plaintext review: the Knight identity is "instant martial action"; Mages charge, Knights swing. Stasis Sword stays instant.
 
 ### Open questions for later sessions (not blocking)
 
-- **Earth resistance content.** No v1 unit has 'earth' in their resistance map; Earth's spell tag-set goes through resistance_check with no effect. When 17c (or wave 2) adds a class with elemental resistance, Earth's damage interacts. Watch for the "Earth-Walker" or "Stone Skin" passive design around then.
+- **Equipment-stripping abilities.** No v1 consumer; if a future class has a "Steal Equipment" or "Disarm" ability, the `removeStatus(force: true)` path lights up. Surface when content needs it.
 
-- **AoE shape modifier consumer.** `modifyAoeShape` is in place but not consumed. Fire Mage's "larger AoE" rider in session 19 is the planned first user. If 17c's Knight content surfaces an unexpected use case (e.g., a Cleave Helm passive that turns single-target attacks into cross-shape — interesting but not in the 17c shortlist), the hook is ready.
+- **Equipment that grants statuses with finite durations.** All v1 equipment-granted statuses use `permanent_per_unit_ct` (Boots of Haste). If a future "Cursed Ring" grants Poison with a fixed duration, the equipment apply path needs to honor the spec's `duration` somehow. Today the apply path doesn't pass a duration for equipment grants; the status's durationMode is the source of truth. v1 fine; surface when content needs it.
 
-- **Don't Act + reaction interaction edge case.** Counter on a Don't Act unit fires correctly; what about a Counter that itself spawns a sub-reaction (the chain would be Attack → Counter → Counter-back). The current cap is 3 per reactor per turn, so this self-limits. If a tighter "no reaction reactions" semantic is wanted, it'd be a new flag on the reaction definition (lands when content surfaces it).
+- **Mid-battle equipment removal recompute.** Deferred per ADR-0028. When theft / equipment-break ships, the policy on current HP scaling and the equipment-anchored statuses' lifecycle needs an ADR.
 
-- **Falling damage tag composition.** ADR-0026 falling damage is tagged `'physical'` and goes through `system_damage`'s flat path (no resistance composition). Should a "spider class" with fall-damage immunity get to gate this? Today the route is via a future hook (TBD); for v1 it's flat damage. Surface when a class needs it.
+- **AI awareness of equipment.** The basic AI (`decideBasicAi`) reads PA/MA/HP via `runModifyStatQuery` (so equipment stat mods compose naturally), but doesn't reason about *what* equipment a target is wearing for tactical decisions. Tier 1.5 AI in session 20 might want this; for v1 not load-bearing.
+
+- **Taunted's probabilistic-block stable hash.** Currently uses `stableHash(sourceId | unitId | abilityId)` so a Taunted unit attempting the same ability on the same target always gets the same block-or-not decision. This is replay-deterministic but slightly weird flavor — the unit "knows" the outcome before they try. A per-action seeded approach (with a sub-stream off the action seed) would be cleaner. Surface when Taunt sees real play and the determinism feels off.
 
 ### Notes for future ADRs
 
-- **ADR for equipment integration** (anticipated 17c) — the Equipment type, slot definitions on ClassDefinition, the WP refactor at the physical base stage. ADR-0014 anticipated; the 17c implementing ADR captures shape decisions.
+- **ADR for CT-push primitive** (anticipated session 18) — the damage-rider shape, the post-action CT manipulation hook, and how knockback / CT-push interact with reaction triggers.
 
-- **ADR for Sleep status when it ships** — the worked test fixture is the canonical pattern; the formal Sleep ADR captures wake-on-damage tuning (predicate refinement: damage > 0 vs. ctx.hit; interaction with fortitude / immunity passives).
+- **ADR for mid-battle equipment removal** when content surfaces it — current HP clamping, equipment-anchored status lifecycle, recompute determinism.
 
-- **ADR for AoE caster-target effects** if a session 18+ ability needs "AoE damage + self-buff." The dispatcher's once-per-cast caster-effect handling is one block to add; the ADR captures the shape decision when it ships.
+- **ADR for attacker-side `modifyHitChance` runner** if Taunted (or future Concentration etc.) wants the cleaner hit-chance-modifier shape.

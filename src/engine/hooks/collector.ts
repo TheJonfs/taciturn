@@ -22,6 +22,7 @@
 
 import type { Catalog } from '../catalog/index.ts';
 import { passiveContributionsFor } from '../abilities/contributions.ts';
+import { equipmentContributionsFor } from '../items/contributions.ts';
 import { statusContributionsFor } from '../status/contributions.ts';
 import { getUnit, type GameState, type StatusTypeId, type UnitId } from '../types/index.ts';
 import {
@@ -108,6 +109,9 @@ export function collectActiveHandlers<K extends HookName>(
     collected.push(c);
   }
   for (const c of passiveContributionsFor(unit, catalog, hookName)) {
+    collected.push(c);
+  }
+  for (const c of equipmentContributionsFor(unit, catalog, hookName)) {
     collected.push(c);
   }
 

@@ -47,7 +47,7 @@ export const earthQuake: ActiveAbilityDefinition = {
   effects: {
     damage: {
       tags: ['magical', 'earth'],
-      power: 6,
+      power_coefficient: 6,
     },
     aoe: {
       shape: { kind: 'cross', radius: 1 },

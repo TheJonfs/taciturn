@@ -82,7 +82,7 @@ function stopType(): StatusEffectType {
 // Tile-anchored magical damage charged spell. Mirrors the production
 // `bolt` content but is defined inline so engine tests don't reach
 // into content/.
-function tileBolt(args: { actionSpeed?: number; mpCost?: number; power?: number } = {}): ActiveAbilityDefinition {
+function tileBolt(args: { actionSpeed?: number; mpCost?: number; power_coefficient?: number } = {}): ActiveAbilityDefinition {
   return {
     id: abilityId('bolt_test'),
     name: 'Bolt (test)',
@@ -92,7 +92,7 @@ function tileBolt(args: { actionSpeed?: number; mpCost?: number; power?: number 
     targeting: { kind: 'tile', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
     actionSpeed: args.actionSpeed ?? 25,
     mpCost: args.mpCost ?? 6,
-    effects: { damage: { tags: ['magical'], power: args.power ?? 4 } },
+    effects: { damage: { tags: ['magical'], power_coefficient: args.power_coefficient ?? 4 } },
   };
 }
 
@@ -106,7 +106,7 @@ function attackAbility(): ActiveAbilityDefinition {
     targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
     actionSpeed: 0,
     mpCost: 0,
-    effects: { damage: { tags: ['physical', 'weapon'], power: 4 } },
+    effects: { damage: { tags: ['physical', 'weapon'], power_coefficient: 4 } },
   };
 }
 
@@ -154,7 +154,7 @@ function overkillAbility(): ActiveAbilityDefinition {
     targeting: { kind: 'single_unit', range: { horizontal: 8, vertical: 8 }, rangeMode: 'melee' },
     actionSpeed: 0,
     mpCost: 0,
-    effects: { damage: { tags: ['physical', 'weapon'], power: 200 } },
+    effects: { damage: { tags: ['physical', 'weapon'], power_coefficient: 200 } },
   };
 }
 

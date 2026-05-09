@@ -43,6 +43,7 @@ export type DamageTag =
   | 'lightning'
   | 'earth'    // Added 13.7 ahead of Earth Mage (session 16).
   | 'poison'   // Added 17b alongside Poison status (system_damage source).
+  | 'sword'    // Added 17c with Long Sword equipment (per ADR-0028) — weapon-category tag for future anti-sword content.
   | 'healing';
 
 // Per-source labelled multiplier applied at finalize. The product of

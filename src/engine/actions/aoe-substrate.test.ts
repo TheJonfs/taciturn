@@ -63,6 +63,7 @@ function knightClass(): ClassDefinition {
     name: 'Knight',
     movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
     evasion: { front: 0, side: 0, back: 0 },
+    equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
   };
@@ -70,7 +71,7 @@ function knightClass(): ClassDefinition {
 
 // A 3×3 cross-shape AoE damage spell anchored on a tile target.
 // power 5, magical, no status rider — keeps damage easy to assert.
-function crossDamageSpell(power = 5): ActiveAbilityDefinition {
+function crossDamageSpell(power_coefficient = 5): ActiveAbilityDefinition {
   return {
     id: abilityId('quake'),
     name: 'Quake',
@@ -82,7 +83,7 @@ function crossDamageSpell(power = 5): ActiveAbilityDefinition {
     actionSpeed: 0,
     mpCost: 0,
     effects: {
-      damage: { tags: ['magical'], power },
+      damage: { tags: ['magical'], power_coefficient },
       aoe: { shape: { kind: 'cross', radius: 1 } },
     },
   };
@@ -131,7 +132,7 @@ function selfNovaSpell(): ActiveAbilityDefinition {
     actionSpeed: 0,
     mpCost: 0,
     effects: {
-      damage: { tags: ['magical'], power: 3 },
+      damage: { tags: ['magical'], power_coefficient: 3 },
       aoe: {
         shape: { kind: 'diamond', radius: 1 },
         excludeCaster: false,
@@ -154,7 +155,7 @@ function strictVerticalSpell(): ActiveAbilityDefinition {
     actionSpeed: 0,
     mpCost: 0,
     effects: {
-      damage: { tags: ['magical'], power: 5 },
+      damage: { tags: ['magical'], power_coefficient: 5 },
       aoe: { shape: { kind: 'square', radius: 1 }, verticalTolerance: 0 },
     },
   };
@@ -244,7 +245,7 @@ function singleTileAoe(): ActiveAbilityDefinition {
     actionSpeed: 0,
     mpCost: 0,
     effects: {
-      damage: { tags: ['magical'], power: 5 },
+      damage: { tags: ['magical'], power_coefficient: 5 },
       aoe: { shape: { kind: 'tile' } },
     },
   };

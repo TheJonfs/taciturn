@@ -60,6 +60,7 @@ function knightClass(): ClassDefinition {
     name: 'Knight',
     movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
     evasion: { front: 0, side: 0, back: 0 },
+    equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
   };
@@ -71,12 +72,13 @@ function mageClass(): ClassDefinition {
     name: 'Earth Mage',
     movement: { moveRange: 3, jump: 3, terrainCosts: new Map(), canEnter: new Set(['ground']) },
     evasion: { front: 8, side: 5, back: 0 },
+    equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
     firstActionCommandSet: commandSetId('earth_spells'),
     freeAbilities: new Set(),
   };
 }
 
-function attackAbility(power = 4): ActiveAbilityDefinition {
+function attackAbility(power_coefficient = 4): ActiveAbilityDefinition {
   return {
     id: abilityId('attack'),
     name: 'Attack',
@@ -86,14 +88,14 @@ function attackAbility(power = 4): ActiveAbilityDefinition {
     targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
     actionSpeed: 0,
     mpCost: 0,
-    effects: { damage: { tags: ['physical', 'weapon'], power } },
+    effects: { damage: { tags: ['physical', 'weapon'], power_coefficient } },
     hitRoll: { accuracy: 100 },
   };
 }
 
 function magicalDebuffAbility(args: {
   baseChance?: number;
-  power?: number;
+  power_coefficient?: number;
   actionSpeed?: number;
 } = {}): ActiveAbilityDefinition {
   return {
@@ -111,7 +113,7 @@ function magicalDebuffAbility(args: {
     actionSpeed: args.actionSpeed ?? 0,
     mpCost: 4,
     effects: {
-      damage: { tags: ['magical', 'earth'], power: args.power ?? 6 },
+      damage: { tags: ['magical', 'earth'], power_coefficient: args.power_coefficient ?? 6 },
       statusEffects: [
         {
           typeId: statusTypeId('movement_debuff'),
@@ -159,7 +161,7 @@ function silencedAbility(): ActiveAbilityDefinition {
     targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
     actionSpeed: 0,
     mpCost: 4,
-    effects: { damage: { tags: ['holy', 'healing'], power: 5 } },
+    effects: { damage: { tags: ['holy', 'healing'], power_coefficient: 5 } },
   };
 }
 

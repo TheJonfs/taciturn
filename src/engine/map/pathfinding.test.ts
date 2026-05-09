@@ -31,6 +31,7 @@ function knightCatalog(args?: {
       ...(args?.specialMovement !== undefined ? { specialMovement: args.specialMovement } : {}),
     },
     evasion: { front: 0, side: 0, back: 0 },
+    equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
   };

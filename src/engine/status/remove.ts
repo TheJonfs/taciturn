@@ -1,10 +1,14 @@
 // Status removal — explicit removal by (unitId, typeId).
-// See docs/design/status-effects.md ("Removal").
+// See docs/design/status-effects.md ("Removal") and ADR-0028
+// (equipment-sourced statuses immune to in-battle removal).
 //
 // Session 3 supports this single removal path:
 //   removeStatus(state, { targetId, typeId }, catalog)
-//     → removes every instance of `typeId` on the unit, fires onRemove
-//       for each.
+//     → removes every unit-sourced instance of `typeId` on the unit,
+//       fires onRemove for each. Equipment-sourced instances are
+//       silent no-ops — status-stripping abilities don't disarm
+//       equipment grants. Mid-battle equipment removal (theft, break)
+//       eventually needs the `force` path; v1 has no such consumer.
 //
 // Other removal paths (duration expiry, conditional satisfaction, source
 // loss, death cleanup) arrive with the systems that surface them
@@ -19,6 +23,10 @@ import { fireOnRemove } from './runners.ts';
 export interface RemoveStatusArgs {
   readonly targetId: UnitId;
   readonly typeId: StatusTypeId;
+  // When `true`, also removes equipment-sourced instances. Reserved
+  // for the (deferred) mid-battle equipment-removal path; v1 callers
+  // omit this and equipment-sourced instances stay put.
+  readonly force?: boolean;
 }
 
 export interface RemoveStatusReturn {
@@ -37,8 +45,11 @@ export function removeStatus(
   const removed: StatusInstance[] = [];
   const kept: StatusInstance[] = [];
   for (const s of targetUnit.statuses) {
-    if (s.typeId === type.id) removed.push(s);
-    else kept.push(s);
+    if (s.typeId === type.id && !isEquipmentSourced(s, args.force)) {
+      removed.push(s);
+    } else {
+      kept.push(s);
+    }
   }
 
   if (removed.length === 0) {
@@ -55,4 +66,9 @@ export function removeStatus(
   const newState: GameState = { ...state, units: newUnits };
 
   return { newState, removed };
+}
+
+function isEquipmentSourced(s: StatusInstance, force: boolean | undefined): boolean {
+  if (force === true) return false;
+  return s.source.kind === 'equipment';
 }

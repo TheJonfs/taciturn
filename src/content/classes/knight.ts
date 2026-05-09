@@ -31,6 +31,16 @@ export const knight: ClassDefinition = {
   // at 0 until session 14's evasion_check handler ships and tuning takes
   // a real pass — see ADR-0019.
   evasion: { front: 0, side: 0, back: 0 },
+  // Knight equips into all five slots (per ADR-0028). v1 demo Knights
+  // start with a Long Sword in the right hand; armor / headgear /
+  // accessory slots stay open for tuning passes.
+  equipmentSlots: {
+    leftHand: true,
+    rightHand: true,
+    headgear: true,
+    armor: true,
+    accessory: true,
+  },
   firstActionCommandSet: commandSetId('battle_skill'),
   freeAbilities: new Set([abilityId('move_plus_1')]),
 };

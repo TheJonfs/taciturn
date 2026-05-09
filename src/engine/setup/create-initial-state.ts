@@ -10,15 +10,20 @@
 
 import type { Catalog } from '../catalog/index.ts';
 import {
+  EMPTY_UNIT_EQUIPMENT,
   type BattleConfig,
   type GameState,
   type RulesetDefinition,
   type Unit,
+  type UnitEquipment,
   type UnitId,
   type UnitPlacement,
 } from '../types/index.ts';
 import { validateLoadout } from '../abilities/validate.ts';
 import { TRIGGER_THRESHOLD } from '../ct/constants.ts';
+import { iterateEquippedItems, validateSlotItem } from '../items/equipment.ts';
+import { runModifyStatQuery } from '../hooks/runners.ts';
+import { applyStatus } from '../status/apply.ts';
 
 export class BattleConfigError extends Error {
   override readonly name = 'BattleConfigError';
@@ -35,11 +40,11 @@ export function createInitialState(
 
   const unitMap = new Map<UnitId, Unit>();
   for (const placement of battleConfig.units) {
-    const unit = placementToUnit(placement, ruleset, battleConfig.masterSeed);
+    const unit = placementToUnit(placement, ruleset, battleConfig.masterSeed, catalog);
     unitMap.set(unit.id, unit);
   }
 
-  const state: GameState = {
+  let state: GameState = {
     battleId: battleConfig.battleId,
     map: battleConfig.map,
     teams: battleConfig.teams,
@@ -67,6 +72,18 @@ export function createInitialState(
     }
   }
 
+  // Apply equipment-granted statuses (per ADR-0028). Iterates each
+  // unit's equipped items and applies any `statusGrants` with
+  // `kind: 'equipment'` provenance — these instances become immune to
+  // in-battle removal until the equipment itself is removed.
+  state = applyEquipmentStatusGrants(state, catalog);
+
+  // Fill current HP/MP from computed effective maxes when the
+  // placement omitted explicit vitals. Reads through `modifyStatQuery`
+  // so equipment / class / passive contributions to maxHp compose.
+  // Per ADR-0028.
+  state = fillVitalsFromComputedMaxes(state, battleConfig, catalog);
+
   return state;
 }
 
@@ -74,22 +91,125 @@ function placementToUnit(
   placement: UnitPlacement,
   ruleset: RulesetDefinition,
   masterSeed: number,
+  catalog: Catalog,
 ): Unit {
   const ct = placement.initialCT ?? resolveInitialCT(ruleset, placement, masterSeed);
+  const equipment: UnitEquipment = placement.equipment ?? EMPTY_UNIT_EQUIPMENT;
+
+  // Validate equipment placements against the class's permitted slots
+  // and per-slot kind. Done here rather than in validateConfigStructure
+  // because the class lookup + equipment-kind check needs the catalog
+  // and is naturally per-unit.
+  validateEquipmentPlacement(placement, equipment, catalog);
+
+  // Vitals fill: when the placement omits vitals, leave hp/mp at 0
+  // here and let `fillVitalsFromComputedMaxes` set them after equipment
+  // statuses apply. Prevents the partial-state where HP is set from
+  // base maxHp and then equipment bumps the cap (current HP would lag
+  // the new max). Per ADR-0028.
+  const vitals = placement.vitals ?? { hp: 0, mp: 0 };
+
   return {
     id: placement.id,
     team: placement.team,
     name: placement.name,
     classState: { currentClass: placement.classId },
     loadout: placement.loadout,
+    equipment,
     position: placement.position,
     facing: placement.facing,
     ct,
     baseStats: placement.baseStats,
-    vitals: placement.vitals,
+    vitals,
     resistances: placement.resistances ?? new Map(),
     statuses: placement.statuses ?? [],
   };
+}
+
+function validateEquipmentPlacement(
+  placement: UnitPlacement,
+  equipment: UnitEquipment,
+  catalog: Catalog,
+): void {
+  const cls = catalog.getClass(placement.classId);
+  for (const slot of ['leftHand', 'rightHand', 'headgear', 'armor', 'accessory'] as const) {
+    const id = equipment[slot];
+    if (id === null) continue;
+    if (!cls.equipmentSlots[slot]) {
+      throw new BattleConfigError(
+        `Unit ${JSON.stringify(placement.id)}: class ${JSON.stringify(placement.classId)} ` +
+          `does not permit ${slot}`,
+      );
+    }
+    if (!catalog.hasItem(id)) {
+      throw new BattleConfigError(
+        `Unit ${JSON.stringify(placement.id)}: equipment id ${JSON.stringify(id)} not in catalog`,
+      );
+    }
+    const item = catalog.getItem(id);
+    try {
+      validateSlotItem(slot, item);
+    } catch (err) {
+      throw new BattleConfigError(
+        `Unit ${JSON.stringify(placement.id)}: ${(err as Error).message}`,
+      );
+    }
+  }
+}
+
+function applyEquipmentStatusGrants(state: GameState, catalog: Catalog): GameState {
+  let next = state;
+  for (const unit of state.units.values()) {
+    for (const { item } of iterateEquippedItems(unit, catalog)) {
+      if (item.statusGrants === undefined) continue;
+      for (const typeId of item.statusGrants) {
+        const result = applyStatus(
+          next,
+          {
+            targetId: unit.id,
+            typeId,
+            sourceUnitId: null,
+            sourceActionSeq: null,
+            sourceKind: 'equipment',
+            sourceEquipmentId: item.id,
+          },
+          catalog,
+        );
+        next = result.newState;
+      }
+    }
+  }
+  return next;
+}
+
+function fillVitalsFromComputedMaxes(
+  state: GameState,
+  battleConfig: BattleConfig,
+  catalog: Catalog,
+): GameState {
+  // Map placement.id → whether the placement supplied explicit vitals.
+  const explicitVitals = new Set<UnitId>();
+  for (const p of battleConfig.units) {
+    if (p.vitals !== undefined) explicitVitals.add(p.id);
+  }
+  if (explicitVitals.size === battleConfig.units.length) return state;
+
+  const newUnits = new Map(state.units);
+  for (const unit of state.units.values()) {
+    if (explicitVitals.has(unit.id)) continue;
+    const maxHp = runModifyStatQuery(state, catalog, {
+      unit,
+      statName: 'maxHp',
+      baseValue: unit.baseStats.maxHpBase,
+    });
+    // MP isn't yet a `modifyStatQuery` consumer — equipment doesn't
+    // contribute MP today (no `maxMpBase` stat exists). When it does,
+    // this is where the read lands. v1 fills hp from computed max,
+    // mp at 0 (placeholder for the still-stored loadout/spell-cost
+    // accounting, which lives off the unit's vitals.mp field).
+    newUnits.set(unit.id, { ...unit, vitals: { hp: Math.max(0, Math.floor(maxHp)), mp: 0 } });
+  }
+  return { ...state, units: newUnits };
 }
 
 // Resolve the ruleset's initial-CT formula. The exhaustive switch

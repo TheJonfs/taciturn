@@ -8,6 +8,7 @@ export * from './battle-outcome.ts';
 export * from './charged-action.ts';
 export * from './damage.ts';
 export * from './duration-mode.ts';
+export * from './equipment-slot.ts';
 export * from './errors.ts';
 export * from './game-state.ts';
 export * from './hook-source.ts';

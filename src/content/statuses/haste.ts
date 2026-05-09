@@ -6,6 +6,13 @@
 //
 // Magnitude semantics: 1.5 means "150% of base Speed." The default
 // magnitude for the catalog stub is 1.5, matching FFT convention.
+//
+// Duration: `permanent_per_unit_ct` — Haste does not auto-expire. v1's
+// only consumer is the Boots of Haste equipment grant (per ADR-0028),
+// which intentionally lasts as long as the equipment is worn. When a
+// timed-Haste ability lands later, the right shape is a separate
+// status type (e.g., `quickening`) with a duration-counted mode rather
+// than retroactively re-typing this one.
 
 import { statusHook, statusTypeId, type StatusEffectType } from '@engine/index.ts';
 
@@ -13,7 +20,7 @@ export const haste: StatusEffectType = {
   id: statusTypeId('haste'),
   name: 'Haste',
   tags: ['positive', 'time', 'dispellable'],
-  durationMode: 'per_unit_ct',
+  durationMode: 'permanent_per_unit_ct',
   stackingRule: 'REFRESH',
   defaultMagnitude: 1.5,
   hooks: [

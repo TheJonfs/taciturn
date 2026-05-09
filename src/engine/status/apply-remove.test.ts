@@ -397,6 +397,11 @@ describe('Haste end-to-end (apply + computeSpeed + remove)', () => {
   });
 
   it('a second Haste apply REFRESHes — magnitude unchanged, Speed unchanged', () => {
+    // Per ADR-0028, Haste's durationMode is `permanent_per_unit_ct` —
+    // remainingDuration is forced to null by the apply pipeline. The
+    // REFRESH stacking rule still applies (magnitude on the new
+    // instance is ignored, the existing instance's magnitude wins),
+    // but there is no duration to refresh.
     const u = makeUnit({ id: 'u1', spd: 10 });
     let state = makeGameState({ units: [u] });
     state = applyStatus(
@@ -406,7 +411,6 @@ describe('Haste end-to-end (apply + computeSpeed + remove)', () => {
         typeId: statusTypeId('haste'),
         sourceUnitId: null,
         sourceActionSeq: null,
-        duration: 3,
       },
       cat,
     ).newState;
@@ -418,11 +422,10 @@ describe('Haste end-to-end (apply + computeSpeed + remove)', () => {
         sourceUnitId: null,
         sourceActionSeq: null,
         magnitude: 99, // ignored on REFRESH
-        duration: 9,
       },
       cat,
     ).newState;
     expect(computeSpeed(state, u.id, cat)).toBe(15);
-    expect(state.units.get(u.id)!.statuses[0]!.remainingDuration).toBe(9);
+    expect(state.units.get(u.id)!.statuses[0]!.remainingDuration).toBeNull();
   });
 });

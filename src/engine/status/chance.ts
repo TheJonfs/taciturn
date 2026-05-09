@@ -1,39 +1,52 @@
-// Status application chance formula — BMG "Status application chance":
+// Status application chance formula — BMG "Status application chance"
+// with per-ability factor selection (per ADR-0028):
 //
-//   hit_chance = base_chance × Faith_factor × MA_factor
+//   hit_chance = base_chance × ∏selected_factors
 //              × (1 - target_resistance / 100) × ∏modifiers
 //
-// where:
-//   - base_chance is per-ability, expressed [0, 100] in StatusEffectSpec
-//     and normalized to [0, 1] here.
-//   - Faith_factor = (Faith_caster / 100) × (Faith_target / 100). Same
-//     symmetric Faith as damage and healing.
-//   - MA_factor = 0.9 + MA_caster / 10. The BMG-specified shape:
-//       MA  1 → factor ~1.0
-//       MA 10 → factor 1.9
-//       MA 20 → factor 2.9
-//   - target_resistance is the signed-max composition across the
-//     status's resistance tags (today the type's `resistanceTag` field
-//     when set; empty set when unset → resistance 0).
-//   - ∏modifiers is the multiplicative product of any
-//     `modifyStatusApplicationChance` hook returns (Earth Communion
-//     × 1.25, etc.).
+// where `selected_factors` is determined by the per-effect
+// `StatusFormulaFactors` (default `{ faith: true, ma: true }`):
+//   - Faith_factor = (Faith_user/100) × (Faith_target/100)
+//   - Brave_factor = (Brave_user/100) × (Brave_target/100)
+//   - MA_factor    = 0.9 + MA_caster / 10
+//   - PA_factor    = (deferred — first PA-using consumer ships the formula)
 //
-// The result is clamped to [0, 1] and rolled against the action seed's
-// status-chance sub-stream. Returns `{ chance, applied, roll }` so
-// callers can record both the chance and the roll on the outcome (lets
-// authors and tests reason about why a roll missed).
+// Resistance and `modifyStatusApplicationChance` modifiers compose
+// unconditionally — they're outside the factor-selection model and
+// fire even when `applyAlways` is set (so future hooks can gate even
+// applyAlways effects if a content consumer wants).
+//
+// `applyAlways: true` short-circuits the factor / resistance / base
+// chance compute — the status applies unconditionally. The recorded
+// `chance` is 1.0 for replay determinism, the modifier chain still
+// runs against the constant 1.0.
 
-import type { Catalog, StatusEffectType } from '../catalog/index.ts';
+import type { ActiveAbilityDefinition, Catalog, StatusEffectType } from '../catalog/index.ts';
 import { runModifyStatQuery, runModifyStatusApplicationChance } from '../hooks/runners.ts';
-import type { ActiveAbilityDefinition, GameState, Unit } from '../types/index.ts';
-import { computeFaithFactor } from '../damage/handlers.ts';
+import type { GameState, Unit } from '../types/index.ts';
+import type { StatusFormulaFactors } from '../catalog/definitions/ability-definition.ts';
+import { computeBraveFactor, computeFaithFactor } from '../damage/handlers.ts';
 
 // Sub-stream constant for the status-chance roll. Distinct from
 // variance (0), evasion (1), and the brave reaction roll (2). Keeps
 // each random subsystem on its own stream so a change in one doesn't
 // shift the others.
 const STATUS_CHANCE_SUB_STREAM = 3;
+
+export class NotYetImplementedError extends Error {
+  override readonly name = 'NotYetImplementedError';
+}
+
+// Default factor selection when the StatusEffectSpec omits `factors`.
+// Preserves Earth Magic's existing `Faith_factor × MA_factor` behavior
+// (per ADR-0028). New abilities that want a different shape declare
+// `factors` explicitly.
+const DEFAULT_FACTORS: Readonly<Required<StatusFormulaFactors>> = {
+  faith: true,
+  brave: false,
+  ma: true,
+  pa: false,
+};
 
 export interface StatusChanceArgs {
   readonly state: GameState;
@@ -54,6 +67,16 @@ export interface StatusChanceArgs {
   // Silence, two effects) doesn't end up with both effects tied to
   // the same coin flip. Defaults to 0 for the single-effect case.
   readonly effectIndex?: number;
+  // Per-effect factor selection (per ADR-0028). When omitted, the
+  // default is `{ faith: true, ma: true }` (Earth's canonical shape).
+  // Stasis Sword passes `{ brave: true, ma: true }`. PA-using content
+  // (deferred) passes `{ pa: true, ... }`.
+  readonly factors?: StatusFormulaFactors;
+  // When `true`, formula is bypassed: the chance is set to 1.0, the
+  // `modifyStatusApplicationChance` chain still fires (so future hooks
+  // can gate even applyAlways effects), and the result is clamped to
+  // [0, 1]. Per ADR-0028; v1 consumer is Taunt.
+  readonly applyAlways?: boolean;
 }
 
 export interface StatusChanceResult {
@@ -63,26 +86,73 @@ export interface StatusChanceResult {
 }
 
 export function rollStatusChance(args: StatusChanceArgs): StatusChanceResult {
-  const baseFraction = Math.max(0, args.baseChance / 100);
-  const faithFactor = computeFaithFactor({
-    state: args.state,
-    catalog: args.catalog,
-    attacker: args.caster,
-    target: args.target,
-  });
-  const ma = runModifyStatQuery(args.state, args.catalog, {
-    unit: args.caster,
-    statName: 'ma',
-    baseValue: args.caster.baseStats.ma,
-  });
-  const maFactor = 0.9 + ma / 10;
-  const resistance = lookupStatusResistance(args.statusType, args.target);
-  const resistanceFactor = (100 - Math.min(100, resistance)) / 100;
+  // Factor selection (per ADR-0028): when `args.factors` is omitted,
+  // the default `{ faith: true, ma: true }` applies — preserving
+  // Earth's canonical shape. When `args.factors` is provided, every
+  // undeclared key is treated as `false` (full-override semantics) —
+  // Stasis Sword's `{ brave: true, ma: true }` opts *out* of faith.
+  const factors: Required<StatusFormulaFactors> =
+    args.factors === undefined
+      ? DEFAULT_FACTORS
+      : {
+          faith: args.factors.faith === true,
+          brave: args.factors.brave === true,
+          ma: args.factors.ma === true,
+          pa: args.factors.pa === true,
+        };
 
-  const preModifier = baseFraction * faithFactor * maFactor * resistanceFactor;
+  let preModifier: number;
+  if (args.applyAlways === true) {
+    // Unconditional pre-modifier value. Modifier chain still runs.
+    preModifier = 1;
+  } else {
+    const baseFraction = Math.max(0, args.baseChance / 100);
+
+    let factorProduct = 1;
+    if (factors.faith) {
+      factorProduct *= computeFaithFactor({
+        state: args.state,
+        catalog: args.catalog,
+        attacker: args.caster,
+        target: args.target,
+      });
+    }
+    if (factors.brave) {
+      factorProduct *= computeBraveFactor({
+        state: args.state,
+        catalog: args.catalog,
+        attacker: args.caster,
+        target: args.target,
+      });
+    }
+    if (factors.ma) {
+      const ma = runModifyStatQuery(args.state, args.catalog, {
+        unit: args.caster,
+        statName: 'ma',
+        baseValue: args.caster.baseStats.ma,
+      });
+      factorProduct *= 0.9 + ma / 10;
+    }
+    if (factors.pa) {
+      // Deferred per ADR-0028 — first PA-using consumer ships the
+      // formula. v1 has no PA-using status applier; reaching this
+      // branch is a content authoring error.
+      throw new NotYetImplementedError(
+        'PA_factor is declared on a StatusEffectSpec but the formula is not yet implemented; ' +
+          'the first PA-using consumer ships the formula. Surface the consumer and revisit.',
+      );
+    }
+
+    const resistance = lookupStatusResistance(args.statusType, args.target);
+    const resistanceFactor = (100 - Math.min(100, resistance)) / 100;
+
+    preModifier = baseFraction * factorProduct * resistanceFactor;
+  }
 
   // Modifier hooks (Earth Communion × 1.25, etc.) compose
-  // multiplicatively against the caster's hooks.
+  // multiplicatively against the caster's hooks. Earth Communion fires
+  // for any status application, including Stasis Sword's Stop and
+  // Taunt's Taunted — they're not gated by tag.
   const postModifier = runModifyStatusApplicationChance(args.state, args.catalog, {
     caster: args.caster,
     target: args.target,

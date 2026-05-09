@@ -57,7 +57,7 @@ const attack: ActiveAbilityDefinition = {
   targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
   actionSpeed: 0,
   mpCost: 0,
-  effects: { damage: { tags: ['physical', 'weapon'], power: 4 } },
+  effects: { damage: { tags: ['physical', 'weapon'], power_coefficient: 4 } },
 };
 
 const cure: ActiveAbilityDefinition = {
@@ -69,7 +69,7 @@ const cure: ActiveAbilityDefinition = {
   targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
   actionSpeed: 0,
   mpCost: 4,
-  effects: { damage: { tags: ['holy', 'healing'], power: 5 } },
+  effects: { damage: { tags: ['holy', 'healing'], power_coefficient: 5 } },
 };
 
 const battleSkill: CommandSetDefinition = {

@@ -32,6 +32,16 @@ export const earthMage: ClassDefinition = {
   // Standard mage evasion baseline (modest front, modest side, no back)
   // per BMG "Evasion and accuracy". Real numbers land in tuning.
   evasion: { front: 8, side: 5, back: 0 },
+  // Earth Mage equips into all five slots (per ADR-0028). Robe-only
+  // restrictions are wave-2 territory; v1 keeps the slot surface
+  // uniform across classes.
+  equipmentSlots: {
+    leftHand: true,
+    rightHand: true,
+    headgear: true,
+    armor: true,
+    accessory: true,
+  },
   firstActionCommandSet: commandSetId('earth_spells'),
   freeAbilities: new Set<ReturnType<typeof abilityId>>(),
 };

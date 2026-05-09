@@ -68,6 +68,7 @@ const knight: ClassDefinition = {
     canEnter: new Set(['ground']),
   },
   evasion: { front: 0, side: 0, back: 0 },
+  equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
   firstActionCommandSet: commandSetId('battle_skill'),
   freeAbilities: new Set(),
 };

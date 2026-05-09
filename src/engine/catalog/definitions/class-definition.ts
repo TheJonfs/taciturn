@@ -49,11 +49,25 @@ export interface ClassEvasionBaseline {
   readonly back: number;
 }
 
+// Per-class equipment slot allowance. v1 classes ship with all five
+// slots permitted; future class content (a Wizard with no armor, a
+// Monk with no weapon) sets `false` to forbid a slot. `createInitialState`
+// validates that each placement's equipment lands only in permitted
+// slots. Per ADR-0028.
+export interface ClassEquipmentSlots {
+  readonly leftHand: boolean;
+  readonly rightHand: boolean;
+  readonly headgear: boolean;
+  readonly armor: boolean;
+  readonly accessory: boolean;
+}
+
 export interface ClassDefinition {
   readonly id: ClassId;
   readonly name: string;
   readonly movement: ClassMovementBaseline;
   readonly evasion: ClassEvasionBaseline;
+  readonly equipmentSlots: ClassEquipmentSlots;
   readonly firstActionCommandSet: CommandSetId;
   readonly freeAbilities: ReadonlySet<AbilityId>;
 }
