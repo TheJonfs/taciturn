@@ -33,6 +33,13 @@ import { computeBraveFactor, computeFaithFactor } from '../damage/handlers.ts';
 // shift the others.
 const STATUS_CHANCE_SUB_STREAM = 3;
 
+// Sub-stream base for ability-level chance rolls (per session 18) —
+// knockback chance gates on damage riders and free-standing CT effects
+// share this base. Sized to leave room for the status sub-stream to
+// grow (an ability with up to ~12 status effects in a single use stays
+// safely below 16). Adding a new chance subsystem picks the next gap.
+const ABILITY_CHANCE_SUB_STREAM = 16;
+
 export class NotYetImplementedError extends Error {
   override readonly name = 'NotYetImplementedError';
 }
@@ -176,6 +183,87 @@ function lookupStatusResistance(type: StatusEffectType, target: Unit): number {
   if (type.resistanceTag === undefined) return 0;
   const value = target.resistances.get(type.resistanceTag);
   return value ?? 0;
+}
+
+// Generic ability-chance roll for non-status rider effects: knockback
+// gates on damage riders, free-standing CT effects (Tide Surge), and
+// future content that needs the same Faith × MA chance shape without
+// the status pipeline's resistance and modifier-hook composition.
+//
+// Formula: `baseChance × ∏selected_factors`, clamped to [0, 1]. No
+// resistance lookup (CT effects / knockback don't carry a resistance
+// tag in v1; if a future content consumer wants per-tag resistance,
+// extend this shape). No modifier hook (Earth Communion's status-
+// chance ×1.25 deliberately doesn't apply to non-status applications;
+// adding a parallel hook for ability-chance is wave-2 work).
+//
+// Same factor-selection model as rollStatusChance (default `{ faith:
+// true, ma: true }`; full-override semantics when `factors` is set).
+export interface AbilityChanceArgs {
+  readonly state: GameState;
+  readonly catalog: Catalog;
+  readonly caster: Unit;
+  readonly target: Unit;
+  readonly baseChance: number; // [0, 100]
+  readonly seed: number;
+  readonly effectIndex?: number;
+  readonly factors?: StatusFormulaFactors;
+}
+
+export interface AbilityChanceResult {
+  readonly chance: number;
+  readonly roll: number;
+  readonly applied: boolean;
+}
+
+export function rollAbilityChance(args: AbilityChanceArgs): AbilityChanceResult {
+  const factors: Required<StatusFormulaFactors> =
+    args.factors === undefined
+      ? DEFAULT_FACTORS
+      : {
+          faith: args.factors.faith === true,
+          brave: args.factors.brave === true,
+          ma: args.factors.ma === true,
+          pa: args.factors.pa === true,
+        };
+
+  const baseFraction = Math.max(0, args.baseChance / 100);
+  let factorProduct = 1;
+  if (factors.faith) {
+    factorProduct *= computeFaithFactor({
+      state: args.state,
+      catalog: args.catalog,
+      attacker: args.caster,
+      target: args.target,
+    });
+  }
+  if (factors.brave) {
+    factorProduct *= computeBraveFactor({
+      state: args.state,
+      catalog: args.catalog,
+      attacker: args.caster,
+      target: args.target,
+    });
+  }
+  if (factors.ma) {
+    const ma = runModifyStatQuery(args.state, args.catalog, {
+      unit: args.caster,
+      statName: 'ma',
+      baseValue: args.caster.baseStats.ma,
+    });
+    factorProduct *= 0.9 + ma / 10;
+  }
+  if (factors.pa) {
+    throw new NotYetImplementedError(
+      'PA_factor is declared on an ability-chance roll but the formula is not yet implemented; ' +
+        'the first PA-using consumer ships the formula.',
+    );
+  }
+
+  const chance = Math.max(0, Math.min(1, baseFraction * factorProduct));
+  const subIndex = ABILITY_CHANCE_SUB_STREAM + (args.effectIndex ?? 0);
+  const roll = unitFloatFromSeed(args.seed, subIndex);
+  return { chance, roll, applied: roll < chance };
 }
 
 // mulberry32-style mixer matching engine/damage/handlers.ts. Returns a

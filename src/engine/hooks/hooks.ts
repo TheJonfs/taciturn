@@ -67,6 +67,16 @@ export interface OnTickResult {
   readonly emittedActions?: ReadonlyArray<ProposedAction>;
 }
 
+// Result of `onActionResolved` (per session 18) — fired once per
+// UseAbility / ChargedActionResolve, on the actor, after all per-target
+// dispatch and emissions have settled. Handlers gate themselves on
+// ability tags / id to react to specific kinds of actions (Flow State
+// gates on `'magical'` to refund 10 CT). Returns optional emissions for
+// the reducer to forward onto its `generatedActions`.
+export interface OnActionResolvedResult {
+  readonly emittedActions?: ReadonlyArray<ProposedAction>;
+}
+
 // Result of `onDamageReceived` (per ADR-0027). Handlers may either modify
 // the in-flight DamageContext (the legacy shape) or wrap it with
 // `emittedActions` to propose system actions in response — Sleep wake-on-
@@ -273,6 +283,27 @@ export interface HookSignatures {
       damageTags?: ReadonlySet<DamageTag>;
     };
     return: ReadonlyArray<ProposedAction>;
+  };
+
+  // Action resolution complete: fired once per UseAbility / charged-
+  // action-resolve, on the actor's hooks, after all per-target dispatch
+  // and pipeline emissions have settled. Handlers gate themselves on
+  // `ability.tags` / `ability.id` (the ability arg is non-null for
+  // use_ability and charged_action_resolve actions; null for other
+  // action kinds the runner is invoked for, though v1 fires it only on
+  // ability resolution). Returns optional `emittedActions` to forward
+  // onto the reducer's generatedActions.
+  //
+  // First v1 consumer is Flow State (Water Mage Support): gates on
+  // `'magical'` ability tag and emits `system_ct_push` of +10 against
+  // the actor. Per session 18.
+  onActionResolved: {
+    args: {
+      unit: Unit;
+      action: ProposedAction;
+      ability: ActiveAbilityDefinition | null;
+    };
+    return: OnActionResolvedResult;
   };
 
   // Per-step movement event. Runner lands when a movement-modifying

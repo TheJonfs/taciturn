@@ -91,6 +91,7 @@ function envelopeFor(
     proposed.type !== 'system_heal' &&
     proposed.type !== 'system_damage' &&
     proposed.type !== 'system_apply_status' &&
+    proposed.type !== 'system_ct_push' &&
     proposed.type !== 'status_remove' &&
     proposed.type !== 'status_decrement_stack' &&
     proposed.type !== 'battle_end' &&
@@ -127,6 +128,8 @@ function envelopeFor(
       return { ...envelope, type: 'system_damage', payload: proposed.payload };
     case 'system_apply_status':
       return { ...envelope, type: 'system_apply_status', payload: proposed.payload };
+    case 'system_ct_push':
+      return { ...envelope, type: 'system_ct_push', payload: proposed.payload };
     case 'status_remove':
       return { ...envelope, type: 'status_remove', payload: proposed.payload };
     case 'status_decrement_stack':

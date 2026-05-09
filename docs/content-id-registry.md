@@ -19,6 +19,7 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 |---|---|---|
 | `knight` | Knight | `src/content/classes/knight.ts` |
 | `earth_mage` | Earth Mage | `src/content/classes/earth-mage.ts` |
+| `water_mage` | Water Mage | `src/content/classes/water-mage.ts` |
 
 ## Command sets
 
@@ -28,6 +29,7 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `white_magic` | White Magic | `cure` | `src/content/command-sets/white-magic.ts` |
 | `arcane_skill` | Arcane Skill | `bolt` | `src/content/command-sets/arcane-skill.ts` |
 | `earth_spells` | Earth Spells | `earth_strike`, `earth_blessing`, `earth_curse`, `earth_quake`, `earth_cataclysm` | `src/content/command-sets/earth-spells.ts` |
+| `water_spells` | Water Spells | `water_strike`, `tide_surge`, `tidal_wave`, `brine`, `maelstrom` | `src/content/command-sets/water-spells.ts` |
 
 ## Active abilities
 
@@ -44,6 +46,11 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `earth_curse` | Earth Curse | first_action | yes (actionSpeed 30) | `src/content/abilities/earth-curse.ts` |
 | `earth_quake` | Earth Quake | first_action | yes (actionSpeed 25, AoE cross-r1) | `src/content/abilities/earth-quake.ts` |
 | `earth_cataclysm` | Earth Cataclysm | first_action | yes (actionSpeed 18, AoE cross-r1) | `src/content/abilities/earth-cataclysm.ts` |
+| `water_strike` | Water Strike | first_action | yes (actionSpeed 30, ctPush rider) | `src/content/abilities/water-strike.ts` |
+| `tide_surge` | Tide Surge | first_action | yes (actionSpeed 25, ally CT bump) | `src/content/abilities/tide-surge.ts` |
+| `tidal_wave` | Tidal Wave | first_action | yes (actionSpeed 25, AoE diamond-r1, knockback rider) | `src/content/abilities/tidal-wave.ts` |
+| `brine` | Brine | first_action | yes (actionSpeed 30, Speed Down debuff) | `src/content/abilities/brine.ts` |
+| `maelstrom` | Maelstrom | first_action | yes (actionSpeed 18, cone caster-anchored, always-knockback) | `src/content/abilities/maelstrom.ts` |
 
 ## Passive abilities
 
@@ -57,6 +64,8 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `earth_resilience` | Earth Resilience | reaction | `src/content/abilities/earth-resilience.ts` |
 | `earth_communion` | Earth Communion | support | `src/content/abilities/earth-communion.ts` |
 | `damage_reduction` | Damage Reduction | support | `src/content/abilities/damage-reduction.ts` |
+| `tidal_pull` | Tidal Pull | reaction | `src/content/abilities/tidal-pull.ts` |
+| `flow_state` | Flow State | support | `src/content/abilities/flow-state.ts` |
 
 ## Status types
 
@@ -74,6 +83,7 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `dont_act` | Don't Act | negative, mental | REFRESH | per_unit_ct | `src/content/statuses/dont-act.ts` |
 | `dont_move` | Don't Move | negative, physical | REFRESH | per_unit_ct | `src/content/statuses/dont-move.ts` |
 | `taunted` | Taunted | negative, mental, dispellable | REFRESH | per_unit_ct (removeOnSourceKO) | `src/content/statuses/taunted.ts` |
+| `speed_down` | Speed Down | negative, water | STACK_INDEPENDENT | permanent | `src/content/statuses/speed-down.ts` |
 
 ## Equipment
 

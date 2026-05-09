@@ -220,6 +220,7 @@ export class Animator {
       case 'system_heal':
       case 'system_damage':
       case 'system_apply_status':
+      case 'system_ct_push':
       case 'status_remove':
       case 'status_decrement_stack':
         // No v1 visual; the renderer can pull the next action. (System

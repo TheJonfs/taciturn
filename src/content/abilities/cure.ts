@@ -17,6 +17,12 @@ export const cure: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: bucketId('second_action'),
   baseCost: 1,
+  // 'magical' added in session 18 so Water Mage's Flow State support
+  // (refunds 10 CT after any 'magical' ability cast) recognizes Cure
+  // as a magical action. The damage spec's tags pick up 'magical' at
+  // the same time so resistance / handler dispatch on the magical tag
+  // sees Cure as a magical action consistently.
+  tags: ['magical', 'holy', 'healing'],
   targeting: {
     kind: 'single_unit',
     range: { horizontal: 4, vertical: 3 },
@@ -26,7 +32,7 @@ export const cure: ActiveAbilityDefinition = {
   mpCost: 4,
   effects: {
     damage: {
-      tags: ['holy', 'healing'],
+      tags: ['magical', 'holy', 'healing'],
       power_coefficient: 5,
       variance: { min: 0.95, max: 1.05 },
     },

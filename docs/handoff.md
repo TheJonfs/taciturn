@@ -21,76 +21,80 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-08 (session 17c: Knight expansion + equipment integration)
+## From session 2026-05-09 (session 18: Water Mage)
 
 ### Suggested next-session scope
 
-**Session 18 — Water Mage** (per `docs/roadmap-sessions-14-20.md`).
+**Session 19 — Fire Mage + custom-trigger statuses** (per `docs/roadmap-sessions-14-20.md`).
 
 Engine work:
-- CT push as damage rider: damage spec gains a `ctPush?: { factor }` field (or similar) so abilities can declare `target CT -= 2 × MA` mid-resolve. Water Base spell is the first consumer.
-- Self-CT manipulation by reactions (Water Reaction = "self +20 CT on hit"). Flows through `onActionTargeted` with a CT-push side effect.
-- CT refund hook (Water Support: "magic actions refund 10 CT after use"). New post-action-resolve consumer; first hook of its kind.
-- Knockback: Water Mage's AoE spell + Ultimate are the first content consumers of the `applyKnockback` primitive shipped in 17b. Forced-movement collision policy lands as a real test (cancel-on-blocker per ADR-0026).
-- New status: **Speed -1** (multiplicative debuff via modifyStatQuery — clean addition).
+- **Custom-trigger status pattern** — generalized from the Burn-specific design in BMG. A status type may declare a custom trigger condition (CT 100 reached, damage taken, action attempted, etc.) and an effect on trigger. Distinct from duration-tick and conditional duration modes.
+- **`STACK_COUNT_ADDITIVE`** stacking rule per ADR-0018 (enum value already exists; `apply.ts` throws on the branch). Burn is the first consumer.
+- **AoE shape modifier hook** — `modifyAoeShape` already exists (added in 17a, identity chain). Fire's "larger AoE" rider is the planned consumer; this session adds the consumer behavior.
+- **Per-stack damage scaling** for stacked statuses (Burn with N stacks deals N × per-stack magnitude per ADR-0018).
 
 Content work (plaintext-first):
-- Full 7-ability Water Mage kit: Base spell (damage + CT push), Buff (CT gain on ally), AoE (damage + chance of knockback 1), Debuff (Speed -1 status), Ultimate (cone shape, always knocks back), Reaction (self +20 CT on hit), Support (magic actions refund 10 CT).
+- Full 7-ability Fire Mage kit: Base spell (damage + PA/MA debuff rider), Buff (PA/MA self-buff), AoE (larger-AoE rider), Debuff (Burn stacks), Ultimate (line-shape, multiple Burn stacks), Reaction (Burn-on-attacker), Support (magic damage adds 1 stack of Burn).
+- New status: **Burn** (custom-trigger CT 100, damage = stack × per-stack magnitude, decrements via `status_decrement_stack`, STACK_COUNT_ADDITIVE).
+- New status: **PA/MA buff/debuff** (additive stat mods with duration; one combined "Stat Buff" type with magnitude per stat, or four separate types — content designer call).
 
-ADR-0029 (anticipated): CT-push primitive + CT-refund hook.
+ADR-0030 (anticipated): custom-trigger pattern formalization.
 
-The 17c substrate that 18 inherits:
-- **`factors` selection** is in place; Water content can opt in to `{ faith: true, ma: true }` or other shapes per ability. PA-factor still NotYetImplementedError until a consumer ships.
-- **`applyAlways: true`** is available for Water statuses that should bypass the formula (Speed -1 from the Debuff might not need it; Ultimate's knockback is a side effect, not a status).
-- **`modifyEvasion`** hook is live; Water doesn't currently use it but a future "Water Veil" support that grants evasion would be a natural consumer.
-- **Equipment integration** is fully wired. Water Mage's class definition needs `equipmentSlots`. v1 demo doesn't equip Water Mages; the slots can default to all-true for parity with Earth Mage.
-- **Source-KO status sweep** — no v1 consumer beyond Taunted; Water content unlikely to need it but it's available.
-- **`removeStatus(... force: true)`** is available for the deferred mid-battle equipment-removal path. Water content shouldn't need it.
+The 18 substrate that 19 inherits:
+- **Cone shape** is in place; if Fire's Ultimate is line-shaped (per the planning doc), session 19 might add a `'line'` shape variant — direction handling is already plumbed (`cardinalFromTo`, `direction` parameter on `aoeFootprint`).
+- **`anchorMode`** is in place; line shapes (or any future caster-anchored Fire spell) plug in directly.
+- **`onActionResolved`** is available; if a Fire support wants "post-action emit Burn stack" or similar, the hook is ready.
+- **`damage.ctPush` / `damage.knockback`** patterns generalize to other riders. If Fire wants a "damage + apply X" rider that's not a status, the per-rider field-on-DamageSpec pattern is the model.
+- **`rollAbilityChance`** helper is available for any non-status chance gate Fire's content uses.
 
 ### Things noticed during the session
 
-- **Pre-existing TS strict-mode errors in test files surfaced by `npm run typecheck`.** These existed before 17c (knockback.test.ts using `makeUnit({ id, position })` without `spd`; runners.test.ts onTick handler returning void). Vitest doesn't full-typecheck so they don't surface in `npm test`. Worth a session of cleanup at some point — `tsc -b --noEmit` should be green, not a list of pre-existing baggage. **Not session-blocking, but flagged.**
+- **Pre-existing TS strict-mode errors in test files** (carried from 17c handoff). Still not addressed; `npm run typecheck` passes via Vitest's loose mode but `tsc -b --noEmit` may surface them. Worth a session of cleanup at some point — defer until a natural lull.
 
-- **Status hook firing direction inconsistency.** `modifyHitChance` runs against the *target's* hooks (Blind on the defender). Taunted needed to gate by *attacker's* behavior — so its handler is on `onActionAttempted` (a probabilistic block) rather than `modifyHitChance`. Worked, but the pattern is "Taunted blocks 40% of attempted attacks against non-source targets," not a clean hit-chance modifier. If a future session needs "Taunted reduces accuracy" as a hit-chance modifier, the right shape is a new `modifyHitChance` runner that fires against the attacker's hooks (parallel to the existing target-side runner). Document/decide when content surfaces it.
+- **Cone direction is cardinal-only.** Diagonal cones are deferred. A perfect-diagonal target snaps to one of the four axes (tie-break: horizontal). When a content consumer wants 8-direction cones, `DIRECTION_BASIS` grows by four entries and `cardinalFromTo` extends. Fire's Ultimate is line-shaped per planning, so 19 may not need this; track for whoever does.
 
-- **Per-ability cost field is currently vestigial for active members of command sets.** Looking at attack.ts and the new Battle Skill members (power_attack, stasis_sword, taunt) — they each declare `baseCost: 1`, but command-set membership is the real gate. Validation doesn't read individual ability `baseCost` on actives. The field exists for symmetry with passive abilities (where it's the real cost). When a future system needs "command-set members each cost something against a budget" (a Mimic-style "you can equip 2 abilities from a command set" pattern), this field becomes meaningful. v1 fine.
+- **AoE caster-target ctEffects throw.** v1 has no consumer. If Fire's content adds a "self-burst CT-bump as part of an AoE" pattern, the once-per-cast handling lands then (parallel to the existing caster-target status-effect pattern).
 
-- **Bulwark Stance's Move/Jump min-clamp at 0.** `Math.max(0, args.baseValue - 1)` so a baseline-Move-1 Knight doesn't go negative. v1 has no baseline-Move-1 Knight, but the clamp is defensive. If a future "Move 0" stance is desired, the floor would be -1. v1 fine.
+- **Knockback animation in the renderer** is still pull-through (no visual). Position update is reflected on the next animatable action's snapshot. A real knockback animation (interpolated path via `KnockbackResult.path`) is renderer work for a later session — not session 19 critical-path.
 
-- **Default factors merge semantics.** The first impl was sparse override (declared keys merge over defaults), which silently kept faith for Stasis Sword. Switched to full-override (declared `factors` replaces default entirely). Watch for: when a future ability adds a new factor (PA), the existing Earth Magic content that omits `factors` keeps default `{ faith: true, ma: true }` — no migration needed. New abilities that want PA + faith + ma must list all three explicitly. Cleaner, but the verbosity grows with the factor list.
+- **Faith-multiplier on CT-push magnitude.** Today's `delta = -floor(factor × MA)` is unmodulated. If a future content consumer wants Faith composition (parallel to magical damage), the helper takes the change. v1 spec was "no Faith multiplier"; flag if Fire's content wants it.
 
-- **`'sword'` damage tag.** Added to the closed `DamageTag` union for Long Sword. Future weapon types (axe, bow, spear) extend the union as content arrives. The `'weapon'` tag stays the marker that "ability uses the equipped weapon"; per-weapon types are additional tags that compose for resistance/category interactions.
+- **Cure tag fix** (`'magical'` added) was a small content-correctness fix that landed during 18 because Flow State needed it. Side-effect-free against the existing pipeline (the magical_ma_power and healing_base handlers compute the same value for healing-tagged effects, and resistance short-circuits on `'healing'` per ADR-0016). No follow-up needed.
+
+- **Reaction-cap accounting for `system_ct_push` reactions** works correctly. The runner stamps `reactorId: args.unit.id` per emission; commit-time cap accounting reads from the queue entry, not from the action's payload. Verified end-to-end in the demo battle — the second Tidal Pull push showed `applied: 0` (cap-exhausted).
 
 ### Things considered but did not do
 
-- **Renaming `AbilityDefinition.tags` from `ReadonlyArray<string>` to a closed enum.** Considered: tighter typing for hook gating (Silence on `'voice'`, Earth Mage's resistance-stop, etc.). Rejected: ability-level tags are a content convention, not an engine-layer constraint; growing the enum every time a new tag ships would be friction. The string union is fine for hook-gating purposes.
+- **Unified rider abstraction.** A single `riders` field on `AbilityEffects` with kind / gate / args. Rejected: with two rider kinds (`ctPush`, `knockback`) and three gating shapes today, explicit fields are more readable and TypeScript-friendly. Revisit when a third / fourth rider kind ships (Fire's "apply Burn on damage" might be the inflection point — if so, this is the natural surface to redesign).
 
-- **Auto-recompute MaxHp when equipment changes mid-battle.** Per ADR-0028, deferred. v1 has no mid-battle equipment changes; the recompute-and-clamp policy (current HP retained, clamped at new max? scaled proportionally?) is its own ADR when content surfaces it.
+- **Storing cone direction on the shape itself.** Rejected: same cone definition needs to rotate per-cast based on caster→target geometry. Direction is a runtime concern; the shape stays direction-agnostic.
 
-- **`modifyHitChance` runner against the attacker's hooks** (parallel to the existing target-side runner). Considered: would let Taunted's effect compose as a hit-chance modifier rather than a probabilistic block. Rejected: v1 has no consumer for the attacker-side direction beyond Taunted, and the probabilistic-block path works without growing the closed surface. Surface when content needs it.
+- **Cone as a `'custom'` shape with pre-computed offsets.** Rejected: cones are recurring (Maelstrom now; future cone-shaped breath weapons / line spells), and parametrizing by row widths makes the "more affecting Maelstrom" expansion (`[1, 3, 5]`) a one-line content change.
 
-- **Per-equipment-source priority on hook handlers.** Considered: equipment that wants to compose in a specific order (a "Strength Ring +1 PA" applying before "Cursed Ring -1 PA" produces 0; reversed produces 0 too — order doesn't matter for additive PA mods). Rejected: additive composition is order-independent. When multiplicative equipment mods land (a "Berserker's Mantle ×1.5 PA" + Strength Ring +1), order matters, and we'd want explicit priority. Surface when content ships.
+- **Generic "rider chance roll" hook.** Considered: a `modifyAbilityChance` hook (parallel to `modifyStatusApplicationChance`) for support abilities like "Tidal Wave knockbacks ×1.25." Rejected: no v1 consumer; can add when content needs it. The shape is straightforward — the existing modifier hook would be the model.
 
-- **`AbilityDefinition.tags` propagating into the equipment damage tag set.** Considered: an ability whose `tags` includes `'fire'` could compose that into damage tags for content that uses ability tags vs. damage tags interchangeably. Rejected: today the two tag sets are separate (ability tags for hook gating, damage tags for resistance lookups). The split is intentional. If a future ability wants the cross-pollination, adding `'fire'` to its damage tag set is the right answer.
+- **Faith multiplier on CT push magnitude.** Considered for parity with magical damage. Rejected per user spec — Faith is already factored into the chance to land (for chance-gated paths) or the damage hit (for damage riders); applying Faith again to the push magnitude is double-counting.
 
-- **Stasis Sword defaulting to `actionSpeed > 0`** (charged version). Considered: a "Sword Tech" feel where Knight Battle Skills take a beat to land. Rejected per plaintext review: the Knight identity is "instant martial action"; Mages charge, Knights swing. Stasis Sword stays instant.
+- **Naming the new hook `onAfterAction` instead of `onActionResolved`.** Rejected: existing hook family uses verbs (`onActionAttempted`, `onActionTargeted`); `onActionResolved` matches the pattern.
 
 ### Open questions for later sessions (not blocking)
 
-- **Equipment-stripping abilities.** No v1 consumer; if a future class has a "Steal Equipment" or "Disarm" ability, the `removeStatus(force: true)` path lights up. Surface when content needs it.
+- **Knockback collision cancellation in projection.** Today the AI doesn't reason about whether a knockback would actually move a target (collision cancels, falling damage applies, etc.). Tier 1.5 AI in session 20 might want this; for v1 not load-bearing.
 
-- **Equipment that grants statuses with finite durations.** All v1 equipment-granted statuses use `permanent_per_unit_ct` (Boots of Haste). If a future "Cursed Ring" grants Poison with a fixed duration, the equipment apply path needs to honor the spec's `duration` somehow. Today the apply path doesn't pass a duration for equipment grants; the status's durationMode is the source of truth. v1 fine; surface when content needs it.
+- **Diagonal cones / line shapes.** Cardinal-only is a v1 simplification. Fire's Ultimate is line-shaped per planning — if "line" is added as a new shape, decide whether it's strictly cardinal or supports 8-direction.
 
-- **Mid-battle equipment removal recompute.** Deferred per ADR-0028. When theft / equipment-break ships, the policy on current HP scaling and the equipment-anchored statuses' lifecycle needs an ADR.
+- **`onActionResolved` for non-ability actions.** v1 fires it only inside `reduceUseAbility` and `reduceChargedActionResolve`. Future Move-flavored consumers (e.g., "moved this turn" passive, "took damage this turn" tracker) would extend the firing sites. Not a v1 need; flag if a content consumer surfaces.
 
-- **AI awareness of equipment.** The basic AI (`decideBasicAi`) reads PA/MA/HP via `runModifyStatQuery` (so equipment stat mods compose naturally), but doesn't reason about *what* equipment a target is wearing for tactical decisions. Tier 1.5 AI in session 20 might want this; for v1 not load-bearing.
+- **`AoeSpec.anchorMode` for non-cone caster-anchored shapes.** v1 only Maelstrom uses `'caster'`. A future "self-burst" support (e.g., a Fire ability that bursts around the caster on cast) would benefit; the substrate already supports it.
 
-- **Taunted's probabilistic-block stable hash.** Currently uses `stableHash(sourceId | unitId | abilityId)` so a Taunted unit attempting the same ability on the same target always gets the same block-or-not decision. This is replay-deterministic but slightly weird flavor — the unit "knows" the outcome before they try. A per-action seeded approach (with a sub-stream off the action seed) would be cleaner. Surface when Taunt sees real play and the determinism feels off.
+- **Speed Down floor at 0.** `computeSpeed` already clamps at `ruleset.speedBounds.floor` (default 0). No per-status floor needed today, but if content adds a "below-floor" effect (e.g., negative speed for some bizarre design), the floor lives at the ruleset layer — change it there, not per-status.
 
 ### Notes for future ADRs
 
-- **ADR for CT-push primitive** (anticipated session 18) — the damage-rider shape, the post-action CT manipulation hook, and how knockback / CT-push interact with reaction triggers.
+- **ADR for custom-trigger pattern** (anticipated session 19) — generalization of CT-100 trigger, on-damage trigger, on-action-attempt trigger. The shape needs to compose cleanly with the existing duration modes (per_unit_ct, global_ticks, turn_based, conditional, permanent, permanent_per_unit_ct) — custom-trigger is orthogonal to duration.
 
-- **ADR for mid-battle equipment removal** when content surfaces it — current HP clamping, equipment-anchored status lifecycle, recompute determinism.
+- **ADR for STACK_COUNT_ADDITIVE implementation** (anticipated session 19) — apply pipeline branches today throw on this rule. Implementation is per ADR-0018: existing instance gets stack count incremented; new instance starts with stacks: 1 (or the application's stack quantity); per-stack scaling for damage / magnitude.
 
-- **ADR for attacker-side `modifyHitChance` runner** if Taunted (or future Concentration etc.) wants the cleaner hit-chance-modifier shape.
+- **ADR for diagonal cones / line shapes** if Fire's content requires them.
+
+- **ADR for `'magic'` tag normalization across Mage classes.** Today `'magical'` is the convention (Earth, Water, Cure all use it). If Fire / Lightning use `'magic'` instead, settle on one canonical name and migrate. (Probably not needed — `'magical'` is established.)

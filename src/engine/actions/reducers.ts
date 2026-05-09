@@ -18,15 +18,17 @@ import {
   runModifyAoeShape,
   runModifyStatQuery,
   runOnActionAttempted,
+  runOnActionResolved,
   runOnActionTargeted,
   runOnTick,
   runQueryTurnSkipped,
 } from '../hooks/runners.ts';
 import { tileAt, unitAt } from '../map/accessors.ts';
-import { aoeFootprint } from '../map/aoe.ts';
+import { aoeFootprint, cardinalFromTo } from '../map/aoe.ts';
+import { applyKnockback, type KnockbackDirection } from '../map/knockback.ts';
 import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
 import { applyStatus } from '../status/apply.ts';
-import { rollStatusChance } from '../status/chance.ts';
+import { rollAbilityChance, rollStatusChance } from '../status/chance.ts';
 import { removeStatus } from '../status/remove.ts';
 import { evaluateBattleOutcome } from '../turn/evaluate-battle-outcome.ts';
 import { perTargetSeed } from './seed.ts';
@@ -37,6 +39,7 @@ import {
   type AbilityTarget,
   type AbilityTargetResult,
   type BattleEndOutcome,
+  type CardinalDirection,
   type ChargedAction,
   type ChargedActionResolveOutcome,
   type DamageContext,
@@ -54,6 +57,7 @@ import {
   type StatusTickOutcome,
   type StatusTypeId,
   type SystemApplyStatusOutcome,
+  type SystemCtPushOutcome,
   type SystemDamageOutcome,
   type SystemHealOutcome,
   type TargetRef,
@@ -262,6 +266,23 @@ export function reduceUseAbility(
     seed: action.seed,
   });
 
+  // onActionResolved fires once per UseAbility against the actor's
+  // hooks (per session 18). The actor reference is re-fetched from the
+  // resolved state so any self-mutation (rare; v1 has no consumer that
+  // does this on the instant path) is reflected. Skipped if the actor
+  // was KO'd mid-resolution (extreme edge: a self-targeting ability
+  // that returns reactions that KO the caster — no v1 case).
+  const generatedActions: ProposedAction[] = [...resolved.generatedActions];
+  const postActor = resolved.newState.units.get(actor.id);
+  if (postActor !== undefined && postActor.vitals.hp > 0) {
+    const resolvedEmissions = runOnActionResolved(resolved.newState, catalog, {
+      unit: postActor,
+      action: incomingProposed,
+      ability,
+    });
+    for (const a of resolvedEmissions) generatedActions.push(a);
+  }
+
   const outcome: UseAbilityOutcome = {
     kind: 'use_ability',
     abilityId: ability.id,
@@ -272,7 +293,7 @@ export function reduceUseAbility(
   return {
     newState: resolved.newState,
     outcome,
-    generatedActions: resolved.generatedActions,
+    generatedActions,
     ...(resolved.generatedReactions.length > 0
       ? { generatedReactions: resolved.generatedReactions }
       : {}),
@@ -391,6 +412,13 @@ interface ResolveAbilityEffectArgs {
   // `{ kind: 'self' }`; for tile-anchored this is the tile or the unit
   // ultimately resolved on it (caller decides).
   readonly payloadTargetForResult: AbilityTarget;
+  // The original payload target's anchor position — used to derive the
+  // uniform knockback direction (caster → effectAnchorPosition cardinal)
+  // for damage.knockback riders, including AoE casts where the per-
+  // target body sees a per-target unit but the knockback direction must
+  // be uniform across all hit targets. For non-AoE single-target,
+  // dispatchers set this to the resolved target's position.
+  readonly effectAnchorPosition: Position;
   // The synthetic ProposedAction passed to onActionTargeted's
   // `incomingAction` arg. Reaction handlers see this to gate on
   // ability id / tags / actor.
@@ -462,6 +490,102 @@ function resolveAbilityEffect(
     if (detectKO(targetBefore, targetAfter)) {
       for (const a of collectSourceKoSweep(workingState, args.targetUnit.id, catalog)) {
         pipelineEmissions.push(a);
+      }
+    }
+  }
+
+  // Damage riders (per session 18, Water Mage). Both gated on a
+  // successful damage application: `damageContext.hit === true` AND the
+  // target is still alive (KO'd target's CT / position are meaningless).
+  // Both fire BEFORE the status-effect chance roll and reactions so the
+  // CT change / position change is reflected in subsequent state reads.
+  const damage = args.ability.effects.damage;
+  if (
+    damage !== undefined &&
+    args.targetUnit !== null &&
+    damageContext !== null &&
+    damageContext.hit
+  ) {
+    const targetCurrent = workingState.units.get(args.targetUnit.id);
+    if (targetCurrent !== undefined && targetCurrent.vitals.hp > 0) {
+      // CT push rider — deterministic on-hit. Skipped on healing-tagged
+      // attacks (the rider is for damage-flavored CT manipulation).
+      // Final delta uses the caster's MA via runModifyStatQuery so
+      // status / equipment MA modifiers compose.
+      if (
+        damage.ctPush !== undefined &&
+        !damageContext.damageTags.has('healing') &&
+        (damageContext.finalDamage ?? 0) > 0
+      ) {
+        const ma = runModifyStatQuery(workingState, catalog, {
+          unit: args.attacker,
+          statName: 'ma',
+          baseValue: args.attacker.baseStats.ma,
+        });
+        const magnitude = Math.floor(damage.ctPush.factor * ma);
+        if (magnitude > 0) {
+          pipelineEmissions.push({
+            type: 'system_ct_push',
+            source: 'system',
+            payload: {
+              targetId: targetCurrent.id,
+              delta: -magnitude,
+              source: {
+                kind: 'damage_rider',
+                abilityId: args.ability.id,
+                attackerId: args.attacker.id,
+              },
+            },
+          });
+        }
+      }
+
+      // Knockback rider. Chance is rolled per target when `chance` is
+      // set; deterministic when omitted. Direction is uniform across
+      // an AoE — caster→effectAnchorPosition cardinal, captured by the
+      // dispatcher before per-target dispatch.
+      if (damage.knockback !== undefined) {
+        let chanceLanded = true;
+        if (damage.knockback.chance !== undefined) {
+          const roll = rollAbilityChance({
+            state: workingState,
+            catalog,
+            caster: args.attacker,
+            target: targetCurrent,
+            baseChance: damage.knockback.chance,
+            seed: args.seed,
+            ...(damage.knockback.factors !== undefined
+              ? { factors: damage.knockback.factors }
+              : {}),
+          });
+          chanceLanded = roll.applied;
+        }
+        if (chanceLanded) {
+          const direction: KnockbackDirection = cardinalFromTo(
+            args.attacker.position,
+            args.effectAnchorPosition,
+          );
+          const knockResult = applyKnockback({
+            state: workingState,
+            unit: targetCurrent,
+            direction,
+            distance: damage.knockback.distance,
+          });
+          if (knockResult.stepsTaken > 0) {
+            // Apply the position update. The path is logged on the
+            // result for future renderer consumption (a knockback
+            // animation). Today the renderer pulls through unrecognized
+            // visuals; the position change shows up on the next
+            // animatable action's snapshot refresh.
+            workingState = withUnit(workingState, {
+              ...targetCurrent,
+              position: knockResult.finalPosition,
+            });
+          }
+          if (knockResult.fallingDamageAction !== undefined) {
+            pipelineEmissions.push(knockResult.fallingDamageAction);
+          }
+        }
       }
     }
   }
@@ -543,6 +667,74 @@ function resolveAbilityEffect(
       );
       workingState = applied.newState;
       statusOutcomes.push(applied.result);
+    }
+  }
+
+  // Free-standing CT effects (per session 18). Each entry rolls the
+  // ability-chance gate (Faith × MA × baseChance), then emits a
+  // `system_ct_push` against the chosen target. Distinct from
+  // `damage.ctPush` (deterministic on-hit damage rider). KO'd targets
+  // are skipped for `target: 'primary_target'`; `target: 'caster'`
+  // always fires (caster is alive by construction inside this function).
+  if (args.ability.effects.ctEffects !== undefined && !targetKO) {
+    let ctEffectIndex = 0;
+    for (const spec of args.ability.effects.ctEffects) {
+      if (spec.target === 'caster' && !applyCasterEffects) continue;
+      const targetUnitId =
+        spec.target === 'caster'
+          ? args.attacker.id
+          : args.targetUnit !== null
+            ? args.targetUnit.id
+            : null;
+      if (targetUnitId === null) {
+        throw new Error(
+          `resolveAbilityEffect: ctEffect targets primary_target but ability ${JSON.stringify(args.ability.id)} has no unit target`,
+        );
+      }
+      const recipientUnit = workingState.units.get(targetUnitId);
+      if (recipientUnit === undefined || recipientUnit.vitals.hp <= 0) {
+        ctEffectIndex++;
+        continue;
+      }
+      // Chance gate: run the ability-chance roll when `baseChance` is
+      // declared (Faith × MA factors compose). When `baseChance` is
+      // omitted, fire deterministically — the spec's "always" expression.
+      let chanceLanded = true;
+      if (spec.baseChance !== undefined) {
+        const roll = rollAbilityChance({
+          state: workingState,
+          catalog,
+          caster: args.attacker,
+          target: recipientUnit,
+          baseChance: spec.baseChance,
+          seed: args.seed,
+          effectIndex: ctEffectIndex + 1, // offset from knockback's index 0 within the ability-chance stream
+          ...(spec.factors !== undefined ? { factors: spec.factors } : {}),
+        });
+        chanceLanded = roll.applied;
+      }
+      ctEffectIndex++;
+      if (!chanceLanded) continue;
+      const ma = runModifyStatQuery(workingState, catalog, {
+        unit: args.attacker,
+        statName: 'ma',
+        baseValue: args.attacker.baseStats.ma,
+      });
+      const magnitude = Math.floor(spec.factor * ma);
+      if (magnitude === 0) continue;
+      pipelineEmissions.push({
+        type: 'system_ct_push',
+        source: 'system',
+        payload: {
+          targetId: targetUnitId,
+          delta: magnitude,
+          source: {
+            kind: 'ct_effect',
+            abilityId: args.ability.id,
+            attackerId: args.attacker.id,
+          },
+        },
+      });
     }
   }
 
@@ -642,11 +834,13 @@ function resolveSingleTargetDispatch(
   args: ResolveAbilityTargetsArgs,
 ): ResolveAbilityTargetsResult {
   const targetUnit = resolveSingleTargetUnit(state, args.payloadTarget, args.attacker);
+  const effectAnchorPosition = resolveAoeAnchor(state, args.payloadTarget, args.attacker);
   const resolved = resolveAbilityEffect(state, catalog, {
     ability: args.ability,
     attacker: args.attacker,
     targetUnit,
     payloadTargetForResult: args.payloadTarget,
+    effectAnchorPosition,
     incomingProposed: args.incomingProposed,
     sourceActionSeq: args.sourceActionSeq,
     seed: perTargetSeed(args.seed, 0),
@@ -703,9 +897,26 @@ function resolveAoeDispatch(
       );
     }
   }
+  // Same gate for ctEffects (per session 18). v1 has no AoE ability with
+  // a caster-target CT effect; the once-per-cast caster-effect handling
+  // lands when a content consumer needs it.
+  for (const spec of args.ability.effects.ctEffects ?? []) {
+    if (spec.target === 'caster') {
+      throw new Error(
+        `resolveAbilityTargets: ability ${JSON.stringify(args.ability.id)} declares an AoE and a caster-target ctEffect — this combination is not supported in v1`,
+      );
+    }
+  }
 
-  // Anchor position from the payload target.
-  const anchorPos = resolveAoeAnchor(state, args.payloadTarget, args.attacker);
+  // Anchor position. `anchorMode === 'caster'` (Maelstrom-style cones)
+  // anchors at the caster's tile and uses the payload target only for
+  // direction; default `'target'` blooms from the targeted tile / unit
+  // position (Earth Quake, Earth Cataclysm).
+  const anchorMode = aoe.anchorMode ?? 'target';
+  const anchorPos =
+    anchorMode === 'caster'
+      ? args.attacker.position
+      : resolveAoeAnchor(state, args.payloadTarget, args.attacker);
   const anchorTile = tileAt(state.map, anchorPos.x, anchorPos.y, anchorPos.layer);
   if (anchorTile === undefined) {
     throw new Error(
@@ -721,6 +932,21 @@ function resolveAoeDispatch(
     baseShape: aoe.shape,
   });
 
+  // Direction for directional shapes (cone). Derived from caster→target-
+  // tile cardinal vector; required when shape is 'cone'. Throws if the
+  // ability author paired a cone with `anchorMode: 'target'` — that's
+  // a content error (cones need caster→target geometry).
+  let direction: CardinalDirection | undefined;
+  if (finalShape.kind === 'cone') {
+    if (anchorMode !== 'caster') {
+      throw new Error(
+        `resolveAoeDispatch: cone shapes require anchorMode 'caster' (ability ${JSON.stringify(args.ability.id)})`,
+      );
+    }
+    const targetPos = resolveAoeAnchor(state, args.payloadTarget, args.attacker);
+    direction = cardinalFromTo(args.attacker.position, targetPos);
+  }
+
   // Footprint: tiles within the shape's offsets and within vertical
   // tolerance of the anchor's elevation. Per-ability override takes
   // precedence over the ruleset's `rangeDefaults.aoeVerticalTolerance`.
@@ -732,6 +958,7 @@ function resolveAoeDispatch(
     anchor: { x: anchorPos.x, y: anchorPos.y, elevation: anchorTile.elevation },
     shape: finalShape,
     verticalTolerance,
+    ...(direction !== undefined ? { direction } : {}),
   });
 
   // Affected unit set. A multi-layer footprint may include several tiles
@@ -757,6 +984,13 @@ function resolveAoeDispatch(
   // Stable ordering. UnitId is a branded string, lexicographic compare.
   affected.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
+  // Original anchor for knockback-direction derivation. For AoE casts,
+  // the knockback direction is uniform across targets — caster→original
+  // anchor cardinal — even when the AoE itself anchors at the caster
+  // (cone). Captured before per-target dispatch so all targets see the
+  // same direction.
+  const originalAnchorForKnockback = resolveAoeAnchor(state, args.payloadTarget, args.attacker);
+
   // Per-target dispatch with branched seeds.
   let workingState = state;
   const allResults: AbilityTargetResult[] = [];
@@ -774,6 +1008,7 @@ function resolveAoeDispatch(
       attacker: args.attacker,
       targetUnit: current,
       payloadTargetForResult: { kind: 'unit', unitId: current.id },
+      effectAnchorPosition: originalAnchorForKnockback,
       incomingProposed: args.incomingProposed,
       sourceActionSeq: args.sourceActionSeq,
       seed: perTargetSeed(args.seed, i),
@@ -1360,6 +1595,49 @@ export function reduceSystemApplyStatus(
   };
 }
 
+// --- system_ct_push ---
+//
+// Engine-emitted action that adjusts a unit's CT by a signed delta.
+// Used by Water Mage's CT manipulation primitives (session 18):
+// damage riders (Water Strike, Tidal Pull's reaction), free-standing
+// ctEffects (Tide Surge), and the Flow State support's post-action
+// refund. Floors CT at 0; does not cap above 100 (the design permits
+// pushes past trigger threshold — see docs/design/ct-system.md).
+//
+// KO'd targets are skipped (CT manipulation on a corpse is meaningless;
+// outcome reports `applied: 0`). Missing target also reports applied: 0
+// idempotently — chain-emitted CT pushes against just-removed units
+// (rare, but possible in corner cases) don't crash.
+export function reduceSystemCtPush(
+  state: GameState,
+  action: Extract<Action, { type: 'system_ct_push' }>,
+): ReduceResult<SystemCtPushOutcome> {
+  const { targetId, delta } = action.payload;
+  const target = state.units.get(targetId);
+  if (target === undefined || target.vitals.hp <= 0) {
+    return {
+      newState: state,
+      outcome: { kind: 'system_ct_push', targetId, delta, applied: 0 },
+      generatedActions: [],
+    };
+  }
+  const newCt = Math.max(0, target.ct + delta);
+  const applied = newCt - target.ct; // signed; differs from `delta` only when floor clamps
+  if (applied === 0) {
+    return {
+      newState: state,
+      outcome: { kind: 'system_ct_push', targetId, delta, applied: 0 },
+      generatedActions: [],
+    };
+  }
+  const newTarget: Unit = { ...target, ct: newCt };
+  return {
+    newState: withUnit(state, newTarget),
+    outcome: { kind: 'system_ct_push', targetId, delta, applied },
+    generatedActions: [],
+  };
+}
+
 // --- status_remove ---
 //
 // Engine-emitted action that removes a named status instance from a
@@ -1629,6 +1907,21 @@ export function reduceChargedActionResolve(
     for (const r of resolved.perTargetResults) allResults.push(r);
     for (const r of resolved.generatedReactions) allReactions.push(r);
     for (const a of resolved.generatedActions) allEmissions.push(a);
+  }
+
+  // onActionResolved fires once per charged-action-resolve against the
+  // caster's hooks (per session 18). Skipped if the caster KO'd
+  // mid-resolution (charged spells fizzle on caster KO before reaching
+  // this point per ADR-0023, but a future indirect-KO path could land
+  // here — guard defensively).
+  const postCaster = workingState.units.get(caster.id);
+  if (postCaster !== undefined && postCaster.vitals.hp > 0) {
+    const resolvedEmissions = runOnActionResolved(workingState, catalog, {
+      unit: postCaster,
+      action: proposedAtResolve,
+      ability,
+    });
+    for (const a of resolvedEmissions) allEmissions.push(a);
   }
 
   return finalizeResolution(workingState, catalog, ca, caster, allResults, allReactions, allEmissions);

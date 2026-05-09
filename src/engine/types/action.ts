@@ -29,6 +29,7 @@ export type ActionType =
   | 'system_heal'
   | 'system_damage'
   | 'system_apply_status'
+  | 'system_ct_push'
   | 'status_remove'
   | 'status_decrement_stack'
   | 'battle_end';
@@ -222,6 +223,39 @@ export interface SystemApplyStatusOutcome {
   readonly result: StatusApplicationOutcome;
 }
 
+// `system_ct_push` — engine-emitted action that adjusts a unit's CT by a
+// signed delta. Positive delta moves CT toward the 100 trigger threshold
+// (Tide Surge ally bump, Tidal Pull self-+20-on-damage, Flow State magic-
+// action refund). Negative delta pushes CT back toward 0 (Water Strike's
+// damage rider). Floored at 0; not capped above 100 (the design allows
+// pushes past 100, see docs/design/ct-system.md).
+//
+// Used by Water Mage's CT manipulation primitives (session 18). The
+// reducer reads the unit's current CT, computes max(0, ct + delta), and
+// records the actual delta applied (which differs from the requested
+// delta when the floor clamps).
+export interface SystemCtPushPayload {
+  readonly targetId: UnitId;
+  readonly delta: number; // signed; positive = forward, negative = backward
+  readonly source: SystemCtPushSource;
+}
+export interface SystemCtPushOutcome {
+  readonly kind: 'system_ct_push';
+  readonly targetId: UnitId;
+  readonly delta: number; // requested delta
+  readonly applied: number; // post-floor delta (may differ from requested)
+}
+// Provenance for a system_ct_push. `damage_rider` covers Water Strike's
+// on-hit push and Maelstrom-style cone riders; `ct_effect` covers free-
+// standing CT pushes from `effects.ctEffects` (Tide Surge); `reaction`
+// covers Tidal Pull's self-CT bump on damage; `support` covers Flow
+// State's post-action refund. Future variants extend the union.
+export type SystemCtPushSource =
+  | { readonly kind: 'damage_rider'; readonly abilityId: AbilityId; readonly attackerId: UnitId }
+  | { readonly kind: 'ct_effect'; readonly abilityId: AbilityId; readonly attackerId: UnitId }
+  | { readonly kind: 'reaction'; readonly abilityId: AbilityId; readonly attackerId: UnitId }
+  | { readonly kind: 'support'; readonly abilityId: AbilityId; readonly unitId: UnitId };
+
 // `status_remove` — engine-emitted action that removes a named status
 // instance from a target unit. Idempotent: a no-op if the status is
 // not present (logged as `removed: false`). Used by ADR-0017 patterns
@@ -342,6 +376,11 @@ export type Action = ActionEnvelope &
         readonly outcome?: SystemApplyStatusOutcome;
       }
     | {
+        readonly type: 'system_ct_push';
+        readonly payload: SystemCtPushPayload;
+        readonly outcome?: SystemCtPushOutcome;
+      }
+    | {
         readonly type: 'status_remove';
         readonly payload: StatusRemovePayload;
         readonly outcome?: StatusRemoveOutcome;
@@ -370,6 +409,7 @@ export type ActionOutcome =
   | SystemHealOutcome
   | SystemDamageOutcome
   | SystemApplyStatusOutcome
+  | SystemCtPushOutcome
   | StatusRemoveOutcome
   | StatusDecrementStackOutcome
   | BattleEndOutcome;
@@ -458,6 +498,11 @@ export type ProposedAction =
       readonly type: 'system_apply_status';
       readonly source: 'system';
       readonly payload: SystemApplyStatusPayload;
+    }
+  | {
+      readonly type: 'system_ct_push';
+      readonly source: 'system';
+      readonly payload: SystemCtPushPayload;
     }
   | {
       readonly type: 'status_remove';

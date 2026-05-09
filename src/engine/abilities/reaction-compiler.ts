@@ -8,11 +8,15 @@
 // when the reaction fires, and `effects` describes what happens when it
 // does. The compiler builds the matching hook handler.
 //
-// v1 supports two effect kinds, sufficient for the session 16 content:
+// v1 supports three effect kinds, sufficient for the sessions 16-18
+// content surface:
 //   - `use_ability` — emit a use_ability ProposedAction with an existing
 //     ability targeting the attacker. Counter is the worked example.
 //   - `apply_status` — emit a `system_apply_status` ProposedAction
 //     applying a status to self or attacker. Earth Resilience uses this.
+//   - `ct_push` — emit a `system_ct_push` ProposedAction adjusting the
+//     selected target's CT by a flat signed delta. Tidal Pull uses this
+//     with `targetSelector: 'self'` and `delta: 20`.
 // Future effect kinds (raw damage / heal / knockback / etc.) extend the
 // union; the compiler handles the dispatch in one place.
 //
@@ -56,6 +60,13 @@ export type ReactionEffect =
       readonly magnitude?: number;
       readonly duration?: number;
       readonly customState?: Readonly<Record<string, unknown>>;
+    }
+  | {
+      readonly kind: 'ct_push';
+      readonly targetSelector: ReactionTargetSelector;
+      // Signed CT delta applied directly. Positive = forward (toward 100
+      // trigger threshold); negative = backward. Per session 18.
+      readonly delta: number;
     };
 
 export type ReactionTriggerCondition =
@@ -109,7 +120,7 @@ function compileForHook(
   // future hook additions surface the missing branch here.
   switch (hookName) {
     case 'onActionTargeted':
-      return passiveHook('onActionTargeted', (args) => {
+      return passiveHook('onActionTargeted', (args, ctx) => {
         if (!matchesTriggerCondition(fields.triggerCondition, args)) return [];
         const attackerId = extractAttackerId(args.incomingAction);
         if (attackerId === null) return [];
@@ -133,7 +144,7 @@ function compileForHook(
                 target: { kind: 'unit', unitId: targetUnitId },
               },
             });
-          } else {
+          } else if (effect.kind === 'apply_status') {
             // apply_status: emit a system_apply_status that bypasses
             // the BMG application formula. The reaction's Brave roll
             // (runOnActionTargeted) has already gated whether the
@@ -148,6 +159,23 @@ function compileForHook(
                 ...(effect.magnitude !== undefined ? { magnitude: effect.magnitude } : {}),
                 ...(effect.duration !== undefined ? { duration: effect.duration } : {}),
                 ...(effect.customState !== undefined ? { customState: effect.customState } : {}),
+              },
+            });
+          } else {
+            // ct_push: emit a system_ct_push that bypasses the
+            // ability-chance roll. Brave gating already decided whether
+            // the reaction fires. Tidal Pull is the v1 consumer.
+            emissions.push({
+              type: 'system_ct_push',
+              source: 'system',
+              payload: {
+                targetId: targetUnitId,
+                delta: effect.delta,
+                source: {
+                  kind: 'reaction',
+                  abilityId: ctx.ability.id,
+                  attackerId: attackerId,
+                },
               },
             });
           }

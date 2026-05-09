@@ -184,6 +184,54 @@ export interface DamageSpec {
   // Variance band as [min, max] on the unit-multiplier scale. Omitted
   // → use the pipeline default (no variance, i.e., { min: 1, max: 1 }).
   readonly variance?: { readonly min: number; readonly max: number };
+  // CT-push damage rider — deterministic on-hit CT adjustment. When set,
+  // a successful damage application emits a `system_ct_push` against the
+  // target with `delta = -floor(factor × caster.MA)` (signed: a positive
+  // factor pushes CT *back*, since it's a debuff rider). Fires only on
+  // hit and only when damage was actually dealt; skipped on miss /
+  // healing / KO. Per session 18 (Water Mage). Caster MA reads through
+  // `runModifyStatQuery` so equipment / status MA modifiers compose.
+  readonly ctPush?: { readonly factor: number };
+  // Knockback damage rider — forced movement of the target. When set,
+  // a successful damage application optionally rolls a chance-gate then
+  // calls the `applyKnockback` primitive (per ADR-0026). Direction is
+  // uniform across all targets of an AoE: cardinal vector from the
+  // caster's tile toward the original payload target's position.
+  //
+  // `chance` undefined → fires deterministically (always knocks back,
+  // modulo collision). `chance` set → rolls a Faith × MA × resistance
+  // gate (same pipeline as status applications) before firing; per-
+  // target independent rolls in AoE.
+  //
+  // Falling damage from elevation drops (per ADR-0026) is forwarded as
+  // a `system_damage` emission onto the action chain.
+  readonly knockback?: {
+    readonly distance: number;
+    readonly chance?: number;
+    readonly factors?: StatusFormulaFactors;
+  };
+}
+
+// Free-standing CT effect — chance-gated CT adjustment with no damage
+// component. First v1 consumer is Tide Surge (Water Mage Buff): Faith-
+// chance roll applies +floor(factor × MA) to an ally's CT. Distinct
+// from `damage.ctPush` (which is a deterministic on-hit rider on a
+// damage effect) — `ctEffects` runs through the status-application
+// chance pipeline (Faith × MA × resistance × modifiers) and then emits
+// `system_ct_push` on success.
+//
+// `factor` is signed: `+2` for an ally-bump, `-2` for an enemy-push.
+// `target: 'caster'` and `'primary_target'` parallel `StatusEffectSpec`.
+//
+// Resistance is not currently consulted (CT effects don't have a
+// resistance tag); the chance formula is `baseChance × ∏factors` clamped
+// to [0, 1]. If a future content consumer needs CT-specific resistance,
+// this shape extends.
+export interface CtEffectSpec {
+  readonly target: 'caster' | 'primary_target';
+  readonly factor: number;
+  readonly baseChance?: number;
+  readonly factors?: StatusFormulaFactors;
 }
 
 // Area-of-effect spec — when set, `resolveAbilityTargets` expands the
@@ -210,14 +258,32 @@ export interface DamageSpec {
 // from the affected set; when true, they're included. The flag lives
 // on the ruleset (not on the AoE spec) because it's a global mode
 // rather than a per-ability decision.
+//
+// `anchorMode` selects where the AoE blooms:
+// - `'target'` (default): the AoE expands from the targeted tile / unit's
+//   position. The classic shape — Earth Quake, Earth Cataclysm, fireballs.
+// - `'caster'`: the AoE expands from the caster's current position.
+//   Directional shapes (cone) require this mode — the picked target tile
+//   is used only to derive the cone's facing direction. First v1
+//   consumer is Maelstrom (Water Mage Ultimate).
+export type AoeAnchorMode = 'target' | 'caster';
+
 export interface AoeSpec {
   readonly shape: AoeShape;
   readonly verticalTolerance?: number;
   readonly excludeCaster?: boolean;
+  readonly anchorMode?: AoeAnchorMode;
 }
 
 export interface AbilityEffects {
   readonly statusEffects?: ReadonlyArray<StatusEffectSpec>;
+  // Free-standing CT effects (per session 18). Each entry runs through
+  // the status-application chance pipeline (Faith × MA × resistance ×
+  // modifiers) and emits `system_ct_push` on success. Distinct from
+  // `damage.ctPush`, which is a deterministic on-hit rider on a damage
+  // effect — `ctEffects` is the standalone version used by abilities
+  // with no damage component (Tide Surge).
+  readonly ctEffects?: ReadonlyArray<CtEffectSpec>;
   // `damage` is wired up session 8; declaring it on an ability today is
   // valid metadata that doesn't drive any reducer behavior yet.
   readonly damage?: DamageSpec;

@@ -407,6 +407,35 @@ export function runQueryTurnSkipped(
   return null;
 }
 
+// onActionResolved runner (per session 18). Fires against the *actor's*
+// hooks after a UseAbility / charged-action-resolve has finished its
+// per-target dispatch. Handlers may emit system actions (e.g., Flow
+// State's `system_ct_push` refund); the runner gathers them flat for
+// the reducer to forward onto its `generatedActions`.
+export function runOnActionResolved(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    action: ProposedAction;
+    ability: ActiveAbilityDefinition | null;
+  },
+): ReadonlyArray<ProposedAction> {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onActionResolved');
+  const emissions: ProposedAction[] = [];
+  for (const h of handlers) {
+    const result = h.invoke({
+      unit: args.unit,
+      action: args.action,
+      ability: args.ability,
+    });
+    if (result.emittedActions !== undefined) {
+      for (const a of result.emittedActions) emissions.push(a);
+    }
+  }
+  return emissions;
+}
+
 // Status-tick side effects: gathers `emittedActions` from each onTick
 // handler registered against the unit. Returns the flat list of
 // emissions for the reducer to enqueue. Handlers can read state and

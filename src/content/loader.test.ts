@@ -33,25 +33,23 @@ describe('loadDefaultCatalog', () => {
     expect(cat.getRuleset(rulesetId('default')).name).toBe('Default');
   });
 
-  it('contains the session-17c baseline content set', () => {
+  it('contains the session-18 baseline content set', () => {
     // The default catalog is intentionally narrow — one demo per
     // mechanism. When real content lands, this assertion is expected
     // to change; failing it from new content additions is the correct
     // signal that the baseline expanded.
     //
-    // Session 17c added Knight Battle Skill expansion (power_attack,
-    // stasis_sword, taunt), Knight R/S/M passives (damage_reduction,
-    // bulwark_stance), the Taunted status, and four new equipment
-    // items (Strength Ring, Boots of Haste, Iron Helm, Iron Mail) on
-    // top of the existing Long Sword.
-    //   - statuses: 11 → 12 (taunted)
-    //   - abilities: 14 → 19 (5 new — 3 Battle Skill + 2 R/S/M)
-    //   - commandSets: unchanged (battle_skill members grew)
-    //   - items: 1 → 5
-    expect(cat.statusTypes()).toHaveLength(12);
-    expect(cat.abilities()).toHaveLength(19);
-    expect(cat.commandSets()).toHaveLength(4);
-    expect(cat.classes()).toHaveLength(2);
+    // Session 18 added Water Mage (full 7-ability kit + class +
+    // command set + Speed Down status):
+    //   - statuses: 12 → 13 (speed_down)
+    //   - abilities: 19 → 26 (7 new — 5 actives + reaction + support)
+    //   - commandSets: 4 → 5 (water_spells)
+    //   - classes: 2 → 3 (water_mage)
+    //   - items: unchanged
+    expect(cat.statusTypes()).toHaveLength(13);
+    expect(cat.abilities()).toHaveLength(26);
+    expect(cat.commandSets()).toHaveLength(5);
+    expect(cat.classes()).toHaveLength(3);
     expect(cat.items()).toHaveLength(5);
     expect(cat.rulesets()).toHaveLength(1);
   });
