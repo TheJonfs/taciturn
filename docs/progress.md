@@ -1,6 +1,6 @@
 # Progress + deferred work
 
-*Snapshot as of 2026-05-09, end of session 20a. Refreshed at the close of the second-wave (sessions 14–20a) arc, ahead of wave-3 planning. Replaces the session-13 snapshot.*
+*Snapshot as of 2026-05-09, end of session 20b. Light refresh on top of the session-20a wave-2 closing snapshot — wave-2 is fully closed; tier-2 AI substrate ships per ADR-0033.*
 
 This document is a snapshot. It complements but does not replace:
 
@@ -35,7 +35,7 @@ Major subsystems that are *fully* end-to-end (mechanism MVP done, ready for cont
 - **Forced-movement primitive** — `applyKnockback` with kinematic stop, falling-damage emission, cancellation reasons. v1 consumer is Water Mage's Tidal Wave + Maelstrom.
 - **Renderer skeleton** — Pixi-based, layered stage, animator consumes committed actions one at a time, camera lerp, exhaustiveness-checked anim resolution.
 - **UI skeleton** — React HUD with current-unit panel, action menu (Attack / Cure / Wait + targeting modes), turn queue, highlight layer (move/attack/heal/aoe).
-- **Basic AI (tier 1 + 1.5)** — pure decision function; tier-1.5 (session 20a) added status-aware target selection (Vulnerable bonus), reaction-aware planning (Brave-gated coarse penalty), AoE handling (cluster value with friendly-fire deduction), Lightning-specific awareness (self-damage refusal, Magnetic Mark setup→exploit, Static Embrace ally selection). Phases: heal → unified action pool (damage/debuff/AoE/buff) → move.
+- **Basic AI (tier 1 + 1.5 + 2)** — pure decision function; tier-2 (session 20b, ADR-0033) replaces the `power_coefficient` proxy with stat-aware projection via `projectExpectedDamage` (registry-swap reuse of `runDamagePipeline`); sharpens the reaction penalty to inspect each equipped reaction's compiled `reactionFields.triggerCondition` (Counter doesn't penalize a magical attack); ships a two-action joint planner that enumerates `(destination, ability, target)` triples and commits Move first when a non-in-place plan wins; lights up cone / line caster-anchored AoE direction planning (Maelstrom, Flame Lance); and replaces the hardcoded `KNOWN_BUFF_STATUS_IDS` with content-side `StatusEffectType.aiHints.polarity` declarations on the 6 buff statuses. Phases: heal → joint plan → distance-closing fallback move.
 
 ### Content surface
 
@@ -111,7 +111,7 @@ The session-13 progress doc listed 5 deferred engine items + a stack of "AI heur
 - **Vulnerable double-fire in chain ordering.** Documented ADR-0032 edge case. v1 reaction patterns don't create the case. Surface if a content consumer creates it.
 - **Reactor MP semantics in `reduceUseAbility` for reactions.** v1 reactions are MP-free; the path is unexercised. Verify when an MP-costing reaction first ships.
 - **Self-cost scaling with caster's max-HP buffs.** Storm Caller reads `caster.baseStats.maxHpBase` (stored), not `runModifyStatQuery('maxHp')`. v1 has no max-HP-modifying status; decide when one ships.
-- **Polarity metadata on StatusEffectType.** Tier-1.5 AI hardcodes a known-buff status list to gate the buff phase (so Magnetic Mark doesn't try to apply Vulnerable to self). A clean fix is `aiHints?: { polarity?: 'buff' | 'debuff' }` on StatusEffectType. Lands when a meaningful number of new statuses make the hardcoded list painful.
+- **Polarity metadata on StatusEffectType.** Shipped session 20b per ADR-0033. The 6 v1 buff statuses declare `aiHints: { polarity: 'buff' }`; debuffs default to undeclared (treated as not-a-buff). Future buff statuses must declare polarity to be recognized by the buff phase.
 - **`reaction_fizzled` system event.** Carried from session 13. Still no log entry when a reaction's mid-chain validation fails. Surface when the renderer / replay model wants to narrate it.
 - **Battle-end checkpoint on damage-application.** Still emitted at `turn_end`. Open question whether mid-chain decision matters for any hook-driven mechanic.
 - **`StatusEffectType.removeOnSourceKO` — already shipped (session 17c).** Notable: the source-KO sweep is engine-side (in `resolveAbilityEffect` / `reduceSystemDamage`); v1 consumer is Taunted.
@@ -122,18 +122,22 @@ The session-13 progress doc listed 5 deferred engine items + a stack of "AI heur
 
 Tier-1.5 (20a) closed: status-aware targeting (Vulnerable), coarse reaction penalty, AoE cluster scoring, Lightning-specific (self-damage / mark setup / Static Embrace selection).
 
-Tier-2 (20b — agreed split):
+Tier-2 (20b) **shipped** per ADR-0033:
 
-- **Stat-aware damage projection.** AI should compute `expected_damage ≈ runDamagePipeline-derived estimate` per (actor, ability, target) — folding in PA/MA, weapon WP, Faith × Faith, resistance, Vulnerable, crit expectation, evasion. Replaces the `power_coefficient` proxy.
-- **Two-action turn planning.** Consider Move + Act jointly. Today's one-decision-per-call cadence misses "step here so I can hit the wounded enemy from the new tile" patterns that current move scoring approximates but doesn't optimize.
-- **Reaction tag-filter inspection.** Decompose `ReactionAbilityFields` per equipped reaction so the AI can recognize that Counter (physical-only) doesn't fire against a magical attack. Likely needs `reactionFields?: ReactionAbilityFields` decorative field on `PassiveAbilityDefinition` so the AI can read it without running closures.
+- **Stat-aware damage projection** via `projectExpectedDamage` (`src/ai/projection.ts`) — registry-swap reusing `runDamagePipeline` with deterministic expected-value variants for `variance_roll` / `evasion_check` / `crit_roll`. Drift-guarded by a contract test that asserts projection ≈ mean of N live runs.
+- **Two-action joint planning** via `pickJointActOrMove` — enumerates `(destination, ability, target)` triples; commits Move first when a non-in-place plan wins.
+- **Reaction tag-filter inspection** via `reactionFields` decoration on `PassiveAbilityDefinition` (populated by `compileReactionAbility` helper) — AI reads each equipped reaction's `triggerCondition` and only penalizes reactions whose tag filters match the proposed ability.
+- **Cone / line direction planning** in `aoeTilesAffected` — Maelstrom and Flame Lance now planned, direction derived via `cardinalFromTo(caster, target_tile)`.
+- **Polarity hint** via `StatusEffectType.aiHints.polarity` — the 6 buff statuses declare `'buff'`; debuffs default to undeclared / not-a-buff. Replaces the hardcoded `KNOWN_BUFF_STATUS_IDS`.
 
 Still-deferred AI items (no scheduled session):
 
-- **Move-to-heal / move-to-buff.** AI doesn't close distance to a wounded ally or a pre-cast buff target.
-- **Cone / line caster-anchored AoE direction planning.** AI skips Maelstrom and Flame Lance.
+- **Move-to-heal / move-to-buff.** AI doesn't close distance to a wounded ally or a pre-cast buff target. (Joint planner covers in-range buffs but doesn't reach.)
 - **Wait as a tactic.** AI never explicitly Waits (it ends without consuming, which has the same CT-cost outcome today; matters when a future status differentiates).
 - **Charged-action awareness.** AI casts charged abilities but doesn't model "I'll be skipped next turn while this resolves." For Lightning specifically, this means the AI doesn't always coordinate Mark resolution with a follow-up Strike cast on the next active turn.
+- **Reaction-effect value inspection.** Tier 2's penalty is a flat `0.15 × Brave_factor` per matching reaction. Per-effect impact estimation (Discharge's discharge_strike vs Tidal Pull's CT push) needs derived projection from the reaction's `effects`. Decoration supports it; logic doesn't yet derive.
+- **`minDamage` gate respected in penalty.** Reactions with `minDamage: 5` against a 3-projected-damage attack don't actually fire, but the AI penalizes optimistically. Refining requires running projection inside the penalty calc.
+- **Affordability filter is MP-only.** Other validation failures (range, line-of-sight, pause / silence statuses) still happen at commit time — non-blocking but produces occasional fall-through-to-move when a rejected ability would have been the highest scorer.
 
 ---
 

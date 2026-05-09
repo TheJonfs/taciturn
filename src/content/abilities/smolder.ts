@@ -23,19 +23,20 @@
 import {
   abilityId,
   bucketId,
-  compileReaction,
+  compileReactionAbility,
   statusTypeId,
   type PassiveAbilityDefinition,
 } from '@engine/index.ts';
 
-export const smolder: PassiveAbilityDefinition = {
-  id: abilityId('smolder'),
-  name: 'Smolder',
-  kind: 'passive',
-  bucket: bucketId('reaction'),
-  baseCost: 2,
-  tags: ['magical', 'fire'],
-  hooks: compileReaction({
+export const smolder: PassiveAbilityDefinition = compileReactionAbility(
+  {
+    id: abilityId('smolder'),
+    name: 'Smolder',
+    bucket: bucketId('reaction'),
+    baseCost: 2,
+    tags: ['magical', 'fire'],
+  },
+  {
     triggerOn: ['onActionTargeted'],
     triggerCondition: {
       type: 'damage_received',
@@ -52,5 +53,5 @@ export const smolder: PassiveAbilityDefinition = {
         stackQuantity: 1,
       },
     ],
-  }),
-};
+  },
+);

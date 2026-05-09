@@ -1,68 +1,60 @@
 // Basic AI — heuristic decision-making for non-player units.
 //
-// Tier 1.5 (session 20a) refines the v1 heuristic on four axes:
+// Tier 2 (session 20b) replaces tier-1.5's `power_coefficient` proxy
+// with real expected-damage projection (`projectExpectedDamage` in
+// `./projection.ts`) and sharpens reaction-awareness with tag-filter
+// inspection. The score shape is now:
 //
-//   - Status-aware target selection. A Vulnerable target is worth ~1.5×
-//     the kill-value of an unmarked one; the Vulnerable bonus carries
-//     into both the attack phase and the move phase's threat scoring.
-//     Pre-tier-1.5, the AI would mark and not exploit (or attack a
-//     non-Vulnerable target while a Vulnerable one stood next to it).
+//     damageImpact = min(projectedDamage, target.hp)   (overkill is wasted)
+//     score = damageImpact × killValue(target) × (1 - reactionPenalty(target, ability))
 //
-//   - Reaction-aware planning. A target's equipped reaction passives
-//     deduct from its kill-value (the AI prefers attacking the target
-//     less likely to bite back). The penalty is Brave-gated — at
-//     Brave 100 a Counter is ~deterministic; at Brave 50 the penalty
-//     halves. The penalty is *tag-agnostic* in tier 1.5 — Counter's
-//     `'physical'` filter would correctly NOT trigger against a magical
-//     attack, but tier 1.5 doesn't decompose the reaction's source
-//     fields. Tier 2 (in 20b) gets stat-aware projection that runs the
-//     reaction compiler's filter directly.
-//
-//   - AoE handling. AoE abilities score by total cluster value: sum of
-//     per-target kill-values for enemies in the cluster minus the
-//     friendly-fire deduction for allies caught in it. The dispatcher
-//     handles the per-target seed branching (per ADR-0025); the AI's
-//     job is to anchor the AoE on the tile that maximizes net cluster
-//     value. Today this covers tile-targeted AoEs (Chain Lightning,
-//     Earth Quake, Fire Storm) and unit-targeted AoEs (Tidal Wave) by
-//     enumerating in-range tiles and scoring each anchor. Self-anchored
-//     AoEs (Maelstrom cone, Flame Lance line) require direction
-//     planning and ship in 20b.
-//
-//   - Lightning-specific awareness. (a) Storm Caller's 25% maxHpBase
-//     self-cost is refused when the cast would self-KO. (b) Magnetic
-//     Mark is preferred over a damage spell when the target isn't yet
-//     Vulnerable AND the actor has a damage follow-up — this encodes
-//     the kit's setup→exploit pattern without multi-turn planning.
-//     (c) Static Embrace targets the ally with the highest projected
-//     damage potential (high MA + has offensive abilities).
+// Where:
+//   - `projectedDamage` folds in PA/MA, weapon WP, Faith × Faith,
+//     resistance, Vulnerable amplification, crit expectation, evasion
+//     (as expected hit_chance × damage), and variance midpoint. Vulnerable
+//     and crit no longer need separate AI-side multipliers — the
+//     projection observes them through the same hooks the live engine
+//     does.
+//   - `killValue(target)` = 1 / max(0.05, hpRatio), the same
+//     "wounded targets are more valuable" curve as before. Combined with
+//     overkill capping, this naturally rewards kills without spending
+//     extra damage on overkill.
+//   - `reactionPenalty(target, ability)` is now ability-aware: Counter's
+//     `'physical'` tag gate doesn't penalize a Lightning Strike anymore,
+//     because the AI inspects each equipped reaction's compiled trigger
+//     condition (via `PassiveAbilityDefinition.reactionFields`) and only
+//     counts reactions that would actually fire against the proposed
+//     ability's tags.
 //
 // Pure function (same `(state, catalog)` always yields the same
-// decision); no I/O, no RNG. The orchestrator commits the decision and
-// re-asks; "Move then Attack" is two calls, not a planned sequence.
+// decision); no I/O, no RNG. The two-action joint planner (per
+// `pickBestActOrMove`) considers (Move + Act) tuples within the
+// actor's reachable destinations, picking the highest-scoring (move,
+// ability, target) triple. The orchestrator's one-decision-per-call
+// cadence stays — when a Move + Act plan wins, the AI commits the Move
+// leg first; the next AI call recomputes from the new position and
+// commits the Act leg.
 //
 // Phases (in priority order — first phase that produces a winning
 // candidate wins):
 //   0. Heal — wounded ally in range. Priority over Action because
 //      saving an ally has binary value.
-//   1. Action — unified pool of damage, debuff, AoE, and buff. All
-//      actions score on the same scale; the highest-scoring action
-//      wins. Buffs (Static Embrace) compete with offense (Lightning
-//      Strike) — buffs win only when offensive options are weak (no
-//      enemies in range) or the buff multiplier is dramatic.
-//   2. Move — toward the best Action opportunity.
+//   1. Joint plan — enumerate (destination, ability, target) triples
+//      across the actor's reachable destinations + abilities + targets.
+//      The highest-scoring triple wins. If the chosen destination is
+//      the actor's current position, commit the Act directly. Otherwise
+//      commit the Move; the next call will re-plan and find the Act
+//      from the new position.
+//   2. Move — fallback when no offensive plan scores positively (no
+//      enemies in any reachable striking position). Closes distance
+//      to the priority enemy.
 //
-// What's still deferred to 20b:
-//   - Stat-aware damage projection (real PA × WP × power_coefficient
-//     × variance midpoint × resistance × Faith × Vulnerable × crit
-//     expectation, not the stripped-down ability-score proxy).
-//   - Two-action turn planning (consider Move + Act jointly, not
-//     independent evaluation).
-//   - Reaction tag-filter inspection (decompose ReactionAbilityFields
-//     to know whether Counter would trigger against a magical attack).
+// What's still deferred:
 //   - Move-to-heal / move-to-buff (closing distance to a wounded /
-//     buffable ally).
-//   - Self-anchored AoE direction planning (Maelstrom, Flame Lance).
+//     buffable ally — buff branch in joint planner covers in-range
+//     buffs but doesn't reach for out-of-range ones).
+//   - Charged-action multi-turn awareness (the AI casts charges but
+//     doesn't model "I'll be skipped next turn while this resolves").
 
 import {
   endpointFrom,
@@ -73,6 +65,7 @@ import {
   tileAt,
   validateAction,
   aoeFootprint,
+  cardinalFromTo,
   type Catalog,
   type GameState,
   type Position,
@@ -83,10 +76,14 @@ import {
   type AbilityId,
   type AbilityTarget,
   type AoeSpec,
+  type DamageTag,
+  type PassiveAbilityDefinition,
+  type ReactionTriggerCondition,
   type StatusInstance,
   type StatusTypeId,
+  statusTypeId,
 } from '@engine/index.ts';
-import { statusTypeId } from '@engine/index.ts';
+import { projectExpectedDamage } from './projection.ts';
 
 // AI's answer for a single decision step. Mirrors the orchestrator's
 // `ControllerDecision` minus the `pending` case — the AI always has an
@@ -104,38 +101,29 @@ const END_TURN: BasicAiDecision = { kind: 'end-turn' };
 // "half health or less."
 const HEAL_THRESHOLD = 0.5;
 
-// Reaction-penalty constants (tier 1.5). The AI deducts proportional
-// to how likely each reaction is to fire and how much it would cost.
-// Coarse — tier 1.5 doesn't decompose reaction effects, just counts
-// equipped reactions. The constant is tuned so a single Brave-100
-// reaction reduces target appeal by ~15% (a real but not dominant
-// signal); two stacked reactions cap at ~30%.
+// Reaction-penalty constants. Tier 2 (session 20b) sharpens this to
+// ability-aware: each equipped reaction's compiled trigger condition
+// is inspected (via PassiveAbilityDefinition.reactionFields, populated
+// by `compileReactionAbility` in the engine), and only reactions whose
+// damageTagsAny / damageTagsNone filters match the *proposed* ability's
+// damage tags contribute to the penalty. Counter (physical-only) no
+// longer penalizes a Lightning Strike (magical); Discharge (no tag
+// filter) still does. The constant is tuned so a single Brave-100
+// trigger-matching reaction reduces target appeal by ~15%.
 const REACTION_PENALTY_PER_STACK = 0.15;
 const REACTION_PENALTY_CAP = 0.4;
 
-// Vulnerable amplifies next damage by ×1.5 (per ADR-0032). Mirrored on
-// the AI side so target evaluation favors Vulnerable targets.
-const VULNERABLE_DAMAGE_MULTIPLIER = 1.5;
 const VULNERABLE_TYPE_ID: StatusTypeId = statusTypeId('vulnerable');
 
-// Hardcoded list of v1 status types whose application benefits the
-// recipient. Used to gate the buff phase so it doesn't try to apply a
-// debuff to an ally (e.g., picking Magnetic Mark on self because the
-// targeting filter alone can't tell Mark from Static Embrace).
-//
-// LIMITATION: this is a content-side concern leaking into the AI. A
-// future refinement (20b or beyond) should add an explicit polarity
-// hint to StatusEffectType (`{ aiHints?: { polarity?: 'buff' |
-// 'debuff' } }`) so the AI reads polarity from content. Until then,
-// new buff statuses must be added here when they ship.
-const KNOWN_BUFF_STATUS_IDS: ReadonlySet<StatusTypeId> = new Set([
-  statusTypeId('crit_modifier'),
-  statusTypeId('pa_up'),
-  statusTypeId('ma_up'),
-  statusTypeId('movement_self_buff'),
-  statusTypeId('haste'),
-  statusTypeId('regen'),
-]);
+// Polarity inspection — reads `StatusEffectType.aiHints.polarity` from
+// the catalog. Statuses without an explicit polarity hint default to
+// 'debuff' (the AI never proposes them as ally buffs). Tier 2 (session
+// 20b) replaces the previous hardcoded `KNOWN_BUFF_STATUS_IDS` list —
+// content now declares its own polarity in `StatusEffectType.aiHints`.
+function isBuffStatus(catalog: Catalog, typeId: StatusTypeId): boolean {
+  if (!catalog.hasStatusType(typeId)) return false;
+  return catalog.getStatusType(typeId).aiHints?.polarity === 'buff';
+}
 
 // Friendly-fire deduction in AoE scoring. An ally caught in the AoE
 // counts negatively against the cluster value. Tuned to ~1.0 (one ally
@@ -143,15 +131,13 @@ const KNOWN_BUFF_STATUS_IDS: ReadonlySet<StatusTypeId> = new Set([
 // friendly fire more strongly, raise this.
 const FRIENDLY_FIRE_PENALTY_FACTOR = 1.0;
 
-// Setup→exploit weight for Magnetic Mark. The AI scores Mark on a
-// non-Vulnerable target proportional to the target's HP — high-HP
-// targets benefit more from being marked (more room for Vulnerable's
-// ×1.5 bonus to apply to a future hit). Tuned so a fresh full-HP
-// target's mark score (15) edges out a Lightning Strike's chip
-// damage (12), but a low-HP target's mark score (~2) loses to a
-// Strike kill-shot (~90). Storm Caller's mark score is dampened by
-// the SELF_COST_DAMPING_FACTOR below.
-const MARK_SETUP_WEIGHT = 15;
+// Vulnerable's damage multiplier (per ADR-0032). Used by the Magnetic
+// Mark setup→exploit branch to compute the marginal damage gain from
+// marking a target — the projection folds in Vulnerable when the target
+// is already marked, so for an unmarked target we extrapolate the
+// "would-be" damage as `projected × VULNERABLE_MULTIPLIER` and take the
+// difference (clamped at the target's remaining HP).
+const VULNERABLE_MULTIPLIER = 1.5;
 
 // Self-cost dampening for Storm Caller and other selfDamage abilities.
 // Without dampening, killValue × power_36 dominates every target
@@ -193,16 +179,21 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
     if (heal !== null) return { kind: 'commit', action: heal };
   }
 
-  // Phase 1: unified action pool — damage, debuff, AoE, and buff
-  // compete on the same scoring scale. The highest-scoring valid
-  // action wins.
-  if (state.turnState.budget.actsAvailable > 0 && (offensive.length > 0 || allyBuffs.length > 0)) {
-    const action = pickBestAction(state, catalog, actor, enemies, allies, offensive, allyBuffs);
+  // Phase 1: joint two-action plan — enumerate (destination, ability,
+  // target) triples across the actor's reachable destinations. The
+  // highest-scoring plan wins; if it's "act in place" we commit the
+  // Act, else we commit the Move and the next call commits the Act
+  // from the new position (per ADR-00X4 / session-20b two-action
+  // planning). Skipped when neither offensives nor buffs are available.
+  if (offensive.length > 0 || allyBuffs.length > 0) {
+    const action = pickJointActOrMove(state, catalog, actor, enemies, allies, offensive, allyBuffs);
     if (action !== null) return { kind: 'commit', action };
   }
 
-  // Phase 2: move toward an offensive opportunity. Skipped when no
-  // enemies remain — there's nowhere meaningful to advance.
+  // Phase 2: distance-closing move fallback — no positive-score Act
+  // exists from any reachable destination (typically: enemies all
+  // out of range, no buffable allies in range either). Close distance
+  // to the priority enemy globally so the next turn has a real plan.
   if (state.turnState.budget.movesAvailable > 0 && enemies.length > 0) {
     const move = pickBestMove(state, catalog, actor, enemies, allies, offensive);
     if (move !== null) return { kind: 'commit', action: move };
@@ -274,15 +265,24 @@ function enumerateActiveAbilities(
 //     AoE — all of which the AI evaluates as "softens the target").
 //   - AoE forms of either of the above.
 // Excludes healing-tagged abilities (those flow through pickBestHeal).
+// Filters by MP affordability — the AI doesn't propose a cast it can't
+// afford.
 function enumerateOffensiveAbilities(
   actor: Unit,
   catalog: Catalog,
 ): ActiveAbilityDefinition[] {
-  return enumerateActiveAbilities(actor, catalog).filter(isOffensive);
+  return enumerateActiveAbilities(actor, catalog).filter((a) => isOffensive(a, catalog)).filter((a) => canAfford(actor, a));
 }
 
-function isOffensive(ability: ActiveAbilityDefinition): boolean {
-  // Self-anchored AoE (Maelstrom, Flame Lance) — defer to 20b.
+function canAfford(actor: Unit, ability: ActiveAbilityDefinition): boolean {
+  return actor.vitals.mp >= ability.mpCost;
+}
+
+function isOffensive(ability: ActiveAbilityDefinition, catalog: Catalog): boolean {
+  // `targeting.kind: 'self'` with no target payload — no v1 consumer.
+  // Caster-anchored cone / line AoEs use `targeting.kind: 'tile'` with
+  // `aoe.anchorMode: 'caster'`; the tile derives direction. Direction
+  // planning lives in `aoeTilesAffected`.
   if (ability.targeting.kind === 'self') return false;
 
   const damage = ability.effects.damage;
@@ -292,15 +292,14 @@ function isOffensive(ability: ActiveAbilityDefinition): boolean {
     return true;
   }
 
-  // No damage — offensive only if it applies a debuff to an enemy.
-  // Magnetic Mark hits this branch (single_unit Vulnerable applier).
-  // Earth Curse / Earth Cataclysm (cross-r1 AoE debuff applier) hit
-  // this branch when targeting === 'tile'. Static Embrace (Crit_modifier
-  // on ally) is excluded — its statuses are all buffs, so it has no
-  // value when cast on an enemy.
+  // No damage — offensive only if it applies a non-buff status. A
+  // status without an `aiHints.polarity: 'buff'` declaration is treated
+  // as a debuff (per session 20b polarity-hint contract). Magnetic Mark
+  // (Vulnerable, debuff) hits this branch as offensive; Static Embrace
+  // (crit_modifier, declared 'buff') is excluded.
   const statusEffects = ability.effects.statusEffects;
   if (statusEffects === undefined || statusEffects.length === 0) return false;
-  const hasDebuff = statusEffects.some((s) => !KNOWN_BUFF_STATUS_IDS.has(s.typeId));
+  const hasDebuff = statusEffects.some((s) => !isBuffStatus(catalog, s.typeId));
   if (!hasDebuff) return false;
   return ability.targeting.kind === 'single_unit' || ability.targeting.kind === 'tile';
 }
@@ -311,7 +310,7 @@ function enumerateHealingAbilities(
   actor: Unit,
   catalog: Catalog,
 ): ActiveAbilityDefinition[] {
-  return enumerateActiveAbilities(actor, catalog).filter(isHealingSingleUnit);
+  return enumerateActiveAbilities(actor, catalog).filter(isHealingSingleUnit).filter((a) => canAfford(actor, a));
 }
 
 function isHealingSingleUnit(ability: ActiveAbilityDefinition): boolean {
@@ -333,20 +332,19 @@ function enumerateAllyBuffAbilities(
   actor: Unit,
   catalog: Catalog,
 ): ActiveAbilityDefinition[] {
-  return enumerateActiveAbilities(actor, catalog).filter(isAllyBuff);
+  return enumerateActiveAbilities(actor, catalog).filter((a) => isAllyBuff(a, catalog)).filter((a) => canAfford(actor, a));
 }
 
-function isAllyBuff(ability: ActiveAbilityDefinition): boolean {
+function isAllyBuff(ability: ActiveAbilityDefinition, catalog: Catalog): boolean {
   if (ability.targeting.kind !== 'single_unit') return false;
   // Has damage → it's offensive or healing, not a pure buff.
   if (ability.effects.damage !== undefined) return false;
   const statusEffects = ability.effects.statusEffects;
   if (statusEffects === undefined || statusEffects.length === 0) return false;
-  // Must apply at least one *known buff* status (per the polarity
-  // limitation noted on KNOWN_BUFF_STATUS_IDS). Magnetic Mark is
-  // excluded here — it applies Vulnerable, which isn't on the buff
-  // list, so the buff phase doesn't propose Mark on self.
-  return statusEffects.some((s) => KNOWN_BUFF_STATUS_IDS.has(s.typeId));
+  // Must apply at least one status declared as a buff via aiHints.
+  // Magnetic Mark (Vulnerable, debuff) is excluded — the buff phase
+  // doesn't propose it on allies.
+  return statusEffects.some((s) => isBuffStatus(catalog, s.typeId));
 }
 
 // =====================
@@ -375,12 +373,25 @@ function selfDamageWouldKO(actor: Unit, ability: ActiveAbilityDefinition): boole
   return actor.vitals.hp - cost <= 0;
 }
 
-// Coarse penalty in [0, REACTION_PENALTY_CAP] proportional to the
-// target's equipped reactions and Brave. Tier 1.5 doesn't decompose
-// the reaction's tag filter — Counter's physical-only gate is treated
-// the same as Discharge's any-tag gate. Tier 2 (in 20b) refines this
-// by inspecting `ReactionAbilityFields` per equipped reaction.
-function reactionPenalty(target: Unit, catalog: Catalog): number {
+// Tag-aware penalty in [0, REACTION_PENALTY_CAP] proportional to the
+// number of the target's equipped reactions whose compiled trigger
+// condition matches the proposed ability's damage tags, scaled by the
+// target's Brave. Counter (`damageTagsAny: ['physical']`) doesn't
+// penalize a magical attack; Discharge (no `damageTagsAny`) penalizes
+// any incoming non-healing damage.
+//
+// `reactionFields` decoration on the passive (populated by
+// `compileReactionAbility` in the engine) is the inspection surface —
+// the AI doesn't run the closure, just reads its declared trigger
+// condition. Reactions without `reactionFields` (legacy or hand-built
+// ones) fall through as "would always trigger" — the safest default
+// (penalize without specific knowledge).
+function reactionPenalty(
+  target: Unit,
+  ability: ActiveAbilityDefinition,
+  catalog: Catalog,
+): number {
+  const damageTags = ability.effects.damage?.tags;
   let count = 0;
   for (const bucketAbilities of Object.values(target.loadout.passiveBuckets)) {
     if (bucketAbilities === undefined) continue;
@@ -388,17 +399,68 @@ function reactionPenalty(target: Unit, catalog: Catalog): number {
       if (!catalog.hasAbility(aid)) continue;
       const a = catalog.getAbility(aid);
       if (a.kind !== 'passive') continue;
-      // The `bucket` brand is `BucketId & { __brand }`, but its raw
-      // string value is one of 'first_action' | 'reaction' | 'support'
-      // | 'movement' (per BUCKET_IDS). String comparison is the
-      // pragmatic shape — Support / Movement passives don't react on
-      // attack and shouldn't count.
-      if (String(a.bucket) === 'reaction') count += 1;
+      // The `bucket` brand's raw string value is one of
+      // 'first_action' | 'reaction' | 'support' | 'movement' (per
+      // BUCKET_IDS). Support / Movement passives don't react on attack
+      // and shouldn't count toward the penalty.
+      if (String(a.bucket) !== 'reaction') continue;
+      if (!reactionWouldTrigger(a, damageTags)) continue;
+      count += 1;
     }
   }
   if (count === 0) return 0;
   const braveFactor = Math.max(0, Math.min(1, target.baseStats.brave / 100));
   return Math.min(REACTION_PENALTY_CAP, count * REACTION_PENALTY_PER_STACK * braveFactor);
+}
+
+// Whether `reaction` (a passive ability with reaction bucket) would
+// trigger against an ability whose damage tags are `incomingTags`.
+// Reads the `reactionFields` decorative field; returns `true` when:
+//   - the reaction has no decoration (safe default for unknown reactions);
+//   - the trigger condition is `'always'`;
+//   - the trigger condition is `'damage_received'` with tag filters
+//     (damageTagsAny / damageTagsNone) that the incoming tags satisfy.
+//
+// Returns `false` when the proposed ability has no damage spec (no
+// damage → no damage_received trigger). Reactions on healing-tagged
+// effects: damageTagsNone: ['healing'] excludes them — but the AI's
+// scoring path doesn't pass healing abilities through here anyway
+// (heal phase runs separately).
+function reactionWouldTrigger(
+  reaction: PassiveAbilityDefinition,
+  incomingTags: ReadonlyArray<DamageTag> | undefined,
+): boolean {
+  const fields = reaction.reactionFields;
+  if (fields === undefined) return true; // safe default — penalize unknown reactions
+  if (incomingTags === undefined) return false; // no damage → no damage_received trigger
+  const cond = fields.triggerCondition;
+  if (cond === undefined) return true;
+  return triggerConditionMatches(cond, incomingTags);
+}
+
+function triggerConditionMatches(
+  cond: ReactionTriggerCondition,
+  tags: ReadonlyArray<DamageTag>,
+): boolean {
+  if (cond.type === 'always') return true;
+  if (cond.type === 'damage_received') {
+    const tagSet = new Set(tags);
+    if (cond.damageTagsAny !== undefined) {
+      const any = cond.damageTagsAny.some((t) => tagSet.has(t));
+      if (!any) return false;
+    }
+    if (cond.damageTagsNone !== undefined) {
+      const blocked = cond.damageTagsNone.some((t) => tagSet.has(t));
+      if (blocked) return false;
+    }
+    // minDamage gate — the AI optimistically assumes the attack would
+    // deal at least the threshold. Refining this would require running
+    // the projection here, but the typical minDamage is 1 and the
+    // projection is non-zero for any positive coefficient. Defensively
+    // the simple "would trigger" answer suffices.
+    return true;
+  }
+  return true;
 }
 
 // "Kill value" of a target — higher when the target is closer to
@@ -488,8 +550,10 @@ function tilesInAbilityRange(
 // Score for using `ability` on a single enemy `target`, cast from
 // `source`. Returns -Infinity if the cast is invalid (out of range,
 // would self-KO, etc.); otherwise a positive score with higher = more
-// preferred. Composes Vulnerable, reaction penalty, ability score,
-// kill-value.
+// preferred. Tier 2 shape (per ADR-00X3): damageImpact (capped at
+// target.hp, no overkill bonus) × killValue × (1 - tag-aware
+// reactionPenalty). Vulnerable, crit, evasion, and resistance all
+// fold in via the projection.
 function scoreSingleUnitOffensive(
   state: GameState,
   catalog: Catalog,
@@ -505,36 +569,88 @@ function scoreSingleUnitOffensive(
 
   const damage = ability.effects.damage;
   if (damage !== undefined) {
-    // Damage path (Lightning Strike, Storm Caller, attack, ...).
-    const power = damage.power_coefficient ?? 1;
-    let score = killValue(target) * power;
-    if (isVulnerable(target)) score *= VULNERABLE_DAMAGE_MULTIPLIER;
-    score *= 1 - reactionPenalty(target, catalog);
+    // Damage path. The projection runs the live damage pipeline with
+    // expected-value substitutes for the random stages — Vulnerable's
+    // ×1.5 multiplier, crit expectation, evasion's expected hit chance,
+    // resistance, Faith × Faith, weapon WP, and PA/MA all compose
+    // automatically. The AI doesn't re-derive any of this.
+    const projected = projectExpectedDamageFromActor(state, catalog, actor, source, target, ability);
+    let score = projected * killValue(target);
+    score *= 1 - reactionPenalty(target, ability, catalog);
     if (ability.selfDamage !== undefined && ability.selfDamage.fraction > 0) {
       score *= SELF_COST_DAMPING_FACTOR;
     }
     return score;
   }
 
-  // No damage — debuff applier (Magnetic Mark). Setup→exploit weight:
-  // already-Vulnerable targets gain little from another mark; high-HP
-  // targets benefit most because there's room for the next damage hit
-  // to amplify by ×1.5.
+  // No damage — debuff applier (Magnetic Mark). Tier-2 setup→exploit:
+  // value = marginal damage gained from making the target Vulnerable on
+  // the actor's strongest follow-up damage ability, clamped at the
+  // target's remaining HP. If the strongest follow-up already kills
+  // without Vulnerable, marginal value is 0 — Mark adds nothing. If the
+  // follow-up does <HP without amplification but kills with it, Mark's
+  // value is the kill itself.
   if (ability.effects.statusEffects !== undefined) {
     if (isVulnerable(target)) return 0; // already marked
-    const followUpExists = actorHasDamageFollowUp(actor, catalog);
-    if (!followUpExists) return 0;
-    // Score proportional to target's HP ratio. A full-HP target gets
-    // the full mark weight; a near-dead target's score collapses
-    // (kill it directly with a damage spell). The kill-value
-    // multiplier is intentionally omitted here — at low HP, killValue
-    // is huge (1/hpRatio diverges) and would make Mark dominant on
-    // exactly the targets where it shouldn't be picked.
-    const maxHp = Math.max(1, target.baseStats.maxHpBase);
-    const hpRatio = Math.max(0, Math.min(1, target.vitals.hp / maxHp));
-    return MARK_SETUP_WEIGHT * hpRatio;
+    const followUpProjected = strongestDamageFollowUp(state, catalog, actor, source, target);
+    if (followUpProjected <= 0) return 0;
+    const withVulnerable = followUpProjected * VULNERABLE_MULTIPLIER;
+    const damageWithoutMark = Math.min(followUpProjected, target.vitals.hp);
+    const damageWithMark = Math.min(withVulnerable, target.vitals.hp);
+    const marginal = damageWithMark - damageWithoutMark;
+    if (marginal <= 0) return 0;
+    return marginal * killValue(target);
   }
   return 0;
+}
+
+// Project the strongest follow-up damage the actor could deal to
+// `target` from `source` next turn (or this turn if Mark is the move).
+// Used by the Mark setup→exploit branch to compute marginal Vulnerable
+// value. Returns 0 if no damage follow-up exists.
+function strongestDamageFollowUp(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  source: Position,
+  target: Unit,
+): number {
+  const offensives = enumerateOffensiveAbilities(actor, catalog);
+  let best = 0;
+  for (const a of offensives) {
+    if (a.effects.damage === undefined) continue;
+    if (a.effects.damage.tags.includes('healing')) continue;
+    if (selfDamageWouldKO(actor, a)) continue;
+    // Project from `source` (the actor's hypothetical position post-Mark)
+    // — single-target only here; AoE follow-ups would need cluster-aware
+    // projection that's overkill for setup-value estimation.
+    if (a.targeting.kind !== 'single_unit' && a.targeting.kind !== 'tile') continue;
+    const projected = projectExpectedDamageFromActor(state, catalog, actor, source, target, a);
+    if (projected > best) best = projected;
+  }
+  return best;
+}
+
+// Project expected damage with the actor positioned at `source` (which
+// may differ from actor.position during joint planning). Builds a
+// per-call shallow-copy of the actor at the hypothetical position so
+// the projection's evasion / elevation lookups read the correct facing
+// distance. The actor's facing isn't mutated — projection's evasion
+// formula uses target.facing vs attacker.position, not the other way
+// around, so the shallow copy is sufficient.
+function projectExpectedDamageFromActor(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  source: Position,
+  target: Unit,
+  ability: ActiveAbilityDefinition,
+): number {
+  if (samePosition(source, actor.position)) {
+    return projectExpectedDamage({ state, catalog, attacker: actor, target, ability });
+  }
+  const repositioned: Unit = { ...actor, position: source };
+  return projectExpectedDamage({ state, catalog, attacker: repositioned, target, ability });
 }
 
 // Whether the actor has any damage-dealing offensive ability — used
@@ -551,10 +667,10 @@ function actorHasDamageFollowUp(actor: Unit, catalog: Catalog): boolean {
 }
 
 // Score for an AoE ability anchored at `anchor`. Sums per-target
-// scores for enemies in the cluster and subtracts a per-ally penalty
-// for friendly fire. The chainBonus contribution is folded in via
-// `effectivePowerForCluster` so a full Chain Lightning cluster scores
-// proportional to its actual scaled power.
+// damage projections for enemies in the cluster (each evaluated through
+// the live damage pipeline with the cluster's targetCount, so chainBonus
+// scales correctly) and subtracts friendly-fire deductions. Per-target
+// reaction filtering applies to each enemy in the cluster.
 function scoreAoeOffensive(
   state: GameState,
   catalog: Catalog,
@@ -589,47 +705,60 @@ function scoreAoeOffensive(
 
   if (enemiesInCluster.length === 0) return 0;
 
-  const damage = ability.effects.damage;
-  // For damage-bearing AoEs, fold chainBonus into the effective power
-  // applied uniformly across the cluster (per ADR-0032).
   const targetCount = enemiesInCluster.length + alliesInCluster.length;
-  const effectivePower = damage !== undefined
-    ? effectivePowerForCluster(damage.power_coefficient ?? 1, damage.chainBonus, targetCount)
-    : 1;
+  const hasDamage = ability.effects.damage !== undefined;
+  const repositioned: Unit = samePosition(source, actor.position) ? actor : { ...actor, position: source };
 
   let total = 0;
   for (const enemy of enemiesInCluster) {
-    let perTarget = killValue(enemy) * effectivePower;
-    if (isVulnerable(enemy)) perTarget *= VULNERABLE_DAMAGE_MULTIPLIER;
-    perTarget *= 1 - reactionPenalty(enemy, catalog);
-    total += perTarget;
+    if (hasDamage) {
+      const projected = projectExpectedDamage({
+        state, catalog, attacker: repositioned, target: enemy, ability, targetCount,
+      });
+      let perTarget = projected * killValue(enemy);
+      perTarget *= 1 - reactionPenalty(enemy, ability, catalog);
+      total += perTarget;
+    } else {
+      // Status-only AoE (Earth Cataclysm-style debuff applier). Coarse
+      // proxy: weight by enemy hpRatio so applying e.g. Don't Move is
+      // worth more on healthy threats than on near-dead ones (which
+      // should be killed directly). Tier 2 doesn't project status
+      // application chance × value; that's a future refinement.
+      const maxHp = Math.max(1, enemy.baseStats.maxHpBase);
+      const hpRatio = Math.max(0, Math.min(1, enemy.vitals.hp / maxHp));
+      total += STATUS_AOE_PER_TARGET_WEIGHT * hpRatio;
+    }
   }
   for (const ally of alliesInCluster) {
-    // Friendly fire: subtract a fraction of the ally's kill-value.
-    // Using the same kill-value shape so allies-near-death contribute
-    // a larger penalty than full-HP allies.
-    total -= FRIENDLY_FIRE_PENALTY_FACTOR * killValue(ally) * effectivePower;
+    if (!hasDamage) continue; // status-only AoE doesn't damage allies
+    const projected = projectExpectedDamage({
+      state, catalog, attacker: repositioned, target: ally, ability, targetCount,
+    });
+    total -= FRIENDLY_FIRE_PENALTY_FACTOR * projected * killValue(ally);
   }
   return total;
 }
 
-// Mirrors the engine's effectivePowerCoefficient helper (per ADR-0032)
-// for AI-side damage projection. Kept local to avoid pulling the
-// internal helper across the engine/AI boundary.
-function effectivePowerForCluster(
-  basePower: number,
-  chainBonus: { readonly powerPerAdditionalTarget: number } | undefined,
-  targetCount: number,
-): number {
-  if (chainBonus === undefined) return basePower;
-  return basePower + chainBonus.powerPerAdditionalTarget * Math.max(0, targetCount - 1);
-}
+// Per-target weight for status-only AoEs (Earth Cataclysm-style debuff
+// appliers without damage). Tuned in the same units as projected damage
+// — a value of 15 says "applying a debuff to one healthy enemy is worth
+// ~15 expected damage." Coarse but better than zero; refines when
+// status-impact projection lands.
+const STATUS_AOE_PER_TARGET_WEIGHT = 15;
 
 // Resolve the tiles affected by an AoE for AI scoring. Mirrors what
-// the dispatcher would compute at cast time: anchor + shape + vertical
-// tolerance. Cone / line require a direction (caster-anchored only,
-// 20b territory) — we return an empty footprint here so callers fall
-// through to other ability options.
+// the dispatcher would compute at cast time:
+//
+//   - Target-anchored shapes (diamond/square/cross/custom): anchor =
+//     target tile, no direction. Footprint blooms from the anchor.
+//   - Caster-anchored cone/line shapes: anchor = caster's hypothetical
+//     position (`source`), direction = cardinalFromTo(source, target
+//     tile). Footprint blooms from the caster, oriented toward the
+//     target tile.
+//
+// Returns [] when the anchor tile is missing (defensive against bad
+// input), or when the cone/line target equals the source (no direction
+// can be derived).
 function aoeTilesAffected(
   state: GameState,
   catalog: Catalog,
@@ -638,19 +767,31 @@ function aoeTilesAffected(
   ability: ActiveAbilityDefinition,
   aoe: AoeSpec,
 ): ReadonlyArray<Tile> {
-  // Cone / line require direction planning — out of tier 1.5 scope.
-  if (aoe.shape.kind === 'cone' || aoe.shape.kind === 'line') return [];
   const ruleset = catalog.getRuleset(state.ruleset.id);
-  // AoeAnchor carries `elevation`, not `layer` — without it the
-  // verticalTolerance filter compares undefined and rejects every
-  // tile.
+  const verticalTolerance = aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
+
+  if (aoe.shape.kind === 'cone' || aoe.shape.kind === 'line') {
+    // Caster-anchored: bloom from `source`, orient toward `anchor`.
+    if (samePosition(source, anchor)) return []; // can't derive direction
+    const sourceTile = tileAt(state.map, source.x, source.y, source.layer);
+    if (sourceTile === undefined) return [];
+    const direction = cardinalFromTo(source, anchor);
+    return aoeFootprint({
+      map: state.map,
+      shape: aoe.shape,
+      anchor: { x: source.x, y: source.y, elevation: sourceTile.elevation },
+      verticalTolerance,
+      direction,
+    });
+  }
+
   const anchorTile = tileAt(state.map, anchor.x, anchor.y, anchor.layer);
   if (anchorTile === undefined) return [];
   return aoeFootprint({
     map: state.map,
     shape: aoe.shape,
     anchor: { x: anchor.x, y: anchor.y, elevation: anchorTile.elevation },
-    verticalTolerance: aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance,
+    verticalTolerance,
   });
 }
 
@@ -722,10 +863,122 @@ function pickBestHeal(
   return null;
 }
 
-// Pick the best action this turn — unified pool of offensive (damage,
-// debuff, AoE) and buff candidates. Each candidate produces a score on
-// the same scale; the highest-scoring valid candidate wins.
-function pickBestAction(
+// Best Act candidate from `source` — a (score, action, key) triple
+// for the highest-scoring offensive or buff that the actor could
+// commit IF they were standing at `source`. No validation against the
+// live state — validation happens at commit time when the actor is
+// actually at the chosen source position.
+//
+// Used by both:
+//   - The single-position `pickBestAction` (source = actor.position)
+//   - The two-action joint planner (source = each reachable destination)
+//
+// The shape of the returned candidate mirrors the plan's commit form:
+// the `action` is the Act ProposedAction the AI would commit if it
+// chose this plan. For (Move + Act) plans, the Act is committed by
+// the next AI call from the new position; for (Act-only) plans, the
+// Act is committed directly.
+function bestActFromSource(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  source: Position,
+  enemies: ReadonlyArray<Unit>,
+  allies: ReadonlyArray<Unit>,
+  offensive: ReadonlyArray<ActiveAbilityDefinition>,
+  buffs: ReadonlyArray<ActiveAbilityDefinition>,
+): { score: number; action: ProposedAction; key: string } | null {
+  let best: { score: number; action: ProposedAction; key: string } | null = null;
+
+  for (const ability of buffs) {
+    for (const ally of allies) {
+      const score = scoreAllyBuff(state, catalog, actor, source, ally, ability);
+      if (score <= 0) continue;
+      const proposed: ProposedAction = {
+        type: 'use_ability',
+        source: 'player',
+        actorId: actor.id,
+        payload: { abilityId: ability.id, target: { kind: 'unit', unitId: ally.id } },
+      };
+      const candidate = { score, action: proposed, key: `${ability.id}|buff|${ally.id}` };
+      if (best === null || compareScored(candidate, best) > 0) best = candidate;
+    }
+  }
+
+  for (const ability of offensive) {
+    if (ability.effects.aoe !== undefined) {
+      if (ability.targeting.kind === 'tile') {
+        const tiles = tilesInAbilityRange(state, source, ability, catalog);
+        for (const tile of tiles) {
+          const anchor: Position = { x: tile.x, y: tile.y, layer: tile.layer };
+          const score = scoreAoeOffensive(state, catalog, actor, source, anchor, ability, enemies, allies);
+          if (score <= 0) continue;
+          const proposed: ProposedAction = {
+            type: 'use_ability',
+            source: 'player',
+            actorId: actor.id,
+            payload: { abilityId: ability.id, target: { kind: 'tile', position: anchor } as AbilityTarget },
+          };
+          const candidate = { score, action: proposed, key: `${ability.id}|tile|${positionKey(anchor)}` };
+          if (best === null || compareScored(candidate, best) > 0) best = candidate;
+        }
+      } else if (ability.targeting.kind === 'single_unit') {
+        for (const enemy of enemies) {
+          const score = scoreAoeOffensive(state, catalog, actor, source, enemy.position, ability, enemies, allies);
+          if (score <= 0) continue;
+          const proposed: ProposedAction = {
+            type: 'use_ability',
+            source: 'player',
+            actorId: actor.id,
+            payload: { abilityId: ability.id, target: { kind: 'unit', unitId: enemy.id } },
+          };
+          const candidate = { score, action: proposed, key: `${ability.id}|unit|${enemy.id}` };
+          if (best === null || compareScored(candidate, best) > 0) best = candidate;
+        }
+      }
+    } else if (ability.targeting.kind === 'single_unit') {
+      for (const enemy of enemies) {
+        const score = scoreSingleUnitOffensive(state, catalog, actor, source, enemy, ability);
+        if (score <= 0) continue;
+        const proposed: ProposedAction = {
+          type: 'use_ability',
+          source: 'player',
+          actorId: actor.id,
+          payload: { abilityId: ability.id, target: { kind: 'unit', unitId: enemy.id } },
+        };
+        const candidate = { score, action: proposed, key: `${ability.id}|unit|${enemy.id}` };
+        if (best === null || compareScored(candidate, best) > 0) best = candidate;
+      }
+    }
+    // Tile-targeted, no AoE (Bolt) — not in any v1 class loadout.
+    // Self-anchored AoEs (cone, line) — see `bestSelfAnchoredAoeFromSource`.
+  }
+  return best;
+}
+
+// Joint two-action planner (per ADR-00X4). Enumerates every
+// (destination, ability, target) triple across the actor's reachable
+// destinations + abilities + targets, scores each, and picks the
+// highest. If the chosen destination is the actor's current position,
+// commits the Act directly. Otherwise commits the Move toward the
+// chosen destination — the next AI call will re-plan from the new
+// position and find the matching Act.
+//
+// Why this matters: today's call cadence (Move first, then Act) misses
+// patterns like "step onto a tile that puts a wounded enemy into Strike
+// range AND catches an extra enemy in a Chain Lightning AoE." The
+// stand-alone `pickBestMove` only knew "best destination by best Act
+// score reachable from there"; the joint planner closes the loop by
+// committing the Act-aware Move and trusting the next call to pick up
+// the Act it implicitly chose.
+//
+// Returns:
+//   - A Move ProposedAction when the best plan requires moving first.
+//   - A use_ability ProposedAction when the best plan is to act in
+//     place (or move budget is exhausted).
+//   - null when no positive-score plan exists across any destination
+//     (caller falls back to `pickBestMove` for distance-closing).
+function pickJointActOrMove(
   state: GameState,
   catalog: Catalog,
   actor: Unit,
@@ -734,109 +987,77 @@ function pickBestAction(
   offensive: ReadonlyArray<ActiveAbilityDefinition>,
   buffs: ReadonlyArray<ActiveAbilityDefinition>,
 ): ProposedAction | null {
-  let best: { score: number; action: ProposedAction; key: string } | null = null;
+  const turn = state.turnState;
+  if (turn === null) return null;
+  const canAct = turn.budget.actsAvailable > 0;
+  const canMove = turn.budget.movesAvailable > 0;
+  if (!canAct) return null; // no Act → joint planner has nothing to plan
 
-  // Buff branch — ally-targeting status appliers. Score against each
-  // ally; pick the highest. Self-buff is allowed (the actor counts as
-  // their own ally) — a Lightning Mage self-buffing with Static
-  // Embrace before a Storm Caller is the natural use case.
-  for (const ability of buffs) {
-    for (const ally of allies) {
-      const score = scoreAllyBuff(state, catalog, actor, actor.position, ally, ability);
-      if (score <= 0) continue;
-      const proposed: ProposedAction = {
-        type: 'use_ability',
-        source: 'player',
-        actorId: actor.id,
-        payload: {
-          abilityId: ability.id,
-          target: { kind: 'unit', unitId: ally.id },
-        },
-      };
-      if (!validateAction(state, proposed, catalog).valid) continue;
-      const key = `${ability.id}|buff|${ally.id}`;
-      const candidate = { score, action: proposed, key };
-      if (best === null || compareScored(candidate, best) > 0) best = candidate;
+  // Enumerate sources: actor.position is always a candidate (the
+  // "act in place" plan); other destinations only if Move budget allows.
+  type Plan = { score: number; action: ProposedAction; key: string; destination: Position };
+  const plans: Plan[] = [];
+  const here = bestActFromSource(state, catalog, actor, actor.position, enemies, allies, offensive, buffs);
+  if (here !== null) {
+    plans.push({ ...here, destination: actor.position });
+  }
+
+  if (canMove) {
+    const moves = getLegalMoves(state, actor.id, catalog);
+    for (const [moveKey, path] of moves.reachable) {
+      const dest = path.destination;
+      if (samePosition(dest, actor.position)) continue;
+      const fromHere = bestActFromSource(state, catalog, actor, dest, enemies, allies, offensive, buffs);
+      if (fromHere === null) continue;
+      // Move-cost dampening: tiny shave per step encourages "stay put
+      // when a same-score Act exists here." Without it, the AI might
+      // detour for cosmetic reasons. Tuned to 0.001 — enough to break
+      // ties, far too small to swing decisions.
+      const moveCost = MOVE_TIE_BREAK_PENALTY * (path.cost ?? 0);
+      plans.push({
+        score: fromHere.score - moveCost,
+        action: fromHere.action,
+        key: `${moveKey}|${fromHere.key}`,
+        destination: dest,
+      });
     }
   }
 
-  // Offensive branch — single-unit damage, single-unit debuff
-  // (Magnetic Mark), and AoE.
-  for (const ability of offensive) {
-    if (ability.effects.aoe !== undefined) {
-      // AoE: enumerate candidate anchor tiles and score each.
-      // For tile-targeted AoEs, anchors are arbitrary tiles in range.
-      // For unit-targeted AoEs, anchor is the chosen unit's tile.
-      if (ability.targeting.kind === 'tile') {
-        const tiles = tilesInAbilityRange(state, actor.position, ability, catalog);
-        for (const tile of tiles) {
-          const anchor: Position = { x: tile.x, y: tile.y, layer: tile.layer };
-          const score = scoreAoeOffensive(
-            state, catalog, actor, actor.position, anchor, ability, enemies, allies,
-          );
-          if (score <= 0) continue;
-          const proposed: ProposedAction = {
-            type: 'use_ability',
-            source: 'player',
-            actorId: actor.id,
-            payload: {
-              abilityId: ability.id,
-              target: { kind: 'tile', position: anchor } as AbilityTarget,
-            },
-          };
-          if (!validateAction(state, proposed, catalog).valid) continue;
-          const key = `${ability.id}|tile|${positionKey(anchor)}`;
-          const candidate = { score, action: proposed, key };
-          if (best === null || compareScored(candidate, best) > 0) best = candidate;
-        }
-      } else if (ability.targeting.kind === 'single_unit') {
-        for (const enemy of enemies) {
-          const score = scoreAoeOffensive(
-            state, catalog, actor, actor.position, enemy.position, ability, enemies, allies,
-          );
-          if (score <= 0) continue;
-          const proposed: ProposedAction = {
-            type: 'use_ability',
-            source: 'player',
-            actorId: actor.id,
-            payload: {
-              abilityId: ability.id,
-              target: { kind: 'unit', unitId: enemy.id },
-            },
-          };
-          if (!validateAction(state, proposed, catalog).valid) continue;
-          const key = `${ability.id}|unit|${enemy.id}`;
-          const candidate = { score, action: proposed, key };
-          if (best === null || compareScored(candidate, best) > 0) best = candidate;
-        }
-      }
-    } else if (ability.targeting.kind === 'single_unit') {
-      // Single-unit, no AoE — damage or debuff.
-      for (const enemy of enemies) {
-        const score = scoreSingleUnitOffensive(
-          state, catalog, actor, actor.position, enemy, ability,
-        );
-        if (score <= 0) continue;
-        const proposed: ProposedAction = {
-          type: 'use_ability',
-          source: 'player',
-          actorId: actor.id,
-          payload: {
-            abilityId: ability.id,
-            target: { kind: 'unit', unitId: enemy.id },
-          },
-        };
-        if (!validateAction(state, proposed, catalog).valid) continue;
-        const key = `${ability.id}|unit|${enemy.id}`;
-        const candidate = { score, action: proposed, key };
-        if (best === null || compareScored(candidate, best) > 0) best = candidate;
-      }
-    }
-    // Tile-targeted, no AoE (Bolt) — not in any v1 class loadout.
-    // Self-anchored AoEs (cone, line) — out of tier 1.5 scope.
+  if (plans.length === 0) return null;
+
+  // Pick highest score; lex-id tiebreak on the composite key.
+  let best: Plan = plans[0]!;
+  for (let i = 1; i < plans.length; i++) {
+    const candidate = plans[i]!;
+    if (compareScored(candidate, best) > 0) best = candidate;
   }
-  return best?.action ?? null;
+
+  // Act in place: validate and commit the Act now.
+  if (samePosition(best.destination, actor.position)) {
+    if (!validateAction(state, best.action, catalog).valid) return null;
+    return best.action;
+  }
+
+  // Otherwise: commit the Move now; next AI call commits the Act from
+  // the new position. We deliberately don't validate the Act here —
+  // it'd fail (actor still at old position). The next call's
+  // bestActFromSource call will re-derive an Act from the new position
+  // (likely identical, since nothing in `(state, catalog)` changes
+  // between Move-commit and the next decision call other than the
+  // actor's position, which is exactly what we planned for).
+  const moveAction: ProposedAction = {
+    type: 'move',
+    source: 'player',
+    actorId: actor.id,
+    payload: { destination: best.destination },
+  };
+  if (!validateAction(state, moveAction, catalog).valid) return null;
+  return moveAction;
 }
+
+// Per-step move-cost tiebreak. See `pickJointActOrMove`. Tuned to be
+// orders of magnitude smaller than any meaningful Act score difference.
+const MOVE_TIE_BREAK_PENALTY = 0.001;
 
 // Higher score wins; on ties, *lower* lex-id wins (mirrors the
 // pre-tier-1.5 `compareTargets` convention so existing tests stay

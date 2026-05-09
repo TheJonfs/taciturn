@@ -29,5 +29,6 @@ export type {
   ComposeApplyStateArgs,
   ComposeApplyStateResult,
   CustomTriggerSpec,
+  StatusAiHints,
   StatusEffectType,
 } from './status-effect-type.ts';

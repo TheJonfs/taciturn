@@ -24,6 +24,7 @@ export const paUp: StatusEffectType = {
   durationMode: 'permanent',
   stackingRule: 'STACK_ADDITIVE',
   defaultMagnitude: 1,
+  aiHints: { polarity: 'buff' },
   hooks: [
     statusHook('modifyStatQuery', (args, ctx) => {
       if (args.statName !== 'pa') return args.baseValue;

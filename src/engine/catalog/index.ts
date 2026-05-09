@@ -22,6 +22,7 @@ export {
   type PassiveAbilityDefinition,
   type RangeMode,
   type RulesetDefinition,
+  type StatusAiHints,
   type StatusEffectSpec,
   type StatusEffectType,
   type TargetingSpec,

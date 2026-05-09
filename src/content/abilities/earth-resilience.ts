@@ -16,19 +16,20 @@
 import {
   abilityId,
   bucketId,
-  compileReaction,
+  compileReactionAbility,
   statusTypeId,
   type PassiveAbilityDefinition,
 } from '@engine/index.ts';
 
-export const earthResilience: PassiveAbilityDefinition = {
-  id: abilityId('earth_resilience'),
-  name: 'Earth Resilience',
-  kind: 'passive',
-  bucket: bucketId('reaction'),
-  baseCost: 2,
-  tags: ['magical', 'earth'],
-  hooks: compileReaction({
+export const earthResilience: PassiveAbilityDefinition = compileReactionAbility(
+  {
+    id: abilityId('earth_resilience'),
+    name: 'Earth Resilience',
+    bucket: bucketId('reaction'),
+    baseCost: 2,
+    tags: ['magical', 'earth'],
+  },
+  {
     triggerOn: ['onActionTargeted'],
     triggerCondition: {
       type: 'damage_received',
@@ -46,5 +47,5 @@ export const earthResilience: PassiveAbilityDefinition = {
         duration: 24,
       },
     ],
-  }),
-};
+  },
+);

@@ -7,3 +7,8 @@
 // docs/architecture/architecture-overview.md).
 
 export { decideBasicAi, type BasicAiDecision } from './basic.ts';
+export {
+  projectExpectedDamage,
+  projectDamageContext,
+  type ProjectExpectedDamageArgs,
+} from './projection.ts';

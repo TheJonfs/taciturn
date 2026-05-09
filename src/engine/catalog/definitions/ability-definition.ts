@@ -22,6 +22,7 @@ import type {
   StatusTypeId,
 } from '../../types/index.ts';
 import type { PassiveHookRegistration } from '../../abilities/hooks.ts';
+import type { ReactionAbilityFields } from '../../abilities/reaction-compiler.ts';
 
 interface AbilityCommon {
   readonly id: AbilityId;
@@ -366,6 +367,20 @@ export interface ActiveAbilityDefinition extends AbilityCommon {
 export interface PassiveAbilityDefinition extends AbilityCommon {
   readonly kind: 'passive';
   readonly hooks: ReadonlyArray<PassiveHookRegistration>;
+  // Decorative metadata for reaction passives. Populated by
+  // `compileReactionAbility` (which bundles `compileReaction` with this
+  // decoration), this field exposes the reaction's declarative source
+  // — `triggerOn`, `triggerCondition`, `effects` — so consumers like
+  // the AI can reason about whether the reaction would fire against a
+  // given proposed action without invoking the compiled hooks.
+  //
+  // Per ADR-00X (session 20b): the AI's `reactionPenalty` reads this
+  // field's `triggerCondition.damageTagsAny` / `damageTagsNone` to
+  // narrow penalties to reactions that would actually fire. Reactions
+  // built via `compileReaction` directly (rather than the bundled
+  // helper) lack this decoration and the AI treats them as
+  // always-firing (safe default).
+  readonly reactionFields?: ReactionAbilityFields;
 }
 
 export type AbilityDefinition = ActiveAbilityDefinition | PassiveAbilityDefinition;

@@ -61,6 +61,18 @@ export interface ComposeApplyStateResult {
   readonly stacks?: number;
 }
 
+// Per session 20b: decorative AI-side hints. Pure metadata — the engine
+// never reads it; consumers in `src/ai/` (and future content-aware
+// tools) read it to make decisions content can drive without the AI
+// hardcoding status names. `polarity` declares whether application
+// helps the recipient ('buff') or harms them ('debuff'). Statuses
+// without an aiHints declaration default to 'debuff' from the AI's
+// point of view (the safer assumption — never propose application to
+// allies for an undeclared status).
+export interface StatusAiHints {
+  readonly polarity?: 'buff' | 'debuff';
+}
+
 export interface StatusEffectType {
   readonly id: StatusTypeId;
   readonly name: string;
@@ -69,6 +81,8 @@ export interface StatusEffectType {
   readonly stackingRule: StackingRule;
   readonly defaultMagnitude?: number;
   readonly hooks: ReadonlyArray<StatusHookRegistration>;
+  // AI-side metadata. See `StatusAiHints`.
+  readonly aiHints?: StatusAiHints;
   // Optional resistance tag — when set, the BMG status application
   // formula reads `target.resistances[resistanceTag]` and multiplies
   // `(1 - resistance/100)` into the chance. Omitted → status can't

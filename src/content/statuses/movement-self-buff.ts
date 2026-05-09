@@ -27,6 +27,7 @@ export const movementSelfBuff: StatusEffectType = {
   durationMode: 'per_unit_ct',
   stackingRule: 'STACK_INDEPENDENT',
   defaultMagnitude: 1,
+  aiHints: { polarity: 'buff' },
   hooks: [
     statusHook('modifyStatQuery', (args, ctx) => {
       if (args.statName !== 'moveRange' && args.statName !== 'jump') return args.baseValue;

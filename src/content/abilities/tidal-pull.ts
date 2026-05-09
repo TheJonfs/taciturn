@@ -24,18 +24,19 @@
 import {
   abilityId,
   bucketId,
-  compileReaction,
+  compileReactionAbility,
   type PassiveAbilityDefinition,
 } from '@engine/index.ts';
 
-export const tidalPull: PassiveAbilityDefinition = {
-  id: abilityId('tidal_pull'),
-  name: 'Tidal Pull',
-  kind: 'passive',
-  bucket: bucketId('reaction'),
-  baseCost: 1,
-  tags: ['magical', 'water'],
-  hooks: compileReaction({
+export const tidalPull: PassiveAbilityDefinition = compileReactionAbility(
+  {
+    id: abilityId('tidal_pull'),
+    name: 'Tidal Pull',
+    bucket: bucketId('reaction'),
+    baseCost: 1,
+    tags: ['magical', 'water'],
+  },
+  {
     triggerOn: ['onActionTargeted'],
     triggerCondition: {
       type: 'damage_received',
@@ -49,5 +50,5 @@ export const tidalPull: PassiveAbilityDefinition = {
         delta: 20,
       },
     ],
-  }),
-};
+  },
+);

@@ -116,6 +116,35 @@ export function compileReaction(
   return regs;
 }
 
+// Bundle: compile the reaction's hooks AND attach the same `fields` to
+// the resulting passive ability as `reactionFields`. The decoration
+// lets consumers (the AI's reactionPenalty in particular) inspect each
+// reaction's trigger condition without running the compiled closure.
+//
+// Authors should prefer this helper over calling `compileReaction`
+// directly — it ensures hooks and decoration stay in lockstep. Direct
+// `compileReaction` use is still supported for tests and for legacy
+// hand-built reactions where the author opts into the AI treating it
+// as always-firing.
+//
+// `base` is the ability's identity / cost / tag fields; `fields` is
+// the reaction's declarative shape. Returns a fully-populated
+// `PassiveAbilityDefinition` ready to ship.
+export function compileReactionAbility(
+  base: Omit<
+    import('../catalog/definitions/ability-definition.ts').PassiveAbilityDefinition,
+    'kind' | 'hooks' | 'reactionFields'
+  >,
+  fields: ReactionAbilityFields,
+): import('../catalog/definitions/ability-definition.ts').PassiveAbilityDefinition {
+  return {
+    ...base,
+    kind: 'passive',
+    hooks: compileReaction(fields),
+    reactionFields: fields,
+  };
+}
+
 function compileForHook(
   hookName: ReactionTriggerHook,
   fields: ReactionAbilityFields,

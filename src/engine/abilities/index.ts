@@ -21,6 +21,7 @@ export {
 export { passiveContributionsFor } from './contributions.ts';
 export {
   compileReaction,
+  compileReactionAbility,
   type ReactionAbilityFields,
   type ReactionEffect,
   type ReactionTargetSelector,

@@ -39,6 +39,7 @@ export const regen: StatusEffectType = {
   tags: ['positive'],
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
+  aiHints: { polarity: 'buff' },
   hooks: [
     statusHook('onTick', (args) => {
       const faith = runModifyStatQuery(args.state, args.catalog, {

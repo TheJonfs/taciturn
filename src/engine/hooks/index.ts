@@ -22,6 +22,8 @@ export {
 } from './collector.ts';
 export {
   runModifyCanEnter,
+  runModifyEvasion,
+  runModifyHitChance,
   runModifySpecialMovement,
   runModifyStatQuery,
   runModifyTerrainCosts,

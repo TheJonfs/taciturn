@@ -30,18 +30,19 @@
 import {
   abilityId,
   bucketId,
-  compileReaction,
+  compileReactionAbility,
   type PassiveAbilityDefinition,
 } from '@engine/index.ts';
 
-export const discharge: PassiveAbilityDefinition = {
-  id: abilityId('discharge'),
-  name: 'Discharge',
-  kind: 'passive',
-  bucket: bucketId('reaction'),
-  baseCost: 2,
-  tags: ['magical', 'lightning'],
-  hooks: compileReaction({
+export const discharge: PassiveAbilityDefinition = compileReactionAbility(
+  {
+    id: abilityId('discharge'),
+    name: 'Discharge',
+    bucket: bucketId('reaction'),
+    baseCost: 2,
+    tags: ['magical', 'lightning'],
+  },
+  {
     triggerOn: ['onActionTargeted'],
     triggerCondition: {
       type: 'damage_received',
@@ -55,5 +56,5 @@ export const discharge: PassiveAbilityDefinition = {
         targetSelector: 'attacker',
       },
     ],
-  }),
-};
+  },
+);

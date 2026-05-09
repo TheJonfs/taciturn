@@ -23,6 +23,7 @@ export const haste: StatusEffectType = {
   durationMode: 'permanent_per_unit_ct',
   stackingRule: 'REFRESH',
   defaultMagnitude: 1.5,
+  aiHints: { polarity: 'buff' },
   hooks: [
     statusHook('modifyStatQuery', (args, ctx) => {
       if (args.statName !== 'spd') return args.baseValue;

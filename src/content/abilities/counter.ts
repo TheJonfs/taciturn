@@ -20,17 +20,18 @@
 import {
   abilityId,
   bucketId,
-  compileReaction,
+  compileReactionAbility,
   type PassiveAbilityDefinition,
 } from '@engine/index.ts';
 
-export const counter: PassiveAbilityDefinition = {
-  id: abilityId('counter'),
-  name: 'Counter',
-  kind: 'passive',
-  bucket: bucketId('reaction'),
-  baseCost: 1,
-  hooks: compileReaction({
+export const counter: PassiveAbilityDefinition = compileReactionAbility(
+  {
+    id: abilityId('counter'),
+    name: 'Counter',
+    bucket: bucketId('reaction'),
+    baseCost: 1,
+  },
+  {
     triggerOn: ['onActionTargeted'],
     triggerCondition: {
       type: 'damage_received',
@@ -47,5 +48,5 @@ export const counter: PassiveAbilityDefinition = {
         targetSelector: 'attacker',
       },
     ],
-  }),
-};
+  },
+);

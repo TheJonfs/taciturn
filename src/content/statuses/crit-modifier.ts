@@ -27,6 +27,7 @@ export const critModifier: StatusEffectType = {
   durationMode: 'permanent',
   stackingRule: 'STACK_INDEPENDENT',
   defaultMagnitude: 20,
+  aiHints: { polarity: 'buff' },
   hooks: [
     statusHook('modifyStatQuery', (args, ctx) => {
       if (args.statName !== 'crit_chance') return args.baseValue;
