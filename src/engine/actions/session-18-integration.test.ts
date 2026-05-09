@@ -383,6 +383,8 @@ function buildWaterBattle(args: {
           maxHpBase: 45,
           brave: 100,
           faith: 80,
+          crit_chance: 0,
+          crit_multiplier: 1,
         },
         vitals: { hp: 45, mp: 50 },
         loadout: waterMageLoadout({
@@ -401,7 +403,7 @@ function buildWaterBattle(args: {
         classId: classId('knight'),
         position: { x: 3, y: 1, layer: 0 },
         facing: 'W',
-        baseStats: { spd: 10, pa: 6, ma: 4, maxHpBase: 60, brave: 100, faith: 80 },
+        baseStats: { spd: 10, pa: 6, ma: 4, maxHpBase: 60, brave: 100, faith: 80, crit_chance: 0, crit_multiplier: 1 },
         vitals: { hp: 60, mp: 0 },
         loadout: {
           actionBuckets: {

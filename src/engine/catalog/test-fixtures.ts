@@ -52,7 +52,10 @@ const EMPTY_DAMAGE_PIPELINE: Readonly<Record<DamageStage, ReadonlyArray<DamageHa
 //
 // Session 14 added magical_ma_power (base), evasion_check + resistance_check
 // (target). Target order matters: evasion_check first per ADR-0019,
-// then resistance_check, then onDamageReceived hooks.
+// then resistance_check, then onDamageReceived hooks. Session 20 adds
+// crit_roll at the variance stage (per ADR-0032). Pre-session-20
+// fixtures with crit_chance 0 are unaffected — the handler short-
+// circuits.
 export const DEFAULT_TEST_DAMAGE_PIPELINE: Readonly<
   Record<DamageStage, ReadonlyArray<DamageHandlerRef>>
 > = {
@@ -60,7 +63,7 @@ export const DEFAULT_TEST_DAMAGE_PIPELINE: Readonly<
   attacker: ['fire_on_damage_dealt'],
   target: ['evasion_check', 'resistance_check', 'fire_on_damage_received'],
   environment: [],
-  variance: ['variance_roll'],
+  variance: ['variance_roll', 'crit_roll'],
   cap: ['clamp_min_max'],
   finalize: ['finalize'],
 };

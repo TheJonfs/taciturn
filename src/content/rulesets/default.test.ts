@@ -64,7 +64,10 @@ describe('defaultRuleset', () => {
     // hit + post-resistance ctx.
     expect(stages.target).toEqual(['evasion_check', 'resistance_check', 'fire_on_damage_received']);
     expect(stages.environment).toEqual([]);
-    expect(stages.variance).toEqual(['variance_roll']);
+    // Variance-stage order matters: variance_roll first, then crit_roll
+    // layered on top (ADR-0032 — crit composes as a separate multiplier
+    // on top of variance, not as a replacement).
+    expect(stages.variance).toEqual(['variance_roll', 'crit_roll']);
     expect(stages.cap).toEqual(['clamp_min_max']);
     expect(stages.finalize).toEqual(['finalize']);
   });

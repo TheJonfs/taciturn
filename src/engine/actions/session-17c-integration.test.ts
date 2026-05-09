@@ -103,6 +103,8 @@ function buildBattle(args: {
     maxHpBase: 60,
     brave: 100,
     faith: 80,
+    crit_chance: 0,
+    crit_multiplier: 1,
     ...args.knightStats,
   };
   const config: BattleConfig = {
@@ -714,7 +716,7 @@ describe('source-KO status sweep — Taunted', () => {
           classId: classId('knight'),
           position: { x: 1, y: 1, layer: 0 },
           facing: 'E',
-          baseStats: { spd: 10, pa: 50, ma: 4, maxHpBase: 60, brave: 100, faith: 80 },
+          baseStats: { spd: 10, pa: 50, ma: 4, maxHpBase: 60, brave: 100, faith: 80, crit_chance: 0, crit_multiplier: 1 },
           vitals: { hp: 1, mp: 0 },
           loadout: knightLoadout(),
           equipment: LONG_SWORD_EQUIPMENT,
@@ -726,7 +728,7 @@ describe('source-KO status sweep — Taunted', () => {
           classId: classId('knight'),
           position: { x: 2, y: 1, layer: 0 },
           facing: 'W',
-          baseStats: { spd: 10, pa: 50, ma: 4, maxHpBase: 60, brave: 100, faith: 80 },
+          baseStats: { spd: 10, pa: 50, ma: 4, maxHpBase: 60, brave: 100, faith: 80, crit_chance: 0, crit_multiplier: 1 },
           vitals: { hp: 60, mp: 0 },
           loadout: knightLoadout(),
           equipment: LONG_SWORD_EQUIPMENT,

@@ -93,6 +93,14 @@ export interface DamageContext {
   readonly hit: boolean;
   readonly finalDamage?: number;
 
+  // Per-AoE-cluster size — the number of targets the dispatcher resolved
+  // against this cast. Single-target callers pass 1; AoE callers pass
+  // `affected.length`. Read by base-stage handlers that scale damage with
+  // cluster size (Chain Lightning's `damage.chainBonus`). Per ADR-0032.
+  // Defaults to 1 in the orchestrator when the caller omits it (older
+  // callers / tests stay correct).
+  readonly targetCount: number;
+
   // Per ADR-0027, pipeline-stage handlers may emit system actions
   // (status_remove for Sleep wake-on-damage, future Vulnerable consume,
   // etc.). The orchestrator threads this list across stages; the caller

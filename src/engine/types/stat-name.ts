@@ -16,5 +16,22 @@
 //   Brave/100 in reaction trigger chance and certain physical formulas).
 //   No v1 status modifies brave or faith yet; the hook surface is here
 //   so the modify-stat-query path is uniform when it arrives.
+// - 'crit_chance', 'crit_multiplier' — added session 20. Consumed by the
+//   `crit_roll` damage-pipeline handler at the variance stage. crit_chance
+//   is read as a percentage in [0, 100]; values <= 0 short-circuit (no
+//   crit). crit_multiplier is the damage multiplier applied on a
+//   successful crit roll. Crit_modifier status (Lightning Buff) raises
+//   crit_chance via this hook; future Lightning content / equipment may
+//   raise either. Per ADR-0032.
 
-export type StatName = 'spd' | 'moveRange' | 'jump' | 'pa' | 'ma' | 'maxHp' | 'brave' | 'faith';
+export type StatName =
+  | 'spd'
+  | 'moveRange'
+  | 'jump'
+  | 'pa'
+  | 'ma'
+  | 'maxHp'
+  | 'brave'
+  | 'faith'
+  | 'crit_chance'
+  | 'crit_multiplier';

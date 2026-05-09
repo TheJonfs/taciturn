@@ -2,6 +2,7 @@ import type { StatusEffectType } from '@engine/index.ts';
 import { blind } from './blind.ts';
 import { burn } from './burn.ts';
 import { charging } from './charging.ts';
+import { critModifier } from './crit-modifier.ts';
 import { dontAct } from './dont-act.ts';
 import { dontMove } from './dont-move.ts';
 import { haste } from './haste.ts';
@@ -17,11 +18,13 @@ import { silence } from './silence.ts';
 import { speedDown } from './speed-down.ts';
 import { stop } from './stop.ts';
 import { taunted } from './taunted.ts';
+import { vulnerable } from './vulnerable.ts';
 
 export const statusTypes: ReadonlyArray<StatusEffectType> = [
   blind,
   burn,
   charging,
+  critModifier,
   dontAct,
   dontMove,
   haste,
@@ -37,4 +40,5 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   speedDown,
   stop,
   taunted,
+  vulnerable,
 ];

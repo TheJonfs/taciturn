@@ -2,6 +2,13 @@ import type { ClassDefinition } from '@engine/index.ts';
 import { earthMage } from './earth-mage.ts';
 import { fireMage } from './fire-mage.ts';
 import { knight } from './knight.ts';
+import { lightningMage } from './lightning-mage.ts';
 import { waterMage } from './water-mage.ts';
 
-export const classes: ReadonlyArray<ClassDefinition> = [earthMage, fireMage, knight, waterMage];
+export const classes: ReadonlyArray<ClassDefinition> = [
+  earthMage,
+  fireMage,
+  knight,
+  lightningMage,
+  waterMage,
+];

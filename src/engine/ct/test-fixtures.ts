@@ -35,6 +35,11 @@ export function makeUnit(overrides: {
   readonly maxHpBase?: number;
   readonly brave?: number;
   readonly faith?: number;
+  // Session 20: crit defaults to 0/1 in fixtures so pre-session-20 tests
+  // that assert specific damage values stay deterministic. Tests that
+  // exercise crit pass overrides explicitly.
+  readonly crit_chance?: number;
+  readonly crit_multiplier?: number;
   readonly ct?: number;
   readonly team?: string;
   readonly hp?: number;
@@ -64,6 +69,8 @@ export function makeUnit(overrides: {
       maxHpBase: overrides.maxHpBase ?? 100,
       brave: overrides.brave ?? 100,
       faith: overrides.faith ?? 80,
+      crit_chance: overrides.crit_chance ?? 0,
+      crit_multiplier: overrides.crit_multiplier ?? 1,
     },
     vitals: { hp: overrides.hp ?? 100, mp: overrides.mp ?? 0 },
     resistances: overrides.resistances ?? new Map(),

@@ -18,13 +18,21 @@ import type {
 } from '../../types/index.ts';
 import type { StatusHookRegistration } from '../../status/hooks.ts';
 
-// Per ADR-0030: declarative trigger condition for `'custom'` durationMode.
-// The kind names which existing engine hook fires the trigger:
-//   - `'on_unit_ct_100'` rides the per-unit-CT status_tick → onTick path.
-// Future kinds (`'on_damage_received'` for Vulnerable in session 20, etc.)
-// extend the union; each maps to an existing event hook so no new hook
-// surface is required.
-export type CustomTriggerSpec = { readonly kind: 'on_unit_ct_100' };
+// Per ADR-0030 / ADR-0032: declarative trigger condition for `'custom'`
+// durationMode. The kind names which existing engine hook fires the
+// trigger:
+//   - `'on_unit_ct_100'` rides the per-unit-CT status_tick → onTick path
+//     (Burn).
+//   - `'on_damage_received'` rides the existing onDamageReceived hook
+//     fired at the target stage of the damage pipeline (Vulnerable).
+//     The status's onDamageReceived handler returns the modified ctx
+//     and emits a `status_remove` against itself for one-shot
+//     consumption.
+// Future kinds extend the union; each maps to an existing event hook so
+// no new hook surface is required.
+export type CustomTriggerSpec =
+  | { readonly kind: 'on_unit_ct_100' }
+  | { readonly kind: 'on_damage_received' };
 
 // Per ADR-0030: apply-time customState computation for status types whose
 // per-instance state depends on the caster (e.g., Burn snapshots the

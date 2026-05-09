@@ -21,88 +21,82 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-09 (session 19: Fire Mage)
+## From session 2026-05-09 (session 20: Lightning Mage)
 
 ### Suggested next-session scope
 
-**Session 20 — Lightning Mage + AI refresh** (per `docs/roadmap-sessions-14-20.md`).
+**Session 20a — AI tier 1.5 + grand handoff.** Per session 19's handoff agreement, AI was deferred to a follow-up sub-session. Session 20a's deliverables:
 
-Engine work:
-- **Critical hit infrastructure** — `crit_chance` and `crit_multiplier` as stat-queryable values via hook, applied in the variance stage of the damage pipeline.
-- **Self-damage as ability cost** — caster as the target of their own ability's damage component (Lightning Ultimate's ×4 damage with self-damage). Needs the damage pipeline to handle "ability deals damage to caster" cleanly (probably an additional StatusEffectSpec / DamageSpec target option, or a new `selfDamage?: { fraction }` field).
-- **Vulnerable status** — second consumer of the custom-trigger pattern (`customTrigger.kind: 'on_damage_received'` extends the union). On the next damage taken, multiply by 1.5×, then emit `status_remove` against itself. Different firing site from Burn (event hook is `onDamageReceived`, not status_tick); confirms the pattern generalizes per ADR-0030's framing.
-- **Magical reactions** — Lightning Reaction triggers on any incoming hit (including magical), with small MA-based retaliation. Resolve any deferred per-Reaction `tag` filter if needed (the existing reaction-compiler `damageTagsAny` / `damageTagsNone` filters already handle this; verify the runner doesn't pre-filter on `'physical'`).
+1. **AI tier 1.5 heuristics** (per `docs/roadmap-sessions-14-20.md` "Session 20"):
+   - Status-aware target selection (don't magic-attack Reflect-buffed targets — Reflect not yet shipped, but the AI should be agnostic to specific status names; check for damage-blocking conditions before attacking).
+   - Reaction-aware planning (don't walk into Counter chains; weight target choice by reaction-trigger probability).
+   - AoE handling (evaluate AoE by total expected damage across the cluster, including friendly-fire penalty).
+   - Stat-aware damage projection (use the real damage formula via `runDamagePipeline`-derived computation, not the stripped-down approximation in `decideBasicAi`).
+   - Two-action turn planning (consider Move + Act combinations, not independent evaluation).
+   - Lightning-specific AI awareness: setup → exploit (Magnetic Mark turn N → Lightning Strike turn N+1), self-damage avoidance (don't suicide-cast Storm Caller below the self-cost), Static Embrace target selection (buff a high-damage ally before they cast).
 
-Content work (plaintext-first per standing practice):
-- Full 7-ability Lightning Mage kit: Base spell (damage with ×1.5 rider), Buff (Crit_modifier on ally via Faith chance), AoE (damage + chain bonus per unit hit), Debuff (Vulnerable), Ultimate (×4 single target with self-damage), Reaction (MA-based retaliation), Support (MA × 1.25 modifier).
-- New statuses: **Vulnerable** (custom-trigger on_damage_received), **Crit_modifier** (additive boost to crit chance, duration-counted per session 19's permanent stat-mod precedent or limited-duration — designer call), maybe **MA Multiplier** (multiplicative MA buff, distinct from the additive MA Up that Fire Mage uses).
+2. **Grand handoff document for planning sessions.** A comprehensive snapshot of the state of the project at the close of session 20 — the content surface, the engine surface, the deferred items, the design questions that have surfaced. Lives in `docs/progress.md` per the existing discipline (refreshed periodically, not per-session). The session 20a writer should consolidate the handoff items below + the recently-closed work into the durable progress doc, ready for wave-2 planning.
 
-AI tier 1.5 (deferred to a 20a sub-session if scope grows):
-- Status-aware target selection (don't magic-attack Reflect-buffed targets).
-- Reaction-aware planning (don't walk into Counter chains).
-- AoE handling (evaluate AoE by total expected damage across hit cluster, including friendly fire penalty).
-- Stat-aware damage projection (use real damage formula, not stripped-down approximation).
-- Two-action turn planning (Move + Act combinations, not independent evaluation).
+ADRs anticipated for session 20a:
+- ADR for AI tier 1.5 heuristic ordering (which checks run first, how cluster-damage projection composes with friendly-fire penalty).
 
-ADR-0032 (anticipated): Vulnerable / `'on_damage_received'` custom-trigger kind formalization + magical-reaction confirmation + crit-modifier infrastructure.
-
-The 19 substrate that 20 inherits:
-- **Custom-trigger pattern** (`durationMode: 'custom'` + `customTrigger.kind`) is fully shipped — Vulnerable adds one enum value to `customTrigger.kind` and registers an `onDamageReceived` handler. No new firing infrastructure needed.
-- **`composeApplyState`** is in place if Vulnerable wants per-instance state (none anticipated; the multiplier could be a constant on the type or a magnitude field).
-- **`customStateOnDecrement`** exists if a stack-decrement pattern surfaces (Vulnerable consumes via `status_remove`, not decrement; not load-bearing).
-- **`'magical'` tag on the damage path** is exercised by Ignition / Aether Bloom / Flow State — Lightning Support's MA × 1.25 modifier should follow the same shape (a passive that fires `modifyStatQuery` against `'ma'` would compose with PA/MA Up/Down naturally).
-- **`status_decrement_stack` reducer** handles `customStateOnDecrement` if a future Lightning status wants stack-count + state.
+The session 20 substrate that 20a inherits:
+- **Crit infrastructure** (`crit_chance` / `crit_multiplier` `StatName`s; `crit_roll` damage handler at variance stage). The AI's damage projection should account for `expected_damage = base × (1 + (crit_chance/100) × (crit_multiplier - 1))` when crits are non-zero.
+- **chainBonus** on `DamageSpec`. AI's AoE evaluation should fold in the cluster-size scaling — a 3-cluster Chain Lightning hits 25% harder per target than a 1-cluster.
+- **selfDamage** on `ActiveAbilityDefinition` + `ability_self_cost` `SystemDamageSource` variant. AI should subtract the self-cost from the cast's expected value AND avoid casting when the cost would self-KO.
+- **Vulnerable** (custom-trigger `'on_damage_received'`). AI's setup→exploit chain awareness uses this — and any future status with `customTrigger.kind === 'on_damage_received'` plugs into the same evaluator.
+- **Magical reactions confirmed** (no engine work needed). Counter only fires on physical; Discharge fires on any tag. AI's reaction-trigger probability check should consume the reaction compiler's `damageTagsAny` / `damageTagsNone` filters, not assume physical-only.
 
 ### Things noticed during the session
 
-- **Fire Strike's linked-roll mechanic** uses a shared `effectIndex` between the two effects so the seed-derived roll matches. This works because both PA Down and MA Down have identical chance computation (same baseChance, same factors, same resistance tag). If a future linked-roll content consumer wants two effects with *different* chance computations (different baseChance or different status types with different resistance tags), the rolls would still share but the resulting `applied` outcomes could diverge. The current design is "shared roll, independent chance per effect" — flag if a content consumer wants strict "shared outcome" semantics.
+- **Pre-existing Burn fan-out bug at [reducers.ts:1259](src/engine/actions/reducers.ts:1259).** The active-unit `turn_start` fan-out generates `status_tick` for `per_unit_ct` and `permanent_per_unit_ct` durations, but NOT for `custom + customTrigger.kind === 'on_unit_ct_100'`. Burn uses `custom`, so Burn never actually ticks on a Burned unit's normal turn. The skipped-turn fan-out (line 1231) DOES include the custom case, so Burn ticks on a Stop'd unit — inconsistent. Discovered while planning Vulnerable's `'on_damage_received'` trigger (which uses a different surface — `onDamageReceived` in the damage pipeline — so it's not affected). **Real correctness bug, deferred from session 20 because orthogonal scope.** Fix: extend the line 1259 condition to mirror line 1231 (or extract to a `shouldTick` predicate read by both fan-outs). Session 19 integration tests don't catch this because they drive Burn via direct `applyStatus` and direct `reduceStatusDecrementStack` calls rather than through `turn_start`. End-to-end demo runs likely never landed Burn's tick — flag for next session.
 
-- **Ignition fires on `onDamageDealt`**, which runs at the attacker stage *before* the target stage's evasion / resistance / hit roll. For magical damage this is fine (no hit roll, magical always lands per BMG). If a future content consumer wants a parallel "Burn-on-physical-damage-that-lands" passive, the current Ignition shape would over-apply (it'd queue Burn even on missed physical attacks). The right answer there is `onActionResolved` against the actor with target enumeration — surface when needed.
+- **Reaction-on-charged-resolve bug fixed inline.** Pre-session-20 `reduceUseAbility` threw "no turn in progress" when called with `state.turnState === null`. This was reachable only via reactions chained off a `charged_action_resolve` (where there's no turn). Counter avoided it because its compiler filters to `'physical'` damage and charged abilities are magical; Discharge's any-tag filter exposed the gap. Fixed: the no-turn check now skips when `action.isReaction === true`, and `decrementActBudget` is also skipped for reactions or no-turn states. Captured in ADR-0032's "Magical reactions" section + a regression test in `session-20-integration.test.ts`.
 
-- **Aether Bloom is universal (filters on `'magical'` tag), free for Fire Mage.** No Fire-specific shape ships. If a future class wants element-specific AoE expansion, a parallel passive ships then; the existing `enlargeAoeShape` helper composes naturally with chained `modifyAoeShape` handlers.
+- **Storm Caller's 25% maxHp self-cost is uncapped at the floor.** A Lightning Mage at 11 HP casting Storm Caller drops to 0 (KO'd by their own cost). This is intentional design — the cost is a real risk-taking lever — but worth flagging for tuning. The dispatcher's `caster.vitals.hp > 0` guard before emission means the cost only fires while alive; the actual KO from cost is `system_damage` floor-at-0, which is correct.
 
-- **Burn FIFO drop is a content-design choice**, not a generic STACK_COUNT_ADDITIVE rule. The customStateOnDecrement on Burn does `slice(1)`. A future stack-counting status that wants LIFO ages-newest-first could `slice(0, -1)` instead. The generic decrement reducer is agnostic.
+- **Crit and Vulnerable compose multiplicatively, no cap.** Final damage = `base × variance × resistance × vulnerable × crit`. A Lightning Mage with Static Embrace-buffed ally lands a Magnetic Mark, then crits through Vulnerable: ×1.5 × ×1.5 = ×2.25 effective. Plus Conductor's MA × 1.25 in the base, plus Lightning Strike's premium power 12. Burst damage potential is ~12 × 8 × 1.25 × 0.64 (Faith) × 1.5 × 1.5 = ~108 — sufficient to one-shot a Mage. The numbers aren't broken — Lightning's identity is "burst when the setup lands" — but post-session-20 calibration may want to soften crit composition or cap Vulnerable+crit multiplicatively. Not v1-load-bearing; flag for the post-session-20 retune.
 
-- **No screenshot from the renderer this session.** The dev server captures kept timing out (Pixi/WebGL quirk in the headless preview tool); accessibility snapshot + action log queries via `__taciturnDebug` confirmed the demo runs end-to-end. Visual verification is gated behind future renderer work for Burn / Fire AoEs / line shape (currently they pull through with no specific visual).
-
-- **Pre-existing TS strict-mode errors in test files** (carried from 17c handoff and 18 handoff). Still not addressed; `npm run typecheck` passes via Vitest's loose mode but `tsc -b --noEmit` may surface them. Worth a session of cleanup at some point — defer until a natural lull.
+- **Pre-existing TS strict-mode errors in test files** (carried from sessions 17c, 18, 19 handoffs). Still not addressed; `npm test` passes via Vitest's loose mode. `tsc -b --noEmit` surfaces them but they're pre-existing. Worth a session of cleanup at some point — defer until a natural lull.
 
 ### Things considered but did not do
 
-- **A new `onCustomTrigger` hook.** Considered as part of the custom-trigger pattern; rejected per ADR-0030 — the existing `onTick` / `onDamageReceived` / `onActionResolved` hooks already cover the triggering surface for v1/v2 custom-trigger kinds. Each customTrigger.kind maps to a natural existing hook; no indirection layer added.
+- **Capping crit_chance at 100.** Considered but rejected — the runtime comparison `r < crit_chance / 100` simply means `r < 1+` always succeeds when crit_chance > 100, which is the correct outcome (guaranteed crit). No bug, no waste. If a future passive stacks crit_chance into pathological territory, a soft cap on `modifyStatQuery` results would be the right place — not a hardcoded clamp in the handler.
 
-- **Burn-specific decrement system action.** Considered (`status_burn_decrement` that handles its own customState transform). Rejected in favor of the generic `customStateOnDecrement` type method on StatusEffectType — avoids per-status-action proliferation when Vulnerable / future custom-trigger statuses ship.
+- **Splitting Storm Caller's "×4 damage" into a separate `power_multiplier` field.** Considered alongside baking power 36 directly. Rejected per Chris's explicit call: with one v1 consumer, the field doesn't earn its keep. If a second consumer ships a power-multiplied form, decompose then.
 
-- **Live MA read on Burn ticks.** Considered as the simpler implementation (no per-stack snapshot). Rejected per Chris's design intent — the proficiency of who lit the burn should outlast the applier's later MA shifts. Snapshot at apply preserves the multi-applier story; live read collapses it.
+- **Routing self-damage through the seven-stage pipeline.** Considered (would compose with caster's own resistances, would let Counter fire on the caster's own self-hit). Rejected — self-cost is a *cost*, not a *hit*. A Lightning Mage shouldn't be able to Counter their own Storm Caller; a lightning-resistant caster shouldn't dodge their own ultimate. The labeled `system_damage` shape is the right mental model.
 
-- **One combined "Fire Wither" status (PA + MA in one instance).** Rejected — the four-status split (PA/MA Up/Down) gives net-zero composition (a +1 buff and -1 debuff cancel cleanly via `modifyStatQuery`). A combined status would lose this property.
+- **A new `onSelfDamage` hook.** Considered as the avenue for a future preventer. Rejected — the existing `onActionAttempted` hook already runs against every action including system actions, and the labeled `payload.source.kind === 'ability_self_cost'` lets a preventer match precisely. No new hook surface needed; a future content consumer demonstrates the avenue when one ships.
 
-- **Fire-specific "Kindling" passive (Fire-only AoE expansion).** Considered alongside the universal Aether Bloom. Rejected — universal is more general at the same cost (Fire Mage gets it free either way). Future cross-classed mages would benefit from a universal expander too.
+- **Multiplicative MA buff status form (parallel to Conductor passive).** Considered alongside Conductor. Rejected — no spell in this kit applies a multiplicative MA buff. Conductor as an equipped passive covers the design intent. If a future content consumer wants a temporary multiplicative MA buff (a "Lightning Catalyst" status, etc.), the status form ships then.
 
-- **Strict "shared outcome" linked rolls (two effects, both apply or both miss regardless of chance computation).** The current `linkRoll` shares the seed-derived roll; agreement happens because Fire's two stat-mods have identical chance computation. Strict-shared-outcome would override the per-effect chance, which is a different mechanic; flag if content needs it.
+- **Vulnerable's resistance tag as `'magical'` rather than `'lightning'`.** Considered for symmetry with Fire's PA Down / MA Down (which use `'fire'`). Picked `'lightning'` for parity with Magnetic Mark's caster element — consistent with Fire's pattern. If a future content consumer wants a non-element-flavored Vulnerable, a parameterized resistance tag on the status definition would extend it.
 
-- **`onActionResolved` for Ignition's Burn application.** Considered to gate on actually-landed damage (instead of onDamageDealt's pre-hit-roll timing). Rejected for v1 because magical damage always lands; the existing onDamageDealt timing works for Fire's content. Revisit when a physical-damage variant ships.
+- **Discharge filtering by damage tag (excluding magical).** Considered and rejected — the whole point of Discharge in session 20's plaintext review is "magical reactions confirmation." Filtering would obscure the test. The Discharge tag-agnostic shape exposes the reaction-on-charged-resolve bug, which is good — better to surface and fix than to silently never trigger.
+
+- **Fixing the Burn fan-out bug inline.** Considered — the fix is one-line. Rejected — it's session 19 territory, my session 20 scope is content + crit/chain/self-damage substrate. Sometimes "leave the foreign drop in" is the right call; surfacing it in the handoff is the action that fits scope.
 
 ### Open questions for later sessions (not blocking)
 
-- **Kinematic stop on knockback paths.** v1 has no line-shape knockback; the kinematic-stop semantic only lives in `aoeFootprint` for line shapes. If a future Lightning content wants "knockback along a line, stop at a wall," extend `applyKnockback` similarly.
+- **Crit cap.** No explicit cap on `crit_chance` (>100 always crits) or `crit_multiplier` (no upper bound). v1 has no content that pushes either past sensible values. If progression / equipment later allows crit_chance stacking past 100, decide whether to soft-cap at the `modifyStatQuery` boundary or let "guaranteed crit" be a real outcome.
 
-- **Cone expansion via `enlargeAoeShape`.** Currently passes through unchanged. If a future cone-extender passive ships, decide whether to extend rows (`[1,3,3]` → `[1,3,3,3]`), widen each row (`[1,3,3]` → `[1,5,5]`), or both. Author-defined per content.
+- **Crit on healing.** v1 design: heals don't crit. If a future "miracle heal" mechanic wants crit-flavored heals, the handler's `if (ctx.damageTags.has('healing')) return ctx;` line moves to its consumer.
 
-- **Burn stack cap.** No cap in v1. If degenerate stacking surfaces (Spark + Ignition + Smolder + Flame Lance can theoretically stack many burns on a single target), `composeApplyState` is the natural place to enforce a cap (return early when `existingStacks.length >= CAP`), or add `maxStacks?: number` on StatusEffectType for engine enforcement.
+- **Caster-target self-damage with effects.** Storm Caller's self-cost is just a `system_damage` against the caster. If a future ability wants "self-damage AND a debuff applies to caster" (e.g., a "Berserker Rage" ultimate), the dispatcher would need to chain through the apply-status path against the caster — doesn't exist today. Surface when the consumer ships.
 
-- **`'custom'` durationMode without `customTrigger`.** `applyStatus` throws on this case as a content-authoring error. If a future custom-trigger status wants a different firing pattern (e.g., conditional duration that's also event-driven), revisit the discrimination shape.
+- **chainBonus on healing.** No v1 healing AoE wants cluster-size scaling. If one ships, the helper extends to `healing_base`.
 
-- **Faith composition on Burn per-stack damage.** Today `floor(MA × 0.6)` is unmodulated. If a future content consumer wants Faith to modulate the per-stack value (parallel to magical-damage Faith composition), the composer takes the change.
+- **Self-cost scaling with caster's max-HP buffs.** Storm Caller reads `caster.baseStats.maxHpBase` (the stored value), not `runModifyStatQuery(... 'maxHp', ...)`. So Iron Helm (+20 maxHpBase) increases the self-cost (correct — bigger HP pool, bigger cost), but a future "Maxed HP +20%" status would NOT increase the cost. v1 has no such status; decide when one ships.
 
-- **AI awareness of Burn / linked rolls.** Tier 1.5 in session 20 might want to evaluate Burn stacks in target selection (a target with high Burn already shouldn't get more Burn from low-MA appliers; the diminishing returns curve matters). Not v1-load-bearing.
+- **Vulnerable double-fire in chain ordering.** Documented edge case in ADR-0032 — if two damage events hit a Vulnerable target before the first `status_remove` processes (e.g., AoE that hits the same target twice via dedup-bypass; or a chain where a reactor counters and the counter targets the original Vulnerable holder), the multiplier would fire twice. v1 reaction patterns don't create this case (Counter targets the attacker, not the original target); flag if a future content consumer creates it.
+
+- **Magnetic Mark's actionSpeed 35 vs the rest of the kit.** Deliberately slow per Chris — the player should be able to plan a follow-up exploit. AI tier 1.5 should know this — a "Magnetic Mark, then setup another spell mid-charge" sequence is the kit's tactical signature. Tier 1.0 will probably mis-evaluate this.
+
+- **`reactor` semantics in `reduceUseAbility` for reactions.** The fix skips the no-turn check + budget decrement when `isReaction: true`. The reactor isn't the active unit — they consume MP from their own pool, not the active unit's. v1 reactions are MP-free, so the MP deduction `actor.vitals.mp - ability.mpCost` reads from the reactor (correct). If a future MP-costing reaction ships, verify the right unit pays.
 
 ### Notes for future ADRs
 
-- **ADR for Vulnerable / `'on_damage_received'` custom-trigger kind** (anticipated session 20) — extends the customTrigger.kind union, registers an onDamageReceived handler that emits the multiplier into ctx and a `status_remove` against itself.
+- **No new ADRs anticipated for session 20a's AI tier 1.5 work** unless the heuristic ordering surfaces a real architectural decision (e.g., new hook surface for "AI projection" — currently the AI just reads state directly). A heuristic ordering convention captured in `src/ai/basic.ts` comments is sufficient.
 
-- **ADR for crit infrastructure** (anticipated session 20) — `crit_chance` / `crit_multiplier` as stat-queryable values via `modifyStatQuery`, applied in the variance stage of the damage pipeline. The `Crit_modifier` status raises crit chance via the same hook.
-
-- **ADR for self-damage** (anticipated session 20) — Lightning Ultimate's "×4 damage to target + N% MaxHP self-damage" needs the damage pipeline to handle "caster as target" cleanly. Either an extension of `StatusEffectSpec` / `DamageSpec` with a `target: 'caster' | 'primary_target'` field on the damage component, or a separate `selfDamage?: { fraction }` field on the ability.
-
-- **ADR for magical reactions** (anticipated session 20) — confirms that reactions trigger on magical incoming as well as physical. The runner doesn't pre-filter today (`runOnActionTargeted` doesn't check tag); Lightning Reaction's tag filter (if needed) lives in the reaction compiler's `damageTagsAny` / `damageTagsNone`. Mostly a confirmation ADR; may be a one-paragraph "no engine change needed" record.
+- **Burn fan-out fix is one-line; an ADR is overkill.** Direct fix + commit message is the right shape. Note in the commit that the line 1259 condition should mirror line 1231.

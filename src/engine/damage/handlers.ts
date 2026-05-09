@@ -123,7 +123,7 @@ export function computeBraveFactor(args: {
 export const physicalPaWp: DamageHandler = (ctx, env) => {
   if (!ctx.damageTags.has('physical')) return ctx;
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
-  const power_coefficient = ability.effects.damage?.power_coefficient ?? 1;
+  const power_coefficient = effectivePowerCoefficient(ability, ctx.targetCount);
   const pa = runModifyStatQuery(env.state, env.catalog, {
     unit: ctx.attacker,
     statName: 'pa',
@@ -163,6 +163,9 @@ function mergeTags(
 export const healingBase: DamageHandler = (ctx, env) => {
   if (!ctx.damageTags.has('healing')) return ctx;
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
+  // Healing doesn't compose chainBonus today — no v1 ability is both
+  // healing and AoE-chain-scaling. The default-1 power_coefficient
+  // path is preserved.
   const power = ability.effects.damage?.power_coefficient ?? 1;
   const ma = runModifyStatQuery(env.state, env.catalog, {
     unit: ctx.attacker,
@@ -185,7 +188,7 @@ export const healingBase: DamageHandler = (ctx, env) => {
 export const magicalMaPower: DamageHandler = (ctx, env) => {
   if (!ctx.damageTags.has('magical')) return ctx;
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
-  const power = ability.effects.damage?.power_coefficient ?? 1;
+  const power = effectivePowerCoefficient(ability, ctx.targetCount);
   const ma = runModifyStatQuery(env.state, env.catalog, {
     unit: ctx.attacker,
     statName: 'ma',
@@ -346,6 +349,52 @@ export const varianceRoll: DamageHandler = (ctx, env) => {
   };
 };
 
+// Critical hit roll. Per ADR-0032: read `crit_chance` (a percentage in
+// [0, 100]) and `crit_multiplier` from the attacker via
+// `runModifyStatQuery` so Crit_modifier (Lightning Buff), future crit-
+// boost equipment, and any other modifiers compose. Roll a deterministic
+// uniform float against `crit_chance / 100`; on hit, append a
+// multiplier of `crit_multiplier` to ctx.multipliers.
+//
+// Composition: crit layers ON TOP of every other multiplier (variance,
+// resistance, Vulnerable, etc.) — it's a separate damage-pipeline
+// multiplier, not a replacement for variance. A 5% crit at × 1.5 on top
+// of a Vulnerable target's × 1.5 yields × 2.25 effective. Per Chris's
+// session 20 plaintext call.
+//
+// Short-circuits when:
+//  - the action missed (`ctx.hit === false`) — variance/finalize already
+//    discard the contributions;
+//  - the attacker's queried `crit_chance` is <= 0 — pre-tuned fixtures
+//    that opt out of crits set crit_chance to 0;
+//  - the damage carries the 'healing' tag — crits on healing isn't a
+//    v1 mechanic; the BMG positions crit as a damage-only outcome.
+//
+// Seed sub-stream: index 4. (variance 0, evasion 1, brave 2, status
+// chance 3, ability chance 16 — picking 4 keeps crit adjacent to the
+// damage-pipeline rolls.)
+export const critRoll: DamageHandler = (ctx, env) => {
+  if (!ctx.hit) return ctx;
+  if (ctx.damageTags.has('healing')) return ctx;
+  const crit_chance = runModifyStatQuery(env.state, env.catalog, {
+    unit: ctx.attacker,
+    statName: 'crit_chance',
+    baseValue: ctx.attacker.baseStats.crit_chance,
+  });
+  if (crit_chance <= 0) return ctx;
+  const r = unitFloatFromSeed(env.seed, /* sub-index */ 4);
+  if (r >= crit_chance / 100) return ctx;
+  const crit_multiplier = runModifyStatQuery(env.state, env.catalog, {
+    unit: ctx.attacker,
+    statName: 'crit_multiplier',
+    baseValue: ctx.attacker.baseStats.crit_multiplier,
+  });
+  return {
+    ...ctx,
+    multipliers: [...ctx.multipliers, { source: 'crit', factor: crit_multiplier }],
+  };
+};
+
 function unitFloatFromSeed(seed: number, subIndex: number): number {
   // mulberry32 of (seed XOR subIndex) → unit float in [0, 1).
   let s = (seed ^ subIndex) >>> 0;
@@ -399,6 +448,24 @@ export const finalize: DamageHandler = (ctx) => {
   const value = ctx.finalDamage ?? computeRawDamage(ctx);
   return { ...ctx, finalDamage: Math.floor(value) };
 };
+
+// Compose the effective `power_coefficient` for a base-stage handler.
+// Per ADR-0032: when the ability declares `damage.chainBonus`, the
+// scalar grows with the AoE cluster size:
+//   power_coefficient + powerPerAdditionalTarget × max(0, targetCount - 1)
+// Single-target casts (targetCount === 1) read the unmodified
+// `power_coefficient`. Used by physical and magical bases. Healing
+// does not call this — no v1 healing ability scales with cluster size.
+function effectivePowerCoefficient(
+  ability: import('../catalog/index.ts').ActiveAbilityDefinition,
+  targetCount: number,
+): number {
+  const base = ability.effects.damage?.power_coefficient ?? 1;
+  const chainBonus = ability.effects.damage?.chainBonus;
+  if (chainBonus === undefined) return base;
+  const additional = Math.max(0, targetCount - 1);
+  return base + chainBonus.powerPerAdditionalTarget * additional;
+}
 
 // Helper — apply additives, then multipliers, against baseDamage.
 function computeRawDamage(ctx: DamageContext): number {

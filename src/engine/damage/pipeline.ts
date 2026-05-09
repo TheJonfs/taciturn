@@ -49,6 +49,9 @@ export interface RunDamagePipelineArgs {
   readonly sourceActionSeq: number;
   readonly seed: number;
   readonly registry: DamageHandlerRegistry;
+  // AoE cluster size for chain-damage scaling (ADR-0032). Single-target
+  // callers omit (defaults to 1); AoE callers pass `affected.length`.
+  readonly targetCount?: number;
 }
 
 export function runDamagePipeline(args: RunDamagePipelineArgs): DamageContext {
@@ -74,6 +77,7 @@ export function runDamagePipeline(args: RunDamagePipelineArgs): DamageContext {
     additives: [],
     variance,
     hit: true,
+    targetCount: args.targetCount ?? 1,
   };
 
   for (const stage of STAGE_ORDER) {

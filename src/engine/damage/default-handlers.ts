@@ -5,6 +5,7 @@
 
 import {
   clampMinMax,
+  critRoll,
   evasionCheck,
   finalize,
   fireOnDamageDealt,
@@ -29,8 +30,11 @@ export const defaultDamageHandlers: DamageHandlerRegistry = new Map<string, Dama
   ['evasion_check', evasionCheck],
   ['resistance_check', resistanceCheck],
   ['fire_on_damage_received', fireOnDamageReceived],
-  // variance
+  // variance — variance_roll first, then crit_roll layered on top
+  // (ADR-0032: crit composes as a separate multiplier on top of every
+  // other multiplier including variance, not as a replacement).
   ['variance_roll', varianceRoll],
+  ['crit_roll', critRoll],
   // cap
   ['clamp_min_max', clampMinMax],
   // finalize

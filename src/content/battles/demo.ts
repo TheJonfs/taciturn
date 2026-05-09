@@ -7,12 +7,15 @@
 //     that exercises bucket choice, MP gating, healing, and reactions).
 //   - 17b: 4 units — Knight + Earth Mage per side (first non-Knight class).
 //   - 18: 6 units — Knight + Earth Mage + Water Mage per side, mirror layout.
-//   - 19: 6 units, *asymmetric* loadout (this session) — Team A keeps
-//     Knight + Water Mage and gains Fire Mage; Team B keeps Earth Mage
-//     + Water Mage and gains Fire Mage. Each side keeps a different
-//     non-Fire class so the playable surface stays diverse without
-//     duplicating either Knight or Earth Mage. Both sides get Fire to
-//     test Burn / Aether Bloom / Smolder against each other.
+//   - 19: 6 units, *asymmetric* loadout — Team A keeps Knight + Water
+//     Mage and gains Fire Mage; Team B keeps Earth Mage + Water Mage
+//     and gains Fire Mage. Each side keeps a different non-Fire class.
+//   - 20: 6 units, asymmetric — Team A: Knight + Water Mage + Lightning
+//     Mage (drops Fire); Team B: Earth Mage + Fire Mage + Lightning
+//     Mage (drops Water). Each non-Lightning class still has at least
+//     one instance on the field. Both sides get Lightning to test
+//     Static Embrace / Magnetic Mark / Storm Caller / Discharge /
+//     Conductor across the table.
 //
 // Lives in `src/content/battles/` per the architecture overview's
 // "BattleConfigs live in src/content/battles/" note.
@@ -134,17 +137,56 @@ const FIRE_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   },
 };
 
+// Lightning Mage loadout (session 20 — fourth mage class wired into the
+// demo): Lightning Spells on First Action (class-pinned), White Magic
+// on Second Action for Cure backup, Discharge in the Reaction bucket
+// (free for Lightning Mage — magical retaliation), Conductor in
+// Support (free — × 1.25 MA multiplier), Move +1 in Movement.
+const LIGHTNING_MAGE_LOADOUT: UnitPlacement['loadout'] = {
+  actionBuckets: {
+    [bucketId('first_action')]: commandSetId('lightning_spells'),
+    [bucketId('second_action')]: commandSetId('white_magic'),
+  },
+  passiveBuckets: {
+    [bucketId('reaction')]: [abilityId('discharge')],
+    [bucketId('support')]: [abilityId('conductor')],
+    [bucketId('movement')]: [abilityId('move_plus_1')],
+  },
+};
+
 // faith 80 is a v1 placeholder; produces Faith_factor = 0.64 for symmetric
 // demo casts (visible Cure / status numbers without overwhelming damage).
 // Realistic faith spreads across classes land with content/tuning passes
 // in sessions 16+. brave 100 keeps Counter and other reaction triggers
 // deterministic for testing.
-const KNIGHT_BASE_STATS = { spd: 10, pa: 6, ma: 4, maxHpBase: 60, brave: 100, faith: 80 } as const;
+// Session 20: all demo units carry the crit baseline (crit_chance: 5,
+// crit_multiplier: 1.5) per ADR-0032 — tuned game state, with crits as
+// a visible v1 mechanic. Lightning Mage's Static Embrace (Crit_modifier
+// +20) layers additively on top.
+const KNIGHT_BASE_STATS = {
+  spd: 10,
+  pa: 6,
+  ma: 4,
+  maxHpBase: 60,
+  brave: 100,
+  faith: 80,
+  crit_chance: 5,
+  crit_multiplier: 1.5,
+} as const;
 // 10 MP is enough for two Cures (mpCost 4 each) with a little slack.
 const KNIGHT_VITALS = { hp: 60, mp: 10 } as const;
 
 // Earth Mage stats: lower HP, lower PA, higher MA than Knight.
-const MAGE_BASE_STATS = { spd: 9, pa: 4, ma: 8, maxHpBase: 50, brave: 100, faith: 80 } as const;
+const MAGE_BASE_STATS = {
+  spd: 9,
+  pa: 4,
+  ma: 8,
+  maxHpBase: 50,
+  brave: 100,
+  faith: 80,
+  crit_chance: 5,
+  crit_multiplier: 1.5,
+} as const;
 const MAGE_VITALS = { hp: 50, mp: 40 } as const;
 
 // Water Mage stats: faster than Earth (Speed 11 vs 9), squishier
@@ -156,6 +198,8 @@ const WATER_MAGE_BASE_STATS = {
   maxHpBase: 45,
   brave: 100,
   faith: 80,
+  crit_chance: 5,
+  crit_multiplier: 1.5,
 } as const;
 const WATER_MAGE_VITALS = { hp: 45, mp: 45 } as const;
 
@@ -171,8 +215,28 @@ const FIRE_MAGE_BASE_STATS = {
   maxHpBase: 42,
   brave: 100,
   faith: 80,
+  crit_chance: 5,
+  crit_multiplier: 1.5,
 } as const;
 const FIRE_MAGE_VITALS = { hp: 42, mp: 42 } as const;
+
+// Lightning Mage stats (session 20): speed-leaning crit specialist —
+// fastest of the four mages (spd 12), moderate raw MA (8) but burst
+// potential through crits (5% / ×1.5 baseline; Static Embrace stacks
+// Crit_modifier +20). 44 MP buys roughly: Storm Caller (28) +
+// Lightning Strike (10) = 38 MP, or two Lightning Strikes + Magnetic
+// Mark = 28 MP — ~3 casts per battle.
+const LIGHTNING_MAGE_BASE_STATS = {
+  spd: 12,
+  pa: 3,
+  ma: 8,
+  maxHpBase: 44,
+  brave: 100,
+  faith: 80,
+  crit_chance: 5,
+  crit_multiplier: 1.5,
+} as const;
+const LIGHTNING_MAGE_VITALS = { hp: 44, mp: 44 } as const;
 
 export const demoBattle: BattleConfig = {
   battleId: 'demo_asymmetric',
@@ -212,15 +276,15 @@ export const demoBattle: BattleConfig = {
       loadout: WATER_MAGE_LOADOUT,
     },
     {
-      id: unitId('blue_fire_mage'),
-      name: 'Blue Fire Mage',
+      id: unitId('blue_lightning_mage'),
+      name: 'Blue Lightning Mage',
       team: TEAM_A,
-      classId: classId('fire_mage'),
+      classId: classId('lightning_mage'),
       position: { x: 0, y: 3, layer: 0 },
       facing: 'E',
-      baseStats: FIRE_MAGE_BASE_STATS,
-      vitals: FIRE_MAGE_VITALS,
-      loadout: FIRE_MAGE_LOADOUT,
+      baseStats: LIGHTNING_MAGE_BASE_STATS,
+      vitals: LIGHTNING_MAGE_VITALS,
+      loadout: LIGHTNING_MAGE_LOADOUT,
     },
     {
       id: unitId('red_earth_mage'),
@@ -234,15 +298,15 @@ export const demoBattle: BattleConfig = {
       loadout: EARTH_MAGE_LOADOUT,
     },
     {
-      id: unitId('red_water_mage'),
-      name: 'Red Water Mage',
+      id: unitId('red_lightning_mage'),
+      name: 'Red Lightning Mage',
       team: TEAM_B,
-      classId: classId('water_mage'),
+      classId: classId('lightning_mage'),
       position: { x: 4, y: 1, layer: 0 },
       facing: 'W',
-      baseStats: WATER_MAGE_BASE_STATS,
-      vitals: WATER_MAGE_VITALS,
-      loadout: WATER_MAGE_LOADOUT,
+      baseStats: LIGHTNING_MAGE_BASE_STATS,
+      vitals: LIGHTNING_MAGE_VITALS,
+      loadout: LIGHTNING_MAGE_LOADOUT,
     },
     {
       id: unitId('red_fire_mage'),

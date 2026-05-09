@@ -222,7 +222,16 @@ export function reduceUseAbility(
   if (action.actorId === undefined) {
     throw new Error('reduceUseAbility: action has no actorId');
   }
-  if (state.turnState === null) {
+  // Reactions can fire when no turn is in progress — e.g., a charged
+  // ability resolves (charged_action_resolve has no turnState) and its
+  // damage triggers an `onActionTargeted` reaction (Discharge,
+  // future Reflect). The reaction commits as `use_ability` with
+  // `isReaction: true`. Pre-session-20 Counter avoided this case
+  // because its reaction compiler filters to `'physical'` damage and
+  // charged abilities are magical; session 20's Discharge has no
+  // damage-tag filter, so it surfaces the gap. Per ADR-0032's
+  // "magical reactions" item.
+  if (state.turnState === null && !action.isReaction) {
     throw new Error('reduceUseAbility: no turn in progress');
   }
 
@@ -240,7 +249,12 @@ export function reduceUseAbility(
   // Decrement actsAvailable. The Act is consumed at commit even for
   // charged spells (the caster spent their action; the spell resolves
   // later). Charging then skips subsequent turns via `queryTurnSkipped`.
-  workingState = decrementActBudget(workingState);
+  // Reactions don't consume the actor's turn budget — they fire out-of-
+  // turn — so skip the budget decrement when isReaction is true OR when
+  // there's no turn at all (the reactor isn't the active unit anyway).
+  if (state.turnState !== null && !action.isReaction) {
+    workingState = decrementActBudget(workingState);
+  }
 
   // Action Speed gate. actionSpeed > 0 → spawn a ChargedAction with
   // `ct: 0, speed: actionSpeed` and apply the Charging status to the
@@ -431,6 +445,11 @@ interface ResolveAbilityEffectArgs {
   // target callers (and the existing charged_action_resolve loop)
   // continue to resolve both kinds.
   readonly applyCasterEffects?: boolean;
+  // AoE cluster size for chain-damage scaling (per ADR-0032). Single-
+  // target callers omit (defaults to 1 in the pipeline); AoE callers
+  // pass `affected.length` so every target sees the same scaled
+  // power_coefficient via `damage.chainBonus`.
+  readonly targetCount?: number;
 }
 
 interface ResolveAbilityEffectResult {
@@ -468,6 +487,7 @@ function resolveAbilityEffect(
       sourceActionSeq: args.sourceActionSeq,
       seed: args.seed,
       registry: defaultDamageHandlers,
+      ...(args.targetCount !== undefined ? { targetCount: args.targetCount } : {}),
     });
     workingState = applyDamageToTarget(workingState, damageContext);
     if (damageContext.damageTags.has('healing')) {
@@ -830,10 +850,48 @@ function resolveAbilityTargets(
   args: ResolveAbilityTargetsArgs,
 ): ResolveAbilityTargetsResult {
   const aoe = args.ability.effects.aoe;
-  if (aoe === undefined) {
-    return resolveSingleTargetDispatch(state, catalog, args);
+  const result =
+    aoe === undefined
+      ? resolveSingleTargetDispatch(state, catalog, args)
+      : resolveAoeDispatch(state, catalog, args, aoe);
+
+  // Per-cast self-damage cost (ADR-0032). Fires once per resolved cast,
+  // independent of cluster size or hit/miss. Emitted as a labeled
+  // `system_damage` so the downstream reducer floors HP at 0; the
+  // labeled source enables a future preventer to gate via
+  // `onActionAttempted`. Skipped when the caster is already at 0 HP at
+  // dispatch time (defensive — a charged Storm Caller whose caster died
+  // mid-charge wouldn't reach this point anyway since
+  // `reduceChargedActionResolve` short-circuits on caster KO).
+  const selfDamage = args.ability.selfDamage;
+  if (selfDamage !== undefined) {
+    const caster = result.newState.units.get(args.attacker.id);
+    if (caster !== undefined && caster.vitals.hp > 0) {
+      const amount = Math.floor(selfDamage.fraction * caster.baseStats.maxHpBase);
+      if (amount > 0) {
+        const emission: ProposedAction = {
+          type: 'system_damage',
+          source: 'system',
+          payload: {
+            targetId: caster.id,
+            amount,
+            tags: [],
+            source: {
+              kind: 'ability_self_cost',
+              abilityId: args.ability.id,
+              casterId: caster.id,
+            },
+          },
+        };
+        return {
+          ...result,
+          generatedActions: [...result.generatedActions, emission],
+        };
+      }
+    }
   }
-  return resolveAoeDispatch(state, catalog, args, aoe);
+
+  return result;
 }
 
 // Single-target dispatch: resolves the payload target to a Unit | null
@@ -1025,6 +1083,9 @@ function resolveAoeDispatch(
       sourceActionSeq: args.sourceActionSeq,
       seed: perTargetSeed(args.seed, i),
       applyCasterEffects: false,
+      // ADR-0032: pass the cluster size so chainBonus-scaled power
+      // reads uniformly across the cluster.
+      targetCount: affected.length,
     });
     workingState = resolved.newState;
     for (const r of resolved.perTargetResults) allResults.push(r);

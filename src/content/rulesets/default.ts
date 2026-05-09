@@ -38,24 +38,29 @@ const DEFAULT_BUCKET_CAPACITIES: ReadonlyMap<BucketId, number> = new Map([
 // may compose on it. The seven-stage order is architectural and is not
 // reorderable by the ruleset (see docs/design/action-resolution.md).
 //
-// v1 covers physical damage, magical damage, and healing. Session 14
-// added `magical_ma_power` (MA × power × Faith_factor base for magical),
-// `evasion_check` (target-stage physical hit roll per ADR-0019), and
-// `resistance_check` (signedMax composition per ADR-0015, healing
-// short-circuit per ADR-0016). Elemental amplification, environmental
-// modifiers, and crit handling arrive in later content-expansion passes
-// as additional registry entries.
+// v1 covers physical damage, magical damage, healing, and crits.
+// Session 14 added `magical_ma_power` (MA × power × Faith_factor base
+// for magical), `evasion_check` (target-stage physical hit roll per
+// ADR-0019), and `resistance_check` (signedMax composition per
+// ADR-0015, healing short-circuit per ADR-0016). Session 20 adds
+// `crit_roll` at the variance stage (per ADR-0032). Elemental
+// amplification and environmental modifiers arrive in later content-
+// expansion passes as additional registry entries.
 //
 // Target-stage order is significant: `evasion_check` runs first so
 // `resistance_check` and `fire_on_damage_received` see the resolved
 // hit value; `resistance_check` runs second so onDamageReceived hooks
-// (Protect etc.) compose on top of the post-resistance ctx.
+// (Vulnerable, Protect etc.) compose on top of the post-resistance ctx.
+//
+// Variance-stage order: `variance_roll` first (per-cast multiplicative
+// band), then `crit_roll` layered on top — crit is a separate
+// multiplier, not a replacement for variance.
 const DEFAULT_DAMAGE_PIPELINE: Readonly<Record<DamageStage, ReadonlyArray<DamageHandlerRef>>> = {
   base: ['physical_pa_wp', 'magical_ma_power', 'healing_base'],
   attacker: ['fire_on_damage_dealt'],
   target: ['evasion_check', 'resistance_check', 'fire_on_damage_received'],
   environment: [],
-  variance: ['variance_roll'],
+  variance: ['variance_roll', 'crit_roll'],
   cap: ['clamp_min_max'],
   finalize: ['finalize'],
 };

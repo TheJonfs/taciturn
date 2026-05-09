@@ -231,6 +231,16 @@ export interface DamageSpec {
     readonly chance?: number;
     readonly factors?: StatusFormulaFactors;
   };
+  // Chain damage rider — scales effective `power_coefficient` with the
+  // number of targets hit. Per ADR-0032, the base-stage handler
+  // (`magical_ma_power` / `physical_pa_wp`) folds in
+  // `power_coefficient + powerPerAdditionalTarget × max(0, targetCount - 1)`
+  // — every target in the cluster sees the boosted scalar uniformly.
+  // First v1 consumer is Chain Lightning (Lightning Mage AoE):
+  // base power 8, chainBonus { powerPerAdditionalTarget: 1 } → 1
+  // target = 8, 2 = 9, 3 = 10, etc. Cluster size is read from the
+  // pipeline's `ctx.targetCount`, threaded by the dispatcher.
+  readonly chainBonus?: { readonly powerPerAdditionalTarget: number };
 }
 
 // Free-standing CT effect — chance-gated CT adjustment with no damage
@@ -336,6 +346,21 @@ export interface ActiveAbilityDefinition extends AbilityCommon {
   // abilities skip the roll regardless. See ADR-0019.
   readonly hitRoll?: HitRollSpec;
   readonly effects: AbilityEffects;
+  // Per-cast self-damage cost (per ADR-0032). When set, the dispatcher
+  // emits a `system_damage` against the caster after the per-target
+  // dispatch completes, with `amount = floor(fraction × caster.maxHpBase)`
+  // and source `{ kind: 'ability_self_cost', abilityId }`. Fires once
+  // per cast, regardless of cluster size, hit, or KO of any target.
+  // Bypasses the seven-stage damage pipeline entirely (no resistance,
+  // no reactions, no Vulnerable amplification — it's a cost, not a hit).
+  // First v1 consumer is Lightning Mage's Storm Caller (Ultimate):
+  // `selfDamage: { fraction: 0.25 }` — 25% of the caster's max HP.
+  // The discrete `system_damage` emission with the labeled source is
+  // the avenue Chris reserved for a future item/ability that prevents
+  // self-cost: a preventer registers an `onActionAttempted` handler
+  // that matches on `action.payload.source.kind === 'ability_self_cost'`
+  // and returns `blocked`.
+  readonly selfDamage?: { readonly fraction: number };
 }
 
 export interface PassiveAbilityDefinition extends AbilityCommon {

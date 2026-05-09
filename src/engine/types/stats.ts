@@ -40,6 +40,20 @@ export interface BaseStats {
   // applies once non-100-Brave content arrives.
   readonly brave: number;
   readonly faith: number;
+  // Crit infrastructure (session 20). `crit_chance` is a percentage in
+  // [0, 100]; the `crit_roll` damage-pipeline handler reads it via
+  // `modifyStatQuery` (so Crit_modifier and future buffs compose) and
+  // rolls a deterministic per-attack RNG against it. `crit_multiplier`
+  // is applied to damage when the roll lands. Both compose with variance
+  // and resistance — crit is layered on top of all other multipliers
+  // per ADR-0032. v1 placement convention: tuned content (demo battle
+  // / Lightning Mage) sets `crit_chance: 5, crit_multiplier: 1.5`;
+  // existing fixtures and pre-tuning content use `0 / 1` to preserve
+  // deterministic damage values. The handler short-circuits on
+  // `crit_chance <= 0`, so the `0 / 1` shape produces zero crits even
+  // if a future Crit_modifier buff bumps the queried multiplier.
+  readonly crit_chance: number;
+  readonly crit_multiplier: number;
 }
 
 export interface Vitals {

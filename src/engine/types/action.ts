@@ -191,11 +191,14 @@ export interface SystemDamageOutcome {
   readonly applied: number; // post-floor-at-0 delta
 }
 // Provenance for a system_damage. `status_tick` covers Poison; `falling`
-// covers ADR-0026 forced-movement landing damage; future variants extend
-// the union (environmental hazards, equipment thorns, etc.).
+// covers ADR-0026 forced-movement landing damage; `ability_self_cost`
+// (added session 20 per ADR-0032) covers per-cast self-damage costs
+// like Lightning Mage's Storm Caller. Future variants extend the union
+// (environmental hazards, equipment thorns, etc.).
 export type SystemDamageSource =
   | { readonly kind: 'status_tick'; readonly statusTypeId: StatusTypeId; readonly unitId: UnitId }
-  | { readonly kind: 'falling'; readonly unitId: UnitId; readonly dropDistance: number };
+  | { readonly kind: 'falling'; readonly unitId: UnitId; readonly dropDistance: number }
+  | { readonly kind: 'ability_self_cost'; readonly abilityId: AbilityId; readonly casterId: UnitId };
 
 // `system_apply_status` — engine-emitted action that applies a status
 // to a target unit *without* running the BMG application chance formula.

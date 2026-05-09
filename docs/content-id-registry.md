@@ -21,6 +21,7 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `earth_mage` | Earth Mage | `src/content/classes/earth-mage.ts` |
 | `water_mage` | Water Mage | `src/content/classes/water-mage.ts` |
 | `fire_mage` | Fire Mage | `src/content/classes/fire-mage.ts` |
+| `lightning_mage` | Lightning Mage | `src/content/classes/lightning-mage.ts` |
 
 ## Command sets
 
@@ -32,6 +33,7 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `earth_spells` | Earth Spells | `earth_strike`, `earth_blessing`, `earth_curse`, `earth_quake`, `earth_cataclysm` | `src/content/command-sets/earth-spells.ts` |
 | `water_spells` | Water Spells | `water_strike`, `tide_surge`, `tidal_wave`, `brine`, `maelstrom` | `src/content/command-sets/water-spells.ts` |
 | `fire_spells` | Fire Spells | `fire_strike`, `fire_embrace`, `fire_storm`, `spark`, `flame_lance` | `src/content/command-sets/fire-spells.ts` |
+| `lightning_spells` | Lightning Spells | `lightning_strike`, `static_embrace`, `chain_lightning`, `magnetic_mark`, `storm_caller` | `src/content/command-sets/lightning-spells.ts` |
 
 ## Active abilities
 
@@ -58,6 +60,12 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `fire_storm` | Fire Storm | first_action | yes (actionSpeed 25, AoE cross-r1 base; cross-r2 with Aether Bloom) | `src/content/abilities/fire-storm.ts` |
 | `spark` | Spark | first_action | yes (actionSpeed 28, applies 2 stacks of Burn on a single roll) | `src/content/abilities/spark.ts` |
 | `flame_lance` | Flame Lance | first_action | yes (actionSpeed 18, line length 4 caster-anchored, applyAlways Burn) | `src/content/abilities/flame-lance.ts` |
+| `lightning_strike` | Lightning Strike | first_action | yes (actionSpeed 30, raw power 12 magical lightning) | `src/content/abilities/lightning-strike.ts` |
+| `static_embrace` | Static Embrace | first_action | yes (actionSpeed 25, applies Crit_modifier +20 on ally) | `src/content/abilities/static-embrace.ts` |
+| `chain_lightning` | Chain Lightning | first_action | yes (actionSpeed 25, AoE diamond-r1 with chainBonus +1 power per additional target) | `src/content/abilities/chain-lightning.ts` |
+| `magnetic_mark` | Magnetic Mark | first_action | yes (actionSpeed 35 — deliberately slow, applies Vulnerable) | `src/content/abilities/magnetic-mark.ts` |
+| `storm_caller` | Storm Caller | first_action | yes (actionSpeed 18, power 36 single-target with 25% maxHp self-cost) | `src/content/abilities/storm-caller.ts` |
+| `discharge_strike` | Discharge Strike | first_action | no (instant, reaction-only payload — emitted by Discharge passive) | `src/content/abilities/discharge-strike.ts` |
 
 ## Passive abilities
 
@@ -76,6 +84,8 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `smolder` | Smolder | reaction | `src/content/abilities/smolder.ts` |
 | `ignition` | Ignition | support | `src/content/abilities/ignition.ts` |
 | `aether_bloom` | Aether Bloom | support | `src/content/abilities/aether-bloom.ts` |
+| `discharge` | Discharge | reaction | `src/content/abilities/discharge.ts` |
+| `conductor` | Conductor | support | `src/content/abilities/conductor.ts` |
 
 ## Status types
 
@@ -99,6 +109,8 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `pa_down` | PA Down | negative, fire | STACK_ADDITIVE | permanent | `src/content/statuses/pa-down.ts` |
 | `ma_up` | MA Up | positive | STACK_ADDITIVE | permanent | `src/content/statuses/ma-up.ts` |
 | `ma_down` | MA Down | negative, fire | STACK_ADDITIVE | permanent | `src/content/statuses/ma-down.ts` |
+| `vulnerable` | Vulnerable | negative, lightning | REFRESH | custom (on_damage_received) | `src/content/statuses/vulnerable.ts` |
+| `crit_modifier` | Crit Modifier | positive | STACK_INDEPENDENT | permanent | `src/content/statuses/crit-modifier.ts` |
 
 ## Equipment
 

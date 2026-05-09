@@ -39,17 +39,19 @@ describe('loadDefaultCatalog', () => {
     // to change; failing it from new content additions is the correct
     // signal that the baseline expanded.
     //
-    // Session 19 added Fire Mage (5 actives + reaction + 2 supports +
-    // class + command set + 5 statuses):
-    //   - statuses: 13 → 18 (burn, pa_up, pa_down, ma_up, ma_down)
-    //   - abilities: 26 → 34 (8 new — 5 actives + reaction + 2 supports)
-    //   - commandSets: 5 → 6 (fire_spells)
-    //   - classes: 3 → 4 (fire_mage)
+    // Session 20 added Lightning Mage (5 actives + reaction + support +
+    // hidden retaliation active + class + command set + 2 statuses):
+    //   - statuses: 18 → 20 (vulnerable, crit_modifier)
+    //   - abilities: 34 → 42 (8 new — 5 actives in lightning_spells +
+    //     discharge passive + discharge_strike active emitted by the
+    //     reaction + conductor support)
+    //   - commandSets: 6 → 7 (lightning_spells)
+    //   - classes: 4 → 5 (lightning_mage)
     //   - items: unchanged
-    expect(cat.statusTypes()).toHaveLength(18);
-    expect(cat.abilities()).toHaveLength(34);
-    expect(cat.commandSets()).toHaveLength(6);
-    expect(cat.classes()).toHaveLength(4);
+    expect(cat.statusTypes()).toHaveLength(20);
+    expect(cat.abilities()).toHaveLength(42);
+    expect(cat.commandSets()).toHaveLength(7);
+    expect(cat.classes()).toHaveLength(5);
     expect(cat.items()).toHaveLength(5);
     expect(cat.rulesets()).toHaveLength(1);
   });
