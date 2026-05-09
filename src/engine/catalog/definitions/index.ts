@@ -25,4 +25,9 @@ export type {
   WeaponEquipment,
 } from './item-definition.ts';
 export type { RulesetDefinition } from './ruleset-definition.ts';
-export type { StatusEffectType } from './status-effect-type.ts';
+export type {
+  ComposeApplyStateArgs,
+  ComposeApplyStateResult,
+  CustomTriggerSpec,
+  StatusEffectType,
+} from './status-effect-type.ts';

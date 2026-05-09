@@ -116,6 +116,25 @@ export function shapeOffsets(
       }
       return out;
     }
+    case 'line': {
+      // Cardinal line: `length` offsets along the forward axis, starting
+      // one tile in front of the caster. Kinematic-stop semantics (a wall
+      // ending the line early) live in `aoeFootprint`; `shapeOffsets`
+      // returns the unconstrained offset list for callers that want the
+      // full theoretical footprint (e.g., UI preview before terrain
+      // blocking is applied).
+      if (!Number.isInteger(shape.length) || shape.length <= 0) {
+        throw new Error(
+          `shapeOffsets: line length ${shape.length} must be a positive integer`,
+        );
+      }
+      const basis = DIRECTION_BASIS[direction];
+      const out: AoeOffset[] = [];
+      for (let step = 1; step <= shape.length; step++) {
+        out.push({ dx: basis.forward.dx * step, dy: basis.forward.dy * step });
+      }
+      return out;
+    }
     case 'custom':
       return shape.offsets;
   }
@@ -138,8 +157,21 @@ export interface AoeFootprintArgs {
 // rendered at the corner of a map naturally clips. (Distinct from
 // accessor calls where out-of-bounds is a programmer error: here, the
 // shape extent is calculated, not asked for.)
+//
+// Per ADR-0031, the `'line'` shape uses kinematic-stop semantics: the
+// loop iterates forward from the anchor and terminates on encountering
+// a tile whose elevation differs from the anchor's by more than
+// `verticalTolerance`. Tiles past that wall are excluded. Other shapes
+// (diamond/square/cross/cone/custom) keep the per-tile-filter behavior
+// — an explosion ignores walls per-tile, while a line is a beam that
+// stops on a wall.
 export function aoeFootprint(args: AoeFootprintArgs): ReadonlyArray<Tile> {
   const { map, anchor, shape, verticalTolerance, direction } = args;
+
+  if (shape.kind === 'line') {
+    return lineFootprint(map, anchor, shape, verticalTolerance, direction ?? 'N');
+  }
+
   const offsets = shapeOffsets(shape, direction);
   const result: Tile[] = [];
   for (const off of offsets) {
@@ -156,8 +188,39 @@ export function aoeFootprint(args: AoeFootprintArgs): ReadonlyArray<Tile> {
   return result;
 }
 
+// Kinematic-stop line footprint (per ADR-0031). Iterates forward from
+// the anchor; on the first step that's out of bounds OR has no in-tolerance
+// tile, the line terminates. Tiles past that point are excluded.
+function lineFootprint(
+  map: BattleMap,
+  anchor: AoeAnchor,
+  shape: { readonly kind: 'line'; readonly length: number },
+  verticalTolerance: number,
+  direction: CardinalDirection,
+): ReadonlyArray<Tile> {
+  if (!Number.isInteger(shape.length) || shape.length <= 0) {
+    throw new Error(
+      `lineFootprint: line length ${shape.length} must be a positive integer`,
+    );
+  }
+  const basis = DIRECTION_BASIS[direction];
+  const result: Tile[] = [];
+  for (let step = 1; step <= shape.length; step++) {
+    const x = anchor.x + basis.forward.dx * step;
+    const y = anchor.y + basis.forward.dy * step;
+    if (x < 0 || y < 0 || x >= map.width || y >= map.height) break; // off the map → stop
+    const tilesHere = tilesAt(map, x, y);
+    const inTolerance = tilesHere.filter(
+      (tile) => Math.abs(tile.elevation - anchor.elevation) <= verticalTolerance,
+    );
+    if (inTolerance.length === 0) break; // wall → stop, no tiles past this point
+    for (const tile of inTolerance) result.push(tile);
+  }
+  return result;
+}
+
 // Compute the dominant cardinal direction from `from` → `to`. Used by
-// the AoE dispatcher when a directional shape (cone) needs an
+// the AoE dispatcher when a directional shape (cone, line) needs an
 // orientation derived from caster→target geometry.
 //
 // Tie-breaking when `|dx| === |dy|`: prefer horizontal (E/W) over
@@ -178,4 +241,40 @@ export function cardinalFromTo(
     return 'N'; // dx === 0 && dy === 0; arbitrary stable choice
   }
   return dy > 0 ? 'S' : 'N';
+}
+
+// Per ADR-0031: universal "+1 step" AoE expansion rule. Returns the
+// shape grown by one parameter for parameterized shapes; cone and
+// custom shapes pass through unchanged (no canonical growth rule).
+//
+// Used by Aether Bloom (Fire Mage Support, free for Fire) — registers
+// `modifyAoeShape` and applies this transform to magical AoE casts.
+// Composes naturally with chained expanders: two stacked passives both
+// calling `enlargeAoeShape` produce `+2 step` growth.
+//
+// Specifically:
+//   - tile             → cross r1 (smallest spread; tile has no radius)
+//   - diamond r=N      → diamond r=N+1
+//   - square r=N       → square r=N+1
+//   - cross r=N        → cross r=N+1
+//   - line length=N    → line length=N+1
+//   - cone rows=[…]    → unchanged (cones are author-defined; future
+//                        cone-extender content can ship its own helper)
+//   - custom offsets=[…] → unchanged (custom is author-defined; no rule)
+export function enlargeAoeShape(shape: AoeShape): AoeShape {
+  switch (shape.kind) {
+    case 'tile':
+      return { kind: 'cross', radius: 1 };
+    case 'diamond':
+      return { kind: 'diamond', radius: shape.radius + 1 };
+    case 'square':
+      return { kind: 'square', radius: shape.radius + 1 };
+    case 'cross':
+      return { kind: 'cross', radius: shape.radius + 1 };
+    case 'line':
+      return { kind: 'line', length: shape.length + 1 };
+    case 'cone':
+    case 'custom':
+      return shape;
+  }
 }

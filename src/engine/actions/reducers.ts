@@ -612,6 +612,7 @@ function resolveAbilityEffect(
   const applyCasterEffects = args.applyCasterEffects ?? true;
   if (args.ability.effects.statusEffects && !targetKO) {
     let effectIndex = 0;
+    let lastEffectIndex = -1;
     for (const spec of args.ability.effects.statusEffects) {
       // AoE per-target callers pass `applyCasterEffects: false`; the
       // dispatcher fires caster-target status effects once before the
@@ -630,6 +631,14 @@ function resolveAbilityEffect(
       }
       const targetUnit = getUnit(workingState, targetStatusUnitId);
       const statusType = catalog.getStatusType(spec.typeId);
+      // Per session 19: `linkRoll` shares the previous effect's
+      // effectIndex so the seed-derived `roll` is identical. When the
+      // chance computation also matches (same baseChance/factors/
+      // resistance), the `applied` outcome is identical too — used by
+      // Fire Strike/Embrace for linked dual stat shifts. Ignored on
+      // the first effect (no previous index to share).
+      const useEffectIndex =
+        spec.linkRoll === true && lastEffectIndex >= 0 ? lastEffectIndex : effectIndex;
       const chanceResult = rollStatusChance({
         state: workingState,
         catalog,
@@ -639,11 +648,12 @@ function resolveAbilityEffect(
         ability: args.ability,
         baseChance: spec.baseChance ?? 100,
         seed: args.seed,
-        effectIndex,
+        effectIndex: useEffectIndex,
         ...(spec.factors !== undefined ? { factors: spec.factors } : {}),
         ...(spec.applyAlways !== undefined ? { applyAlways: spec.applyAlways } : {}),
       });
-      effectIndex++;
+      lastEffectIndex = useEffectIndex;
+      if (useEffectIndex === effectIndex) effectIndex++;
       if (!chanceResult.applied) {
         statusOutcomes.push({
           kind: 'missed',
@@ -662,6 +672,7 @@ function resolveAbilityEffect(
           ...(spec.magnitude !== undefined ? { magnitude: spec.magnitude } : {}),
           ...(spec.duration !== undefined ? { duration: spec.duration } : {}),
           ...(spec.customState !== undefined ? { customState: spec.customState } : {}),
+          ...(spec.stackQuantity !== undefined ? { stackQuantity: spec.stackQuantity } : {}),
         },
         catalog,
       );
@@ -932,15 +943,16 @@ function resolveAoeDispatch(
     baseShape: aoe.shape,
   });
 
-  // Direction for directional shapes (cone). Derived from caster→target-
-  // tile cardinal vector; required when shape is 'cone'. Throws if the
-  // ability author paired a cone with `anchorMode: 'target'` — that's
-  // a content error (cones need caster→target geometry).
+  // Direction for directional shapes (cone, line). Derived from
+  // caster→target-tile cardinal vector; required when shape is 'cone' or
+  // 'line'. Throws if the ability author paired a directional shape with
+  // `anchorMode: 'target'` — content error (these shapes need caster→
+  // target geometry to project from).
   let direction: CardinalDirection | undefined;
-  if (finalShape.kind === 'cone') {
+  if (finalShape.kind === 'cone' || finalShape.kind === 'line') {
     if (anchorMode !== 'caster') {
       throw new Error(
-        `resolveAoeDispatch: cone shapes require anchorMode 'caster' (ability ${JSON.stringify(args.ability.id)})`,
+        `resolveAoeDispatch: ${finalShape.kind} shapes require anchorMode 'caster' (ability ${JSON.stringify(args.ability.id)})`,
       );
     }
     const targetPos = resolveAoeAnchor(state, args.payloadTarget, args.attacker);
@@ -1166,7 +1178,11 @@ export function reduceTurnStart(
     if (!skip.suppressStatusTicks) {
       for (const status of unit.statuses) {
         const type = catalog.getStatusType(status.typeId);
-        if (type.durationMode === 'per_unit_ct' || type.durationMode === 'permanent_per_unit_ct') {
+        if (
+          type.durationMode === 'per_unit_ct' ||
+          type.durationMode === 'permanent_per_unit_ct' ||
+          (type.durationMode === 'custom' && type.customTrigger?.kind === 'on_unit_ct_100')
+        ) {
           generated.push({
             type: 'status_tick',
             source: 'system',
@@ -1386,6 +1402,19 @@ export function reduceStatusTick(
   // tick when statusTypeId fires).
   const emissions = runOnTick(state, catalog, { unit, statusTypeId });
 
+  // Per ADR-0030: 'custom' durationMode is event-driven; the status's
+  // own onTick handler manages its lifecycle (Burn emits a
+  // status_decrement_stack alongside its damage). Skip the
+  // engine's duration decrement entirely.
+  const type = catalog.getStatusType(statusTypeId);
+  if (type.durationMode === 'custom') {
+    return {
+      newState: state,
+      outcome: { kind: 'status_tick', unitId, statusTypeId, removed: false },
+      generatedActions: emissions,
+    };
+  }
+
   // Decrement remaining duration. null durations (permanent / conditional)
   // never tick down and never expire here.
   if (instance.remainingDuration === null) {
@@ -1552,7 +1581,8 @@ export function reduceSystemApplyStatus(
   action: Extract<Action, { type: 'system_apply_status' }>,
   catalog: Catalog,
 ): ReduceResult<SystemApplyStatusOutcome> {
-  const { targetId, statusTypeId, sourceUnitId, magnitude, duration, customState } = action.payload;
+  const { targetId, statusTypeId, sourceUnitId, magnitude, duration, customState, stackQuantity } =
+    action.payload;
   const target = state.units.get(targetId);
   if (target === undefined || target.vitals.hp <= 0) {
     // KO'd targets don't receive new statuses (parallel to BMG: DoTs
@@ -1580,6 +1610,7 @@ export function reduceSystemApplyStatus(
       ...(magnitude !== undefined ? { magnitude } : {}),
       ...(duration !== undefined ? { duration } : {}),
       ...(customState !== undefined ? { customState } : {}),
+      ...(stackQuantity !== undefined ? { stackQuantity } : {}),
     },
     catalog,
   );
@@ -1743,7 +1774,22 @@ export function reduceStatusDecrementStack(
     };
   }
 
-  const newInstance: StatusInstance = { ...instance, stacks: nextStacks };
+  // Per ADR-0030: custom-state-bearing stacking statuses (Burn) need
+  // their per-stack metadata transformed alongside the count decrement.
+  // The type's customStateOnDecrement method (when defined) returns the
+  // new customState to attach to the decremented instance. v1 consumer
+  // is Burn — FIFO-shifts stackDamages to drop the oldest stack's value.
+  const type = catalog.getStatusType(statusTypeId);
+  const newCustomState =
+    type.customStateOnDecrement !== undefined
+      ? type.customStateOnDecrement(instance)
+      : instance.customState;
+
+  const newInstance: StatusInstance = {
+    ...instance,
+    stacks: nextStacks,
+    ...(newCustomState !== undefined ? { customState: newCustomState } : {}),
+  };
   const newStatuses = target.statuses.map((s, i) => (i === idx ? newInstance : s));
   const newTarget: Unit = { ...target, statuses: newStatuses };
   return {

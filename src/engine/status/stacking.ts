@@ -135,13 +135,34 @@ export function applyStackingRule(
     }
 
     case 'STACK_COUNT_ADDITIVE': {
-      // Per ADR-0018: stack count increments on existing instance;
-      // magnitude is a per-stack constant (not summed); duration
-      // refreshes. First consumer is Burn in session 19; the throw
-      // surfaces any earlier accidental use of the rule.
-      throw new Error(
-        `applyStackingRule: STACK_COUNT_ADDITIVE not yet implemented (status type ${JSON.stringify(type.id)}); lands session 19 alongside Burn`,
-      );
+      // Per ADR-0018 + ADR-0030: stack count increments on the existing
+      // instance; magnitude is a per-stack constant (not summed);
+      // duration refreshes. When the type defines composeApplyState,
+      // the composer has already merged customState with existing and
+      // computed the resulting total stack count — we splat those onto
+      // the head directly. When the type doesn't define a composer
+      // (a hypothetical pure stack-counting status with no per-stack
+      // metadata), fall back to "increment count by incoming.stacks"
+      // (incoming.stacks defaults to 1 when the spec omitted
+      // stackQuantity) and preserve the head's customState.
+      const head = existing[0]!;
+      const composerRan = type.composeApplyState !== undefined;
+      const totalStacks = composerRan
+        ? (incoming.stacks ?? 1)
+        : (head.stacks ?? 1) + (incoming.stacks ?? 1);
+      const merged: StatusInstance = {
+        ...head,
+        stacks: totalStacks,
+        ...(composerRan && incoming.customState !== undefined
+          ? { customState: incoming.customState }
+          : {}),
+        remainingDuration: incoming.remainingDuration, // refresh (null for 'custom')
+      };
+      return {
+        newInstancesOfType: [merged, ...existing.slice(1)],
+        result: { kind: 'stacked', mode: 'additive', instance: merged },
+        lifecycle: NO_LIFECYCLE,
+      };
     }
   }
 }

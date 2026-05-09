@@ -39,13 +39,22 @@ export interface ApplyStatusArgs {
   // When omitted, the type's `defaultMagnitude` is used.
   readonly magnitude?: number;
   // Required for `per_unit_ct`, `global_ticks`, and `turn_based`
-  // duration modes; ignored for `permanent` and `conditional`. Throws
-  // if missing for a duration-counted mode.
+  // duration modes; ignored for `permanent`, `conditional`,
+  // `permanent_per_unit_ct`, and `'custom'`. Throws if missing for a
+  // duration-counted mode.
   readonly duration?: number;
   // For STACK_INDEPENDENT statuses, the per-instance custom state at
   // application time (e.g., the Charging status's chargedActionId).
-  // For other rules, ignored.
+  // For other rules, ignored unless the type defines composeApplyState
+  // (which can read this through ComposeApplyStateArgs.requestedStackQuantity
+  // / existingInstance — but custom state itself is composed by the
+  // type's composer, not by this argument).
   readonly customState?: Readonly<Record<string, unknown>>;
+  // Per ADR-0030: how many stacks this application requests. Defaults
+  // to 1. Forwarded into the type's composeApplyState as
+  // `requestedStackQuantity`. For STACK_COUNT_ADDITIVE statuses with
+  // no composer, this becomes the candidate's `stacks` field.
+  readonly stackQuantity?: number;
 }
 
 export interface ApplyStatusReturn {
@@ -61,20 +70,53 @@ export function applyStatus(
   const targetUnit = getUnit(state, args.targetId);
   const type = catalog.getStatusType(args.typeId);
 
+  // Per ADR-0030 sanity check: 'custom' durationMode requires customTrigger.
+  if (type.durationMode === 'custom' && type.customTrigger === undefined) {
+    throw new Error(
+      `applyStatus: status type ${JSON.stringify(type.id)} declares durationMode='custom' but no customTrigger`,
+    );
+  }
+
   // 1. Resistance check — no-op until Unit.resistances lands.
 
-  // 2/3. Build candidate instance (instantiation step). We always
-  // construct it; the stacking rule decides whether it ends up on the
-  // unit, refreshes an existing one, or is rejected.
-  const candidate = buildCandidate(type, args);
-
-  // Partition existing statuses by type for the stacking decision.
+  // Partition existing statuses by type. The composeApplyState method
+  // (ADR-0030) needs to see the existing same-type instance to merge
+  // customState/stacks; the stacking rule needs the partition for its
+  // dispatch. Both run after partitioning.
   const existingOfType: StatusInstance[] = [];
   const otherTypes: StatusInstance[] = [];
   for (const s of targetUnit.statuses) {
     if (s.typeId === type.id) existingOfType.push(s);
     else otherTypes.push(s);
   }
+
+  // Per ADR-0030: composer runs before buildCandidate. When defined, it
+  // computes the resulting customState (post-merge with existing) and
+  // optionally the resulting stacks count. Burn snapshots the caster's
+  // MA into per-stack damage values here.
+  const requestedStackQuantity = args.stackQuantity ?? 1;
+  let composedCustomState: Readonly<Record<string, unknown>> | undefined = args.customState;
+  let composedStacks: number | undefined;
+  if (type.composeApplyState !== undefined) {
+    const caster = args.sourceUnitId !== null ? state.units.get(args.sourceUnitId) ?? null : null;
+    const composed = type.composeApplyState({
+      state,
+      catalog,
+      caster,
+      existingInstance: existingOfType[0] ?? null,
+      requestedStackQuantity,
+    });
+    if (composed.customState !== undefined) composedCustomState = composed.customState;
+    if (composed.stacks !== undefined) composedStacks = composed.stacks;
+  }
+
+  // 2/3. Build candidate instance (instantiation step). We always
+  // construct it; the stacking rule decides whether it ends up on the
+  // unit, refreshes an existing one, or is rejected.
+  const candidate = buildCandidate(type, args, {
+    customState: composedCustomState,
+    stacks: composedStacks ?? (requestedStackQuantity > 1 ? requestedStackQuantity : undefined),
+  });
 
   const dispatch = applyStackingRule(type, existingOfType, candidate);
 
@@ -120,7 +162,16 @@ export function applyStatus(
   return { newState, result: dispatch.result };
 }
 
-function buildCandidate(type: StatusEffectType, args: ApplyStatusArgs): StatusInstance {
+interface CandidateOverrides {
+  readonly customState?: Readonly<Record<string, unknown>>;
+  readonly stacks?: number;
+}
+
+function buildCandidate(
+  type: StatusEffectType,
+  args: ApplyStatusArgs,
+  overrides: CandidateOverrides,
+): StatusInstance {
   const remainingDuration = computeInitialDuration(type, args.duration);
   const magnitude = args.magnitude ?? type.defaultMagnitude;
 
@@ -136,7 +187,8 @@ function buildCandidate(type: StatusEffectType, args: ApplyStatusArgs): StatusIn
     source,
     remainingDuration,
     ...(magnitude !== undefined ? { magnitude } : {}),
-    ...(args.customState !== undefined ? { customState: args.customState } : {}),
+    ...(overrides.customState !== undefined ? { customState: overrides.customState } : {}),
+    ...(overrides.stacks !== undefined ? { stacks: overrides.stacks } : {}),
   };
   return candidate;
 }
@@ -146,13 +198,15 @@ function computeInitialDuration(
   requested: number | undefined,
 ): number | null {
   // No-decay modes always store null. `permanent_per_unit_ct` (ADR-0027)
-  // ticks at the unit's CT cadence but never expires — the apply pipeline
-  // discards any requested duration so the StatusEffectType stays the
-  // single source of truth on whether time decrements.
+  // ticks at the unit's CT cadence but never expires; `'custom'` (ADR-0030)
+  // is event-driven and ignores time entirely. The apply pipeline
+  // discards any requested duration for these modes so the StatusEffectType
+  // stays the single source of truth on whether time decrements.
   if (
     type.durationMode === 'permanent' ||
     type.durationMode === 'conditional' ||
-    type.durationMode === 'permanent_per_unit_ct'
+    type.durationMode === 'permanent_per_unit_ct' ||
+    type.durationMode === 'custom'
   ) {
     return null;
   }

@@ -20,6 +20,7 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `knight` | Knight | `src/content/classes/knight.ts` |
 | `earth_mage` | Earth Mage | `src/content/classes/earth-mage.ts` |
 | `water_mage` | Water Mage | `src/content/classes/water-mage.ts` |
+| `fire_mage` | Fire Mage | `src/content/classes/fire-mage.ts` |
 
 ## Command sets
 
@@ -30,6 +31,7 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `arcane_skill` | Arcane Skill | `bolt` | `src/content/command-sets/arcane-skill.ts` |
 | `earth_spells` | Earth Spells | `earth_strike`, `earth_blessing`, `earth_curse`, `earth_quake`, `earth_cataclysm` | `src/content/command-sets/earth-spells.ts` |
 | `water_spells` | Water Spells | `water_strike`, `tide_surge`, `tidal_wave`, `brine`, `maelstrom` | `src/content/command-sets/water-spells.ts` |
+| `fire_spells` | Fire Spells | `fire_strike`, `fire_embrace`, `fire_storm`, `spark`, `flame_lance` | `src/content/command-sets/fire-spells.ts` |
 
 ## Active abilities
 
@@ -51,6 +53,11 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `tidal_wave` | Tidal Wave | first_action | yes (actionSpeed 25, AoE diamond-r1, knockback rider) | `src/content/abilities/tidal-wave.ts` |
 | `brine` | Brine | first_action | yes (actionSpeed 30, Speed Down debuff) | `src/content/abilities/brine.ts` |
 | `maelstrom` | Maelstrom | first_action | yes (actionSpeed 18, cone caster-anchored, always-knockback) | `src/content/abilities/maelstrom.ts` |
+| `fire_strike` | Fire Strike | first_action | yes (actionSpeed 30, linked PA Down + MA Down rider) | `src/content/abilities/fire-strike.ts` |
+| `fire_embrace` | Fire Embrace | first_action | yes (actionSpeed 25, linked PA Up + MA Up on ally) | `src/content/abilities/fire-embrace.ts` |
+| `fire_storm` | Fire Storm | first_action | yes (actionSpeed 25, AoE cross-r1 base; cross-r2 with Aether Bloom) | `src/content/abilities/fire-storm.ts` |
+| `spark` | Spark | first_action | yes (actionSpeed 28, applies 2 stacks of Burn on a single roll) | `src/content/abilities/spark.ts` |
+| `flame_lance` | Flame Lance | first_action | yes (actionSpeed 18, line length 4 caster-anchored, applyAlways Burn) | `src/content/abilities/flame-lance.ts` |
 
 ## Passive abilities
 
@@ -66,6 +73,9 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `damage_reduction` | Damage Reduction | support | `src/content/abilities/damage-reduction.ts` |
 | `tidal_pull` | Tidal Pull | reaction | `src/content/abilities/tidal-pull.ts` |
 | `flow_state` | Flow State | support | `src/content/abilities/flow-state.ts` |
+| `smolder` | Smolder | reaction | `src/content/abilities/smolder.ts` |
+| `ignition` | Ignition | support | `src/content/abilities/ignition.ts` |
+| `aether_bloom` | Aether Bloom | support | `src/content/abilities/aether-bloom.ts` |
 
 ## Status types
 
@@ -84,6 +94,11 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `dont_move` | Don't Move | negative, physical | REFRESH | per_unit_ct | `src/content/statuses/dont-move.ts` |
 | `taunted` | Taunted | negative, mental, dispellable | REFRESH | per_unit_ct (removeOnSourceKO) | `src/content/statuses/taunted.ts` |
 | `speed_down` | Speed Down | negative, water | STACK_INDEPENDENT | permanent | `src/content/statuses/speed-down.ts` |
+| `burn` | Burn | negative, fire, dot | STACK_COUNT_ADDITIVE | custom (on_unit_ct_100) | `src/content/statuses/burn.ts` |
+| `pa_up` | PA Up | positive | STACK_ADDITIVE | permanent | `src/content/statuses/pa-up.ts` |
+| `pa_down` | PA Down | negative, fire | STACK_ADDITIVE | permanent | `src/content/statuses/pa-down.ts` |
+| `ma_up` | MA Up | positive | STACK_ADDITIVE | permanent | `src/content/statuses/ma-up.ts` |
+| `ma_down` | MA Down | negative, fire | STACK_ADDITIVE | permanent | `src/content/statuses/ma-down.ts` |
 
 ## Equipment
 

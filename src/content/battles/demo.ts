@@ -1,15 +1,21 @@
-// First demo battle. 2v2 Knights on a 6×6 ground-only map. Used by
-// session 10's renderer to prove the engine end-to-end visibly; session
-// 13 expanded it from 1v1 to 2v2 with White Magic on the Second Action
-// bucket and Counter in the Reaction bucket — the smallest content
-// change that exercises bucket choice, MP gating, healing through the
-// damage pipeline, and reactions in actual play. Two `defeat_all`
-// victory conditions (one per team) so whichever side reaches 0 HP
-// first ends the battle.
+// First demo battle. 6-unit asymmetric battle on a 6×6 ground-only map.
+// Used by session 10's renderer to prove the engine end-to-end visibly.
+//
+// Session evolution:
+//   - 10/11/12: 1v1 Knights (foundational rendering / UI / AI work).
+//   - 13: 2v2 Knights + White Magic + Counter (smallest content change
+//     that exercises bucket choice, MP gating, healing, and reactions).
+//   - 17b: 4 units — Knight + Earth Mage per side (first non-Knight class).
+//   - 18: 6 units — Knight + Earth Mage + Water Mage per side, mirror layout.
+//   - 19: 6 units, *asymmetric* loadout (this session) — Team A keeps
+//     Knight + Water Mage and gains Fire Mage; Team B keeps Earth Mage
+//     + Water Mage and gains Fire Mage. Each side keeps a different
+//     non-Fire class so the playable surface stays diverse without
+//     duplicating either Knight or Earth Mage. Both sides get Fire to
+//     test Burn / Aether Bloom / Smolder against each other.
 //
 // Lives in `src/content/battles/` per the architecture overview's
-// "BattleConfigs live in src/content/battles/" note. This is the v1
-// demo; richer battles ship as content alongside subsequent sessions.
+// "BattleConfigs live in src/content/battles/" note.
 
 import {
   abilityId,
@@ -110,31 +116,39 @@ const WATER_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   },
 };
 
+// Fire Mage loadout (session 19 — third mage class wired into the
+// demo): Fire Spells on First Action (class-pinned), White Magic on
+// Second Action for Cure backup, Smolder in the Reaction bucket
+// (Burn-on-attacker), Ignition + Aether Bloom in Support (both free
+// for Fire Mage — Burn-on-magical-damage and AoE expansion), Move +1
+// in Movement.
+const FIRE_MAGE_LOADOUT: UnitPlacement['loadout'] = {
+  actionBuckets: {
+    [bucketId('first_action')]: commandSetId('fire_spells'),
+    [bucketId('second_action')]: commandSetId('white_magic'),
+  },
+  passiveBuckets: {
+    [bucketId('reaction')]: [abilityId('smolder')],
+    [bucketId('support')]: [abilityId('ignition'), abilityId('aether_bloom')],
+    [bucketId('movement')]: [abilityId('move_plus_1')],
+  },
+};
+
 // faith 80 is a v1 placeholder; produces Faith_factor = 0.64 for symmetric
 // demo casts (visible Cure / status numbers without overwhelming damage).
 // Realistic faith spreads across classes land with content/tuning passes
 // in sessions 16+. brave 100 keeps Counter and other reaction triggers
 // deterministic for testing.
 const KNIGHT_BASE_STATS = { spd: 10, pa: 6, ma: 4, maxHpBase: 60, brave: 100, faith: 80 } as const;
-// 10 MP is enough for two Cures (mpCost 4 each) with a little slack —
-// gives the AI / player a real "do I save it?" call without making the
-// resource trivially infinite.
+// 10 MP is enough for two Cures (mpCost 4 each) with a little slack.
 const KNIGHT_VITALS = { hp: 60, mp: 10 } as const;
 
-// Earth Mage stats: lower HP, lower PA, higher MA than Knight; speed
-// roughly comparable. The mage's identity is "stays-back caster," and
-// the lower HP plus higher MP exercise that. 40 MP buys one Earth
-// Cataclysm (mpCost 30) plus an Earth Strike (mpCost 4); generous on
-// purpose so Cataclysm gets seen across plays.
+// Earth Mage stats: lower HP, lower PA, higher MA than Knight.
 const MAGE_BASE_STATS = { spd: 9, pa: 4, ma: 8, maxHpBase: 50, brave: 100, faith: 80 } as const;
 const MAGE_VITALS = { hp: 50, mp: 40 } as const;
 
-// Water Mage stats (session 18): faster than Earth Mage (Speed 11 vs 9),
-// slightly weaker raw magic (MA 7 vs 8), squishier (HP 45 vs 50), more
-// MP (45 vs 40). The tempo / mobility identity is encoded in the speed
-// + Flow State refund interaction — Water Mages take more turns. 45 MP
-// buys one Maelstrom (mpCost 28) plus a Brine (mpCost 8) plus a Water
-// Strike (mpCost 10) — ~3 spells per battle is the rough budget.
+// Water Mage stats: faster than Earth (Speed 11 vs 9), squishier
+// (HP 45 vs 50), more MP (45 vs 40).
 const WATER_MAGE_BASE_STATS = {
   spd: 11,
   pa: 3,
@@ -145,19 +159,34 @@ const WATER_MAGE_BASE_STATS = {
 } as const;
 const WATER_MAGE_VITALS = { hp: 45, mp: 45 } as const;
 
+// Fire Mage stats (session 19): glass-cannon profile — highest MA of
+// the three Mages (9), lowest HP (42), modest speed (10) and MP (42).
+// At MA 9, Burn coefficient 0.6 → 5 dmg/stack. 42 MP buys roughly:
+// Flame Lance (28) + Spark (10) = 38 MP, or Fire Storm (16) + Spark
+// (10) + Fire Strike (10) = 36 MP — ~3 casts per battle.
+const FIRE_MAGE_BASE_STATS = {
+  spd: 10,
+  pa: 3,
+  ma: 9,
+  maxHpBase: 42,
+  brave: 100,
+  faith: 80,
+} as const;
+const FIRE_MAGE_VITALS = { hp: 42, mp: 42 } as const;
+
 export const demoBattle: BattleConfig = {
-  battleId: 'demo_knight_two_mages',
+  battleId: 'demo_asymmetric',
   rulesetId: rulesetId('default'),
   map: buildFlatGround(),
   teams: [
     { id: TEAM_A, name: 'Blue' },
     { id: TEAM_B, name: 'Red' },
   ],
-  // Session 18: Knight + Earth Mage + Water Mage per side. Mirror layout
-  // around the (2.5, 2.5) center: Knight midline-forward, Earth Mage
-  // back column, Water Mage in the lateral middle row. 6 units on a 6×6
-  // grid is tight on purpose — forces engagement so all three classes'
-  // tools see use within a battle.
+  // Session 19: Asymmetric loadouts so each side keeps a different
+  // non-Fire class. Team A keeps Knight + Water Mage and adds Fire
+  // Mage (drops Earth Mage); Team B keeps Earth Mage + Water Mage and
+  // adds Fire Mage (drops Knight). Each non-Fire class still has at
+  // least one instance on the field so its tools see use.
   units: [
     {
       id: unitId('blue_knight_n'),
@@ -172,17 +201,6 @@ export const demoBattle: BattleConfig = {
       equipment: KNIGHT_EQUIPMENT,
     },
     {
-      id: unitId('blue_earth_mage'),
-      name: 'Blue Earth Mage',
-      team: TEAM_A,
-      classId: classId('earth_mage'),
-      position: { x: 0, y: 3, layer: 0 },
-      facing: 'E',
-      baseStats: MAGE_BASE_STATS,
-      vitals: MAGE_VITALS,
-      loadout: EARTH_MAGE_LOADOUT,
-    },
-    {
       id: unitId('blue_water_mage'),
       name: 'Blue Water Mage',
       team: TEAM_A,
@@ -194,16 +212,15 @@ export const demoBattle: BattleConfig = {
       loadout: WATER_MAGE_LOADOUT,
     },
     {
-      id: unitId('red_knight_n'),
-      name: 'Red Knight',
-      team: TEAM_B,
-      classId: classId('knight'),
-      position: { x: 3, y: 3, layer: 0 },
-      facing: 'W',
-      baseStats: KNIGHT_BASE_STATS,
-      vitals: KNIGHT_VITALS,
-      loadout: KNIGHT_LOADOUT,
-      equipment: KNIGHT_EQUIPMENT,
+      id: unitId('blue_fire_mage'),
+      name: 'Blue Fire Mage',
+      team: TEAM_A,
+      classId: classId('fire_mage'),
+      position: { x: 0, y: 3, layer: 0 },
+      facing: 'E',
+      baseStats: FIRE_MAGE_BASE_STATS,
+      vitals: FIRE_MAGE_VITALS,
+      loadout: FIRE_MAGE_LOADOUT,
     },
     {
       id: unitId('red_earth_mage'),
@@ -226,6 +243,17 @@ export const demoBattle: BattleConfig = {
       baseStats: WATER_MAGE_BASE_STATS,
       vitals: WATER_MAGE_VITALS,
       loadout: WATER_MAGE_LOADOUT,
+    },
+    {
+      id: unitId('red_fire_mage'),
+      name: 'Red Fire Mage',
+      team: TEAM_B,
+      classId: classId('fire_mage'),
+      position: { x: 3, y: 3, layer: 0 },
+      facing: 'W',
+      baseStats: FIRE_MAGE_BASE_STATS,
+      vitals: FIRE_MAGE_VITALS,
+      loadout: FIRE_MAGE_LOADOUT,
     },
   ],
   victoryConditions: [

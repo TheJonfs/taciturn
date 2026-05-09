@@ -133,6 +133,27 @@ export interface StatusEffectSpec {
   readonly duration?: number;
   // Per-instance custom state (e.g., the Charging status's chargedActionId).
   readonly customState?: Readonly<Record<string, unknown>>;
+  // Per ADR-0030: how many stacks this application requests. Defaults
+  // to 1. Spark applies 2 (Burn-bomb pattern). For statuses whose type
+  // defines `composeApplyState`, this is forwarded as
+  // `requestedStackQuantity` — Burn snapshots N copies of MA × coefficient
+  // into its per-stack damage array.
+  readonly stackQuantity?: number;
+  // Per session 19: when true, this effect's chance roll is *linked*
+  // to the previous effect's outcome — both apply or both miss as a
+  // unit. Implementation: the resolver shares the previous effect's
+  // effectIndex so `rollStatusChance` produces the same `roll` value;
+  // when both effects also have identical chance computations
+  // (matching baseChance, factors, and resistance tag against the same
+  // target), the `applied` outcome is identical too.
+  //
+  // First consumer is Fire Strike (linked PA Down + MA Down debuff)
+  // and Fire Embrace (linked PA Up + MA Up buff) — Fire's identity is
+  // "all-or-nothing stat shift," distinct from Earth Curse's
+  // independent-rolls feel. Ignored on the first effect of an ability
+  // (no previous effect to link to); content authors can mark either
+  // effect — the resolver normalizes.
+  readonly linkRoll?: boolean;
 }
 
 // Hit-determination spec for physical attacks. Per the ability format

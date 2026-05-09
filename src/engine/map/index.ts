@@ -23,6 +23,8 @@ export { hasLineOfSight } from './line-of-sight.ts';
 export { arcTargetable, type ArcEndpoint } from './arc.ts';
 export {
   aoeFootprint,
+  cardinalFromTo,
+  enlargeAoeShape,
   shapeOffsets,
   type AoeAnchor,
   type AoeFootprintArgs,

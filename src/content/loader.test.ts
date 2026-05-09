@@ -33,23 +33,23 @@ describe('loadDefaultCatalog', () => {
     expect(cat.getRuleset(rulesetId('default')).name).toBe('Default');
   });
 
-  it('contains the session-18 baseline content set', () => {
+  it('contains the session-19 baseline content set', () => {
     // The default catalog is intentionally narrow — one demo per
     // mechanism. When real content lands, this assertion is expected
     // to change; failing it from new content additions is the correct
     // signal that the baseline expanded.
     //
-    // Session 18 added Water Mage (full 7-ability kit + class +
-    // command set + Speed Down status):
-    //   - statuses: 12 → 13 (speed_down)
-    //   - abilities: 19 → 26 (7 new — 5 actives + reaction + support)
-    //   - commandSets: 4 → 5 (water_spells)
-    //   - classes: 2 → 3 (water_mage)
+    // Session 19 added Fire Mage (5 actives + reaction + 2 supports +
+    // class + command set + 5 statuses):
+    //   - statuses: 13 → 18 (burn, pa_up, pa_down, ma_up, ma_down)
+    //   - abilities: 26 → 34 (8 new — 5 actives + reaction + 2 supports)
+    //   - commandSets: 5 → 6 (fire_spells)
+    //   - classes: 3 → 4 (fire_mage)
     //   - items: unchanged
-    expect(cat.statusTypes()).toHaveLength(13);
-    expect(cat.abilities()).toHaveLength(26);
-    expect(cat.commandSets()).toHaveLength(5);
-    expect(cat.classes()).toHaveLength(3);
+    expect(cat.statusTypes()).toHaveLength(18);
+    expect(cat.abilities()).toHaveLength(34);
+    expect(cat.commandSets()).toHaveLength(6);
+    expect(cat.classes()).toHaveLength(4);
     expect(cat.items()).toHaveLength(5);
     expect(cat.rulesets()).toHaveLength(1);
   });

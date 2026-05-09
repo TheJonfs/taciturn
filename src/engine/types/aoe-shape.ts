@@ -25,12 +25,29 @@ export interface AoeOffset {
 // (caster→target-tile cardinal), not stored on the shape — the same
 // cone definition rotates to point at whatever the caster picks. See
 // `aoeFootprint` for the direction parameter.
+// Line shape — caster-anchored cardinal projectile/beam. Projects forward
+// `length` tiles from the caster's tile (the caster's tile itself is not
+// included). Direction is supplied at footprint-resolution time, derived
+// from caster→target geometry via `cardinalFromTo`.
+//
+// Vertical handling for line is *kinematic* (per ADR-0031): `aoeFootprint`
+// iterates forward from the caster and terminates on the first tile whose
+// elevation differs from the caster's by more than `verticalTolerance`.
+// Tiles past that wall are not included even if their individual elevation
+// would pass tolerance. The per-tile-filter behavior used by spread shapes
+// (diamond/square/cross/cone/custom) is the wrong model for a line, where
+// a wall in the middle of the path should block the line's continuation.
+//
+// v1 ships cardinal-only lines (8-direction is deferred). The dispatcher
+// (in `resolveAbilityTargets`) requires `anchorMode: 'caster'` for line —
+// matching cones — and throws on misuse.
 export type AoeShape =
   | { readonly kind: 'tile' }
   | { readonly kind: 'diamond'; readonly radius: number }
   | { readonly kind: 'square'; readonly radius: number }
   | { readonly kind: 'cross'; readonly radius: number }
   | { readonly kind: 'cone'; readonly rows: ReadonlyArray<number> }
+  | { readonly kind: 'line'; readonly length: number }
   | { readonly kind: 'custom'; readonly offsets: ReadonlyArray<AoeOffset> };
 
 export interface AoeAnchor {

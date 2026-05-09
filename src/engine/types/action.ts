@@ -215,6 +215,10 @@ export interface SystemApplyStatusPayload {
   readonly magnitude?: number;
   readonly duration?: number;
   readonly customState?: Readonly<Record<string, unknown>>;
+  // Per ADR-0030: stack quantity forwarded into the type's
+  // composeApplyState (Burn snapshots applier MA × coefficient N
+  // times). Defaults to 1 when omitted.
+  readonly stackQuantity?: number;
 }
 export interface SystemApplyStatusOutcome {
   readonly kind: 'system_apply_status';

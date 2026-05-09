@@ -60,6 +60,10 @@ export type ReactionEffect =
       readonly magnitude?: number;
       readonly duration?: number;
       readonly customState?: Readonly<Record<string, unknown>>;
+      // Per ADR-0030: stack quantity forwarded into composeApplyState.
+      // Smolder applies 1 Burn stack on the attacker; Burn-applying
+      // reactions with bigger payloads pass higher counts.
+      readonly stackQuantity?: number;
     }
   | {
       readonly kind: 'ct_push';
@@ -159,6 +163,7 @@ function compileForHook(
                 ...(effect.magnitude !== undefined ? { magnitude: effect.magnitude } : {}),
                 ...(effect.duration !== undefined ? { duration: effect.duration } : {}),
                 ...(effect.customState !== undefined ? { customState: effect.customState } : {}),
+                ...(effect.stackQuantity !== undefined ? { stackQuantity: effect.stackQuantity } : {}),
               },
             });
           } else {
