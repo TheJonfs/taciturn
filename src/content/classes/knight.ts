@@ -42,5 +42,9 @@ export const knight: ClassDefinition = {
     accessory: true,
   },
   firstActionCommandSet: commandSetId('battle_skill'),
-  freeAbilities: new Set([abilityId('move_plus_1')]),
+  freeAbilities: new Set([
+    abilityId('move_plus_1'),
+    abilityId('counter'),
+    abilityId('damage_reduction'),
+  ]),
 };

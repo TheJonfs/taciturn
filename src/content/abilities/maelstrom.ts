@@ -56,7 +56,7 @@ export const maelstrom: ActiveAbilityDefinition = {
   effects: {
     damage: {
       tags: ['magical', 'water'],
-      power_coefficient: 7,
+      power_coefficient: 12,
       knockback: {
         distance: 1,
         // chance omitted → fires deterministically on every hit target

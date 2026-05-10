@@ -46,7 +46,7 @@ export const chainLightning: ActiveAbilityDefinition = {
   effects: {
     damage: {
       tags: ['magical', 'lightning'],
-      power_coefficient: 8,
+      power_coefficient: 9,
       chainBonus: { powerPerAdditionalTarget: 1 },
     },
     aoe: {

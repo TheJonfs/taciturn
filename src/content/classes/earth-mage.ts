@@ -43,5 +43,8 @@ export const earthMage: ClassDefinition = {
     accessory: true,
   },
   firstActionCommandSet: commandSetId('earth_spells'),
-  freeAbilities: new Set<ReturnType<typeof abilityId>>(),
+  freeAbilities: new Set([
+    abilityId('earth_resilience'),
+    abilityId('earth_communion'),
+  ]),
 };

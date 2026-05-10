@@ -22,7 +22,7 @@ export const longSword: WeaponEquipment = {
   id: itemId('long_sword'),
   name: 'Long Sword',
   kind: 'weapon',
-  wp: 4,
+  wp: 8,
   accuracy: 95,
   tags: ['sword'],
 };

@@ -42,7 +42,7 @@ export const fireStorm: ActiveAbilityDefinition = {
   effects: {
     damage: {
       tags: ['magical', 'fire'],
-      power_coefficient: 4,
+      power_coefficient: 6,
     },
     aoe: {
       shape: { kind: 'cross', radius: 1 },

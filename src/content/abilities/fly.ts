@@ -21,7 +21,7 @@ export const fly: PassiveAbilityDefinition = {
   name: 'Fly',
   kind: 'passive',
   bucket: bucketId('movement'),
-  baseCost: 3,
+  baseCost: 2,
   hooks: [
     passiveHook('modifySpecialMovement', (): SpecialMovementType => 'fly'),
   ],

@@ -154,89 +154,86 @@ const LIGHTNING_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   },
 };
 
-// faith 80 is a v1 placeholder; produces Faith_factor = 0.64 for symmetric
-// demo casts (visible Cure / status numbers without overwhelming damage).
-// Realistic faith spreads across classes land with content/tuning passes
-// in sessions 16+. brave 100 keeps Counter and other reaction triggers
-// deterministic for testing.
+// Post-reconciliation tuning (mage-war-content-spec, captured 2026-05-09):
+// Brave / Faith default to 70 / 70 (Faith_factor 0.49 for symmetric
+// magical interactions; Brave_factor 0.70). Reactions become probabilistic
+// at Brave 70 — tests that needed deterministic triggers either override
+// Brave to 100 explicitly or use seeded RNG (see audit report's test
+// summary). All five classes carry the L25 stat targets from the spec;
+// vitals fill from maxHpBase / mp at battle start.
+//
 // Session 20: all demo units carry the crit baseline (crit_chance: 5,
-// crit_multiplier: 1.5) per ADR-0032 — tuned game state, with crits as
-// a visible v1 mechanic. Lightning Mage's Static Embrace (Crit_modifier
-// +20) layers additively on top.
+// crit_multiplier: 1.5) per ADR-0032. Lightning Mage's Static Embrace
+// (Crit_modifier +20) layers additively on top.
 const KNIGHT_BASE_STATS = {
-  spd: 10,
-  pa: 6,
+  spd: 9,
+  pa: 11,
   ma: 4,
-  maxHpBase: 60,
-  brave: 100,
-  faith: 80,
+  maxHpBase: 144,
+  brave: 70,
+  faith: 70,
   crit_chance: 5,
   crit_multiplier: 1.5,
 } as const;
-// 10 MP is enough for two Cures (mpCost 4 each) with a little slack.
-const KNIGHT_VITALS = { hp: 60, mp: 10 } as const;
+// 20 MP buys five Cures (mpCost 4 each).
+const KNIGHT_VITALS = { hp: 144, mp: 20 } as const;
 
-// Earth Mage stats: lower HP, lower PA, higher MA than Knight.
+// Earth Mage L25 stats per the spec.
 const MAGE_BASE_STATS = {
+  spd: 8,
+  pa: 4,
+  ma: 12,
+  maxHpBase: 112,
+  brave: 70,
+  faith: 70,
+  crit_chance: 5,
+  crit_multiplier: 1.5,
+} as const;
+const MAGE_VITALS = { hp: 112, mp: 60 } as const;
+
+// Water Mage L25 stats: fastest mage (Speed 10), HP 102.
+const WATER_MAGE_BASE_STATS = {
+  spd: 10,
+  pa: 4,
+  ma: 12,
+  maxHpBase: 102,
+  brave: 70,
+  faith: 70,
+  crit_chance: 5,
+  crit_multiplier: 1.5,
+} as const;
+const WATER_MAGE_VITALS = { hp: 102, mp: 60 } as const;
+
+// Fire Mage L25 stats: glass-cannon profile — MA 13 (highest among
+// non-Lightning mages), HP 97. At MA 13, Burn coefficient 0.6 → 7
+// dmg/stack.
+const FIRE_MAGE_BASE_STATS = {
   spd: 9,
   pa: 4,
-  ma: 8,
-  maxHpBase: 50,
-  brave: 100,
-  faith: 80,
+  ma: 13,
+  maxHpBase: 97,
+  brave: 70,
+  faith: 70,
   crit_chance: 5,
   crit_multiplier: 1.5,
 } as const;
-const MAGE_VITALS = { hp: 50, mp: 40 } as const;
+const FIRE_MAGE_VITALS = { hp: 97, mp: 60 } as const;
 
-// Water Mage stats: faster than Earth (Speed 11 vs 9), squishier
-// (HP 45 vs 50), more MP (45 vs 40).
-const WATER_MAGE_BASE_STATS = {
-  spd: 11,
-  pa: 3,
-  ma: 7,
-  maxHpBase: 45,
-  brave: 100,
-  faith: 80,
-  crit_chance: 5,
-  crit_multiplier: 1.5,
-} as const;
-const WATER_MAGE_VITALS = { hp: 45, mp: 45 } as const;
-
-// Fire Mage stats (session 19): glass-cannon profile — highest MA of
-// the three Mages (9), lowest HP (42), modest speed (10) and MP (42).
-// At MA 9, Burn coefficient 0.6 → 5 dmg/stack. 42 MP buys roughly:
-// Flame Lance (28) + Spark (10) = 38 MP, or Fire Storm (16) + Spark
-// (10) + Fire Strike (10) = 36 MP — ~3 casts per battle.
-const FIRE_MAGE_BASE_STATS = {
-  spd: 10,
-  pa: 3,
-  ma: 9,
-  maxHpBase: 42,
-  brave: 100,
-  faith: 80,
-  crit_chance: 5,
-  crit_multiplier: 1.5,
-} as const;
-const FIRE_MAGE_VITALS = { hp: 42, mp: 42 } as const;
-
-// Lightning Mage stats (session 20): speed-leaning crit specialist —
-// fastest of the four mages (spd 12), moderate raw MA (8) but burst
-// potential through crits (5% / ×1.5 baseline; Static Embrace stacks
-// Crit_modifier +20). 44 MP buys roughly: Storm Caller (28) +
-// Lightning Strike (10) = 38 MP, or two Lightning Strikes + Magnetic
-// Mark = 28 MP — ~3 casts per battle.
+// Lightning Mage L25 stats: highest MA (14), lowest HP (87) — burst
+// caster who folds before sustained pressure but brings extreme single-
+// turn damage via Storm Caller (now ~247 raw at MA 14) and crit-stacked
+// follow-ups via Static Embrace.
 const LIGHTNING_MAGE_BASE_STATS = {
-  spd: 12,
-  pa: 3,
-  ma: 8,
-  maxHpBase: 44,
-  brave: 100,
-  faith: 80,
+  spd: 9,
+  pa: 4,
+  ma: 14,
+  maxHpBase: 87,
+  brave: 70,
+  faith: 70,
   crit_chance: 5,
   crit_multiplier: 1.5,
 } as const;
-const LIGHTNING_MAGE_VITALS = { hp: 44, mp: 44 } as const;
+const LIGHTNING_MAGE_VITALS = { hp: 87, mp: 60 } as const;
 
 export const demoBattle: BattleConfig = {
   battleId: 'demo_asymmetric',

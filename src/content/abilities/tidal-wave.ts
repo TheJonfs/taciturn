@@ -46,7 +46,7 @@ export const tidalWave: ActiveAbilityDefinition = {
   effects: {
     damage: {
       tags: ['magical', 'water'],
-      power_coefficient: 5,
+      power_coefficient: 7,
       knockback: {
         distance: 1,
         chance: 50,

@@ -46,7 +46,7 @@ export const fireStrike: ActiveAbilityDefinition = {
   effects: {
     damage: {
       tags: ['magical', 'fire'],
-      power_coefficient: 5,
+      power_coefficient: 8,
     },
     statusEffects: [
       {

@@ -49,5 +49,9 @@ export const fireMage: ClassDefinition = {
   // Both supports free for Fire Mage — Ignition and Aether Bloom give
   // the class its identity. Equipping either on a cross-classed mage
   // costs the standard baseCost 2 each.
-  freeAbilities: new Set([abilityId('ignition'), abilityId('aether_bloom')]),
+  freeAbilities: new Set([
+    abilityId('ignition'),
+    abilityId('aether_bloom'),
+    abilityId('smolder'),
+  ]),
 };

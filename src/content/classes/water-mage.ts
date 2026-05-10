@@ -43,5 +43,8 @@ export const waterMage: ClassDefinition = {
     accessory: true,
   },
   firstActionCommandSet: commandSetId('water_spells'),
-  freeAbilities: new Set<ReturnType<typeof abilityId>>(),
+  freeAbilities: new Set([
+    abilityId('tidal_pull'),
+    abilityId('flow_state'),
+  ]),
 };

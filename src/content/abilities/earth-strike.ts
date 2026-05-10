@@ -42,7 +42,7 @@ export const earthStrike: ActiveAbilityDefinition = {
   effects: {
     damage: {
       tags: ['magical', 'earth'],
-      power_coefficient: 6,
+      power_coefficient: 8,
     },
     statusEffects: [
       {

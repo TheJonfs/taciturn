@@ -141,7 +141,7 @@ describe('crit_roll handler — skips healing tag', () => {
 // ===== chainBonus — Chain Lightning =====
 
 describe('chainBonus — power scales with cluster size', () => {
-  it('targetCount 1 reads base power 8', () => {
+  it('targetCount 1 reads base power 9', () => {
     const attacker = makeUnit({ id: 'a', spd: 10, ma: 8, hp: 100, faith: 100 });
     const target = makeUnit({ id: 'b', spd: 10, hp: 100, faith: 100 });
     const state = makeGameState({ units: [attacker, target] });
@@ -157,11 +157,11 @@ describe('chainBonus — power scales with cluster size', () => {
       registry: defaultDamageHandlers,
       targetCount: 1,
     });
-    // power 8 × MA 8 × Faith 1.0 = 64.
-    expect(ctx.finalDamage).toBe(64);
+    // power 9 × MA 8 × Faith 1.0 = 72.
+    expect(ctx.finalDamage).toBe(72);
   });
 
-  it('targetCount 3 reads effective power 8 + 2 = 10', () => {
+  it('targetCount 3 reads effective power 9 + 2 = 11', () => {
     const attacker = makeUnit({ id: 'a', spd: 10, ma: 8, hp: 100, faith: 100 });
     const target = makeUnit({ id: 'b', spd: 10, hp: 100, faith: 100 });
     const state = makeGameState({ units: [attacker, target] });
@@ -177,8 +177,8 @@ describe('chainBonus — power scales with cluster size', () => {
       registry: defaultDamageHandlers,
       targetCount: 3,
     });
-    // (8 + 1×2) × 8 × 1.0 = 80.
-    expect(ctx.finalDamage).toBe(80);
+    // (9 + 1×2) × 8 × 1.0 = 88.
+    expect(ctx.finalDamage).toBe(88);
   });
 });
 

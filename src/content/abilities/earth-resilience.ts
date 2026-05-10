@@ -26,7 +26,7 @@ export const earthResilience: PassiveAbilityDefinition = compileReactionAbility(
     id: abilityId('earth_resilience'),
     name: 'Earth Resilience',
     bucket: bucketId('reaction'),
-    baseCost: 2,
+    baseCost: 1,
     tags: ['magical', 'earth'],
   },
   {

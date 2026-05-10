@@ -240,7 +240,7 @@ describe('equipment — slot validation', () => {
 });
 
 describe('equipment — physical damage uses WP', () => {
-  it('PA × WP × power_coefficient with Long Sword (WP=4) and basic Attack (coef=1.0)', () => {
+  it('PA × WP × power_coefficient with Long Sword (WP=8) and basic Attack (coef=1.0)', () => {
     const { state, catalog } = buildBattle({
       knightEquipment: LONG_SWORD_EQUIPMENT,
       knightStats: { pa: 5 },
@@ -260,11 +260,11 @@ describe('equipment — physical damage uses WP', () => {
       seed: 0,
       registry: defaultDamageHandlers,
     });
-    // PA(5) × WP(4) × power_coefficient(1.0) × variance(rolled) at seed 0.
-    // Variance band 0.9-1.1 → finalDamage in [18, 22].
-    expect(ctx.baseDamage).toBe(20);
-    expect(ctx.finalDamage).toBeGreaterThanOrEqual(18);
-    expect(ctx.finalDamage).toBeLessThanOrEqual(22);
+    // PA(5) × WP(8) × power_coefficient(1.0) × variance(rolled) at seed 0.
+    // Variance band 0.9-1.1 → finalDamage in [36, 44].
+    expect(ctx.baseDamage).toBe(40);
+    expect(ctx.finalDamage).toBeGreaterThanOrEqual(36);
+    expect(ctx.finalDamage).toBeLessThanOrEqual(44);
   });
 
   it('Power Attack (1.5×) deals 1.5× the basic Attack damage', () => {
@@ -286,8 +286,8 @@ describe('equipment — physical damage uses WP', () => {
       seed: 0,
       registry: defaultDamageHandlers,
     });
-    // PA(5) × WP(4) × power_coefficient(1.5) = 30.
-    expect(ctx.baseDamage).toBe(30);
+    // PA(5) × WP(8) × power_coefficient(1.5) = 60.
+    expect(ctx.baseDamage).toBe(60);
   });
 
   it('unarmed (no weapon) defaults to WP=1 — much smaller damage', () => {

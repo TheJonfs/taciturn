@@ -40,7 +40,7 @@ export const waterStrike: ActiveAbilityDefinition = {
   effects: {
     damage: {
       tags: ['magical', 'water'],
-      power_coefficient: 5,
+      power_coefficient: 8,
       ctPush: { factor: 2 },
     },
   },

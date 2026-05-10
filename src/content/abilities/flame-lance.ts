@@ -47,7 +47,7 @@ export const flameLance: ActiveAbilityDefinition = {
   effects: {
     damage: {
       tags: ['magical', 'fire'],
-      power_coefficient: 6,
+      power_coefficient: 10,
     },
     aoe: {
       shape: { kind: 'line', length: 4 },
