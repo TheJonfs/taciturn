@@ -5,16 +5,31 @@
 // renderer (for highlight overlays and tile-click events). The
 // orchestration glue lives in src/app/BattleView.
 //
-// Session 22 layout shift: BattleHud is now a 4-region shell (top bar
-// / left QueueTower / right action-log slot / bottom action-menu +
-// settings slots). The Session 23-and-earlier components (ActionMenu,
-// CurrentUnitPanel, TurnQueuePanel, useBattleUi) are still exported
-// for the interaction-layer session to refactor against the new shell
-// when it returns.
+// Session 23 shape: 4-region shell (top bar / left QueueTower /
+// right ActionLogPanel / bottom ActionMenu) plus a pause overlay
+// modal triggered from BattleView's ESC handler. Settings live inline
+// in the pause overlay per the design doc. The player drives turn_a
+// through the turn-flow state machine; team_b is basic AI.
 
 export { BattleHud, type BattleHudProps } from './battle-hud.tsx';
 export { QueueTower, type QueueTowerProps } from './queue-tower.tsx';
 export { ActionMenu, type ActionMenuProps } from './action-menu.tsx';
-export { CurrentUnitPanel, type CurrentUnitPanelProps } from './current-unit-panel.tsx';
-export { TurnQueuePanel, type TurnQueuePanelProps } from './turn-queue-panel.tsx';
-export { useBattleUi, type BattleUi, type UiMode } from './use-battle-ui.ts';
+export { ActionLogPanel, type ActionLogPanelProps } from './action-log-panel.tsx';
+export { PauseOverlay, type PauseOverlayProps } from './pause-overlay.tsx';
+export {
+  SettingsProvider,
+  useSettings,
+  DEFAULT_SETTINGS,
+  type Settings,
+  type SettingsApi,
+  type AnimationSpeed,
+  type ConfirmStepPreference,
+  type StatusIconDensity,
+} from './settings-context.tsx';
+export { useTurnFlow, type TurnFlow, type UseTurnFlowArgs } from './use-turn-flow.ts';
+export {
+  transition,
+  INITIAL_TURN_FLOW,
+  type TurnFlowState,
+  type TurnFlowEvent,
+} from './turn-flow.ts';

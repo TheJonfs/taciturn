@@ -21,140 +21,131 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-10 (Session 22 — Battle UI: visualization layer)
-
-### Note for the design instance: the Session 22 brief was authored without recognizing the existing renderer / HUD scaffolding
-
-The session brief and roadmap both treated `src/ui/` and `src/renderer/` as effectively empty — Item 1 ("React + PixiJS scaffolding") through Item 7 ("Headless orchestrator integration") were specified as if from-scratch work. They aren't. Sessions 10-20 incrementally built:
-
-- React + Pixi scaffolding (`src/app/main.tsx`, `App.tsx`, `BattleView.tsx`).
-- A renderer (`src/renderer/`) with `BattleRenderer`, `TileLayer`, `UnitLayer`, `HighlightLayer`, `Animator`, `World`.
-- A HUD (`src/ui/`) with `BattleHud`, `ActionMenu`, `CurrentUnitPanel`, `TurnQueuePanel`, `useBattleUi`.
-- Controllers (`src/app/controllers/`) including a `UiController` and `BasicAiController` already wired into the orchestrator (`team_a` was player-driven in the v1 demo, `team_b` was AI).
-- An `Animator` doing per-unit position tweens, hit flashes, KO transitions, turn-start/end pauses.
-- A camera lerping toward the active unit each frame (auto-follow only; no user input, no zoom).
-- Headless orchestrator integration via the Pixi-ticker pump.
-
-Session 22's actual work was therefore *converging* the existing scaffolding toward the design doc rather than building it from scratch. Per Chris's option-C direction:
-
-- The legacy 3-panel right-edge HUD (CurrentUnitPanel + ActionMenu + TurnQueuePanel) was unmounted in favor of the design-doc 4-region shell.
-- `team_a`'s UiController was unwired; both teams now run on the basic AI for Session 22 (no interaction). `useBattleUi`, `ActionMenu`, `UiController` files remain in tree as exports — Session 23 refactors them against the new shell.
-- A new map content surface was added (`src/content/maps/`).
-- The existing demo-content (`src/content/battles/demo.ts`, 6×6 flat ground, 6 demo units) was preserved as the engine-test fixture; the playable runtime now consumes a derived `training-field-battle.ts` config that restages the same six units on the new 14×14 Training Field.
-
-If future briefs are produced from the design instance, they should plan against this baseline rather than greenfield. The roadmap's Phase A entries (Sessions 23-24) probably also under-describe the existing surface; the briefs for those sessions will benefit from a similar pre-flight review.
-
-### Pre-existing state at session start
-
-- Test suite: 559 passing across 46 files (per Session 21's handoff).
-- React-Pixi runtime: vanilla Pixi managed via React refs + `useEffect` lifecycle, established sessions 10-12.
-- Renderer scope: tile layer, unit sprites with HP bar / facing tick / active ring / KO recolor, highlight overlay, animator with move-tween / hit-flash / turn-pause / KO transitions, simple lerping camera.
-- HUD scope: right-edge vertical stack of three panels, CSS-based.
-- Demo battle: 6×6 flat ground, 6 mage-war units (Knight + 4 mage classes spread across two teams asymmetrically), `team_a` player + `team_b` AI.
-- Engine work: none required this session per the audit's Items 19-20.
+## From session 2026-05-10 (Session 23 — Battle UI: interaction layer)
 
 ### Landed this session
 
-**Content:**
+**Engine:**
 
-1. `src/content/maps/training-field.ts` — new 14×14 single-layer map at uniform `ground` terrain, elevation 2. Unit-tested for shape (3 tests).
-
-2. `src/content/battles/training-field-battle.ts` — new battle config that consumes Training Field while inheriting the demo unit roster (identities, loadouts, stats, equipment, masterSeed) via spread from `demoBattle`. Restaged with deliberate west-vs-east starting positions on the 14×14 board so the AI has a "feel-out" turn or two before contact. Unit-tested (5 tests).
-
-3. `demoBattle` ([`src/content/battles/demo.ts`](../src/content/battles/demo.ts)) is unchanged — preserved as the engine-test fixture for `orchestrator.test.ts` and `ai-controller.integration.test.ts` since their AI-vs-greedy win-rate balance is calibrated to the 6×6 board. Switching the playable runtime to Training Field via a sibling battle config insulates those tests by construction.
-
-**Renderer:**
-
-4. New `src/renderer/camera-controller.ts` — owns camera position + zoom + mode + autoTarget. Two-state machine (AUTO_FOLLOWING ↔ USER_DRIVEN). WASD pan with zoom-scaled speed and boundary clamping. Mouse-wheel zoom toward cursor (preserves the world point under the cursor across the zoom). Fit-map starting view. Min-zoom clamps at fit-map. Auto-follow re-engagement on active-unit transitions. 16 unit tests covering the math. ADR-0038.
-
-5. `BattleRenderer` ([`src/renderer/battle-renderer.ts`](../src/renderer/battle-renderer.ts)) refit:
-   - Inline cameraPos/cameraTarget/applyCamera removed; the controller replaces it.
-   - `mount(state, catalog)` now takes the catalog (used for status-tag polarity lookup).
-   - `setPanInput`, `applyZoomAt`, `setScreenSize`, `fitMap` exposed as input passthroughs.
-   - Active-unit-change detection now triggers the camera's `engageAutoFollow()` (turn-start re-engagement event).
-
-6. `UnitSprite` ([`src/renderer/unit-layer.ts`](../src/renderer/unit-layer.ts)) refit:
-   - MP bar drawn under the HP bar (slim, blue).
-   - Status badges row above the unit, polarity-coded fills with glyph + stack count badge for stacking statuses, capped visible count with "+N" overflow indicator.
-   - KO'd treatment changed from "gray fill" to "translucent" (alpha 0.45) — team color stays visible so allegiance still reads on downed units.
-   - New `polarityFromTags` and `statusBadgeFromInstance` helpers exposed for the renderer to synthesize badges from engine status data.
+1. `src/engine/actions/can-commit.ts` — new shared `canCommitAction(state, catalog, actor, action)` helper. Re-exported via `src/engine/actions/index.ts`. Three callers — `src/ai/basic.ts`, `src/app/demo/controller.ts`, and the new `src/ui/use-turn-flow.ts` — import from this single site. Duplicate private definitions removed from the first two. ADR-0039.
 
 **UI:**
 
-7. `BattleHud` ([`src/ui/battle-hud.tsx`](../src/ui/battle-hud.tsx)) rewritten as the design-doc 4-region shell — top bar (Turn T#### derived from action-log `turn_start` count), left QueueTower, right action-log slot (empty), bottom action-menu slot + provisional settings slot. The legacy 3-panel right-edge stack is gone.
+2. `src/ui/turn-flow.ts` — pure-reducer turn-flow state machine (7 states + 1 orthogonal pause flag). 25 unit tests in `turn-flow.test.ts`. ADR-0040.
 
-8. New `src/ui/queue-tower.tsx` — the design-doc queue-tower component. Active-unit anchor at the bottom (Tier 1.5 disclosure: portrait placeholder, name + class, HP / MP / SPD / CT, status strip with stack counts), upcoming-event mini-cards above (position number, portrait placeholder, team-color border, name + class, ticks-from-now). Reads from `projectUpcoming(state, 7, catalog)` for the upcoming events. Shows 7 events visible — the full 20-event horizon and scrolling are deferred to Session 23/24 per brief Item 5.
+3. `src/ui/use-turn-flow.ts` — React hook wrapping the reducer with side effects: legal-target memos, highlight repaints, tile-click / tile-hover wiring, uiController submissions. Owns lifecycle dispatch (turn-start/end via engine state watch; animationEnded via `setInterval` poll on `renderer.isIdle()`).
 
-9. `BattleView` ([`src/app/BattleView.tsx`](../src/app/BattleView.tsx)) retargeted:
-   - Loads `trainingFieldBattle` instead of `demoBattle`.
-   - Both teams driven by `BasicAiController`. UiController + useBattleUi unwired this session.
-   - WASD/arrow keyboard handler dispatches pan input to the camera; mouse-wheel handler on `app.canvas` dispatches focal-point zoom.
-   - `ResizeObserver` on the host pushes new screen size into the camera so the fit-zoom recomputes on viewport changes.
-   - Dev debug surface (`window.__taciturnDebug`) preserved for preview-time pumping; lost the `uiSubmit`/`uiEndTurn` entries (no UiController this session); gained `fitMap`.
+4. `src/ui/action-menu.tsx` — full rewrite. Loadout-aware top-level (Move/Act/Wait/Status) → command-set picker (skipped when single set) → ability list (with MP cost, charge-time, disable reason) → target prompt → confirm row. The Session 22 Move/Attack/Cure/Wait shape is gone.
 
-**Architecture record:**
+5. `src/ui/action-log-format.ts` + `action-log-format.test.ts` — pure per-action formatters returning structured `LogRow`s (tag, text, indent, tagKind). 11 unit tests. v1 covers every Action type per `core-types.md`; KO detection deferred to Session 24 polish.
 
-10. ADR-0036 — React + Pixi integration pattern and module boundary (retrospective). Captures vanilla-Pixi-with-refs as the established pattern; documents the renderer ↔ UI ↔ engine ↔ app dependency directionality.
+6. `src/ui/action-log-panel.tsx` — streaming list with auto-scroll-on-append; auto-scroll disables when the user manually scrolls up.
 
-11. ADR-0037 — UI state subscription via orchestrator-pump-driven setState (retrospective). Captures the per-commit setState pattern that's been driving HUD updates since session 10-ish.
+7. `src/ui/pause-overlay.tsx` — modal pause UI. Resume + Settings (inline) + Main Menu (disabled with tooltip). ADR-0041 captures the scope decision.
 
-12. ADR-0038 — Camera controller architecture (new). Captures the two-state machine, input-dispatch protocol, fit-map / zoom-toward-focal math, and rejected three-state alternative.
+8. `src/ui/settings-context.tsx` — React context for in-memory settings (animation speed, confirm step, status icon density). Persistence is a future feature per the design doc.
+
+9. `src/ui/battle-hud.tsx` — refit to wire ActionMenu + ActionLogPanel + (via parent) PauseOverlay. Settings placeholder slot removed; bottom-right of the bottom bar is now empty until Session 24 decides what (if anything) lives there.
+
+10. `src/ui/index.ts` — exports cleaned. Now exports: `BattleHud`, `QueueTower`, `ActionMenu`, `ActionLogPanel`, `PauseOverlay`, `SettingsProvider` + setting types, `useTurnFlow`, and the turn-flow types.
+
+11. **Deleted:** `src/ui/action-menu.tsx`'s prior contents (rewrite of the same path), `src/ui/use-battle-ui.ts`, `src/ui/current-unit-panel.tsx`, `src/ui/turn-queue-panel.tsx`. All four were Session 22's parked files. The latter three's responsibilities migrated into QueueTower (Session 22) and use-turn-flow (this session).
+
+**Renderer:**
+
+12. `src/renderer/highlight-layer.ts` — extended to two channels (`setBase` / `setOverlay`). Two `Graphics` children inside the same Container; overlay drawn on top with bumped alpha. Used for legal-target base + AoE preview overlay.
+
+13. `src/renderer/battle-renderer.ts` — new APIs: `setOnTileHover`, `setHighlightOverlay`, `setPaused`. Pointer-move and pointer-leave handlers on the stage feed the hover callback (deduped per-tile). The paused flag gates the animator's `tick`.
+
+**App / wiring:**
+
+14. `src/app/BattleView.tsx` — refit. `team_a` now driven by a fresh `createUiController()`; `team_b` stays on basic AI. `SettingsProvider` wraps the BattleViewInner. The hook `useTurnFlow` produces the player's turn behavior. ESC handler distinguishes "back out a picking sub-state" from "open pause overlay" per ADR-0040. Pump suspends when `pausedRef.current` is true. Debug surface restored `uiSubmit` / `uiEndTurn` entries for headless preview.
+
+**Architecture records:**
+
+15. ADR-0039 — `canCommitAction` promotion to shared engine helper. Captures the third-controller trigger anticipated by ADR-0035.
+
+16. ADR-0040 — Turn-flow state machine architecture. Pure-reducer + React-hook split; cancellation backstack via state-carried context; pause as orthogonal flag; setInterval vs rAF for animation drain.
+
+17. ADR-0041 — Pause overlay scope (Session 23 vs Session 34). Resume + Settings (active), Main Menu (disabled), Surrender (deferred).
 
 ### Test acceptance
 
-`npm test`: **583 passing across 49 files, 0 failing.** Up from 559/46 at session start; the +24 are the new Training Field shape tests (3), Training Field battle config tests (5), and CameraController math tests (16). No regressions in any pre-existing test.
+`npm test`: **622 passing across 52 files, 0 failing.** Up from 583/49 at session start; the +39 are the new turn-flow reducer tests (25), action-log formatter tests (11), and canCommitAction tests (3). No regressions in any pre-existing test, including the AI-vs-greedy integration test still calibrated to `demoBattle`.
 
-### What's parked but in-tree for Session 23
+### Browser preview verification
 
-- `src/ui/action-menu.tsx`, `src/ui/use-battle-ui.ts`, `src/ui/current-unit-panel.tsx`, `src/ui/turn-queue-panel.tsx` — still exported from `src/ui/index.ts` but not imported by the new `BattleHud`. Session 23 (interaction layer) refactors these against the new shell or replaces them outright. The current-unit-panel content has effectively migrated into `QueueTower`'s anchor; `turn-queue-panel` similarly into `QueueTower`'s mini-cards. Both files could be deleted in Session 23 as part of that refactor.
-- `src/app/controllers/ui-controller.ts` and its test — unchanged. Session 23 reconnects this once the action menu is wired to the new layout.
+End-to-end flow confirmed manually via the preview tooling:
+
+- Initial state mounts cleanly: top bar, queue tower, action log, action menu rendering with correct values for the active unit.
+- Action menu top-level → Act → command-set-select (Water Spells + White Magic + Cancel) → Water Spells → ability list (Water Strike, Tide Surge, Tidal Wave, Brine, Maelstrom + Cancel).
+- Cancel from ability-list returned to command-set-select; second cancel returned to action-menu.
+- Move → state machine entered move-select; only Cancel button remained.
+- Wait → animation → next turn's action-menu (state machine cycled correctly).
+- AI turns (Red Fire Mage, Red Lightning Mage) ran autonomously and posted entries to the action log: `→ Moved to (x, y)`, `→ began casting Flame Lance`, etc. T-numbers incremented across turns.
+- ESC opened the pause overlay (PAUSED / Resume / Settings / Main Menu). Main Menu was confirmed disabled. Settings expanded inline showing all three controls. Back → menu, Resume → game continued.
 
 ### Watch-for / open items, in priority order
 
-- **The brief's "settings panel scaffold in side-panel slot" is provisional.** The design doc (`battle-ui-architecture.md` "Settings Menu") routes settings through the title screen and ESC pause overlay, not a permanent side panel. Session 22's HUD has a small settings placeholder in the bottom-right of the action-menu strip purely to satisfy the brief's literal text. Session 23/24 should either wire actual settings content there *or* (more likely) remove the placeholder when the pause overlay (ESC) gets implemented.
+- **rAF vs setInterval for animation-drain detection (use-turn-flow.ts).** Switched from `requestAnimationFrame` to `setInterval(16ms)` after preview verification surfaced the backgrounded-tab-strands-state-machine failure mode. Captured in ADR-0040 alternatives. For a foreground tab the perceived latency is identical; for backgrounded tabs the player can return and find the game alive instead of frozen. Watch for this if the animation pacing later wants to slave to vsync.
 
-- **Action-log slot is panel chrome only.** Per the brief: "A streaming log display lands in Session 23 / 24." The right-side panel renders an empty placeholder. Session 23's interaction layer is the natural moment to populate it (each commit's action-log entry → a row).
+- **Action log lacks KO annotation.** v1 omits the `[ko]` row the design doc prescribes. Visualization makes the KO obvious; the underlying damage row carries the magnitude. Restoring `[ko]` rows requires running-HP tracking across the action log; punted to Session 24's polish session along with click-to-expand and hover-counterpart highlighting.
 
-- **Top bar Turn T#### derives from `actionLog.filter(a => a.type === 'turn_start').length`.** Cheap on a 14×14 battle; `actionLog` is unbounded so this is O(n) per render. Acceptable for first playable; if the action log grows huge (hundreds of turns) and the HUD lags, cache the count or expose a `turnNumber` field on `GameState`. Not regressed in 22.
+- **Action menu's "Status" button is disabled.** Hover tooltip says "(Session 24)". Active Unit detail popovers and inspection mode are Session 24 work per the brief.
 
-- **`src/ui/index.ts` still exports `ActionMenu`, `CurrentUnitPanel`, `TurnQueuePanel`, `useBattleUi`.** Intentional — Session 23 will use or replace them. Once Session 23 lands, the dead exports come out. Watch for the temptation to delete them earlier.
+- **Confirm step ships with `confirmStep: 'confirm'` as default**, matching the design doc. The Skip option works (transitions target-select directly to animation). Settings is in-memory only; reload resets to confirm-by-default.
 
-- **Renderer's MP "max" is captured at mount as `vitals.mp`.** v1 has no `maxMp` stat (Cluster 4 / Session 28). MP-restoration sources are rare in current content, so the starting value is a workable cap for now. When Session 28 introduces `maxMpBase`, the renderer's `maxMp` map should be replaced with a lookup against the computed maxMp stat.
+- **CT cost preview annotations in the action menu (design doc).** Deferred to Session 24 along with the forecast panel.
 
-- **Status-badge polarity uses the catalog `tags` array.** `'positive' | 'negative' | otherwise neutral`. The catalog also has an optional `polarity?: 'buff' | 'debuff'` field on `StatusEffectType` that's currently unused by the renderer. Worth aligning if the catalog evolves toward `polarity` as the canonical field — or removing the now-redundant `tags`-based polarity convention if the polarity field becomes universal.
+- **`projectChargedActionResolution` and `projectTurnEndCT` queries (design doc "Engine Requirements").** Both deferred to Session 24's forecast-pipeline work; not in scope this session.
 
-- **Status-badge glyphs are first-letter-of-typeId placeholders.** Final iconography is later. Session 22's is intentionally minimal; tighten when sprite art shows up (post-MVP per the brief).
+- **AoE preview correctness across all shapes.** Single-target, AoE diamond/cross/square, AoE cone (caster-anchored via `cardinalFromTo(actor.position, hoverTarget)`), and AoE line all wire through `aoeFootprint` with the same dispatch the AI uses (mirror of `src/ai/basic.ts`'s `aoeTilesAffected`). Verified structurally but not exhaustively under playtest; the Mage classes' AoEs are charged spells whose targeting overlay only surfaces during the brief target-select window before commit. If shape misalignment surfaces, the dispatch is in `src/ui/use-turn-flow.ts` (`resolveAoeTiles`).
 
-- **`canCommitAction` promotion trigger (carry-forward from Session 21).** Session 23's interaction layer adds the UI controller back as a third commit-emitter. That's the trigger to promote `canCommitAction` from its two duplicated sites (`src/ai/basic.ts`, `src/app/demo/controller.ts`) to a shared utility — likely `src/engine/actions/can-commit.ts`. ADR-0035 documents the existing duplication.
+- **Renderer's MP "max" captured at mount.** Carry-forward from Session 22 — not regressed. Replaces with `maxMp` lookup once Session 28 (Cluster 4) ships.
 
-- **`docs/content-snapshot.md` is still drifted from source-of-truth** (carry-forward from Session 21). Refresh scheduled with the first content session of wave 3 (Session 26 — movement abilities authoring). Not regressed in 22.
+- **Status-badge polarity convention** (`tags`-based vs `polarity?` field). Carry-forward from Session 22. No urgency; revisit at next status-system touch.
 
-- **`src/ai/projection.ts:142` retains its own `Math.max(0, Math.min(1, crit_chance / 100))` clamp** (carry-forward from Session 21). Defensive duplication post-ADR-0034. Schedule cleanup with the next AI-projection touch.
+- **QueueTower 7-event vs 20-event horizon.** Carry-forward from Session 22. Pinned to Session 24's forecast/projection polish.
 
-- **Resistance composition cap at 100 (audit E2)** — unchanged from prior handoff. Re-check when Cluster 3 (Session 27) lands `modifyResistance`.
+- **`docs/content-snapshot.md` drift** (Session 21 carry-forward). Refresh scheduled with Session 26 (movement abilities authoring).
 
-- **`pa_factor` `NotYetImplementedError` (audit E3)** — unchanged. No content asks for it.
+- **`src/ai/projection.ts:142` defensive clamp** (Session 21 carry-forward). Schedule with next AI-projection touch.
 
-- **`equipmentContributionsFor` "branch per hook" (audit E4)** — unchanged. Cluster 3 (Session 27) is the natural place to refactor.
+- **Top bar `Turn T####` is O(actionLog.length) per render** (Session 22 carry-forward). Cheap on 14×14 battles; cache or expose `turnNumber` on GameState if the log grows huge.
 
-- **TS strict-mode test errors (audit E8)** — unchanged. Not blocking. Two new errors appear in `BattleView.tsx` (`import.meta.env`) but verified to be the *same* errors that existed in the prior version of the file before this session — same lines, same construct. Pre-existing E8-class noise, not a Session 22 regression. Tests pass via Vite's type-permissive transform path.
+- **Resistance composition cap at 100** (audit E2). Session 27.
+
+- **`pa_factor` `NotYetImplementedError`** (audit E3). No content asks.
+
+- **`equipmentContributionsFor` "branch per hook"** (audit E4). Session 27 natural moment for refactor.
+
+- **TS strict-mode test errors** (audit E8). Not blocking.
+
+- **Surrender flow deferred to Session 34.** ADR-0041 captures. Battle-end-from-UI commit path doesn't exist yet; engine still fires `battle_end` via victory conditions.
 
 ### Considered and rejected this session
 
-- **Mutating `demoBattle` to use the Training Field instead of creating a sibling config.** Considered as the simplest path. Rejected: `demoBattle` is consumed by the AI-vs-greedy integration test whose win-rate balance is behaviorally calibrated to the 6×6 board. Switching the underlying map could perturb that delta and would force re-validation of the integration test alongside the UI work. A sibling battle config is lower-risk and reflects the reality that team-builder will eventually emit yet another config shape (Sessions 36-37). Captured in `training-field-battle.ts` file header and in this handoff.
+- **Including the Status button as active.** Rejected — Status routes to the full unit detail panel, which is a Session 24 surface. Showing the button disabled communicates intent without inviting a click.
 
-- **Three-state camera machine (IDLE / AUTO-INTERPOLATING / USER-DRIVEN)** as the design doc literally prescribes. Rejected for Session 22 in favor of a two-state machine where IDLE is encoded as "AUTO_FOLLOWING with no `autoTarget`." Saves the ceremony of tracking a separate animation-target convergence threshold without losing semantic fidelity. Captured in ADR-0038.
+- **One `useState` per substate in a React component.** Rejected — cancellation backstack becomes a tangle. Captured in ADR-0040 alternatives.
 
-- **Three-tile-margin overshoot on camera bounds clamping.** Considered to match the design doc's "~2 tiles of overshoot margin" allowance. Rejected for v1 — strict bounds work fine for Training Field, and an overshoot tolerance is a second knob to tune that the brief doesn't require. Add later if playtest reveals demand.
+- **XState or a third-party state-machine library.** Rejected — a 200-line reducer is right-sized for v1 and adds zero dependency. ADR-0040.
 
-- **Putting the camera state in React rather than the renderer.** Rejected: the camera transform applies to a Pixi `Container` outside React's render tree. Camera state in React would round-trip through the renderer for every frame. ADR-0038 captures.
+- **Pause as a TurnFlowState variant.** Rejected — orthogonal flag matches the design-doc semantics ("the world froze, you're not in a new state"). ADR-0040.
 
-- **Animator-driven MP / status snapshot fields** instead of state-snap from `lastState` per frame. Considered for animation fidelity. Rejected for Session 22: the brief explicitly accepts "the right values reach the screen" without smooth animations, and adding MP/status tracking to the animator's switch is non-trivial machinery for marginal payoff before Session 23's animation polish lands. The current state-snap path means MP/status numbers can briefly run "ahead" of the on-canvas damage tween; that's acceptable visually for first playable.
+- **Surrender in v1.** Rejected — defers cleanly to Session 34 alongside Main Menu and title-screen routing. ADR-0041.
 
-- **Keeping the old `BattleHud` 3-panel right-edge stack and incrementally extending it.** Rejected per Chris's option-C direction: starting the layout convergence now keeps the design-doc shape on the table for Session 23's interaction work rather than punting yet again. The cost was modest (one new component, one rewrite of an existing component, parking four files for Session 23 to revisit).
+- **Hide the Main Menu button until Session 34.** Rejected in favor of disabled-with-tooltip — users see the feature is intentional, not missing. ADR-0041.
+
+- **Nested overlay for settings.** Rejected — three settings fit comfortably inline; the back-button hop wouldn't add information density. Revisit if settings grow.
+
+- **`runOnActionAttempted` dry-run inside `validateAction` rather than a separate `canCommitAction` helper.** Rejected — validation is structural and pure; mixing in hook firing re-creates the problem ADR-0035 was designed to solve. ADR-0039.
+
+- **rAF for animation-drain polling.** Initial implementation; replaced with setInterval after preview verification surfaced the backgrounded-tab failure. ADR-0040 captures.
 
 ### Items dropped from prior handoff
 
-- **"Session 22 starts the Phase A battle UI work — render map and units, etc."** — superseded; landed in this session against the existing scaffolding rather than from scratch.
-
-- **All other carry-forward items** are restated above with their session-22 status. None were resolved this session.
+- **"Session 23 starts the interaction-layer work — UiController reconnection, action menu, targeting, action log, pause."** — superseded; landed this session.
+- **"Parked-file disposition for Session 23"** — superseded; the four files were resolved (rewrite for action-menu, delete for the other three).
+- **"Settings placeholder removal"** — superseded; settings now live in the pause overlay.
+- **All other carry-forward items** restated above with Session 23 status.

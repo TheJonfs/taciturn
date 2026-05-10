@@ -27,6 +27,7 @@ import { CameraController, type PanInput } from './camera-controller.ts';
 import { positionCenter, type ScreenPoint } from './world.ts';
 
 export type TileClickHandler = (pos: Position, unit: Unit | null) => void;
+export type TileHoverHandler = (pos: Position | null, unit: Unit | null) => void;
 
 export class BattleRenderer {
   readonly app: Application;
@@ -42,6 +43,9 @@ export class BattleRenderer {
   private lastActiveUnit: UnitId | null = null;
   private lastState: GameState | null = null;
   private tileClickHandler: TileClickHandler | null = null;
+  private tileHoverHandler: TileHoverHandler | null = null;
+  private lastHoverKey: string | null = null;
+  private paused: boolean = false;
 
   constructor(app: Application) {
     this.app = app;
@@ -65,6 +69,8 @@ export class BattleRenderer {
     this.app.stage.eventMode = 'static';
     this.app.stage.hitArea = this.app.screen;
     this.app.stage.on('pointertap', (e) => this.onPointerTap(e));
+    this.app.stage.on('pointermove', (e) => this.onPointerMove(e));
+    this.app.stage.on('pointerleave', () => this.onPointerLeave());
   }
 
   // Build initial sprites and tile geometry from the starting state.
@@ -151,11 +157,32 @@ export class BattleRenderer {
     this.tileClickHandler = handler;
   }
 
-  // Replace the highlight overlay set. UI uses this to communicate
-  // "these are your legal moves" / "these are valid targets" / etc.
+  // Set (or clear) the hover handler. Fires whenever the pointer moves
+  // to a different tile, with `null` when the pointer leaves the map.
+  // Used by the UI's targeting layer for AoE preview-on-hover.
+  setOnTileHover(handler: TileHoverHandler | null): void {
+    this.tileHoverHandler = handler;
+    if (handler === null) this.lastHoverKey = null;
+  }
+
+  // Replace the base highlight set (legal targets / reachable moves).
   // Pass `kind: 'none'` or an empty array to clear.
   setHighlights(positions: ReadonlyArray<Position>, kind: HighlightKind): void {
-    this.highlightLayer.set(positions, kind);
+    this.highlightLayer.setBase(positions, kind);
+  }
+
+  // Replace the overlay highlight set (AoE preview, hovered target).
+  // Drawn on top of the base channel at a brighter alpha. Pass
+  // `kind: 'none'` or an empty array to clear.
+  setHighlightOverlay(positions: ReadonlyArray<Position>, kind: HighlightKind): void {
+    this.highlightLayer.setOverlay(positions, kind);
+  }
+
+  // Halt the animator while paused. The Pixi ticker keeps running (so
+  // the renderer stays responsive to camera input and the React tree
+  // can paint over it), but action playback freezes until resume.
+  setPaused(paused: boolean): void {
+    this.paused = paused;
   }
 
   destroy(): void {
@@ -166,13 +193,43 @@ export class BattleRenderer {
 
   private onPointerTap(e: FederatedPointerEvent): void {
     if (this.tileClickHandler === null || this.lastState === null) return;
+    const hit = this.hitTest(e);
+    if (hit === null) return;
+    this.tileClickHandler(hit.pos, hit.occupant);
+  }
+
+  private onPointerMove(e: FederatedPointerEvent): void {
+    if (this.tileHoverHandler === null || this.lastState === null) return;
+    const hit = this.hitTest(e);
+    if (hit === null) {
+      if (this.lastHoverKey !== null) {
+        this.lastHoverKey = null;
+        this.tileHoverHandler(null, null);
+      }
+      return;
+    }
+    const key = `${hit.pos.x},${hit.pos.y},${hit.pos.layer}`;
+    if (key === this.lastHoverKey) return; // dedupe same-tile moves
+    this.lastHoverKey = key;
+    this.tileHoverHandler(hit.pos, hit.occupant);
+  }
+
+  private onPointerLeave(): void {
+    if (this.tileHoverHandler === null) return;
+    if (this.lastHoverKey === null) return;
+    this.lastHoverKey = null;
+    this.tileHoverHandler(null, null);
+  }
+
+  private hitTest(e: FederatedPointerEvent): { pos: Position; occupant: Unit | null } | null {
+    if (this.lastState === null) return null;
     const local = this.world.toLocal(e.global);
     const tileX = Math.floor(local.x / TILE_SIZE);
     const tileY = Math.floor(local.y / TILE_SIZE);
     const map = this.lastState.map;
-    if (tileX < 0 || tileY < 0 || tileX >= map.width || tileY >= map.height) return;
+    if (tileX < 0 || tileY < 0 || tileX >= map.width || tileY >= map.height) return null;
     const tiles = tilesAt(map, tileX, tileY);
-    if (tiles.length === 0) return;
+    if (tiles.length === 0) return null;
     // Topmost layer wins for hit-testing — matches the visual stacking
     // in TileLayer.draw.
     let top = tiles[0]!;
@@ -182,14 +239,18 @@ export class BattleRenderer {
     }
     const pos: Position = { x: tileX, y: tileY, layer: top.layer };
     const occupant = unitAt(this.lastState, tileX, tileY, top.layer) ?? null;
-    this.tileClickHandler(pos, occupant);
+    return { pos, occupant };
   }
 
   // ---- per-frame ----
 
   private tick(dtMs: number): void {
-    this.animator.tick(dtMs);
-    this.updateCameraTarget();
+    if (!this.paused) {
+      this.animator.tick(dtMs);
+      this.updateCameraTarget();
+    }
+    // Camera input keeps working while paused — the user can still pan
+    // and zoom around to inspect the frozen state.
     this.camera?.update(dtMs);
     this.applyVisualState();
     this.camera?.apply(this.world);

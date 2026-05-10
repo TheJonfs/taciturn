@@ -3,6 +3,7 @@
 // commit → process-chain. See docs/design/action-resolution.md and
 // ADR-0009.
 
+export { canCommitAction } from './can-commit.ts';
 export {
   commitAction,
   type CommitFailure,

@@ -4,90 +4,59 @@
 // Four regions overlay the PixiJS canvas:
 //   - Top bar:  full-width slim strip with the turn label.
 //   - Left:     QueueTower (active-unit anchor + upcoming events).
-//   - Right:    Action log slot (empty in Session 22; populated in
-//               Session 23/24).
-//   - Bottom:   Action menu slot (empty in Session 22; populated in
-//               Session 23 when interaction returns) + a settings
-//               placeholder. Per the design doc, settings actually
-//               live behind the pause overlay (ESC); the placeholder
-//               here is provisional, called out by Session 22's brief
-//               item 5 ("empty layout component placed in the side-
-//               panel slot. Populated in Session 24 with animation
-//               speed, log verbosity, etc.").
+//   - Right:    ActionLogPanel (streaming entries).
+//   - Bottom:   ActionMenu — player input surface, drives turn-flow.
+//
+// The settings placeholder Session 22 included to satisfy the brief's
+// literal text is gone — Session 23 routes settings through the pause
+// overlay per the design doc.
 //
 // All HUD regions render *over* the canvas with semi-transparent
 // backgrounds. Mouse-wheel zoom is dispatched from `app.canvas` only,
 // so wheel events on these regions don't trigger zoom. WASD pan is
-// window-level. Click-through is not intended in Session 22 since no
-// interaction is wired.
-//
-// The legacy components (`current-unit-panel.tsx`, `turn-queue-panel
-// .tsx`, `action-menu.tsx`, `use-battle-ui.ts`) are still exported
-// from `index.ts` for Session 23 to refactor against the new layout
-// when interaction returns. They aren't imported here.
+// window-level. Click-through is intentional only on the bottom-center
+// strip (where the menu lives) — other panels capture clicks for their
+// own UI.
 
 import type { CSSProperties, ReactElement } from 'react';
 import type { Action, Catalog, GameState } from '@engine/index.ts';
 import { QueueTower } from './queue-tower.tsx';
+import { ActionMenu } from './action-menu.tsx';
+import { ActionLogPanel } from './action-log-panel.tsx';
+import type { TurnFlow } from './use-turn-flow.ts';
 
 export interface BattleHudProps {
   readonly state: GameState | null;
   readonly catalog: Catalog;
+  readonly turnFlow: TurnFlow;
 }
 
-export function BattleHud({ state, catalog }: BattleHudProps): ReactElement {
+export function BattleHud({ state, catalog, turnFlow }: BattleHudProps): ReactElement {
   return (
     <div style={hudOverlayStyle}>
       <TopBar state={state} />
-      <QueueTower state={state} catalog={catalog} />
-      <ActionLogSlot />
-      <BottomBar />
+      <div style={leftPanelStyle}>
+        <QueueTower state={state} catalog={catalog} />
+      </div>
+      <div style={rightPanelStyle}>
+        <ActionLogPanel state={state} catalog={catalog} />
+      </div>
+      <div style={bottomBarStyle}>
+        <div style={actionMenuSlotStyle} aria-label="Action menu">
+          <ActionMenu turnFlow={turnFlow} catalog={catalog} />
+        </div>
+      </div>
     </div>
   );
 }
 
 function TopBar({ state }: { readonly state: GameState | null }): ReactElement {
-  // Derive T-event index from the action log: each `turn_start` action
-  // marks the beginning of a unit-turn T-event. The design doc calls
-  // for charged-action resolutions to also count as T-events; for
-  // first-pass we use turn_start only since `charged_action_resolve`
-  // emission detail varies by action shape and the visible distinction
-  // matters more in 23/24 when the action log panel surfaces it.
   const tNumber = state === null ? 0 : countTurnStarts(state.actionLog);
   const label = tNumber === 0 ? 'Battle Start' : `Turn ${formatT(tNumber)}`;
   return (
     <header style={topBarStyle}>
       <div style={topBarLabelStyle}>{label}</div>
     </header>
-  );
-}
-
-function ActionLogSlot(): ReactElement {
-  // Empty panel chrome. Streaming log entries land in Session 23/24.
-  return (
-    <aside style={actionLogSlotStyle} aria-label="Action log">
-      <div style={slotHeaderStyle}>Action Log</div>
-      <div style={slotPlaceholderStyle}>(coming Session 23/24)</div>
-    </aside>
-  );
-}
-
-function BottomBar(): ReactElement {
-  // Action-menu slot + provisional settings placeholder. Both empty in
-  // Session 22; interaction returns in Session 23.
-  return (
-    <div style={bottomBarStyle}>
-      <div style={actionMenuSlotStyle} aria-label="Action menu">
-        <div style={slotHeaderStyle}>Action Menu</div>
-        <div style={slotPlaceholderStyle}>
-          (visualization-only; interaction returns Session 23)
-        </div>
-      </div>
-      <div style={settingsSlotStyle} aria-label="Settings">
-        <div style={slotHeaderStyle}>Settings</div>
-        <div style={slotPlaceholderStyle}>(coming Session 24)</div>
-      </div>
-    </div>
   );
 }
 
@@ -135,7 +104,16 @@ const topBarLabelStyle: CSSProperties = {
   fontVariantNumeric: 'tabular-nums',
 };
 
-const actionLogSlotStyle: CSSProperties = {
+const leftPanelStyle: CSSProperties = {
+  position: 'absolute',
+  top: 36,
+  left: 12,
+  bottom: 12,
+  width: 280,
+  pointerEvents: 'none',
+};
+
+const rightPanelStyle: CSSProperties = {
   position: 'absolute',
   top: 36,
   right: 12,
@@ -147,12 +125,7 @@ const actionLogSlotStyle: CSSProperties = {
   borderStyle: 'solid',
   borderColor: '#2c2f36',
   borderRadius: 8,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
   pointerEvents: 'auto',
-  fontFamily: 'system-ui, sans-serif',
-  color: '#e7e9ee',
 };
 
 const bottomBarStyle: CSSProperties = {
@@ -160,7 +133,6 @@ const bottomBarStyle: CSSProperties = {
   left: 304,
   right: 304,
   bottom: 12,
-  height: 96,
   display: 'flex',
   gap: 12,
   pointerEvents: 'none',
@@ -177,29 +149,6 @@ const actionMenuSlotStyle: CSSProperties = {
   borderColor: '#2c2f36',
   borderRadius: 8,
   pointerEvents: 'auto',
-};
-
-const settingsSlotStyle: CSSProperties = {
-  width: 200,
-  padding: 12,
-  background: 'rgba(28, 30, 35, 0.85)',
-  borderWidth: 1,
-  borderStyle: 'solid',
-  borderColor: '#2c2f36',
-  borderRadius: 8,
-  pointerEvents: 'auto',
-};
-
-const slotHeaderStyle: CSSProperties = {
-  fontSize: 11,
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  opacity: 0.65,
-  marginBottom: 4,
-};
-
-const slotPlaceholderStyle: CSSProperties = {
-  fontSize: 12,
-  opacity: 0.45,
-  fontStyle: 'italic',
+  maxHeight: 280,
+  overflowY: 'auto',
 };

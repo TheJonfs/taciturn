@@ -57,14 +57,13 @@
 //     doesn't model "I'll be skipped next turn while this resolves").
 
 import {
+  canCommitAction,
   endpointFrom,
   getLegalMoves,
   horizontalDistance,
   inRange,
   positionKey,
-  runOnActionAttempted,
   tileAt,
-  validateAction,
   aoeFootprint,
   cardinalFromTo,
   type Catalog,
@@ -201,36 +200,6 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
   }
 
   return END_TURN;
-}
-
-// AI candidate-filter pre-flight. Per ADR-0035: `validateAction` is
-// pure (range, target, budget — no hook side effects), but the engine
-// also runs `runOnActionAttempted` at commit time. Status effects like
-// Don't Move, Don't Act, and Silence block actions there, not in
-// validation. Without this filter, the AI proposes structurally-valid
-// actions that the orchestrator then rejects, throwing.
-//
-// `runOnActionAttempted` is pure (handlers receive no state and return
-// `ActionAttemptResult` only — see `src/engine/hooks/runners.ts`), so
-// this is a clean pre-flight check with the same shape the AI already
-// uses for validation. We treat anything other than `'allowed'` as a
-// filter signal: `'blocked'` is the obvious case; `'replaced'` means
-// commit would substitute a different action than the one the AI scored,
-// so the AI re-derives a candidate against accurate semantics rather
-// than committing an action it didn't choose.
-function canCommitAction(
-  state: GameState,
-  catalog: Catalog,
-  actor: Unit,
-  action: ProposedAction,
-): boolean {
-  if (!validateAction(state, action, catalog).valid) return false;
-  const attempt = runOnActionAttempted(state, catalog, {
-    unit: actor,
-    action,
-    isReaction: false,
-  });
-  return attempt.kind === 'allowed';
 }
 
 // Living enemies of `actor`, by team. KO'd units (hp <= 0) are filtered

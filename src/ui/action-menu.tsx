@@ -1,146 +1,271 @@
-// ActionMenu — Move / Attack / Cure / Wait buttons for the active unit.
+// ActionMenu — bottom-region menu for the player's per-turn input.
 //
-// Buttons are gated on:
-//   - `waiting`: engine is busy (animations playing or scheduler
-//     advancing) — entire menu is disabled.
-//   - `isOurTurn`: the active unit belongs to a non-UI team — menu is
-//     hidden.
-//   - per-button budget checks: Move requires movesAvailable > 0,
-//     Attack and Cure require actsAvailable > 0.
-//   - per-ability availability: Cure only renders if the active unit
-//     has it equipped (`hasCure`).
+// Rendered in the bottom-left slot of the 4-region HUD shell. Walks
+// `useTurnFlow`'s state machine via the menu buttons:
 //
-// While the user is in a sub-mode (`picking-move` / `picking-attack` /
-// `picking-cure`) the corresponding button reads as the "active" one,
-// and a Cancel button appears to back out without committing.
+//   action-menu        →  Move (n) / Act / Wait / Status (disabled)
+//   move-select        →  "Click a blue tile to move…"   + Cancel
+//   command-set-select →  one button per active command set + Cancel
+//   ability-list       →  one button per ability in the set + Cancel
+//   target-select      →  "Click a highlighted target…" + Cancel
+//   await-confirm      →  preview row + Confirm / Cancel
+//   animation          →  "Resolving…" (no buttons)
 //
-// v1 only — Attack and Cure are each hardcoded against their ability
-// id. The full FFT-style command menu (read class.firstActionCommandSet,
-// list each ability) lands during the class/ability content-expansion
-// pass.
+// All input is keyboard-and-mouse parity:
+//   - mouse: click any button.
+//   - keyboard: arrow keys move focus, Enter confirms, ESC cancels.
+//     ESC at action-menu opens the pause overlay (BattleView listens).
+//
+// The menu reads its options from `useTurnFlow`'s loadout helpers
+// (`activeCommandSets`, `abilitiesFor`). It doesn't touch the engine
+// directly; the hook owns all validation.
 
 import type { CSSProperties, ReactElement } from 'react';
-import type { TurnState } from '@engine/index.ts';
-import type { UiMode } from './use-battle-ui.ts';
+import type { ActiveAbilityDefinition, Catalog } from '@engine/index.ts';
+import type { TurnFlow } from './use-turn-flow.ts';
 
 export interface ActionMenuProps {
-  readonly mode: UiMode;
-  readonly isOurTurn: boolean;
-  readonly waiting: boolean;
-  readonly turnState: TurnState;
-  readonly hasCure: boolean;
-  readonly onMove: () => void;
-  readonly onAttack: () => void;
-  readonly onCure: () => void;
-  readonly onWait: () => void;
-  readonly onCancel: () => void;
+  readonly turnFlow: TurnFlow;
+  readonly catalog: Catalog;
 }
 
-export function ActionMenu(props: ActionMenuProps): ReactElement {
-  const {
-    mode,
-    isOurTurn,
-    waiting,
-    turnState,
-    hasCure,
-    onMove,
-    onAttack,
-    onCure,
-    onWait,
-    onCancel,
-  } = props;
+export function ActionMenu({ turnFlow, catalog }: ActionMenuProps): ReactElement {
+  const { state, isOurTurn, activeUnit } = turnFlow;
 
-  const movesAvail = turnState?.budget.movesAvailable ?? 0;
-  const actsAvail = turnState?.budget.actsAvailable ?? 0;
+  if (!isOurTurn || activeUnit === null) {
+    return (
+      <Panel header="Action Menu">
+        <StatusLine>Opponent&apos;s turn</StatusLine>
+      </Panel>
+    );
+  }
 
-  const inSubMode = mode.kind !== 'idle';
-  const baseDisabled = !isOurTurn || waiting || inSubMode;
+  switch (state.kind) {
+    case 'idle':
+      return (
+        <Panel header="Action Menu">
+          <StatusLine>Waiting…</StatusLine>
+        </Panel>
+      );
 
+    case 'action-menu':
+      return <TopLevel turnFlow={turnFlow} />;
+
+    case 'move-select':
+      return (
+        <Panel header="Move">
+          <StatusLine>Click a blue tile to move</StatusLine>
+          <CancelButton onClick={turnFlow.cancel} />
+        </Panel>
+      );
+
+    case 'command-set-select':
+      return <CommandSetPicker turnFlow={turnFlow} catalog={catalog} />;
+
+    case 'ability-list':
+      return <AbilityListPicker turnFlow={turnFlow} catalog={catalog} commandSetId={state.commandSetId} />;
+
+    case 'target-select': {
+      const ability = catalog.getAbility(state.abilityId);
+      const label = ability.kind === 'active' ? ability.name : String(state.abilityId);
+      return (
+        <Panel header={`Target — ${label}`}>
+          <StatusLine>Click a highlighted target</StatusLine>
+          <CancelButton onClick={turnFlow.cancel} />
+        </Panel>
+      );
+    }
+
+    case 'await-confirm':
+      return <ConfirmRow turnFlow={turnFlow} catalog={catalog} />;
+
+    case 'animation':
+      return (
+        <Panel header="Action Menu">
+          <StatusLine>Resolving…</StatusLine>
+        </Panel>
+      );
+  }
+}
+
+// ---- subcomponents ----
+
+function TopLevel({ turnFlow }: { readonly turnFlow: TurnFlow }): ReactElement {
+  const { movesAvailable, actsAvailable, waitDisabled, activeCommandSets } = turnFlow;
   return (
-    <div style={panelStyle}>
-      <div style={panelHeaderStyle}>Actions</div>
+    <Panel header="Action Menu">
       <Button
-        label={`Move (${movesAvail})`}
-        onClick={onMove}
-        disabled={baseDisabled || movesAvail <= 0}
-        active={mode.kind === 'picking-move'}
+        label={`Move (${movesAvailable})`}
+        disabled={movesAvailable <= 0}
+        onClick={() => turnFlow.dispatch({ kind: 'pickMove' })}
       />
       <Button
-        label={`Attack (${actsAvail})`}
-        onClick={onAttack}
-        disabled={baseDisabled || actsAvail <= 0}
-        active={mode.kind === 'picking-attack'}
+        label={`Act (${actsAvailable})`}
+        disabled={actsAvailable <= 0 || activeCommandSets.length === 0}
+        onClick={() => turnFlow.dispatch({ kind: 'pickAct', commandSets: activeCommandSets })}
       />
-      {hasCure && (
-        <Button
-          label={`Cure (${actsAvail})`}
-          onClick={onCure}
-          disabled={baseDisabled || actsAvail <= 0}
-          active={mode.kind === 'picking-cure'}
-        />
-      )}
       <Button
         label="Wait"
-        onClick={onWait}
-        disabled={!isOurTurn || waiting || inSubMode}
+        disabled={waitDisabled}
+        onClick={() => turnFlow.submitWait()}
       />
-      {inSubMode && (
-        <Button label="Cancel" onClick={onCancel} disabled={false} variant="secondary" />
+      <Button
+        label="Status"
+        disabled
+        onClick={noop}
+        title="(Session 24)"
+      />
+    </Panel>
+  );
+}
+
+function CommandSetPicker({ turnFlow, catalog }: { readonly turnFlow: TurnFlow; readonly catalog: Catalog }): ReactElement {
+  return (
+    <Panel header="Choose Command Set">
+      {turnFlow.activeCommandSets.map((csId) => {
+        const cs = catalog.hasCommandSet(csId) ? catalog.getCommandSet(csId) : null;
+        const label = cs?.name ?? String(csId);
+        return (
+          <Button
+            key={String(csId)}
+            label={label}
+            disabled={false}
+            onClick={() => turnFlow.dispatch({ kind: 'pickCommandSet', commandSetId: csId })}
+          />
+        );
+      })}
+      <CancelButton onClick={turnFlow.cancel} />
+    </Panel>
+  );
+}
+
+function AbilityListPicker(props: {
+  readonly turnFlow: TurnFlow;
+  readonly catalog: Catalog;
+  readonly commandSetId: import('@engine/index.ts').CommandSetId;
+}): ReactElement {
+  const { turnFlow, catalog, commandSetId } = props;
+  const csName = catalog.hasCommandSet(commandSetId) ? catalog.getCommandSet(commandSetId).name : String(commandSetId);
+  const abilities = turnFlow.abilitiesFor(commandSetId) ?? [];
+
+  return (
+    <Panel header={`Ability — ${csName}`}>
+      {abilities.length === 0 && <StatusLine>(no active abilities)</StatusLine>}
+      {abilities.map((entry) => (
+        <AbilityButton
+          key={String(entry.ability.id)}
+          ability={entry.ability}
+          disabled={entry.disabled}
+          reason={entry.disableReason}
+          onClick={() => turnFlow.dispatch({ kind: 'pickAbility', abilityId: entry.ability.id })}
+        />
+      ))}
+      <CancelButton onClick={turnFlow.cancel} />
+    </Panel>
+  );
+}
+
+function AbilityButton(props: {
+  readonly ability: ActiveAbilityDefinition;
+  readonly disabled: boolean;
+  readonly reason: string | null;
+  readonly onClick: () => void;
+}): ReactElement {
+  const { ability, disabled, reason, onClick } = props;
+  const mp = ability.mpCost;
+  const charge = ability.actionSpeed > 0 ? ` · charge ${ability.actionSpeed}` : '';
+  const subline = `MP ${mp}${charge}`;
+  return (
+    <button
+      type="button"
+      style={{
+        ...buttonBaseStyle,
+        ...buttonPrimaryStyle,
+        ...(disabled ? buttonDisabledStyle : null),
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        gap: 2,
+      }}
+      onClick={disabled ? noop : onClick}
+      disabled={disabled}
+      title={reason ?? undefined}
+    >
+      <span style={{ fontWeight: 500 }}>{ability.name}</span>
+      <span style={{ fontSize: 11, opacity: 0.7 }}>{subline}</span>
+      {disabled && reason !== null && (
+        <span style={{ fontSize: 10, opacity: 0.6, fontStyle: 'italic' }}>{reason}</span>
       )}
-      {!isOurTurn && (
-        <div style={statusLineStyle}>Opponent&apos;s turn</div>
-      )}
-      {isOurTurn && waiting && (
-        <div style={statusLineStyle}>Resolving…</div>
-      )}
-      {isOurTurn && !waiting && mode.kind === 'picking-move' && (
-        <div style={statusLineStyle}>Click a blue tile to move</div>
-      )}
-      {isOurTurn && !waiting && mode.kind === 'picking-attack' && (
-        <div style={statusLineStyle}>Click a red tile to attack</div>
-      )}
-      {isOurTurn && !waiting && mode.kind === 'picking-cure' && (
-        <div style={statusLineStyle}>Click a green tile to heal</div>
-      )}
+    </button>
+  );
+}
+
+function ConfirmRow({ turnFlow, catalog }: { readonly turnFlow: TurnFlow; readonly catalog: Catalog }): ReactElement {
+  const state = turnFlow.state;
+  if (state.kind !== 'await-confirm') return <Panel header="Confirm" />;
+  const ability = catalog.getAbility(state.abilityId);
+  const label = ability.kind === 'active' ? ability.name : String(state.abilityId);
+  return (
+    <Panel header={`Confirm — ${label}`}>
+      <StatusLine>Commit this action?</StatusLine>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <Button label="Confirm" disabled={false} onClick={() => turnFlow.confirmAccept()} variant="primary" />
+        <Button label="Cancel" disabled={false} onClick={turnFlow.cancel} variant="secondary" />
+      </div>
+    </Panel>
+  );
+}
+
+// ---- primitives ----
+
+function Panel({ header, children }: { readonly header: string; readonly children?: React.ReactNode }): ReactElement {
+  return (
+    <div style={panelStyle}>
+      <div style={panelHeaderStyle}>{header}</div>
+      {children}
     </div>
   );
+}
+
+function StatusLine({ children }: { readonly children: React.ReactNode }): ReactElement {
+  return <div style={statusLineStyle}>{children}</div>;
+}
+
+function CancelButton({ onClick }: { readonly onClick: () => void }): ReactElement {
+  return <Button label="Cancel (ESC)" disabled={false} onClick={onClick} variant="secondary" />;
 }
 
 function Button(props: {
   readonly label: string;
   readonly onClick: () => void;
   readonly disabled: boolean;
-  readonly active?: boolean;
   readonly variant?: 'primary' | 'secondary';
+  readonly title?: string;
 }): ReactElement {
-  const { label, onClick, disabled, active, variant } = props;
+  const { label, onClick, disabled, variant = 'primary', title } = props;
   const style: CSSProperties = {
     ...buttonBaseStyle,
     ...(variant === 'secondary' ? buttonSecondaryStyle : buttonPrimaryStyle),
-    ...(active ? buttonActiveStyle : null),
     ...(disabled ? buttonDisabledStyle : null),
   };
   return (
-    <button type="button" style={style} onClick={onClick} disabled={disabled}>
+    <button type="button" style={style} onClick={disabled ? noop : onClick} disabled={disabled} title={title}>
       {label}
     </button>
   );
 }
 
+const noop = (): void => {};
+
+// ---- styles ----
+
 const panelStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 6,
-  padding: 12,
-  background: '#1c1e23',
-  borderWidth: 1,
-  borderStyle: 'solid',
-  borderColor: '#2c2f36',
-  borderRadius: 8,
+  height: '100%',
   color: '#e7e9ee',
   fontFamily: 'system-ui, sans-serif',
-  fontSize: 14,
-  minWidth: 200,
+  fontSize: 13,
 };
 
 const panelHeaderStyle: CSSProperties = {
@@ -152,15 +277,16 @@ const panelHeaderStyle: CSSProperties = {
 };
 
 const buttonBaseStyle: CSSProperties = {
-  padding: '8px 12px',
+  padding: '6px 10px',
   borderRadius: 6,
   borderWidth: 1,
   borderStyle: 'solid',
   borderColor: '#2c2f36',
   cursor: 'pointer',
   textAlign: 'left',
-  fontSize: 14,
+  fontSize: 13,
   fontFamily: 'inherit',
+  display: 'flex',
   transition: 'background 80ms, border-color 80ms',
 };
 
@@ -174,11 +300,6 @@ const buttonSecondaryStyle: CSSProperties = {
   color: '#bcc1cb',
 };
 
-const buttonActiveStyle: CSSProperties = {
-  borderColor: '#f6e5a8',
-  background: '#3a3a30',
-};
-
 const buttonDisabledStyle: CSSProperties = {
   opacity: 0.4,
   cursor: 'not-allowed',
@@ -186,6 +307,6 @@ const buttonDisabledStyle: CSSProperties = {
 
 const statusLineStyle: CSSProperties = {
   fontSize: 12,
-  opacity: 0.7,
-  marginTop: 4,
+  opacity: 0.75,
+  fontStyle: 'italic',
 };

@@ -89,6 +89,11 @@ export const HIGHLIGHT_COLORS: Readonly<Record<'move' | 'attack' | 'heal' | 'aoe
 };
 export const HIGHLIGHT_ALPHA = 0.32;
 
+// Overlay-channel alpha (AoE preview / hovered target). Slightly higher
+// than the base channel so the overlay reads as "on top of" the legal-
+// target set.
+export const HIGHLIGHT_OVERLAY_ALPHA = 0.55;
+
 // Hit flash color shown on a target when struck.
 export const HIT_FLASH_COLOR = 0xffe1a0;
 
