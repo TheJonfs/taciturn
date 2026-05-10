@@ -376,11 +376,22 @@ export const varianceRoll: DamageHandler = (ctx, env) => {
 export const critRoll: DamageHandler = (ctx, env) => {
   if (!ctx.hit) return ctx;
   if (ctx.damageTags.has('healing')) return ctx;
-  const crit_chance = runModifyStatQuery(env.state, env.catalog, {
-    unit: ctx.attacker,
-    statName: 'crit_chance',
-    baseValue: ctx.attacker.baseStats.crit_chance,
-  });
+  // Clamp queried crit_chance to [0, 100] at the read site (per ADR-0034):
+  // Crit_modifier stacks additively; 6× Static Embrace (5 base + 120 magnitude)
+  // would otherwise yield 125, making `crit_chance / 100 = 1.25` and any roll
+  // an automatic crit while displaying a nonsense percentage. Clamping at the
+  // read site ensures the roll, log, and any forecast surface read identically.
+  const crit_chance = Math.max(
+    0,
+    Math.min(
+      100,
+      runModifyStatQuery(env.state, env.catalog, {
+        unit: ctx.attacker,
+        statName: 'crit_chance',
+        baseValue: ctx.attacker.baseStats.crit_chance,
+      }),
+    ),
+  );
   if (crit_chance <= 0) return ctx;
   const r = unitFloatFromSeed(env.seed, /* sub-index */ 4);
   if (r >= crit_chance / 100) return ctx;

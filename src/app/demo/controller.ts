@@ -15,6 +15,7 @@ import {
   getLegalMoves,
   horizontalDistance,
   inRange,
+  runOnActionAttempted,
   tileAt,
   validateAction,
   type Catalog,
@@ -24,6 +25,33 @@ import {
   type Unit,
 } from '@engine/index.ts';
 import type { Controller } from './orchestrator.ts';
+
+// Controller candidate-filter pre-flight. Per ADR-0035: `validateAction`
+// is pure (range, target, budget — no hook side effects) but the engine
+// also runs `runOnActionAttempted` at commit time. Status effects like
+// Don't Move, Don't Act, and Silence block actions there, not in
+// validation. Without this filter, controllers propose structurally-
+// valid actions that the orchestrator then rejects, throwing.
+//
+// Greedy is a placeholder controller, but the same orchestrator contract
+// applies: any action handed to `commitAction` must also clear the
+// onActionAttempted hook chain. Treat anything other than `'allowed'`
+// as a filter signal — `'replaced'` means commit would substitute a
+// different action than the one we proposed, so we re-derive instead.
+function canCommitAction(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  action: ProposedAction,
+): boolean {
+  if (!validateAction(state, action, catalog).valid) return false;
+  const attempt = runOnActionAttempted(state, catalog, {
+    unit: actor,
+    action,
+    isReaction: false,
+  });
+  return attempt.kind === 'allowed';
+}
 
 const ATTACK = mkAbilityId('attack');
 const END_TURN = { kind: 'end-turn' as const };
@@ -41,18 +69,18 @@ export function greedyMeleeController(): Controller {
     if (state.turnState.budget.actsAvailable > 0) {
       const target = pickReachableMeleeTarget(state, catalog, actor, enemies);
       if (target !== null) {
-        return {
-          kind: 'commit',
-          action: {
-            type: 'use_ability',
-            source: 'player',
-            actorId: actor.id,
-            payload: {
-              abilityId: ATTACK,
-              target: { kind: 'unit', unitId: target.id },
-            },
+        const attack: ProposedAction = {
+          type: 'use_ability',
+          source: 'player',
+          actorId: actor.id,
+          payload: {
+            abilityId: ATTACK,
+            target: { kind: 'unit', unitId: target.id },
           },
         };
+        if (canCommitAction(state, catalog, actor, attack)) {
+          return { kind: 'commit', action: attack };
+        }
       }
     }
 
@@ -61,15 +89,15 @@ export function greedyMeleeController(): Controller {
       const closest = closestEnemy(actor, enemies);
       const dest = pickStepToward(state, catalog, actor, closest);
       if (dest !== null) {
-        return {
-          kind: 'commit',
-          action: {
-            type: 'move',
-            source: 'player',
-            actorId: actor.id,
-            payload: { destination: dest },
-          },
+        const move: ProposedAction = {
+          type: 'move',
+          source: 'player',
+          actorId: actor.id,
+          payload: { destination: dest },
         };
+        if (canCommitAction(state, catalog, actor, move)) {
+          return { kind: 'commit', action: move };
+        }
       }
     }
 

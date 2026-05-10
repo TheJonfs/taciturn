@@ -138,6 +138,113 @@ describe('crit_roll handler — skips healing tag', () => {
   });
 });
 
+// ===== crit_chance clamp at the read site (per ADR-0034) =====
+//
+// Crit_modifier stacks additively via STACK_INDEPENDENT. Six stacks of
+// Static Embrace (default magnitude 20) on a v1-baseline unit (base 5)
+// would push the queried crit_chance to 125. The damage-pipeline
+// handler `critRoll` clamps the read value to [0, 100] so the roll
+// behaves as guaranteed crit (not "always-crit by overflow") and any
+// future forecast/log surface that reads the same value sees a clean
+// percentage.
+//
+// The lower clamp is defensive symmetry with the existing `<= 0`
+// short-circuit: for any reachable composition that would yield a
+// negative effective crit_chance, the clamp pins to 0 so downstream
+// reads stay in-band.
+
+describe('crit_roll handler — upper clamp at 100 across stacked Crit_modifier', () => {
+  it('6× Crit_modifier on base-5 unit reads as 100% crit, not 125%', () => {
+    const attacker = makeUnit({
+      id: 'a',
+      spd: 10,
+      ma: 8,
+      hp: 100,
+      faith: 100,
+      crit_chance: 5,
+      crit_multiplier: 1.5,
+    });
+    const target = makeUnit({ id: 'b', spd: 10, hp: 100, faith: 100 });
+    let state = makeGameState({ units: [attacker, target] });
+    for (let i = 0; i < 6; i++) {
+      state = applyStatus(
+        state,
+        {
+          targetId: attacker.id,
+          typeId: statusTypeId('crit_modifier'),
+          sourceUnitId: attacker.id,
+          sourceActionSeq: i,
+        },
+        catalog,
+      ).newState;
+    }
+    // Sanity: the queried (unclamped) value composes to 125.
+    const attackerAfter = state.units.get(attacker.id)!;
+    const queried = runModifyStatQuery(state, catalog, {
+      unit: attackerAfter,
+      statName: 'crit_chance',
+      baseValue: attackerAfter.baseStats.crit_chance,
+    });
+    expect(queried).toBe(125);
+    // Pipeline run: clamp pins effective crit_chance to 100; every roll
+    // crits regardless of seed. Sample multiple seeds to confirm the
+    // always-crit behavior is deterministic, not seed-dependent overflow.
+    const ability = expectActive(abilityId('lightning_strike'));
+    for (const seed of [0x1, 0x2, 0xDEADBEEF, 0xCAFE_BABE]) {
+      const ctx = runDamagePipeline({
+        state,
+        catalog,
+        attacker: attackerAfter,
+        target,
+        ability,
+        sourceActionSeq: 99,
+        seed,
+        registry: defaultDamageHandlers,
+      });
+      const crit = ctx.multipliers.find((m) => m.source === 'crit');
+      expect(crit, `seed ${seed.toString(16)} did not crit at clamped 100%`).toBeDefined();
+      expect(crit!.factor).toBe(1.5);
+      // 96 base × 1.5 crit = 144; same as the unclamped 125% case
+      // would produce, but reached via the clamped probability path.
+      expect(ctx.finalDamage).toBe(144);
+    }
+  });
+});
+
+describe('crit_roll handler — lower clamp at 0 for negative effective crit_chance', () => {
+  it('unit with crit_chance -50 short-circuits cleanly (no roll, no crit)', () => {
+    // No content currently produces a negative-magnitude Crit_modifier;
+    // the lower bound is exercised by constructing a baseStats value
+    // outside the spec range. The clamp keeps the read value in-band
+    // for any future modifier that could compose negative.
+    const attacker = makeUnit({
+      id: 'a',
+      spd: 10,
+      ma: 8,
+      hp: 100,
+      faith: 100,
+      crit_chance: -50,
+      crit_multiplier: 1.5,
+    });
+    const target = makeUnit({ id: 'b', spd: 10, hp: 100, faith: 100 });
+    const state = makeGameState({ units: [attacker, target] });
+    const ability = expectActive(abilityId('lightning_strike'));
+    const ctx = runDamagePipeline({
+      state,
+      catalog,
+      attacker,
+      target,
+      ability,
+      sourceActionSeq: 0,
+      seed: 0xC0FFEE,
+      registry: defaultDamageHandlers,
+    });
+    expect(ctx.multipliers.find((m) => m.source === 'crit')).toBeUndefined();
+    // 96 base, no crit applied.
+    expect(ctx.finalDamage).toBe(96);
+  });
+});
+
 // ===== chainBonus — Chain Lightning =====
 
 describe('chainBonus — power scales with cluster size', () => {

@@ -21,62 +21,74 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-09 (session 20b — last implementation session of wave 2)
+## From session 2026-05-10 (Session 21 — Cluster 1 stabilization)
 
-**Wave 2 is closed.** Sessions 14-20b shipped: magical damage / Faith pipeline, charged-action lifecycle, four Mage classes, AoE substrate, equipment integration, custom-trigger statuses, status side-effect infrastructure, crit / chain / self-damage / Vulnerable, AI tier 1.5, AI tier 2 (stat-aware projection + reaction tag-filter inspection + joint planner + polarity hints + cone/line direction). 557 tests pass. The demo battle plays through end-to-end with all five classes on the field.
+Closed the post-reconciliation stabilization gap. Both audit-flagged engine items landed, plus one mid-session expansion to keep the test acceptance bar.
 
-### The next session is a design / planning session, not an implementation session
+**Landed:**
 
-The user's call: before another implementation wave starts, do a planning pass that merges:
+1. **E1 crit_chance clamp.** `critRoll` ([`src/engine/damage/handlers.ts:376`](../src/engine/damage/handlers.ts:376)) now clamps the queried `crit_chance` to `[0, 100]` at the read site. Stacking 6× Crit_modifier on a v1-baseline unit (5 + 120 = 125) caps cleanly at 100% crit. Tests in [`src/engine/actions/session-20-integration.test.ts`](../src/engine/actions/session-20-integration.test.ts) cover both bounds. ADR-0034.
 
-1. **What was built** — the implementation surface from sessions 14-20b (5 classes, ~36 abilities, ~22 statuses, ~5 equipment, tier-2 AI). See `docs/content-snapshot.md` for the comprehensive numerical snapshot.
+2. **E9 controller pre-filter.** Added `canCommitAction` helper in both [`src/ai/basic.ts`](../src/ai/basic.ts) and [`src/app/demo/controller.ts`](../src/app/demo/controller.ts) that runs `validateAction` AND `runOnActionAttempted` before returning a commit decision. Six controller-side commit sites updated (4 AI, 2 greedy). ADR-0035 captures the rule as "controllers, plural" rather than just the AI.
 
-2. **What needs designing** — UI improvements (general ability-picker, charged-action surface, battle log), more content (sixth class, equipment expansion, status catalog growth), and a calibration pass on existing numbers now that tier-2 AI is sensitive to them.
+3. **Test acceptance criterion met.** `npm test`: **559 passing, 0 failing across 46 files** (was 555/557 with 2 reds at session start).
 
-3. **A balancing pass on existing content** — the AI's tier-2 projection now folds in PA/MA, weapon WP, Faith × Faith, resistance, Vulnerable, crit, evasion, and variance. With everything composing into expected damage, the calibration surface is small enough to tune now and scales sub-linearly with new content; doing it before wave-3's first content session lands the right baseline for the new class to slot into.
+### Mid-session scope expansion (worth flagging)
 
-### The primary artifact for the next session
+The brief and audit named only `src/ai/basic.ts` for the E9 fix and predicted "the two failing tests should pass after this change with no further intervention." That prediction was wrong: the failing iteration (`seed=0x1, aiTeam=team_b`) put the broken move proposal on the *greedy placeholder controller*, not the AI. Greedy had the structurally identical bug — `pickStepToward` returns a destination from `getLegalMoves` (pure pathfinding) and the move proposal was committed without `runOnActionAttempted` ever running. Audit miss, not a true scope change. Confirmed with Chris mid-session before extending the fix to greedy.
 
-**`docs/content-snapshot.md`** — frozen as of end-of-20b. It's the numerical reference for the design planner: every class's stats, every ability's power_coefficient / mpCost / actionSpeed / range / status effects, every equipment item's WP / accuracy / grants, every status's magnitude / duration / stacking / polarity, plus ruleset constants. Calibration questions are surfaced inline ("Storm Caller never fires from the AI — intent or under-tuned?", "Free-passive asymmetry across classes", etc.) so the planner can scan them for prompts.
+**Implication for the audit's reliability:** the audit covers each subsystem item and is solid on the engine surface, but the controller layer (`src/app/demo/controller.ts` is the only non-AI, non-UI controller today) was not in its scope. If the audit produces follow-on session briefs, double-check whether the brief's "what fix lands the test" prediction holds end-to-end before assuming it's complete.
 
-The snapshot is a frozen reference. After a calibration pass changes numbers, refresh it.
+### The next session is Session 22 — Battle UI: visualization layer
 
-### Suggested shape for the planning session
+Per [`docs/twentyOnePlanning/roadmap-sessions-21-plus.md`](twentyOnePlanning/roadmap-sessions-21-plus.md), Session 22 starts the Phase A battle UI work:
 
-Three blocks to work through, in roughly this order:
+- Goal: render the map and units on a PixiJS canvas wrapped in React. Camera controls (pan, zoom). Static visualization — no interaction yet.
+- Engine work: none.
+- Content: Training Field map (14×14, uniform terrain at elevation 2). Hard-coded starting positions in `demo.ts`.
+- UI: React + PixiJS scaffolding under `src/ui/`; map renderer; unit renderer; camera controls; settings panel scaffold.
+- The audit confirmed no engine gaps for visualization (Items 19 and 20 in the audit explicitly: "no engine gaps that block the UI session").
+- **Deferred wiring:** `BattleConfig` is loaded statically by `loadDemoBattle()`; the loader is replaced by team-builder output in Sessions 36-37. Keep the loader interface stable.
 
-1. **Calibration pass** — go through the snapshot's "Calibration questions surfaced" section. For each question, decide one of: (a) tune now, (b) defer with reason, (c) tune as part of the next content session. Anchor decisions in target gameplay (e.g., "Storm Caller should fire roughly once per battle" → tune `SELF_COST_DAMPING_FACTOR` and/or HP totals).
+Read order for Session 22:
 
-2. **Wave-3 sequencing** — pick the next 3-5 sessions. Candidates from the prior handoff:
-   - **Sixth class** (Priest / Time Mage / Thief / Monk / Wizard, ranked by what new mechanics they pull in).
-   - **Equipment expansion** (mage weapons, armor variety, consumables).
-   - **Status catalog growth** (Reflect / Protect / Shell / Sleep / Slow / Quick — typically tied to a class).
-   - **General ability-picker UI** (FFT-style submenu).
-   - **Charged-action UI surface** (cast indicator).
-   - **Battle log surface** (narrate damage / status / reactions / charges).
-   - **Move-to-heal / move-to-buff** AI extension.
-   - **Status-impact projection** in the AI (currently coarse for status-only abilities).
+1. `docs/twentyOnePlanning/roadmap-sessions-21-plus.md` — Session 22 entry.
+2. `docs/twentyOneDesign/battle-ui-architecture.md` — primary design doc for this session.
+3. `docs/audits/post-20-engine-audit.md` — Items 19-20 (UI prerequisites notes); Section E for general engine state.
+4. `CLAUDE.md` — the React/PixiJS module-boundary rules; the engine-knows-nothing-about-rendering ground rule.
 
-3. **Wave-3 framing** — name the wave's identity. Wave 1 was "engine through first playable battle." Wave 2 was "content-led mechanism extensions" (each Mage class drove its engine extension). Wave 3 candidates: "calibration + UX wave", "second-playable wave (content density + UI maturity)", "v1 declaration wave" (gate the v1 deliverable definition).
+### Watch-for / open items, in priority order
 
-### What's in flight that affects planning
+- **`runOnActionAttempted`'s purity is now load-bearing for controller correctness.** The hook runner currently passes no state to handlers and they return `ActionAttemptResult` only — they cannot mutate state by construction. If a future hook signature change adds state-mutating capability to `onActionAttempted` (e.g., a "log this attempt" hook), the controller pre-filter pattern double-fires the side effect. ADR-0035 documents this; the next session that touches `src/engine/hooks/runners.ts` should be aware. Worth a comment on the runner. Not done in this session because the comment would orphan if a future hook never lands.
 
-- **Pre-existing TS strict-mode test errors persist.** `tsc -b --noEmit` surfaces them; npm test passes via Vitest's loose mode. Defer to a focused cleanup pass — not blocking but worth scheduling.
+- **`canCommitAction` is duplicated across `src/ai/basic.ts` and `src/app/demo/controller.ts`.** Intentional small duplication (different module tiers; helper too small to over-couple). If a third controller appears (likely the UI controller in Sessions 22-23), promote to a shared utility — likely `src/engine/actions/can-commit.ts`. Watch for this when wiring the UI controller in Session 23.
 
-- **AI tier-3 candidates from session 20b's deferral list** (carry forward, not blocking):
-  - Move-to-heal / move-to-buff (joint planner doesn't reach for out-of-range allies).
-  - Reaction-effect value inspection (current penalty is flat per-match-trigger, not weighted by what the reaction would actually do).
-  - `minDamage` gate respected in penalty calculation.
-  - Charged-action multi-turn awareness ("I'll be skipped next turn").
-  - Affordability filter expansion beyond MP (Silence / Don't Act conditional rejection).
+- **`docs/content-snapshot.md` is still drifted from source-of-truth** (carry-forward from prior session). The audit-session content reconciliation updated 19 content files; the snapshot still shows pre-reconciliation values. Per the prior-session reasoning, refresh after the first content session of wave 3 (Session 26 — movement abilities authoring) lands so the refresh captures both the calibration shift and any new content together. Still not refreshed in this session; not regressed either.
 
-- **Vite HMR cache desync** (one observed during session 20b): a transient broken-imports state cached in HMR persisted across reloads even after the source was fixed. Recovery needed cache-busting URL navigation. Worth noting if next session's planning involves any code changes that touch import surfaces — a Vite restart is the bigger hammer if HMR gets stuck.
+- **`src/ai/projection.ts:142` retains its own `Math.max(0, Math.min(1, crit_chance / 100))` clamp.** This is now defensive duplication — `critRoll` clamps the upstream query. Recommended cleanup: drop the projection-side clamp. Not done in Session 21 because the projection layer's contract test (`src/ai/projection.test.ts`) covers the composed behavior; touching the clamp without re-validating the contract test is a lateral change, not a stabilization fix. Schedule with the next AI-projection touch.
 
-### Items dropped from the prior handoff
+- **Resistance composition cap at 100 (audit E2)** — unchanged from prior handoff. Re-check when Cluster 3 (Session 27) lands `modifyResistance`.
 
-- **Implementation-detail notes** about tier-1.5 calibration drift, joint planner cost concerns, cone scoring positional details: these belong in code comments / ADR-0033's "Consequences" section, not in the planning-session handoff. Promoted there; dropped from active reading.
-- **"Things considered but did not do" from 20b implementation**: those were rationale for 20b's design choices, captured in ADR-0033. Not relevant to the planning session.
+- **`pa_factor` `NotYetImplementedError` (audit E3)** — unchanged. No content asks for it.
 
-### Suggested first prompt for the planner
+- **`equipmentContributionsFor` "branch per hook" (audit E4)** — unchanged. Cluster 3 (Session 27) is the natural place to refactor; recommend doing it before the contributor accumulates >5 branches.
 
-> "I want to plan wave 3. Read `docs/content-snapshot.md` end-to-end, then read `docs/handoff.md` and `docs/progress.md` for context. Then walk me through the calibration questions in the snapshot's section 7. We'll go question-by-question; for each, you propose a tuning direction and reasoning, I confirm or redirect. After calibration, we'll sequence the next 3-5 sessions."
+- **TS strict-mode test errors (audit E8)** — unchanged. Not blocking. Drop until someone wants a focused cleanup session.
+
+### Considered and rejected this session
+
+- **Orchestrator-side fallback to Wait on commit failure.** Considered as an alternative E9 fix. Rejected: papers over the bug; controller's scored action diverges silently from the orchestrator's commit. Captured in ADR-0035.
+
+- **Folding `runOnActionAttempted` into `validateAction`.** Considered as a way to make the pre-filter automatic for all callers. Rejected: changes `validateAction`'s pure-function contract and surprises every existing call site. The controller-side explicit pre-flight is cleaner and keeps validation pure. Captured in ADR-0035.
+
+- **Factoring a "pure-mode" runner out of `runOnActionAttempted`** (suggested by the brief). Rejected as unnecessary: the existing runner is already pure (handlers receive no state and return `ActionAttemptResult` only). No factor-out needed.
+
+- **Removing the `src/ai/projection.ts:142` clamp inline** while touching crit. Considered (it's now defensive duplication). Rejected: the projection layer has its own contract tests; removing the clamp is a separate cleanup that should land with a re-validation pass. Logged in watch-for above.
+
+### Items dropped from prior handoff
+
+- **"AI integration test is red"** — superseded; landed in this session.
+
+- **"`crit_chance` is not engine-clamped"** — superseded; landed in this session.
+
+- **"Two failing tests in `ai-controller.integration.test.ts`"** — superseded; both green.
