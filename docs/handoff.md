@@ -21,74 +21,140 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-10 (Session 21 — Cluster 1 stabilization)
+## From session 2026-05-10 (Session 22 — Battle UI: visualization layer)
 
-Closed the post-reconciliation stabilization gap. Both audit-flagged engine items landed, plus one mid-session expansion to keep the test acceptance bar.
+### Note for the design instance: the Session 22 brief was authored without recognizing the existing renderer / HUD scaffolding
 
-**Landed:**
+The session brief and roadmap both treated `src/ui/` and `src/renderer/` as effectively empty — Item 1 ("React + PixiJS scaffolding") through Item 7 ("Headless orchestrator integration") were specified as if from-scratch work. They aren't. Sessions 10-20 incrementally built:
 
-1. **E1 crit_chance clamp.** `critRoll` ([`src/engine/damage/handlers.ts:376`](../src/engine/damage/handlers.ts:376)) now clamps the queried `crit_chance` to `[0, 100]` at the read site. Stacking 6× Crit_modifier on a v1-baseline unit (5 + 120 = 125) caps cleanly at 100% crit. Tests in [`src/engine/actions/session-20-integration.test.ts`](../src/engine/actions/session-20-integration.test.ts) cover both bounds. ADR-0034.
+- React + Pixi scaffolding (`src/app/main.tsx`, `App.tsx`, `BattleView.tsx`).
+- A renderer (`src/renderer/`) with `BattleRenderer`, `TileLayer`, `UnitLayer`, `HighlightLayer`, `Animator`, `World`.
+- A HUD (`src/ui/`) with `BattleHud`, `ActionMenu`, `CurrentUnitPanel`, `TurnQueuePanel`, `useBattleUi`.
+- Controllers (`src/app/controllers/`) including a `UiController` and `BasicAiController` already wired into the orchestrator (`team_a` was player-driven in the v1 demo, `team_b` was AI).
+- An `Animator` doing per-unit position tweens, hit flashes, KO transitions, turn-start/end pauses.
+- A camera lerping toward the active unit each frame (auto-follow only; no user input, no zoom).
+- Headless orchestrator integration via the Pixi-ticker pump.
 
-2. **E9 controller pre-filter.** Added `canCommitAction` helper in both [`src/ai/basic.ts`](../src/ai/basic.ts) and [`src/app/demo/controller.ts`](../src/app/demo/controller.ts) that runs `validateAction` AND `runOnActionAttempted` before returning a commit decision. Six controller-side commit sites updated (4 AI, 2 greedy). ADR-0035 captures the rule as "controllers, plural" rather than just the AI.
+Session 22's actual work was therefore *converging* the existing scaffolding toward the design doc rather than building it from scratch. Per Chris's option-C direction:
 
-3. **Test acceptance criterion met.** `npm test`: **559 passing, 0 failing across 46 files** (was 555/557 with 2 reds at session start).
+- The legacy 3-panel right-edge HUD (CurrentUnitPanel + ActionMenu + TurnQueuePanel) was unmounted in favor of the design-doc 4-region shell.
+- `team_a`'s UiController was unwired; both teams now run on the basic AI for Session 22 (no interaction). `useBattleUi`, `ActionMenu`, `UiController` files remain in tree as exports — Session 23 refactors them against the new shell.
+- A new map content surface was added (`src/content/maps/`).
+- The existing demo-content (`src/content/battles/demo.ts`, 6×6 flat ground, 6 demo units) was preserved as the engine-test fixture; the playable runtime now consumes a derived `training-field-battle.ts` config that restages the same six units on the new 14×14 Training Field.
 
-### Mid-session scope expansion (worth flagging)
+If future briefs are produced from the design instance, they should plan against this baseline rather than greenfield. The roadmap's Phase A entries (Sessions 23-24) probably also under-describe the existing surface; the briefs for those sessions will benefit from a similar pre-flight review.
 
-The brief and audit named only `src/ai/basic.ts` for the E9 fix and predicted "the two failing tests should pass after this change with no further intervention." That prediction was wrong: the failing iteration (`seed=0x1, aiTeam=team_b`) put the broken move proposal on the *greedy placeholder controller*, not the AI. Greedy had the structurally identical bug — `pickStepToward` returns a destination from `getLegalMoves` (pure pathfinding) and the move proposal was committed without `runOnActionAttempted` ever running. Audit miss, not a true scope change. Confirmed with Chris mid-session before extending the fix to greedy.
+### Pre-existing state at session start
 
-**Implication for the audit's reliability:** the audit covers each subsystem item and is solid on the engine surface, but the controller layer (`src/app/demo/controller.ts` is the only non-AI, non-UI controller today) was not in its scope. If the audit produces follow-on session briefs, double-check whether the brief's "what fix lands the test" prediction holds end-to-end before assuming it's complete.
+- Test suite: 559 passing across 46 files (per Session 21's handoff).
+- React-Pixi runtime: vanilla Pixi managed via React refs + `useEffect` lifecycle, established sessions 10-12.
+- Renderer scope: tile layer, unit sprites with HP bar / facing tick / active ring / KO recolor, highlight overlay, animator with move-tween / hit-flash / turn-pause / KO transitions, simple lerping camera.
+- HUD scope: right-edge vertical stack of three panels, CSS-based.
+- Demo battle: 6×6 flat ground, 6 mage-war units (Knight + 4 mage classes spread across two teams asymmetrically), `team_a` player + `team_b` AI.
+- Engine work: none required this session per the audit's Items 19-20.
 
-### The next session is Session 22 — Battle UI: visualization layer
+### Landed this session
 
-Per [`docs/twentyOnePlanning/roadmap-sessions-21-plus.md`](twentyOnePlanning/roadmap-sessions-21-plus.md), Session 22 starts the Phase A battle UI work:
+**Content:**
 
-- Goal: render the map and units on a PixiJS canvas wrapped in React. Camera controls (pan, zoom). Static visualization — no interaction yet.
-- Engine work: none.
-- Content: Training Field map (14×14, uniform terrain at elevation 2). Hard-coded starting positions in `demo.ts`.
-- UI: React + PixiJS scaffolding under `src/ui/`; map renderer; unit renderer; camera controls; settings panel scaffold.
-- The audit confirmed no engine gaps for visualization (Items 19 and 20 in the audit explicitly: "no engine gaps that block the UI session").
-- **Deferred wiring:** `BattleConfig` is loaded statically by `loadDemoBattle()`; the loader is replaced by team-builder output in Sessions 36-37. Keep the loader interface stable.
+1. `src/content/maps/training-field.ts` — new 14×14 single-layer map at uniform `ground` terrain, elevation 2. Unit-tested for shape (3 tests).
 
-Read order for Session 22:
+2. `src/content/battles/training-field-battle.ts` — new battle config that consumes Training Field while inheriting the demo unit roster (identities, loadouts, stats, equipment, masterSeed) via spread from `demoBattle`. Restaged with deliberate west-vs-east starting positions on the 14×14 board so the AI has a "feel-out" turn or two before contact. Unit-tested (5 tests).
 
-1. `docs/twentyOnePlanning/roadmap-sessions-21-plus.md` — Session 22 entry.
-2. `docs/twentyOneDesign/battle-ui-architecture.md` — primary design doc for this session.
-3. `docs/audits/post-20-engine-audit.md` — Items 19-20 (UI prerequisites notes); Section E for general engine state.
-4. `CLAUDE.md` — the React/PixiJS module-boundary rules; the engine-knows-nothing-about-rendering ground rule.
+3. `demoBattle` ([`src/content/battles/demo.ts`](../src/content/battles/demo.ts)) is unchanged — preserved as the engine-test fixture for `orchestrator.test.ts` and `ai-controller.integration.test.ts` since their AI-vs-greedy win-rate balance is calibrated to the 6×6 board. Switching the playable runtime to Training Field via a sibling battle config insulates those tests by construction.
+
+**Renderer:**
+
+4. New `src/renderer/camera-controller.ts` — owns camera position + zoom + mode + autoTarget. Two-state machine (AUTO_FOLLOWING ↔ USER_DRIVEN). WASD pan with zoom-scaled speed and boundary clamping. Mouse-wheel zoom toward cursor (preserves the world point under the cursor across the zoom). Fit-map starting view. Min-zoom clamps at fit-map. Auto-follow re-engagement on active-unit transitions. 16 unit tests covering the math. ADR-0038.
+
+5. `BattleRenderer` ([`src/renderer/battle-renderer.ts`](../src/renderer/battle-renderer.ts)) refit:
+   - Inline cameraPos/cameraTarget/applyCamera removed; the controller replaces it.
+   - `mount(state, catalog)` now takes the catalog (used for status-tag polarity lookup).
+   - `setPanInput`, `applyZoomAt`, `setScreenSize`, `fitMap` exposed as input passthroughs.
+   - Active-unit-change detection now triggers the camera's `engageAutoFollow()` (turn-start re-engagement event).
+
+6. `UnitSprite` ([`src/renderer/unit-layer.ts`](../src/renderer/unit-layer.ts)) refit:
+   - MP bar drawn under the HP bar (slim, blue).
+   - Status badges row above the unit, polarity-coded fills with glyph + stack count badge for stacking statuses, capped visible count with "+N" overflow indicator.
+   - KO'd treatment changed from "gray fill" to "translucent" (alpha 0.45) — team color stays visible so allegiance still reads on downed units.
+   - New `polarityFromTags` and `statusBadgeFromInstance` helpers exposed for the renderer to synthesize badges from engine status data.
+
+**UI:**
+
+7. `BattleHud` ([`src/ui/battle-hud.tsx`](../src/ui/battle-hud.tsx)) rewritten as the design-doc 4-region shell — top bar (Turn T#### derived from action-log `turn_start` count), left QueueTower, right action-log slot (empty), bottom action-menu slot + provisional settings slot. The legacy 3-panel right-edge stack is gone.
+
+8. New `src/ui/queue-tower.tsx` — the design-doc queue-tower component. Active-unit anchor at the bottom (Tier 1.5 disclosure: portrait placeholder, name + class, HP / MP / SPD / CT, status strip with stack counts), upcoming-event mini-cards above (position number, portrait placeholder, team-color border, name + class, ticks-from-now). Reads from `projectUpcoming(state, 7, catalog)` for the upcoming events. Shows 7 events visible — the full 20-event horizon and scrolling are deferred to Session 23/24 per brief Item 5.
+
+9. `BattleView` ([`src/app/BattleView.tsx`](../src/app/BattleView.tsx)) retargeted:
+   - Loads `trainingFieldBattle` instead of `demoBattle`.
+   - Both teams driven by `BasicAiController`. UiController + useBattleUi unwired this session.
+   - WASD/arrow keyboard handler dispatches pan input to the camera; mouse-wheel handler on `app.canvas` dispatches focal-point zoom.
+   - `ResizeObserver` on the host pushes new screen size into the camera so the fit-zoom recomputes on viewport changes.
+   - Dev debug surface (`window.__taciturnDebug`) preserved for preview-time pumping; lost the `uiSubmit`/`uiEndTurn` entries (no UiController this session); gained `fitMap`.
+
+**Architecture record:**
+
+10. ADR-0036 — React + Pixi integration pattern and module boundary (retrospective). Captures vanilla-Pixi-with-refs as the established pattern; documents the renderer ↔ UI ↔ engine ↔ app dependency directionality.
+
+11. ADR-0037 — UI state subscription via orchestrator-pump-driven setState (retrospective). Captures the per-commit setState pattern that's been driving HUD updates since session 10-ish.
+
+12. ADR-0038 — Camera controller architecture (new). Captures the two-state machine, input-dispatch protocol, fit-map / zoom-toward-focal math, and rejected three-state alternative.
+
+### Test acceptance
+
+`npm test`: **583 passing across 49 files, 0 failing.** Up from 559/46 at session start; the +24 are the new Training Field shape tests (3), Training Field battle config tests (5), and CameraController math tests (16). No regressions in any pre-existing test.
+
+### What's parked but in-tree for Session 23
+
+- `src/ui/action-menu.tsx`, `src/ui/use-battle-ui.ts`, `src/ui/current-unit-panel.tsx`, `src/ui/turn-queue-panel.tsx` — still exported from `src/ui/index.ts` but not imported by the new `BattleHud`. Session 23 (interaction layer) refactors these against the new shell or replaces them outright. The current-unit-panel content has effectively migrated into `QueueTower`'s anchor; `turn-queue-panel` similarly into `QueueTower`'s mini-cards. Both files could be deleted in Session 23 as part of that refactor.
+- `src/app/controllers/ui-controller.ts` and its test — unchanged. Session 23 reconnects this once the action menu is wired to the new layout.
 
 ### Watch-for / open items, in priority order
 
-- **`runOnActionAttempted`'s purity is now load-bearing for controller correctness.** The hook runner currently passes no state to handlers and they return `ActionAttemptResult` only — they cannot mutate state by construction. If a future hook signature change adds state-mutating capability to `onActionAttempted` (e.g., a "log this attempt" hook), the controller pre-filter pattern double-fires the side effect. ADR-0035 documents this; the next session that touches `src/engine/hooks/runners.ts` should be aware. Worth a comment on the runner. Not done in this session because the comment would orphan if a future hook never lands.
+- **The brief's "settings panel scaffold in side-panel slot" is provisional.** The design doc (`battle-ui-architecture.md` "Settings Menu") routes settings through the title screen and ESC pause overlay, not a permanent side panel. Session 22's HUD has a small settings placeholder in the bottom-right of the action-menu strip purely to satisfy the brief's literal text. Session 23/24 should either wire actual settings content there *or* (more likely) remove the placeholder when the pause overlay (ESC) gets implemented.
 
-- **`canCommitAction` is duplicated across `src/ai/basic.ts` and `src/app/demo/controller.ts`.** Intentional small duplication (different module tiers; helper too small to over-couple). If a third controller appears (likely the UI controller in Sessions 22-23), promote to a shared utility — likely `src/engine/actions/can-commit.ts`. Watch for this when wiring the UI controller in Session 23.
+- **Action-log slot is panel chrome only.** Per the brief: "A streaming log display lands in Session 23 / 24." The right-side panel renders an empty placeholder. Session 23's interaction layer is the natural moment to populate it (each commit's action-log entry → a row).
 
-- **`docs/content-snapshot.md` is still drifted from source-of-truth** (carry-forward from prior session). The audit-session content reconciliation updated 19 content files; the snapshot still shows pre-reconciliation values. Per the prior-session reasoning, refresh after the first content session of wave 3 (Session 26 — movement abilities authoring) lands so the refresh captures both the calibration shift and any new content together. Still not refreshed in this session; not regressed either.
+- **Top bar Turn T#### derives from `actionLog.filter(a => a.type === 'turn_start').length`.** Cheap on a 14×14 battle; `actionLog` is unbounded so this is O(n) per render. Acceptable for first playable; if the action log grows huge (hundreds of turns) and the HUD lags, cache the count or expose a `turnNumber` field on `GameState`. Not regressed in 22.
 
-- **`src/ai/projection.ts:142` retains its own `Math.max(0, Math.min(1, crit_chance / 100))` clamp.** This is now defensive duplication — `critRoll` clamps the upstream query. Recommended cleanup: drop the projection-side clamp. Not done in Session 21 because the projection layer's contract test (`src/ai/projection.test.ts`) covers the composed behavior; touching the clamp without re-validating the contract test is a lateral change, not a stabilization fix. Schedule with the next AI-projection touch.
+- **`src/ui/index.ts` still exports `ActionMenu`, `CurrentUnitPanel`, `TurnQueuePanel`, `useBattleUi`.** Intentional — Session 23 will use or replace them. Once Session 23 lands, the dead exports come out. Watch for the temptation to delete them earlier.
+
+- **Renderer's MP "max" is captured at mount as `vitals.mp`.** v1 has no `maxMp` stat (Cluster 4 / Session 28). MP-restoration sources are rare in current content, so the starting value is a workable cap for now. When Session 28 introduces `maxMpBase`, the renderer's `maxMp` map should be replaced with a lookup against the computed maxMp stat.
+
+- **Status-badge polarity uses the catalog `tags` array.** `'positive' | 'negative' | otherwise neutral`. The catalog also has an optional `polarity?: 'buff' | 'debuff'` field on `StatusEffectType` that's currently unused by the renderer. Worth aligning if the catalog evolves toward `polarity` as the canonical field — or removing the now-redundant `tags`-based polarity convention if the polarity field becomes universal.
+
+- **Status-badge glyphs are first-letter-of-typeId placeholders.** Final iconography is later. Session 22's is intentionally minimal; tighten when sprite art shows up (post-MVP per the brief).
+
+- **`canCommitAction` promotion trigger (carry-forward from Session 21).** Session 23's interaction layer adds the UI controller back as a third commit-emitter. That's the trigger to promote `canCommitAction` from its two duplicated sites (`src/ai/basic.ts`, `src/app/demo/controller.ts`) to a shared utility — likely `src/engine/actions/can-commit.ts`. ADR-0035 documents the existing duplication.
+
+- **`docs/content-snapshot.md` is still drifted from source-of-truth** (carry-forward from Session 21). Refresh scheduled with the first content session of wave 3 (Session 26 — movement abilities authoring). Not regressed in 22.
+
+- **`src/ai/projection.ts:142` retains its own `Math.max(0, Math.min(1, crit_chance / 100))` clamp** (carry-forward from Session 21). Defensive duplication post-ADR-0034. Schedule cleanup with the next AI-projection touch.
 
 - **Resistance composition cap at 100 (audit E2)** — unchanged from prior handoff. Re-check when Cluster 3 (Session 27) lands `modifyResistance`.
 
 - **`pa_factor` `NotYetImplementedError` (audit E3)** — unchanged. No content asks for it.
 
-- **`equipmentContributionsFor` "branch per hook" (audit E4)** — unchanged. Cluster 3 (Session 27) is the natural place to refactor; recommend doing it before the contributor accumulates >5 branches.
+- **`equipmentContributionsFor` "branch per hook" (audit E4)** — unchanged. Cluster 3 (Session 27) is the natural place to refactor.
 
-- **TS strict-mode test errors (audit E8)** — unchanged. Not blocking. Drop until someone wants a focused cleanup session.
+- **TS strict-mode test errors (audit E8)** — unchanged. Not blocking. Two new errors appear in `BattleView.tsx` (`import.meta.env`) but verified to be the *same* errors that existed in the prior version of the file before this session — same lines, same construct. Pre-existing E8-class noise, not a Session 22 regression. Tests pass via Vite's type-permissive transform path.
 
 ### Considered and rejected this session
 
-- **Orchestrator-side fallback to Wait on commit failure.** Considered as an alternative E9 fix. Rejected: papers over the bug; controller's scored action diverges silently from the orchestrator's commit. Captured in ADR-0035.
+- **Mutating `demoBattle` to use the Training Field instead of creating a sibling config.** Considered as the simplest path. Rejected: `demoBattle` is consumed by the AI-vs-greedy integration test whose win-rate balance is behaviorally calibrated to the 6×6 board. Switching the underlying map could perturb that delta and would force re-validation of the integration test alongside the UI work. A sibling battle config is lower-risk and reflects the reality that team-builder will eventually emit yet another config shape (Sessions 36-37). Captured in `training-field-battle.ts` file header and in this handoff.
 
-- **Folding `runOnActionAttempted` into `validateAction`.** Considered as a way to make the pre-filter automatic for all callers. Rejected: changes `validateAction`'s pure-function contract and surprises every existing call site. The controller-side explicit pre-flight is cleaner and keeps validation pure. Captured in ADR-0035.
+- **Three-state camera machine (IDLE / AUTO-INTERPOLATING / USER-DRIVEN)** as the design doc literally prescribes. Rejected for Session 22 in favor of a two-state machine where IDLE is encoded as "AUTO_FOLLOWING with no `autoTarget`." Saves the ceremony of tracking a separate animation-target convergence threshold without losing semantic fidelity. Captured in ADR-0038.
 
-- **Factoring a "pure-mode" runner out of `runOnActionAttempted`** (suggested by the brief). Rejected as unnecessary: the existing runner is already pure (handlers receive no state and return `ActionAttemptResult` only). No factor-out needed.
+- **Three-tile-margin overshoot on camera bounds clamping.** Considered to match the design doc's "~2 tiles of overshoot margin" allowance. Rejected for v1 — strict bounds work fine for Training Field, and an overshoot tolerance is a second knob to tune that the brief doesn't require. Add later if playtest reveals demand.
 
-- **Removing the `src/ai/projection.ts:142` clamp inline** while touching crit. Considered (it's now defensive duplication). Rejected: the projection layer has its own contract tests; removing the clamp is a separate cleanup that should land with a re-validation pass. Logged in watch-for above.
+- **Putting the camera state in React rather than the renderer.** Rejected: the camera transform applies to a Pixi `Container` outside React's render tree. Camera state in React would round-trip through the renderer for every frame. ADR-0038 captures.
+
+- **Animator-driven MP / status snapshot fields** instead of state-snap from `lastState` per frame. Considered for animation fidelity. Rejected for Session 22: the brief explicitly accepts "the right values reach the screen" without smooth animations, and adding MP/status tracking to the animator's switch is non-trivial machinery for marginal payoff before Session 23's animation polish lands. The current state-snap path means MP/status numbers can briefly run "ahead" of the on-canvas damage tween; that's acceptable visually for first playable.
+
+- **Keeping the old `BattleHud` 3-panel right-edge stack and incrementally extending it.** Rejected per Chris's option-C direction: starting the layout convergence now keeps the design-doc shape on the table for Session 23's interaction work rather than punting yet again. The cost was modest (one new component, one rewrite of an existing component, parking four files for Session 23 to revisit).
 
 ### Items dropped from prior handoff
 
-- **"AI integration test is red"** — superseded; landed in this session.
+- **"Session 22 starts the Phase A battle UI work — render map and units, etc."** — superseded; landed in this session against the existing scaffolding rather than from scratch.
 
-- **"`crit_chance` is not engine-clamped"** — superseded; landed in this session.
-
-- **"Two failing tests in `ai-controller.integration.test.ts`"** — superseded; both green.
+- **All other carry-forward items** are restated above with their session-22 status. None were resolved this session.

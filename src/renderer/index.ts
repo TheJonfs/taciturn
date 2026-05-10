@@ -7,3 +7,4 @@
 
 export { BattleRenderer, type TileClickHandler } from './battle-renderer.ts';
 export { type HighlightKind } from './highlight-layer.ts';
+export { type PanInput } from './camera-controller.ts';

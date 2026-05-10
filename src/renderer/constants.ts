@@ -55,6 +55,26 @@ export const HP_BAR_FG = 0x6dc66d;
 export const HP_BAR_FG_LOW = 0xd0533d;
 export const HP_BAR_LOW_THRESHOLD = 0.33;
 
+// MP bar (slim, sits below the HP bar). Blue to distinguish from HP.
+// No "low MP" threshold — MP draining isn't the same kind of event as
+// being near-death.
+export const MP_BAR_FG = 0x4a90e2;
+
+// Status-badge palette. Placeholders — final iconography is later.
+// Polarity-coded fills with a glyph letter; stack count badge in the
+// corner for stacking statuses (Burn especially).
+export const STATUS_BADGE_BG_NEGATIVE = 0xa83838;
+export const STATUS_BADGE_BG_POSITIVE = 0x6dc66d;
+export const STATUS_BADGE_BG_NEUTRAL = 0xa6a892;
+export const STATUS_BADGE_TEXT = 0x14171c;
+export const STATUS_BADGE_STACK_BG = 0x14171c;
+export const STATUS_BADGE_STACK_TEXT = 0xf6e5a8;
+
+// KO'd unit transparency. Per the design doc, KO'd units stay on the
+// map as grayed/translucent tokens (revival mechanics + 3-turn
+// permadeath timer + tactical visibility).
+export const KO_ALPHA = 0.45;
+
 // Active-unit highlight ring color.
 export const ACTIVE_HIGHLIGHT_COLOR = 0xf6e5a8;
 

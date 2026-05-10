@@ -17,12 +17,13 @@
 // Renderer for the battle view component").
 
 import { Container, type Application, type FederatedPointerEvent } from 'pixi.js';
-import { tilesAt, unitAt, type Action, type GameState, type Position, type Unit, type UnitId } from '@engine/index.ts';
-import { CAMERA_LERP, TILE_SIZE } from './constants.ts';
+import { tilesAt, unitAt, type Action, type Catalog, type GameState, type Position, type Unit, type UnitId } from '@engine/index.ts';
+import { TILE_SIZE } from './constants.ts';
 import { TileLayer } from './tile-layer.ts';
-import { UnitSprite } from './unit-layer.ts';
+import { statusBadgeFromInstance, UnitSprite, type StatusBadge } from './unit-layer.ts';
 import { HighlightLayer, type HighlightKind } from './highlight-layer.ts';
 import { Animator } from './animator.ts';
+import { CameraController, type PanInput } from './camera-controller.ts';
 import { positionCenter, type ScreenPoint } from './world.ts';
 
 export type TileClickHandler = (pos: Position, unit: Unit | null) => void;
@@ -35,8 +36,10 @@ export class BattleRenderer {
   private readonly unitLayer: Container;
   private readonly sprites: Map<UnitId, UnitSprite> = new Map();
   private readonly animator: Animator = new Animator();
-  private cameraPos: ScreenPoint = { x: 0, y: 0 };
-  private cameraTarget: ScreenPoint = { x: 0, y: 0 };
+  private readonly maxMp: Map<UnitId, number> = new Map();
+  private camera: CameraController | null = null;
+  private catalog: Catalog | null = null;
+  private lastActiveUnit: UnitId | null = null;
   private lastState: GameState | null = null;
   private tileClickHandler: TileClickHandler | null = null;
 
@@ -66,17 +69,30 @@ export class BattleRenderer {
 
   // Build initial sprites and tile geometry from the starting state.
   // Call once after construction; subsequent frames use playActions().
-  mount(state: GameState): void {
+  // The catalog is captured for status-tag lookups (badge polarity);
+  // visualization-only consumer of catalog data — the renderer never
+  // dispatches actions or reads ability rules.
+  mount(state: GameState, catalog: Catalog): void {
     this.lastState = state;
+    this.catalog = catalog;
     this.tileLayer.draw(state.map);
 
-    // Center camera on the map midpoint to start, then it'll lerp toward
-    // the active unit on the first turn_start.
-    const initialFocus = mapCenter(state);
-    this.cameraPos = initialFocus;
-    this.cameraTarget = initialFocus;
+    this.camera = new CameraController({
+      mapWidth: state.map.width,
+      mapHeight: state.map.height,
+      tileSize: TILE_SIZE,
+      screenWidth: this.app.renderer.width,
+      screenHeight: this.app.renderer.height,
+    });
 
     for (const unit of state.units.values()) {
+      // Capture the unit's starting MP as their effective max for the
+      // duration of the battle. v1 has no maxMp stat (Cluster 4 /
+      // Session 28); MP-restoration sources are rare in current
+      // content, so the starting value is a workable cap. If a future
+      // session adds MP gain past this, surface a refresh hook here.
+      this.maxMp.set(unit.id, unit.vitals.mp);
+
       const sprite = new UnitSprite(unit);
       this.sprites.set(unit.id, sprite);
       this.unitLayer.addChild(sprite.container);
@@ -93,7 +109,26 @@ export class BattleRenderer {
     this.app.ticker.add((ticker) => this.tick(ticker.deltaMS));
     // Render once so the canvas isn't blank before the ticker fires.
     this.applyVisualState();
-    this.applyCamera(true);
+    this.camera.apply(this.world);
+  }
+
+  // Camera-input surface — BattleView wires keyboard/wheel handlers to
+  // these passthroughs so the renderer is the only owner of the camera
+  // controller.
+  setPanInput(input: PanInput): void {
+    this.camera?.setPanInput(input);
+  }
+
+  applyZoomAt(deltaFactor: number, focalPointScreen: ScreenPoint): void {
+    this.camera?.applyZoom(deltaFactor, focalPointScreen);
+  }
+
+  setScreenSize(width: number, height: number): void {
+    this.camera?.setScreenSize(width, height);
+  }
+
+  fitMap(): void {
+    this.camera?.fitMap();
   }
 
   // Append committed actions for the animator to play out. Called by
@@ -155,36 +190,36 @@ export class BattleRenderer {
   private tick(dtMs: number): void {
     this.animator.tick(dtMs);
     this.updateCameraTarget();
+    this.camera?.update(dtMs);
     this.applyVisualState();
-    this.applyCamera(false);
+    this.camera?.apply(this.world);
   }
 
   private updateCameraTarget(): void {
-    if (this.lastState === null) return;
+    if (this.camera === null) return;
     const activeId = this.animator.getActiveUnit();
+
+    // Active-unit transition is the camera state machine's turn-start
+    // re-engagement event. If the user panned during the previous
+    // turn, the camera reverts to AUTO_FOLLOWING here so it pans to
+    // the new active unit.
+    if (activeId !== this.lastActiveUnit) {
+      if (activeId !== null) {
+        this.camera.engageAutoFollow();
+      }
+      this.lastActiveUnit = activeId;
+    }
+
     if (activeId !== null) {
       const snap = this.animator.getSnapshot(activeId);
       if (snap !== undefined) {
-        this.cameraTarget = snap.position;
+        this.camera.setAutoFollowTarget(snap.position);
         return;
       }
     }
-    // Between turns: drift back to map center so nothing pops off-screen.
-    this.cameraTarget = mapCenter(this.lastState);
-  }
-
-  private applyCamera(snap: boolean): void {
-    const cx = this.app.renderer.width / 2;
-    const cy = this.app.renderer.height / 2;
-    if (snap) {
-      this.cameraPos = this.cameraTarget;
-    } else {
-      this.cameraPos = {
-        x: this.cameraPos.x + (this.cameraTarget.x - this.cameraPos.x) * CAMERA_LERP,
-        y: this.cameraPos.y + (this.cameraTarget.y - this.cameraPos.y) * CAMERA_LERP,
-      };
-    }
-    this.world.position.set(cx - this.cameraPos.x, cy - this.cameraPos.y);
+    // No active unit (between turns / pre-first-turn). Clear the
+    // target; the camera holds its current position.
+    this.camera.setAutoFollowTarget(null);
   }
 
   private applyVisualState(): void {
@@ -192,21 +227,43 @@ export class BattleRenderer {
     for (const [unitId, sprite] of this.sprites) {
       const snap = this.animator.getSnapshot(unitId);
       if (snap === undefined) continue;
+      // MP and statuses snap to current engine state (no animator-side
+      // tween tracking yet). The state's-eye view: mp/statuses are
+      // "instant" facts about the unit; HP keeps the existing
+      // tween-on-flash behavior so damage reads feel like impact.
+      const unit = this.lastState?.units.get(unitId);
+      const mp = unit?.vitals.mp ?? 0;
+      const maxMp = this.maxMp.get(unitId) ?? Math.max(mp, 1);
+      const statuses = unit !== undefined ? this.computeStatusBadges(unit) : [];
       sprite.setVisualState({
         position: snap.position,
         facing: snap.facing,
         hp: snap.hp,
         maxHp: snap.maxHp,
+        mp,
+        maxMp,
         ko: snap.ko,
         flash: snap.flash,
         active: activeId === unitId,
+        statuses,
       });
     }
   }
-}
 
-function mapCenter(state: GameState): ScreenPoint {
-  const cx = (state.map.width * TILE_SIZE) / 2;
-  const cy = (state.map.height * TILE_SIZE) / 2;
-  return { x: cx, y: cy };
+  private computeStatusBadges(unit: Unit): ReadonlyArray<StatusBadge> {
+    if (this.catalog === null || unit.statuses.length === 0) return [];
+    const out: StatusBadge[] = [];
+    for (const status of unit.statuses) {
+      try {
+        const type = this.catalog.getStatusType(status.typeId);
+        out.push(statusBadgeFromInstance(status, type.tags));
+      } catch {
+        // Unknown status type id (shouldn't happen with a valid
+        // catalog, but the renderer is graceful — drop the badge
+        // rather than crash a frame).
+        out.push(statusBadgeFromInstance(status, []));
+      }
+    }
+    return out;
+  }
 }

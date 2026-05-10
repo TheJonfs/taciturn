@@ -1,30 +1,38 @@
 // BattleView — React component that owns the runtime lifecycle for
-// rendering a single battle:
-//   - Loads the catalog and constructs the initial GameState.
-//   - Spins up a PixiJS Application and a BattleRenderer.
-//   - Owns the DemoOrchestrator and pumps it whenever the renderer is
-//     idle. The orchestrator commits one action chain per pump; the
-//     renderer plays them out, signals idle, and the cycle continues
-//     until the battle decides.
-//   - Mounts the React HUD (action menu, current-unit panel, turn
-//     queue) and feeds it the latest GameState from the pump.
-//   - Wires the HUD's UiController into the orchestrator for team_a
-//     (the player team in the v1 demo) and the basic AI controller for
-//     team_b. The greedy placeholder controller is no longer used by
-//     the demo; it remains in `src/app/demo/` as a baseline that the
-//     integration test pits the AI against.
+// rendering a single battle.
 //
-// The orchestrator/renderer split keeps engine work synchronous and
-// renderer work animated — the React component is the glue.
+// Session 22 posture: visualization layer only. Both teams are driven
+// by the basic AI; the headless DemoOrchestrator advances the battle
+// while the user watches. No interaction surface this session — the
+// UiController, useBattleUi hook, and ActionMenu component are still
+// in the tree (controllers/, ui/) but are not wired into the runtime.
+// They return in Session 23 against the new layout.
+//
+// What this component owns:
+//   - Catalog load + initial GameState construction.
+//   - PixiJS Application init + BattleRenderer mount.
+//   - DemoOrchestrator pump on the Pixi ticker (idle → step → animate
+//     → idle), with engine state synced into React after each commit.
+//   - Camera input listeners (WASD pan, mouse wheel zoom). The
+//     renderer owns the CameraController; this component just plumbs
+//     keyboard / wheel events into it.
+//   - The React HUD layout. v1 right-side stack has been replaced by
+//     the design-doc 4-region shell (top bar / left queue tower /
+//     right action-log slot / bottom action-menu slot).
+//
+// The battle config consumed at runtime is `trainingFieldBattle` —
+// the 14×14 Training Field with the demo unit roster restaged. The
+// older 6×6 `demoBattle` remains the test fixture (consumed by
+// `orchestrator.test.ts` and `ai-controller.integration.test.ts`).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
 import { loadDefaultCatalog } from '@content/index.ts';
-import { demoBattle } from '@content/battles/demo.ts';
+import { trainingFieldBattle } from '@content/battles/training-field-battle.ts';
 import { createInitialState, type Catalog, type GameState } from '@engine/index.ts';
-import { BattleRenderer } from '@renderer/index.ts';
-import { BattleHud, useBattleUi } from '@ui/index.ts';
-import { createBasicAiController, createUiController } from './controllers/index.ts';
+import { BattleRenderer, type PanInput } from '@renderer/index.ts';
+import { BattleHud } from '@ui/index.ts';
+import { createBasicAiController } from './controllers/index.ts';
 import {
   DemoOrchestrator,
   type ControllerMap,
@@ -32,40 +40,19 @@ import {
 
 const BACKGROUND = '#0e0f12';
 
+// Wheel-zoom step. A 100px wheel delta produces this much zoom-factor
+// change. Tuned so a single notch on a typical mouse wheel feels like
+// a discrete zoom step rather than a snap.
+const WHEEL_ZOOM_STEP = 0.0015;
+
 export function BattleView() {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Catalog is loaded once and is referentially stable for the lifetime
-  // of the component — UI memos lean on this.
   const catalog = useMemo<Catalog>(() => loadDefaultCatalog(), []);
 
-  // The UiController is created once, captured by both the orchestrator
-  // (inside the effect) and the React HUD (via useBattleUi). Stable
-  // identity is required so the hook's effects don't re-fire each
-  // render.
-  const uiController = useMemo(() => createUiController(), []);
-
   // Engine state surfaced to React. Updated from inside the pump after
-  // each commit. The renderer's visual state is independent of this and
-  // tweens between commits.
+  // each commit. Renderer's visual state is independent.
   const [latestState, setLatestState] = useState<GameState | null>(null);
-  const [waiting, setWaiting] = useState<boolean>(true);
-  const [renderer, setRenderer] = useState<BattleRenderer | null>(null);
-
-  // Player team — for the demo, team_a is click-driven, team_b is
-  // greedy. The HUD's "is it our turn" gating reads this.
-  const uiTeam = demoBattle.teams[0]!.id;
-
-  // Hook owns the input state machine, mounts tile-click and highlight
-  // wiring on the renderer.
-  const ui = useBattleUi({
-    state: latestState,
-    catalog,
-    uiController,
-    renderer,
-    uiTeam,
-    waiting,
-  });
 
   useEffect(() => {
     const host = containerRef.current;
@@ -75,7 +62,7 @@ export function BattleView() {
     let cleanup: (() => void) | null = null;
 
     void (async () => {
-      const initialState = createInitialState(demoBattle, catalog);
+      const initialState = createInitialState(trainingFieldBattle, catalog);
 
       const app = new Application();
       await app.init({
@@ -95,33 +82,103 @@ export function BattleView() {
       host.appendChild(app.canvas);
 
       const battleRenderer = new BattleRenderer(app);
-      battleRenderer.mount(initialState);
-      setRenderer(battleRenderer);
+      battleRenderer.mount(initialState, catalog);
       setLatestState(initialState);
 
+      // Both teams driven by the basic AI for Session 22. The runtime
+      // is purely a viewer right now; interaction lands in Session 23.
       const controllers: ControllerMap = new Map([
-        [demoBattle.teams[0]!.id, uiController.controller],
-        [demoBattle.teams[1]!.id, createBasicAiController()],
+        [trainingFieldBattle.teams[0]!.id, createBasicAiController()],
+        [trainingFieldBattle.teams[1]!.id, createBasicAiController()],
       ]);
       const orchestrator = new DemoOrchestrator(initialState, catalog, controllers);
 
+      // Camera input — keyboard for pan, wheel for zoom. The renderer
+      // owns the CameraController; the listeners here translate DOM
+      // events into setPanInput / applyZoomAt calls.
+      const panState: { left: boolean; right: boolean; up: boolean; down: boolean } = {
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+      };
+      const pushPan = () => {
+        const input: PanInput = { ...panState };
+        battleRenderer.setPanInput(input);
+      };
+      const setPanFlag = (key: string, on: boolean): boolean => {
+        switch (key) {
+          case 'w':
+          case 'W':
+          case 'ArrowUp':
+            panState.up = on;
+            return true;
+          case 's':
+          case 'S':
+          case 'ArrowDown':
+            panState.down = on;
+            return true;
+          case 'a':
+          case 'A':
+          case 'ArrowLeft':
+            panState.left = on;
+            return true;
+          case 'd':
+          case 'D':
+          case 'ArrowRight':
+            panState.right = on;
+            return true;
+          default:
+            return false;
+        }
+      };
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (e.repeat) return;
+        if (setPanFlag(e.key, true)) {
+          e.preventDefault();
+          pushPan();
+        }
+      };
+      const onKeyUp = (e: KeyboardEvent) => {
+        if (setPanFlag(e.key, false)) {
+          e.preventDefault();
+          pushPan();
+        }
+      };
+      const onWheel = (e: WheelEvent) => {
+        e.preventDefault();
+        const rect = app.canvas.getBoundingClientRect();
+        const focal = {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        };
+        // Negative deltaY = scroll up = zoom in. Map to a multiplicative
+        // factor so successive notches compound naturally.
+        const factor = Math.exp(-e.deltaY * WHEEL_ZOOM_STEP);
+        battleRenderer.applyZoomAt(factor, focal);
+      };
+      window.addEventListener('keydown', onKeyDown);
+      window.addEventListener('keyup', onKeyUp);
+      app.canvas.addEventListener('wheel', onWheel, { passive: false });
+
+      // Reflect host-element resizes into the camera. Pixi's `resizeTo`
+      // already updates `app.renderer` dimensions; the camera needs to
+      // know too so its fit-zoom math stays correct.
+      const resizeObserver = new ResizeObserver(() => {
+        battleRenderer.setScreenSize(
+          app.renderer.width,
+          app.renderer.height,
+        );
+      });
+      resizeObserver.observe(host);
+
       // Pump: whenever the renderer's animator is idle, ask the
-      // orchestrator for the next step and feed the actions to the
-      // renderer. Sync engine state into React after each commit so
-      // the HUD re-renders. Stops naturally once the orchestrator
-      // reports done.
+      // orchestrator for the next step and feed actions to the
+      // renderer. Sync engine state into React after each commit.
       let finished = false;
-      let lastIdle = false;
       const pump = () => {
         if (finished) return;
-        const idleNow = battleRenderer.isIdle();
-        // Surface "is the engine waiting on us" to React lazily so the
-        // HUD doesn't re-render every frame.
-        if (idleNow !== lastIdle) {
-          lastIdle = idleNow;
-          setWaiting(!idleNow);
-        }
-        if (!idleNow) return;
+        if (!battleRenderer.isIdle()) return;
         const step = orchestrator.step();
         if (step.committed.length > 0) {
           battleRenderer.playActions(step.committed, step.newState);
@@ -133,20 +190,11 @@ export function BattleView() {
       };
       app.ticker.add(pump);
 
-      // Dev-only debug surface. Browser-preview verification needs a
-      // way to drive the orchestrator when the tab is hidden (Pixi
-      // throttles its ticker, the pump never fires). Calling
-      // `window.__taciturnDebug.tick()` from a preview eval pumps once;
-      // `pump(N)` pumps N times. `uiEndTurn()` submits an end-turn
-      // through the UiController without waiting for React to enable
-      // the Wait button. Available only in dev builds — Vite
-      // tree-shakes the entire branch out of production.
+      // Dev-only debug surface for browser-preview verification when
+      // the tab is hidden (Pixi throttles its ticker; the pump never
+      // fires). Available only in dev builds — Vite tree-shakes the
+      // entire branch out of production.
       if (import.meta.env.DEV) {
-        // Synthetic clock for the debug ticker. Pixi's ticker derives
-        // deltaMS from wall-clock `performance.now()`, which barely
-        // advances inside a tight JS loop (sub-ms per iteration), so a
-        // straight `update()` call doesn't progress animations. We
-        // maintain our own monotonic clock and pass it explicitly.
         let debugClock = performance.now();
         const debug = {
           tick: (ms = 16) => {
@@ -161,12 +209,7 @@ export function BattleView() {
           },
           getState: () => orchestrator.getState(),
           isIdle: () => battleRenderer.isIdle(),
-          uiEndTurn: () => {
-            if (!uiController.hasPending()) uiController.endTurn();
-          },
-          uiSubmit: (action: import('@engine/index.ts').ProposedAction) => {
-            if (!uiController.hasPending()) uiController.submit(action);
-          },
+          fitMap: () => battleRenderer.fitMap(),
         };
         (window as unknown as { __taciturnDebug: typeof debug }).__taciturnDebug = debug;
       }
@@ -174,11 +217,14 @@ export function BattleView() {
       cleanup = () => {
         finished = true;
         app.ticker.remove(pump);
+        window.removeEventListener('keydown', onKeyDown);
+        window.removeEventListener('keyup', onKeyUp);
+        app.canvas.removeEventListener('wheel', onWheel);
+        resizeObserver.disconnect();
         battleRenderer.destroy();
         if (host.contains(app.canvas)) {
           host.removeChild(app.canvas);
         }
-        setRenderer(null);
         if (import.meta.env.DEV) {
           delete (window as unknown as { __taciturnDebug?: unknown }).__taciturnDebug;
         }
@@ -189,7 +235,7 @@ export function BattleView() {
       disposed = true;
       if (cleanup !== null) cleanup();
     };
-  }, [catalog, uiController]);
+  }, [catalog]);
 
   const outcome = latestState?.outcome;
 
@@ -203,8 +249,10 @@ export function BattleView() {
           background: BACKGROUND,
         }}
       />
-      <BattleHud state={latestState} catalog={catalog} ui={ui} />
-      {outcome !== undefined && <WinOverlay description={outcome.description} winner={String(outcome.winner)} />}
+      <BattleHud state={latestState} catalog={catalog} />
+      {outcome !== undefined && (
+        <WinOverlay description={outcome.description} winner={String(outcome.winner)} />
+      )}
     </div>
   );
 }
