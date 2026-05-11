@@ -252,6 +252,193 @@ describe('formatActionLog', () => {
     expect(rows[2]!.participants.targetIds).toEqual([victim.id]);
   });
 
+  it('formats system_apply_status as success for `stacked` outcomes (Burn)', () => {
+    // Regression test for the burn-status false-failure bug. Prior to
+    // the fix, the formatter read `outcome.result.applied` (which doesn't
+    // exist on StatusApplicationOutcome) and reported every apply as
+    // "(failed)". Burn uses STACK_COUNT_ADDITIVE → kind: 'stacked'.
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, source: 'system' }),
+        type: 'system_apply_status',
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('burn') },
+        outcome: {
+          kind: 'system_apply_status',
+          targetId: unitId('u1'),
+          statusTypeId: statusTypeId('burn'),
+          result: {
+            kind: 'stacked',
+            mode: 'additive',
+            instance: {
+              typeId: statusTypeId('burn'),
+              source: { unitId: null, actionSeq: null },
+              remainingDuration: null,
+              stacks: 3,
+            },
+          },
+        },
+      },
+    ];
+    const rows = formatActionLog(log, makeBaseState(), emptyCatalog());
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.text).toContain('stacked ×3');
+    expect(rows[0]!.text).not.toContain('failed');
+  });
+
+  it('formats system_apply_status as success for `applied`/`refreshed`/`replaced`', () => {
+    const baseStatus = {
+      typeId: statusTypeId('haste'),
+      source: { unitId: null, actionSeq: null },
+      remainingDuration: 5,
+    };
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, source: 'system' }),
+        type: 'system_apply_status',
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('haste') },
+        outcome: {
+          kind: 'system_apply_status',
+          targetId: unitId('u1'),
+          statusTypeId: statusTypeId('haste'),
+          result: { kind: 'applied', instance: baseStatus },
+        },
+      },
+      {
+        ...env({ sequenceNumber: 2, source: 'system' }),
+        type: 'system_apply_status',
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('haste') },
+        outcome: {
+          kind: 'system_apply_status',
+          targetId: unitId('u1'),
+          statusTypeId: statusTypeId('haste'),
+          result: { kind: 'refreshed', instance: baseStatus },
+        },
+      },
+      {
+        ...env({ sequenceNumber: 3, source: 'system' }),
+        type: 'system_apply_status',
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('haste') },
+        outcome: {
+          kind: 'system_apply_status',
+          targetId: unitId('u1'),
+          statusTypeId: statusTypeId('haste'),
+          result: { kind: 'replaced', previousInstance: baseStatus, instance: baseStatus },
+        },
+      },
+    ];
+    const rows = formatActionLog(log, makeBaseState(), emptyCatalog());
+    expect(rows[0]!.text).toContain('applied');
+    expect(rows[1]!.text).toContain('refreshed');
+    expect(rows[2]!.text).toContain('replaced');
+    for (const r of rows) expect(r.text).not.toContain('failed');
+  });
+
+  it('formats system_apply_status as failure for `resisted`/`rejected`/`missed`', () => {
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, source: 'system' }),
+        type: 'system_apply_status',
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('poison') },
+        outcome: {
+          kind: 'system_apply_status',
+          targetId: unitId('u1'),
+          statusTypeId: statusTypeId('poison'),
+          result: { kind: 'resisted' },
+        },
+      },
+      {
+        ...env({ sequenceNumber: 2, source: 'system' }),
+        type: 'system_apply_status',
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('poison') },
+        outcome: {
+          kind: 'system_apply_status',
+          targetId: unitId('u1'),
+          statusTypeId: statusTypeId('poison'),
+          result: { kind: 'rejected', reason: 'stacking_rule' },
+        },
+      },
+      {
+        ...env({ sequenceNumber: 3, source: 'system' }),
+        type: 'system_apply_status',
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('poison') },
+        outcome: {
+          kind: 'system_apply_status',
+          targetId: unitId('u1'),
+          statusTypeId: statusTypeId('poison'),
+          result: { kind: 'missed', chance: 0.6, roll: 0.9 },
+        },
+      },
+    ];
+    const rows = formatActionLog(log, makeBaseState(), emptyCatalog());
+    expect(rows[0]!.text).toContain('resisted');
+    expect(rows[1]!.text).toContain('rejected');
+    expect(rows[2]!.text).toContain('missed');
+  });
+
+  it('counts use_ability per-target status applications correctly', () => {
+    // Regression test: prior to the fix, `formatTargetResult` read
+    // `s.applied` (also undefined) and always counted 0 statuses applied.
+    const baseStatus = {
+      typeId: statusTypeId('burn'),
+      source: { unitId: null, actionSeq: null },
+      remainingDuration: null,
+      stacks: 1,
+    };
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, actorId: unitId('u1') }),
+        type: 'use_ability',
+        payload: { abilityId: abilityId('spark'), target: { kind: 'unit', unitId: unitId('u1') } },
+        outcome: {
+          kind: 'use_ability',
+          abilityId: abilityId('spark'),
+          mpSpent: 0,
+          perTargetResults: [
+            {
+              target: { kind: 'unit', unitId: unitId('u1') },
+              hit: true,
+              statusesApplied: [
+                { kind: 'applied', instance: baseStatus },
+                { kind: 'stacked', mode: 'additive', instance: baseStatus },
+              ],
+            },
+          ],
+        },
+      },
+    ];
+    const rows = formatActionLog(log, makeBaseState(), emptyCatalog());
+    expect(rows[0]!.text).toContain('status ×2');
+    expect(rows[0]!.text).not.toContain('resisted');
+  });
+
+  it('emits charged_action_resolve as a top-level T-number row', () => {
+    // Regression test: previously charged resolves rendered as indented
+    // [charged] sub-rows binned under the previous turn's T-number.
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, actorId: unitId('u1') }),
+        type: 'turn_start',
+        payload: { unitId: unitId('u1') },
+      },
+      {
+        ...env({ sequenceNumber: 2, source: 'system' }),
+        type: 'charged_action_resolve',
+        payload: {
+          chargedActionId: 'ca-1' as unknown as import('@engine/index.ts').ChargedActionId,
+        },
+        outcome: {
+          kind: 'charged_action_resolve',
+          chargedActionId: 'ca-1' as unknown as import('@engine/index.ts').ChargedActionId,
+          perTargetResults: [],
+        },
+      },
+    ];
+    const rows = formatActionLog(log, makeBaseState(), emptyCatalog());
+    expect(rows.map((r) => r.tag)).toEqual(['T0001', 'T0002']);
+    expect(rows[1]!.indent).toBe(false);
+    expect(rows[1]!.tagKind).toBe('turn');
+  });
+
   it('attaches participants and actionSeq to every emitted row', () => {
     const log: Action[] = [
       {

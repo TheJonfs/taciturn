@@ -18,12 +18,13 @@
 //   animation          — orchestrator processing; animator playing.
 //
 // Cancellation backstack (matches design doc):
-//   target-select   → ability-list  (same command set)
-//   await-confirm   → target-select (same ability)
-//   ability-list    → command-set-select | action-menu (depending on
+//   target-select       → ability-list  (same command set)
+//   await-confirm       → target-select (same ability)
+//   ability-list        → command-set-select | action-menu (depending on
 //                                                       prior fan-out)
-//   command-set-select → action-menu
-//   move-select     → action-menu
+//   command-set-select  → action-menu
+//   move-await-confirm  → move-select   (re-pick destination)
+//   move-select         → action-menu
 //
 // The reducer is pure: it knows nothing about the renderer, the engine,
 // or the uiController. The accompanying `use-turn-flow` hook layers
@@ -35,7 +36,23 @@ import type { AbilityId, CommandSetId, Direction, Position, ProposedAction } fro
 export type TurnFlowState =
   | { readonly kind: 'idle' }
   | { readonly kind: 'action-menu' }
-  | { readonly kind: 'move-select' }
+  | {
+      readonly kind: 'move-select';
+      // The tile the pointer is currently over while move-selecting.
+      // Drives the hover overlay (a single bright tile under the cursor
+      // so the player sees which tile they're about to commit to before
+      // clicking). `null` when the pointer is outside the legal-move set.
+      readonly hoverTarget: Position | null;
+    }
+  | {
+      // Move-confirm gate (per session 24.5 designer call): after
+      // clicking a destination, the player sees a Confirm/Cancel row
+      // before the move commits. Always-confirm in v1 — independent of
+      // `settings.confirmStep` (which gates target-select). Settings
+      // unification is a later polish pass.
+      readonly kind: 'move-await-confirm';
+      readonly destination: Position;
+    }
   | { readonly kind: 'command-set-select' }
   | {
       readonly kind: 'ability-list';
@@ -93,6 +110,13 @@ export type TurnFlowEvent =
   | { readonly kind: 'pickAbility'; readonly abilityId: AbilityId }
   // Hover during target-select — updates the AoE preview surface.
   | { readonly kind: 'hoverTarget'; readonly position: Position | null }
+  // Hover during move-select — updates the single-tile hover overlay so
+  // the player sees the destination they're about to commit to.
+  | { readonly kind: 'hoverMove'; readonly position: Position | null }
+  // Player picked a destination tile in move-select — transition to
+  // move-await-confirm. (Direct commit-without-confirm is no longer a
+  // path in v1; the always-confirm gate is the only commit route.)
+  | { readonly kind: 'pickMoveDestination'; readonly destination: Position }
   // Player committed to a destination / target / wait. Transition to
   // animation (or await-confirm if confirmStep is on for target picks).
   | { readonly kind: 'commitMove' }
@@ -133,7 +157,7 @@ export function transition(
       return state;
 
     case 'action-menu':
-      if (event.kind === 'pickMove') return { kind: 'move-select' };
+      if (event.kind === 'pickMove') return { kind: 'move-select', hoverTarget: null };
       if (event.kind === 'pickWait') return { kind: 'wait-confirm' };
       if (event.kind === 'pickFreeAbility') {
         return {
@@ -164,7 +188,21 @@ export function transition(
 
     case 'move-select':
       if (event.kind === 'cancel') return { kind: 'action-menu' };
+      if (event.kind === 'hoverMove') {
+        return { ...state, hoverTarget: event.position };
+      }
+      if (event.kind === 'pickMoveDestination') {
+        return { kind: 'move-await-confirm', destination: event.destination };
+      }
+      // `commitMove` is retained for backward-compat with any caller
+      // that still emits it directly (move-confirm path emits its own
+      // animation transition via confirmAccept). Defensive identity.
       if (event.kind === 'commitMove') return { kind: 'animation' };
+      return state;
+
+    case 'move-await-confirm':
+      if (event.kind === 'cancel') return { kind: 'move-select', hoverTarget: null };
+      if (event.kind === 'confirmAccept') return { kind: 'animation' };
       return state;
 
     case 'command-set-select':

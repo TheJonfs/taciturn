@@ -50,9 +50,16 @@ export const FACING_TICK_LENGTH = 0.55; // fraction of unit radius
 
 // HP bar (small under-circle bar). Just enough so visible HP loss
 // reads while damage numbers are pending UI work.
+//
+// Three-tier color coding per session 24.5 designer call:
+//   HP > 75%        → green
+//   33% < HP ≤ 75%  → yellow
+//   HP ≤ 33%        → red
 export const HP_BAR_BG = 0x000000;
-export const HP_BAR_FG = 0x6dc66d;
-export const HP_BAR_FG_LOW = 0xd0533d;
+export const HP_BAR_FG = 0x6dc66d;       // green (HP > 75%)
+export const HP_BAR_FG_MID = 0xe6c757;   // yellow (33% < HP ≤ 75%)
+export const HP_BAR_FG_LOW = 0xd0533d;   // red (HP ≤ 33%)
+export const HP_BAR_HIGH_THRESHOLD = 0.75;
 export const HP_BAR_LOW_THRESHOLD = 0.33;
 
 // MP bar (slim, sits below the HP bar). Blue to distinguish from HP.

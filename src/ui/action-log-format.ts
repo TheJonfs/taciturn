@@ -12,8 +12,43 @@
 // expand (rows derived from a logged Action store its sequence number;
 // synthetic [ko] rows carry the killing action's seq).
 
-import type { Action, AbilityId, Catalog, GameState, UnitId } from '@engine/index.ts';
+import type {
+  Action,
+  AbilityId,
+  Catalog,
+  GameState,
+  StatusApplicationOutcome,
+  UnitId,
+} from '@engine/index.ts';
 import { deriveKoEvents, deriveActionParticipants } from './derived-events.ts';
+
+// Classifies a StatusApplicationOutcome for log rendering. Success kinds
+// (`applied`, `refreshed`, `replaced`, `stacked`) report applied=true with
+// a kind-specific label. Failure kinds (`resisted`, `rejected`, `missed`)
+// report applied=false. Used by both `system_apply_status` rows and the
+// per-target use_ability summary so the two surfaces never disagree.
+function classifyStatusOutcome(
+  outcome: StatusApplicationOutcome,
+): { readonly applied: boolean; readonly label: string } {
+  switch (outcome.kind) {
+    case 'applied':
+      return { applied: true, label: 'applied' };
+    case 'refreshed':
+      return { applied: true, label: 'refreshed' };
+    case 'replaced':
+      return { applied: true, label: 'replaced' };
+    case 'stacked': {
+      const stacks = outcome.instance.stacks ?? 1;
+      return { applied: true, label: `stacked ×${stacks}` };
+    }
+    case 'resisted':
+      return { applied: false, label: 'resisted' };
+    case 'rejected':
+      return { applied: false, label: 'rejected' };
+    case 'missed':
+      return { applied: false, label: 'missed' };
+  }
+}
 
 export interface LogRow {
   // Stable key for React reconciliation.
@@ -73,7 +108,12 @@ export function formatActionLog(
   let tNumber = 0;
 
   for (const action of log) {
+    // T-number advances on turn boundaries AND on charged-action resolves
+    // (per Chris's playtest call: "each charged-action resolve gets its
+    // own T-number"). The resolve renders as a top-level T#### row rather
+    // than an indented [charged] row.
     if (action.type === 'turn_start') tNumber += 1;
+    if (action.type === 'charged_action_resolve') tNumber += 1;
     const rows = formatAction(action, state, catalog, tNumber, chargedContext);
     for (const row of rows) out.push(row);
     const kos = koBySeq.get(action.sequenceNumber);
@@ -176,7 +216,12 @@ function formatAction(
       const casterName = ctx?.casterId !== null && ctx?.casterId !== undefined
         ? unitName(state, ctx.casterId)
         : null;
-      const tag = '[charged]';
+      // Charged resolves get their own T-number (the formatActionLog
+      // outer loop bumps `currentTNumber` on this action type before
+      // dispatch). Render as a top-level row mirroring turn_start so the
+      // player sees a clean section break for the resolve, not a noisy
+      // indented sub-row that bins under the previous turn.
+      const tag = formatT(currentTNumber);
       const perTarget = action.outcome?.perTargetResults ?? [];
       const summary = perTarget.length === 0
         ? 'resolved'
@@ -184,7 +229,7 @@ function formatAction(
       const text = casterName === null
         ? `${abilityName} resolves: ${summary}`
         : `${casterName}'s ${abilityName} resolves: ${summary}`;
-      return [row({ tag, text, indent: true, tagKind: 'system' })];
+      return [row({ tag, text, indent: false, tagKind: 'turn' })];
     }
 
     case 'status_tick': {
@@ -219,10 +264,13 @@ function formatAction(
     case 'system_apply_status': {
       const targetName = unitName(state, action.payload.targetId);
       const statusName = safeStatusName(catalog, action.payload.statusTypeId);
-      const applied = action.outcome?.result.applied;
-      const text = applied === true
-        ? `${statusName} applied to ${targetName}`
-        : `${statusName} attempted on ${targetName} (failed)`;
+      const result = action.outcome?.result;
+      // Per-kind dispatch via classifyStatusOutcome — outcome.result is
+      // a discriminated union with no `applied` field; the prior code
+      // read a non-existent property and reported every apply as failed.
+      const text = result === undefined
+        ? `${statusName} attempted on ${targetName}`
+        : `${statusName} ${classifyStatusOutcome(result).label} on ${targetName}`;
       return [row({ tag: '[tick]', text, indent: true, tagKind: 'system' })];
     }
 
@@ -312,8 +360,10 @@ function formatTargetResult(
   if (heal > 0) return `${label} +${heal} HP`;
   if (dmg > 0) return `${label} ${dmg} dmg`;
   if (r.statusesApplied !== undefined && r.statusesApplied.length > 0) {
-    const applied = r.statusesApplied.filter((s) => s.applied).length;
-    if (applied > 0) return `${label} status ×${applied}`;
+    const appliedCount = r.statusesApplied.filter(
+      (s) => classifyStatusOutcome(s).applied,
+    ).length;
+    if (appliedCount > 0) return `${label} status ×${appliedCount}`;
     return `${label} resisted`;
   }
   return label;

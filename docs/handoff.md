@@ -21,237 +21,149 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-10 / 2026-05-11 (Session 24 — Battle UI MVP + first wave of playtest fixes)
+## From session 2026-05-11 (Session 24.5 — MVP playtest iteration: bugs, UI polish, portraits)
 
-Session ran in two waves on the same calendar block: the original Session 24 plate (forecast / projection column / results / MVP polish) shipped first, then Chris playtested it and a same-session fix wave addressed twelve specific observations. The roadmap's MVP empirical-check point is now post-this-session.
+Session 24.5 addressed Chris's second playtest pass (19 observations: 7 conversational, 3 real bugs, 9 UI polish). Bugs first, UI completion items second, portraits last. Single session, no 24.5a/24.5b split needed. Tests: **667 passing across 58 files, 0 failing** (up from 651/57). +16 new tests across action-log-format (+5), aoe-shape (+6 new file), turn-flow (+5).
 
-### MVP-readiness summary
+### Scope completed
 
-End-to-end playable on Training Field with full MVP polish + post-playtest refinements:
+**Bugs:**
 
-- Player drives `team_a` through the turn-flow state machine; `team_b` runs on basic AI.
-- Bottom-region action menu shows Move / Attack (universal) / Act / End turn / Status. Per-option CT annotations: Move and Attack show their CT cost; Act shows the appropriate command-set's bucket cost; End turn shows the dynamically-projected leftover CT given current consumption. Status opens the unit detail panel for the active unit.
-- Target-select hovers populate (a) a compact cursor-following tooltip with per-tile damage + status preview and (b) a fixed-slot forecast panel with damage range (min/expected/max), per-status chance, MP delta, end-of-turn CT, and — for charged abilities — a Timing subsection (ticksToResolve + ✓/✗ pass-fail vs. target's next turn).
-- QueueTower shows the full 20-event horizon with mouse-wheel scroll, ordered with the nearest event directly above the active anchor and further events extending upward. Charged-action mini-cards show "{caster} → {target}." Hover mini-card pulses the unit on canvas; click opens detail panel.
-- Action log streams entries; click any row to expand for outcome detail; hover any row to pulse actor + targets on canvas. `[ko]` rows interleave at lethal-damage sequence points and attribute the killer. Charged-action resolve rows now name the spell + caster ("Brunhilde's Earth Quake resolves on Sparky → 47 dmg") instead of the raw chargedActionId.
-- Canvas unit click in IDLE / action-menu opens the unit detail panel (third entry point per design doc; was deferred in initial Session 24).
-- Universal Attack — added to every class's `freeAbilities`; surfaces as a top-level action menu button when the active unit has it. Direct target-select; cancel returns to action-menu.
-- WAIT-CONFIRM facing-pick — End turn opens a cardinal-direction picker; choosing a direction commits `set_facing` + endTurn. Defaults highlight the unit's current facing.
-- Wait-cost semantics — engine and UI agree that end-of-turn cost = consumed-bucket cost. The waited flag no longer overrides; Wait is the universal "end turn" trigger with bucket-based cost. The standalone `ctCosts.wait` (20 default) applies only when literally nothing was consumed.
-- Elemental wheel content shipped — each Mage class carries baseline resistances (Water +50 Fire / -50 Lightning; Lightning +50 Water / -50 Earth; Earth +50 Lightning / -50 Fire; Fire +50 Earth / -50 Water) via the new `ClassDefinition.baselineResistances` field merged into unit.resistances at createInitialState. `composeResistance` updated to skip missing tags rather than default them to 0, so weakness values aren't masked by the implicit 0 of dispatch-only tags (`magical` etc.).
-- HP bars now update visibly — animator generalized to handle charged-action resolves, AoE multi-target damage, and system_damage / system_heal (all of which previously left snapshots stale).
-- KO visual — KO'd units render at alpha 0.4 with a bright red ✕ overlay across the unit body so the "this unit is down" signal reads at a glance.
-- Battle end transitions to results screen: winner, MVP unit (highest damage dealt, lexically tie-broken), per-unit stats table (KO markers for KO'd units), KO timeline with killer attribution. Rematch/New Battle/Main Menu buttons disabled-with-tooltip per ADR-0044; Close dismisses the modal.
+1. **Bug 3 — Burn application reported as failure in log.** Root cause: `action-log-format.ts` read `outcome.result.applied` (a non-existent field on `StatusApplicationOutcome`'s discriminated union). Every status apply rendered as "(failed)" regardless of outcome. Same pattern in `formatTargetResult`'s per-target status count. Fixed with a `classifyStatusOutcome` helper that dispatches on `kind` → `{ applied: boolean; label: string }`. Per-kind labels: applied / refreshed / replaced / stacked ×N / resisted / rejected / missed. Live verification in preview: `Burn stacked ×2 on Blue Knight` rendering correctly.
 
-### Wave 1 (Session 24 core) — landed first
+2. **Bug 2 — Tidal Wave / Chain Lightning AoE shape.** **Confirmed environmental.** Content files declare diamond r1 correctly; `aoeFootprint` resolves diamond correctly; regression tests (new `src/content/abilities/aoe-shape.test.ts`, 6 tests) all pass. The playtest observation was a stale-build / HMR artifact (Wave-2 carry-forward). Regression tests pin the invariant going forward.
 
-**Engine:**
+3. **Bug 1 — Mid-battle targeting failure on AI Lightning Mage.** **Instrument-and-document outcome** (ADR-0046). Audit ruled out the obvious paths (target-side statuses can't block actor-side `runOnActionAttempted`, Charging is queryTurnSkipped-only, Taunted's pattern doesn't fit). Dev-only `console.debug` logging landed at three points (`computeLegalTargets` per-candidate reject, target-select click cancel paths, `BattleRenderer.hitTest` sprite/unitAt mismatch). Next playtest occurrence produces structured diagnostic output.
 
-1. `src/engine/damage/handlers.ts` — extracted `readCritChance(env, attacker)` helper performing the ADR-0034 clamp once for both live `critRoll` and the projection's `projectionCritRoll`. ADR-0042.
+**UI polish (all 7 items):**
 
-2. `src/engine/status/chance.ts` — extracted pure `computeStatusChance(args)` from `rollStatusChance`. Re-exported via `src/engine/status/index.ts`.
+4. **Forecast panel target HP** — new `hp: { current; max }` field on `ForecastTargetRow`, snapshot via `runModifyStatQuery('maxHp')` so passives + statuses contribute to the displayed max. Rendered as a row in the forecast panel.
 
-3. `src/engine/forecast/` — new module. `damage-range.ts`, `status-chance.ts`, `ct-preview.ts`, `aoe-preview.ts` + barrel. 15 unit tests. ADR-0042.
+5. **HP bar 3-tier color coding** — added `HP_BAR_FG_MID = 0xe6c757` (yellow) + `HP_BAR_HIGH_THRESHOLD = 0.75`. `drawHpBar` dispatches green > 75% / yellow 33–75% / red ≤ 33%.
 
-4. `src/ai/projection.ts` — line-142 duplicate clamp removed; `readCritChance` consumed via `@engine/damage/index.ts`. Imports routed through engine sub-barrels to break a module cycle once `engine/index.ts` re-exports `forecast/`.
+6. **QueueTower first-event suppress** — request 21 from `projectUpcoming`, slice 1, render 20 future events. Active-anchor mirror eliminated. Live preview confirms positions 1-20 visible.
 
-**UI:**
+7. **Charged-action T-number in action log** — `formatActionLog` now bumps `tNumber` on `charged_action_resolve` actions, and `formatAction`'s `charged_action_resolve` branch emits a top-level `T####` row (was indented `[charged]`). Live preview shows `T0013 Red Lightning Mage's Static Embrace resolves: Red Lightning Mage status ×1`.
 
-5. `src/ui/derived-events.ts` — `deriveKoEvents`, `derivePerUnitStats`, `deriveActionParticipants`. 9 unit tests. Charged-action attribution via chargedActionId backref. ADR-0043.
+8. **Move-select pointer-hover highlight** — added `hoverTarget: Position | null` to `move-select` state, registered tile-hover handler during move-select, renders the hovered tile via `setHighlightOverlay([hoverTarget], 'aoe')` (gold, reusing the AoE channel per designer call). Only renders when the hovered tile is a legal destination.
 
-6. `src/ui/forecast-compose.ts` + `forecast-panel.tsx` + `forecast-tooltip.tsx` — fixed bottom-right panel + cursor-following tooltip.
+9. **Move-select confirm-before-commit** — new `move-await-confirm` state in turn-flow.ts. Clicking a destination dispatches `pickMoveDestination`; action menu renders a Confirm/Cancel panel; `confirmAccept` submits the move and transitions to animation. Hardcoded always-confirm (not gated by `settings.confirmStep`) per Chris's call; settings unification deferred.
 
-7. `src/ui/unit-detail-panel.tsx` — Tier 3 modal-ish side panel with Stats / Active Statuses / Resistances / Loadout / Equipment sections.
+10. **QueueTower charged-action click → ChargedActionDetailPanel** (ADR-0047). New component, new state in `BattleView` (`chargedDetailId: ChargedActionId | null`), new `onOpenChargedActionDetail` callback threaded through `QueueTowerProps → BattleHudProps → BattleView`. Panel renders ability + caster + targets + current charge + estimated ticksToResolve. AoE preview overlay painted on canvas via `setHighlightOverlay` on mount, cleared on unmount.
 
-8. `src/ui/results-screen.tsx` — modal overlay with winner, MVP, per-unit stats, KO timeline. ADR-0044.
+11. **Portrait integration** (ADR-0048). All 5 class portraits delivered as square PNGs (~4MB each). New `src/assets/portraits/index.ts` with Vite URL imports + `PORTRAIT_URLS` map + `portraitUrlFor(classId)` accessor. New `src/vite-env.d.ts` declares the `*.png` module type. `BattleRenderer.mount` kicks off async `Assets.load` for each class present; on resolve, `UnitSprite.setPortrait(texture)` attaches the sprite over the body. Team-color ring stroke renders behind the body (visible at the portrait edge). Enemy team gets `scale.x = -1` for horizontal flip. Hit-flash via portrait tint (lerp toward `HIT_FLASH_COLOR`). React surfaces (UnitDetailPanel header, QueueTower mini-cards, active anchor) use `<img>` with CSS sizing. Fallback to existing colored-circle render when texture missing or load fails. Live verification: 21/21 portraits loaded.
 
-9. `src/ui/action-log-format.ts` + panel — `[ko]` interleaving, participants per row, click-to-expand, hover-counterpart hooks.
+### Architecture records
 
-10. `src/ui/queue-tower.tsx` — 20-event horizon with scroll, hover-on-mini-card → canvas pulse, click → unit detail.
+- **ADR-0046** — Bug 1 hypothesis tree + dev-only instrumentation.
+- **ADR-0047** — ChargedActionDetailPanel as a separate component.
+- **ADR-0048** — Portrait integration: async load, sprite + img dual path, graceful fallback.
 
-11. `src/ui/action-menu.tsx` — end-CT annotations on Move/Act/Wait, Status button activated.
+### Limitations + watch-fors
 
-12. `src/ui/battle-hud.tsx` — bottom region split into action menu + forecast panel slots.
+- **Bug 1 unresolved.** Diagnostic logging is in place. Next playtest needs to either reproduce (producing console output) or confirm the bug was a stale-build artifact like Bug 2.
 
-13. `src/ui/use-turn-flow.ts` — forecast + cursorScreen exposed; mouse-move listener during target-select.
+- **Portrait asset sizes.** ~4MB per PNG → ~20MB initial load for 5 classes. Acceptable in dev; production should ship compressed variants (WebP, or 256×256 PNG). Asset pipeline work — likely deferred until pre-release polish.
 
-14. `src/ui/index.ts` — exports added.
+- **Portrait + body co-render.** The colored body still draws behind the portrait so it provides a fallback backdrop. Visually fine; if Chris wants pure-portrait rendering (hide body when portrait attached), one-line change to gate body draw on `portraitSprite === null`.
 
-**Renderer:**
+- **Portrait corner overflow.** Portrait squares (32×32) inscribed past the team-color ring (radius 17) at the corners by ~6px. Acceptable for v1; circle-masking the portrait is the clean fix if Chris asks for it.
 
-15. `src/renderer/unit-layer.ts` — `counterpart` channel for hover-counterpart pulse.
+- **ChargedActionDetailPanel overlay collision.** When the panel is open and the player enters target-select / move-await-confirm, the use-turn-flow overlay effect will overwrite the panel's AoE preview on canvas. Data still visible in the React panel; canvas overlay is best-effort. Flag if the race feels confusing in playtest.
 
-16. `src/renderer/battle-renderer.ts` — `setCounterpartUnits` API.
+- **Move-select hover highlight reuses 'aoe' kind.** Per designer call (gold AoE color). Distinct kind possible later if a different visual treatment is wanted.
 
-**App / wiring:**
+- **Move-await-confirm doesn't show what was committed in the action log.** Same as the existing target-select await-confirm — no separate log entry. The move log row is emitted by the engine on commit either way.
 
-17. `src/app/BattleView.tsx` — refit. `ResultsScreen` replaces the prior `WinOverlay`; `ForecastTooltip` mounts during target-select; `UnitDetailPanel` mounts on detail click.
+- **Vite HMR dev console warnings** ("useEffect dependency array changed size between renders") — fired during the dev iteration. Stale from HMR cycles when the effect's deps were reshaped; no impact on fresh page loads.
 
-**Architecture records (wave 1):** ADR-0042 (forecast pipeline), ADR-0043 (derived events), ADR-0044 (results screen), ADR-0045 (projection column + hover-counterpart).
+- **Pre-existing TS strict-mode errors carry forward** (audit E8). My new files (`charged-action-detail-panel.tsx`, `portraits/index.ts`, `unit-layer.ts` portrait changes, `battle-renderer.ts` portrait load, `aoe-shape.test.ts`) add zero new errors. The bulk of pre-existing errors are `exactOptionalPropertyTypes` mismatches when passing optional props through; the codebase pattern accepts this.
 
-### Wave 2 (post-playtest fixes) — Chris played the wave-1 build, gave 12 observations; this batch addresses them
+- **MVP-unit metric still strict highest-damage-dealt** (carry-forward).
 
-**Engine:**
+- **Permadeath timer not implemented** (carry-forward).
 
-1. `src/engine/damage/handlers.ts:composeResistance` — now skips tags missing from the target's resistance map. Pre-fix behavior: `target.resistances.get(tag) ?? 0` pushed an implicit 0 for dispatch tags like `magical`, and `signedMax([0, -50])` returned 0, masking the weakness. ADR-0015's intent ("designers store the resistances that apply to a unit") is preserved; only the implicit-zero behavior was wrong.
+- **Settings expansion deferred** (carry-forward, including move-confirm-as-setting).
 
-2. `src/engine/catalog/definitions/class-definition.ts` — new optional `baselineResistances` field on ClassDefinition. Merged into `unit.resistances` at `createInitialState` time before per-placement overrides. Pattern is open for future class-trait content.
+- **Reactions in QueueTower / projection column** (carry-forward).
 
-3. `src/engine/actions/reducers.ts` — `reduceTurnEnd` no longer special-cases `consumed.waited` in the cost evaluation. Cost is now consumed-bucket-based universally; the standalone wait cost only fires when literally nothing was consumed. Wait becomes the user-facing "end turn" action with bucket-based cost.
+- **`consumed.waited` flag is decorative** (carry-forward; cleanup candidate).
 
-4. `src/engine/forecast/ct-preview.ts:projectTurnEndCt` — mirrors the engine change. `plannedNext: 'wait'` no longer adds a waited flag; it just doesn't add to the consumed buckets.
-
-5. `src/content/classes/*` — Water/Lightning/Earth/Fire Mage class files each gain `baselineResistances` per the elemental wheel call. Knight gains `attack` to its existing freeAbilities list.
-
-6. `src/content/classes/water-mage.ts`, `lightning-mage.ts`, `earth-mage.ts`, `fire-mage.ts`, `knight.ts` — all 5 classes add `attack` to `freeAbilities` so the universal Attack button is class-uniform.
-
-**UI:**
-
-7. `src/ui/queue-tower.tsx` — removed `[...events].reverse()`; column-reverse alone now correctly stacks nearest at the bottom (just above the anchor) with further events extending upward. Charged-action mini-cards now show `{caster} → {target}` in the sublabel.
-
-8. `src/ui/action-log-format.ts` — `charged_action_resolve` rows render with the spell name + caster ("Brunhilde's Earth Quake resolves on Sparky → 47 dmg") via a chargedContext lookup map (same backref pattern as derived-events).
-
-9. `src/ui/unit-detail-panel.tsx` — Move/Jump rows now read through `runModifyStatQuery` so passives like `move_plus_1` are reflected in the displayed value. Earth Mage now shows Move: 4 (3 base + 1 from `move_plus_1`) matching the actual reachable-tile count.
-
-10. `src/ui/action-menu.tsx` — top-level rewrite. Move/Attack/Act show absolute CT cost (`Move · 50 CT`). End turn (renamed from Wait) shows dynamic leftover CT (`End turn · CT after: 80`); decrements as actions are committed. Status button activates the unit detail panel. New top-level Attack button when active unit has `attack` in free abilities (all 5 classes in v1).
-
-11. `src/ui/action-menu.tsx:WaitConfirm` — new cardinal-direction facing picker per design doc WAIT-CONFIRM. Default highlight on the unit's current facing. Commit fires `set_facing` (if changed) + `endTurn`.
-
-12. `src/ui/turn-flow.ts` — state machine gains `wait-confirm` state and `pickFreeAbility` event. `target-select.commandSetId` and `await-confirm.commandSetId` are now `CommandSetId | null` so free abilities can flow through without a synthetic command set. Cancel from target-select with `commandSetId === null` returns to action-menu directly.
-
-13. `src/ui/use-turn-flow.ts` — new `onInspectUnit` callback prop. Tile-click handler routes occupant clicks to the detail panel when in `idle` / `action-menu`. `submitWait(facing: Direction)` takes a facing arg, emits a `set_facing` action when the chosen facing differs, then `endTurn`.
-
-14. `src/ui/forecast-compose.ts` — `ChargedTiming` field added to `Forecast`. Populated when ability.actionSpeed > 0. Estimates ticksToResolve from caster speed, counts events that fire first, and identifies the target's next turn in the projection.
-
-15. `src/ui/forecast-panel.tsx` — Timing subsection renders when `chargedTiming !== null`. Includes the ✓/✗ pass-fail line vs. the target's next turn.
-
-16. `src/app/BattleView.tsx` + `src/ui/turn-flow.test.ts` — wired the `onInspectUnit` route and added three new tests for the wait-confirm transitions.
-
-**Renderer:**
-
-17. `src/renderer/animator.ts` — generalized FlashAnim from single-target to multi-target. `use_ability` now applies HP changes for every per-target result (not just the first); added animation builders for `charged_action_resolve` (mirrors use_ability path), `system_damage`, and `system_heal`. HP bars now update visibly across all damage paths.
-
-18. `src/renderer/unit-layer.ts` — added a `koMarker` Graphics layer that draws a red ✕ across the unit body when ko is true. Sits between body and HP bar. The alpha fade (KO_ALPHA = 0.4) remains.
-
-19. `src/renderer/constants.ts` — `KO_X_COLOR`, `KO_X_WIDTH`, `KO_X_ALPHA` constants added.
-
-**Tests:**
-
-`npm test` final state: **651 passing across 57 files, 0 failing.** Up from 622/52 at session start. +29 from new forecast / derived-events / action-log-format tests + 3 new turn-flow tests for wait-confirm + 1 projection clamp test, minus -1 (rewritten commit.test.ts wait-cost expectation to match the new bucket logic).
-
-### Limitations + watch-fors after wave 2
-
-- **Forecast Timing approximation.** `estimateChargedTiming` computes ticksToResolve as `ceil(actionSpeed / casterSpeed)` — a reasonable estimate but not engine-exact (the engine uses `computeActionSpeed` at commit time which factors caster MA). For v1 this is close enough; deeper accuracy can land when the user reports the estimates as misleading. The "+ N events fire first" comparison against `projectUpcoming` is exact.
-
-- **Forecast hover not visually exercised live by Chris this wave.** The wave-1 limitation (Water Mage starting out of range) carries forward. Wave-2's universal Attack changes that — the player can now Attack from melee range without needing a long-range spell. Chris's next playtest should exercise the forecast hover naturally.
-
-- **Vite HMR cache invalidation under cross-file changes** — recurred during wave 2. PowerShell touch is the workaround. No fix needed; flag for the next session if it keeps biting.
-
-- **MVP-unit metric is still strict highest-damage-dealt.** Designer call from wave 1: future task to add nuance. Carry-forward.
-
-- **Permadeath timer not implemented.** Results screen still labels the section "KO Timeline." Carry-forward.
-
-- **Settings expansion (animation speed default, log verbosity, camera follow, localStorage persistence) deferred.** Carry-forward from wave 1.
-
-- **Reactions in QueueTower / projection column.** v1 has no scheduled-reaction queue. Watch for empirical impact.
-
-- **The `consumed.waited` flag is now non-cost-determining but still recorded.** Action log can use it to distinguish "user explicitly ended turn" from "engine auto-ended." Worth a quick note in the action log formatter if a future content surface wants that distinction.
-
-- **Lightning Mage's `quickstep` CT refund isn't visible yet.** The wave-1 design doc has it (`onTurnEnd` refund after Move); when Phase B's movement-ability authoring (Session 26) ships it, the action menu's End-turn projection will start showing the Lightning Mage's higher leftover CT vs. baseline. Currently the implementation isn't there; `bedrock_stride`, `hotfoot`, `tidewalker`, `quickstep` are all Phase B Session 26.
+- **WAIT-CONFIRM keyboard support** (carry-forward; polish).
 
 - **Top bar `Turn T####` is O(actionLog.length)** (Session 22 carry-forward).
 
-- **Renderer's MP "max" captured at mount** (Session 22 carry-forward). Replaces with `maxMp` lookup once Session 28 (Cluster 4) ships.
+- **Renderer's MP "max" captured at mount** (Session 22 carry-forward; Session 28 lifts).
 
-- **Status-badge polarity convention** (`tags`-based vs `polarity?` field) (Session 22). No urgency.
+- **Status-badge polarity convention** (Session 22 carry-forward).
 
-- **rAF vs setInterval for animation-drain detection** (Session 23). Future-when-vsync-smoothness-matters.
+- **rAF vs setInterval for animation drain** (Session 23 carry-forward).
 
-- **AoE preview correctness across all shapes** (Session 23) — will be exercised under Chris's next playtest.
+- **AoE preview correctness across all shapes** (Session 23 carry-forward; bug-2's regression test partially addressed).
 
-- **MP / status snapshot ahead-of-tween fix** (Session 22). Known limitation.
+- **MP / status snapshot ahead-of-tween fix** (Session 22 carry-forward).
 
-- **`docs/content-snapshot.md` drift** (Session 21 carry-forward). Refresh scheduled with Session 26 (movement abilities authoring).
+- **`docs/content-snapshot.md` drift** (Session 21 carry-forward; Session 26 refresh).
 
-- **Resistance composition cap at 100** (audit E2). Now that resistances actually bite, the cap is closer to being exercised. The Mage wheel tops out at ±50 individually, but stacked content (Wand of Depths + class baseline) could push past 100 in Phase C. Session 27 still the natural moment.
+- **Resistance composition cap at 100** (audit E2; Session 27 candidate).
 
-- **`pa_factor` `NotYetImplementedError`** (audit E3). No content asks.
+- **`pa_factor` NotYetImplementedError** (audit E3).
 
-- **`equipmentContributionsFor` "branch per hook"** (audit E4). Session 27.
-
-- **TS strict-mode test errors** (audit E8). Not blocking.
+- **`equipmentContributionsFor` "branch per hook"** (audit E4; Session 27).
 
 - **Surrender flow deferred to Session 34** (ADR-0041).
 
-- **Canvas-unit-click → unit detail panel** — landed this wave; only fires in `action-menu`/`idle` states. During target-select / move-select, canvas clicks remain action-bound. If a player wants to inspect a unit while picking a target, the QueueTower mini-card and the Status button still work. Watch for whether this gating feels right.
-
-- **WAIT-CONFIRM facing picker shows 4 buttons.** Keyboard support (arrow keys → facing) would be a nice polish but isn't wired. Flag for next polish pass.
-
-- **Engine's `consumed.waited` flag is now decorative.** It's still set when Wait commits, but the cost evaluation no longer reads it. Could be removed entirely from `TurnConsumption` in a cleanup pass; not load-bearing on anything that still reads it (I scanned the codebase, no other consumers). Flag for cleanup-style touch.
-
 ### Considered and rejected this session
 
-**Wave 1 (recap):** ADR-0042/0043/0044/0045 alternatives. See those docs.
+- **Augmenting `canCommitAction` to return structured reason** (vs. re-calling `validateAction` in the dev-only failure-log path). Rejected for v1: engine API change for what's currently a one-spot instrumentation use case. Worth reconsidering if Bug-1-style cases recur (more than 1-2 similar reports).
 
-**Wave 2:**
+- **Suppressing charged-action mini-card click outside `idle`/`action-menu`** to avoid AoE-overlay collisions with turn-flow's overlay channel. Rejected — the panel itself is useful regardless of turn-flow state; the AoE overlay is best-effort.
 
-- **Adding the universal Attack as a member of every class's primary command set** rather than as a free ability. Rejected — clutters the command-set ability list with an attack that mages won't typically use; the top-level button matches FFT convention better.
+- **Extending `UnitDetailPanel` with a charged-action variant** rather than a new component. Rejected — content shapes share almost nothing; conditional branching would dwarf the shared shell.
 
-- **Synthesizing a "basic" command set auto-equipped on every class** for Attack. Rejected for the same reason — extra command-set tabs cluttering the menu.
+- **Sync portrait asset load at mount** (block first paint behind asset load). Rejected — async + one-frame swap is the smoother UX; the first-paint regression isn't worth the small payoff.
 
-- **Stamping `actorId` on `charged_action_resolve` engine-side** vs. the chargedContext-map backref in the formatter / derived-events. Same trade-off as wave 1: engine change has wider blast radius (replay tooling, AI projection); UI-side backref is contained. Wave 2 reuses the wave-1 pattern.
+- **Mask the portrait to a circle** to avoid corner overflow past the team ring. Rejected for v1 — Pixi masks add draw-order constraints and per-sprite cost. Re-evaluate if Chris wants the cleaner look.
 
-- **Changing the engine's `consumed.waited` flag to drive cost** (instead of removing it from the cost decision). The designer call was explicit that Wait should follow the consumed-bucket cost; the waited flag becomes informational.
+- **Replace the colored body entirely when portrait loads.** Rejected — body remains as a fallback backdrop and a frame for partially transparent portraits.
 
-- **Keeping `Wait` as the button label** vs. renaming to `End turn`. Renamed per the design call's framing ("Wait is the end-turn button").
+- **Add a new `'move-hover'` HighlightKind** (vs. reusing `'aoe'`). Rejected per Chris's call ("use the existing gold for the move hover highlight").
 
-- **Re-deriving moveRange display from `cls.movement.moveRange`** when passives modify it. Rejected — keeping the display in sync with the engine's actual reachable-tile count is load-bearing. The detail panel now calls `runModifyStatQuery` for both Move and Jump.
-
-- **Showing absolute bucket cost for Move/Act** vs. incremental-over-baseline-wait. First wave 2 attempt was incremental ("Move CT cost 30" when actual moveOnly is 50); revised to absolute after recognizing the misleading framing. Move now reads "Move · 50 CT" — the resulting bucket cost if Move is the only action this turn.
-
-- **Hiding the KO visual ✕ overlay** and relying on alpha alone. Per Chris's feedback ("nothing on the map indicating KO'd"), the ✕ cross-out lands.
-
-### Items dropped from prior handoff
-
-All wave-1 carry-forward items either landed in wave 2 or remain in the watch-fors above with current status.
-
----
+- **Move-confirm gated by `settings.confirmStep`.** Rejected per Chris's call — hardcode always-confirm for v1; settings unification is a future polish pass.
 
 ### Empirical-questions checklist for Chris's next playtest
 
-Wave 2 is more playable than wave 1. The next playtest should specifically attend to:
+Same checklist structure as Session 24. Wave-3-readiness questions for this iteration:
 
-**Combat feel**
-- [ ] Universal Attack readability — does the top-level button feel natural? Does its `· 50 CT` annotation read right alongside Move/Act?
-- [ ] WAIT-CONFIRM facing pick — adds a click vs. instant End-turn. Worth the cost or annoying?
-- [ ] Elemental wheel — Water Strike on Fire Mage now bites (×1.5 damage from -50 water resistance). Does that feel right at v1 baseline tuning?
-- [ ] Reaction triggers — Brave 70 still in effect. Reactions firing ~70%.
-- [ ] Storm Caller AI behavior — still on hold from wave 1.
-- [ ] Fixed CT-0 starting tempo — still in effect.
+**Bugs**
+- [ ] Burn application — does the log now show "stacked ×N" / "applied" / "refreshed" as appropriate? Does any apply still show "failed" when it shouldn't?
+- [ ] Tidal Wave / Chain Lightning AoE shape — does the preview render as diamond-r1 (5-cell rhombus) consistently?
+- [ ] Bug 1 (mid-battle targeting failure) — does it recur? If so, the dev console will have `[targeting]` and possibly `[hit-test]` lines. Capture them.
 
-**UI ergonomics**
-- [ ] End turn CT annotation — "CT after: N" — load-bearing or noise?
-- [ ] CT cost annotations on Move/Attack/Act — are the absolute numbers what the player needs, or would incremental costs be clearer?
-- [ ] Forecast Timing subsection — the ✓/✗ pass-fail vs. target's next turn — does it answer "will my spell land before they move?"
-- [ ] QueueTower mini-card target labels — `{caster} → {target}` — is this enough, or does the tooltip need to expand on it?
-- [ ] Charged-resolve log entries — "Brunhilde's Earth Quake resolves on Sparky → 47 dmg" — readable?
-- [ ] HP bar tween — visible damage now reads on the canvas.
-- [ ] KO ✕ overlay — clear enough? Too loud?
-- [ ] Canvas unit click → detail panel — three entry points (canvas / queue tower / status button) all converge as designed.
+**UI**
+- [ ] Forecast target HP — "HP X/Y" alongside damage. Does the value match the in-tooltip preview against the actual unit's HP?
+- [ ] HP bar color coding — does the green/yellow/red transition feel responsive to damage thresholds?
+- [ ] QueueTower active-turn suppress — does the column feel "future-only" now, or does losing the active-anchor mirror feel disorienting?
+- [ ] Charged-action T-numbers — `T0016 Red Fire Mage's Flame Lance resolves: ...` — readable?
+- [ ] Move-select hover — does the gold-highlighted target tile feel right? Confusable with the AoE preview?
+- [ ] Move-confirm — does the extra confirm step feel like good safety or annoying friction?
+- [ ] QueueTower charged-action click → detail panel — does the AoE-on-canvas preview clarify in-flight spells?
 
-**Reflection / results**
-- [ ] Results screen completeness — same as wave 1 question.
-- [ ] MVP unit metric — same.
-- [ ] KO timeline — same.
+**Portraits**
+- [ ] Portrait rendering on the map — do the team-color rings + horizontal flip read clearly?
+- [ ] Portrait swap timing — is the colored-circle → portrait swap visible / jarring?
+- [ ] Portraits in QueueTower mini-cards + active anchor — sized right?
+- [ ] Portraits in unit detail panel — sized right?
+- [ ] Hit-flash on portraits — does the tint pulse read as a damage signal?
 
-**Visual / pacing**
-- [ ] AoE preview correctness across all shapes — exercise universally now that Attack lets you melee.
-- [ ] Animation pacing — same as wave 1.
-
-**Items still deferred to designer or future session**
-- [ ] Reactions in projection column (wave 1 carry-forward)
-- [ ] Permadeath timer + visual treatment (wave 1 carry-forward)
-- [ ] Settings expansion (wave 1 carry-forward)
-- [ ] Lightning Mage's quickstep refund — visible only after Phase B Session 26
-- [ ] MVP-unit smarter algorithm (wave 1 carry-forward)
-- [ ] Mini-timeline for charged-action Timing subsection — current is `ticksToResolve + events-before-resolve` count; the design doc's full mini-timeline view with surrounding events isn't rendered (the data is computed). Add if Chris reports the current annotation isn't enough.
+**Still deferred to designer or future session**
+- [ ] Timing projector accuracy improvement (carry-forward to Session 25 or later)
+- [ ] Tower slot-in for charged-action resolves (carry-forward)
+- [ ] Charged-action animation pacing (carry-forward)
+- [ ] Attack-in-Act repositioning (carry-forward to Session 25)
+- [ ] MVP-unit smarter algorithm (carry-forward)
+- [ ] Permadeath timer (carry-forward)
+- [ ] Settings expansion (carry-forward)
+- [ ] Reactions in projection column (carry-forward)
+- [ ] Mini-timeline for forecast Timing subsection (carry-forward)
+- [ ] Lightning Mage's `quickstep` refund visibility (waits for Session 26)

@@ -13,6 +13,7 @@ import {
   projectStatusChances,
   projectTurnEndCt,
   projectUpcoming,
+  runModifyStatQuery,
   type ActiveAbilityDefinition,
   type AoePreviewTile,
   type Catalog,
@@ -33,6 +34,12 @@ export interface ForecastTargetRow {
   // True when this tile's occupant would be hit by the ability (false
   // for excluded caster, friendly under no-friendly-fire, KO'd units).
   readonly affected: boolean;
+  // Current HP / max HP for the target unit. Snapshot at compose time
+  // (live as the cursor moves between targets). Used by the forecast
+  // panel to render "HP X/Y" alongside the damage range, so the player
+  // can see "this 17-23 dmg hit takes them from 33/44 to 10/44 — KO?"
+  // at a glance. `null` for tile-only rows (no unit on the cell).
+  readonly hp: { readonly current: number; readonly max: number } | null;
   // Filled when affected and damaging.
   readonly damage?: DamageRange;
   // Status chances per declared effect on the ability.
@@ -98,6 +105,7 @@ export function composeForecast(args: ComposeForecastArgs): Forecast {
   const targets: ForecastTargetRow[] = [];
   for (const tile of tiles) {
     if (tile.occupant === null) continue;
+    const hp = computeUnitHp(args.state, args.catalog, tile.occupant);
     if (!tile.affected) {
       // Surface unaffected occupants too so the UI can render "—" for
       // them; helps the player see the AoE shape without hiding
@@ -106,6 +114,7 @@ export function composeForecast(args: ComposeForecastArgs): Forecast {
         position: tile.position,
         unit: tile.occupant,
         affected: false,
+        hp,
         statusChances: [],
       });
       continue;
@@ -132,6 +141,7 @@ export function composeForecast(args: ComposeForecastArgs): Forecast {
       position: tile.position,
       unit: tile.occupant,
       affected: true,
+      hp,
       ...(damage !== undefined ? { damage } : {}),
       statusChances,
     });
@@ -163,6 +173,22 @@ export function composeForecast(args: ComposeForecastArgs): Forecast {
     casterMpAfter,
     chargedTiming,
   };
+}
+
+// Snapshot a unit's current HP and computed maxHp at compose time. The
+// max read goes through `runModifyStatQuery` so passives / equipment /
+// statuses that shift maxHp are reflected in the forecast.
+function computeUnitHp(
+  state: GameState,
+  catalog: Catalog,
+  unit: Unit,
+): { current: number; max: number } {
+  const max = runModifyStatQuery(state, catalog, {
+    unit,
+    statName: 'maxHp',
+    baseValue: unit.baseStats.maxHpBase,
+  });
+  return { current: unit.vitals.hp, max };
 }
 
 // Approximate charged-action timing. The chargedAction would be added to

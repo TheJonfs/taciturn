@@ -67,6 +67,24 @@ export function ActionMenu({ turnFlow, catalog, engineState, onOpenUnitDetail }:
         </Panel>
       );
 
+    case 'move-await-confirm':
+      return (
+        <Panel header="Confirm Move">
+          <StatusLine>
+            Move to ({state.destination.x}, {state.destination.y})?
+          </StatusLine>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <Button
+              label="Confirm"
+              disabled={false}
+              onClick={() => turnFlow.confirmAccept()}
+              variant="primary"
+            />
+            <Button label="Cancel" disabled={false} onClick={turnFlow.cancel} variant="secondary" />
+          </div>
+        </Panel>
+      );
+
     case 'command-set-select':
       return <CommandSetPicker turnFlow={turnFlow} catalog={catalog} />;
 

@@ -16,8 +16,19 @@
 // architecture overview ("UI depends on Engine and may depend on
 // Renderer for the battle view component").
 
-import { Container, type Application, type FederatedPointerEvent } from 'pixi.js';
-import { tilesAt, unitAt, type Action, type Catalog, type GameState, type Position, type Unit, type UnitId } from '@engine/index.ts';
+import { Assets, Container, type Application, type FederatedPointerEvent, type Texture } from 'pixi.js';
+import {
+  tilesAt,
+  unitAt,
+  type Action,
+  type Catalog,
+  type ClassId,
+  type GameState,
+  type Position,
+  type TeamId,
+  type Unit,
+  type UnitId,
+} from '@engine/index.ts';
 import { TILE_SIZE } from './constants.ts';
 import { TileLayer } from './tile-layer.ts';
 import { statusBadgeFromInstance, UnitSprite, type StatusBadge } from './unit-layer.ts';
@@ -25,6 +36,7 @@ import { HighlightLayer, type HighlightKind } from './highlight-layer.ts';
 import { Animator } from './animator.ts';
 import { CameraController, type PanInput } from './camera-controller.ts';
 import { positionCenter, type ScreenPoint } from './world.ts';
+import { PORTRAIT_URLS } from '../assets/portraits/index.ts';
 
 export type TileClickHandler = (pos: Position, unit: Unit | null) => void;
 export type TileHoverHandler = (pos: Position | null, unit: Unit | null) => void;
@@ -47,6 +59,11 @@ export class BattleRenderer {
   private lastHoverKey: string | null = null;
   private paused: boolean = false;
   private counterpartUnits: ReadonlySet<UnitId> = new Set();
+  // Texture cache for class portraits, populated asynchronously after
+  // mount via `loadPortraitAssets`. Sprites created for units added
+  // after a texture is cached (mid-battle summons, future work) read
+  // from here to get the same texture.
+  private readonly portraitTextures: Map<ClassId, Texture> = new Map();
 
   constructor(app: Application) {
     this.app = app;
@@ -92,6 +109,11 @@ export class BattleRenderer {
       screenHeight: this.app.renderer.height,
     });
 
+    // Establish the "enemy" team — for v1, that's any team other than
+    // team_a (the player). Used for the portrait horizontal-flip so
+    // enemy portraits face toward the player.
+    const playerTeam: TeamId = state.units.values().next().value?.team ?? ('team_a' as TeamId);
+
     for (const unit of state.units.values()) {
       // Capture the unit's starting MP as their effective max for the
       // duration of the battle. v1 has no maxMp stat (Cluster 4 /
@@ -100,7 +122,7 @@ export class BattleRenderer {
       // session adds MP gain past this, surface a refresh hook here.
       this.maxMp.set(unit.id, unit.vitals.mp);
 
-      const sprite = new UnitSprite(unit);
+      const sprite = new UnitSprite(unit, { enemyTeam: unit.team !== playerTeam });
       this.sprites.set(unit.id, sprite);
       this.unitLayer.addChild(sprite.container);
       this.animator.initSnapshot(unit.id, {
@@ -113,10 +135,52 @@ export class BattleRenderer {
       });
     }
 
+    // Kick off portrait asset loads in the background. The renderer
+    // stays responsive (sprites show as colored circles until textures
+    // arrive). Missing or failed assets fall through to the circle —
+    // never blocks gameplay.
+    void this.loadPortraitAssets(state);
+
     this.app.ticker.add((ticker) => this.tick(ticker.deltaMS));
     // Render once so the canvas isn't blank before the ticker fires.
     this.applyVisualState();
     this.camera.apply(this.world);
+  }
+
+  // Async portrait loader. For each class present in the initial state,
+  // load the registered PNG URL via Pixi `Assets.load` and attach the
+  // texture to every UnitSprite of that class. Errors per-class are
+  // swallowed (logged in dev) so one bad asset doesn't break the
+  // whole battle; the affected unit keeps its circle fallback.
+  private async loadPortraitAssets(state: GameState): Promise<void> {
+    const classesPresent = new Set<ClassId>();
+    for (const u of state.units.values()) classesPresent.add(u.classState.currentClass);
+
+    const loads: Promise<void>[] = [];
+    for (const classId of classesPresent) {
+      const url = PORTRAIT_URLS.get(classId);
+      if (url === undefined) continue;
+      loads.push(
+        Assets.load(url)
+          .then((texture: Texture) => {
+            this.portraitTextures.set(classId, texture);
+            // Apply to existing sprites of this class.
+            const currentState = this.lastState;
+            if (currentState === null) return;
+            for (const u of currentState.units.values()) {
+              if (u.classState.currentClass !== classId) continue;
+              this.sprites.get(u.id)?.setPortrait(texture);
+            }
+          })
+          .catch((err: unknown) => {
+            if (import.meta.env.DEV) {
+              // eslint-disable-next-line no-console
+              console.warn('[renderer] portrait load failed for', String(classId), err);
+            }
+          }),
+      );
+    }
+    await Promise.all(loads);
   }
 
   // Camera-input surface — BattleView wires keyboard/wheel handlers to
@@ -247,6 +311,30 @@ export class BattleRenderer {
     }
     const pos: Position = { x: tileX, y: tileY, layer: top.layer };
     const occupant = unitAt(this.lastState, tileX, tileY, top.layer) ?? null;
+    // Bug 1 instrumentation (Session 24.5): if a sprite is rendered at
+    // (tileX, tileY) but `unitAt(state, tileX, tileY, top.layer)` returns
+    // null, there's a layer-mismatch between the unit's `position.layer`
+    // and the topmost-tile-layer the hit-test uses. Catches the case
+    // where a multi-layer map's unit sits at layer 0 but the hit-test
+    // resolves to a higher layer.
+    if (import.meta.env.DEV && occupant === null) {
+      for (const u of this.lastState.units.values()) {
+        if (u.position.x === tileX && u.position.y === tileY && u.vitals.hp > 0) {
+          // eslint-disable-next-line no-console
+          console.debug(
+            '[hit-test] occupant mismatch at',
+            `(${tileX},${tileY})`,
+            '— sprite layer',
+            u.position.layer,
+            'vs hit-test layer',
+            top.layer,
+            'unit',
+            String(u.id),
+          );
+          break;
+        }
+      }
+    }
     return { pos, occupant };
   }
 

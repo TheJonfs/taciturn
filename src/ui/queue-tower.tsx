@@ -25,17 +25,22 @@ import {
   projectUpcoming,
   runModifyStatQuery,
   type Catalog,
+  type ChargedActionId,
+  type ClassId,
   type GameState,
   type ProjectedEvent,
   type TeamId,
   type Unit,
   type UnitId,
 } from '@engine/index.ts';
+import { portraitUrlFor } from '../assets/portraits/index.ts';
 
-// Number of upcoming-event mini-cards rendered above the active unit
-// panel. Per the design doc's "20-event horizon"; the scrollable inner
-// container shows ~5-7 at a time at default sizing.
+// Number of *future* events rendered above the active-unit anchor. We
+// request one more than this from `projectUpcoming` so we can drop the
+// first event (which mirrors the active anchor's turn — already shown
+// at the bottom of the column, redundant per session 24.5 playtest).
 const VISIBLE_UPCOMING_EVENTS = 20;
+const UPCOMING_REQUEST_COUNT = VISIBLE_UPCOMING_EVENTS + 1;
 
 // Mirrors the renderer's TEAM_COLORS so card borders match the on-canvas
 // color. Renderer-as-source-of-truth would be cleaner, but the renderer
@@ -54,17 +59,30 @@ export interface QueueTowerProps {
   // the corresponding unit (or charged action's caster) is reported so
   // the canvas can pulse it.
   readonly onHoverParticipants?: (ids: ReadonlyArray<UnitId>) => void;
-  // Click-through to the unit detail panel.
+  // Click-through to the unit detail panel (unit mini-cards) or the
+  // charged-action detail panel (charged mini-cards). Wired up via two
+  // callbacks so the panel choice is dispatched at click time without
+  // discriminator plumbing.
   readonly onOpenUnitDetail?: (unitId: UnitId) => void;
+  readonly onOpenChargedActionDetail?: (chargedActionId: ChargedActionId) => void;
 }
 
-export function QueueTower({ state, catalog, onHoverParticipants, onOpenUnitDetail }: QueueTowerProps): ReactElement {
+export function QueueTower({
+  state,
+  catalog,
+  onHoverParticipants,
+  onOpenUnitDetail,
+  onOpenChargedActionDetail,
+}: QueueTowerProps): ReactElement {
   const activeUnit = state !== null && state.turnState !== null
     ? state.units.get(state.turnState.unitId) ?? null
     : null;
+  // Drop the first projected event — it mirrors the active-unit anchor
+  // shown at the bottom of the column. Player wants to see the *next*
+  // 20 events, not 19 future + the one they already see.
   const events = state === null
     ? []
-    : projectUpcoming(state, VISIBLE_UPCOMING_EVENTS, catalog);
+    : projectUpcoming(state, UPCOMING_REQUEST_COUNT, catalog).slice(1);
 
   // Auto-snap back to the active anchor when a new turn begins (the
   // active unit's id changes). Without this, the player who's scrolled
@@ -104,6 +122,7 @@ export function QueueTower({ state, catalog, onHoverParticipants, onOpenUnitDeta
             catalog={catalog}
             onHoverParticipants={onHoverParticipants}
             onOpenUnitDetail={onOpenUnitDetail}
+            onOpenChargedActionDetail={onOpenChargedActionDetail}
           />
         ))}
       </div>
@@ -127,11 +146,29 @@ function MiniCard(props: {
   readonly catalog: Catalog;
   readonly onHoverParticipants?: (ids: ReadonlyArray<UnitId>) => void;
   readonly onOpenUnitDetail?: (unitId: UnitId) => void;
+  readonly onOpenChargedActionDetail?: (chargedActionId: ChargedActionId) => void;
 }): ReactElement {
-  const { event, position, state, catalog, onHoverParticipants, onOpenUnitDetail } = props;
-  const { label, sublabel, teamId, isCharged, primaryUnitId } = describeEvent(event, state, catalog);
+  const {
+    event,
+    position,
+    state,
+    catalog,
+    onHoverParticipants,
+    onOpenUnitDetail,
+    onOpenChargedActionDetail,
+  } = props;
+  const { label, sublabel, teamId, isCharged, primaryUnitId, classId } = describeEvent(event, state, catalog);
   const borderColor = teamColor(teamId);
-  const clickable = primaryUnitId !== null && onOpenUnitDetail !== undefined;
+  // Charged mini-cards route to the charged-action detail panel
+  // (target / AoE preview / timing). Unit mini-cards route to the
+  // unit detail panel.
+  const chargedTargetId: ChargedActionId | null =
+    isCharged && event.entityKind === 'charged_action'
+      ? (event.entityId as ChargedActionId)
+      : null;
+  const clickable = isCharged
+    ? chargedTargetId !== null && onOpenChargedActionDetail !== undefined
+    : primaryUnitId !== null && onOpenUnitDetail !== undefined;
   return (
     <div
       style={miniCardStyle(borderColor, clickable)}
@@ -144,15 +181,21 @@ function MiniCard(props: {
         if (onHoverParticipants !== undefined) onHoverParticipants([]);
       }}
       onClick={() => {
-        if (clickable && primaryUnitId !== null && onOpenUnitDetail !== undefined) {
+        if (!clickable) return;
+        if (isCharged) {
+          if (chargedTargetId !== null && onOpenChargedActionDetail !== undefined) {
+            onOpenChargedActionDetail(chargedTargetId);
+          }
+          return;
+        }
+        if (primaryUnitId !== null && onOpenUnitDetail !== undefined) {
           onOpenUnitDetail(primaryUnitId);
         }
       }}
     >
       <div style={miniCardPositionStyle}>{position}</div>
       <div style={miniCardPortraitStyle}>
-        {/* Placeholder portrait — colored block. Real art is post-MVP. */}
-        <div style={miniCardPortraitFillStyle(borderColor, isCharged)} />
+        <MiniPortrait classId={classId} isCharged={isCharged} fallbackColor={borderColor} />
       </div>
       <div style={miniCardLabelColStyle}>
         <div style={miniCardNameStyle}>{label}</div>
@@ -190,11 +233,29 @@ function ActiveUnitAnchor(props: {
   });
   const borderColor = teamColor(unit.team);
 
+  const portraitUrl = portraitUrlFor(unit.classState.currentClass);
   return (
     <div style={anchorStyle(borderColor)}>
       <div style={anchorHeaderStyle}>Active Unit</div>
       <div style={anchorTitleRowStyle}>
-        <div style={anchorPortraitStyle(borderColor)} />
+        {portraitUrl !== null ? (
+          <img
+            src={portraitUrl}
+            alt=""
+            style={{
+              width: 44,
+              height: 44,
+              objectFit: 'cover',
+              borderRadius: 6,
+              flexShrink: 0,
+              borderWidth: 2,
+              borderStyle: 'solid',
+              borderColor,
+            }}
+          />
+        ) : (
+          <div style={anchorPortraitStyle(borderColor)} />
+        )}
         <div>
           <div style={anchorNameStyle}>{unit.name}</div>
           <div style={anchorSubStyle}>{cls.name}</div>
@@ -265,6 +326,10 @@ interface EventDescription {
   // The unit the player would want to inspect when clicking through —
   // either the upcoming unit, or the charged spell's caster.
   readonly primaryUnitId: UnitId | null;
+  // The class id of the upcoming unit (or charged spell's caster).
+  // Used for the portrait `<img>` lookup. `null` when the entity
+  // doesn't map to a class (e.g., un-resolvable charged action).
+  readonly classId: ClassId | null;
 }
 
 function describeEvent(
@@ -281,6 +346,7 @@ function describeEvent(
         teamId: null,
         isCharged: false,
         primaryUnitId: null,
+        classId: null,
       };
     }
     const cls = catalog.getClass(unit.classState.currentClass);
@@ -290,6 +356,7 @@ function describeEvent(
       teamId: unit.team,
       isCharged: false,
       primaryUnitId: unit.id,
+      classId: unit.classState.currentClass,
     };
   }
   // charged_action — find the in-flight charged action and read its
@@ -304,6 +371,7 @@ function describeEvent(
       teamId: null,
       isCharged: true,
       primaryUnitId: null,
+      classId: null,
     };
   }
   const ability = catalog.getAbility(charged.abilityId);
@@ -318,7 +386,39 @@ function describeEvent(
     teamId: caster?.team ?? null,
     isCharged: true,
     primaryUnitId: caster?.id ?? null,
+    classId: caster?.classState.currentClass ?? null,
   };
+}
+
+// Portrait for a mini-card. Uses the class portrait when available;
+// falls back to the colored block (the prior visual) when missing.
+// Charged-action cards get a circular crop + dashed border accent to
+// preserve the existing "this is a spell, not a unit" visual idiom.
+function MiniPortrait(props: {
+  readonly classId: ClassId | null;
+  readonly isCharged: boolean;
+  readonly fallbackColor: string;
+}): ReactElement {
+  const { classId, isCharged, fallbackColor } = props;
+  const url = classId !== null ? portraitUrlFor(classId) : null;
+  if (url === null) {
+    return <div style={miniCardPortraitFillStyle(fallbackColor, isCharged)} />;
+  }
+  return (
+    <img
+      src={url}
+      alt=""
+      style={{
+        width: 32,
+        height: 32,
+        objectFit: 'cover',
+        borderRadius: isCharged ? '50%' : 4,
+        borderWidth: isCharged ? 1 : 0,
+        borderStyle: isCharged ? 'dashed' : 'solid',
+        borderColor: '#f6e5a8',
+      }}
+    />
+  );
 }
 
 // Render a charged action's target list as a short, single-line label.

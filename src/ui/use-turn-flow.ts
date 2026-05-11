@@ -181,9 +181,12 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
 
   // ===== Targeting computations =====
 
-  // Legal move destinations when in move-select.
+  // Legal move destinations when in move-select / move-await-confirm.
+  // Kept available in move-await-confirm so the renderer continues to
+  // highlight the candidate set behind the confirm gate (visually the
+  // player should still see what they would have picked).
   const legalMoveDestinations = useMemo<ReadonlyArray<Position>>(() => {
-    if (flowState.kind !== 'move-select') return [];
+    if (flowState.kind !== 'move-select' && flowState.kind !== 'move-await-confirm') return [];
     if (state === null || activeUnit === null) return [];
     if (movesAvailable <= 0) return [];
     const result = getLegalMoves(state, activeUnit.id, catalog);
@@ -225,7 +228,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
 
   useEffect(() => {
     if (renderer === null) return;
-    if (flowState.kind === 'move-select') {
+    if (flowState.kind === 'move-select' || flowState.kind === 'move-await-confirm') {
       renderer.setHighlights(legalMoveDestinations, 'move');
     } else if (flowState.kind === 'target-select' || flowState.kind === 'await-confirm') {
       // Pick a highlight kind that hints intent: heal-tag → green,
@@ -238,14 +241,38 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     }
   }, [renderer, flowState, legalMoveDestinations, legalTargetsState, catalog]);
 
+  // Overlay channel: AoE preview during target-select, single-tile move
+  // hover during move-select, locked-destination highlight during move-
+  // await-confirm. Reuses the 'aoe' kind (gold) — the visual idiom
+  // ("preview overlay on top of the legal-target set") is the same.
   useEffect(() => {
     if (renderer === null) return;
+    if (flowState.kind === 'move-select') {
+      if (flowState.hoverTarget !== null) {
+        // Only show the hover if it's on a legal destination — clicking
+        // a non-legal tile cancels, so the hover should not promise a
+        // commit that won't happen.
+        const isLegal = legalMoveDestinations.some((d) =>
+          samePosition(d, flowState.hoverTarget!),
+        );
+        renderer.setHighlightOverlay(isLegal ? [flowState.hoverTarget] : [], 'aoe');
+      } else {
+        renderer.setHighlightOverlay([], 'none');
+      }
+      return;
+    }
+    if (flowState.kind === 'move-await-confirm') {
+      // Pin the chosen destination so the player sees what they're
+      // about to commit while the confirm row is up.
+      renderer.setHighlightOverlay([flowState.destination], 'aoe');
+      return;
+    }
     if (aoePreviewPositions.length === 0) {
       renderer.setHighlightOverlay([], 'none');
       return;
     }
     renderer.setHighlightOverlay(aoePreviewPositions, 'aoe');
-  }, [renderer, aoePreviewPositions]);
+  }, [renderer, flowState, aoePreviewPositions, legalMoveDestinations]);
 
   // ===== Renderer side effects: tile click =====
 
@@ -264,7 +291,10 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
           dispatch({ kind: 'cancel' });
           return;
         }
-        submitMoveInternal(pos);
+        // Always-confirm: transition into move-await-confirm rather
+        // than committing directly. The Confirm/Cancel row in the
+        // action menu drives the actual commit.
+        dispatch({ kind: 'pickMoveDestination', destination: pos });
         return;
       }
 
@@ -273,10 +303,42 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
         if (ability.kind !== 'active') return;
         const action = buildAction(activeUnit.id, ability, pos, occupant);
         if (action === null) {
+          // Bug 1 instrumentation: clicking a single_unit-targeted
+          // ability on a tile with no occupant returns null and cancels.
+          // If the player believes there's a unit there, the renderer's
+          // hit-test or the engine's `unitAt` is mismatched.
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.debug(
+              '[targeting] click cancel — buildAction null',
+              `(${pos.x},${pos.y},${pos.layer})`,
+              'occupant=',
+              occupant?.id ?? 'null',
+              'ability=',
+              String(flowState.abilityId),
+            );
+          }
           dispatch({ kind: 'cancel' });
           return;
         }
         if (!canCommitAction(state, catalog, activeUnit, action)) {
+          // Re-extract the rejection reason for diagnostics. canCommitAction
+          // returns bool only; in the failure path we re-call validateAction
+          // (cheap, pure) to surface why.
+          if (import.meta.env.DEV) {
+            const v = validateAction(state, action, catalog);
+            // eslint-disable-next-line no-console
+            console.debug(
+              '[targeting] click cancel — canCommit false',
+              `(${pos.x},${pos.y},${pos.layer})`,
+              'target=',
+              occupant?.id ?? 'tile',
+              'ability=',
+              String(flowState.abilityId),
+              '— validate:',
+              v.valid ? 'OK (blocked by onActionAttempted)' : v.reason ?? '(no reason)',
+            );
+          }
           dispatch({ kind: 'cancel' });
           return;
         }
@@ -311,23 +373,34 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
 
   useEffect(() => {
     if (renderer === null) return;
-    if (flowState.kind !== 'target-select') {
-      renderer.setOnTileHover(null);
-      setCursorScreen(null);
-      return;
+    if (flowState.kind === 'target-select') {
+      const handler = (pos: Position | null): void => {
+        dispatch({ kind: 'hoverTarget', position: pos });
+      };
+      renderer.setOnTileHover(handler);
+      const onMouseMove = (e: MouseEvent): void => {
+        setCursorScreen({ x: e.clientX, y: e.clientY });
+      };
+      window.addEventListener('mousemove', onMouseMove);
+      return () => {
+        renderer.setOnTileHover(null);
+        window.removeEventListener('mousemove', onMouseMove);
+      };
     }
-    const handler = (pos: Position | null): void => {
-      dispatch({ kind: 'hoverTarget', position: pos });
-    };
-    renderer.setOnTileHover(handler);
-    const onMouseMove = (e: MouseEvent): void => {
-      setCursorScreen({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener('mousemove', onMouseMove);
-    return () => {
-      renderer.setOnTileHover(null);
-      window.removeEventListener('mousemove', onMouseMove);
-    };
+    if (flowState.kind === 'move-select') {
+      // No cursor-screen tracking in move-select (no tooltip uses it);
+      // just the per-tile hover event.
+      const handler = (pos: Position | null): void => {
+        dispatch({ kind: 'hoverMove', position: pos });
+      };
+      renderer.setOnTileHover(handler);
+      return () => {
+        renderer.setOnTileHover(null);
+      };
+    }
+    renderer.setOnTileHover(null);
+    setCursorScreen(null);
+    return;
   }, [renderer, flowState.kind]);
 
   // ===== Forecast composition =====
@@ -354,16 +427,13 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
   // ===== Submit helpers =====
 
   function submitMoveInternal(destination: Position): void {
+    // Per session 24.5: move is always-confirm. submitMove transitions
+    // to move-await-confirm; the actual uiController.submit happens in
+    // confirmAccept when the player accepts the Confirm row. External
+    // callers (tests / future automation) get the same behavior as the
+    // tile-click handler.
     if (activeUnit === null) return;
-    const action: ProposedAction = {
-      type: 'move',
-      source: 'player',
-      actorId: activeUnit.id,
-      payload: { destination },
-    };
-    if (uiController.hasPending()) return;
-    uiController.submit(action);
-    dispatch({ kind: 'commitMove' });
+    dispatch({ kind: 'pickMoveDestination', destination });
   }
 
   function submitWaitInternal(facing: import('@engine/index.ts').Direction): void {
@@ -398,10 +468,24 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
   }
 
   function confirmAcceptInternal(): void {
-    if (flowState.kind !== 'await-confirm') return;
     if (uiController.hasPending()) return;
-    uiController.submit(flowState.action);
-    dispatch({ kind: 'confirmAccept' });
+    if (flowState.kind === 'await-confirm') {
+      uiController.submit(flowState.action);
+      dispatch({ kind: 'confirmAccept' });
+      return;
+    }
+    if (flowState.kind === 'move-await-confirm') {
+      if (activeUnit === null) return;
+      const action: ProposedAction = {
+        type: 'move',
+        source: 'player',
+        actorId: activeUnit.id,
+        payload: { destination: flowState.destination },
+      };
+      uiController.submit(action);
+      dispatch({ kind: 'confirmAccept' });
+      return;
+    }
   }
 
   return {
@@ -520,7 +604,27 @@ function computeLegalTargets(
           target: { kind: 'unit', unitId: candidate.id },
         },
       };
-      if (!validateAction(state, proposed, catalog).valid) continue;
+      const result = validateAction(state, proposed, catalog);
+      if (!result.valid) {
+        // Bug 1 instrumentation (Session 24.5): record per-candidate
+        // rejection reasons so the next playtest occurrence of "this
+        // specific enemy can't be targeted but others can" produces
+        // diagnostic output. See `docs/decisions/0046-bug-1-targeting-
+        // hypothesis.md`. Dev-only — production builds get nothing.
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.debug(
+            '[targeting] reject',
+            String(ability.id),
+            'on',
+            String(candidate.id),
+            `(${candidate.position.x},${candidate.position.y})`,
+            '—',
+            result.reason ?? '(no reason given)',
+          );
+        }
+        continue;
+      }
       positions.push(candidate.position);
       unitIds.add(candidate.id);
     }

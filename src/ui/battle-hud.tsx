@@ -14,7 +14,7 @@
 //     plumbed through props from BattleView.
 
 import type { CSSProperties, ReactElement } from 'react';
-import type { Action, Catalog, GameState, UnitId } from '@engine/index.ts';
+import type { Action, Catalog, ChargedActionId, GameState, UnitId } from '@engine/index.ts';
 import { QueueTower } from './queue-tower.tsx';
 import { ActionMenu } from './action-menu.tsx';
 import { ActionLogPanel } from './action-log-panel.tsx';
@@ -27,6 +27,7 @@ export interface BattleHudProps {
   readonly turnFlow: TurnFlow;
   readonly onHoverParticipants?: (ids: ReadonlyArray<UnitId>) => void;
   readonly onOpenUnitDetail?: (unitId: UnitId) => void;
+  readonly onOpenChargedActionDetail?: (chargedActionId: ChargedActionId) => void;
 }
 
 export function BattleHud({
@@ -35,6 +36,7 @@ export function BattleHud({
   turnFlow,
   onHoverParticipants,
   onOpenUnitDetail,
+  onOpenChargedActionDetail,
 }: BattleHudProps): ReactElement {
   return (
     <div style={hudOverlayStyle}>
@@ -45,6 +47,7 @@ export function BattleHud({
           catalog={catalog}
           onHoverParticipants={onHoverParticipants}
           onOpenUnitDetail={onOpenUnitDetail}
+          onOpenChargedActionDetail={onOpenChargedActionDetail}
         />
       </div>
       <div style={rightPanelStyle}>

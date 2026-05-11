@@ -33,7 +33,7 @@ describe('turn-flow reducer — lifecycle', () => {
   });
 
   it('activeTurnEnd → idle from any state', () => {
-    const s: TurnFlowState = { kind: 'move-select' };
+    const s: TurnFlowState = { kind: 'move-select', hoverTarget: null };
     expect(transition(s, { kind: 'activeTurnEnd' })).toEqual({ kind: 'idle' });
   });
 
@@ -53,9 +53,57 @@ describe('turn-flow reducer — lifecycle', () => {
 });
 
 describe('turn-flow reducer — top-level menu picks', () => {
-  it('pickMove → move-select', () => {
+  it('pickMove → move-select with null hoverTarget', () => {
     const s: TurnFlowState = { kind: 'action-menu' };
-    expect(transition(s, { kind: 'pickMove' })).toEqual({ kind: 'move-select' });
+    expect(transition(s, { kind: 'pickMove' })).toEqual({
+      kind: 'move-select',
+      hoverTarget: null,
+    });
+  });
+
+  it('hoverMove in move-select updates hoverTarget', () => {
+    const s: TurnFlowState = { kind: 'move-select', hoverTarget: null };
+    const pos = { x: 2, y: 3, layer: 0 };
+    expect(transition(s, { kind: 'hoverMove', position: pos })).toEqual({
+      kind: 'move-select',
+      hoverTarget: pos,
+    });
+  });
+
+  it('hoverMove with null clears hoverTarget', () => {
+    const s: TurnFlowState = { kind: 'move-select', hoverTarget: { x: 1, y: 1, layer: 0 } };
+    expect(transition(s, { kind: 'hoverMove', position: null })).toEqual({
+      kind: 'move-select',
+      hoverTarget: null,
+    });
+  });
+
+  it('pickMoveDestination → move-await-confirm', () => {
+    const s: TurnFlowState = { kind: 'move-select', hoverTarget: null };
+    const dest = { x: 4, y: 5, layer: 0 };
+    expect(transition(s, { kind: 'pickMoveDestination', destination: dest })).toEqual({
+      kind: 'move-await-confirm',
+      destination: dest,
+    });
+  });
+
+  it('confirmAccept from move-await-confirm → animation', () => {
+    const s: TurnFlowState = {
+      kind: 'move-await-confirm',
+      destination: { x: 4, y: 5, layer: 0 },
+    };
+    expect(transition(s, { kind: 'confirmAccept' })).toEqual({ kind: 'animation' });
+  });
+
+  it('cancel from move-await-confirm → move-select (re-pick destination)', () => {
+    const s: TurnFlowState = {
+      kind: 'move-await-confirm',
+      destination: { x: 4, y: 5, layer: 0 },
+    };
+    expect(transition(s, { kind: 'cancel' })).toEqual({
+      kind: 'move-select',
+      hoverTarget: null,
+    });
   });
 
   it('pickAct with single command set → ability-list directly', () => {
@@ -140,7 +188,7 @@ describe('turn-flow reducer — submenu picks', () => {
 
 describe('turn-flow reducer — commit paths', () => {
   it('commitMove from move-select → animation', () => {
-    const s: TurnFlowState = { kind: 'move-select' };
+    const s: TurnFlowState = { kind: 'move-select', hoverTarget: null };
     expect(transition(s, { kind: 'commitMove' })).toEqual({ kind: 'animation' });
   });
 
@@ -188,7 +236,7 @@ describe('turn-flow reducer — commit paths', () => {
 
 describe('turn-flow reducer — cancel back-paths', () => {
   it('cancel from move-select → action-menu', () => {
-    const s: TurnFlowState = { kind: 'move-select' };
+    const s: TurnFlowState = { kind: 'move-select', hoverTarget: null };
     expect(transition(s, { kind: 'cancel' })).toEqual({ kind: 'action-menu' });
   });
 

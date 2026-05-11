@@ -72,6 +72,15 @@ export function ForecastPanel({ forecast, catalog }: ForecastPanelProps): ReactE
             return (
               <div key={`${row.position.x},${row.position.y},${row.position.layer}`} style={rowStyle}>
                 <div style={targetNameStyle}>{targetName}</div>
+                {row.hp !== null && (
+                  <div style={hpRowStyle}>
+                    <span style={hpLabelStyle}>HP</span>
+                    <span style={hpValueStyle}>
+                      {row.hp.current}
+                      <span style={hpMaxStyle}>/{row.hp.max}</span>
+                    </span>
+                  </div>
+                )}
                 {dmg !== undefined && (
                   <div style={dmgRowStyle}>
                     <span style={dmgLabelStyle}>dmg</span>
@@ -183,6 +192,16 @@ const dmgRowStyle: CSSProperties = {
 
 const dmgLabelStyle: CSSProperties = { opacity: 0.65 };
 const dmgValueStyle: CSSProperties = { fontWeight: 500 };
+
+const hpRowStyle: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  fontVariantNumeric: 'tabular-nums',
+  fontSize: 11,
+};
+const hpLabelStyle: CSSProperties = { opacity: 0.65 };
+const hpValueStyle: CSSProperties = { fontWeight: 500 };
+const hpMaxStyle: CSSProperties = { opacity: 0.55, marginLeft: 1 };
 
 const statusRowStyle: CSSProperties = {
   display: 'flex',

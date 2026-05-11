@@ -17,6 +17,7 @@ import {
   type GameState,
   type Unit,
 } from '@engine/index.ts';
+import { portraitUrlFor } from '../assets/portraits/index.ts';
 
 export interface UnitDetailPanelProps {
   readonly state: GameState;
@@ -80,10 +81,13 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
       <div style={backdropStyle} onClick={onClose} />
       <aside style={panelStyle} aria-label={`Detail: ${unit.name}`}>
         <header style={headerStyle}>
-          <div>
-            <div style={nameStyle}>{unit.name}</div>
-            <div style={subStyle}>
-              {cls.name} · Team {String(unit.team)}
+          <div style={headerLeftStyle}>
+            <PortraitImage classId={unit.classState.currentClass} size={64} />
+            <div>
+              <div style={nameStyle}>{unit.name}</div>
+              <div style={subStyle}>
+                {cls.name} · Team {String(unit.team)}
+              </div>
             </div>
           </div>
           <button type="button" style={closeButtonStyle} onClick={onClose}>×</button>
@@ -212,6 +216,43 @@ function Empty({ children }: { readonly children: React.ReactNode }): ReactEleme
   return <div style={emptyStyle}>{children}</div>;
 }
 
+// Portrait image — renders the class portrait at the requested square
+// size. Falls back to a neutral placeholder block when no portrait is
+// registered for the class.
+function PortraitImage(props: {
+  readonly classId: import('@engine/index.ts').ClassId;
+  readonly size: number;
+}): ReactElement {
+  const { classId, size } = props;
+  const url = portraitUrlFor(classId);
+  if (url === null) {
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          background: '#2a3140',
+          borderRadius: 6,
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt=""
+      style={{
+        width: size,
+        height: size,
+        objectFit: 'cover',
+        borderRadius: 6,
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
 // ---- styles ----
 
 const backdropStyle: CSSProperties = {
@@ -244,6 +285,14 @@ const headerStyle: CSSProperties = {
   justifyContent: 'space-between',
   alignItems: 'flex-start',
   marginBottom: 12,
+  gap: 10,
+};
+
+const headerLeftStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  minWidth: 0,
 };
 
 const nameStyle: CSSProperties = {

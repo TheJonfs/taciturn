@@ -13,7 +13,7 @@
 // permadeath rule). The team color stays so allegiance reads even
 // when downed.
 
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Sprite, Text, type Texture } from 'pixi.js';
 import type { Direction, StatusInstance, Unit } from '@engine/index.ts';
 import {
   ACTIVE_HIGHLIGHT_COLOR,
@@ -24,6 +24,8 @@ import {
   HP_BAR_BG,
   HP_BAR_FG,
   HP_BAR_FG_LOW,
+  HP_BAR_FG_MID,
+  HP_BAR_HIGH_THRESHOLD,
   HP_BAR_LOW_THRESHOLD,
   KO_ALPHA,
   KO_X_ALPHA,
@@ -108,12 +110,23 @@ export class UnitSprite {
   private readonly mpBar: Graphics;
   private readonly activeRing: Graphics;
   private readonly counterpartRing: Graphics;
+  private readonly teamRing: Graphics;
   private readonly koMarker: Graphics;
   private readonly statusRow: Container;
   private readonly teamColor: number;
+  // Portrait sprite — null until `setPortrait` is called (async asset
+  // load) or if the class has no portrait registered. Drawn over the
+  // colored body when present; the body stays underneath as the
+  // fallback layer (and a backdrop in case the portrait has alpha).
+  private portraitSprite: Sprite | null = null;
+  // Whether the enemy-team horizontal flip has been applied. Set once
+  // at construction so portraitSprite picks it up regardless of the
+  // load order vs. construction.
+  private readonly isEnemyTeam: boolean;
 
-  constructor(unit: Unit) {
+  constructor(unit: Unit, opts?: { readonly enemyTeam?: boolean }) {
     this.teamColor = TEAM_COLORS.get(unit.team) ?? TEAM_COLOR_FALLBACK;
+    this.isEnemyTeam = opts?.enemyTeam ?? false;
 
     this.container = new Container();
     this.container.label = `unit:${unit.id}`;
@@ -121,6 +134,7 @@ export class UnitSprite {
 
     this.counterpartRing = new Graphics();
     this.activeRing = new Graphics();
+    this.teamRing = new Graphics();
     this.body = new Graphics();
     this.facingTick = new Graphics();
     this.koMarker = new Graphics();
@@ -129,9 +143,12 @@ export class UnitSprite {
     this.statusRow = new Container();
     this.statusRow.label = 'statuses';
 
+    // teamRing sits behind the body so the team-color halo surrounds
+    // the portrait once it loads (and the colored body before).
     this.container.addChild(
       this.counterpartRing,
       this.activeRing,
+      this.teamRing,
       this.body,
       this.facingTick,
       this.koMarker,
@@ -162,6 +179,7 @@ export class UnitSprite {
     // clearly inert.
     this.container.alpha = state.ko ? KO_ALPHA : 1;
     this.drawBody(state.flash);
+    this.drawTeamRing();
     this.drawFacing(state.facing, state.ko);
     this.drawKoMarker(state.ko);
     this.drawHpBar(state.hp, state.maxHp);
@@ -169,6 +187,54 @@ export class UnitSprite {
     this.drawActive(state.active && !state.ko);
     this.drawCounterpart(state.counterpart);
     this.drawStatuses(state.statuses, state.ko);
+    // Hit-flash on the portrait: lerp tint toward HIT_FLASH_COLOR so a
+    // damage event still reads visibly even when the colored-body's
+    // flash overlay is occluded by the portrait sprite.
+    if (this.portraitSprite !== null) {
+      this.portraitSprite.tint = lerpTint(0xffffff, HIT_FLASH_COLOR, clamp01(state.flash));
+    }
+  }
+
+  // Attach a portrait texture to this sprite. Called by BattleRenderer
+  // once class textures finish loading (async). When set, the portrait
+  // sprite is drawn over the colored body; the body remains as a
+  // backdrop for translucent portraits and for the fallback path
+  // (no texture available).
+  setPortrait(texture: Texture): void {
+    if (this.portraitSprite !== null) {
+      // Re-assignment shouldn't happen in v1, but be defensive:
+      // swap the texture rather than re-add a sibling sprite.
+      this.portraitSprite.texture = texture;
+      return;
+    }
+    const sprite = new Sprite(texture);
+    sprite.anchor.set(0.5, 0.5);
+    const target = UNIT_RADIUS * 2;
+    const src = Math.max(texture.width, texture.height, 1);
+    sprite.scale.set(target / src);
+    if (this.isEnemyTeam) {
+      // Horizontal flip so the enemy faces the player's side. Anchor
+      // at 0.5 keeps the flip centered on the unit's tile.
+      sprite.scale.x *= -1;
+    }
+    this.portraitSprite = sprite;
+    // Insert above the body but below the facing tick / HP / status
+    // overlays. Container children order: ... teamRing, body, [portrait],
+    // facingTick, koMarker, hpBar, mpBar, statusRow.
+    const bodyIndex = this.container.getChildIndex(this.body);
+    this.container.addChildAt(sprite, bodyIndex + 1);
+  }
+
+  private drawTeamRing(): void {
+    const g = this.teamRing;
+    g.clear();
+    // Team-color stroke around the unit token. Visible behind the
+    // portrait sprite (the portrait covers the body but not the
+    // outer ring). When no portrait is attached, the colored body
+    // fills the disc and the ring shows as a slightly emphasized
+    // border; visually consistent in both cases.
+    g.circle(0, 0, UNIT_RADIUS + 1);
+    g.stroke({ color: this.teamColor, width: 3, alpha: 1 });
   }
 
   private drawKoMarker(ko: boolean): void {
@@ -233,7 +299,12 @@ export class UnitSprite {
     g.rect(x, y, HP_BAR_WIDTH, HP_BAR_HEIGHT);
     g.fill({ color: HP_BAR_BG, alpha: 0.9 });
     if (fraction > 0) {
-      const fg = fraction <= HP_BAR_LOW_THRESHOLD ? HP_BAR_FG_LOW : HP_BAR_FG;
+      const fg =
+        fraction <= HP_BAR_LOW_THRESHOLD
+          ? HP_BAR_FG_LOW
+          : fraction <= HP_BAR_HIGH_THRESHOLD
+            ? HP_BAR_FG_MID
+            : HP_BAR_FG;
       g.rect(x, y, HP_BAR_WIDTH * fraction, HP_BAR_HEIGHT);
       g.fill(fg);
     }
@@ -357,6 +428,21 @@ function clamp01(v: number): number {
   if (v < 0) return 0;
   if (v > 1) return 1;
   return v;
+}
+
+// Linearly interpolate between two RGB color ints. Used for the
+// portrait tint hit-flash. t=0 → a, t=1 → b.
+function lerpTint(a: number, b: number, t: number): number {
+  const ar = (a >> 16) & 0xff;
+  const ag = (a >> 8) & 0xff;
+  const ab = a & 0xff;
+  const br = (b >> 16) & 0xff;
+  const bg = (b >> 8) & 0xff;
+  const bb = b & 0xff;
+  const r = Math.round(ar + (br - ar) * t);
+  const g = Math.round(ag + (bg - ag) * t);
+  const bl = Math.round(ab + (bb - ab) * t);
+  return (r << 16) | (g << 8) | bl;
 }
 
 function glyphFor(typeId: string): string {

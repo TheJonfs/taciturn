@@ -24,10 +24,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { trainingFieldBattle } from '@content/battles/training-field-battle.ts';
-import { createInitialState, type Catalog, type GameState, type UnitId } from '@engine/index.ts';
+import {
+  createInitialState,
+  type Catalog,
+  type ChargedActionId,
+  type GameState,
+  type UnitId,
+} from '@engine/index.ts';
 import { BattleRenderer, type PanInput } from '@renderer/index.ts';
 import {
   BattleHud,
+  ChargedActionDetailPanel,
   ForecastTooltip,
   PauseOverlay,
   ResultsScreen,
@@ -72,6 +79,7 @@ function BattleViewInner() {
   const [renderer, setRenderer] = useState<BattleRenderer | null>(null);
   const [paused, setPaused] = useState<boolean>(false);
   const [detailUnitId, setDetailUnitId] = useState<UnitId | null>(null);
+  const [chargedDetailId, setChargedDetailId] = useState<ChargedActionId | null>(null);
   // When the results screen has been dismissed by the user, we don't
   // re-show it on subsequent re-renders. Stored separately from
   // `latestState.outcome` so the player can close + re-open via... well,
@@ -350,6 +358,7 @@ function BattleViewInner() {
         turnFlow={turnFlow}
         onHoverParticipants={handleHoverParticipants}
         onOpenUnitDetail={(id) => setDetailUnitId(id)}
+        onOpenChargedActionDetail={(id) => setChargedDetailId(id)}
       />
       <ForecastTooltip
         forecast={turnFlow.forecast}
@@ -362,6 +371,15 @@ function BattleViewInner() {
           catalog={catalog}
           unit={detailUnit}
           onClose={() => setDetailUnitId(null)}
+        />
+      )}
+      {chargedDetailId !== null && latestState !== null && (
+        <ChargedActionDetailPanel
+          state={latestState}
+          catalog={catalog}
+          renderer={renderer}
+          chargedActionId={chargedDetailId}
+          onClose={() => setChargedDetailId(null)}
         />
       )}
       {paused && <PauseOverlay onResume={() => setPaused(false)} />}

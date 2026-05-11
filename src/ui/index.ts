@@ -18,6 +18,10 @@ export { ActionLogPanel, type ActionLogPanelProps } from './action-log-panel.tsx
 export { ForecastPanel, type ForecastPanelProps } from './forecast-panel.tsx';
 export { ForecastTooltip, type ForecastTooltipProps } from './forecast-tooltip.tsx';
 export { UnitDetailPanel, type UnitDetailPanelProps } from './unit-detail-panel.tsx';
+export {
+  ChargedActionDetailPanel,
+  type ChargedActionDetailPanelProps,
+} from './charged-action-detail-panel.tsx';
 export { ResultsScreen, type ResultsScreenProps } from './results-screen.tsx';
 export { PauseOverlay, type PauseOverlayProps } from './pause-overlay.tsx';
 export {
