@@ -34,3 +34,8 @@ export {
   type AoePreviewTile,
   type ProjectAoePreviewArgs,
 } from './aoe-preview.ts';
+export {
+  estimateChargedTiming,
+  type EstimateChargedTimingArgs,
+  type ChargedTimingResult,
+} from './charged-timing.ts';

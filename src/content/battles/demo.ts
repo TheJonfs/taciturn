@@ -90,7 +90,8 @@ const KNIGHT_LOADOUT: UnitPlacement['loadout'] = {
 // Earth Mage loadout (session 17b — first non-Knight class wired into
 // the demo): Earth Spells on First Action (class-pinned), White Magic
 // on Second Action so the mage has a backup tool, Earth Resilience in
-// the Reaction bucket, Earth Communion in Support, Move +1 in Movement.
+// the Reaction bucket, Earth Communion in Support, Bedrock Stride in
+// Movement (session 26.5: +1 moveRange + falling-damage immunity).
 const EARTH_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
     [bucketId('first_action')]: commandSetId('earth_spells'),
@@ -99,7 +100,7 @@ const EARTH_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   passiveBuckets: {
     [bucketId('reaction')]: [abilityId('earth_resilience')],
     [bucketId('support')]: [abilityId('earth_communion')],
-    [bucketId('movement')]: [abilityId('move_plus_1')],
+    [bucketId('movement')]: [abilityId('bedrock_stride')],
   },
 };
 
@@ -107,7 +108,8 @@ const EARTH_MAGE_LOADOUT: UnitPlacement['loadout'] = {
 // demo): Water Spells on First Action (class-pinned), White Magic on
 // Second Action for Cure backup, Tidal Pull in the Reaction bucket
 // (self-CT bump on damage), Flow State in Support (CT refund on magic
-// actions), Move +1 in Movement.
+// actions), Tidewalker in Movement (session 26.5: water-tile cost
+// clamp; v1-marginal until elevated water-cost terrain ships).
 const WATER_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
     [bucketId('first_action')]: commandSetId('water_spells'),
@@ -116,7 +118,7 @@ const WATER_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   passiveBuckets: {
     [bucketId('reaction')]: [abilityId('tidal_pull')],
     [bucketId('support')]: [abilityId('flow_state')],
-    [bucketId('movement')]: [abilityId('move_plus_1')],
+    [bucketId('movement')]: [abilityId('tidewalker')],
   },
 };
 
@@ -124,8 +126,8 @@ const WATER_MAGE_LOADOUT: UnitPlacement['loadout'] = {
 // demo): Fire Spells on First Action (class-pinned), White Magic on
 // Second Action for Cure backup, Smolder in the Reaction bucket
 // (Burn-on-attacker), Ignition + Aether Bloom in Support (both free
-// for Fire Mage — Burn-on-magical-damage and AoE expansion), Move +1
-// in Movement.
+// for Fire Mage — Burn-on-magical-damage and AoE expansion), Hotfoot
+// in Movement (session 26.5: +1 moveRange + +1 spd).
 const FIRE_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
     [bucketId('first_action')]: commandSetId('fire_spells'),
@@ -134,7 +136,7 @@ const FIRE_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   passiveBuckets: {
     [bucketId('reaction')]: [abilityId('smolder')],
     [bucketId('support')]: [abilityId('ignition'), abilityId('aether_bloom')],
-    [bucketId('movement')]: [abilityId('move_plus_1')],
+    [bucketId('movement')]: [abilityId('hotfoot')],
   },
 };
 
@@ -142,7 +144,8 @@ const FIRE_MAGE_LOADOUT: UnitPlacement['loadout'] = {
 // demo): Lightning Spells on First Action (class-pinned), White Magic
 // on Second Action for Cure backup, Discharge in the Reaction bucket
 // (free for Lightning Mage — magical retaliation), Conductor in
-// Support (free — × 1.25 MA multiplier), Move +1 in Movement.
+// Support (free — × 1.25 MA multiplier), Quickstep in Movement
+// (session 26.5: onTurnEnd CT refund of +MA on Move-committed turns).
 const LIGHTNING_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
     [bucketId('first_action')]: commandSetId('lightning_spells'),
@@ -151,7 +154,7 @@ const LIGHTNING_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   passiveBuckets: {
     [bucketId('reaction')]: [abilityId('discharge')],
     [bucketId('support')]: [abilityId('conductor')],
-    [bucketId('movement')]: [abilityId('move_plus_1')],
+    [bucketId('movement')]: [abilityId('quickstep')],
   },
 };
 

@@ -32,6 +32,9 @@ import {
   KO_X_COLOR,
   KO_X_WIDTH,
   MP_BAR_FG,
+  PORTRAIT_BG_COLOR,
+  PORTRAIT_FRAME_CORNER,
+  PORTRAIT_FRAME_WIDTH,
   STATUS_BADGE_BG_NEGATIVE,
   STATUS_BADGE_BG_NEUTRAL,
   STATUS_BADGE_BG_POSITIVE,
@@ -228,13 +231,13 @@ export class UnitSprite {
   private drawTeamRing(): void {
     const g = this.teamRing;
     g.clear();
-    // Team-color stroke around the unit token. Visible behind the
-    // portrait sprite (the portrait covers the body but not the
-    // outer ring). When no portrait is attached, the colored body
-    // fills the disc and the ring shows as a slightly emphasized
-    // border; visually consistent in both cases.
-    g.circle(0, 0, UNIT_RADIUS + 1);
-    g.stroke({ color: this.teamColor, width: 3, alpha: 1 });
+    // Session 26.5 (item #2): team-color rounded-square frame drawn
+    // OUTSIDE the portrait square. Pre-26.5 the ring was inscribed in
+    // a circle at body-edge, which clipped the portrait's corners. Now
+    // the ring frames the full portrait square; corners read clean.
+    const r = UNIT_RADIUS + PORTRAIT_FRAME_WIDTH / 2;
+    g.roundRect(-r, -r, r * 2, r * 2, PORTRAIT_FRAME_CORNER);
+    g.stroke({ color: this.teamColor, width: PORTRAIT_FRAME_WIDTH, alpha: 1 });
   }
 
   private drawKoMarker(ko: boolean): void {
@@ -268,12 +271,20 @@ export class UnitSprite {
   private drawBody(flash: number): void {
     const g = this.body;
     g.clear();
-    g.circle(0, 0, UNIT_RADIUS);
-    g.fill(this.teamColor);
+    // Session 26.5 (item #2): black square backdrop matching portrait
+    // bounds. The portrait sprite (if loaded) sits directly on top; if
+    // the portrait fails / isn't registered, the black backdrop reads
+    // as "portrait pending" rather than the prior colored-circle
+    // identity. Team identity is carried by the outer frame.
+    g.rect(-UNIT_RADIUS, -UNIT_RADIUS, UNIT_RADIUS * 2, UNIT_RADIUS * 2);
+    g.fill(PORTRAIT_BG_COLOR);
     g.stroke({ color: UNIT_OUTLINE_COLOR, alpha: UNIT_OUTLINE_ALPHA, width: 2 });
 
     if (flash > 0) {
-      g.circle(0, 0, UNIT_RADIUS);
+      // Hit-flash overlay on the body (visible during the fallback
+      // path when no portrait sprite is attached). The portrait
+      // sprite's own tint-flash continues to handle the loaded case.
+      g.rect(-UNIT_RADIUS, -UNIT_RADIUS, UNIT_RADIUS * 2, UNIT_RADIUS * 2);
       g.fill({ color: HIT_FLASH_COLOR, alpha: Math.min(1, flash) });
     }
   }

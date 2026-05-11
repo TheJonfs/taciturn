@@ -61,6 +61,11 @@ export class BattleRenderer {
   private lastHoverKey: string | null = null;
   private paused: boolean = false;
   private counterpartUnits: ReadonlySet<UnitId> = new Set();
+  // Tracks the last set of tiles painted by the animator's
+  // charged-resolve pre-highlight (session 26.5 / item #5). Used to
+  // avoid setHighlightOverlay churn at 60fps — we only repaint on
+  // transitions (anim starts → tiles list; anim ends → empty).
+  private lastTileHighlightKey: string = '';
   // Texture cache for class portraits, populated asynchronously after
   // mount via `loadPortraitAssets`. Sprites created for units added
   // after a texture is cached (mid-battle summons, future work) read
@@ -402,12 +407,29 @@ export class BattleRenderer {
     if (!this.paused) {
       this.animator.tick(dtMs);
       this.updateCameraTarget();
+      this.syncChargedTileHighlight();
     }
     // Camera input keeps working while paused — the user can still pan
     // and zoom around to inspect the frozen state.
     this.camera?.update(dtMs);
     this.applyVisualState();
     this.camera?.apply(this.world);
+  }
+
+  // Sync the highlight overlay channel with the animator's current
+  // tile-highlight anim. Session 26.5 (item #5) — the pre-resolve cue
+  // for charged actions. Repaints only on transitions (anim start /
+  // anim end) to avoid driving the overlay each frame.
+  private syncChargedTileHighlight(): void {
+    const tiles = this.animator.getTileHighlightPositions();
+    const key = tiles.map((t) => `${t.x},${t.y},${t.layer}`).join('|');
+    if (key === this.lastTileHighlightKey) return;
+    this.lastTileHighlightKey = key;
+    if (tiles.length === 0) {
+      this.highlightLayer.setOverlay([], 'none');
+    } else {
+      this.highlightLayer.setOverlay(tiles, 'aoe');
+    }
   }
 
   private updateCameraTarget(): void {

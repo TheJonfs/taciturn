@@ -23,7 +23,10 @@ import type { Action, Direction, Position, UnitId } from '@engine/index.ts';
 import {
   ATTACK_FLASH_DURATION_MS,
   BATTLE_END_HOLD_MS,
+  CHARGED_RESOLVE_FLASH_DURATION_MS,
   MOVE_STEP_DURATION_MS,
+  PRE_RESOLVE_HIGHLIGHT_MS,
+  TILE_SIZE,
   TURN_END_PAUSE_MS,
   TURN_START_PAUSE_MS,
 } from './constants.ts';
@@ -75,11 +78,26 @@ interface PauseAnim {
   elapsed: number;
 }
 
-type Anim = MoveAnim | FlashAnim | PauseAnim;
+// Pre-resolve tile highlight — session 26.5 / item #5. Paints a set of
+// tile positions while it elapses; the renderer reads `getTileHighlight`
+// each frame and forwards to `HighlightLayer.setOverlay`.
+interface TileHighlightAnim {
+  readonly kind: 'tile_highlight';
+  readonly tiles: ReadonlyArray<Position>;
+  readonly totalMs: number;
+  elapsed: number;
+}
+
+type Anim = MoveAnim | FlashAnim | PauseAnim | TileHighlightAnim;
 
 export class Animator {
   private readonly snapshots: Map<UnitId, UnitVisualSnapshot> = new Map();
   private readonly queue: Action[] = [];
+  // Multi-anim staging: some actions (charged_action_resolve) produce a
+  // sequence of anims rather than a single one. `pendingAnims` holds
+  // the follow-ups; `startNext` drains it before pulling the next
+  // action from `queue`.
+  private readonly pendingAnims: Anim[] = [];
   private current: Anim | null = null;
   private activeUnit: UnitId | null = null;
 
@@ -96,7 +114,18 @@ export class Animator {
   }
 
   isIdle(): boolean {
-    return this.current === null && this.queue.length === 0;
+    return this.current === null && this.queue.length === 0 && this.pendingAnims.length === 0;
+  }
+
+  // Read by the renderer each frame to paint a charged-action's
+  // pre-resolve tile highlight (session 26.5 / item #5). Returns an
+  // empty array when the current anim is not a tile-highlight or when
+  // idle. The renderer paints only on transitions to avoid 60fps churn.
+  getTileHighlightPositions(): ReadonlyArray<Position> {
+    if (this.current !== null && this.current.kind === 'tile_highlight') {
+      return this.current.tiles;
+    }
+    return [];
   }
 
   enqueue(actions: ReadonlyArray<Action>): void {
@@ -124,7 +153,10 @@ export class Animator {
         this.applyFlashTween(a, t);
         break;
       case 'pause':
-        // pure delay — nothing to apply
+      case 'tile_highlight':
+        // pure delay — nothing to apply on the snapshot side. The
+        // renderer reads `getTileHighlightPositions()` to paint the
+        // tiles during the tile_highlight window.
         break;
     }
 
@@ -140,13 +172,28 @@ export class Animator {
   // ---- internals ----
 
   private startNext(): void {
-    while (this.current === null && this.queue.length > 0) {
+    while (this.current === null) {
+      // Drain pending follow-up anims before pulling the next committed
+      // action. charged_action_resolve uses this to chain tile_highlight
+      // → flash from a single Action.
+      if (this.pendingAnims.length > 0) {
+        this.current = this.pendingAnims.shift()!;
+        return;
+      }
+      if (this.queue.length === 0) return;
       const action = this.queue.shift()!;
-      this.current = this.buildAnim(action);
+      const built = this.buildAnim(action);
+      if (built === null) continue;
+      if (Array.isArray(built)) {
+        this.current = built[0] ?? null;
+        for (let i = 1; i < built.length; i++) this.pendingAnims.push(built[i]!);
+      } else {
+        this.current = built;
+      }
     }
   }
 
-  private buildAnim(action: Action): Anim | null {
+  private buildAnim(action: Action): Anim | ReadonlyArray<Anim> | null {
     switch (action.type) {
       case 'move': {
         if (action.actorId === undefined) return null;
@@ -207,7 +254,25 @@ export class Animator {
       case 'charged_action_resolve': {
         const outcome = action.outcome;
         if (outcome === undefined) return null;
-        return this.buildFlashFromTargets(outcome.perTargetResults);
+        // Session 26.5 (item #5): pre-resolve tile highlight + longer
+        // flash dwell so the cast reads as a discrete event. Highlight
+        // tiles are derived from per-target results (tile-kind targets
+        // contribute their position; unit-kind targets contribute the
+        // unit's current tile inferred from the snapshot). Empty list
+        // → skip the highlight stage and play just the longer flash.
+        const tiles = this.tilesFromTargets(outcome.perTargetResults);
+        const flash = this.buildFlashFromTargets(
+          outcome.perTargetResults,
+          CHARGED_RESOLVE_FLASH_DURATION_MS,
+        );
+        if (tiles.length === 0) return flash;
+        const highlight: TileHighlightAnim = {
+          kind: 'tile_highlight',
+          tiles,
+          totalMs: PRE_RESOLVE_HIGHLIGHT_MS,
+          elapsed: 0,
+        };
+        return [highlight, flash];
       }
 
       case 'system_damage': {
@@ -321,6 +386,7 @@ export class Animator {
         return;
       }
       case 'pause':
+      case 'tile_highlight':
         return;
     }
   }
@@ -329,8 +395,13 @@ export class Animator {
   // charged_action_resolve share the same outcome shape). Filters out
   // misses + non-unit targets. Returns a brief pause when no unit was
   // actually affected so the action still reads as a beat.
+  //
+  // `durationMs` defaults to `ATTACK_FLASH_DURATION_MS`. Session 26.5
+  // (item #5) overrides for charged_action_resolve so the dwell reads
+  // as a discrete event.
   private buildFlashFromTargets(
     results: ReadonlyArray<import('@engine/index.ts').AbilityTargetResult>,
+    durationMs: number = ATTACK_FLASH_DURATION_MS,
   ): Anim {
     const specs: FlashTargetSpec[] = [];
     for (const result of results) {
@@ -350,14 +421,47 @@ export class Animator {
       });
     }
     if (specs.length === 0) {
-      return { kind: 'pause', totalMs: ATTACK_FLASH_DURATION_MS / 2, elapsed: 0 };
+      return { kind: 'pause', totalMs: durationMs / 2, elapsed: 0 };
     }
     return {
       kind: 'flash',
       targets: specs,
-      totalMs: ATTACK_FLASH_DURATION_MS,
+      totalMs: durationMs,
       elapsed: 0,
     };
+  }
+
+  // Derive tile positions for the pre-resolve highlight from per-target
+  // results. Tile-kind targets contribute their position directly.
+  // Unit-kind targets are inferred from the unit's current snapshot
+  // position (converted back to tile-space). Duplicates are filtered so
+  // overlapping units in a footprint don't double-paint.
+  private tilesFromTargets(
+    results: ReadonlyArray<import('@engine/index.ts').AbilityTargetResult>,
+  ): ReadonlyArray<Position> {
+    const seen = new Set<string>();
+    const out: Position[] = [];
+    for (const r of results) {
+      if (!r.hit) continue;
+      let pos: Position | null = null;
+      if (r.target.kind === 'tile') {
+        pos = r.target.position;
+      } else if (r.target.kind === 'unit') {
+        const snap = this.snapshots.get(r.target.unitId);
+        if (snap === undefined) continue;
+        pos = {
+          x: Math.floor(snap.position.x / TILE_SIZE),
+          y: Math.floor(snap.position.y / TILE_SIZE),
+          layer: 0,
+        };
+      }
+      if (pos === null) continue;
+      const key = `${pos.x},${pos.y},${pos.layer}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(pos);
+    }
+    return out;
   }
 }
 

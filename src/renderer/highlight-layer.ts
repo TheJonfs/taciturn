@@ -21,6 +21,8 @@ import {
   HIGHLIGHT_ALPHA,
   HIGHLIGHT_COLORS,
   HIGHLIGHT_OVERLAY_ALPHA,
+  HIGHLIGHT_STROKE_ALPHA,
+  HIGHLIGHT_STROKE_WIDTH,
   TILE_INSET,
   TILE_SIZE,
 } from './constants.ts';
@@ -74,5 +76,8 @@ function drawHighlights(
     const size = TILE_SIZE - TILE_INSET;
     g.rect(px, py, size, size);
     g.fill({ color, alpha });
+    // Stroke outline gives a hard edge that reads against any terrain
+    // texture, including the new grass overlay (session 26.5 polish).
+    g.stroke({ color, alpha: HIGHLIGHT_STROKE_ALPHA, width: HIGHLIGHT_STROKE_WIDTH });
   }
 }

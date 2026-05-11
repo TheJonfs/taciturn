@@ -20,8 +20,7 @@ import { useEffect, type CSSProperties, type ReactElement } from 'react';
 import {
   aoeFootprint,
   cardinalFromTo,
-  computeSpeed,
-  projectUpcoming,
+  projectChargedResolution,
   tileAt,
   type Catalog,
   type ChargedActionId,
@@ -99,15 +98,23 @@ export function ChargedActionDetailPanel(props: ChargedActionDetailPanelProps): 
   const abilityName = ability?.name ?? String(charged.abilityId);
   const casterName = caster?.name ?? String(charged.casterId);
 
-  // Timing: estimate ticks to resolve using `(100 - ct) / speed`. The
-  // engine uses computeActionSpeed at commit which factors caster MA;
-  // close enough for the panel's purposes. Project upcoming events to
-  // count how many fire before the spell resolves.
-  const ticksToResolve = charged.speed > 0
-    ? Math.max(0, Math.ceil((100 - charged.ct) / charged.speed))
-    : 0;
-  const events = projectUpcoming(state, 20, catalog);
-  const eventsBeforeResolve = events.filter((e) => e.ticksFromNow < ticksToResolve).length;
+  // Timing: use the engine's schedule-walk via `projectChargedResolution`
+  // (session 26.5 / item #3). Walks all CT entities forward and finds
+  // this charged action's exact resolution event; accounts for other
+  // in-flight charges that would resolve first and reshape the schedule.
+  // Falls back to the naive `(100 - ct) / speed` only when the charged
+  // action is outside the projection horizon (very slow / paused).
+  const resolution = projectChargedResolution({
+    state,
+    catalog,
+    chargedActionId,
+  });
+  const ticksToResolve = resolution !== null
+    ? resolution.resolutionEvent.ticksFromNow
+    : charged.speed > 0
+      ? Math.max(0, Math.ceil((100 - charged.ct) / charged.speed))
+      : 0;
+  const eventsBeforeResolve = resolution?.eventsBeforeResolve ?? 0;
 
   return (
     <>
@@ -236,12 +243,6 @@ function describeTarget(
   }
   return '(unknown target)';
 }
-
-// Suppress unused import warning until casterSpeed lookup is wired in.
-// `computeSpeed` is exported for future tuning of the ticksToResolve
-// estimate (factoring caster MA / haste through the modifyStatQuery
-// chain rather than the raw `charged.speed` snapshot).
-void computeSpeed;
 
 // ---- subcomponents ----
 

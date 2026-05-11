@@ -13,6 +13,7 @@
 import { projectUpcoming, type ProjectedEvent } from '../ct/projection.ts';
 import { TRIGGER_THRESHOLD } from '../ct/constants.ts';
 import type { Catalog } from '../catalog/index.ts';
+import { runOnTurnEnd } from '../hooks/runners.ts';
 import type { GameState, Unit, UnitId } from '../types/index.ts';
 
 // The action menu's "what if I do X next?" planning kinds. Mirrors the
@@ -31,9 +32,19 @@ export interface ProjectTurnEndCtArgs {
 }
 
 // Projected CT at turn end if the active unit commits `plannedNext` now
-// (consuming whatever budget that implies). Returns the CT post-cost,
-// floored at 0. Used by the action menu's per-option "(end CT: N)"
-// annotation and the forecast panel's "End-of-turn CT" line.
+// (consuming whatever budget that implies). Returns the CT post-cost
+// plus any `system_ct_push` deltas emitted by `onTurnEnd` handlers on
+// the unit (per ADR-0053). Floored at 0.
+//
+// The `onTurnEnd` dry-run mirrors `reduceTurnEnd`'s fire-site: a
+// synthetic state is constructed with the unit's CT post-decrement and
+// `turnState.consumed` reflecting `plannedNext`, then `runOnTurnEnd`
+// reads emissions without committing them. Any `system_ct_push`
+// targeting the unit is summed into the displayed leftover. The runner
+// is pure (ADR-0053), so the dry-run is free of side effects.
+//
+// Used by the action menu's per-option "(end CT: N)" annotation and the
+// forecast panel's "End-of-turn CT" line.
 export function projectTurnEndCt(args: ProjectTurnEndCtArgs): number {
   const ruleset = args.catalog.getRuleset(args.state.ruleset.id);
   const consumed = args.state.turnState?.consumed;
@@ -71,7 +82,35 @@ export function projectTurnEndCt(args: ProjectTurnEndCtArgs): number {
   else if (nextMoves > 0) ctCost = ruleset.ctCosts.moveOnly;
   else ctCost = ruleset.ctCosts.wait;
 
-  return Math.max(0, args.unit.ct - ctCost);
+  const postCostCt = Math.max(0, args.unit.ct - ctCost);
+
+  // Dry-run the onTurnEnd hook chain to capture any system_ct_push
+  // refunds (Quickstep, future end-of-turn procs). Only meaningful when
+  // the unit is mid-turn — defensive guards for the off-turn case.
+  if (args.state.turnState === null) return postCostCt;
+  if (args.state.turnState.unitId !== args.unit.id) return postCostCt;
+
+  const projectedUnit: Unit = { ...args.unit, ct: postCostCt };
+  const projectedTurnState = {
+    ...args.state.turnState,
+    consumed: { movesConsumed: nextMoves, actsConsumed: nextActs },
+  };
+  const projectedUnits = new Map(args.state.units);
+  projectedUnits.set(args.unit.id, projectedUnit);
+  const projectedState: GameState = {
+    ...args.state,
+    units: projectedUnits,
+    turnState: projectedTurnState,
+  };
+
+  const emissions = runOnTurnEnd(projectedState, args.catalog, { unit: projectedUnit });
+  let refundDelta = 0;
+  for (const e of emissions) {
+    if (e.type === 'system_ct_push' && e.payload.targetId === args.unit.id) {
+      refundDelta += e.payload.delta;
+    }
+  }
+  return Math.max(0, postCostCt + refundDelta);
 }
 
 // Projection of a charged action's resolution position in the event
@@ -82,8 +121,15 @@ export function projectTurnEndCt(args: ProjectTurnEndCtArgs): number {
 export interface ChargedResolutionProjection {
   readonly resolutionEvent: ProjectedEvent;
   readonly surroundingEvents: ReadonlyArray<ProjectedEvent>;
-  // 0-indexed position of `resolutionEvent` inside `surroundingEvents`.
+  // 0-indexed position of `resolutionEvent` inside `surroundingEvents`
+  // (the trimmed window). For the full-projection position, see
+  // `eventsBeforeResolve`.
   readonly resolutionIndex: number;
+  // Count of events that fire before the resolution across the full
+  // projection horizon. Equals the resolve's index in the un-trimmed
+  // event list — i.e., how many turns / charged-resolves slot in
+  // chronologically ahead of this one. Session 26.5 (item #3).
+  readonly eventsBeforeResolve: number;
   // The next unit-turn for `concernedUnitId` after the resolution, if any
   // — used by the design doc's "Resolves BEFORE / AFTER target's next
   // turn" pass/fail line. `null` when the target has no upcoming turn in
@@ -129,7 +175,13 @@ export function projectChargedResolution(
       }
     }
   }
-  return { resolutionEvent, surroundingEvents, resolutionIndex, targetNextTurnEvent };
+  return {
+    resolutionEvent,
+    surroundingEvents,
+    resolutionIndex,
+    eventsBeforeResolve: idx,
+    targetNextTurnEvent,
+  };
 }
 
 // Crude "what does CT look like right after this unit acts?" projection

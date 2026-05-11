@@ -21,168 +21,139 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-11 (Session 26 — Movement abilities + terrain infra + content tweaks)
+## From session 2026-05-11 (Session 26.5 — Polish pass: 9 items landed, ADR-0055)
 
-Session 26 landed Phase B's content batch: four new Movement-bucket passives (Bedrock Stride, Hotfoot, Tidewalker, Quickstep), AoE base-shape consistency (cross r1 → diamond r1 on Earth Quake / Earth Cataclysm / Fire Storm), terrain texture loading infrastructure with deterministic per-tile variant pick, and the content-snapshot doc refresh. Two engine extensions were required and landed (with ADRs).
-
-Tests: **715 passing across 62 files, 0 failing** (up from 684). +31 new tests: 5 modifySystemDamage + 3 onTurnEnd-emit + 5 AoE-shape declarations/footprint + 10 movement-abilities + 8 terrain variant-pick + manifest.
+Session 26.5 was the polish pass wedged between Phase B's content sessions (25/26) and Phase C's engine work (27). Nine items in scope, all landed in one session (no 26.5a/26.5b split needed). Tests: **725 passing across 63 files, 0 failing** (up from 715). +10 new tests: 6 charged-timing schedule-walk + 4 projectTurnEndCt onTurnEnd dry-run.
 
 ### Scope completed
 
-**Engine extensions (new this session):**
+**Pure-logic / engine surface (this session):**
 
-1. **`modifySystemDamage` hook (ADR-0052).** Single modification seam for engine-emitted damage actions. Fires inside `reduceSystemDamage` against the target's hooks before HP-delta apply. Chain composes multiplicatively; reducer clamps negatives to 0. Bedrock Stride's `source.kind === 'falling'` → return 0 is the first consumer.
+1. **`projectTurnEndCt` dry-runs `onTurnEnd` (item #9).** The forecast helper now constructs a synthetic post-cost-decrement state and calls `runOnTurnEnd` against it; any `system_ct_push` emissions targeting the unit are summed into the displayed leftover CT. The runner is pure per ADR-0053, so the dry-run is emission-only with no side effects. Lightning Mage with Quickstep equipped now sees the correct "CT after: N" in the action menu (pre-26.5 showed pre-refund value, then the action log added +MA on top, visually disagreeing). 4 new tests cover Quickstep-pattern emit/skip cases + regression baseline for handler-less units.
 
-2. **`onTurnEnd` signature widened (ADR-0053).** Pre-26 the hook was declared but never fired. Session 26 wires it up with the widened shape: `args: { unit; state; catalog }`, `return: OnTurnEndResult | void`. Runner `runOnTurnEnd` mirrors `runOnTick`'s emission-collection pattern. Fired from `reduceTurnEnd` between newUnit construction and turnState clear, so handlers see state.turnState.consumed intact. Quickstep is the first consumer.
+2. **Charged-action timing schedule walk (item #3 / ADR-0055).** New `src/engine/forecast/charged-timing.ts` replaces the pre-26.5 naive `ceil(actionSpeed / casterSpeed)` with a hypothetical-state construction routed through `projectUpcoming`. Pre-26.5's formula doubly misinterpreted `actionSpeed` as a threshold AND ignored other in-flight charges; both errors resolve. The post-commit detail panel routes through `projectChargedResolution` for the same accuracy. `ChargedResolutionProjection` gains an `eventsBeforeResolve` field so the detail panel doesn't need to recount.
 
-**Content (sessions 26 items):**
+**UI completion (this session):**
 
-3. **AoE shape tweaks.** Earth Quake, Earth Cataclysm, Fire Storm all migrated from `cross r1` to `diamond r1`. At r1 the footprint is identical (5 tiles in a plus); the meaningful change is Aether-Bloom-enlarged Fire Storm: now diamond r2 (13 tiles) versus the pre-26 cross r2 (9 tiles). Aether Bloom's `enlargeAoeShape` is shape-agnostic per ADR-0031, no shape-specific bug surfaced.
+3. **Tile-info panel replaces the top bar (item #1).** New `src/ui/tile-info-panel.tsx` renders X / Y / Elev / Terrain of the hovered tile across the top-bar footprint, with a reserved icon slot for future tile-effect chips (Burn-trails, frozen tiles). Turn number readout removed entirely — redundant with the action log's per-turn T-numbering since session 25. Cursor-tile signal lives on `useTurnFlow.cursorTile` (single hover handler now dispatches both tile-info updates AND state-specific events for target-select / move-select). Empty state: "—" placeholders, bar height stays constant.
 
-4. **Four new Movement-bucket passives.**
-   - `bedrock_stride` (Earth) — cost 2, `modifyStatQuery` +1 moveRange + `modifySystemDamage` zeros falling.
-   - `hotfoot` (Fire) — cost 2, `modifyStatQuery` +1 moveRange + +1 spd.
-   - `tidewalker` (Water) — cost 1, `modifyTerrainCosts` clamps water cost to `max(1, current - 1)`. v1-marginal until elevated water-cost terrain ships.
-   - `quickstep` (Lightning) — cost 1, `onTurnEnd` emits `system_ct_push +ma` when `consumed.movesConsumed > 0`. MA queried via `runModifyStatQuery` so it composes with stat mods.
-   
-   All four `availability: 'available'`, registered in the catalog index, added to their respective class's `freeAbilities`. Class docstrings updated.
+4. **Portrait restructure (item #2).** Canvas unit tokens redrawn: black-square body backdrop + portrait sprite + rounded-square team-colored frame *outside* the portrait (corner radius 4). Resolves the inscribed-circle clipping issue from session 24.5's handoff. Body becomes black so the team identity reads from the outer frame instead of the body. Hit-flash overlay and enemy horizontal-flip preserved. New constants: `PORTRAIT_BG_COLOR`, `PORTRAIT_FRAME_WIDTH`, `PORTRAIT_FRAME_CORNER`. Active-ring + counterpart-ring stay as circles for now (cosmetic follow-up; rings sit outside the frame so they don't collide visually).
 
-**Renderer infrastructure (this session):**
+5. **Charged-action animation pacing (item #5).** Animator extended with a `tile_highlight` Anim variant + a `pendingAnims: Anim[]` follow-up queue so a single Action can produce multiple sequential anims. `charged_action_resolve` now chains `[tile_highlight (400ms), flash (720ms)]` — pre-26.5 the resolve fired at 360ms with no pre-cue. Tile positions derived from `outcome.perTargetResults`: tile-kind targets contribute their position directly, unit-kind targets contribute the unit's tile inferred from `snapshot.position`. The renderer's `tick()` syncs the highlight overlay via `setHighlightOverlay` on transitions only (cached `lastTileHighlightKey` avoids 60fps churn). Two new constants: `PRE_RESOLVE_HIGHLIGHT_MS = 400`, `CHARGED_RESOLVE_FLASH_DURATION_MS = 720`.
 
-5. **Terrain texture infrastructure (ADR-0054).** `src/assets/terrain/index.ts` exports `TERRAIN_MANIFEST: ReadonlyMap<TerrainType, ReadonlyArray<string>>`, `terrainTexturePoolFor`, and `pickTerrainVariantIndex` (murmurhash-style finalizer over `(masterSeed, x, y)`). `TileLayer` gained an overlay Container child for per-tile Sprites; `BattleRenderer.mount` kicks off `loadTerrainAssets(state)` mirroring the portrait loader. Per-tile variants picked deterministically. Fallback to colored-rect rendering remains universal.
+6. **WAIT-CONFIRM keyboard support (item #6).** Arrow keys preview a pending facing in the WAIT-CONFIRM picker (visual highlight follows the selection); Enter commits with the pending facing. Implementation: `WaitConfirm` component now has `useState<Direction>(pendingFacing)` + a capture-phase `keydown` handler. ESC continues to cancel via the existing top-level handler. Mouse click still commits immediately on the clicked direction (no separate confirm step).
 
-**Asset compression (session-26 prep):**
+7. **Forecast mini-timeline (item #7).** New `MiniTimeline` subcomponent in `forecast-panel.tsx` renders the `ChargedTiming.surroundingEvents` window (~7 events centered on the resolve) as team-colored chips. Resolve chip highlighted gold (`✦`); target's-next-turn chip outlined cyan; other unit chips use team color (red/blue). Tick labels under each chip. Data is pre-computed by the engine's `estimateChargedTiming` (item #3); the panel is pure render. The `ForecastPanel` now takes `state` as a prop so it can resolve unit team / class names.
 
-6. **`grass-01.png` (9.83 MB at 2048×2048) → `ground-01.png` (64 KB at 256×256).** Resized via `sips -z 256 256`, compressed via `pngquant --quality=75-90`. 153× reduction. Renamed to match the `<terrain-type>-NN.png` convention. The brief flagged portrait sizes (~4 MB each → ~20 MB total) for the future pre-release pipeline; terrain assets follow the new compression discipline from day one.
+**Content (this session):**
 
-**Documentation (this session):**
+8. **Demo Movement passives equipped (item #8).** `src/content/battles/demo.ts` swapped per-Mage Movement bucket entries from `move_plus_1` to their themed passives: Earth → `bedrock_stride`, Water → `tidewalker`, Fire → `hotfoot`, Lightning → `quickstep`. Knight stays on `move_plus_1`. `training-field-battle.ts` inherits via spread — no separate edit needed. AI-vs-greedy integration test still passes (unperturbed by the passive swap).
 
-7. **`docs/content-snapshot.md` refresh.** Frozen as of session 20b (2026-05-09); now reflects post-session-26 state. Added a changelog section summarizing sessions 21–26 deltas (L25 stat reconciliation, Brave/Faith 70/70, availability tags, uniform_int initial CT, deploymentZone, AoE shape tweaks, four new Movement passives). Updated class-baselines table with current numbers, AoE shape entries, the passives table, and references.
+**Verification scope:**
 
-8. **ADRs.** ADR-0052 (modifySystemDamage), ADR-0053 (onTurnEnd widening), ADR-0054 (terrain texture infrastructure).
-
-### Limitations + watch-fors
-
-- **Brief had a stale ADR path.** The brief named `docs/adr/ADR-0048-portrait-integration.md`; actual location is `docs/decisions/0048-portrait-integration.md`. Trivial path bug, but worth flagging if other docs reference the wrong dir.
-
-- **Demo loadout doesn't equip any of the four new Movement passives.** Every demo unit still carries `move_plus_1` in the Movement bucket. The four new abilities sit in each class's `freeAbilities` set for team-builder consumption (forthcoming). If Chris wants to playtest Bedrock Stride / Hotfoot / Tidewalker / Quickstep on the demo battle, swap their movement passive bucket entry in `src/content/battles/demo.ts`.
-
-- **Tidewalker is a no-op against current content.** Water tile cost defaults to 1 in pathfinding; tidewalker's `max(1, current - 1)` clamps at 1. The ability is forward-compatible with future high-cost water terrain (rough water, currents, etc.) but invisible in v1 playtests. Worth surfacing if Chris wants to test it directly — would need to introduce a terrain type with cost > 1 first.
-
-- **Quickstep refunds MA queried via `runModifyStatQuery`.** Composes correctly with stat-modifying passives / statuses / equipment. At Lightning Mage's L25 MA 12, a Move-committed turn refunds 12 CT. With move_only ctCost 50, that's a net -38 CT delta vs the no-passive case. Notable but not transformative; chained with Hotfoot the unit can re-enter the queue notably faster.
-
-- **TS strict-mode `void` vs `undefined` quirk in `onTurnEnd` handlers.** My initial Quickstep implementation used `return;` for early-outs (inferred as `undefined`); strict mode rejected the union with `void | OnTurnEndResult`. Resolved by having Quickstep return `{ emittedActions: [] }` explicitly for the early-out path. The hook signature still accepts `void` (legacy void-return handlers type-check), but the convention going forward is explicit `OnTurnEndResult` returns. Worth documenting in a content-authoring-conventions doc if one materializes.
-
-- **`SystemDamageOutcome.amount` semantics changed.** Pre-26 it equaled the emitted `payload.amount`; post-26 it equals the post-`modifySystemDamage`-chain amount. Existing tests asserted `outcome.applied`, not `outcome.amount`, so no test surface broke. Replay determinism unaffected.
-
-- **Pre-existing TS strict-mode errors (audit E8) carry forward.** `pnpm typecheck` reports ~15 carry-forward errors in flow_state, maelstrom, tidal_wave, water_strike, fire-mage class file, lightning-mage class file, several status files, and several UI files. All pre-26. Session 26 introduced zero new typecheck errors after the Quickstep fix.
-
-- **Engine work was unanticipated by the brief.** Brief said "Engine work: none." The actual hook surface required two extensions (`modifySystemDamage` + `onTurnEnd` widening) for bedrock_stride's fall-immunity and quickstep's CT refund. Chris approved the expansion up front; the work landed cleanly. Future similar briefs should keep this carry-forward — content abilities often surface hook-surface gaps that aren't visible until implementation.
-
-- **Tests run via `pnpm test:run`** (this session's laptop required `brew install node` + `brew install pnpm`; the desktop is presumably already set up). The `vite-dev` launch.json config uses `npm run dev` which works since npm ships with node.
-
-- **Browser preview verified terrain texture loads.** 196 sprites placed on the 14×14 demo map (one per tile), texture cache shows `ground` → 1 variant loaded. Visual confirmation: tiles render with the grass texture overlay instead of the flat olive `#4a5b3c` colored fill.
+9. **QueueTower charged-resolve slot-in (item #4)** — was already wired pre-26.5 via `projectUpcoming` + `describeEvent`'s `entityKind === 'charged_action'` branch. Audit-confirmed; no changes needed. The mini-card variant for charged events (circular portrait crop + dashed border) was authored in earlier sessions and continues to work. Click-through to `ChargedActionDetailPanel` from charged mini-cards: also pre-existing.
 
 ### Architecture records
 
-- **ADR-0052** — `modifySystemDamage` hook + single modification seam for engine-emitted damage. Fires inside `reduceSystemDamage`. Chain-composable. Source-discriminant gating. First consumer: Bedrock Stride (fall immunity).
-- **ADR-0053** — `onTurnEnd` emission widening. Args gain `state` + `catalog`; return becomes `OnTurnEndResult | void`. Runner added. Fire-site is `reduceTurnEnd` pre-turnState-clear. First consumer: Quickstep (Move-committed CT refund).
-- **ADR-0054** — Terrain texture infrastructure. Manifest with per-type variant pools, deterministic per-tile pick via `(masterSeed, x, y)` mixer, fallback to colored-rect rendering when textures absent. Mirrors ADR-0048's portrait pattern with array-per-type deviation.
+- **ADR-0055** — Charged-action timing forecast via CT schedule walk. Hypothetical-state construction + `projectUpcoming` reuse for accurate pre-commit + post-commit timing. Replaces two naive computations with one engine helper.
+
+### Limitations + watch-fors
+
+- **Item #5 final visual sign-off pending.** The dwell + tile-highlight + flash chain is wired and tests pass, but Chris should watch the dwell timing during a playtest and call out if 400ms highlight + 720ms flash needs tuning. The constants are in `src/renderer/constants.ts` for easy tweaking.
+
+- **Active-ring + counterpart-ring remain circles** after the portrait restructure (item #2). They sit outside the rounded-square frame so no visual collision today. If Chris wants visual consistency, convert them to rounded squares — small follow-up.
+
+- **`ChargedTiming` `resolutionIndex` is window-relative.** The mini-timeline correctly uses it for chip rendering, but if other consumers want the full-projection index they should use `eventsBeforeResolve` (new field on `ChargedResolutionProjection`). The two are deliberately parallel between the pre-commit and post-commit helpers.
+
+- **Quickstep refund visibility in mid-turn forecast.** `projectTurnEndCt` dry-runs `onTurnEnd` correctly when called with a `plannedNext` that implies movesConsumed > 0. The forecast panel's `endOfTurnCt` uses `plannedNext: 'act'` (line 155 of `forecast-compose.ts`), which means it shows the leftover for "act after Quickstep-Move" — works correctly. The action menu's "CT after: N" annotation shows leftover under multiple plannedNext kinds; all paths route through the same dry-run.
+
+- **WAIT-CONFIRM keyboard relies on capture-phase listener.** The listener is bound at the `window` level when the `WaitConfirm` component mounts. If a future modal opens above WAIT-CONFIRM, that modal's own keyboard handler must also use `capture: true` and `stopPropagation()` to avoid double-handling. Pattern is consistent with the `ChargedActionDetailPanel`'s ESC capture.
+
+- **TypeScript strict-mode errors** continue to carry forward (audit E8). Session 26.5 introduced zero new typecheck errors; existing ~15 errors in `action-log-panel`, `action-menu`, `battle-hud`, `queue-tower`, `derived-events.test`, `turn-flow.test`, `use-turn-flow.ts` (the `AoeSpec` re-export + unused-params errors) persist. Same list as session 26.
+
+- **The original `cursorScreen` channel is now bound only in `target-select`.** Other states clear it on enter. Move-select gets the cursorTile signal via the new global handler but doesn't track screen coords. If a future tooltip needs screen coords in another state, extend the cursorScreen tracking accordingly.
+
+- **`computeSpeed` import removed from `charged-action-detail-panel.tsx`**. The bottom-of-file `void computeSpeed` suppression is also gone. If a future tuning needs caster MA / haste through `runModifyStatQuery` for ticksToResolve, that's already handled at the projection layer via `computeActionSpeed` — the panel doesn't need its own version.
 
 ### Considered and rejected this session
 
-- **Narrow `queryFallImmunity` hook returning `boolean`.** Solves only fall-damage. Future Poison-tick or other per-source mitigation would need separate hooks. Single `modifySystemDamage` is more general.
-- **Routing system_damage through the seven-stage damage pipeline.** Larger reversal of ADR-0027 than warranted. The bypass is preserved; a single modification seam is enough.
-- **Implementing Quickstep as a hidden custom-trigger status.** Heavier indirection than warranted; status-instantiation per passive doesn't generalize. Widening `onTurnEnd` is the one-time cost.
-- **Adding a dedicated `onTurnEndEmit` hook alongside void `onTurnEnd`.** Two hooks for one event boundary adds surface area; ordering semantics ambiguate. Widen the existing hook.
-- **Glob-scanned terrain manifest** (`import.meta.glob('./*.png')`). Auto-detect new variants without manifest edits. Rejected — explicit manifest is diff-friendly and avoids build-resolution surprises.
-- **Sprite-only tile rendering** (drop the Graphics fallback). The colored rect is the universal fallback for missing-art terrain types and the during-load window. Keep both layers.
+- **Adding a second hover-channel to the renderer for the tile-info panel.** Easier: unify the existing `setOnTileHover` handler in `useTurnFlow` to always update `cursorTile` AND dispatch state-specific events when in target-select / move-select. One handler, two consumers.
+
+- **Animator-side direct call to `setHighlightOverlay`.** Crosses the animator → renderer boundary. The chosen pattern (animator exposes `getTileHighlightPositions()`, renderer reads on tick + repaints on transitions) keeps the boundary intact.
+
+- **Computing the AoE footprint for the pre-resolve tile highlight.** Would require the animator to access catalog + state for `aoeFootprint`. Too much coupling for v1. Instead derived from `perTargetResults` — tile-kind targets contribute directly, unit-kind targets contribute the unit's tile inferred from `snapshot.position`. Works for the v1 charged-action set; if a future charged action has perTargetResults that miss the footprint (e.g., empty-tile center of an AoE), the highlight will under-paint. Acceptable; flag if visible.
+
+- **Splitting 26.5 into 26.5a / 26.5b.** Brief permitted; audit revealed three items smaller than expected (#4 was largely already implemented; #8 is a one-file edit; #9 is mechanical given ADR-0053's purity). Single session was achievable.
+
+- **Per-resolve camera focus during charged-action resolves.** Chris's call to skip camera-focus in favor of just dwell + tile-highlight. Cleaner; no camera-state interaction.
+
+- **Moving the team-color palette to a shared module.** Three sites still duplicate it (renderer, queue-tower, forecast-panel — the new mini-timeline added the third). Carries forward to the existing watch-for from session 25.
 
 ### Empirical-questions checklist for Chris's next playtest
 
-**Engine extensions (mostly invisible — verify-by-not-breaking):**
-- [ ] Battle starts and runs normally; no errors in the action log.
-- [ ] Falling-damage scenarios (Tidal Surge knockback off a ledge): if a unit equips Bedrock Stride, no HP drop.
+**Item #1 (tile-info panel):**
+- [ ] Hover various tiles; X / Y / ELEV / Terrain update.
+- [ ] Move cursor off canvas; fields revert to "—" placeholders, bar height constant.
 
-**AoE shape consistency:**
-- [ ] Earth Quake / Earth Cataclysm visual preview matches the new diamond r1 (5 tiles in a plus — same as before at r1; no visible change is expected at base shape).
-- [ ] Fire Storm with Aether Bloom equipped covers a wider area than pre-26 (13 tiles in diamond r2 vs 9 in cross r2). Easiest test: Fire Mage casts Fire Storm in a clear field, confirm the highlight overlay covers diamond-r2 = 13 tiles.
+**Item #2 (portrait restructure):**
+- [ ] Canvas units render as portrait-in-rounded-square-frame, no corner clipping.
+- [ ] Team color reads from the frame, not the body (body is now black).
+- [ ] Hit-flash still visible during attacks.
+- [ ] Enemy units still flip horizontally.
 
-**Terrain texture:**
-- [ ] Demo battle's tiles render with the grass texture instead of the flat olive color. Texture is subtle at default zoom; more visible when zooming in via the camera.
-- [ ] No console errors about terrain load failures.
+**Item #3 / #4 (charged timing accuracy):**
+- [ ] Cast a single charged ability with no others in flight: ticks-to-resolve should match `100 / actionSpeed` (the baseline case).
+- [ ] Cast a second charged ability while one's in flight: the second's resolve tick should reflect the schedule walk (not the naive `actionSpeed / casterSpeed`).
+- [ ] Open the ChargedActionDetailPanel from a QueueTower charged mini-card — "resolves in" matches the QueueTower's tick label.
 
-**Movement passives:**
-- [ ] None of the four new passives are equipped on demo units by default — playtesting their effects requires editing `demo.ts` to swap a unit's Movement bucket entry. If desired:
-  - Earth Mage's Movement: `move_plus_1` → `bedrock_stride` to test +1 moveRange + fall-immunity.
-  - Fire Mage's Movement: `move_plus_1` → `hotfoot` to test +1 moveRange + +1 spd.
-  - Lightning Mage's Movement: `move_plus_1` → `quickstep` to test the move-then-CT-refund flow.
-  - (Water Mage's `tidewalker` is currently invisible — see Limitations.)
+**Item #5 (animation pacing):**
+- [ ] Cast a charged ability and watch the resolve: tiles flash gold/highlight ~400ms before the unit-flash, total resolve ~1100ms (was 360ms pre-26.5).
+- [ ] Cast a unit-only charged target (e.g., single-unit charge); unit's tile lights up briefly before the flash.
 
-### Polish-pass tracking (deferred to Session 26.5 / 27)
+**Item #6 (WAIT-CONFIRM keyboard):**
+- [ ] Click End-turn → arrow keys cycle facing; the primary-variant highlight follows the pending direction.
+- [ ] Enter commits with the pending facing.
+- [ ] Click on a button still commits immediately (no requirement to also press Enter).
 
-Same list as the session-25 handoff, plus two items surfaced by the session-26 playtest:
+**Item #7 (mini-timeline):**
+- [ ] Hover a charged ability target — Timing section shows ~7 chips with letters (first letters of unit names / ability) + tick labels.
+- [ ] Resolve chip is gold (✦). Target's next-turn chip has a cyan outline.
 
-- Tile-info corner overlay (Session 24.5 review item 2)
-- Portrait restructure: black-bg + ring-outside-portrait (Session 24.5 review item 3)
-- Charged-action timing projector accuracy (Session 24.5 carry-forward)
-- QueueTower slot-in for charged-action resolves (Session 24.5 carry)
-- Charged-action animation pacing (Session 24.5 carry)
-- WAIT-CONFIRM keyboard support (Session 24 Wave 2 carry)
-- Mini-timeline for forecast Timing subsection (Session 24 Wave 1 carry)
-- **(Session 26 new) Equip the four new Movement passives in the demo battle.**
-  Currently every demo unit's Movement bucket holds `move_plus_1`; the four
-  Movement-bucket passives authored this session sit in `freeAbilities` but
-  are never seen in playtest. Swap each Mage's Movement entry in
-  `src/content/battles/demo.ts` to its themed passive:
-  - Earth Mage → `bedrock_stride`
-  - Water Mage → `tidewalker` (v1-marginal — no elevated water-cost terrain)
-  - Fire Mage → `hotfoot`
-  - Lightning Mage → `quickstep`
-  
-  Knight stays on `move_plus_1`. Confirmed in session-26 playtest that
-  without this swap, Quickstep's onTurnEnd CT refund never fires (the
-  ability isn't equipped to begin with).
+**Item #8 (Movement passive swap):**
+- [ ] Earth Mage takes a fall (Tidal Surge knockback off ledge) — Bedrock Stride zeroes the falling damage.
+- [ ] Fire Mage's Speed reads as base+1, Move Range +1.
+- [ ] Lightning Mage commits Move on her turn: action log shows the +MA `system_ct_push` after turn_end. The action menu's "CT after: N" annotation includes the refund (pre-26.5 didn't).
 
-- **(Session 26 new) `projectTurnEndCt` doesn't include `onTurnEnd` emissions.**
-  The action menu's "CT after: N" annotation reads `projectTurnEndCt`
-  ([src/engine/forecast/ct-preview.ts:37](src/engine/forecast/ct-preview.ts:37)),
-  which computes only the static ctCost deduction. With Quickstep equipped,
-  the actual post-turn CT is `projection + MA` (the refund commits as a
-  `system_ct_push` after `turn_end` settles), but the projection shows the
-  pre-refund value — players see "CT after: 50" then watch the action log
-  add a +12 push. The fix is to run the `onTurnEnd` chain in a dry-run /
-  side-effect-free mode inside `projectTurnEndCt` and sum any
-  `system_ct_push` deltas into the displayed leftover. Same pattern works
-  for any future `onTurnEnd` emitter (regen-at-turn-end, end-of-turn
-  procs, etc.).
+**Item #9 (`projectTurnEndCt` dry-run):**
+- [ ] (Combined with #8) Lightning Mage's Move + End turn annotation reflects `currentCT − moveOnlyCost + MA`.
 
 ### Longer-term carry-forward
 
-- Top bar `Turn T####` is O(actionLog.length) (Session 22 carry)
+- `onTurnStart` symmetric widening (Session 26 carry; not addressed; defer until first emitting consumer)
+- Top bar `Turn T####` O(n) cost — RESOLVED (top bar removed in #1)
 - Renderer's MP "max" captured at mount (Session 22 carry; Session 28 lifts)
 - Status-badge polarity convention (Session 22 carry)
-- rAF vs setInterval for animation drain (Session 23 carry)
-- AoE preview correctness across all shapes (Session 23 carry; session 26 confirmed enlargeAoeShape is shape-agnostic)
+- rAF vs setInterval for animation drain (Session 23 carry; may interact with #5 pacing — watch for any frame-budget issues)
+- AoE preview correctness across all shapes (Session 23 carry; sessions 26 + 26.5 confirmed shape-agnostic)
 - MP / status snapshot ahead-of-tween fix (Session 22 carry)
 - Resistance composition cap at 100 (audit E2; Session 27)
 - `pa_factor` NotYetImplementedError (audit E3)
 - `equipmentContributionsFor` "branch per hook" (audit E4; Session 27)
-- TS strict-mode test errors (audit E8) — session 25 fixed one (longSword); session 26 introduced zero new; rest carry forward
+- TS strict-mode test errors (audit E8) — pre-existing list carries forward; 26.5 added zero
 - Surrender flow (Session 34 / ADR-0041)
 - MVP-unit smarter algorithm (Session 24 Wave 1)
 - Permadeath timer (Session 24 Wave 1)
 - Settings expansion (Session 24 Wave 1)
 - Reactions in projection column (Session 24 Wave 1)
-- Lightning Mage's `quickstep` refund visibility (Session 26 — flagged but not addressed beyond authoring)
 - Bug 1 (Session 24.5 ADR-0046): mid-battle targeting failure; instrumentation in place, awaiting next occurrence
-- Portrait asset sizes (~4 MB each → ~20 MB initial load) — pre-release pipeline candidate; session 26 established the compression discipline (sips + pngquant) that portraits should adopt
-- Vite HMR cache invalidation occasional issue
-- Hardcoded team color palette across three sites (Session 25 carry)
-- `onTurnStart` not symmetrically widened. Pre-26 it's still `args: { unit }; return: void`. When the first emitting consumer needs `state` and/or emissions, do a parallel session-26-style widening.
+- Portrait asset sizes (~4 MB each → ~20 MB initial load) — pre-release pipeline candidate; sessions 26 + 26.5 didn't address compression
+- Vite HMR cache invalidation occasional issue — encountered during 26.5 verification (hook-order false-positive after editing `useTurnFlow`); full dev-server restart cleared it
+- Hardcoded team color palette across THREE sites now: renderer, queue-tower, forecast-panel (session 25 carry; 26.5 added the third)
+- Active-ring + counterpart-ring still circles after portrait restructure — visual-consistency follow-up (low priority)
+- Tile-info reserved icon slot is empty in v1 — future tile-effect chip pipeline can fill it without layout changes
 
-### Suggested scope for Session 26.5 / 27
+### Suggested scope for Session 27
 
-Per `docs/twentyOnePlanning/roadmap-sessions-21-plus.md`, Session 27 is Cluster 3: four new hook surfaces (`modifyMpCost`, `modifyActionSpeed`, `modifyResistance`, `modifyIncomingStatusApplicationChance`) + the equipment contributor refactor. Each hook is independently small but touches overlapping files. Worth ~30 min budget for the contributor-refactor cleanup if E4 surfaces during the work.
+Per `docs/twentyOnePlanning/roadmap-sessions-21-plus.md`, Session 27 is Cluster 3: four new hook surfaces (`modifyMpCost`, `modifyActionSpeed`, `modifyResistance`, `modifyIncomingStatusApplicationChance`) + the equipment contributor refactor. Watch for audit E2 (resistance cap at 100) as item 10's resistance modification path lights up. The contributor-refactor cleanup (E4) is a good companion if time permits.
 
-If Chris wants a Session 26.5 polish pass first, the natural batch is the seven items in "Polish-pass tracking" above. Roughly UI-only, no engine changes expected.
+No carry-forward items from 26.5 block Session 27. The polish pass landed cleanly.

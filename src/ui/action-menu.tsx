@@ -20,7 +20,7 @@
 // (`activeCommandSets`, `abilitiesFor`). It doesn't touch the engine
 // directly; the hook owns all validation.
 
-import type { CSSProperties, ReactElement } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
 import { projectTurnEndCt, type ActiveAbilityDefinition, type Catalog, type Direction, type GameState } from '@engine/index.ts';
 import type { TurnFlow } from './use-turn-flow.ts';
 
@@ -119,24 +119,72 @@ export function ActionMenu({ turnFlow, catalog, engineState, onOpenUnitDetail }:
 // turn. Per design doc WAIT-CONFIRM. Defaults to the unit's current
 // facing; click any of the four cardinals to commit. ESC / Cancel
 // returns to the action menu.
+//
+// Session 26.5 (item #6): keyboard input. Arrow keys preview a pending
+// facing (visual highlight follows the selection); Enter commits with
+// the pending facing. The Escape key already cancels via BattleView's
+// top-level handler.
 function WaitConfirm({ turnFlow }: { readonly turnFlow: TurnFlow }): ReactElement {
   const currentFacing = turnFlow.activeUnit?.facing ?? 'N';
+  const [pendingFacing, setPendingFacing] = useState<Direction>(currentFacing);
   const directions: ReadonlyArray<{ readonly dir: Direction; readonly label: string }> = [
     { dir: 'N', label: 'North ↑' },
     { dir: 'E', label: 'East →' },
     { dir: 'S', label: 'South ↓' },
     { dir: 'W', label: 'West ←' },
   ];
+
+  // Capture-phase keyboard handler so the WAIT-CONFIRM panel reads
+  // arrows / Enter without interfering with other surfaces. Mirrors
+  // the pattern used in `charged-action-detail-panel.tsx` for ESC.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent): void => {
+      let next: Direction | null = null;
+      switch (e.key) {
+        case 'ArrowUp':
+          next = 'N';
+          break;
+        case 'ArrowRight':
+          next = 'E';
+          break;
+        case 'ArrowDown':
+          next = 'S';
+          break;
+        case 'ArrowLeft':
+          next = 'W';
+          break;
+        case 'Enter':
+          e.preventDefault();
+          e.stopPropagation();
+          turnFlow.submitWait(pendingFacing);
+          return;
+        default:
+          return;
+      }
+      if (next !== null) {
+        e.preventDefault();
+        e.stopPropagation();
+        setPendingFacing(next);
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [turnFlow, pendingFacing]);
+
   return (
     <Panel header="End turn — pick facing">
-      <StatusLine>Choose which way to face</StatusLine>
+      <StatusLine>Arrow keys + Enter, or click a direction</StatusLine>
       {directions.map((d) => (
         <Button
           key={d.dir}
-          label={d.dir === currentFacing ? `${d.label} (current)` : d.label}
+          label={
+            d.dir === pendingFacing
+              ? `${d.label}${d.dir === currentFacing ? ' (current)' : ''}`
+              : d.label
+          }
           disabled={false}
           onClick={() => turnFlow.submitWait(d.dir)}
-          variant={d.dir === currentFacing ? 'primary' : 'secondary'}
+          variant={d.dir === pendingFacing ? 'primary' : 'secondary'}
         />
       ))}
       <CancelButton onClick={turnFlow.cancel} />

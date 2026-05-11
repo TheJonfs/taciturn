@@ -62,6 +62,10 @@ export interface TurnFlow {
   readonly activeUnit: Unit | null;
   readonly isOurTurn: boolean;
   readonly dispatch: Dispatch<TurnFlowEvent>;
+  // Tile under the cursor regardless of state-machine state — drives
+  // the HUD's tile-info panel (item #1, session 26.5). `null` when the
+  // cursor is off-canvas or the renderer is unavailable.
+  readonly cursorTile: Position | null;
   // Active command sets equipped on the active unit (sorted by bucket
   // order so the picker UI is deterministic).
   readonly activeCommandSets: ReadonlyArray<CommandSetId>;
@@ -404,14 +408,30 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
   // mousemove listener while we're in target-select (so the tooltip can
   // anchor to it). Cleared on state exit.
   const [cursorScreen, setCursorScreen] = useState<{ x: number; y: number } | null>(null);
+  // Persistent cursor-tile state — always reflects the hovered tile so
+  // the HUD's tile-info panel (item #1) has a signal regardless of
+  // turn-flow state. `null` when off-canvas.
+  const [cursorTile, setCursorTile] = useState<Position | null>(null);
 
   useEffect(() => {
     if (renderer === null) return;
-    if (flowState.kind === 'target-select') {
-      const handler = (pos: Position | null): void => {
+    // Single hover handler that always updates `cursorTile` (for the
+    // tile-info panel) and additionally dispatches a state-specific
+    // event when in target-select / move-select.
+    const handler = (pos: Position | null): void => {
+      setCursorTile(pos);
+      if (flowState.kind === 'target-select') {
         dispatch({ kind: 'hoverTarget', position: pos });
-      };
-      renderer.setOnTileHover(handler);
+      } else if (flowState.kind === 'move-select') {
+        dispatch({ kind: 'hoverMove', position: pos });
+      }
+    };
+    renderer.setOnTileHover(handler);
+
+    // Cursor-screen tracking only matters for the forecast tooltip
+    // anchor — currently exercised in target-select. Other states get
+    // the same handler shape but without screen tracking.
+    if (flowState.kind === 'target-select') {
       const onMouseMove = (e: MouseEvent): void => {
         setCursorScreen({ x: e.clientX, y: e.clientY });
       };
@@ -421,20 +441,10 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
         window.removeEventListener('mousemove', onMouseMove);
       };
     }
-    if (flowState.kind === 'move-select') {
-      // No cursor-screen tracking in move-select (no tooltip uses it);
-      // just the per-tile hover event.
-      const handler = (pos: Position | null): void => {
-        dispatch({ kind: 'hoverMove', position: pos });
-      };
-      renderer.setOnTileHover(handler);
-      return () => {
-        renderer.setOnTileHover(null);
-      };
-    }
-    renderer.setOnTileHover(null);
-    setCursorScreen(null);
-    return;
+    return () => {
+      renderer.setOnTileHover(null);
+      if (flowState.kind !== 'move-select') setCursorScreen(null);
+    };
   }, [renderer, flowState.kind]);
 
   // ===== Forecast composition =====
@@ -540,6 +550,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     cancel: () => dispatch({ kind: 'cancel' }),
     forecast,
     cursorScreen,
+    cursorTile,
   };
 }
 

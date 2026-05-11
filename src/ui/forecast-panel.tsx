@@ -10,15 +10,28 @@
 // that slot empty for this addition).
 
 import type { CSSProperties, ReactElement } from 'react';
-import type { Catalog } from '@engine/index.ts';
-import type { Forecast } from './forecast-compose.ts';
+import type { Catalog, GameState, ProjectedEvent, TeamId } from '@engine/index.ts';
+import type { ChargedTiming, Forecast } from './forecast-compose.ts';
+
+// Team color palette (mirrors QueueTower / renderer; see session 25
+// carry-forward note about the duplicated palette — out of scope for
+// 26.5). Used by the mini-timeline chips so unit events read by team.
+const TEAM_CHIP_COLORS: Readonly<Record<string, string>> = {
+  team_a: '#4a90e2',
+  team_b: '#d0533d',
+};
+const TEAM_CHIP_FALLBACK = '#aaaaaa';
 
 export interface ForecastPanelProps {
   readonly forecast: Forecast | null;
   readonly catalog: Catalog;
+  // Engine state, used by the mini-timeline to resolve team color and
+  // unit names for chip rendering. `null` between turns; the panel
+  // gracefully degrades to no chips in that case.
+  readonly state: GameState | null;
 }
 
-export function ForecastPanel({ forecast, catalog }: ForecastPanelProps): ReactElement {
+export function ForecastPanel({ forecast, catalog, state }: ForecastPanelProps): ReactElement {
   if (forecast === null) {
     return (
       <aside style={panelStyle} aria-label="Forecast">
@@ -59,6 +72,9 @@ export function ForecastPanel({ forecast, catalog }: ForecastPanelProps): ReactE
                 {chargedTiming.resolvesBeforeTargetTurn ? '✓ resolves before' : '✗ resolves after'}
               </span>
             </div>
+          )}
+          {state !== null && chargedTiming.surroundingEvents.length > 0 && (
+            <MiniTimeline timing={chargedTiming} state={state} catalog={catalog} />
           )}
         </div>
       )}
@@ -122,6 +138,135 @@ export function ForecastPanel({ forecast, catalog }: ForecastPanelProps): ReactE
       </div>
     </aside>
   );
+}
+
+// Mini-timeline visualization for the forecast Timing subsection (item
+// #7, session 26.5). Renders the ~7-event window from
+// `ChargedTiming.surroundingEvents` as a horizontal strip of chips:
+// unit-turns in team color, the charged resolve highlighted gold, the
+// target's next turn outlined with the comparison accent. Ticks-from-
+// now labels sit under each chip.
+function MiniTimeline(props: {
+  readonly timing: ChargedTiming;
+  readonly state: GameState;
+  readonly catalog: Catalog;
+}): ReactElement {
+  const { timing, state, catalog } = props;
+  const targetEventTicks = timing.targetNextTurn?.event.ticksFromNow ?? null;
+  return (
+    <div style={timelineStyle} aria-label="Charged-action timing strip">
+      <div style={timelineRowStyle}>
+        {timing.surroundingEvents.map((ev, i) => {
+          const isResolve = i === timing.resolutionIndex;
+          const isTarget =
+            targetEventTicks !== null &&
+            ev.entityKind === 'unit' &&
+            ev.ticksFromNow === targetEventTicks &&
+            ev.entityId === timing.targetNextTurn!.event.entityId;
+          return (
+            <TimelineChip
+              key={`${ev.entityKind}-${String(ev.entityId)}-${i}`}
+              event={ev}
+              state={state}
+              catalog={catalog}
+              isResolve={isResolve}
+              isTarget={isTarget}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TimelineChip(props: {
+  readonly event: ProjectedEvent;
+  readonly state: GameState;
+  readonly catalog: Catalog;
+  readonly isResolve: boolean;
+  readonly isTarget: boolean;
+}): ReactElement {
+  const { event, state, catalog, isResolve, isTarget } = props;
+  const label = chipLabel(event, state, catalog);
+  const team = chipTeam(event, state);
+  const bg = isResolve
+    ? '#f6e5a8'
+    : event.entityKind === 'charged_action'
+      ? '#3a4150'
+      : teamChipColor(team);
+  const border = isTarget ? '#9adfff' : 'transparent';
+  const color = isResolve ? '#1c1e23' : '#e7e9ee';
+  return (
+    <div
+      style={{
+        ...chipStyle,
+        background: bg,
+        borderColor: border,
+        color,
+      }}
+      title={chipTitle(event, state, catalog, isResolve, isTarget)}
+    >
+      <span style={chipLabelStyle}>{label}</span>
+      <span style={chipTickStyle}>+{event.ticksFromNow}</span>
+    </div>
+  );
+}
+
+function chipLabel(event: ProjectedEvent, state: GameState, catalog: Catalog): string {
+  if (event.entityKind === 'charged_action') {
+    // Resolve chip — show '✦' (spell glyph). Other charged-action chips
+    // would carry the ability glyph but the surrounding window currently
+    // only contains the hypothetical sentinel resolve at the highlighted
+    // index. Future enhancement: render the ability initial letter.
+    const charged = state.chargedActions.find((c) => c.id === event.entityId);
+    if (charged !== undefined && catalog.hasAbility(charged.abilityId)) {
+      const ability = catalog.getAbility(charged.abilityId);
+      return ability.name.slice(0, 1).toUpperCase();
+    }
+    return '✦';
+  }
+  const unit = state.units.get(event.entityId);
+  if (unit === undefined) return '?';
+  return unit.name.slice(0, 1).toUpperCase();
+}
+
+function chipTeam(event: ProjectedEvent, state: GameState): TeamId | null {
+  if (event.entityKind === 'unit') {
+    return state.units.get(event.entityId)?.team ?? null;
+  }
+  const charged = state.chargedActions.find((c) => c.id === event.entityId);
+  if (charged === undefined) return null;
+  return state.units.get(charged.casterId)?.team ?? null;
+}
+
+function teamChipColor(team: TeamId | null): string {
+  if (team === null) return TEAM_CHIP_FALLBACK;
+  return TEAM_CHIP_COLORS[team] ?? TEAM_CHIP_FALLBACK;
+}
+
+function chipTitle(
+  event: ProjectedEvent,
+  state: GameState,
+  catalog: Catalog,
+  isResolve: boolean,
+  isTarget: boolean,
+): string {
+  let label: string;
+  if (event.entityKind === 'unit') {
+    label = state.units.get(event.entityId)?.name ?? String(event.entityId);
+  } else {
+    const charged = state.chargedActions.find((c) => c.id === event.entityId);
+    if (charged !== undefined && catalog.hasAbility(charged.abilityId)) {
+      label = catalog.getAbility(charged.abilityId).name;
+    } else {
+      label = isResolve ? 'Charged resolve' : 'Charged action';
+    }
+  }
+  const ticks = `+${event.ticksFromNow} ticks`;
+  const tags: string[] = [];
+  if (isResolve) tags.push('resolve');
+  if (isTarget) tags.push("target's turn");
+  return tags.length > 0 ? `${label} (${ticks}) — ${tags.join(', ')}` : `${label} (${ticks})`;
 }
 
 // ---- styles ----
@@ -251,6 +396,43 @@ const timingLabelStyle: CSSProperties = { opacity: 0.65 };
 const timingValueStyle: CSSProperties = { fontWeight: 500 };
 const timingGoodStyle: CSSProperties = { color: '#6dc66d', fontWeight: 500 };
 const timingBadStyle: CSSProperties = { color: '#e67865', fontWeight: 500 };
+
+const timelineStyle: CSSProperties = {
+  marginTop: 4,
+};
+
+const timelineRowStyle: CSSProperties = {
+  display: 'flex',
+  gap: 4,
+  alignItems: 'stretch',
+  overflowX: 'auto',
+};
+
+const chipStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: 28,
+  padding: '2px 4px',
+  borderRadius: 4,
+  borderWidth: 2,
+  borderStyle: 'solid',
+  fontFamily: 'inherit',
+  flexShrink: 0,
+};
+
+const chipLabelStyle: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+};
+
+const chipTickStyle: CSSProperties = {
+  fontSize: 9,
+  opacity: 0.75,
+  fontVariantNumeric: 'tabular-nums',
+  marginTop: 1,
+};
 
 const footerStyle: CSSProperties = {
   borderTop: '1px solid #2c2f36',

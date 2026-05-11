@@ -7,12 +7,11 @@
 // surfaces never disagree.
 
 import {
-  computeSpeed,
+  estimateChargedTiming as engineEstimateChargedTiming,
   projectAoePreview,
   projectDamageRange,
   projectStatusChances,
   projectTurnEndCt,
-  projectUpcoming,
   runModifyStatQuery,
   type ActiveAbilityDefinition,
   type AoePreviewTile,
@@ -50,13 +49,17 @@ export interface ForecastTargetRow {
 // ability is charged (`actionSpeed > 0`). Surfaces how many events fire
 // between commit and resolution, and (when known) whether the target's
 // next turn lands before or after the spell resolves.
+//
+// Session 26.5 (item #3): computed via the engine's `estimateChargedTiming`
+// which walks the CT schedule (including other in-flight charges) rather
+// than the pre-26.5 naive `ceil(actionSpeed / casterSpeed)`. Carries the
+// surrounding-event window for the forecast mini-timeline (item #7) so
+// the UI doesn't recompute.
 export interface ChargedTiming {
-  // Estimated ticks until the spell resolves, assuming the chargedAction
-  // climbs at the same speed as the caster. Caller renders "Charges over
-  // ~K ticks" or similar.
+  // Ticks until the spell resolves in the walked schedule.
   readonly ticksToResolve: number;
-  // How many events in the upcoming-events projection fire before the
-  // spell would resolve. 0 means the spell fires first.
+  // How many events fire before the spell would resolve. 0 means the
+  // spell fires first.
   readonly eventsBeforeResolve: number;
   // The target's next turn, if visible in the projection. `null` when
   // not visible within the horizon.
@@ -64,6 +67,11 @@ export interface ChargedTiming {
   // True when the spell resolves before the target's next turn (the
   // "good outcome" — target can't move out of the way).
   readonly resolvesBeforeTargetTurn: boolean | null;
+  // Surrounding-event window (~7 events centered on the resolve) for
+  // the mini-timeline render. Session 26.5 (item #7).
+  readonly surroundingEvents: ReadonlyArray<ProjectedEvent>;
+  // 0-indexed position of the resolution event inside `surroundingEvents`.
+  readonly resolutionIndex: number;
 }
 
 export interface Forecast {
@@ -191,47 +199,31 @@ function computeUnitHp(
   return { current: unit.vitals.hp, max };
 }
 
-// Approximate charged-action timing. The chargedAction would be added to
-// the projection at ct=0 with speed≈caster.speed (the engine uses
-// `computeActionSpeed` at commit which factors caster MA; close enough
-// for the forecast — exact resolution waits until the live charge
-// commits). Compares ticksToResolve against the existing upcoming
-// events to estimate how many events fire first.
+// Thin caller into the engine's `estimateChargedTiming` (item #3,
+// session 26.5). Picks the "concerned target" from the AoE preview —
+// the first affected unit, which drives the ✓/✗ vs-target-next-turn
+// line. Returns `null` when the engine can't project (caster paused,
+// horizon too short).
 function estimateChargedTiming(
   args: ComposeForecastArgs,
   tiles: ReadonlyArray<AoePreviewTile>,
-): ChargedTiming {
-  const speed = Math.max(1, computeSpeed(args.state, args.caster.id, args.catalog));
-  // Threshold to fire = 100; the charge climbs at ~speed per tick. The
-  // ability.actionSpeed in v1 is used as the threshold-equivalent — the
-  // simplest workable estimate that matches the existing engine's
-  // chargedAction tick math.
-  const ticksToResolve = Math.ceil(args.ability.actionSpeed / speed);
-
-  const events = projectUpcoming(args.state, 20, args.catalog);
-  const eventsBeforeResolve = events.filter((e) => e.ticksFromNow < ticksToResolve).length;
-
-  // Pick a representative target — the first affected unit in the AoE
-  // preview (or the anchor unit for single-target). Use it as the
-  // "concerned target" for the before/after comparison.
+): ChargedTiming | null {
   const affectedTarget = tiles.find((t) => t.affected)?.occupant ?? null;
-  let targetNextTurn: ChargedTiming['targetNextTurn'] = null;
-  let resolvesBeforeTargetTurn: boolean | null = null;
-  if (affectedTarget !== null) {
-    for (let i = 0; i < events.length; i++) {
-      const ev = events[i]!;
-      if (ev.entityKind === 'unit' && ev.entityId === affectedTarget.id) {
-        targetNextTurn = { event: ev, index: i };
-        resolvesBeforeTargetTurn = ticksToResolve <= ev.ticksFromNow;
-        break;
-      }
-    }
-  }
-
+  const result = engineEstimateChargedTiming({
+    state: args.state,
+    catalog: args.catalog,
+    caster: args.caster,
+    ability: args.ability,
+    anchor: args.anchor,
+    ...(affectedTarget !== null ? { concernedUnitId: affectedTarget.id } : {}),
+  });
+  if (result === null) return null;
   return {
-    ticksToResolve,
-    eventsBeforeResolve,
-    targetNextTurn,
-    resolvesBeforeTargetTurn,
+    ticksToResolve: result.ticksToResolve,
+    eventsBeforeResolve: result.eventsBeforeResolve,
+    targetNextTurn: result.targetNextTurn,
+    resolvesBeforeTargetTurn: result.resolvesBeforeTargetTurn,
+    surroundingEvents: result.surroundingEvents,
+    resolutionIndex: result.resolutionIndex,
   };
 }
