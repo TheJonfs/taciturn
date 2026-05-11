@@ -121,7 +121,7 @@ Tests: **715 passing across 62 files, 0 failing** (up from 684). +31 new tests: 
 
 ### Polish-pass tracking (deferred to Session 26.5 / 27)
 
-Same list as the session-25 handoff, unchanged:
+Same list as the session-25 handoff, plus two items surfaced by the session-26 playtest:
 
 - Tile-info corner overlay (Session 24.5 review item 2)
 - Portrait restructure: black-bg + ring-outside-portrait (Session 24.5 review item 3)
@@ -130,6 +130,32 @@ Same list as the session-25 handoff, unchanged:
 - Charged-action animation pacing (Session 24.5 carry)
 - WAIT-CONFIRM keyboard support (Session 24 Wave 2 carry)
 - Mini-timeline for forecast Timing subsection (Session 24 Wave 1 carry)
+- **(Session 26 new) Equip the four new Movement passives in the demo battle.**
+  Currently every demo unit's Movement bucket holds `move_plus_1`; the four
+  Movement-bucket passives authored this session sit in `freeAbilities` but
+  are never seen in playtest. Swap each Mage's Movement entry in
+  `src/content/battles/demo.ts` to its themed passive:
+  - Earth Mage → `bedrock_stride`
+  - Water Mage → `tidewalker` (v1-marginal — no elevated water-cost terrain)
+  - Fire Mage → `hotfoot`
+  - Lightning Mage → `quickstep`
+  
+  Knight stays on `move_plus_1`. Confirmed in session-26 playtest that
+  without this swap, Quickstep's onTurnEnd CT refund never fires (the
+  ability isn't equipped to begin with).
+
+- **(Session 26 new) `projectTurnEndCt` doesn't include `onTurnEnd` emissions.**
+  The action menu's "CT after: N" annotation reads `projectTurnEndCt`
+  ([src/engine/forecast/ct-preview.ts:37](src/engine/forecast/ct-preview.ts:37)),
+  which computes only the static ctCost deduction. With Quickstep equipped,
+  the actual post-turn CT is `projection + MA` (the refund commits as a
+  `system_ct_push` after `turn_end` settles), but the projection shows the
+  pre-refund value — players see "CT after: 50" then watch the action log
+  add a +12 push. The fix is to run the `onTurnEnd` chain in a dry-run /
+  side-effect-free mode inside `projectTurnEndCt` and sum any
+  `system_ct_push` deltas into the displayed leftover. Same pattern works
+  for any future `onTurnEnd` emitter (regen-at-turn-end, end-of-turn
+  procs, etc.).
 
 ### Longer-term carry-forward
 
