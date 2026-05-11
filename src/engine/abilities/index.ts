@@ -28,7 +28,7 @@ export {
   type ReactionTriggerCondition,
   type ReactionTriggerHook,
 } from './reaction-compiler.ts';
-export { getCommandSetCost, getCost } from './cost.ts';
+export { computeMpCost, getCommandSetCost, getCost } from './cost.ts';
 export { getCapacity } from './capacity.ts';
 export {
   validateLoadout,

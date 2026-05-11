@@ -132,8 +132,9 @@ export interface HookSignatures {
   // product against the *caster* (attacking unit) and folds it into the
   // BMG status hit_chance formula:
   //   hit_chance = base_chance × Faith_factor × MA_factor × (1 - resist/100)
-  //              × ∏modifiers
-  // Composition is multiplicative.
+  //              × ∏casterHooks × ∏targetHooks
+  // Composition is multiplicative. Target-side composition uses the
+  // sibling `modifyIncomingStatusApplicationChance` hook below.
   modifyStatusApplicationChance: {
     args: {
       unit: Unit;          // the caster (attacking unit) whose hooks fire
@@ -141,6 +142,24 @@ export interface HookSignatures {
       statusType: StatusEffectType;
       ability: ActiveAbilityDefinition | null;
       baseChance: number;  // post-Faith, post-MA, post-resistance
+    };
+    return: number;
+  };
+
+  // Target-side variant of modifyStatusApplicationChance. Fires against
+  // the *target's* hooks so equipment / statuses on the recipient can
+  // resist incoming status applications. Pointy Hat (per-status-type:
+  // × 0.5 on incoming Silence), Focus Band (per-status-tag: × 0.75 on
+  // incoming negative-tagged statuses), Stoneskin-style status immunity.
+  // Composes multiplicatively after the caster-side chain — see
+  // computeStatusChance for the full formula. Per ADR-0028.
+  modifyIncomingStatusApplicationChance: {
+    args: {
+      unit: Unit;          // the target whose hooks fire
+      caster: Unit;
+      statusType: StatusEffectType;
+      ability: ActiveAbilityDefinition | null;
+      baseChance: number;  // post-caster-chain
     };
     return: number;
   };
@@ -191,6 +210,65 @@ export interface HookSignatures {
       baseShape: AoeShape;
     };
     return: AoeShape;
+  };
+
+  // MP cost modifier — multiplicative on the ability's base MP cost.
+  // Equipment / status / passive contributors (e.g., Staff of Power
+  // × 1.20) fire against the caster's hooks; the chain is read by
+  // `computeMpCost` at the cost-affordability check (validate.ts), the
+  // MP deduction (use_ability reducer), and the recorded `mpSpent` on
+  // outcomes. Free abilities (class-granted, cost 0) short-circuit
+  // before the chain runs — multiplying 0 by any factor stays 0, but
+  // skipping the chain keeps the contributor surface honest. Final
+  // value is rounded half-up at `computeMpCost`'s exit, floored at 0.
+  modifyMpCost: {
+    args: {
+      unit: Unit;
+      ability: ActiveAbilityDefinition;
+      baseCost: number;
+    };
+    return: number;
+  };
+
+  // Action-speed modifier — additive on the ability's base action speed.
+  // Applied at commit time via `computeBaseActionSpeed`; the resulting
+  // value is stored on the spawned `ChargedAction.speed`. Equipping a
+  // contributor mid-charge does not affect in-flight charges — the
+  // stored value is the canonical commit-time read. Tag-conditional
+  // contributors inspect `args.ability.effects.damage?.tags` to gate
+  // (Wand of Deepwood: +5 actionSpeed only when the spell is Earth-
+  // tagged). The line-264 `ability.actionSpeed > 0` charged-vs-instant
+  // gate stays based on the *unmodified* base value so equipment can't
+  // flip an instant ability into a charged one (or vice versa).
+  modifyActionSpeed: {
+    args: {
+      unit: Unit;
+      ability: ActiveAbilityDefinition;
+      baseActionSpeed: number;
+    };
+    return: number;
+  };
+
+  // Per-tag resistance modifier — additive on the unit's per-tag
+  // resistance value. Capacitor Ring (+50 Lightning), Wand of Depths
+  // ({ lightning: +50, fire: -50 }), and future status-driven shifts
+  // ("Curse of Vulnerability" stripping resistance) all flow through
+  // this chain. Read sites: `composeResistance` (damage pipeline) and
+  // `lookupStatusResistance` (status apply formula). Result is no
+  // longer capped at 100 — values > 100 trigger the absorption path
+  // per ADR-0057 (supersedes ADR-0022). The contributor receives the
+  // running per-tag value; per ADR-0015, a tag is included in the
+  // damage-pipeline signedMax composition only when the unit natively
+  // carries it OR a contributor produces a non-zero value (so an
+  // implicit zero on an unrelated tag doesn't preempt a real signed-max
+  // winner from a different tag).
+  modifyResistance: {
+    args: {
+      unit: Unit;
+      tag: DamageTag;
+      baseValue: number;
+    };
+    return: number;
   };
 
   // System-damage amount modifier — fires inside `reduceSystemDamage`

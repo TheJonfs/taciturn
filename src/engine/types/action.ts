@@ -55,6 +55,12 @@ export interface AbilityTargetResult {
   readonly hit: boolean;
   readonly damage?: number;
   readonly healing?: number;
+  // True when the healing was produced by absorption rather than a
+  // natively-healing ability (per ADR-0057, Session 27). Lets the action
+  // log distinguish "absorbed X HP" from "healed X HP"; the AbilityTarget
+  // formatter chooses wording based on this flag. Absent for native
+  // damage / native heal results.
+  readonly absorbed?: boolean;
   readonly statusesApplied?: ReadonlyArray<StatusApplicationOutcome>;
 }
 

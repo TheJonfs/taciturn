@@ -18,9 +18,31 @@ import type {
   DamageTag,
   ItemId,
   PartialBaseStats,
+  StatusTag,
   StatusTypeId,
 } from '../../types/index.ts';
 import type { Availability } from './availability.ts';
+
+// Per ADR-0056 (Session 27): equipment contributes to four additional
+// hook surfaces via optional fields read by per-hook contributors in
+// `engine/items/contributions.ts`. No v1 item declares them; Session 29
+// onward will populate them on actual equipment (Staff of Power, Wand
+// of Deepwood, Capacitor Ring, Pointy Hat, Focus Band, etc.).
+
+// A single tag-conditional action-speed delta. `tagFilter` gates on the
+// ability's damage tags (Wand of Deepwood applies only when the spell
+// is Earth-tagged); omitted filter means "applies to all abilities."
+export interface ActionSpeedModifier {
+  readonly delta: number;
+  readonly tagFilter?: ReadonlyArray<DamageTag>;
+}
+
+// Target-side incoming-status-application chance modifier. Either
+// per-status-type (Pointy Hat: × 0.5 on Silence) or per-status-tag
+// (Focus Band: × 0.75 on any negative-tagged status).
+export type IncomingStatusModifier =
+  | { readonly kind: 'by_type'; readonly statusTypeId: StatusTypeId; readonly chanceMultiplier: number }
+  | { readonly kind: 'by_tag'; readonly statusTag: StatusTag; readonly chanceMultiplier: number };
 
 // Common fields across every equipment kind. Stat mods, status grants,
 // and damage tags all default to "none" when omitted; consumers pattern
@@ -50,6 +72,33 @@ interface EquipmentBase {
   // ADR-0028's "Weapon tag composition"). Non-weapon equipment can
   // declare tags too; v1 has no consumer for armor-tagged composition.
   readonly tags?: ReadonlyArray<DamageTag>;
+
+  // Per ADR-0056 (Session 27) — four optional contribution surfaces
+  // wired through `modifyMpCost`, `modifyActionSpeed`, `modifyResistance`,
+  // and `modifyIncomingStatusApplicationChance`. No v1 item declares
+  // them; Session 29 populates them on real content.
+
+  // Multiplicative MP-cost factors (Staff of Power × 1.20). Each entry
+  // contributes one handler; the chain multiplies them in source-tier
+  // / priority order. Round half-up is applied by `computeMpCost`.
+  readonly mpCostMultipliers?: ReadonlyArray<number>;
+
+  // Additive action-speed deltas, optionally gated on the ability's
+  // damage tags (Wand of Deepwood: +5 only on Earth-tagged casts).
+  // Applied at commit time via `computeBaseActionSpeed`.
+  readonly actionSpeedModifiers?: ReadonlyArray<ActionSpeedModifier>;
+
+  // Per-tag resistance shifts (Capacitor Ring `{ lightning: +50 }`,
+  // Wand of Depths `{ lightning: +50, fire: -50 }`). Each entry
+  // contributes one handler; the chain composes additively per tag.
+  readonly resistanceMods?: ReadonlyMap<DamageTag, number>;
+
+  // Target-side multiplicative chance modifiers for incoming status
+  // applications. By-type (Pointy Hat: Silence × 0.5) or by-tag
+  // (Focus Band: any negative-tagged status × 0.75). One handler per
+  // entry; the chain composes multiplicatively against the post-
+  // caster-chain chance.
+  readonly incomingStatusModifiers?: ReadonlyArray<IncomingStatusModifier>;
 }
 
 export interface WeaponEquipment extends EquipmentBase {

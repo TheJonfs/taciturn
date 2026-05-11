@@ -5,6 +5,7 @@ import { defaultTestRulesets } from '../catalog/test-fixtures.ts';
 import type { StatusHookRegistration } from './hooks.ts';
 import {
   statusTypeId,
+  type DamageTag,
   type DurationMode,
   type StackingRule,
   type StatusInstance,
@@ -19,6 +20,7 @@ export interface MakeStatusTypeArgs {
   readonly defaultMagnitude?: number;
   readonly hooks?: ReadonlyArray<StatusHookRegistration>;
   readonly tags?: ReadonlyArray<string>;
+  readonly resistanceTag?: DamageTag;
 }
 
 export function makeStatusType(args: MakeStatusTypeArgs): StatusEffectType {
@@ -29,6 +31,7 @@ export function makeStatusType(args: MakeStatusTypeArgs): StatusEffectType {
     durationMode: args.durationMode ?? 'per_unit_ct',
     stackingRule: args.stackingRule ?? 'REFRESH',
     ...(args.defaultMagnitude !== undefined ? { defaultMagnitude: args.defaultMagnitude } : {}),
+    ...(args.resistanceTag !== undefined ? { resistanceTag: args.resistanceTag } : {}),
     hooks: args.hooks ?? [],
   };
 }

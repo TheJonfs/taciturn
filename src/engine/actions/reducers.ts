@@ -71,6 +71,8 @@ import {
   type WaitOutcome,
 } from '../types/index.ts';
 import { expectActiveAbility } from './validate.ts';
+import { computeMpCost } from '../abilities/cost.ts';
+import { computeBaseActionSpeed } from '../ct/speed.ts';
 
 export interface ReduceResult<O> {
   readonly newState: GameState;
@@ -241,10 +243,12 @@ export function reduceUseAbility(
 
   // Deduct MP up front. Per BMG ("MP system"): MP is committed at
   // commit time and not refunded on fizzle — applies to both instant
-  // and charged abilities.
+  // and charged abilities. The cost is read through `computeMpCost` so
+  // equipment / status `modifyMpCost` contributors compose (per ADR-0056).
+  const mpCost = computeMpCost(state, catalog, actor.id, ability.id);
   let workingState: GameState = withUnit(state, {
     ...actor,
-    vitals: { ...actor.vitals, mp: actor.vitals.mp - ability.mpCost },
+    vitals: { ...actor.vitals, mp: actor.vitals.mp - mpCost },
   });
 
   // Decrement actsAvailable. The Act is consumed at commit even for
@@ -262,7 +266,7 @@ export function reduceUseAbility(
   // caster. Effect resolution happens later via charged_action_resolve.
   // actionSpeed === 0 → resolve immediately.
   if (ability.actionSpeed > 0) {
-    return commitCharged(workingState, action, ability, actor, catalog);
+    return commitCharged(workingState, action, ability, actor, catalog, mpCost);
   }
 
   const incomingProposed: ProposedAction = {
@@ -302,7 +306,7 @@ export function reduceUseAbility(
     kind: 'use_ability',
     abilityId: ability.id,
     perTargetResults: resolved.perTargetResults,
-    mpSpent: ability.mpCost,
+    mpSpent: mpCost,
   };
 
   return {
@@ -339,16 +343,22 @@ function commitCharged(
   ability: ActiveAbilityDefinition,
   actor: Unit,
   catalog: Catalog,
+  mpCost: number,
 ): ReduceResult<UseAbilityOutcome> {
   const targets = buildTargetRefs(action.payload.target);
   const caId = chargedActionId(`ca:${actor.id}:${action.sequenceNumber}`);
 
+  // Action speed routed through `computeBaseActionSpeed` so equipment /
+  // status `modifyActionSpeed` contributors compose into the stored
+  // value (per ADR-0056). The line-264 `ability.actionSpeed > 0`
+  // charged-vs-instant gate stays on the unmodified base so equipment
+  // can't flip an instant ability into a charged one.
   const charged: ChargedAction = {
     id: caId,
     casterId: actor.id,
     abilityId: ability.id,
     ct: 0,
-    speed: ability.actionSpeed,
+    speed: computeBaseActionSpeed(state, catalog, actor, ability),
     targets,
     sourceSequenceNumber: action.sequenceNumber,
   };
@@ -379,7 +389,7 @@ function commitCharged(
     kind: 'use_ability',
     abilityId: ability.id,
     perTargetResults: [],
-    mpSpent: ability.mpCost,
+    mpSpent: mpCost,
     chargedActionId: caId,
   };
 
@@ -476,6 +486,7 @@ function resolveAbilityEffect(
   let damageContext: DamageContext | null = null;
   let damageDealt: number | undefined;
   let healingDealt: number | undefined;
+  let absorbed = false;
   const pipelineEmissions: ProposedAction[] = [];
   if (args.ability.effects.damage !== undefined && args.targetUnit !== null) {
     const targetBefore = workingState.units.get(args.targetUnit.id);
@@ -493,6 +504,12 @@ function resolveAbilityEffect(
     workingState = applyDamageToTarget(workingState, damageContext);
     if (damageContext.damageTags.has('healing')) {
       healingDealt = damageContext.finalDamage ?? 0;
+      // Absorption flag: the result is healing-flagged but the ability
+      // wasn't natively healing — the resistance pipeline flipped it.
+      // Per ADR-0057, this distinguishes "absorbed Lightning Strike for
+      // 12 HP" from "Cure healed for 12 HP" in the action log.
+      const nativelyHealing = args.ability.effects.damage.tags.includes('healing');
+      absorbed = !nativelyHealing;
     } else {
       damageDealt = damageContext.finalDamage ?? 0;
     }
@@ -794,6 +811,7 @@ function resolveAbilityEffect(
     hit: damageContext !== null ? damageContext.hit : true,
     ...(damageDealt !== undefined ? { damage: damageDealt } : {}),
     ...(healingDealt !== undefined ? { healing: healingDealt } : {}),
+    ...(absorbed ? { absorbed: true } : {}),
     ...(statusOutcomes.length > 0 ? { statusesApplied: statusOutcomes } : {}),
   };
 

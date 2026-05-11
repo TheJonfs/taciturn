@@ -58,6 +58,7 @@
 
 import {
   canCommitAction,
+  computeMpCost,
   endpointFrom,
   getLegalMoves,
   horizontalDistance,
@@ -169,9 +170,9 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
   const enemies = livingEnemies(state, actor);
   const allies = livingAllies(state, actor);
 
-  const offensive = enumerateOffensiveAbilities(actor, catalog);
-  const healing = enumerateHealingAbilities(actor, catalog);
-  const allyBuffs = enumerateAllyBuffAbilities(actor, catalog);
+  const offensive = enumerateOffensiveAbilities(state, actor, catalog);
+  const healing = enumerateHealingAbilities(state, actor, catalog);
+  const allyBuffs = enumerateAllyBuffAbilities(state, actor, catalog);
 
   // Phase 0: heal if an ally is wounded and in range.
   if (state.turnState.budget.actsAvailable > 0 && healing.length > 0) {
@@ -277,14 +278,23 @@ function enumerateActiveAbilities(
 // Filters by MP affordability — the AI doesn't propose a cast it can't
 // afford.
 function enumerateOffensiveAbilities(
+  state: GameState,
   actor: Unit,
   catalog: Catalog,
 ): ActiveAbilityDefinition[] {
-  return enumerateActiveAbilities(actor, catalog).filter((a) => isOffensive(a, catalog)).filter((a) => canAfford(actor, a));
+  return enumerateActiveAbilities(actor, catalog).filter((a) => isOffensive(a, catalog)).filter((a) => canAfford(state, catalog, actor, a));
 }
 
-function canAfford(actor: Unit, ability: ActiveAbilityDefinition): boolean {
-  return actor.vitals.mp >= ability.mpCost;
+// MP affordability check — routes through `computeMpCost` so equipment
+// / status `modifyMpCost` contributors compose into the AI's planner
+// (per ADR-0056). The AI doesn't propose a cast it can't afford.
+function canAfford(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  ability: ActiveAbilityDefinition,
+): boolean {
+  return actor.vitals.mp >= computeMpCost(state, catalog, actor.id, ability.id);
 }
 
 function isOffensive(ability: ActiveAbilityDefinition, catalog: Catalog): boolean {
@@ -316,10 +326,11 @@ function isOffensive(ability: ActiveAbilityDefinition, catalog: Catalog): boolea
 // Healing abilities — single_unit, has a 'healing'-tagged damage spec.
 // (Cure, future Raise, etc.)
 function enumerateHealingAbilities(
+  state: GameState,
   actor: Unit,
   catalog: Catalog,
 ): ActiveAbilityDefinition[] {
-  return enumerateActiveAbilities(actor, catalog).filter(isHealingSingleUnit).filter((a) => canAfford(actor, a));
+  return enumerateActiveAbilities(actor, catalog).filter(isHealingSingleUnit).filter((a) => canAfford(state, catalog, actor, a));
 }
 
 function isHealingSingleUnit(ability: ActiveAbilityDefinition): boolean {
@@ -338,10 +349,11 @@ function isHealingSingleUnit(ability: ActiveAbilityDefinition): boolean {
 // semantics. The AI treats it as a buff (not a heal) because the
 // damage pipeline doesn't deliver Regen's healing — it's status-driven.
 function enumerateAllyBuffAbilities(
+  state: GameState,
   actor: Unit,
   catalog: Catalog,
 ): ActiveAbilityDefinition[] {
-  return enumerateActiveAbilities(actor, catalog).filter((a) => isAllyBuff(a, catalog)).filter((a) => canAfford(actor, a));
+  return enumerateActiveAbilities(actor, catalog).filter((a) => isAllyBuff(a, catalog)).filter((a) => canAfford(state, catalog, actor, a));
 }
 
 function isAllyBuff(ability: ActiveAbilityDefinition, catalog: Catalog): boolean {
@@ -624,7 +636,7 @@ function strongestDamageFollowUp(
   source: Position,
   target: Unit,
 ): number {
-  const offensives = enumerateOffensiveAbilities(actor, catalog);
+  const offensives = enumerateOffensiveAbilities(state, actor, catalog);
   let best = 0;
   for (const a of offensives) {
     if (a.effects.damage === undefined) continue;
@@ -665,8 +677,8 @@ function projectExpectedDamageFromActor(
 // Whether the actor has any damage-dealing offensive ability — used
 // to gate the Magnetic Mark setup→exploit bonus. Without a follow-up,
 // marking is wasted.
-function actorHasDamageFollowUp(actor: Unit, catalog: Catalog): boolean {
-  const offensives = enumerateOffensiveAbilities(actor, catalog);
+function actorHasDamageFollowUp(state: GameState, actor: Unit, catalog: Catalog): boolean {
+  const offensives = enumerateOffensiveAbilities(state, actor, catalog);
   for (const a of offensives) {
     if (a.effects.damage !== undefined && !a.effects.damage.tags.includes('healing')) {
       return true;
@@ -826,7 +838,7 @@ function scoreAllyBuff(
   // (declared by ability.effects.statusEffects) as a proxy. For tier
   // 1.5, score by ally's projected damage output: high MA + has
   // offensive abilities = high value to buff.
-  const offensives = enumerateOffensiveAbilities(target, catalog);
+  const offensives = enumerateOffensiveAbilities(state, target, catalog);
   if (offensives.length === 0) return 0;
   // Damage potential = MA × number of offensive abilities. A Mage
   // with MA 9 and 5 offensive spells scores 45; a Knight with MA 4

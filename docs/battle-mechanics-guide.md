@@ -224,7 +224,7 @@ This produces:
 
 When `resistance_modifier` is negative, the engine applies the result as healing rather than damage (positive HP change rather than subtraction).
 
-> **v1 implementation note (per ADR-0022):** absorption (`resistance > 100` → healing) is deferred until the first content consumer. The session 14 `resistance_check` handler caps the effective resistance at 100 (immune); values above 100 read as 100 and produce zero damage rather than negative-multiplier healing. The full scale stays documented here as the design intent; the cap is removed alongside the first content with resistance > 100.
+> **v1 implementation note (per ADR-0057, supersedes ADR-0022):** absorption is now active. The Session 14 cap-at-100 in `resistance_check` was lifted in Session 27 alongside the `modifyResistance` hook; resistance values above 100 produce a negative multiplier and the cap stage (`clampMinMax`) tag-flips the result to healing, capped at the pre-multiplier base damage so resistance ≥ 200 heals for at most 100% of base (no compounding above 200). Absorbed damage routes through the existing healing path; the action log distinguishes "absorbed X HP" from "healed X HP" via the `AbilityTargetResult.absorbed` flag. Status apply chance composes uncapped resistance through the formula and clamps the resulting probability to `[0, 1]` (no "absorption semantics" for status — statuses don't heal).
 
 ### Tag-based application
 

@@ -731,7 +731,7 @@ describe('runDamagePipeline — resistance (signedMax composition, healing short
     expect(ctx.finalDamage).toBe(20);
   });
 
-  it('caps resistance at 100 — values >100 read as immune (absorption deferred per ADR-0022)', () => {
+  it('resistance = 200 absorbs full base damage as healing (per ADR-0057, supersedes ADR-0022)', () => {
     const spell = basicSpell({ power_coefficient: 4 });
     const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
     const absorbTarget = makeUnit({
@@ -740,8 +740,6 @@ describe('runDamagePipeline — resistance (signedMax composition, healing short
       hp: 50,
       maxHpBase: 100,
       faith: 100,
-      // Per ADR-0022, 200 reads as 100 (immune). Absorption (heal-on-hit)
-      // ships when the first content consumer arrives.
       resistances: new Map<DamageTag, number>([['magical', 200]]),
     });
     const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
@@ -764,9 +762,13 @@ describe('runDamagePipeline — resistance (signedMax composition, healing short
       seed: 0,
       registry: defaultDamageHandlers,
     });
-    // 20 × 0.0 = 0. (Not negative-multiplied for absorption.)
-    expect(ctx.finalDamage).toBe(0);
-    expect(ctx.hit).toBe(true); // immune is a damage-zero outcome, not a miss.
+    // Base damage = MA(5) × power(4) × Faith(1.0×1.0) = 20.
+    // Resistance 200 → multiplier (100 - 200) / 100 = -1.0 → raw = -20.
+    // clampMinMax detects absorption: tag-flip to healing; absorbed =
+    // min(20, base=20) = 20; max-HP room = 50; finalDamage = 20.
+    expect(ctx.finalDamage).toBe(20);
+    expect(ctx.damageTags.has('healing')).toBe(true);
+    expect(ctx.hit).toBe(true);
   });
 
   it('missing tag entries default to 0 resistance (no implicit immunity)', () => {

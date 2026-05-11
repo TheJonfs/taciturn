@@ -108,6 +108,6 @@ describe('projectDamageRange', () => {
     const cat = makeCatalog(debuff);
     const state = makeGameState({ units: [attacker, target] });
     const r = projectDamageRange({ state, catalog: cat, attacker, target, ability: debuff });
-    expect(r).toEqual({ min: 0, expected: 0, max: 0 });
+    expect(r).toEqual({ min: 0, expected: 0, max: 0, regime: 'damage' });
   });
 });

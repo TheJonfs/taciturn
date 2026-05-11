@@ -8,9 +8,9 @@
 // speed floor (Stop, etc.) is read from the active ruleset's
 // `speedBounds.floor` so an alternate ruleset can change it.
 
-import type { Catalog } from '../catalog/index.ts';
-import { runModifyStatQuery } from '../hooks/index.ts';
-import { getUnit, type ChargedAction, type GameState, type UnitId } from '../types/index.ts';
+import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
+import { runModifyActionSpeed, runModifyStatQuery } from '../hooks/index.ts';
+import { getUnit, type ChargedAction, type GameState, type Unit, type UnitId } from '../types/index.ts';
 
 export function computeSpeed(state: GameState, unitId: UnitId, catalog: Catalog): number {
   const unit = getUnit(state, unitId);
@@ -23,9 +23,36 @@ export function computeSpeed(state: GameState, unitId: UnitId, catalog: Catalog)
   return Math.max(ruleset.speedBounds.floor, modified);
 }
 
+// Compute the committed Action Speed for an ability about to be cast.
+// Reads `ability.actionSpeed`, threads it through the `modifyActionSpeed`
+// hook chain (additive; equipment / status / passive contributors fire
+// against the caster's hooks), clamps so a positive-speed ability stays
+// positive (Math.max(1, modified) when base > 0). The clamp preserves
+// the line-264 charged-vs-instant gate's invariant — equipment can't
+// flip an instant ability into a charged one or vice versa. The
+// resulting value is what `commitCharged` stores on `ChargedAction.speed`;
+// per ADR-0056, that stored value is the canonical commit-time read.
+// Per ADR-0056 (Session 27).
+export function computeBaseActionSpeed(
+  state: GameState,
+  catalog: Catalog,
+  unit: Unit,
+  ability: ActiveAbilityDefinition,
+): number {
+  const modified = runModifyActionSpeed(state, catalog, {
+    unit,
+    ability,
+    baseActionSpeed: ability.actionSpeed,
+  });
+  if (ability.actionSpeed > 0) return Math.max(1, modified);
+  return Math.max(0, modified);
+}
+
 // Action Speed is stored on the ChargedAction (ADR-0003) and modified
 // by abilities that mutate it directly (Hasten Charge, Slow Action).
-// No hook chain at read time — the field is the canonical value.
+// No hook chain at read time — the field is the canonical value baked
+// in at commit (per ADR-0056; equipment / status modifiers compose at
+// commit via `computeBaseActionSpeed`).
 // Floored against the same ruleset speed floor as unit Speed for
 // consistency.
 //

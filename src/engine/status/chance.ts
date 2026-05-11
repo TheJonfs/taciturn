@@ -22,7 +22,12 @@
 // runs against the constant 1.0.
 
 import type { ActiveAbilityDefinition, Catalog, StatusEffectType } from '../catalog/index.ts';
-import { runModifyStatQuery, runModifyStatusApplicationChance } from '../hooks/runners.ts';
+import {
+  runModifyIncomingStatusApplicationChance,
+  runModifyResistance,
+  runModifyStatQuery,
+  runModifyStatusApplicationChance,
+} from '../hooks/runners.ts';
 import type { GameState, Unit } from '../types/index.ts';
 import type { StatusFormulaFactors } from '../catalog/definitions/ability-definition.ts';
 import { computeBraveFactor, computeFaithFactor } from '../damage/handlers.ts';
@@ -165,17 +170,29 @@ export function computeStatusChance(
       );
     }
 
-    const resistance = lookupStatusResistance(args.statusType, args.target);
-    const resistanceFactor = (100 - Math.min(100, resistance)) / 100;
+    const resistance = lookupStatusResistance(
+      args.state,
+      args.catalog,
+      args.statusType,
+      args.target,
+    );
+    // Uncapped resistance (per ADR-0057, supersedes ADR-0022). For
+    // resistance > 100, resistanceFactor goes negative → preModifier
+    // negative → final clamps to 0. For resistance < 0, factor > 1
+    // → preModifier > 1 → final clamps to 1. The clamp at the bottom
+    // of this function bounds the probability into [0, 1] regardless
+    // of regime; absorption semantics ("resistance > 100 heals") don't
+    // apply to status chance (statuses don't heal; they apply or don't).
+    const resistanceFactor = (100 - resistance) / 100;
 
     preModifier = baseFraction * factorProduct * resistanceFactor;
   }
 
-  // Modifier hooks (Earth Communion × 1.25, etc.) compose
+  // Caster-side modifier hooks (Earth Communion × 1.25, etc.) compose
   // multiplicatively against the caster's hooks. Earth Communion fires
   // for any status application, including Stasis Sword's Stop and
   // Taunt's Taunted — they're not gated by tag.
-  const postModifier = runModifyStatusApplicationChance(args.state, args.catalog, {
+  const postCasterModifier = runModifyStatusApplicationChance(args.state, args.catalog, {
     caster: args.caster,
     target: args.target,
     statusType: args.statusType,
@@ -183,18 +200,43 @@ export function computeStatusChance(
     baseChance: preModifier,
   });
 
-  return Math.max(0, Math.min(1, postModifier));
+  // Target-side modifier hooks (Pointy Hat × 0.5 on Silence, Focus Band
+  // × 0.75 on negative-tagged statuses, etc.) compose multiplicatively
+  // against the target's hooks after the caster chain. Final formula
+  // (per ADR-0056, Session 27):
+  //   final_chance = base × ∏casterHooks × ∏targetHooks
+  // Clamp to [0, 1] at the return.
+  const postTargetModifier = runModifyIncomingStatusApplicationChance(args.state, args.catalog, {
+    target: args.target,
+    caster: args.caster,
+    statusType: args.statusType,
+    ability: args.ability,
+    baseChance: postCasterModifier,
+  });
+
+  return Math.max(0, Math.min(1, postTargetModifier));
 }
 
 // Look up the target's resistance against the status type's primary
-// resistance tag (the type's declared `resistanceTag`). Missing tag
-// means resistance 0 — the status can't be resisted. Multi-tag
-// status resistance is future work; this single-tag shape keeps v1
-// scope tight.
-function lookupStatusResistance(type: StatusEffectType, target: Unit): number {
+// resistance tag (the type's declared `resistanceTag`), threaded
+// through the `modifyResistance` hook chain. Missing tag means
+// resistance 0 — the status can't be resisted; equipment / status
+// contributors can introduce resistance for that tag (e.g., Capacitor
+// Ring +50 Lightning). Multi-tag status resistance is future work;
+// this single-tag shape keeps v1 scope tight. Per ADR-0056 (Session 27).
+function lookupStatusResistance(
+  state: GameState,
+  catalog: Catalog,
+  type: StatusEffectType,
+  target: Unit,
+): number {
   if (type.resistanceTag === undefined) return 0;
-  const value = target.resistances.get(type.resistanceTag);
-  return value ?? 0;
+  const native = target.resistances.get(type.resistanceTag);
+  return runModifyResistance(state, catalog, {
+    unit: target,
+    tag: type.resistanceTag,
+    baseValue: native ?? 0,
+  });
 }
 
 // Generic ability-chance roll for non-status rider effects: knockback

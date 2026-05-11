@@ -33,6 +33,7 @@ import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
 import { hasLineOfSight } from '../map/line-of-sight.ts';
 import { arcTargetable } from '../map/arc.ts';
 import { UnknownDefinitionError } from '../catalog/index.ts';
+import { computeMpCost } from '../abilities/cost.ts';
 
 export interface ValidationResult {
   readonly valid: boolean;
@@ -211,10 +212,13 @@ function validateUseAbility(
     );
   }
 
-  // MP cost.
-  if (actor.vitals.mp < ability.mpCost) {
+  // MP cost — routed through `computeMpCost` so equipment / status /
+  // passive `modifyMpCost` contributors compose into the affordability
+  // check (per ADR-0056).
+  const mpCost = computeMpCost(state, catalog, actor.id, ability.id);
+  if (actor.vitals.mp < mpCost) {
     return invalid(
-      `Insufficient MP for ${JSON.stringify(ability.id)}: have ${actor.vitals.mp}, need ${ability.mpCost}`,
+      `Insufficient MP for ${JSON.stringify(ability.id)}: have ${actor.vitals.mp}, need ${mpCost}`,
     );
   }
 

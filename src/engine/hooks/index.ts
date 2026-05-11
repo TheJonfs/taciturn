@@ -21,11 +21,16 @@ export {
   type SourceContribution,
 } from './collector.ts';
 export {
+  runModifyActionSpeed,
   runModifyCanEnter,
   runModifyEvasion,
   runModifyHitChance,
+  runModifyIncomingStatusApplicationChance,
+  runModifyMpCost,
+  runModifyResistance,
   runModifySpecialMovement,
   runModifyStatQuery,
+  runModifyStatusApplicationChance,
   runModifySystemDamage,
   runModifyTerrainCosts,
   runOnActionAttempted,

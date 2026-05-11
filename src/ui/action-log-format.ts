@@ -474,7 +474,13 @@ function targetResultSegments(
   if (!r.hit) return [labelSeg, plain(' missed')];
   const dmg = r.damage ?? 0;
   const heal = r.healing ?? 0;
-  if (heal > 0) return [labelSeg, plain(` +${heal} HP`)];
+  if (heal > 0) {
+    // Absorption (per ADR-0057, Session 27): the ability was natively
+    // damage but the target's resistance > 100 flipped it to healing.
+    // Distinguish from native heals so the log reads honestly.
+    if (r.absorbed === true) return [labelSeg, plain(` absorbed ${heal} HP`)];
+    return [labelSeg, plain(` +${heal} HP`)];
+  }
   if (dmg > 0) return [labelSeg, plain(` ${dmg} dmg`)];
   if (r.statusesApplied !== undefined && r.statusesApplied.length > 0) {
     const appliedCount = r.statusesApplied.filter((s) => classifyStatusOutcome(s).applied).length;

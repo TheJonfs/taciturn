@@ -20,6 +20,7 @@ import {
   aoeFootprint,
   cardinalFromTo,
   canCommitAction,
+  computeMpCost,
   getLegalMoves,
   positionKey,
   tileAt,
@@ -608,8 +609,9 @@ function computeAbilityDisableReason(
   if (state.turnState === null || state.turnState.budget.actsAvailable <= 0) {
     return 'No Act budget remaining';
   }
-  if (actor.vitals.mp < ability.mpCost) {
-    return `Insufficient MP — need ${ability.mpCost}, have ${actor.vitals.mp}`;
+  const mpCost = computeMpCost(state, catalog, actor.id, ability.id);
+  if (actor.vitals.mp < mpCost) {
+    return `Insufficient MP — need ${mpCost}, have ${actor.vitals.mp}`;
   }
   // We don't run runOnActionAttempted here because we'd need a concrete
   // ProposedAction (with a chosen target). The per-ability disable

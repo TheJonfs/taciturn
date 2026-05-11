@@ -7,6 +7,7 @@
 // surfaces never disagree.
 
 import {
+  computeMpCost,
   estimateChargedTiming as engineEstimateChargedTiming,
   projectAoePreview,
   projectDamageRange,
@@ -162,7 +163,10 @@ export function composeForecast(args: ComposeForecastArgs): Forecast {
     unit: args.caster,
     plannedNext: 'act',
   });
-  const casterMpAfter = Math.max(0, args.caster.vitals.mp - args.ability.mpCost);
+  const casterMpAfter = Math.max(
+    0,
+    args.caster.vitals.mp - computeMpCost(args.state, args.catalog, args.caster.id, args.ability.id),
+  );
 
   // Charged-action timing — surface the queue position the charged
   // resolution would land at and (when targeted on a unit visible in

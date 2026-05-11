@@ -99,7 +99,9 @@ export function ForecastPanel({ forecast, catalog, state }: ForecastPanelProps):
                 )}
                 {dmg !== undefined && (
                   <div style={dmgRowStyle}>
-                    <span style={dmgLabelStyle}>dmg</span>
+                    <span style={dmgLabelStyle}>
+                      {dmg.regime === 'heal' ? 'heal' : dmg.regime === 'absorbed' ? 'absorb' : 'dmg'}
+                    </span>
                     <span style={dmgValueStyle}>
                       {dmg.min === dmg.max
                         ? `${dmg.expected}`

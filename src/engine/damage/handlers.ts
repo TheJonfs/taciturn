@@ -17,6 +17,7 @@
 // pipeline orchestrator does that at the appropriate stage).
 
 import { expectActiveAbility } from '../actions/validate.ts';
+import { collectActiveHandlers } from '../hooks/collector.ts';
 import {
   runModifyEvasion,
   runModifyHitChance,
@@ -24,6 +25,8 @@ import {
   runOnDamageDealt,
   runOnDamageReceived,
 } from '../hooks/runners.ts';
+import type { Catalog } from '../catalog/index.ts';
+import type { GameState } from '../types/index.ts';
 import { getEquippedWeapon } from '../items/equipment.ts';
 import {
   getUnit,
@@ -286,11 +289,13 @@ export const evasionCheck: DamageHandler = (ctx, env) => {
   return { ...ctx, hit: false };
 };
 
-// Per-tag resistance lookup, composed via signedMax (ADR-0015).
+// Per-tag resistance lookup, composed via signedMax (ADR-0015) with
+// the per-tag `modifyResistance` hook chain (ADR-0056, Session 27).
 // Healing-tagged effects skip the stage entirely (ADR-0016) — healing
 // is unresisted. Damage-tagged effects look up `target.resistances` per
-// tag, take the signed maximum across applicable tags, and apply the
-// resulting multiplier to the in-flight damage.
+// tag, thread each tag through the additive hook chain, take the signed
+// maximum across applicable tags, and apply the resulting multiplier to
+// the in-flight damage.
 //
 // The Battle Mechanics Guide formula:
 //   resistance_modifier = (100 − resistance) / 100
@@ -298,20 +303,18 @@ export const evasionCheck: DamageHandler = (ctx, env) => {
 // (normal); resistance = 100 → 0× (immune); resistance = -50 → 1.5×
 // (1.5× damage); resistance = -100 → 2.0× (double).
 //
-// **Absorption deferred (per ADR-0020):** the full BMG scale extends
-// to resistance = 200 (full absorption — damage flips to healing). v1
-// has no content with resistance > 100, so the absorption code path is
-// uncovered. The handler caps the resistance value at 100 (immune) and
-// emits the multiplier from `(100 − cappedResistance) / 100`. When the
-// first content with resistance > 100 ships, this clamp is removed and
-// the absorption path lands with a real consumer.
-export const resistanceCheck: DamageHandler = (ctx) => {
+// **Absorption activated (per ADR-0057, supersedes ADR-0022).** The
+// previous cap-at-100 has been lifted. Resistance > 100 produces a
+// negative multiplier; `clampMinMax` (cap stage) detects negative raw
+// damage and tag-flips to healing, capping the absorbed amount at the
+// pre-multiplier base damage so resistance ≥ 200 heals for 100% of
+// base (no further compounding above 200). See `clampMinMax`.
+export const resistanceCheck: DamageHandler = (ctx, env) => {
   if (!ctx.hit) return ctx;
   if (ctx.damageTags.has('healing')) return ctx;
-  const resistance = composeResistance(ctx.damageTags, ctx.target);
+  const resistance = composeResistance(env.state, env.catalog, ctx.damageTags, ctx.target);
   if (resistance === 0) return ctx;
-  const capped = Math.min(100, resistance);
-  const factor = (100 - capped) / 100;
+  const factor = (100 - resistance) / 100;
   return {
     ...ctx,
     multipliers: [...ctx.multipliers, { source: 'resistance', factor }],
@@ -430,23 +433,48 @@ function unitFloatFromSeed(seed: number, subIndex: number): number {
 // finalize sets the explicit finalDamage). To avoid a double-walk, this
 // handler computes the running value, clamps, and stashes it on the
 // context as the start of finalDamage; the finalize handler reads it.
+//
+// **Absorption (per ADR-0057, supersedes ADR-0022).** Resistance > 100
+// produces a negative multiplier — raw < 0 for a non-healing damage
+// source. This handler detects that case, adds the `'healing'` tag to
+// ctx.damageTags (tag-flip), and converts the magnitude to a heal
+// clamped at the pre-multiplier baseDamage (so resistance ≥ 200 heals
+// for at most 100% of base; no compounding above 200). Downstream
+// consumers — `applyDamageToTarget`, perTargetResult recording, the
+// CT-push rider's `!has('healing')` gate, the action log formatter —
+// all route through the existing healing path naturally. The tag-flip
+// is contained to this stage; the earlier resistance / damage stages
+// already ran with the original tag set.
 export const clampMinMax: DamageHandler = (ctx, env) => {
   const raw = computeRawDamage(ctx);
   const isHealing = ctx.damageTags.has('healing');
-  let clamped: number;
   if (isHealing) {
-    const target = ctx.target;
     const maxHp = runModifyStatQuery(env.state, env.catalog, {
-      unit: target,
+      unit: ctx.target,
       statName: 'maxHp',
-      baseValue: target.baseStats.maxHpBase,
+      baseValue: ctx.target.baseStats.maxHpBase,
     });
-    const room = Math.max(0, maxHp - target.vitals.hp);
-    clamped = Math.min(raw, room);
-  } else {
-    clamped = Math.max(0, raw);
+    const room = Math.max(0, maxHp - ctx.target.vitals.hp);
+    return { ...ctx, finalDamage: Math.min(raw, room) };
   }
-  return { ...ctx, finalDamage: clamped };
+  if (raw < 0) {
+    // Absorption: the resistance multiplier flipped the result negative.
+    // Cap the absorbed amount at the pre-multiplier base damage so
+    // resistance ≥ 200 heals exactly base × 1.0 (not base × |multiplier|
+    // — that would compound above 200). Apply max-HP room cap so we
+    // don't over-heal.
+    const absorbed = Math.min(-raw, ctx.baseDamage);
+    const maxHp = runModifyStatQuery(env.state, env.catalog, {
+      unit: ctx.target,
+      statName: 'maxHp',
+      baseValue: ctx.target.baseStats.maxHpBase,
+    });
+    const room = Math.max(0, maxHp - ctx.target.vitals.hp);
+    const nextTags = new Set(ctx.damageTags);
+    nextTags.add('healing');
+    return { ...ctx, damageTags: nextTags, finalDamage: Math.min(absorbed, room) };
+  }
+  return { ...ctx, finalDamage: Math.max(0, raw) };
 };
 
 // --- finalize stage ---
@@ -577,24 +605,49 @@ function signedMax(values: ReadonlyArray<number>): number {
 }
 
 // Resolve the effective resistance for a damage effect against a
-// target. Iterates the effect's non-healing tags, looks up each tag's
-// resistance on the target, and returns the signed maximum.
+// target. Iterates the effect's non-healing tags, threads each tag's
+// resistance through the `modifyResistance` hook chain (additive;
+// equipment / status / passive contributors fire on the target), and
+// returns the signed maximum across the included tags.
 //
 // Tags not in the target's resistance map are SKIPPED (not treated as
-// "explicit 0"). Per ADR-0015's spirit — designers store the
-// resistances that apply to a unit; an absent tag means "this tag
-// isn't relevant to this unit's defense," not "this unit has a
-// declared 0 resistance that should preempt other tags." The earlier
-// `?? 0` behavior masked weaknesses on a unit who had, say, `water:
-// -50` and was hit by `['magical', 'water']` — the implicit 0 for
-// `magical` won the signedMax over the real -50 water weakness.
-function composeResistance(tags: ReadonlySet<DamageTag>, target: Unit): number {
+// "explicit 0") **unless a contributor produces a non-zero value for
+// that tag**. Per ADR-0015's spirit — designers store the resistances
+// that apply to a unit; an absent tag means "this tag isn't relevant
+// to this unit's defense," not "this unit has a declared 0 resistance
+// that should preempt other tags." Equipment / status contributors
+// can introduce new tags the unit doesn't natively carry (Capacitor
+// Ring +50 Lightning on a unit with no native Lightning entry); when
+// they do, the post-chain value is non-zero and the tag participates
+// in the signedMax. Per ADR-0056 (Session 27) — preserves ADR-0015's
+// fix while allowing equipment / status / future content to introduce
+// resistances mid-battle.
+function composeResistance(
+  state: GameState,
+  catalog: Catalog,
+  tags: ReadonlySet<DamageTag>,
+  target: Unit,
+): number {
+  // Collect once per call — the per-tag chain reuses the same handler
+  // list. Empty handlers list (the v1 case) means the chain is a no-op
+  // and only native entries contribute, preserving pre-Session-27
+  // behavior.
+  const handlers = collectActiveHandlers(state, target.id, catalog, 'modifyResistance');
   const values: number[] = [];
   for (const tag of tags) {
     if (tag === 'healing') continue;
-    const v = target.resistances.get(tag);
-    if (v === undefined) continue;
-    values.push(v);
+    const native = target.resistances.get(tag);
+    let value = native ?? 0;
+    for (const h of handlers) {
+      value = h.invoke({ unit: target, tag, baseValue: value });
+    }
+    // Include the tag iff the unit natively carries it OR a contributor
+    // produced a non-zero value. A contributor that returns 0 for a
+    // tag the unit doesn't natively carry is treated as "no opinion" —
+    // ADR-0015 preserved.
+    if (native !== undefined || value !== 0) {
+      values.push(value);
+    }
   }
   return signedMax(values);
 }

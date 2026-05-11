@@ -139,6 +139,114 @@ export function runModifyStatusApplicationChance(
   return value;
 }
 
+// Target-side variant — fires against the *target's* hooks so the
+// recipient's gear / statuses can resist incoming status applications.
+// Composes multiplicatively after the caster-side chain in
+// computeStatusChance: `final = base × ∏casterHooks × ∏targetHooks`.
+// The final probability is clamped to [0, 1] at the call site.
+export function runModifyIncomingStatusApplicationChance(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    target: Unit;
+    caster: Unit;
+    statusType: StatusEffectType;
+    ability: ActiveAbilityDefinition | null;
+    baseChance: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(
+    state,
+    args.target.id,
+    catalog,
+    'modifyIncomingStatusApplicationChance',
+  );
+  let value = args.baseChance;
+  for (const h of handlers) {
+    value = h.invoke({
+      unit: args.target,
+      caster: args.caster,
+      statusType: args.statusType,
+      ability: args.ability,
+      baseChance: value,
+    });
+  }
+  return value;
+}
+
+// Multiplicative chain over MP-cost modifiers. Handlers fire against the
+// caster's registrations. Each handler returns the next-running cost
+// (handler shape: `args.baseCost * factor`, mirroring modifyHitChance).
+// `computeMpCost` is the single chokepoint — reducer / validator / AI
+// route through it; this runner is its low-level engine.
+export function runModifyMpCost(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    ability: ActiveAbilityDefinition;
+    baseCost: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyMpCost');
+  let value = args.baseCost;
+  for (const h of handlers) {
+    value = h.invoke({ unit: args.unit, ability: args.ability, baseCost: value });
+  }
+  return value;
+}
+
+// Additive chain over action-speed modifiers. Handlers fire against the
+// caster's registrations. Each handler receives the running base speed
+// and returns the next (handler shape: `args.baseActionSpeed + delta`,
+// mirroring modifyStatQuery). Tag-conditional gating happens inside the
+// handler — the contributor inspects `args.ability` to decide whether
+// to apply. Called by `computeBaseActionSpeed` at commit time and by
+// the forecast's hypothetical-state construction.
+export function runModifyActionSpeed(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    ability: ActiveAbilityDefinition;
+    baseActionSpeed: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyActionSpeed');
+  let value = args.baseActionSpeed;
+  for (const h of handlers) {
+    value = h.invoke({
+      unit: args.unit,
+      ability: args.ability,
+      baseActionSpeed: value,
+    });
+  }
+  return value;
+}
+
+// Additive chain over per-tag resistance modifiers. Handlers fire
+// against the *target's* (resistance owner's) registrations — Capacitor
+// Ring (+50 Lightning) lives on the wearer. Called per damage tag by
+// composeResistance (damage pipeline) and once per status's
+// resistanceTag by lookupStatusResistance. The chain is uncapped — the
+// cap-at-100 was lifted to activate the absorption path per ADR-0057.
+export function runModifyResistance(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    tag: DamageTag;
+    baseValue: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyResistance');
+  let value = args.baseValue;
+  for (const h of handlers) {
+    value = h.invoke({ unit: args.unit, tag: args.tag, baseValue: value });
+  }
+  return value;
+}
+
 export function runModifyCanEnter(
   state: GameState,
   catalog: Catalog,

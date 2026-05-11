@@ -179,10 +179,25 @@ export interface ProjectExpectedDamageArgs {
 // Returns 0 for abilities without a damage spec — a debuff-only Magnetic
 // Mark or status applier projects no expected damage; the AI scores
 // those abilities through other paths.
+//
+// **Absorption avoidance (per ADR-0057, Session 27).** When the damage
+// pipeline tag-flips to healing because the target's resistance > 100,
+// `ctx.finalDamage` is the absorbed *heal* amount with `'healing'`
+// added to `ctx.damageTags`. Returning that as positive damage would
+// trick the AI's offensive scoring into preferring high-resistance
+// targets (healing the enemy looks like big damage). Detect the
+// absorption regime — non-healing ability whose projection ends up
+// healing-flagged — and return 0 so offensive scoring discards the
+// target. Active absorption-exploitation (heal an ally by hitting them
+// with their absorbed tag) is a deliberate non-goal for v1; passive
+// avoidance is sufficient.
 export function projectExpectedDamage(args: ProjectExpectedDamageArgs): number {
   const damage = args.ability.effects.damage;
   if (damage === undefined) return 0;
   const ctx = runDamagePipelineProjection(args);
+  const isNativelyHealing = damage.tags.includes('healing');
+  const projectionFlippedToHeal = !isNativelyHealing && ctx.damageTags.has('healing');
+  if (projectionFlippedToHeal) return 0;
   return ctx.finalDamage ?? 0;
 }
 

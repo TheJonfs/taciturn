@@ -5,6 +5,7 @@ import {
   knightLoadout,
   makeAbilitiesCatalog,
   makeActive,
+  makeKnight,
 } from '../abilities/test-fixtures.ts';
 import { activeTurnFor, makeChargedAction, makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { flatMap } from '../map/test-fixtures.ts';
@@ -142,16 +143,7 @@ describe('reduceUseAbility — instant + status-application', () => {
       statusTypes: [haste],
       abilities: [battleCry],
       commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1, availability: 'hidden' }],
-      classes: [
-        {
-          id: { __brand: 'ClassId' } as never,
-          name: 'Knight',
-          movement: { moveRange: 3, jump: 2, terrainCosts: new Map(), canEnter: new Set(['ground']) },
-          evasion: { front: 0, side: 0, back: 0 },
-          firstActionCommandSet: commandSetId('battle_skill'),
-          freeAbilities: new Set(),
-        } as Parameters<typeof createCatalog>[0]['classes'][number],
-      ],
+      classes: [makeKnight()],
       items: [],
       rulesets: defaultTestRulesets,
     });
@@ -219,7 +211,7 @@ describe('reduceUseAbility — instant + status-application', () => {
         }),
       ],
       commandSets: [],
-      classes: [],
+      classes: [makeKnight()],
       items: [],
       rulesets: defaultTestRulesets,
     });
@@ -412,7 +404,7 @@ describe('reduceChargedActionResolve', () => {
       statusTypes: [charging],
       abilities: [noopAbility],
       commandSets: [],
-      classes: [],
+      classes: [makeKnight()],
       items: [],
       rulesets: defaultTestRulesets,
     });
@@ -463,7 +455,7 @@ describe('reduceChargedActionResolve', () => {
         }),
       ],
       commandSets: [],
-      classes: [],
+      classes: [makeKnight()],
       items: [],
       rulesets: defaultTestRulesets,
     });
