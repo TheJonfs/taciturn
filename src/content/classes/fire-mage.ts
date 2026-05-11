@@ -26,6 +26,7 @@ import {
   classId,
   commandSetId,
   type ClassDefinition,
+  type DamageTag,
 } from '@engine/index.ts';
 
 export const fireMage: ClassDefinition = {
@@ -50,8 +51,15 @@ export const fireMage: ClassDefinition = {
   // the class its identity. Equipping either on a cross-classed mage
   // costs the standard baseCost 2 each.
   freeAbilities: new Set([
+    abilityId('attack'),
     abilityId('ignition'),
     abilityId('aether_bloom'),
     abilityId('smolder'),
+  ]),
+  // Elemental wheel (designer call 2026-05-10): +50 vs Earth (burns
+  // through stone), -50 vs Water (steam quench).
+  baselineResistances: new Map<DamageTag, number>([
+    ['earth', 50],
+    ['water', -50],
   ]),
 };

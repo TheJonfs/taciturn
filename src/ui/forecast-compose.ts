@@ -1,0 +1,211 @@
+// Forecast composer — pure function that assembles the engine's forecast
+// queries (damage range, status chance, AoE per-target preview, CT
+// preview) into a single payload the forecast panel and tooltip read.
+//
+// The panel renders the full payload; the tooltip renders a compact
+// per-tile slice. Both consume the same data structure so the two
+// surfaces never disagree.
+
+import {
+  computeSpeed,
+  projectAoePreview,
+  projectDamageRange,
+  projectStatusChances,
+  projectTurnEndCt,
+  projectUpcoming,
+  type ActiveAbilityDefinition,
+  type AoePreviewTile,
+  type Catalog,
+  type DamageRange,
+  type GameState,
+  type Position,
+  type ProjectedEvent,
+  type StatusChanceForecast,
+  type Unit,
+} from '@engine/index.ts';
+
+// Per-target row in a forecast (one row per AoE-affected unit; single-
+// target abilities produce exactly one row, when the anchor lands on a
+// unit).
+export interface ForecastTargetRow {
+  readonly position: Position;
+  readonly unit: Unit | null;
+  // True when this tile's occupant would be hit by the ability (false
+  // for excluded caster, friendly under no-friendly-fire, KO'd units).
+  readonly affected: boolean;
+  // Filled when affected and damaging.
+  readonly damage?: DamageRange;
+  // Status chances per declared effect on the ability.
+  readonly statusChances: ReadonlyArray<StatusChanceForecast>;
+}
+
+// Charged-action timing forecast — present only when the hovered
+// ability is charged (`actionSpeed > 0`). Surfaces how many events fire
+// between commit and resolution, and (when known) whether the target's
+// next turn lands before or after the spell resolves.
+export interface ChargedTiming {
+  // Estimated ticks until the spell resolves, assuming the chargedAction
+  // climbs at the same speed as the caster. Caller renders "Charges over
+  // ~K ticks" or similar.
+  readonly ticksToResolve: number;
+  // How many events in the upcoming-events projection fire before the
+  // spell would resolve. 0 means the spell fires first.
+  readonly eventsBeforeResolve: number;
+  // The target's next turn, if visible in the projection. `null` when
+  // not visible within the horizon.
+  readonly targetNextTurn: { readonly event: ProjectedEvent; readonly index: number } | null;
+  // True when the spell resolves before the target's next turn (the
+  // "good outcome" — target can't move out of the way).
+  readonly resolvesBeforeTargetTurn: boolean | null;
+}
+
+export interface Forecast {
+  readonly caster: Unit;
+  readonly ability: ActiveAbilityDefinition;
+  readonly anchor: Position;
+  // All footprint tiles, in the order `projectAoePreview` returned them.
+  readonly tiles: ReadonlyArray<AoePreviewTile>;
+  // Per-affected-target damage + status chances, derived from `tiles`.
+  // One row per affected target; empty for casts at empty tiles.
+  readonly targets: ReadonlyArray<ForecastTargetRow>;
+  // End-of-turn CT if the player committed this ability with current
+  // budget. `null` for charged casts (the turn ends but CT cost varies
+  // per the spec; surface only when meaningful for v1).
+  readonly endOfTurnCt: number;
+  // Caster MP after this cast. Drives the "MP: x → y" forecast line.
+  readonly casterMpAfter: number;
+  // Set when `ability.actionSpeed > 0`. `null` for instant casts.
+  readonly chargedTiming: ChargedTiming | null;
+}
+
+export interface ComposeForecastArgs {
+  readonly state: GameState;
+  readonly catalog: Catalog;
+  readonly caster: Unit;
+  readonly ability: ActiveAbilityDefinition;
+  readonly anchor: Position;
+}
+
+export function composeForecast(args: ComposeForecastArgs): Forecast {
+  const tiles = projectAoePreview({
+    state: args.state,
+    catalog: args.catalog,
+    caster: args.caster,
+    ability: args.ability,
+    anchor: args.anchor,
+  });
+
+  const targets: ForecastTargetRow[] = [];
+  for (const tile of tiles) {
+    if (tile.occupant === null) continue;
+    if (!tile.affected) {
+      // Surface unaffected occupants too so the UI can render "—" for
+      // them; helps the player see the AoE shape without hiding
+      // excluded units.
+      targets.push({
+        position: tile.position,
+        unit: tile.occupant,
+        affected: false,
+        statusChances: [],
+      });
+      continue;
+    }
+    const damage =
+      args.ability.effects.damage !== undefined
+        ? projectDamageRange({
+            state: args.state,
+            catalog: args.catalog,
+            attacker: args.caster,
+            target: tile.occupant,
+            ability: args.ability,
+            targetCount: tiles.filter((t) => t.affected).length,
+          })
+        : undefined;
+    const statusChances = projectStatusChances({
+      state: args.state,
+      catalog: args.catalog,
+      caster: args.caster,
+      target: tile.occupant,
+      ability: args.ability,
+    });
+    targets.push({
+      position: tile.position,
+      unit: tile.occupant,
+      affected: true,
+      ...(damage !== undefined ? { damage } : {}),
+      statusChances,
+    });
+  }
+
+  // CT projection: act after whatever's already been consumed.
+  const endOfTurnCt = projectTurnEndCt({
+    state: args.state,
+    catalog: args.catalog,
+    unit: args.caster,
+    plannedNext: 'act',
+  });
+  const casterMpAfter = Math.max(0, args.caster.vitals.mp - args.ability.mpCost);
+
+  // Charged-action timing — surface the queue position the charged
+  // resolution would land at and (when targeted on a unit visible in
+  // the projection) whether it resolves before the target's next turn.
+  const chargedTiming = args.ability.actionSpeed > 0
+    ? estimateChargedTiming(args, tiles)
+    : null;
+
+  return {
+    caster: args.caster,
+    ability: args.ability,
+    anchor: args.anchor,
+    tiles,
+    targets,
+    endOfTurnCt,
+    casterMpAfter,
+    chargedTiming,
+  };
+}
+
+// Approximate charged-action timing. The chargedAction would be added to
+// the projection at ct=0 with speed≈caster.speed (the engine uses
+// `computeActionSpeed` at commit which factors caster MA; close enough
+// for the forecast — exact resolution waits until the live charge
+// commits). Compares ticksToResolve against the existing upcoming
+// events to estimate how many events fire first.
+function estimateChargedTiming(
+  args: ComposeForecastArgs,
+  tiles: ReadonlyArray<AoePreviewTile>,
+): ChargedTiming {
+  const speed = Math.max(1, computeSpeed(args.state, args.caster.id, args.catalog));
+  // Threshold to fire = 100; the charge climbs at ~speed per tick. The
+  // ability.actionSpeed in v1 is used as the threshold-equivalent — the
+  // simplest workable estimate that matches the existing engine's
+  // chargedAction tick math.
+  const ticksToResolve = Math.ceil(args.ability.actionSpeed / speed);
+
+  const events = projectUpcoming(args.state, 20, args.catalog);
+  const eventsBeforeResolve = events.filter((e) => e.ticksFromNow < ticksToResolve).length;
+
+  // Pick a representative target — the first affected unit in the AoE
+  // preview (or the anchor unit for single-target). Use it as the
+  // "concerned target" for the before/after comparison.
+  const affectedTarget = tiles.find((t) => t.affected)?.occupant ?? null;
+  let targetNextTurn: ChargedTiming['targetNextTurn'] = null;
+  let resolvesBeforeTargetTurn: boolean | null = null;
+  if (affectedTarget !== null) {
+    for (let i = 0; i < events.length; i++) {
+      const ev = events[i]!;
+      if (ev.entityKind === 'unit' && ev.entityId === affectedTarget.id) {
+        targetNextTurn = { event: ev, index: i };
+        resolvesBeforeTargetTurn = ticksToResolve <= ev.ticksFromNow;
+        break;
+      }
+    }
+  }
+
+  return {
+    ticksToResolve,
+    eventsBeforeResolve,
+    targetNextTurn,
+    resolvesBeforeTargetTurn,
+  };
+}

@@ -18,6 +18,7 @@ import {
   classId,
   commandSetId,
   type ClassDefinition,
+  type DamageTag,
 } from '@engine/index.ts';
 
 export const earthMage: ClassDefinition = {
@@ -44,7 +45,14 @@ export const earthMage: ClassDefinition = {
   },
   firstActionCommandSet: commandSetId('earth_spells'),
   freeAbilities: new Set([
+    abilityId('attack'),
     abilityId('earth_resilience'),
     abilityId('earth_communion'),
+  ]),
+  // Elemental wheel (designer call 2026-05-10): +50 vs Lightning
+  // (grounds the charge), -50 vs Fire (earth burns / scorches).
+  baselineResistances: new Map<DamageTag, number>([
+    ['lightning', 50],
+    ['fire', -50],
   ]),
 };

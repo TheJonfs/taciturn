@@ -79,9 +79,19 @@ describe('turn-flow reducer — top-level menu picks', () => {
     expect(transition(s, { kind: 'pickAct', commandSets: [] })).toEqual(s);
   });
 
-  it('commitWait → animation', () => {
+  it('pickWait → wait-confirm (facing picker)', () => {
     const s: TurnFlowState = { kind: 'action-menu' };
-    expect(transition(s, { kind: 'commitWait' })).toEqual({ kind: 'animation' });
+    expect(transition(s, { kind: 'pickWait' })).toEqual({ kind: 'wait-confirm' });
+  });
+
+  it('commitWait from wait-confirm → animation', () => {
+    const s: TurnFlowState = { kind: 'wait-confirm' };
+    expect(transition(s, { kind: 'commitWait', facing: 'N' })).toEqual({ kind: 'animation' });
+  });
+
+  it('cancel from wait-confirm → action-menu', () => {
+    const s: TurnFlowState = { kind: 'wait-confirm' };
+    expect(transition(s, { kind: 'cancel' })).toEqual({ kind: 'action-menu' });
   });
 });
 

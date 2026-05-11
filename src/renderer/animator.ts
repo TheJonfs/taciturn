@@ -55,12 +55,16 @@ interface MoveAnim {
   elapsed: number;
 }
 
-interface FlashAnim {
-  readonly kind: 'flash';
-  readonly targetId: UnitId;
+interface FlashTargetSpec {
+  readonly unitId: UnitId;
   readonly hpAfter: number;
   readonly maxHpAfter: number;
   readonly koAfter: boolean;
+}
+
+interface FlashAnim {
+  readonly kind: 'flash';
+  readonly targets: ReadonlyArray<FlashTargetSpec>;
   readonly totalMs: number;
   elapsed: number;
 }
@@ -164,27 +168,13 @@ export class Animator {
       case 'use_ability': {
         const outcome = action.outcome;
         if (outcome === undefined) return null;
-        const result = outcome.perTargetResults[0];
-        if (result === undefined || result.target.kind !== 'unit') {
-          // Self-target or no result → just a brief pause to keep the
-          // beat. Avoids zero-length animations that flash through.
+        // Charged-cast commits enter a pending state — the visible
+        // effects fire at `charged_action_resolve` time. Pause briefly
+        // so the cast itself reads as a beat.
+        if (outcome.chargedActionId !== undefined) {
           return { kind: 'pause', totalMs: ATTACK_FLASH_DURATION_MS / 2, elapsed: 0 };
         }
-        const targetId = result.target.unitId;
-        const snap = this.snapshots.get(targetId);
-        if (snap === undefined) return null;
-        const damage = result.damage ?? 0;
-        const healing = result.healing ?? 0;
-        const hpAfter = Math.max(0, Math.min(snap.maxHp, snap.hp - damage + healing));
-        return {
-          kind: 'flash',
-          targetId,
-          hpAfter,
-          maxHpAfter: snap.maxHp,
-          koAfter: hpAfter <= 0,
-          totalMs: ATTACK_FLASH_DURATION_MS,
-          elapsed: 0,
-        };
+        return this.buildFlashFromTargets(outcome.perTargetResults);
       }
 
       case 'turn_start': {
@@ -214,19 +204,62 @@ export class Animator {
         // animator just holds for a beat so the final frame settles.
         return { kind: 'pause', totalMs: BATTLE_END_HOLD_MS, elapsed: 0 };
 
+      case 'charged_action_resolve': {
+        const outcome = action.outcome;
+        if (outcome === undefined) return null;
+        return this.buildFlashFromTargets(outcome.perTargetResults);
+      }
+
+      case 'system_damage': {
+        // Apply HP delta to the targeted unit and play a short flash so
+        // damage-over-time ticks (Burn, Poison) and falling damage are
+        // visible. No v1 popup for the magnitude.
+        const outcome = action.outcome;
+        const applied = outcome?.applied ?? action.payload.amount;
+        if (applied <= 0) return null;
+        const snap = this.snapshots.get(action.payload.targetId);
+        if (snap === undefined) return null;
+        const hpAfter = Math.max(0, snap.hp - applied);
+        return {
+          kind: 'flash',
+          targets: [{
+            unitId: action.payload.targetId,
+            hpAfter,
+            maxHpAfter: snap.maxHp,
+            koAfter: hpAfter <= 0,
+          }],
+          totalMs: ATTACK_FLASH_DURATION_MS / 2,
+          elapsed: 0,
+        };
+      }
+
+      case 'system_heal': {
+        const outcome = action.outcome;
+        const applied = outcome?.applied ?? action.payload.amount;
+        if (applied <= 0) return null;
+        const snap = this.snapshots.get(action.payload.targetId);
+        if (snap === undefined) return null;
+        const hpAfter = Math.min(snap.maxHp, snap.hp + applied);
+        return {
+          kind: 'flash',
+          targets: [{
+            unitId: action.payload.targetId,
+            hpAfter,
+            maxHpAfter: snap.maxHp,
+            koAfter: false,
+          }],
+          totalMs: ATTACK_FLASH_DURATION_MS / 2,
+          elapsed: 0,
+        };
+      }
+
       case 'wait':
       case 'status_tick':
-      case 'charged_action_resolve':
-      case 'system_heal':
-      case 'system_damage':
       case 'system_apply_status':
       case 'system_ct_push':
       case 'status_remove':
       case 'status_decrement_stack':
-        // No v1 visual; the renderer can pull the next action. (System
-        // actions are bookkeeping plumbing; the visible HP / status
-        // changes are reflected on the next animatable action's snapshot
-        // refresh.)
+        // No v1 visual; the renderer can pull the next action.
         return null;
 
       default:
@@ -256,12 +289,14 @@ export class Animator {
   }
 
   private applyFlashTween(a: FlashAnim, t: number): void {
-    const snap = this.snapshots.get(a.targetId);
-    if (snap === undefined) return;
     // Triangular envelope: ramp up to 1 in the first half, back to 0 in
-    // the second half.
+    // the second half. Apply uniformly across all flashed targets.
     const intensity = t < 0.5 ? t * 2 : (1 - t) * 2;
-    snap.flash = intensity;
+    for (const target of a.targets) {
+      const snap = this.snapshots.get(target.unitId);
+      if (snap === undefined) continue;
+      snap.flash = intensity;
+    }
   }
 
   private finalize(a: Anim): void {
@@ -275,17 +310,54 @@ export class Animator {
         return;
       }
       case 'flash': {
-        const snap = this.snapshots.get(a.targetId);
-        if (snap === undefined) return;
-        snap.flash = 0;
-        snap.hp = a.hpAfter;
-        snap.maxHp = a.maxHpAfter;
-        snap.ko = a.koAfter;
+        for (const target of a.targets) {
+          const snap = this.snapshots.get(target.unitId);
+          if (snap === undefined) continue;
+          snap.flash = 0;
+          snap.hp = target.hpAfter;
+          snap.maxHp = target.maxHpAfter;
+          snap.ko = target.koAfter;
+        }
         return;
       }
       case 'pause':
         return;
     }
+  }
+
+  // Build a flash anim from per-target results (use_ability +
+  // charged_action_resolve share the same outcome shape). Filters out
+  // misses + non-unit targets. Returns a brief pause when no unit was
+  // actually affected so the action still reads as a beat.
+  private buildFlashFromTargets(
+    results: ReadonlyArray<import('@engine/index.ts').AbilityTargetResult>,
+  ): Anim {
+    const specs: FlashTargetSpec[] = [];
+    for (const result of results) {
+      if (!result.hit) continue;
+      if (result.target.kind !== 'unit') continue;
+      const targetId = result.target.unitId;
+      const snap = this.snapshots.get(targetId);
+      if (snap === undefined) continue;
+      const damage = result.damage ?? 0;
+      const healing = result.healing ?? 0;
+      const hpAfter = Math.max(0, Math.min(snap.maxHp, snap.hp - damage + healing));
+      specs.push({
+        unitId: targetId,
+        hpAfter,
+        maxHpAfter: snap.maxHp,
+        koAfter: hpAfter <= 0,
+      });
+    }
+    if (specs.length === 0) {
+      return { kind: 'pause', totalMs: ATTACK_FLASH_DURATION_MS / 2, elapsed: 0 };
+    }
+    return {
+      kind: 'flash',
+      targets: specs,
+      totalMs: ATTACK_FLASH_DURATION_MS,
+      elapsed: 0,
+    };
   }
 }
 

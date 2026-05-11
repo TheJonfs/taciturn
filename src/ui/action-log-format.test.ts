@@ -216,4 +216,52 @@ describe('formatActionLog', () => {
     const rows = formatActionLog(log, makeBaseState(), emptyCatalog());
     expect(rows.map((r) => r.tag)).toEqual(['T0001', 'T0002']);
   });
+
+  it('interleaves a [ko] row right after the lethal damage row', () => {
+    const killer = makeUnit({ id: 'killer', spd: 10, maxHpBase: 100 });
+    const victim = makeUnit({ id: 'victim', spd: 10, maxHpBase: 100 });
+    const state = makeGameState({
+      units: [killer, victim],
+      map: flatMap(3, 3),
+      turnState: activeTurnFor(killer.id),
+    });
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, actorId: killer.id }),
+        type: 'turn_start',
+        payload: { unitId: killer.id },
+      },
+      {
+        ...env({ sequenceNumber: 2, actorId: killer.id }),
+        type: 'use_ability',
+        payload: { abilityId: abilityId('strike'), target: { kind: 'unit', unitId: victim.id } },
+        outcome: {
+          kind: 'use_ability',
+          abilityId: abilityId('strike'),
+          mpSpent: 0,
+          perTargetResults: [{ target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 120 }],
+        },
+      },
+    ];
+    const rows = formatActionLog(log, state, emptyCatalog());
+    // Three rows: turn_start, use_ability, ko.
+    expect(rows).toHaveLength(3);
+    expect(rows[2]!.tag).toBe('[ko]');
+    expect(rows[2]!.tagKind).toBe('ko');
+    expect(rows[2]!.text).toContain('victim');
+    expect(rows[2]!.participants.targetIds).toEqual([victim.id]);
+  });
+
+  it('attaches participants and actionSeq to every emitted row', () => {
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 7, actorId: unitId('u1') }),
+        type: 'move',
+        payload: { destination: { x: 1, y: 1, layer: 0 } },
+      },
+    ];
+    const rows = formatActionLog(log, makeBaseState(), emptyCatalog());
+    expect(rows[0]!.actionSeq).toBe(7);
+    expect(rows[0]!.participants.actorId).toBe(unitId('u1'));
+  });
 });

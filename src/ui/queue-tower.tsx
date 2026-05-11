@@ -8,10 +8,10 @@
 //     the bottom, furthest at the top. "Looking up the column is
 //     looking forward in time."
 //
-// Session 22 scope: structure + content for the visible window. Full
-// 20-event horizon, mini-card scrolling, charged-action overlays,
-// hover-to-highlight-on-map, click-to-open-detail-panel, and the
-// auto-snap-back-on-new-turn behaviors are Session 23/24 work.
+// Session 24: full 20-event horizon with scrolling. Hover a mini-card
+// to light the canvas counterpart; click to open the unit-detail panel.
+// Column auto-snaps to bottom on a new turn (the new active unit anchor
+// re-appears at the visible row).
 //
 // The component reads engine state through the existing public surface:
 //   - `projectUpcoming(state, count, catalog)` for the upcoming-event
@@ -19,7 +19,7 @@
 //   - `state.turnState?.unitId` for the active unit.
 //   - `computeSpeed` and `runModifyStatQuery` for derived stats.
 
-import type { CSSProperties, ReactElement } from 'react';
+import { useEffect, useRef, type CSSProperties, type ReactElement } from 'react';
 import {
   computeSpeed,
   projectUpcoming,
@@ -29,12 +29,13 @@ import {
   type ProjectedEvent,
   type TeamId,
   type Unit,
+  type UnitId,
 } from '@engine/index.ts';
 
 // Number of upcoming-event mini-cards rendered above the active unit
-// panel. The design doc calls for 5-7 visible at default zoom of the
-// 20-event horizon; a fuller projection with scrolling lands later.
-const VISIBLE_UPCOMING_EVENTS = 7;
+// panel. Per the design doc's "20-event horizon"; the scrollable inner
+// container shows ~5-7 at a time at default sizing.
+const VISIBLE_UPCOMING_EVENTS = 20;
 
 // Mirrors the renderer's TEAM_COLORS so card borders match the on-canvas
 // color. Renderer-as-source-of-truth would be cleaner, but the renderer
@@ -49,9 +50,15 @@ const TEAM_BORDER_FALLBACK = '#aaaaaa';
 export interface QueueTowerProps {
   readonly state: GameState | null;
   readonly catalog: Catalog;
+  // Hover-counterpart callback — when the player hovers a mini-card,
+  // the corresponding unit (or charged action's caster) is reported so
+  // the canvas can pulse it.
+  readonly onHoverParticipants?: (ids: ReadonlyArray<UnitId>) => void;
+  // Click-through to the unit detail panel.
+  readonly onOpenUnitDetail?: (unitId: UnitId) => void;
 }
 
-export function QueueTower({ state, catalog }: QueueTowerProps): ReactElement {
+export function QueueTower({ state, catalog, onHoverParticipants, onOpenUnitDetail }: QueueTowerProps): ReactElement {
   const activeUnit = state !== null && state.turnState !== null
     ? state.units.get(state.turnState.unitId) ?? null
     : null;
@@ -59,24 +66,53 @@ export function QueueTower({ state, catalog }: QueueTowerProps): ReactElement {
     ? []
     : projectUpcoming(state, VISIBLE_UPCOMING_EVENTS, catalog);
 
+  // Auto-snap back to the active anchor when a new turn begins (the
+  // active unit's id changes). Without this, the player who's scrolled
+  // up to see future events would stay scrolled when the next turn
+  // fires — disorienting.
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const lastActiveIdRef = useRef<string | null>(null);
+  const currentActiveId = activeUnit?.id ?? null;
+  useEffect(() => {
+    if (listRef.current === null) return;
+    const last = lastActiveIdRef.current;
+    if (last !== null && currentActiveId !== last) {
+      // Scroll so the active anchor is in view. Because the list is
+      // column-reverse (nearest at bottom), the bottom corresponds to
+      // scrollTop = scrollHeight - clientHeight.
+      const el = listRef.current;
+      el.scrollTop = el.scrollHeight;
+    }
+    lastActiveIdRef.current = currentActiveId !== null ? String(currentActiveId) : null;
+  }, [currentActiveId]);
+
   return (
     <aside style={towerStyle} aria-label="Turn queue">
-      <div style={miniCardListStyle}>
-        {/* Render furthest-out events at the top, nearest at the
-            bottom — closer to the active unit panel reads as
-            "happening sooner". */}
-        {[...events].reverse().map((event, displayIdx) => (
+      <div style={miniCardListStyle} ref={listRef}>
+        {/* Render in natural order (event 1 first, event 20 last); the
+            container's `column-reverse` flexDirection visually stacks
+            event 1 at the bottom (closest to the active anchor) and
+            event 20 at the top. "Looking up the column is looking
+            forward in time." */}
+        {events.map((event, idx) => (
           <MiniCard
-            key={`${event.entityKind}-${event.entityId}-${displayIdx}`}
+            key={`${event.entityKind}-${event.entityId}-${idx}`}
             event={event}
             // Position number = how many events away from now (1 = next).
-            position={events.length - displayIdx}
+            position={idx + 1}
             state={state!}
             catalog={catalog}
+            onHoverParticipants={onHoverParticipants}
+            onOpenUnitDetail={onOpenUnitDetail}
           />
         ))}
       </div>
-      <ActiveUnitAnchor unit={activeUnit} state={state} catalog={catalog} />
+      <ActiveUnitAnchor
+        unit={activeUnit}
+        state={state}
+        catalog={catalog}
+        onOpenUnitDetail={onOpenUnitDetail}
+      />
     </aside>
   );
 }
@@ -89,12 +125,30 @@ function MiniCard(props: {
   readonly position: number;
   readonly state: GameState;
   readonly catalog: Catalog;
+  readonly onHoverParticipants?: (ids: ReadonlyArray<UnitId>) => void;
+  readonly onOpenUnitDetail?: (unitId: UnitId) => void;
 }): ReactElement {
-  const { event, position, state, catalog } = props;
-  const { label, sublabel, teamId, isCharged } = describeEvent(event, state, catalog);
+  const { event, position, state, catalog, onHoverParticipants, onOpenUnitDetail } = props;
+  const { label, sublabel, teamId, isCharged, primaryUnitId } = describeEvent(event, state, catalog);
   const borderColor = teamColor(teamId);
+  const clickable = primaryUnitId !== null && onOpenUnitDetail !== undefined;
   return (
-    <div style={miniCardStyle(borderColor)}>
+    <div
+      style={miniCardStyle(borderColor, clickable)}
+      onMouseEnter={() => {
+        if (onHoverParticipants !== undefined && primaryUnitId !== null) {
+          onHoverParticipants([primaryUnitId]);
+        }
+      }}
+      onMouseLeave={() => {
+        if (onHoverParticipants !== undefined) onHoverParticipants([]);
+      }}
+      onClick={() => {
+        if (clickable && primaryUnitId !== null && onOpenUnitDetail !== undefined) {
+          onOpenUnitDetail(primaryUnitId);
+        }
+      }}
+    >
       <div style={miniCardPositionStyle}>{position}</div>
       <div style={miniCardPortraitStyle}>
         {/* Placeholder portrait — colored block. Real art is post-MVP. */}
@@ -114,8 +168,9 @@ function ActiveUnitAnchor(props: {
   readonly unit: Unit | null;
   readonly state: GameState | null;
   readonly catalog: Catalog;
+  readonly onOpenUnitDetail?: (unitId: UnitId) => void;
 }): ReactElement {
-  const { unit, state, catalog } = props;
+  const { unit, state, catalog, onOpenUnitDetail } = props;
 
   if (unit === null || state === null) {
     return (
@@ -152,6 +207,15 @@ function ActiveUnitAnchor(props: {
         <Stat label="CT" current={unit.ct} compact />
       </div>
       <StatusStrip unit={unit} />
+      {onOpenUnitDetail !== undefined && (
+        <button
+          type="button"
+          style={anchorDetailButtonStyle}
+          onClick={() => onOpenUnitDetail(unit.id)}
+        >
+          Open full details
+        </button>
+      )}
     </div>
   );
 }
@@ -198,6 +262,9 @@ interface EventDescription {
   readonly sublabel: string;
   readonly teamId: TeamId | null;
   readonly isCharged: boolean;
+  // The unit the player would want to inspect when clicking through —
+  // either the upcoming unit, or the charged spell's caster.
+  readonly primaryUnitId: UnitId | null;
 }
 
 function describeEvent(
@@ -208,25 +275,72 @@ function describeEvent(
   if (event.entityKind === 'unit') {
     const unit = state.units.get(event.entityId);
     if (unit === undefined) {
-      return { label: String(event.entityId), sublabel: '', teamId: null, isCharged: false };
+      return {
+        label: String(event.entityId),
+        sublabel: '',
+        teamId: null,
+        isCharged: false,
+        primaryUnitId: null,
+      };
     }
     const cls = catalog.getClass(unit.classState.currentClass);
-    return { label: unit.name, sublabel: cls.name, teamId: unit.team, isCharged: false };
+    return {
+      label: unit.name,
+      sublabel: cls.name,
+      teamId: unit.team,
+      isCharged: false,
+      primaryUnitId: unit.id,
+    };
   }
   // charged_action — find the in-flight charged action and read its
-  // ability + caster from the catalog.
+  // ability + caster + target from the catalog/state. The sublabel
+  // includes the target so the player can see "Brunhilde → Sparky"
+  // directly on the mini-card without opening a tooltip.
   const charged = state.chargedActions.find((c) => c.id === event.entityId);
   if (charged === undefined) {
-    return { label: String(event.entityId), sublabel: 'charged', teamId: null, isCharged: true };
+    return {
+      label: String(event.entityId),
+      sublabel: 'charged',
+      teamId: null,
+      isCharged: true,
+      primaryUnitId: null,
+    };
   }
   const ability = catalog.getAbility(charged.abilityId);
   const caster = state.units.get(charged.casterId);
+  const targetLabel = describeChargedTarget(charged.targets, state);
+  const sublabel = targetLabel === null
+    ? caster?.name ?? 'unknown caster'
+    : `${caster?.name ?? '?'} → ${targetLabel}`;
   return {
     label: ability.name,
-    sublabel: caster?.name ?? 'unknown caster',
+    sublabel,
     teamId: caster?.team ?? null,
     isCharged: true,
+    primaryUnitId: caster?.id ?? null,
   };
+}
+
+// Render a charged action's target list as a short, single-line label.
+// Multi-target charges are summarized by the first target plus the
+// count of others ("Sparky +2").
+function describeChargedTarget(
+  targets: ReadonlyArray<{
+    readonly kind: 'unit' | 'tile';
+    readonly unitId?: import('@engine/index.ts').UnitId;
+    readonly position?: import('@engine/index.ts').Position;
+  }>,
+  state: GameState,
+): string | null {
+  if (targets.length === 0) return null;
+  const first = targets[0]!;
+  const firstLabel = first.kind === 'unit' && first.unitId !== undefined
+    ? state.units.get(first.unitId)?.name ?? String(first.unitId)
+    : first.position !== undefined
+      ? `(${first.position.x},${first.position.y})`
+      : '?';
+  if (targets.length === 1) return firstLabel;
+  return `${firstLabel} +${targets.length - 1}`;
 }
 
 function teamColor(team: TeamId | null): string {
@@ -255,11 +369,13 @@ const miniCardListStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column-reverse', // nearest event sits closest to anchor
   gap: 6,
-  overflow: 'hidden',
+  overflowY: 'auto',
   justifyContent: 'flex-start',
+  minHeight: 0,
+  paddingRight: 4,
 };
 
-const miniCardStyle = (borderColor: string): CSSProperties => ({
+const miniCardStyle = (borderColor: string, clickable: boolean): CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -271,6 +387,7 @@ const miniCardStyle = (borderColor: string): CSSProperties => ({
   borderRadius: 6,
   fontSize: 13,
   minHeight: 56,
+  cursor: clickable ? 'pointer' : 'default',
 });
 
 const miniCardPositionStyle: CSSProperties = {
@@ -432,4 +549,19 @@ const statusStackStyle: CSSProperties = {
   fontSize: 10,
   opacity: 0.75,
   fontVariantNumeric: 'tabular-nums',
+};
+
+const anchorDetailButtonStyle: CSSProperties = {
+  marginTop: 8,
+  padding: '4px 8px',
+  fontSize: 11,
+  background: '#2a3140',
+  color: '#bcc1cb',
+  borderWidth: 1,
+  borderStyle: 'solid',
+  borderColor: '#2c2f36',
+  borderRadius: 4,
+  cursor: 'pointer',
+  textAlign: 'center',
+  fontFamily: 'inherit',
 };

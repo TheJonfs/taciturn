@@ -93,6 +93,21 @@ export interface StatusChanceResult {
 }
 
 export function rollStatusChance(args: StatusChanceArgs): StatusChanceResult {
+  const chance = computeStatusChance(args);
+  const subIndex = STATUS_CHANCE_SUB_STREAM + (args.effectIndex ?? 0);
+  const roll = unitFloatFromSeed(args.seed, subIndex);
+  return { chance, roll, applied: roll < chance };
+}
+
+// Pure status-application chance compute — same formula as
+// `rollStatusChance` but without the random draw. Used by both
+// `rollStatusChance` (the runtime, which then rolls) and the
+// `src/engine/forecast/status-chance.ts` query (the UI's forecast hover,
+// which displays the chance directly). Sharing the body keeps the runtime
+// and forecast paths in lockstep — no chance to drift.
+export function computeStatusChance(
+  args: Omit<StatusChanceArgs, 'seed' | 'effectIndex'>,
+): number {
   // Factor selection (per ADR-0028): when `args.factors` is omitted,
   // the default `{ faith: true, ma: true }` applies — preserving
   // Earth's canonical shape. When `args.factors` is provided, every
@@ -168,10 +183,7 @@ export function rollStatusChance(args: StatusChanceArgs): StatusChanceResult {
     baseChance: preModifier,
   });
 
-  const chance = Math.max(0, Math.min(1, postModifier));
-  const subIndex = STATUS_CHANCE_SUB_STREAM + (args.effectIndex ?? 0);
-  const roll = unitFloatFromSeed(args.seed, subIndex);
-  return { chance, roll, applied: roll < chance };
+  return Math.max(0, Math.min(1, postModifier));
 }
 
 // Look up the target's resistance against the status type's primary

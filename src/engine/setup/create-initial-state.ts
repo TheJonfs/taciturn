@@ -109,6 +109,18 @@ function placementToUnit(
   // the new max). Per ADR-0028.
   const vitals = placement.vitals ?? { hp: 0, mp: 0 };
 
+  // Compose class-baseline resistances with the placement's explicit
+  // overrides. Per-placement entries win over class-baseline entries for
+  // the same tag (a hand-authored unit with a placement-side resistance
+  // override takes precedence over the class baseline).
+  const cls = catalog.getClass(placement.classId);
+  const resistances = new Map(cls.baselineResistances ?? []);
+  if (placement.resistances !== undefined) {
+    for (const [tag, value] of placement.resistances) {
+      resistances.set(tag, value);
+    }
+  }
+
   return {
     id: placement.id,
     team: placement.team,
@@ -121,7 +133,7 @@ function placementToUnit(
     ct,
     baseStats: placement.baseStats,
     vitals,
-    resistances: placement.resistances ?? new Map(),
+    resistances,
     statuses: placement.statuses ?? [],
   };
 }

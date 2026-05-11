@@ -12,6 +12,7 @@ export {
   healingBase,
   magicalMaPower,
   physicalPaWp,
+  readCritChance,
   resistanceCheck,
   varianceRoll,
 } from './handlers.ts';

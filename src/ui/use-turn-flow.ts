@@ -14,7 +14,7 @@
 // uiController. Components consume its return value; they don't touch
 // the renderer or controller directly.
 
-import { useEffect, useMemo, useReducer, useRef, type Dispatch } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState, type Dispatch } from 'react';
 import {
   aoeFootprint,
   cardinalFromTo,
@@ -45,6 +45,7 @@ import {
   type TurnFlowState,
 } from './turn-flow.ts';
 import type { ConfirmStepPreference } from './settings-context.tsx';
+import { composeForecast, type Forecast } from './forecast-compose.ts';
 
 export interface ActionMenuAbility {
   readonly ability: ActiveAbilityDefinition;
@@ -71,10 +72,20 @@ export interface TurnFlow {
   readonly waitDisabled: boolean;
   // Submit helpers — driven by the menu buttons.
   submitMove(destination: Position): void;
-  submitWait(): void;
+  // Commit "end turn" with a chosen facing. The hook emits a `set_facing`
+  // action when the facing differs from the unit's current direction,
+  // then `endTurn`. Per design doc WAIT-CONFIRM.
+  submitWait(facing: import('@engine/index.ts').Direction): void;
   submitTargetedAction(action: ProposedAction): void;
   confirmAccept(): void;
   cancel(): void;
+  // Forecast payload — populated during target-select / await-confirm
+  // when a hovered tile produces a meaningful preview. `null` outside
+  // of those states or when no hover target is set.
+  readonly forecast: Forecast | null;
+  // Last cursor position (screen coords) during a hover. Drives the
+  // tooltip's anchor. `null` between hovers.
+  readonly cursorScreen: { readonly x: number; readonly y: number } | null;
 }
 
 export interface UseTurnFlowArgs {
@@ -84,10 +95,13 @@ export interface UseTurnFlowArgs {
   readonly uiController: UiController;
   readonly uiTeam: TeamId;
   readonly confirmStep: ConfirmStepPreference;
+  // Optional callback fired when the player clicks a unit on the canvas
+  // while in IDLE / action-menu state. Routes to the unit detail panel.
+  readonly onInspectUnit?: (unitId: UnitId) => void;
 }
 
 export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
-  const { state, catalog, renderer, uiController, uiTeam, confirmStep } = args;
+  const { state, catalog, renderer, uiController, uiTeam, confirmStep, onInspectUnit } = args;
   const [flowState, dispatch] = useReducer(transition, INITIAL_TURN_FLOW);
 
   // Engine-side derived values.
@@ -269,26 +283,73 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
         submitTargetedActionInternal(action);
         return;
       }
+
+      // Inspection mode: in action-menu / idle, clicking a unit on the
+      // canvas opens their detail panel. The forecast panel and other
+      // surfaces gain access to any unit's stats this way, matching the
+      // design doc's three-routes-converge pattern.
+      if (
+        occupant !== null &&
+        onInspectUnit !== undefined &&
+        (flowState.kind === 'action-menu' || flowState.kind === 'idle')
+      ) {
+        onInspectUnit(occupant.id);
+        return;
+      }
     };
     renderer.setOnTileClick(handler);
     return () => renderer.setOnTileClick(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renderer, flowState, state, activeUnit, legalMoveDestinations, catalog, confirmStep]);
+  }, [renderer, flowState, state, activeUnit, legalMoveDestinations, catalog, confirmStep, onInspectUnit]);
 
   // ===== Renderer side effects: tile hover =====
+
+  // Cursor position in viewport coords — captured via a window-level
+  // mousemove listener while we're in target-select (so the tooltip can
+  // anchor to it). Cleared on state exit.
+  const [cursorScreen, setCursorScreen] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (renderer === null) return;
     if (flowState.kind !== 'target-select') {
       renderer.setOnTileHover(null);
+      setCursorScreen(null);
       return;
     }
     const handler = (pos: Position | null): void => {
       dispatch({ kind: 'hoverTarget', position: pos });
     };
     renderer.setOnTileHover(handler);
-    return () => renderer.setOnTileHover(null);
+    const onMouseMove = (e: MouseEvent): void => {
+      setCursorScreen({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    return () => {
+      renderer.setOnTileHover(null);
+      window.removeEventListener('mousemove', onMouseMove);
+    };
   }, [renderer, flowState.kind]);
+
+  // ===== Forecast composition =====
+
+  const forecast = useMemo<Forecast | null>(() => {
+    if (state === null || activeUnit === null) return null;
+    if (flowState.kind !== 'target-select' && flowState.kind !== 'await-confirm') return null;
+    const ability = catalog.getAbility(flowState.abilityId);
+    if (ability.kind !== 'active') return null;
+    const anchor =
+      flowState.kind === 'target-select'
+        ? flowState.hoverTarget
+        : extractAnchorFromAction(flowState.action, state, activeUnit);
+    if (anchor === null) return null;
+    return composeForecast({
+      state,
+      catalog,
+      caster: activeUnit,
+      ability,
+      anchor,
+    });
+  }, [state, catalog, activeUnit, flowState]);
 
   // ===== Submit helpers =====
 
@@ -305,11 +366,22 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     dispatch({ kind: 'commitMove' });
   }
 
-  function submitWaitInternal(): void {
+  function submitWaitInternal(facing: import('@engine/index.ts').Direction): void {
     if (activeUnit === null) return;
     if (uiController.hasPending()) return;
+    // If the chosen facing differs from the current facing, submit a
+    // set_facing action first so the change is recorded on the action
+    // log (turn-end alone doesn't carry facing).
+    if (facing !== activeUnit.facing) {
+      uiController.submit({
+        type: 'set_facing',
+        source: 'player',
+        actorId: activeUnit.id,
+        payload: { facing },
+      });
+    }
     uiController.endTurn();
-    dispatch({ kind: 'commitWait' });
+    dispatch({ kind: 'commitWait', facing });
   }
 
   function submitTargetedActionInternal(action: ProposedAction): void {
@@ -347,7 +419,28 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     submitTargetedAction: submitTargetedActionInternal,
     confirmAccept: confirmAcceptInternal,
     cancel: () => dispatch({ kind: 'cancel' }),
+    forecast,
+    cursorScreen,
   };
+}
+
+// Extract the anchor position from a ProposedAction for await-confirm
+// forecast re-composition. `self` returns the caster's position; `tile`
+// returns the tile; `unit` returns the targeted unit's position.
+function extractAnchorFromAction(
+  action: ProposedAction,
+  state: GameState,
+  caster: Unit,
+): Position | null {
+  if (action.type !== 'use_ability') return null;
+  const target = action.payload.target;
+  if (target.kind === 'tile') return target.position;
+  if (target.kind === 'unit') {
+    const u = state.units.get(target.unitId);
+    return u?.position ?? null;
+  }
+  if (target.kind === 'self') return caster.position;
+  return null;
 }
 
 // =====================

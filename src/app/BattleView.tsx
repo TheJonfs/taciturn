@@ -24,12 +24,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { trainingFieldBattle } from '@content/battles/training-field-battle.ts';
-import { createInitialState, type Catalog, type GameState } from '@engine/index.ts';
+import { createInitialState, type Catalog, type GameState, type UnitId } from '@engine/index.ts';
 import { BattleRenderer, type PanInput } from '@renderer/index.ts';
 import {
   BattleHud,
+  ForecastTooltip,
   PauseOverlay,
+  ResultsScreen,
   SettingsProvider,
+  UnitDetailPanel,
   useSettings,
   useTurnFlow,
 } from '@ui/index.ts';
@@ -68,6 +71,12 @@ function BattleViewInner() {
   const [latestState, setLatestState] = useState<GameState | null>(null);
   const [renderer, setRenderer] = useState<BattleRenderer | null>(null);
   const [paused, setPaused] = useState<boolean>(false);
+  const [detailUnitId, setDetailUnitId] = useState<UnitId | null>(null);
+  // When the results screen has been dismissed by the user, we don't
+  // re-show it on subsequent re-renders. Stored separately from
+  // `latestState.outcome` so the player can close + re-open via... well,
+  // they can't re-open in v1; "closed" is final until next battle.
+  const [resultsDismissed, setResultsDismissed] = useState<boolean>(false);
 
   // The UiController persists across renders — it's the orchestrator's
   // single-slot queue, not React state.
@@ -90,6 +99,7 @@ function BattleViewInner() {
     uiController,
     uiTeam,
     confirmStep: settingsApi.settings.confirmStep,
+    onInspectUnit: (id) => setDetailUnitId(id),
   });
 
   // Mirror the paused flag into the renderer so the animator halts.
@@ -300,7 +310,8 @@ function BattleViewInner() {
         kind === 'command-set-select' ||
         kind === 'ability-list' ||
         kind === 'target-select' ||
-        kind === 'await-confirm'
+        kind === 'await-confirm' ||
+        kind === 'wait-confirm'
       ) {
         turnFlow.cancel();
         return;
@@ -312,6 +323,16 @@ function BattleViewInner() {
   }, [paused, turnFlow]);
 
   const outcome = latestState?.outcome;
+  const detailUnit = detailUnitId !== null && latestState !== null
+    ? latestState.units.get(detailUnitId) ?? null
+    : null;
+  const showResults = outcome !== undefined && !paused && !resultsDismissed;
+
+  // Hover-counterpart forwarder — flows from the HUD's hover handlers
+  // through to the renderer's sprite-pulse channel.
+  const handleHoverParticipants = (ids: ReadonlyArray<UnitId>): void => {
+    renderer?.setCounterpartUnits(ids);
+  };
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -323,45 +344,35 @@ function BattleViewInner() {
           background: BACKGROUND,
         }}
       />
-      <BattleHud state={latestState} catalog={catalog} turnFlow={turnFlow} />
-      {paused && <PauseOverlay onResume={() => setPaused(false)} />}
-      {outcome !== undefined && !paused && (
-        <WinOverlay description={outcome.description} winner={String(outcome.winner)} />
+      <BattleHud
+        state={latestState}
+        catalog={catalog}
+        turnFlow={turnFlow}
+        onHoverParticipants={handleHoverParticipants}
+        onOpenUnitDetail={(id) => setDetailUnitId(id)}
+      />
+      <ForecastTooltip
+        forecast={turnFlow.forecast}
+        catalog={catalog}
+        cursor={turnFlow.cursorScreen}
+      />
+      {detailUnit !== null && latestState !== null && (
+        <UnitDetailPanel
+          state={latestState}
+          catalog={catalog}
+          unit={detailUnit}
+          onClose={() => setDetailUnitId(null)}
+        />
       )}
-    </div>
-  );
-}
-
-function WinOverlay({ description, winner }: { description: string; winner: string }) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        display: 'grid',
-        placeItems: 'center',
-        background: 'rgba(0,0,0,0.55)',
-        pointerEvents: 'none',
-      }}
-    >
-      <div
-        style={{
-          padding: '1.25rem 2rem',
-          background: '#1c1e23',
-          color: '#e7e9ee',
-          border: '1px solid #2c2f36',
-          borderRadius: 8,
-          textAlign: 'center',
-          fontFamily: 'system-ui, sans-serif',
-          boxShadow: '0 8px 28px rgba(0,0,0,0.4)',
-        }}
-      >
-        <div style={{ fontSize: '0.9rem', opacity: 0.7, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          Battle Decided
-        </div>
-        <div style={{ fontSize: '1.6rem', marginTop: '0.4rem' }}>{winner} wins</div>
-        <div style={{ fontSize: '0.95rem', marginTop: '0.4rem', opacity: 0.8 }}>{description}</div>
-      </div>
+      {paused && <PauseOverlay onResume={() => setPaused(false)} />}
+      {showResults && latestState !== null && outcome !== undefined && (
+        <ResultsScreen
+          state={latestState}
+          outcome={outcome}
+          catalog={catalog}
+          onClose={() => setResultsDismissed(true)}
+        />
+      )}
     </div>
   );
 }

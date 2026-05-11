@@ -72,11 +72,24 @@ export const STATUS_BADGE_STACK_TEXT = 0xf6e5a8;
 
 // KO'd unit transparency. Per the design doc, KO'd units stay on the
 // map as grayed/translucent tokens (revival mechanics + 3-turn
-// permadeath timer + tactical visibility).
-export const KO_ALPHA = 0.45;
+// permadeath timer + tactical visibility). v1 also draws an "X"
+// overlay across the unit body so the KO reads more clearly than
+// translucency alone (per playtest feedback 2026-05-10).
+export const KO_ALPHA = 0.4;
+
+// Cross-out X drawn over a KO'd unit so the "this unit is down"
+// signal reads at a glance.
+export const KO_X_COLOR = 0xe67865;
+export const KO_X_WIDTH = 3;
+export const KO_X_ALPHA = 0.9;
 
 // Active-unit highlight ring color.
 export const ACTIVE_HIGHLIGHT_COLOR = 0xf6e5a8;
+
+// Hover-counterpart ring color — draws around a unit when the player
+// hovers an action log row referencing them. Bright cyan so it pops
+// against both team colors without competing with the gold active ring.
+export const COUNTERPART_RING_COLOR = 0x9adfff;
 
 // Tile-overlay highlight palette (HighlightLayer). One color per UI
 // selection kind. Alpha is shared so the underlying tile color reads

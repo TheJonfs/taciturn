@@ -30,7 +30,7 @@
 // side effects on top (legal-target memos, highlight repaints, tile-
 // click wiring, uiController submissions).
 
-import type { AbilityId, CommandSetId, Position, ProposedAction } from '@engine/index.ts';
+import type { AbilityId, CommandSetId, Direction, Position, ProposedAction } from '@engine/index.ts';
 
 export type TurnFlowState =
   | { readonly kind: 'idle' }
@@ -47,7 +47,11 @@ export type TurnFlowState =
     }
   | {
       readonly kind: 'target-select';
-      readonly commandSetId: CommandSetId;
+      // `null` for free abilities invoked directly from the action menu
+      // (e.g., universal Attack). For command-set-sourced abilities,
+      // the source set's id is carried so cancel restores to the
+      // ability list.
+      readonly commandSetId: CommandSetId | null;
       readonly commandSetCount: number;
       readonly abilityId: AbilityId;
       // The tile the pointer is currently over while target-selecting.
@@ -57,13 +61,17 @@ export type TurnFlowState =
     }
   | {
       readonly kind: 'await-confirm';
-      readonly commandSetId: CommandSetId;
+      readonly commandSetId: CommandSetId | null;
       readonly commandSetCount: number;
       readonly abilityId: AbilityId;
       // The fully-formed action the player picked. The hook submits
       // this to the uiController when the player confirms.
       readonly action: ProposedAction;
     }
+  // Cardinal-direction facing picker shown when the player clicks
+  // "End turn." Per the design doc's WAIT-CONFIRM state: pick a facing,
+  // then commit Wait + facing → TURN_END.
+  | { readonly kind: 'wait-confirm' }
   | { readonly kind: 'animation' };
 
 export type TurnFlowEvent =
@@ -76,6 +84,9 @@ export type TurnFlowEvent =
   // Top-level menu picks.
   | { readonly kind: 'pickMove' }
   | { readonly kind: 'pickAct'; readonly commandSets: ReadonlyArray<CommandSetId> }
+  // Direct free-ability invocation (universal Attack, etc.). Skips
+  // command-set-select and ability-list; goes straight to target-select.
+  | { readonly kind: 'pickFreeAbility'; readonly abilityId: AbilityId }
   | { readonly kind: 'pickWait' }
   // Sub-picks.
   | { readonly kind: 'pickCommandSet'; readonly commandSetId: CommandSetId }
@@ -90,7 +101,8 @@ export type TurnFlowEvent =
       readonly action: ProposedAction;
       readonly confirmStep: boolean;
     }
-  | { readonly kind: 'commitWait' }
+  // Player chose a facing in wait-confirm and committed.
+  | { readonly kind: 'commitWait'; readonly facing: Direction }
   // From await-confirm.
   | { readonly kind: 'confirmAccept' }
   // Back-out one step.
@@ -122,8 +134,16 @@ export function transition(
 
     case 'action-menu':
       if (event.kind === 'pickMove') return { kind: 'move-select' };
-      if (event.kind === 'pickWait') return state; // commit handled by commitWait
-      if (event.kind === 'commitWait') return { kind: 'animation' };
+      if (event.kind === 'pickWait') return { kind: 'wait-confirm' };
+      if (event.kind === 'pickFreeAbility') {
+        return {
+          kind: 'target-select',
+          commandSetId: null,
+          commandSetCount: 0,
+          abilityId: event.abilityId,
+          hoverTarget: null,
+        };
+      }
       if (event.kind === 'pickAct') {
         if (event.commandSets.length === 0) return state;
         if (event.commandSets.length === 1) {
@@ -135,6 +155,11 @@ export function transition(
         }
         return { kind: 'command-set-select' };
       }
+      return state;
+
+    case 'wait-confirm':
+      if (event.kind === 'cancel') return { kind: 'action-menu' };
+      if (event.kind === 'commitWait') return { kind: 'animation' };
       return state;
 
     case 'move-select':
@@ -173,6 +198,12 @@ export function transition(
 
     case 'target-select':
       if (event.kind === 'cancel') {
+        // Free-ability invocations (commandSetId === null) cancel back
+        // to action-menu directly; command-set-sourced abilities return
+        // to the ability list.
+        if (state.commandSetId === null) {
+          return { kind: 'action-menu' };
+        }
         return {
           kind: 'ability-list',
           commandSetId: state.commandSetId,
@@ -204,7 +235,7 @@ export function transition(
           commandSetCount: state.commandSetCount,
           abilityId: state.abilityId,
           hoverTarget: null,
-        };
+        } as TurnFlowState;
       }
       if (event.kind === 'confirmAccept') return { kind: 'animation' };
       return state;

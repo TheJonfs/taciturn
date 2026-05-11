@@ -1313,15 +1313,21 @@ export function reduceTurnEnd(
     );
   }
 
-  // Determine CT cost based on what was consumed.
+  // Determine CT cost based on what was consumed. Per the post-MVP
+  // designer call (2026-05-10): Wait is the user-facing "end turn now"
+  // action and inherits the consumed-bucket cost rather than carrying
+  // a special low cost. The `waited` flag no longer overrides; it's
+  // retained only so the action log + analytics can distinguish "user
+  // chose to end the turn" from "engine auto-ended after budget
+  // exhaustion." The standalone `ctCosts.wait` applies when literally
+  // nothing was consumed (the "hold for cheap delay" case).
   const ruleset = catalog.getRuleset(state.ruleset.id);
   const consumed = state.turnState.consumed;
   let ctCost: number;
-  if (consumed.waited) ctCost = ruleset.ctCosts.wait;
-  else if (consumed.movesConsumed > 0 && consumed.actsConsumed > 0) ctCost = ruleset.ctCosts.moveAndAct;
+  if (consumed.movesConsumed > 0 && consumed.actsConsumed > 0) ctCost = ruleset.ctCosts.moveAndAct;
   else if (consumed.actsConsumed > 0) ctCost = ruleset.ctCosts.actOnly;
   else if (consumed.movesConsumed > 0) ctCost = ruleset.ctCosts.moveOnly;
-  else ctCost = ruleset.ctCosts.wait; // nothing consumed → equivalent to wait
+  else ctCost = ruleset.ctCosts.wait; // nothing consumed → cheap wait cost
 
   // Subtract from actual CT, floor at 0 — same shape as projection.
   const newCT = Math.max(0, unit.ct - ctCost);

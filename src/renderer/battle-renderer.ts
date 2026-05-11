@@ -46,6 +46,7 @@ export class BattleRenderer {
   private tileHoverHandler: TileHoverHandler | null = null;
   private lastHoverKey: string | null = null;
   private paused: boolean = false;
+  private counterpartUnits: ReadonlySet<UnitId> = new Set();
 
   constructor(app: Application) {
     this.app = app;
@@ -185,6 +186,13 @@ export class BattleRenderer {
     this.paused = paused;
   }
 
+  // Set the set of units whose hover-counterpart ring is currently lit.
+  // Driven from the UI's hover handlers (action log row, queue tower
+  // mini-card). Pass an empty array / set to clear.
+  setCounterpartUnits(ids: Iterable<UnitId>): void {
+    this.counterpartUnits = new Set(ids);
+  }
+
   destroy(): void {
     this.app.destroy(true, { children: true, texture: false });
   }
@@ -307,6 +315,7 @@ export class BattleRenderer {
         flash: snap.flash,
         active: activeId === unitId,
         statuses,
+        counterpart: this.counterpartUnits.has(unitId) ? 1 : 0,
       });
     }
   }

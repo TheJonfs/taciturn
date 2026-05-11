@@ -3,47 +3,68 @@
 //
 // Four regions overlay the PixiJS canvas:
 //   - Top bar:  full-width slim strip with the turn label.
-//   - Left:     QueueTower (active-unit anchor + upcoming events).
-//   - Right:    ActionLogPanel (streaming entries).
-//   - Bottom:   ActionMenu — player input surface, drives turn-flow.
+//   - Left:     QueueTower (active-unit anchor + 20-event horizon).
+//   - Right:    ActionLogPanel (streaming entries, click-to-expand).
+//   - Bottom:   ActionMenu (left slot) + ForecastPanel (right slot).
 //
-// The settings placeholder Session 22 included to satisfy the brief's
-// literal text is gone — Session 23 routes settings through the pause
-// overlay per the design doc.
-//
-// All HUD regions render *over* the canvas with semi-transparent
-// backgrounds. Mouse-wheel zoom is dispatched from `app.canvas` only,
-// so wheel events on these regions don't trigger zoom. WASD pan is
-// window-level. Click-through is intentional only on the bottom-center
-// strip (where the menu lives) — other panels capture clicks for their
-// own UI.
+// Session 24 additions:
+//   - ForecastPanel occupies the bottom-right slot, populated during
+//     target-select / await-confirm via the turn-flow hook's forecast.
+//   - All hover-counterpart and unit-detail click-through wiring is
+//     plumbed through props from BattleView.
 
 import type { CSSProperties, ReactElement } from 'react';
-import type { Action, Catalog, GameState } from '@engine/index.ts';
+import type { Action, Catalog, GameState, UnitId } from '@engine/index.ts';
 import { QueueTower } from './queue-tower.tsx';
 import { ActionMenu } from './action-menu.tsx';
 import { ActionLogPanel } from './action-log-panel.tsx';
+import { ForecastPanel } from './forecast-panel.tsx';
 import type { TurnFlow } from './use-turn-flow.ts';
 
 export interface BattleHudProps {
   readonly state: GameState | null;
   readonly catalog: Catalog;
   readonly turnFlow: TurnFlow;
+  readonly onHoverParticipants?: (ids: ReadonlyArray<UnitId>) => void;
+  readonly onOpenUnitDetail?: (unitId: UnitId) => void;
 }
 
-export function BattleHud({ state, catalog, turnFlow }: BattleHudProps): ReactElement {
+export function BattleHud({
+  state,
+  catalog,
+  turnFlow,
+  onHoverParticipants,
+  onOpenUnitDetail,
+}: BattleHudProps): ReactElement {
   return (
     <div style={hudOverlayStyle}>
       <TopBar state={state} />
       <div style={leftPanelStyle}>
-        <QueueTower state={state} catalog={catalog} />
+        <QueueTower
+          state={state}
+          catalog={catalog}
+          onHoverParticipants={onHoverParticipants}
+          onOpenUnitDetail={onOpenUnitDetail}
+        />
       </div>
       <div style={rightPanelStyle}>
-        <ActionLogPanel state={state} catalog={catalog} />
+        <ActionLogPanel
+          state={state}
+          catalog={catalog}
+          onHoverParticipants={onHoverParticipants}
+        />
       </div>
       <div style={bottomBarStyle}>
         <div style={actionMenuSlotStyle} aria-label="Action menu">
-          <ActionMenu turnFlow={turnFlow} catalog={catalog} />
+          <ActionMenu
+            turnFlow={turnFlow}
+            catalog={catalog}
+            engineState={state}
+            onOpenUnitDetail={onOpenUnitDetail}
+          />
+        </div>
+        <div style={forecastSlotStyle} aria-label="Forecast">
+          <ForecastPanel forecast={turnFlow.forecast} catalog={catalog} />
         </div>
       </div>
     </div>
@@ -151,4 +172,20 @@ const actionMenuSlotStyle: CSSProperties = {
   pointerEvents: 'auto',
   maxHeight: 280,
   overflowY: 'auto',
+};
+
+const forecastSlotStyle: CSSProperties = {
+  flex: 1,
+  padding: 12,
+  background: 'rgba(28, 30, 35, 0.85)',
+  borderWidth: 1,
+  borderStyle: 'solid',
+  borderColor: '#2c2f36',
+  borderRadius: 8,
+  pointerEvents: 'auto',
+  maxHeight: 280,
+  overflowY: 'auto',
+  display: 'flex',
+  flexDirection: 'column',
+  minHeight: 0,
 };

@@ -20,6 +20,7 @@ import {
   classId,
   commandSetId,
   type ClassDefinition,
+  type DamageTag,
 } from '@engine/index.ts';
 
 export const waterMage: ClassDefinition = {
@@ -44,7 +45,14 @@ export const waterMage: ClassDefinition = {
   },
   firstActionCommandSet: commandSetId('water_spells'),
   freeAbilities: new Set([
+    abilityId('attack'),
     abilityId('tidal_pull'),
     abilityId('flow_state'),
+  ]),
+  // Elemental wheel (designer call 2026-05-10): +50 vs Fire (water
+  // douses), -50 vs Lightning (conductor in water).
+  baselineResistances: new Map<DamageTag, number>([
+    ['fire', 50],
+    ['lightning', -50],
   ]),
 };

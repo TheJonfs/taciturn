@@ -5,19 +5,15 @@
 // Format", each action becomes either a top-level T-event row (turn
 // boundaries) or an indented sub-row (the work that happened during a
 // turn). System-emitted events get bracketed prefixes: [init] (before
-// T0001), [tick], [charged], [end].
+// T0001), [tick], [charged], [ko], [end].
 //
-// v1 scope (Session 23): one row per logged action, human-readable
-// summary, no expandable details. Click-to-expand and click-to-
-// highlight-counterpart-row are Session 24 polish.
-//
-// KO detection — the design doc emits a `[ko]` row when a unit drops
-// to 0 HP. v1 omits this; visualization makes the KO obvious and the
-// damage row carries the magnitude. A running-HP tracker over the log
-// is straightforward but punts to Session 24 along with the rest of
-// the log polish.
+// Each row carries a `participants` payload (actor + targets) for the
+// hover-counterpart feature and an optional `actionSeq` for click-to-
+// expand (rows derived from a logged Action store its sequence number;
+// synthetic [ko] rows carry the killing action's seq).
 
-import type { Action, Catalog, GameState, UnitId } from '@engine/index.ts';
+import type { Action, AbilityId, Catalog, GameState, UnitId } from '@engine/index.ts';
+import { deriveKoEvents, deriveActionParticipants } from './derived-events.ts';
 
 export interface LogRow {
   // Stable key for React reconciliation.
@@ -29,27 +25,82 @@ export interface LogRow {
   // Sub-entries are indented under their parent T-event.
   readonly indent: boolean;
   // Visual class for tag color.
-  readonly tagKind: 'turn' | 'system' | 'reaction' | null;
+  readonly tagKind: 'turn' | 'system' | 'reaction' | 'ko' | null;
+  // The originating action's sequence number. Used by click-to-expand
+  // to look up the action and render its outcome details. `null` for
+  // rows synthesized without a single backing action (none in v1).
+  readonly actionSeq: number | null;
+  // Units this row references — the on-canvas hover-counterpart pulse
+  // lights these up when the user hovers the row.
+  readonly participants: {
+    readonly actorId: UnitId | null;
+    readonly targetIds: ReadonlyArray<UnitId>;
+  };
 }
 
-// Format every visible action in the log. Skipped actions (set_facing,
-// internal bookkeeping) drop out. Caller renders the rows top-to-bottom
+// Format every visible action in the log, interleaving `[ko]` rows at
+// the sequence points where units fall. Caller renders top-to-bottom
 // with newest at the bottom.
 export function formatActionLog(
   log: ReadonlyArray<Action>,
   state: GameState,
   catalog: Catalog,
 ): ReadonlyArray<LogRow> {
+  const koEvents = deriveKoEvents(log, state);
+  const koBySeq = new Map<number, typeof koEvents>();
+  for (const ev of koEvents) {
+    const list = koBySeq.get(ev.atSequence) ?? [];
+    koBySeq.set(ev.atSequence, [...list, ev]);
+  }
+
+  // Charged-action context lookup: `charged_action_resolve` carries no
+  // ability id on its envelope (the spell's identity lives in the
+  // spawning `use_ability`). Build a map from chargedActionId → caster
+  // + ability so we can render "Brunhilde's Earth Quake resolves on
+  // Sparky" instead of the raw id.
+  const chargedContext = new Map<string, { abilityId: AbilityId; casterId: UnitId | null }>();
+  for (const action of log) {
+    if (action.type !== 'use_ability') continue;
+    const cid = action.outcome?.chargedActionId;
+    if (cid === undefined) continue;
+    chargedContext.set(String(cid), {
+      abilityId: action.payload.abilityId,
+      casterId: action.actorId ?? null,
+    });
+  }
+
   const out: LogRow[] = [];
-  // T-event counter — incremented on each turn_start. Charged action
-  // resolutions also count per the design doc; v1 keeps it simple and
-  // counts unit-turn starts only.
   let tNumber = 0;
 
   for (const action of log) {
     if (action.type === 'turn_start') tNumber += 1;
-    const rows = formatAction(action, state, catalog, tNumber);
+    const rows = formatAction(action, state, catalog, tNumber, chargedContext);
     for (const row of rows) out.push(row);
+    const kos = koBySeq.get(action.sequenceNumber);
+    if (kos !== undefined) {
+      for (const ev of kos) {
+        const name = state.units.get(ev.unitId)?.name ?? String(ev.unitId);
+        const killer =
+          ev.killingActor !== null
+            ? state.units.get(ev.killingActor)?.name ?? String(ev.killingActor)
+            : null;
+        const text = killer === null
+          ? `${name} defeated`
+          : `${name} defeated by ${killer}`;
+        out.push({
+          key: `ko-${ev.unitId}-${ev.atSequence}`,
+          tag: '[ko]',
+          text,
+          indent: false,
+          tagKind: 'ko',
+          actionSeq: ev.atSequence,
+          participants: {
+            actorId: ev.killingActor,
+            targetIds: [ev.unitId],
+          },
+        });
+      }
+    }
   }
   return out;
 }
@@ -59,8 +110,29 @@ function formatAction(
   state: GameState,
   catalog: Catalog,
   currentTNumber: number,
+  chargedContext: ReadonlyMap<string, { abilityId: AbilityId; casterId: UnitId | null }>,
 ): ReadonlyArray<LogRow> {
   const key = String(action.sequenceNumber);
+  const seq = action.sequenceNumber;
+  const participants = deriveActionParticipants(action);
+
+  function row(opts: {
+    readonly tag: string | null;
+    readonly text: string;
+    readonly indent: boolean;
+    readonly tagKind: LogRow['tagKind'];
+  }): LogRow {
+    return {
+      key,
+      tag: opts.tag,
+      text: opts.text,
+      indent: opts.indent,
+      tagKind: opts.tagKind,
+      actionSeq: seq,
+      participants,
+    };
+  }
+
   switch (action.type) {
     case 'turn_start': {
       const tag = formatT(currentTNumber);
@@ -69,7 +141,7 @@ function formatAction(
       const name = unit?.name ?? String(action.payload.unitId);
       const skipped = action.outcome?.skipped ? ' (skipped)' : '';
       const text = `${name}${cls === '' ? '' : ` (${cls})`}${skipped}`;
-      return [{ key, tag, text, indent: false, tagKind: 'turn' }];
+      return [row({ tag, text, indent: false, tagKind: 'turn' })];
     }
 
     case 'turn_end':
@@ -78,96 +150,70 @@ function formatAction(
 
     case 'move': {
       const dest = action.payload.destination;
-      return [
-        {
-          key,
-          tag: null,
-          text: `→ Moved to (${dest.x}, ${dest.y})`,
-          indent: true,
-          tagKind: null,
-        },
-      ];
+      return [row({
+        tag: null,
+        text: `→ Moved to (${dest.x}, ${dest.y})`,
+        indent: true,
+        tagKind: null,
+      })];
     }
 
     case 'use_ability':
-      return formatUseAbility(action, state, catalog, key);
+      return formatUseAbility(action, state, catalog, row);
 
     case 'wait':
-      return [
-        {
-          key,
-          tag: null,
-          text: `→ Waited`,
-          indent: true,
-          tagKind: null,
-        },
-      ];
+      return [row({ tag: null, text: `→ Waited`, indent: true, tagKind: null })];
 
     case 'set_facing':
       return []; // no row — internal bookkeeping
 
     case 'charged_action_resolve': {
       const id = action.payload.chargedActionId;
-      // The charged action may have been removed from state by now; use
-      // its action-log entry alone as the source of truth for the name.
+      const ctx = chargedContext.get(String(id));
+      const abilityName = ctx !== undefined
+        ? safeAbilityName(catalog, ctx.abilityId)
+        : String(id);
+      const casterName = ctx?.casterId !== null && ctx?.casterId !== undefined
+        ? unitName(state, ctx.casterId)
+        : null;
       const tag = '[charged]';
-      // Per-target damage summary.
       const perTarget = action.outcome?.perTargetResults ?? [];
       const summary = perTarget.length === 0
         ? 'resolved'
         : perTarget.map((r) => formatTargetResult(r, state)).join('; ');
-      return [
-        {
-          key,
-          tag,
-          text: `${String(id)} → ${summary}`,
-          indent: true,
-          tagKind: 'system',
-        },
-      ];
+      const text = casterName === null
+        ? `${abilityName} resolves: ${summary}`
+        : `${casterName}'s ${abilityName} resolves: ${summary}`;
+      return [row({ tag, text, indent: true, tagKind: 'system' })];
     }
 
     case 'status_tick': {
       const targetName = unitName(state, action.payload.unitId);
       const statusName = safeStatusName(catalog, action.payload.statusTypeId);
       const text = `${statusName} ticked on ${targetName}${action.outcome?.removed ? ' (cleared)' : ''}`;
-      return [
-        {
-          key,
-          tag: '[tick]',
-          text,
-          indent: true,
-          tagKind: 'system',
-        },
-      ];
+      return [row({ tag: '[tick]', text, indent: true, tagKind: 'system' })];
     }
 
     case 'system_damage': {
       const targetName = unitName(state, action.payload.targetId);
       const applied = action.outcome?.applied ?? action.payload.amount;
-      return [
-        {
-          key,
-          tag: '[tick]',
-          text: `${targetName} took ${applied} dmg (${formatDamageSource(action.payload.source)})`,
-          indent: true,
-          tagKind: 'system',
-        },
-      ];
+      return [row({
+        tag: '[tick]',
+        text: `${targetName} took ${applied} dmg (${formatDamageSource(action.payload.source)})`,
+        indent: true,
+        tagKind: 'system',
+      })];
     }
 
     case 'system_heal': {
       const targetName = unitName(state, action.payload.targetId);
       const applied = action.outcome?.applied ?? action.payload.amount;
-      return [
-        {
-          key,
-          tag: '[tick]',
-          text: `${targetName} healed ${applied} HP`,
-          indent: true,
-          tagKind: 'system',
-        },
-      ];
+      return [row({
+        tag: '[tick]',
+        text: `${targetName} healed ${applied} HP`,
+        indent: true,
+        tagKind: 'system',
+      })];
     }
 
     case 'system_apply_status': {
@@ -177,45 +223,31 @@ function formatAction(
       const text = applied === true
         ? `${statusName} applied to ${targetName}`
         : `${statusName} attempted on ${targetName} (failed)`;
-      return [
-        {
-          key,
-          tag: '[tick]',
-          text,
-          indent: true,
-          tagKind: 'system',
-        },
-      ];
+      return [row({ tag: '[tick]', text, indent: true, tagKind: 'system' })];
     }
 
     case 'system_ct_push': {
       const targetName = unitName(state, action.payload.targetId);
       const delta = action.outcome?.applied ?? action.payload.delta;
       const sign = delta >= 0 ? '+' : '';
-      return [
-        {
-          key,
-          tag: '[tick]',
-          text: `${targetName} CT ${sign}${delta}`,
-          indent: true,
-          tagKind: 'system',
-        },
-      ];
+      return [row({
+        tag: '[tick]',
+        text: `${targetName} CT ${sign}${delta}`,
+        indent: true,
+        tagKind: 'system',
+      })];
     }
 
     case 'status_remove': {
       if (action.outcome?.removed === false) return []; // no-op removals are noise
       const targetName = unitName(state, action.payload.targetId);
       const statusName = safeStatusName(catalog, action.payload.statusTypeId);
-      return [
-        {
-          key,
-          tag: '[tick]',
-          text: `${statusName} removed from ${targetName}`,
-          indent: true,
-          tagKind: 'system',
-        },
-      ];
+      return [row({
+        tag: '[tick]',
+        text: `${statusName} removed from ${targetName}`,
+        indent: true,
+        tagKind: 'system',
+      })];
     }
 
     case 'status_decrement_stack': {
@@ -226,14 +258,14 @@ function formatAction(
       const text = newCount === 0
         ? `${statusName} cleared from ${targetName}`
         : `${statusName} on ${targetName} → ×${newCount}`;
-      return [{ key, tag: '[tick]', text, indent: true, tagKind: 'system' }];
+      return [row({ tag: '[tick]', text, indent: true, tagKind: 'system' })];
     }
 
     case 'battle_end': {
       const winner = String(action.payload.winner);
       const desc = action.outcome?.description ?? '';
       const text = desc === '' ? `${winner} wins` : `${winner} wins — ${desc}`;
-      return [{ key, tag: '[end]', text, indent: false, tagKind: 'system' }];
+      return [row({ tag: '[end]', text, indent: false, tagKind: 'system' })];
     }
   }
 }
@@ -242,45 +274,28 @@ function formatUseAbility(
   action: Extract<Action, { type: 'use_ability' }>,
   state: GameState,
   catalog: Catalog,
-  key: string,
+  row: (opts: {
+    readonly tag: string | null;
+    readonly text: string;
+    readonly indent: boolean;
+    readonly tagKind: LogRow['tagKind'];
+  }) => LogRow,
 ): ReadonlyArray<LogRow> {
   const abilityName = safeAbilityName(catalog, action.payload.abilityId);
   const actorName = action.actorId !== undefined ? unitName(state, action.actorId) : 'unit';
   const isReaction = action.isReaction;
   const perTarget = action.outcome?.perTargetResults ?? [];
+  const tag = isReaction ? '↳' : null;
+  const tagKind: LogRow['tagKind'] = isReaction ? 'reaction' : null;
   // Charged casts: the per-target results are empty until resolution.
   if (action.outcome?.chargedActionId !== undefined) {
-    return [
-      {
-        key,
-        tag: isReaction ? '↳' : null,
-        text: `${actorName} began casting ${abilityName}`,
-        indent: true,
-        tagKind: isReaction ? 'reaction' : null,
-      },
-    ];
+    return [row({ tag, text: `${actorName} began casting ${abilityName}`, indent: true, tagKind })];
   }
   if (perTarget.length === 0) {
-    return [
-      {
-        key,
-        tag: isReaction ? '↳' : null,
-        text: `${actorName} → ${abilityName}`,
-        indent: true,
-        tagKind: isReaction ? 'reaction' : null,
-      },
-    ];
+    return [row({ tag, text: `${actorName} → ${abilityName}`, indent: true, tagKind })];
   }
   const targets = perTarget.map((r) => formatTargetResult(r, state)).join('; ');
-  return [
-    {
-      key,
-      tag: isReaction ? '↳' : null,
-      text: `${actorName} → ${abilityName}: ${targets}`,
-      indent: true,
-      tagKind: isReaction ? 'reaction' : null,
-    },
-  ];
+  return [row({ tag, text: `${actorName} → ${abilityName}: ${targets}`, indent: true, tagKind })];
 }
 
 function formatTargetResult(

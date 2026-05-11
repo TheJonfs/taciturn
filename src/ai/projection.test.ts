@@ -195,6 +195,25 @@ describe('projectExpectedDamage — crit expectation', () => {
     expect(projectExpectedDamage({ state, catalog: cat, attacker, target, ability: attack })).toBe(24);
   });
 
+  it('clamps queried crit_chance at 100 (ADR-0034 / ADR-0042 read-site clamp)', () => {
+    // crit_chance 200 (e.g., post-Crit_modifier runaway) must project at
+    // most a guaranteed crit, not an over-unity factor. Pre-ADR-0042 the
+    // projection's own clamp masked the issue; the shared `readCritChance`
+    // helper now carries the clamp for both the runtime and projection.
+    const attack = physicalAttack({ power_coefficient: 4 });
+    const attacker = makeUnit({
+      id: 'a', spd: 10, pa: 5,
+      crit_chance: 200,
+      crit_multiplier: 2.0,
+    });
+    const target = makeUnit({ id: 'b', spd: 10, hp: 100 });
+    const cat = makeCatalog({ abilities: [attack], classes: [knightClass()] });
+    const state = makeGameState({ units: [attacker, target] });
+
+    // Base 20 × E[crit at clamped p=1] = 20 × (1 + 1 × (2 - 1)) = 40.
+    expect(projectExpectedDamage({ state, catalog: cat, attacker, target, ability: attack })).toBe(40);
+  });
+
   it('skips crit on healing-tagged abilities', () => {
     const heal: ActiveAbilityDefinition = {
       id: abilityId('cure'),

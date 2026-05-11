@@ -23,6 +23,7 @@ import type {
   AbilityId,
   ClassId,
   CommandSetId,
+  DamageTag,
   SpecialMovementType,
   TerrainType,
 } from '../../types/index.ts';
@@ -62,6 +63,12 @@ export interface ClassEquipmentSlots {
   readonly accessory: boolean;
 }
 
+// Per-class baseline resistances. Sparse map keyed by damage tag (signed
+// values per BMG; v1 caps at ±100 per ADR-0022). Merged into each unit's
+// `resistances` map at `createInitialState` time, before any per-placement
+// `resistances` overrides are applied. Future status-driven resistance
+// changes layer on top via the resistance composition path in
+// `composeResistance`.
 export interface ClassDefinition {
   readonly id: ClassId;
   readonly name: string;
@@ -70,4 +77,7 @@ export interface ClassDefinition {
   readonly equipmentSlots: ClassEquipmentSlots;
   readonly firstActionCommandSet: CommandSetId;
   readonly freeAbilities: ReadonlySet<AbilityId>;
+  // Optional per-class resistance baseline. Missing = no class-level
+  // resistance (the unit's resistances come entirely from the placement).
+  readonly baselineResistances?: ReadonlyMap<DamageTag, number>;
 }

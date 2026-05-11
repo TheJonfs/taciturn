@@ -349,6 +349,27 @@ export const varianceRoll: DamageHandler = (ctx, env) => {
   };
 };
 
+// Shared crit_chance read site (per ADR-0034 / ADR-0042). Reads
+// `crit_chance` through `runModifyStatQuery` so Crit_modifier and any
+// future crit-boost hooks compose, then clamps to [0, 100] so multi-
+// stack composition can't roll into undefined territory. Both the live
+// `critRoll` handler and `src/ai/projection.ts`'s projection variant
+// import this helper so the runtime, AI, and UI forecast all read the
+// same value.
+export function readCritChance(env: PipelineEnv, attacker: Unit): number {
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      runModifyStatQuery(env.state, env.catalog, {
+        unit: attacker,
+        statName: 'crit_chance',
+        baseValue: attacker.baseStats.crit_chance,
+      }),
+    ),
+  );
+}
+
 // Critical hit roll. Per ADR-0032: read `crit_chance` (a percentage in
 // [0, 100]) and `crit_multiplier` from the attacker via
 // `runModifyStatQuery` so Crit_modifier (Lightning Buff), future crit-
@@ -376,22 +397,7 @@ export const varianceRoll: DamageHandler = (ctx, env) => {
 export const critRoll: DamageHandler = (ctx, env) => {
   if (!ctx.hit) return ctx;
   if (ctx.damageTags.has('healing')) return ctx;
-  // Clamp queried crit_chance to [0, 100] at the read site (per ADR-0034):
-  // Crit_modifier stacks additively; 6× Static Embrace (5 base + 120 magnitude)
-  // would otherwise yield 125, making `crit_chance / 100 = 1.25` and any roll
-  // an automatic crit while displaying a nonsense percentage. Clamping at the
-  // read site ensures the roll, log, and any forecast surface read identically.
-  const crit_chance = Math.max(
-    0,
-    Math.min(
-      100,
-      runModifyStatQuery(env.state, env.catalog, {
-        unit: ctx.attacker,
-        statName: 'crit_chance',
-        baseValue: ctx.attacker.baseStats.crit_chance,
-      }),
-    ),
-  );
+  const crit_chance = readCritChance(env, ctx.attacker);
   if (crit_chance <= 0) return ctx;
   const r = unitFloatFromSeed(env.seed, /* sub-index */ 4);
   if (r >= crit_chance / 100) return ctx;
@@ -572,13 +578,23 @@ function signedMax(values: ReadonlyArray<number>): number {
 
 // Resolve the effective resistance for a damage effect against a
 // target. Iterates the effect's non-healing tags, looks up each tag's
-// resistance on the target (defaulting to 0 for unmapped tags), and
-// returns the signed maximum.
+// resistance on the target, and returns the signed maximum.
+//
+// Tags not in the target's resistance map are SKIPPED (not treated as
+// "explicit 0"). Per ADR-0015's spirit — designers store the
+// resistances that apply to a unit; an absent tag means "this tag
+// isn't relevant to this unit's defense," not "this unit has a
+// declared 0 resistance that should preempt other tags." The earlier
+// `?? 0` behavior masked weaknesses on a unit who had, say, `water:
+// -50` and was hit by `['magical', 'water']` — the implicit 0 for
+// `magical` won the signedMax over the real -50 water weakness.
 function composeResistance(tags: ReadonlySet<DamageTag>, target: Unit): number {
   const values: number[] = [];
   for (const tag of tags) {
     if (tag === 'healing') continue;
-    values.push(target.resistances.get(tag) ?? 0);
+    const v = target.resistances.get(tag);
+    if (v === undefined) continue;
+    values.push(v);
   }
   return signedMax(values);
 }

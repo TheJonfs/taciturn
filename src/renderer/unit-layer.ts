@@ -17,6 +17,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import type { Direction, StatusInstance, Unit } from '@engine/index.ts';
 import {
   ACTIVE_HIGHLIGHT_COLOR,
+  COUNTERPART_RING_COLOR,
   FACING_TICK_COLOR,
   FACING_TICK_LENGTH,
   HIT_FLASH_COLOR,
@@ -25,6 +26,9 @@ import {
   HP_BAR_FG_LOW,
   HP_BAR_LOW_THRESHOLD,
   KO_ALPHA,
+  KO_X_ALPHA,
+  KO_X_COLOR,
+  KO_X_WIDTH,
   MP_BAR_FG,
   STATUS_BADGE_BG_NEGATIVE,
   STATUS_BADGE_BG_NEUTRAL,
@@ -89,6 +93,11 @@ export interface UnitVisualState {
   // 0..1 — the renderer overlays a hit-flash tint at this strength.
   readonly flash: number;
   readonly statuses: ReadonlyArray<StatusBadge>;
+  // 0..1 hover-counterpart pulse strength. Driven by the action log
+  // panel's row-hover handler (and the QueueTower's mini-card hover).
+  // A non-zero value draws a translucent ring around the unit body so
+  // the player can map a log row to the actor/target on the canvas.
+  readonly counterpart: number;
 }
 
 export class UnitSprite {
@@ -98,6 +107,8 @@ export class UnitSprite {
   private readonly hpBar: Graphics;
   private readonly mpBar: Graphics;
   private readonly activeRing: Graphics;
+  private readonly counterpartRing: Graphics;
+  private readonly koMarker: Graphics;
   private readonly statusRow: Container;
   private readonly teamColor: number;
 
@@ -108,18 +119,22 @@ export class UnitSprite {
     this.container.label = `unit:${unit.id}`;
     this.container.eventMode = 'none';
 
+    this.counterpartRing = new Graphics();
     this.activeRing = new Graphics();
     this.body = new Graphics();
     this.facingTick = new Graphics();
+    this.koMarker = new Graphics();
     this.hpBar = new Graphics();
     this.mpBar = new Graphics();
     this.statusRow = new Container();
     this.statusRow.label = 'statuses';
 
     this.container.addChild(
+      this.counterpartRing,
       this.activeRing,
       this.body,
       this.facingTick,
+      this.koMarker,
       this.hpBar,
       this.mpBar,
       this.statusRow,
@@ -136,6 +151,7 @@ export class UnitSprite {
       active: false,
       flash: 0,
       statuses: [],
+      counterpart: 0,
     });
   }
 
@@ -147,10 +163,40 @@ export class UnitSprite {
     this.container.alpha = state.ko ? KO_ALPHA : 1;
     this.drawBody(state.flash);
     this.drawFacing(state.facing, state.ko);
+    this.drawKoMarker(state.ko);
     this.drawHpBar(state.hp, state.maxHp);
     this.drawMpBar(state.mp, state.maxMp);
     this.drawActive(state.active && !state.ko);
+    this.drawCounterpart(state.counterpart);
     this.drawStatuses(state.statuses, state.ko);
+  }
+
+  private drawKoMarker(ko: boolean): void {
+    const g = this.koMarker;
+    g.clear();
+    if (!ko) return;
+    // Cross-out X across the unit body so KO reads at a glance, not
+    // only via the alpha fade. Drawn above body + facing tick but
+    // below the HP bar / statuses (those are hidden when ko anyway).
+    const r = UNIT_RADIUS * 0.85;
+    g.moveTo(-r, -r);
+    g.lineTo(r, r);
+    g.moveTo(-r, r);
+    g.lineTo(r, -r);
+    g.stroke({ color: KO_X_COLOR, width: KO_X_WIDTH, alpha: KO_X_ALPHA });
+  }
+
+  private drawCounterpart(strength: number): void {
+    const g = this.counterpartRing;
+    g.clear();
+    if (strength <= 0) return;
+    // Concentric outer ring: brighter than the active ring, drawn
+    // beneath all other unit content so the unit's body is still
+    // legible. Strength scales the alpha so a future hover-pulse tween
+    // can animate it; v1 toggles between 0 and 1.
+    const alpha = Math.min(1, strength) * 0.8;
+    g.circle(0, 0, UNIT_RADIUS + ACTIVE_RING_PAD + 4);
+    g.stroke({ color: COUNTERPART_RING_COLOR, width: 3, alpha });
   }
 
   private drawBody(flash: number): void {

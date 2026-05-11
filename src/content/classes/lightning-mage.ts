@@ -26,6 +26,7 @@ import {
   classId,
   commandSetId,
   type ClassDefinition,
+  type DamageTag,
 } from '@engine/index.ts';
 
 export const lightningMage: ClassDefinition = {
@@ -48,5 +49,16 @@ export const lightningMage: ClassDefinition = {
   firstActionCommandSet: commandSetId('lightning_spells'),
   // Both class signature passives free — the Lightning Mage's identity
   // (magical retaliation + multiplicative MA) is fully on by default.
-  freeAbilities: new Set([abilityId('discharge'), abilityId('conductor')]),
+  // `attack` is universally free (designer call 2026-05-10).
+  freeAbilities: new Set([
+    abilityId('attack'),
+    abilityId('discharge'),
+    abilityId('conductor'),
+  ]),
+  // Elemental wheel (designer call 2026-05-10): +50 vs Water (insulated
+  // by charge), -50 vs Earth (grounding).
+  baselineResistances: new Map<DamageTag, number>([
+    ['water', 50],
+    ['earth', -50],
+  ]),
 };

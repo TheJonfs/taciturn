@@ -267,8 +267,9 @@ describe('commitAction — turn cycle integration', () => {
     if (!r.ok) return;
     state = r.newState;
     expect(state.turnState).toBeNull();
-    // Wait fires the cheap CT cost; CT goes from 100 → 80.
-    expect(state.units.get(u.id)!.ct).toBe(80);
+    // Per post-MVP designer call: Wait inherits the consumed-bucket
+    // cost (Move was consumed → moveOnly cost = 50). CT goes 100 → 50.
+    expect(state.units.get(u.id)!.ct).toBe(50);
   });
 });
 

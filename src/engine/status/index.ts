@@ -19,3 +19,10 @@ export {
 export { applyStatus, type ApplyStatusArgs, type ApplyStatusReturn } from './apply.ts';
 export { removeStatus, type RemoveStatusArgs, type RemoveStatusReturn } from './remove.ts';
 export type { StatusApplicationResult } from './result.ts';
+export {
+  computeStatusChance,
+  rollStatusChance,
+  NotYetImplementedError,
+  type StatusChanceArgs,
+  type StatusChanceResult,
+} from './chance.ts';

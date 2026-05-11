@@ -15,6 +15,10 @@ export { BattleHud, type BattleHudProps } from './battle-hud.tsx';
 export { QueueTower, type QueueTowerProps } from './queue-tower.tsx';
 export { ActionMenu, type ActionMenuProps } from './action-menu.tsx';
 export { ActionLogPanel, type ActionLogPanelProps } from './action-log-panel.tsx';
+export { ForecastPanel, type ForecastPanelProps } from './forecast-panel.tsx';
+export { ForecastTooltip, type ForecastTooltipProps } from './forecast-tooltip.tsx';
+export { UnitDetailPanel, type UnitDetailPanelProps } from './unit-detail-panel.tsx';
+export { ResultsScreen, type ResultsScreenProps } from './results-screen.tsx';
 export { PauseOverlay, type PauseOverlayProps } from './pause-overlay.tsx';
 export {
   SettingsProvider,
@@ -33,3 +37,17 @@ export {
   type TurnFlowState,
   type TurnFlowEvent,
 } from './turn-flow.ts';
+export {
+  composeForecast,
+  type Forecast,
+  type ForecastTargetRow,
+  type ComposeForecastArgs,
+} from './forecast-compose.ts';
+export {
+  deriveKoEvents,
+  derivePerUnitStats,
+  deriveActionParticipants,
+  type KoEvent,
+  type PerUnitStats,
+  type ActionParticipants,
+} from './derived-events.ts';

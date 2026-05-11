@@ -21,15 +21,23 @@
 // directly; the hook owns all validation.
 
 import type { CSSProperties, ReactElement } from 'react';
-import type { ActiveAbilityDefinition, Catalog } from '@engine/index.ts';
+import { abilityId, projectTurnEndCt, type ActiveAbilityDefinition, type Catalog, type Direction, type GameState } from '@engine/index.ts';
 import type { TurnFlow } from './use-turn-flow.ts';
+
+const ATTACK_ABILITY_ID = abilityId('attack');
 
 export interface ActionMenuProps {
   readonly turnFlow: TurnFlow;
   readonly catalog: Catalog;
+  // Game state, surfaced to the menu for end-CT projection. Pulled in
+  // alongside `turnFlow` rather than wedged into the hook so the engine
+  // forecast helpers stay one-call-from-the-menu.
+  readonly engineState: GameState | null;
+  // Open the unit-detail panel for a given unit. Wired in by BattleView.
+  readonly onOpenUnitDetail?: (unitId: import('@engine/index.ts').UnitId) => void;
 }
 
-export function ActionMenu({ turnFlow, catalog }: ActionMenuProps): ReactElement {
+export function ActionMenu({ turnFlow, catalog, engineState, onOpenUnitDetail }: ActionMenuProps): ReactElement {
   const { state, isOurTurn, activeUnit } = turnFlow;
 
   if (!isOurTurn || activeUnit === null) {
@@ -49,7 +57,7 @@ export function ActionMenu({ turnFlow, catalog }: ActionMenuProps): ReactElement
       );
 
     case 'action-menu':
-      return <TopLevel turnFlow={turnFlow} />;
+      return <TopLevel turnFlow={turnFlow} catalog={catalog} engineState={engineState} onOpenUnitDetail={onOpenUnitDetail} />;
 
     case 'move-select':
       return (
@@ -79,6 +87,9 @@ export function ActionMenu({ turnFlow, catalog }: ActionMenuProps): ReactElement
     case 'await-confirm':
       return <ConfirmRow turnFlow={turnFlow} catalog={catalog} />;
 
+    case 'wait-confirm':
+      return <WaitConfirm turnFlow={turnFlow} />;
+
     case 'animation':
       return (
         <Panel header="Action Menu">
@@ -88,32 +99,134 @@ export function ActionMenu({ turnFlow, catalog }: ActionMenuProps): ReactElement
   }
 }
 
+// Cardinal-direction facing picker shown after the player clicks End
+// turn. Per design doc WAIT-CONFIRM. Defaults to the unit's current
+// facing; click any of the four cardinals to commit. ESC / Cancel
+// returns to the action menu.
+function WaitConfirm({ turnFlow }: { readonly turnFlow: TurnFlow }): ReactElement {
+  const currentFacing = turnFlow.activeUnit?.facing ?? 'N';
+  const directions: ReadonlyArray<{ readonly dir: Direction; readonly label: string }> = [
+    { dir: 'N', label: 'North ↑' },
+    { dir: 'E', label: 'East →' },
+    { dir: 'S', label: 'South ↓' },
+    { dir: 'W', label: 'West ←' },
+  ];
+  return (
+    <Panel header="End turn — pick facing">
+      <StatusLine>Choose which way to face</StatusLine>
+      {directions.map((d) => (
+        <Button
+          key={d.dir}
+          label={d.dir === currentFacing ? `${d.label} (current)` : d.label}
+          disabled={false}
+          onClick={() => turnFlow.submitWait(d.dir)}
+          variant={d.dir === currentFacing ? 'primary' : 'secondary'}
+        />
+      ))}
+      <CancelButton onClick={turnFlow.cancel} />
+    </Panel>
+  );
+}
+
 // ---- subcomponents ----
 
-function TopLevel({ turnFlow }: { readonly turnFlow: TurnFlow }): ReactElement {
-  const { movesAvailable, actsAvailable, waitDisabled, activeCommandSets } = turnFlow;
+function TopLevel(props: {
+  readonly turnFlow: TurnFlow;
+  readonly catalog: Catalog;
+  readonly engineState: GameState | null;
+  readonly onOpenUnitDetail?: (unitId: import('@engine/index.ts').UnitId) => void;
+}): ReactElement {
+  const { turnFlow, catalog, engineState, onOpenUnitDetail } = props;
+  const { movesAvailable, actsAvailable, waitDisabled, activeCommandSets, activeUnit } = turnFlow;
+
+  // Move/Act show the CT-cost the action would contribute to the
+  // turn's end-cost deduction. Wait/End-turn shows the projected
+  // leftover CT given current consumption. Per the post-MVP designer
+  // call (2026-05-10): "Move and Act show costs in CT; End-turn shows
+  // leftover CT after ending now." Differences vs. the prior framing:
+  //   - Move alone shows the moveOnly cost (50 by default), not the
+  //     diff-from-baseline-wait (30).
+  //   - Move after Act shows the increment to moveAndAct (typically
+  //     50, since moveAndAct - actOnly = 30 in default tuning, but the
+  //     compute is generic to the ruleset).
+  //   - End-turn dynamically decrements as the player commits actions.
+  let moveCost: number | null = null;
+  let actCost: number | null = null;
+  let waitLeftover: number | null = null;
+  if (engineState !== null && activeUnit !== null) {
+    // Leftover CT at end-of-turn given what's already been consumed.
+    const leftoverNow = projectTurnEndCt({
+      state: engineState,
+      catalog,
+      unit: activeUnit,
+      plannedNext: 'wait',
+    });
+    // Leftover CT if Move were committed in addition to existing consumed.
+    const leftoverIfMove = projectTurnEndCt({
+      state: engineState,
+      catalog,
+      unit: activeUnit,
+      plannedNext: 'move',
+    });
+    const leftoverIfAct = projectTurnEndCt({
+      state: engineState,
+      catalog,
+      unit: activeUnit,
+      plannedNext: 'act',
+    });
+    // Cost-of-doing-this-action = (current unit CT) − (leftover if this
+    // action committed and we end). For the no-action case this would
+    // be the wait cost; for Move + end it's the moveOnly cost. Showing
+    // this absolute number matches the player's mental model that
+    // "Move costs 50 CT" means "your CT drops by 50 if Move is the
+    // only action this turn."
+    moveCost = Math.max(0, activeUnit.ct - leftoverIfMove);
+    actCost = Math.max(0, activeUnit.ct - leftoverIfAct);
+    waitLeftover = leftoverNow;
+  }
+  const fmtCost = (n: number | null): string => (n === null ? '' : ` · ${n} CT`);
+  const fmtLeftover = (n: number | null): string => (n === null ? '' : ` · CT after: ${n}`);
+
+  // Attack — universal free-ability per the elemental-wheel designer
+  // call (2026-05-10). Surfaces as a top-level action menu button when
+  // the active unit has `attack` in their class's free-abilities set.
+  // Costs the actOnly bucket (same as any Act).
+  const cls = activeUnit !== null ? catalog.getClass(activeUnit.classState.currentClass) : null;
+  const hasAttack = cls?.freeAbilities.has(ATTACK_ABILITY_ID) ?? false;
+  const attackDisabled = actsAvailable <= 0;
+
   return (
     <Panel header="Action Menu">
       <Button
-        label={`Move (${movesAvailable})`}
+        label={`Move (${movesAvailable})${fmtCost(moveCost)}`}
         disabled={movesAvailable <= 0}
         onClick={() => turnFlow.dispatch({ kind: 'pickMove' })}
       />
+      {hasAttack && (
+        <Button
+          label={`Attack (${actsAvailable})${fmtCost(actCost)}`}
+          disabled={attackDisabled}
+          onClick={() => turnFlow.dispatch({ kind: 'pickFreeAbility', abilityId: ATTACK_ABILITY_ID })}
+        />
+      )}
       <Button
-        label={`Act (${actsAvailable})`}
+        label={`Act (${actsAvailable})${fmtCost(actCost)}`}
         disabled={actsAvailable <= 0 || activeCommandSets.length === 0}
         onClick={() => turnFlow.dispatch({ kind: 'pickAct', commandSets: activeCommandSets })}
       />
       <Button
-        label="Wait"
+        label={`End turn${fmtLeftover(waitLeftover)}`}
         disabled={waitDisabled}
-        onClick={() => turnFlow.submitWait()}
+        onClick={() => turnFlow.dispatch({ kind: 'pickWait' })}
       />
       <Button
         label="Status"
-        disabled
-        onClick={noop}
-        title="(Session 24)"
+        disabled={onOpenUnitDetail === undefined || activeUnit === null}
+        onClick={() => {
+          if (onOpenUnitDetail !== undefined && activeUnit !== null) {
+            onOpenUnitDetail(activeUnit.id);
+          }
+        }}
       />
     </Panel>
   );

@@ -36,23 +36,32 @@
 // average of N live `runDamagePipeline` runs within a small tolerance
 // for representative scenarios.
 
+// Imports are routed through engine sub-barrels rather than the top-level
+// `@engine/index.ts` to break a module cycle: the engine barrel exports
+// `src/engine/forecast/`, whose `damage-range.ts` imports back from
+// `src/ai/projection.ts`. Going through sub-barrels keeps this file off
+// the cycle's spine so Vite's ESM loader doesn't redeclare anything.
 import {
   defaultDamageHandlers,
-  getEquippedWeapon,
+  readCritChance,
   runDamagePipeline,
-  runModifyEvasion,
-  runModifyHitChance,
-  runModifyStatQuery,
-  type ActiveAbilityDefinition,
-  type Catalog,
   type DamageContext,
   type DamageHandler,
   type DamageHandlerRegistry,
-  type Direction,
-  type GameState,
-  type Position,
-  type Unit,
-} from '@engine/index.ts';
+} from '@engine/damage/index.ts';
+import { getEquippedWeapon } from '@engine/items/index.ts';
+import {
+  runModifyEvasion,
+  runModifyHitChance,
+  runModifyStatQuery,
+} from '@engine/hooks/index.ts';
+import type { ActiveAbilityDefinition, Catalog } from '@engine/catalog/index.ts';
+import type {
+  Direction,
+  GameState,
+  Position,
+  Unit,
+} from '@engine/types/index.ts';
 
 // Variance projection: append the midpoint factor as a multiplier.
 // Mirrors `varianceRoll`'s skip-when-flat behavior so an ability with
@@ -122,24 +131,21 @@ const projectionEvasionCheck: DamageHandler = (ctx, env) => {
 // = 1 + p · (crit_multiplier - 1). Append as a multiplier.
 //
 // Short-circuits mirror `critRoll`: missed action (impossible in
-// projection mode but defensive), healing tag, crit_chance ≤ 0.
+// projection mode but defensive), healing tag, crit_chance ≤ 0. The
+// [0, 100] clamp lives inside `readCritChance` per ADR-0042 so the live
+// roll and this projection variant share one read site (per ADR-0034's
+// spirit; the prior duplicate clamp at this line is gone).
 const projectionCritRoll: DamageHandler = (ctx, env) => {
   if (!ctx.hit) return ctx;
   if (ctx.damageTags.has('healing')) return ctx;
-  const crit_chance = runModifyStatQuery(env.state, env.catalog, {
-    unit: ctx.attacker,
-    statName: 'crit_chance',
-    baseValue: ctx.attacker.baseStats.crit_chance,
-  });
+  const crit_chance = readCritChance(env, ctx.attacker);
   if (crit_chance <= 0) return ctx;
   const crit_multiplier = runModifyStatQuery(env.state, env.catalog, {
     unit: ctx.attacker,
     statName: 'crit_multiplier',
     baseValue: ctx.attacker.baseStats.crit_multiplier,
   });
-  // Cap p at 1 for crit_chance > 100 (matches runtime "r < crit_chance/100"
-  // always-true semantic).
-  const p = Math.max(0, Math.min(1, crit_chance / 100));
+  const p = crit_chance / 100;
   const expectedFactor = 1 + p * (crit_multiplier - 1);
   if (expectedFactor === 1) return ctx;
   return {
