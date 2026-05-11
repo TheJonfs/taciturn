@@ -9,9 +9,10 @@
 // Earth kit (strike, blessing, curse). The kit's AoE / Ultimate land
 // in session 17 alongside AoE engine work.
 //
-// Class-inherent passives: none yet. Earth Mage's identity comes from
-// equipped passives (Earth Communion, Earth Resilience) and the Earth
-// command set itself.
+// Class-inherent free passives: Earth Communion, Earth Resilience, and
+// Bedrock Stride (session 26 — Earth's Movement-bucket parity passive:
+// +1 moveRange, fall-damage immunity). The R/S/M parity rule grants
+// each Mage class its themed Movement passive free.
 
 import {
   abilityId,
@@ -48,6 +49,7 @@ export const earthMage: ClassDefinition = {
     abilityId('attack'),
     abilityId('earth_resilience'),
     abilityId('earth_communion'),
+    abilityId('bedrock_stride'),
   ]),
   // Elemental wheel (designer call 2026-05-10): +50 vs Lightning
   // (grounds the charge), -50 vs Fire (earth burns / scorches).

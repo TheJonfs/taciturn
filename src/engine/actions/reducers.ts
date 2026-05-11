@@ -17,10 +17,12 @@ import { runDamagePipeline } from '../damage/pipeline.ts';
 import {
   runModifyAoeShape,
   runModifyStatQuery,
+  runModifySystemDamage,
   runOnActionAttempted,
   runOnActionResolved,
   runOnActionTargeted,
   runOnTick,
+  runOnTurnEnd,
   runQueryTurnSkipped,
 } from '../hooks/runners.ts';
 import { tileAt, unitAt } from '../map/accessors.ts';
@@ -1333,10 +1335,19 @@ export function reduceTurnEnd(
   const newCT = Math.max(0, unit.ct - ctCost);
   const newUnit: Unit = { ...unit, ct: newCT };
 
+  // Per ADR-0053: fire `onTurnEnd` against the unit's hooks before
+  // `turnState` is cleared, so handlers can read `state.turnState.consumed`
+  // to gate on what was committed this turn. The unit visible to handlers
+  // already has its CT decremented (mid-turn-end snapshot) but
+  // `state.turnState` still exposes `consumed`. Quickstep is the first
+  // emitting consumer; legacy void-return handlers continue to type-check.
+  const turnEndState = withUnit(state, newUnit);
+  const turnEndEmissions = runOnTurnEnd(turnEndState, catalog, { unit: newUnit });
+
   // Generate status_tick for turn-based statuses on this unit (their
   // duration ticks at turn end per turn-structure.md). Per-unit-CT
   // statuses have already ticked at turn_start.
-  const generated: ProposedAction[] = [];
+  const generated: ProposedAction[] = [...turnEndEmissions];
   for (const status of unit.statuses) {
     const type = catalog.getStatusType(status.typeId);
     if (type.durationMode === 'turn_based') {
@@ -1599,27 +1610,40 @@ export function reduceSystemDamage(
   action: Extract<Action, { type: 'system_damage' }>,
   catalog: Catalog,
 ): ReduceResult<SystemDamageOutcome> {
-  const { targetId, amount } = action.payload;
+  const { targetId, amount: baseAmount, source, tags } = action.payload;
   const target = state.units.get(targetId);
   if (target === undefined) {
     return {
       newState: state,
-      outcome: { kind: 'system_damage', targetId, amount, applied: 0 },
+      outcome: { kind: 'system_damage', targetId, amount: baseAmount, applied: 0 },
       generatedActions: [],
     };
   }
   if (target.vitals.hp <= 0) {
     return {
       newState: state,
-      outcome: { kind: 'system_damage', targetId, amount, applied: 0 },
+      outcome: { kind: 'system_damage', targetId, amount: baseAmount, applied: 0 },
       generatedActions: [],
     };
   }
-  const applied = Math.max(0, Math.min(amount, target.vitals.hp));
+  // Per ADR-0052: target's `modifySystemDamage` chain may reduce or zero
+  // the running amount before HP is touched. Bedrock Stride uses this
+  // to nullify falling damage. Floor at 0 — handlers may return negative
+  // values; we clamp here rather than asking each handler to clamp.
+  const modifiedAmount = Math.max(
+    0,
+    runModifySystemDamage(state, catalog, {
+      unit: target,
+      source,
+      tags: new Set(tags),
+      baseAmount,
+    }),
+  );
+  const applied = Math.max(0, Math.min(modifiedAmount, target.vitals.hp));
   if (applied === 0) {
     return {
       newState: state,
-      outcome: { kind: 'system_damage', targetId, amount, applied: 0 },
+      outcome: { kind: 'system_damage', targetId, amount: modifiedAmount, applied: 0 },
       generatedActions: [],
     };
   }
@@ -1638,7 +1662,7 @@ export function reduceSystemDamage(
   }
   return {
     newState,
-    outcome: { kind: 'system_damage', targetId, amount, applied },
+    outcome: { kind: 'system_damage', targetId, amount: modifiedAmount, applied },
     generatedActions,
   };
 }

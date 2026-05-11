@@ -1,6 +1,6 @@
 // Earth Cataclysm — Earth Mage's Ultimate.
 //
-// Charged tile-anchored AoE (cross shape, radius 1) magical earth
+// Charged tile-anchored AoE (diamond shape, radius 1) magical earth
 // damage with three independently-rolled status riders: non-expiring
 // Poison, Don't Act, Don't Move. Earth's identity is "lockdown over
 // damage" — the power-10 base is on the lower end of where Lightning
@@ -11,7 +11,8 @@
 //   - power 10, mpCost 30, actionSpeed 18 (slower than Quake's 25 —
 //     ~6 ticks to charge at the floor; the caster typically sees their
 //     next turn pass before the spell lands)
-//   - shape: cross radius 1
+//   - shape: diamond radius 1 (session 26 — was `cross r1` pre-session-26;
+//     identical at r1, but Aether-Bloom-enlarged diamond r2 is 13 tiles)
 //   - excludeCaster: true (default)
 //   - friendly fire: per ruleset
 //   - vertical tolerance: 1 (default)
@@ -55,7 +56,7 @@ export const earthCataclysm: ActiveAbilityDefinition = {
       power_coefficient: 12,
     },
     aoe: {
-      shape: { kind: 'cross', radius: 1 },
+      shape: { kind: 'diamond', radius: 1 },
     },
     statusEffects: [
       {

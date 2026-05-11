@@ -18,6 +18,7 @@ import type {
   ProposedAction,
   StatName,
   StatusTypeId,
+  SystemDamageSource,
   TerrainType,
   Unit,
 } from '../types/index.ts';
@@ -193,6 +194,36 @@ export function runModifyAoeShape(
     shape = h.invoke({ unit: args.unit, ability: args.ability, baseShape: shape });
   }
   return shape;
+}
+
+// System-damage amount modifier — fires inside `reduceSystemDamage`
+// against the target's hooks before the HP delta is applied. Each
+// handler returns a new running amount; the chain composes in source-tier
+// and per-handler priority order. A handler returning 0 fully prevents
+// the damage (the reducer's `applied === 0` short-circuit no-ops).
+// Per ADR-0052. First v1 consumer: Bedrock Stride (Earth Mage), gating
+// on `source.kind === 'falling'` and returning 0.
+export function runModifySystemDamage(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    source: SystemDamageSource;
+    tags: ReadonlySet<DamageTag>;
+    baseAmount: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifySystemDamage');
+  let amount = args.baseAmount;
+  for (const h of handlers) {
+    amount = h.invoke({
+      unit: args.unit,
+      source: args.source,
+      tags: args.tags,
+      baseAmount: amount,
+    });
+  }
+  return amount;
 }
 
 // Pre-resolution hook firing — short-circuits on the first non-`allowed`
@@ -430,6 +461,30 @@ export function runOnActionResolved(
       ability: args.ability,
     });
     if (result.emittedActions !== undefined) {
+      for (const a of result.emittedActions) emissions.push(a);
+    }
+  }
+  return emissions;
+}
+
+// Turn-end side effects (per ADR-0053, session 26). Fires against the
+// unit-ending-its-turn's hooks just before `reduceTurnEnd` clears
+// `state.turnState`, so handlers can read `state.turnState.consumed` to
+// gate on what happened during the turn (Quickstep refunds CT iff a Move
+// was committed). Handlers may return `OnTurnEndResult | void`; the
+// runner accepts both, threads `state` + `catalog` into args so handlers
+// can run stat queries / look up entities, and gathers `emittedActions`
+// flat for the reducer to forward onto its `generatedActions`.
+export function runOnTurnEnd(
+  state: GameState,
+  catalog: Catalog,
+  args: { unit: Unit },
+): ReadonlyArray<ProposedAction> {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onTurnEnd');
+  const emissions: ProposedAction[] = [];
+  for (const h of handlers) {
+    const result = h.invoke({ unit: args.unit, state, catalog });
+    if (result !== undefined && result.emittedActions !== undefined) {
       for (const a of result.emittedActions) emissions.push(a);
     }
   }

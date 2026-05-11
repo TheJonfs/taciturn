@@ -8,11 +8,14 @@
 // would compose on a future cross-classed mage's AoE casts (e.g., a
 // hypothetical Earth AoE would expand too).
 //
-// Per session 19 plaintext review:
+// Per session 19 plaintext review (footprint counts revised session 26
+// alongside the cross-r1 → diamond-r1 base-shape switch):
 //   - baseCost 2; free for Fire Mage (listed in `freeAbilities`)
 //   - Universal magical-AoE expander, not Fire-specific
-//   - Fire Storm's base shape `cross r1` (5 tiles) → `cross r2` (9
-//     tiles) when this passive is equipped
+//   - Fire Storm's base shape `diamond r1` (5 tiles) → `diamond r2`
+//     (13 tiles) when this passive is equipped; pre-session-26 the
+//     base was `cross r1` (also 5) → `cross r2` (9). enlargeAoeShape is
+//     shape-agnostic: diamond → diamond, cross → cross, square → square
 //
 // Composition: chained with another `modifyAoeShape` handler (e.g., a
 // hypothetical "Mediator's Reach" passive that grows all AoEs further),

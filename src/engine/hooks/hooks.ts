@@ -27,6 +27,7 @@ import type {
   StatName,
   StatusInstance,
   StatusTypeId,
+  SystemDamageSource,
   TerrainType,
   Unit,
 } from '../types/index.ts';
@@ -74,6 +75,17 @@ export interface OnTickResult {
 // gates on `'magical'` to refund 10 CT). Returns optional emissions for
 // the reducer to forward onto its `generatedActions`.
 export interface OnActionResolvedResult {
+  readonly emittedActions?: ReadonlyArray<ProposedAction>;
+}
+
+// Result of `onTurnEnd` (per ADR-0053, session 26 widening). Fired from
+// `reduceTurnEnd` against the unit-finishing-its-turn's hooks. Returning
+// nothing (or undefined) is the legacy shape; returning an
+// OnTurnEndResult lets handlers emit follow-on actions onto the reducer's
+// `generatedActions`. First v1 emitting consumer is Quickstep (Lightning
+// Mage), which reads `state.turnState.consumed.movesConsumed` and emits
+// a `system_ct_push` of +MA when a Move was committed this turn.
+export interface OnTurnEndResult {
   readonly emittedActions?: ReadonlyArray<ProposedAction>;
 }
 
@@ -181,6 +193,31 @@ export interface HookSignatures {
     return: AoeShape;
   };
 
+  // System-damage amount modifier — fires inside `reduceSystemDamage`
+  // against the *target's* hooks before the HP delta is applied. Each
+  // handler receives the running amount and returns a new one; the chain
+  // runs in tier/priority order. A handler can drop the amount to 0 to
+  // fully prevent the damage (the reducer's `applied === 0` short-circuit
+  // then no-ops).
+  //
+  // Per ADR-0052: system_damage bypasses the seven-stage damage pipeline
+  // by design (ADR-0027), but a single modification seam keeps fall-immunity,
+  // poison-tick reduction, and similar mitigation expressible as passives /
+  // statuses / equipment without ad hoc plumbing per source. Handlers gate
+  // on `source.kind` (the discriminated SystemDamageSource union) for
+  // source-specific behavior — Bedrock Stride filters on `'falling'`;
+  // future Purifier-style content would filter on `'status_tick'` + the
+  // tick's statusTypeId.
+  modifySystemDamage: {
+    args: {
+      unit: Unit;
+      source: SystemDamageSource;
+      tags: ReadonlySet<DamageTag>;
+      baseAmount: number;
+    };
+    return: number;
+  };
+
   // Lifecycle: fired by applyStatus / removeStatus.
   onApply: {
     args: { unit: Unit };
@@ -208,14 +245,21 @@ export interface HookSignatures {
     return: OnTickResult;
   };
 
-  // Turn boundaries: session 9 fires these.
+  // Turn boundaries: session 9 fires onTurnStart; session 26 (ADR-0053)
+  // widened `onTurnEnd` to pass state + catalog so handlers can read
+  // `state.turnState.consumed` (gate on what the unit did this turn) and
+  // use `catalog` for stat queries via `runModifyStatQuery`. Return is
+  // `OnTurnEndResult | void`: existing void-returning handlers stay
+  // valid, new emitting handlers (Quickstep) return an emittedActions
+  // wrapper. `onTurnStart` keeps its narrow shape until a v1 consumer
+  // needs to emit; widening it symmetrically is a follow-up if needed.
   onTurnStart: {
     args: { unit: Unit };
     return: void;
   };
   onTurnEnd: {
-    args: { unit: Unit };
-    return: void;
+    args: { unit: Unit; state: GameState; catalog: Catalog };
+    return: OnTurnEndResult | void;
   };
 
   // Damage pipeline (session 8). Handlers fire at the attacker / target

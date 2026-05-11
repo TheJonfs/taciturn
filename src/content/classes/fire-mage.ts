@@ -16,10 +16,12 @@
 // Default First Action command set: `fire_spells` (Strike, Embrace,
 // Storm, Spark, Flame Lance).
 //
-// Class-inherent free passives: `ignition` (Burn-on-magical-damage)
-// and `aether_bloom` (universal magical-AoE expander). Both are listed
-// in `freeAbilities`, so a Fire Mage equipping them pays 0 capacity.
-// A cross-classed mage can equip either at baseCost 2 each.
+// Class-inherent free passives: `ignition` (Burn-on-magical-damage),
+// `aether_bloom` (universal magical-AoE expander), `smolder`, and
+// `hotfoot` (session 26 — Fire's Movement-bucket parity passive:
+// +1 moveRange, +1 spd). All four are listed in `freeAbilities`, so a
+// Fire Mage equipping them pays 0 capacity. A cross-classed mage can
+// equip any at the standard baseCost.
 
 import {
   abilityId,
@@ -55,6 +57,7 @@ export const fireMage: ClassDefinition = {
     abilityId('ignition'),
     abilityId('aether_bloom'),
     abilityId('smolder'),
+    abilityId('hotfoot'),
   ]),
   // Elemental wheel (designer call 2026-05-10): +50 vs Earth (burns
   // through stone), -50 vs Water (steam quench).

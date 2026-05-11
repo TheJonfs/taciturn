@@ -21,246 +21,110 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-11 (Session 25 — Cluster 2 substrate + UI fold-ins)
+## From session 2026-05-11 (Session 26 — Movement abilities + terrain infra + content tweaks)
 
-Session 25 opened Phase B by landing the engine substrate that subsequent
-team-builder and deployment-phase work needs (availability tag,
-`deploymentZone` tile field, `uniform_int` initial-CT variant), plus the
-five UI fold-ins from Chris's post-MVP playtest review (Attack-in-Act,
-charged-target in log, segment-based team coloring, enemy-portrait flip,
-`consumed.waited` cleanup). Tests: **679 passing across 58 files, 0
-failing** (up from 671). +8 new tests: 4 catalog-validator cases, 5
-uniform_int variance cases, 3 LogRow-segment cases, minus 4 unrelated
-changes.
+Session 26 landed Phase B's content batch: four new Movement-bucket passives (Bedrock Stride, Hotfoot, Tidewalker, Quickstep), AoE base-shape consistency (cross r1 → diamond r1 on Earth Quake / Earth Cataclysm / Fire Storm), terrain texture loading infrastructure with deterministic per-tile variant pick, and the content-snapshot doc refresh. Two engine extensions were required and landed (with ADRs).
+
+Tests: **715 passing across 62 files, 0 failing** (up from 684). +31 new tests: 5 modifySystemDamage + 3 onTurnEnd-emit + 5 AoE-shape declarations/footprint + 10 movement-abilities + 8 terrain variant-pick + manifest.
 
 ### Scope completed
 
-**Substrate (Items 1-3, 5):**
+**Engine extensions (new this session):**
 
-1. **Availability tag substrate.** `availability: 'available' |
-   'hidden'` field on `AbilityCommon`, `EquipmentBase`, and
-   `CommandSetDefinition` (the latter expanded the brief's default
-   per Chris's call to hide the `white_magic` set as a unit). New
-   `Availability` type lives in `src/engine/catalog/definitions/
-   availability.ts`. New `MissingAvailabilityError`; validator runs
-   inside `createCatalog`. Test-only inline builders
-   (`engine/abilities/test-fixtures.ts`) default to `'hidden'`. All
-   41 ability files + 5 item files + 7 command-set files tagged
-   per spec. ADR-0049.
+1. **`modifySystemDamage` hook (ADR-0052).** Single modification seam for engine-emitted damage actions. Fires inside `reduceSystemDamage` against the target's hooks before HP-delta apply. Chain composes multiplicatively; reducer clamps negatives to 0. Bedrock Stride's `source.kind === 'falling'` → return 0 is the first consumer.
 
-2. **`deploymentZone` tile field.** Optional `deploymentZone?: TeamId
-   | null` on `Tile`. No content consumes it yet; substrate-only.
+2. **`onTurnEnd` signature widened (ADR-0053).** Pre-26 the hook was declared but never fired. Session 26 wires it up with the widened shape: `args: { unit; state; catalog }`, `return: OnTurnEndResult | void`. Runner `runOnTurnEnd` mirrors `runOnTick`'s emission-collection pattern. Fired from `reduceTurnEnd` between newUnit construction and turnState clear, so handlers see state.turnState.consumed intact. Quickstep is the first consumer.
 
-3. **`uniform_int` initial-CT variant.** New variant on
-   `RulesetInitialCT` + resolver clause in `resolveInitialCT`. Default
-   ruleset switches to `{ kind: 'uniform_int', min: 0, max: 20 }`.
-   AI-vs-greedy integration test
-   (`src/app/controllers/ai-controller.integration.test.ts`)
-   preserved via inline ruleset overlay (`calibrationCatalog`).
-   `src/content/index.ts` gained per-kind re-exports
-   (`abilities`, `classes`, …) to support the overlay. ADR-0050.
+**Content (sessions 26 items):**
 
-4. **Demo Knight loadout cleanup.** Knight Second Action dropped from
-   `white_magic` to `null`. Mages keep `white_magic` (engine-side
-   they can still cast Cure; hiding is presentation-only). No
-   `commandSets` field on `ClassDefinition` to clean up — the brief's
-   "remove white_magic from Knight's secondary command sets" mapped
-   to hiding the set + this loadout edit.
+3. **AoE shape tweaks.** Earth Quake, Earth Cataclysm, Fire Storm all migrated from `cross r1` to `diamond r1`. At r1 the footprint is identical (5 tiles in a plus); the meaningful change is Aether-Bloom-enlarged Fire Storm: now diamond r2 (13 tiles) versus the pre-26 cross r2 (9 tiles). Aether Bloom's `enlargeAoeShape` is shape-agnostic per ADR-0031, no shape-specific bug surfaced.
 
-**UI fold-ins (Items 6-9):**
+4. **Four new Movement-bucket passives.**
+   - `bedrock_stride` (Earth) — cost 2, `modifyStatQuery` +1 moveRange + `modifySystemDamage` zeros falling.
+   - `hotfoot` (Fire) — cost 2, `modifyStatQuery` +1 moveRange + +1 spd.
+   - `tidewalker` (Water) — cost 1, `modifyTerrainCosts` clamps water cost to `max(1, current - 1)`. v1-marginal until elevated water-cost terrain ships.
+   - `quickstep` (Lightning) — cost 1, `onTurnEnd` emits `system_ct_push +ma` when `consumed.movesConsumed > 0`. MA queried via `runModifyStatQuery` so it composes with stat mods.
+   
+   All four `availability: 'available'`, registered in the catalog index, added to their respective class's `freeAbilities`. Class docstrings updated.
 
-5. **Attack-in-Act repositioning.** Top-level action menu now Move /
-   Act / End turn / Status (4 items, no top-level Attack). Per Chris's
-   "flat list, peers" call (Q3 of planning): clicking Act opens a
-   picker that shows free abilities (Attack) and equipped command sets
-   as siblings — a Knight sees "Attack, Battle Skill"; a Water Mage
-   sees "Attack, Water Spells, White Magic". Selecting Attack jumps
-   straight to target-select; selecting a command set drills into its
-   member ability list (which does NOT contain Attack).
+**Renderer infrastructure (this session):**
 
-   Implementation: new `ActEntry` discriminated union in `turn-flow.ts`
-   (`free_ability` or `command_set`). `pickAct` event takes
-   `entries: ReadonlyArray<ActEntry>` instead of `commandSets:
-   ReadonlyArray<CommandSetId>`. Hook exposes `actEntries` on the
-   `TurnFlow` interface. Picker (`CommandSetPicker`) renders both kinds
-   uniformly. Cancel from a free-ability target-select returns to the
-   picker when entered from it (encoded via `commandSetCount: 2`).
+5. **Terrain texture infrastructure (ADR-0054).** `src/assets/terrain/index.ts` exports `TERRAIN_MANIFEST: ReadonlyMap<TerrainType, ReadonlyArray<string>>`, `terrainTexturePoolFor`, and `pickTerrainVariantIndex` (murmurhash-style finalizer over `(masterSeed, x, y)`). `TileLayer` gained an overlay Container child for per-tile Sprites; `BattleRenderer.mount` kicks off `loadTerrainAssets(state)` mirroring the portrait loader. Per-tile variants picked deterministically. Fallback to colored-rect rendering remains universal.
 
-   **Initial implementation got this wrong** — I spliced Attack into
-   each command set's ability list rather than at the picker level.
-   Chris caught it in a quick playtest; the fix landed mid-session and
-   added 5 new turn-flow reducer tests covering the `ActEntry`
-   variants and the cancel routing.
+**Asset compression (session-26 prep):**
 
-6. **Action-log charged-target rendering.** `formatAction`'s
-   `charged_action_resolve` branch extended. Format:
-   `T#### <Caster>'s <Spell> resolves on <Target>: <outcomes>`. Target
-   is unit name for unit-targeted, `(x, y)` for tile-targeted, or
-   collapses to "resolves" for self-target. Co-landed with the
-   segment refactor since both touch the same branch.
+6. **`grass-01.png` (9.83 MB at 2048×2048) → `ground-01.png` (64 KB at 256×256).** Resized via `sips -z 256 256`, compressed via `pngquant --quality=75-90`. 153× reduction. Renamed to match the `<terrain-type>-NN.png` convention. The brief flagged portrait sizes (~4 MB each → ~20 MB total) for the future pre-release pipeline; terrain assets follow the new compression discipline from day one.
 
-7. **Action-log team coloring (Path A — segments).** `LogRow` gained
-   `segments: ReadonlyArray<LogSegment>` as primary content; `text:
-   string` retained as the joined-derived form for backward
-   compatibility with existing `.toContain(...)` test assertions.
-   Formatter helpers: `unitSeg(state, id)` returns name with team
-   tag, `plain(text)` returns untagged segment. Renderer side
-   (`action-log-panel.tsx`) iterates segments and applies team color
-   to those carrying `team`. Palette: `team_a` `#7eb6ec` blue,
-   `team_b` `#e07866` red. ADR-0051.
+**Documentation (this session):**
 
-8. **Enemy-portrait flip.** `MiniPortrait` and the `ActiveUnitAnchor`
-   in `queue-tower.tsx` apply `transform: scaleX(-1)` to `<img>`
-   elements when the rendered unit is on `team_b`. Matches the
-   canvas-sprite flip idiom from session 24.5.
+7. **`docs/content-snapshot.md` refresh.** Frozen as of session 20b (2026-05-09); now reflects post-session-26 state. Added a changelog section summarizing sessions 21–26 deltas (L25 stat reconciliation, Brave/Faith 70/70, availability tags, uniform_int initial CT, deploymentZone, AoE shape tweaks, four new Movement passives). Updated class-baselines table with current numbers, AoE shape entries, the passives table, and references.
 
-**Cleanup (Item 10):**
-
-9. **`consumed.waited` cleanup.** `TurnConsumption.waited` removed
-   from the type. `reduceWait` no longer writes it; `reduceTurnEnd`
-   comment updated (the read was already commented as "no longer
-   overrides" in session 24.5). All test fixtures updated; one test
-   assertion ("zeroes the budget and marks waited") simplified to
-   "zeroes the budget so no further actions commit this turn."
-
-### Architecture records
-
-- **ADR-0049** — Availability tag + catalog-load validator.
-- **ADR-0050** — `uniform_int` initial-CT variant + test-ruleset
-  preservation (inline-overlay pattern).
-- **ADR-0051** — `LogRow` segment-based shape (Path A).
+8. **ADRs.** ADR-0052 (modifySystemDamage), ADR-0053 (onTurnEnd widening), ADR-0054 (terrain texture infrastructure).
 
 ### Limitations + watch-fors
 
-- **Catalog test-fixture's longSword had a pre-existing type bug.**
-  `engine/catalog/catalog.test.ts:75` had `longSword: ItemDefinition
-  = { id, name }` — missing `kind`/`wp`/`accuracy`. Pre-session-25
-  this was one of the carry-forward TS strict-mode errors; session 25
-  fixed it alongside the availability field add (the field was
-  unreachable in the broken literal). The fix is correct but worth
-  flagging as a touched-while-here change.
+- **Brief had a stale ADR path.** The brief named `docs/adr/ADR-0048-portrait-integration.md`; actual location is `docs/decisions/0048-portrait-integration.md`. Trivial path bug, but worth flagging if other docs reference the wrong dir.
 
-- **The Blue Knight in the demo has no Second Action equipped.**
-  Per session 25 intent — until White Magic comes back, the Knight
-  has Battle Skill only. The mages still have `white_magic` on
-  Second Action so they functionally retain Cure. AI heal logic
-  in `decideBasicAi` finds Cure on mages and uses it normally.
+- **Demo loadout doesn't equip any of the four new Movement passives.** Every demo unit still carries `move_plus_1` in the Movement bucket. The four new abilities sit in each class's `freeAbilities` set for team-builder consumption (forthcoming). If Chris wants to playtest Bedrock Stride / Hotfoot / Tidewalker / Quickstep on the demo battle, swap their movement passive bucket entry in `src/content/battles/demo.ts`.
 
-- **Per-segment color palette is hard-coded in `action-log-panel.tsx`.**
-  Mirrors the `TEAM_BORDER_COLORS` in `queue-tower.tsx` (and the
-  renderer's canvas team colors). Two places to update if the
-  palette shifts; a future polish pass could thread these through a
-  single source — flagged but deferred (small surface, three sites).
+- **Tidewalker is a no-op against current content.** Water tile cost defaults to 1 in pathfinding; tidewalker's `max(1, current - 1)` clamps at 1. The ability is forward-compatible with future high-cost water terrain (rough water, currents, etc.) but invisible in v1 playtests. Worth surfacing if Chris wants to test it directly — would need to introduce a terrain type with cost > 1 first.
 
-- **The `chargedContext.target` field on `formatActionLog`'s internal
-  map.** I introduced a small "type alias via dummy function" helper
-  (`chargedContextTarget()`) to extract the target union without
-  importing the full `AbilityTarget` type. Slightly clunky; if a
-  later session wants to clean this up, exporting `AbilityTarget`
-  from `@engine` and importing it directly here would be ~3 lines
-  cleaner.
+- **Quickstep refunds MA queried via `runModifyStatQuery`.** Composes correctly with stat-modifying passives / statuses / equipment. At Lightning Mage's L25 MA 12, a Move-committed turn refunds 12 CT. With move_only ctCost 50, that's a net -38 CT delta vs the no-passive case. Notable but not transformative; chained with Hotfoot the unit can re-enter the queue notably faster.
 
-- **`SegmentSpan` uses `<>{text}</> as unknown as ReactElement`** for
-  the no-team-color path. Avoids wrapping plain text in a needless
-  `<span>` but the cast is awkward; functionally correct in React's
-  fragment-as-element story. Could be cleaned to
-  `<span>{text}</span>` if a future code-style pass prefers
-  consistency over the tiny DOM savings.
+- **TS strict-mode `void` vs `undefined` quirk in `onTurnEnd` handlers.** My initial Quickstep implementation used `return;` for early-outs (inferred as `undefined`); strict mode rejected the union with `void | OnTurnEndResult`. Resolved by having Quickstep return `{ emittedActions: [] }` explicitly for the early-out path. The hook signature still accepts `void` (legacy void-return handlers type-check), but the convention going forward is explicit `OnTurnEndResult` returns. Worth documenting in a content-authoring-conventions doc if one materializes.
 
-- **Browser-preview screenshot tooling timed out during verification.**
-  All UI behavior was verified via `preview_snapshot` (DOM tree) and
-  `preview_eval` (state inspection). The HTML structure of the
-  action menu, ability list with Attack at top, and the action log
-  with team-tagged segments is confirmed. Visual confirmation of
-  team-color CSS at the pixel level is left for Chris's next
-  playtest.
+- **`SystemDamageOutcome.amount` semantics changed.** Pre-26 it equaled the emitted `payload.amount`; post-26 it equals the post-`modifySystemDamage`-chain amount. Existing tests asserted `outcome.applied`, not `outcome.amount`, so no test surface broke. Replay determinism unaffected.
 
-- **Catalog test fixtures with inline ability/item/command-set
-  literals are now tagged `'hidden'`.** Roughly a dozen files across
-  the engine test surface. Future content tests that build ad-hoc
-  catalogs need to remember to include the field — the validator
-  will fail loud on miss with the kind + id named.
+- **Pre-existing TS strict-mode errors (audit E8) carry forward.** `pnpm typecheck` reports ~15 carry-forward errors in flow_state, maelstrom, tidal_wave, water_strike, fire-mage class file, lightning-mage class file, several status files, and several UI files. All pre-26. Session 26 introduced zero new typecheck errors after the Quickstep fix.
 
-### Bulk-tagged content (for reference)
+- **Engine work was unanticipated by the brief.** Brief said "Engine work: none." The actual hook surface required two extensions (`modifySystemDamage` + `onTurnEnd` widening) for bedrock_stride's fall-immunity and quickstep's CT refund. Chris approved the expansion up front; the work landed cleanly. Future similar briefs should keep this carry-forward — content abilities often surface hook-surface gaps that aren't visible until implementation.
 
-**Hidden:** abilities `float`, `fly`, `discharge_strike`, `cure`;
-items `iron_helm`, `iron_mail`, `strength_ring`; command sets
-`white_magic`, `arcane_skill`.
+- **Tests run via `pnpm test:run`** (this session's laptop required `brew install node` + `brew install pnpm`; the desktop is presumably already set up). The `vite-dev` launch.json config uses `npm run dev` which works since npm ships with node.
 
-**Available:** all other 37 abilities + 2 items (`long_sword`,
-`boots_of_haste`) + 5 command sets (`battle_skill`, `earth_spells`,
-`water_spells`, `fire_spells`, `lightning_spells`).
+- **Browser preview verified terrain texture loads.** 196 sprites placed on the 14×14 demo map (one per tile), texture cache shows `ground` → 1 variant loaded. Visual confirmation: tiles render with the grass texture overlay instead of the flat olive `#4a5b3c` colored fill.
+
+### Architecture records
+
+- **ADR-0052** — `modifySystemDamage` hook + single modification seam for engine-emitted damage. Fires inside `reduceSystemDamage`. Chain-composable. Source-discriminant gating. First consumer: Bedrock Stride (fall immunity).
+- **ADR-0053** — `onTurnEnd` emission widening. Args gain `state` + `catalog`; return becomes `OnTurnEndResult | void`. Runner added. Fire-site is `reduceTurnEnd` pre-turnState-clear. First consumer: Quickstep (Move-committed CT refund).
+- **ADR-0054** — Terrain texture infrastructure. Manifest with per-type variant pools, deterministic per-tile pick via `(masterSeed, x, y)` mixer, fallback to colored-rect rendering when textures absent. Mirrors ADR-0048's portrait pattern with array-per-type deviation.
 
 ### Considered and rejected this session
 
-- **Optional `availability` field with `'available'` default.** Loses
-  the "no half-tagged catalog" guarantee. Required-explicit is the
-  intent.
-- **Replacing `LogRow.text` entirely with `segments`.** Broke ~10
-  existing `.text.toContain(...)` test assertions. Additive `segments`
-  + derived flat `text` keeps the test suite intact.
-- **`loadDefaultCatalog(opts)` API expansion for ruleset overrides.**
-  One call site (AI integration test) needs it; inline overlay is
-  cleaner than a public-surface expansion. The per-kind re-exports
-  from `content/index.ts` are already meaningful additions.
-- **`SegmentSpan` always wrapping in `<span>`.** Tested first; works
-  but inflates the DOM. The fragment-for-plain-text path uses a tiny
-  cast but produces cleaner output.
-- **Per-placement `initialCT: 0` to preserve test calibration.**
-  Verbose (six placements × two battles); the inline ruleset overlay
-  isolates the test from the ruleset's intent at a single point.
-- **Marking `bolt` as hidden** (since its only command set
-  `arcane_skill` is now hidden, making `bolt` unreachable in the
-  team builder). Left `available` — the team-builder surfaces
-  command sets, not raw abilities; `bolt`'s status doesn't matter
-  until/unless someone surfaces individual abilities.
+- **Narrow `queryFallImmunity` hook returning `boolean`.** Solves only fall-damage. Future Poison-tick or other per-source mitigation would need separate hooks. Single `modifySystemDamage` is more general.
+- **Routing system_damage through the seven-stage damage pipeline.** Larger reversal of ADR-0027 than warranted. The bypass is preserved; a single modification seam is enough.
+- **Implementing Quickstep as a hidden custom-trigger status.** Heavier indirection than warranted; status-instantiation per passive doesn't generalize. Widening `onTurnEnd` is the one-time cost.
+- **Adding a dedicated `onTurnEndEmit` hook alongside void `onTurnEnd`.** Two hooks for one event boundary adds surface area; ordering semantics ambiguate. Widen the existing hook.
+- **Glob-scanned terrain manifest** (`import.meta.glob('./*.png')`). Auto-detect new variants without manifest edits. Rejected — explicit manifest is diff-friendly and avoids build-resolution surprises.
+- **Sprite-only tile rendering** (drop the Graphics fallback). The colored rect is the universal fallback for missing-art terrain types and the during-load window. Keep both layers.
 
 ### Empirical-questions checklist for Chris's next playtest
 
-**Substrate (mostly invisible in-game, verify-by-not-breaking):**
-- [ ] Battle starts and units have distinct CT values in [0, 20]
-      (visible in QueueTower as the +N values on the upcoming-event
-      cards on the first turn).
-- [ ] No catalog-load errors at startup.
+**Engine extensions (mostly invisible — verify-by-not-breaking):**
+- [ ] Battle starts and runs normally; no errors in the action log.
+- [ ] Falling-damage scenarios (Tidal Surge knockback off a ledge): if a unit equips Bedrock Stride, no HP drop.
 
-**UI fold-ins:**
-- [ ] Top-level action menu shows Move / Act / End turn / Status
-      (4 items, no top-level Attack on Knight's turn).
-- [ ] Act → picker shows Attack and the unit's command sets as peers:
-      Knight sees "Attack, Battle Skill"; Mages see "Attack,
-      `<Element>` Spells, White Magic".
-- [ ] Selecting Attack from the picker → target-select immediately.
-- [ ] Selecting Battle Skill (or `<Element>` Spells) → ability list
-      shows ONLY that set's members (Attack does not appear inside).
-- [ ] Cancel from Battle Skill's ability list → Act picker (not
-      action-menu).
-- [ ] Cancel from Attack's target-select → Act picker (not
-      action-menu).
-- [ ] Charged action resolve in the log includes "resolves on
-      <Target>" — unit name for unit-targeted, `(x, y)` for tile-
-      targeted.
-- [ ] Unit names in the action log render in their team's color
-      (blue for team_a, red for team_b). Verify across actor
-      references, target references, and charged-spell caster
-      references.
-- [ ] Enemy-team (red) portraits in the QueueTower mini-cards and
-      active anchor render horizontally flipped, matching the on-
-      canvas sprite convention.
+**AoE shape consistency:**
+- [ ] Earth Quake / Earth Cataclysm visual preview matches the new diamond r1 (5 tiles in a plus — same as before at r1; no visible change is expected at base shape).
+- [ ] Fire Storm with Aether Bloom equipped covers a wider area than pre-26 (13 tiles in diamond r2 vs 9 in cross r2). Easiest test: Fire Mage casts Fire Storm in a clear field, confirm the highlight overlay covers diamond-r2 = 13 tiles.
 
-**Regression watch:**
-- [ ] Demo Knight has no Second Action (no Cure on Knight). Mages
-      can still cast Cure mid-battle (their Second Action still
-      contains `white_magic`).
-- [ ] AI-vs-greedy integration test's win-rate parity assertion
-      stays passing — verified locally, should also hold in CI.
+**Terrain texture:**
+- [ ] Demo battle's tiles render with the grass texture instead of the flat olive color. Texture is subtle at default zoom; more visible when zooming in via the camera.
+- [ ] No console errors about terrain load failures.
 
-### Polish-pass tracking (deferred to a future dedicated session)
+**Movement passives:**
+- [ ] None of the four new passives are equipped on demo units by default — playtesting their effects requires editing `demo.ts` to swap a unit's Movement bucket entry. If desired:
+  - Earth Mage's Movement: `move_plus_1` → `bedrock_stride` to test +1 moveRange + fall-immunity.
+  - Fire Mage's Movement: `move_plus_1` → `hotfoot` to test +1 moveRange + +1 spd.
+  - Lightning Mage's Movement: `move_plus_1` → `quickstep` to test the move-then-CT-refund flow.
+  - (Water Mage's `tidewalker` is currently invisible — see Limitations.)
 
-Same list as the session-25 brief's "Out of scope" section:
+### Polish-pass tracking (deferred to Session 26.5 / 27)
+
+Same list as the session-25 handoff, unchanged:
 
 - Tile-info corner overlay (Session 24.5 review item 2)
-- Portrait restructure: black-bg + ring-outside-portrait (Session 24.5
-  review item 3 — larger part)
+- Portrait restructure: black-bg + ring-outside-portrait (Session 24.5 review item 3)
 - Charged-action timing projector accuracy (Session 24.5 carry-forward)
 - QueueTower slot-in for charged-action resolves (Session 24.5 carry)
 - Charged-action animation pacing (Session 24.5 carry)
@@ -270,37 +134,29 @@ Same list as the session-25 brief's "Out of scope" section:
 ### Longer-term carry-forward
 
 - Top bar `Turn T####` is O(actionLog.length) (Session 22 carry)
-- Renderer's MP "max" captured at mount (Session 22 carry; Session 28
-  lifts)
+- Renderer's MP "max" captured at mount (Session 22 carry; Session 28 lifts)
 - Status-badge polarity convention (Session 22 carry)
 - rAF vs setInterval for animation drain (Session 23 carry)
-- AoE preview correctness across all shapes (Session 23 carry,
-  partially addressed by Session 24.5)
+- AoE preview correctness across all shapes (Session 23 carry; session 26 confirmed enlargeAoeShape is shape-agnostic)
 - MP / status snapshot ahead-of-tween fix (Session 22 carry)
-- `docs/content-snapshot.md` drift (Session 21 carry; Session 26)
 - Resistance composition cap at 100 (audit E2; Session 27)
 - `pa_factor` NotYetImplementedError (audit E3)
 - `equipmentContributionsFor` "branch per hook" (audit E4; Session 27)
-- TS strict-mode test errors (audit E8) — Session 25 fixed one
-  (`longSword` literal) incidentally; rest carry forward
+- TS strict-mode test errors (audit E8) — session 25 fixed one (longSword); session 26 introduced zero new; rest carry forward
 - Surrender flow (Session 34 / ADR-0041)
 - MVP-unit smarter algorithm (Session 24 Wave 1)
 - Permadeath timer (Session 24 Wave 1)
 - Settings expansion (Session 24 Wave 1)
 - Reactions in projection column (Session 24 Wave 1)
-- Lightning Mage's `quickstep` refund visibility (Session 26)
-- Bug 1 (Session 24.5 ADR-0046): mid-battle targeting failure;
-  instrumentation in place, awaiting next occurrence
-- Portrait asset sizes (~4MB each → ~20MB initial load) — pre-release
-  pipeline candidate
+- Lightning Mage's `quickstep` refund visibility (Session 26 — flagged but not addressed beyond authoring)
+- Bug 1 (Session 24.5 ADR-0046): mid-battle targeting failure; instrumentation in place, awaiting next occurrence
+- Portrait asset sizes (~4 MB each → ~20 MB initial load) — pre-release pipeline candidate; session 26 established the compression discipline (sips + pngquant) that portraits should adopt
 - Vite HMR cache invalidation occasional issue
+- Hardcoded team color palette across three sites (Session 25 carry)
+- `onTurnStart` not symmetrically widened. Pre-26 it's still `args: { unit }; return: void`. When the first emitting consumer needs `state` and/or emissions, do a parallel session-26-style widening.
 
-### Suggested scope for Session 26
+### Suggested scope for Session 26.5 / 27
 
-Per `docs/twentyOnePlanning/roadmap-sessions-21-plus.md`, Session 26
-is "Movement abilities authoring" — four new movement-bucket
-passives (Earth's Bedrock Stride, Water's Tidewalker, Fire's Hotfoot,
-Lightning's Quickstep) declared with `availability: 'available'`
-per their content spec. All four go into the class-free passive
-list. Substrate from Session 25 (availability tag) is the consumed
-prerequisite.
+Per `docs/twentyOnePlanning/roadmap-sessions-21-plus.md`, Session 27 is Cluster 3: four new hook surfaces (`modifyMpCost`, `modifyActionSpeed`, `modifyResistance`, `modifyIncomingStatusApplicationChance`) + the equipment contributor refactor. Each hook is independently small but touches overlapping files. Worth ~30 min budget for the contributor-refactor cleanup if E4 surfaces during the work.
+
+If Chris wants a Session 26.5 polish pass first, the natural batch is the seven items in "Polish-pass tracking" above. Roughly UI-only, no engine changes expected.

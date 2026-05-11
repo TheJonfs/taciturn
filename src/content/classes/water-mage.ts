@@ -12,8 +12,10 @@
 // (tidal_pull) and support (flow_state) live in their respective
 // passive buckets.
 //
-// Class-inherent passives: none. Identity comes from the Water Spells
-// command set + equipped passives.
+// Class-inherent free passives: Tidal Pull (reaction), Flow State
+// (support), and Tidewalker (session 26 — Water's Movement-bucket parity
+// passive: -1 water tile cost, floor 1). The R/S/M parity rule grants
+// each Mage class its themed Movement passive free.
 
 import {
   abilityId,
@@ -48,6 +50,7 @@ export const waterMage: ClassDefinition = {
     abilityId('attack'),
     abilityId('tidal_pull'),
     abilityId('flow_state'),
+    abilityId('tidewalker'),
   ]),
   // Elemental wheel (designer call 2026-05-10): +50 vs Fire (water
   // douses), -50 vs Lightning (conductor in water).

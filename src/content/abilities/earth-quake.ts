@@ -1,12 +1,14 @@
 // Earth Quake — Earth Mage's AoE spell.
 //
-// Charged tile-anchored AoE: a cross-shape (radius 1: center + 4
+// Charged tile-anchored AoE: a diamond-shape (radius 1: center + 4
 // cardinal neighbors) magical earth damage with a Movement Debuff
 // rider rolled independently per affected target.
 //
 // Per session 17b plaintext review:
 //   - power 6, mpCost 14, actionSpeed 25 (slower than Strike's 30)
-//   - shape: cross radius 1
+//   - shape: diamond radius 1 (session 26 — was `cross r1` pre-session-26;
+//     the two are identical at r1 but Aether-Bloom-enlarged diamond r2
+//     produces a 13-tile field vs cross r2's 9 tiles)
 //   - excludeCaster: true (default; FFT-canonical)
 //   - friendly fire: per ruleset (v1 default true)
 //   - vertical tolerance: 1 (default; hits adjacent layers within ±1)
@@ -51,7 +53,7 @@ export const earthQuake: ActiveAbilityDefinition = {
       power_coefficient: 7,
     },
     aoe: {
-      shape: { kind: 'cross', radius: 1 },
+      shape: { kind: 'diamond', radius: 1 },
     },
     statusEffects: [
       {

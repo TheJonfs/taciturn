@@ -16,10 +16,12 @@
 // Default First Action command set: `lightning_spells` (Strike,
 // Embrace, Chain, Mark, Storm Caller).
 //
-// Class-inherent free passives: `discharge` (magical reaction) and
-// `conductor` (× 1.25 MA support). Both are listed in `freeAbilities`,
+// Class-inherent free passives: `discharge` (magical reaction),
+// `conductor` (× 1.25 MA support), and `quickstep` (session 26 —
+// Lightning's Movement-bucket parity passive: refunds MA CT on
+// turn-end if a Move was committed). All listed in `freeAbilities`,
 // so a Lightning Mage equipping them pays 0 capacity. Cross-classed
-// units pay the standard baseCost 2 each.
+// units pay the standard baseCost each.
 
 import {
   abilityId,
@@ -54,6 +56,7 @@ export const lightningMage: ClassDefinition = {
     abilityId('attack'),
     abilityId('discharge'),
     abilityId('conductor'),
+    abilityId('quickstep'),
   ]),
   // Elemental wheel (designer call 2026-05-10): +50 vs Water (insulated
   // by charge), -50 vs Earth (grounding).

@@ -26,6 +26,7 @@ import {
   type GameState,
   type Position,
   type TeamId,
+  type TerrainType,
   type Unit,
   type UnitId,
 } from '@engine/index.ts';
@@ -37,6 +38,7 @@ import { Animator } from './animator.ts';
 import { CameraController, type PanInput } from './camera-controller.ts';
 import { positionCenter, type ScreenPoint } from './world.ts';
 import { PORTRAIT_URLS } from '../assets/portraits/index.ts';
+import { terrainTexturePoolFor } from '../assets/terrain/index.ts';
 
 export type TileClickHandler = (pos: Position, unit: Unit | null) => void;
 export type TileHoverHandler = (pos: Position | null, unit: Unit | null) => void;
@@ -64,6 +66,12 @@ export class BattleRenderer {
   // after a texture is cached (mid-battle summons, future work) read
   // from here to get the same texture.
   private readonly portraitTextures: Map<ClassId, Texture> = new Map();
+  // Per-terrain-type texture pool cache. Populated asynchronously by
+  // `loadTerrainAssets` per ADR-0054. When a type's pool resolves,
+  // `TileLayer.applyTerrainTextures` overlays sprites on the relevant
+  // tiles using `pickTerrainVariantIndex(masterSeed, x, y, n)` for
+  // deterministic per-tile variant selection.
+  private readonly terrainTextures: Map<TerrainType, ReadonlyArray<Texture>> = new Map();
 
   constructor(app: Application) {
     this.app = app;
@@ -141,6 +149,13 @@ export class BattleRenderer {
     // never blocks gameplay.
     void this.loadPortraitAssets(state);
 
+    // Same pattern for terrain textures (ADR-0054). Per-terrain-type
+    // pools resolve independently and overlay onto the colored-fill
+    // fallback the moment they're ready. Tiles whose terrain has no
+    // manifest entry stay bare; the fallback rect is the universal
+    // ground state.
+    void this.loadTerrainAssets(state);
+
     this.app.ticker.add((ticker) => this.tick(ticker.deltaMS));
     // Render once so the canvas isn't blank before the ticker fires.
     this.applyVisualState();
@@ -176,6 +191,49 @@ export class BattleRenderer {
             if (import.meta.env.DEV) {
               // eslint-disable-next-line no-console
               console.warn('[renderer] portrait load failed for', String(classId), err);
+            }
+          }),
+      );
+    }
+    await Promise.all(loads);
+  }
+
+  // Async terrain texture loader (ADR-0054). For each unique terrain
+  // type present on the loaded map, look up its pool in TERRAIN_MANIFEST
+  // and load every variant URL via Pixi `Assets.load`. When all variants
+  // for a type resolve, hand them to TileLayer so it can overlay sprites
+  // per tile with deterministic variant selection. Errors per-type are
+  // swallowed (logged in dev) — a missing/broken variant leaves the
+  // colored-fill fallback in place for that terrain.
+  private async loadTerrainAssets(state: GameState): Promise<void> {
+    const terrainTypesPresent = new Set<TerrainType>();
+    for (const tile of state.map.tiles) terrainTypesPresent.add(tile.terrain);
+
+    const loads: Promise<void>[] = [];
+    for (const terrainType of terrainTypesPresent) {
+      const pool = terrainTexturePoolFor(terrainType);
+      if (pool === null) continue;
+      loads.push(
+        Promise.all(pool.map((url) => Assets.load(url) as Promise<Texture>))
+          .then((textures) => {
+            this.terrainTextures.set(terrainType, textures);
+            const currentState = this.lastState;
+            if (currentState === null) return;
+            this.tileLayer.applyTerrainTextures(
+              currentState.map,
+              terrainType,
+              textures,
+              currentState.rng.masterSeed,
+            );
+          })
+          .catch((err: unknown) => {
+            if (import.meta.env.DEV) {
+              // eslint-disable-next-line no-console
+              console.warn(
+                '[renderer] terrain texture load failed for',
+                String(terrainType),
+                err,
+              );
             }
           }),
       );

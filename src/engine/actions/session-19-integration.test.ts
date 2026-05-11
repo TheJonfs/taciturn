@@ -531,7 +531,12 @@ const caster = makeUnit({ id: 'caster', spd: 10, ma: 9, faith: 80, hp: 100, team
 describe('Aether Bloom — modifyAoeShape', () => {
   const catalog = loadDefaultCatalog();
 
-  it('grows Fire Storm cross r1 → cross r2 when equipped', () => {
+  it('grows Fire Storm diamond r1 → diamond r2 when equipped', () => {
+    // Session 26: Fire Storm's base shape migrated from cross-r1 to
+    // diamond-r1. Aether Bloom is shape-agnostic via `enlargeAoeShape`,
+    // so the grown footprint is now diamond r2 (13 tiles) vs the
+    // pre-26 cross r2 (9 tiles). See `content/abilities/aoe-shape.test.ts`
+    // for the footprint-count assertion.
     const caster = makeUnit({
       id: 'caster',
       spd: 10,
@@ -553,7 +558,7 @@ describe('Aether Bloom — modifyAoeShape', () => {
       ability: fireStorm,
       baseShape: fireStorm.effects.aoe.shape,
     });
-    expect(grownShape).toEqual({ kind: 'cross', radius: 2 });
+    expect(grownShape).toEqual({ kind: 'diamond', radius: 2 });
   });
 
   it('does not grow non-magical AoE shapes', () => {

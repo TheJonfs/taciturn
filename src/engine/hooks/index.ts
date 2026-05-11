@@ -26,10 +26,12 @@ export {
   runModifyHitChance,
   runModifySpecialMovement,
   runModifyStatQuery,
+  runModifySystemDamage,
   runModifyTerrainCosts,
   runOnActionAttempted,
   runOnActionTargeted,
   runOnDamageDealt,
   runOnDamageReceived,
+  runOnTurnEnd,
   runQueryTurnSkipped,
 } from './runners.ts';

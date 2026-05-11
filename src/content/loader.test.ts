@@ -33,7 +33,7 @@ describe('loadDefaultCatalog', () => {
     expect(cat.getRuleset(rulesetId('default')).name).toBe('Default');
   });
 
-  it('contains the session-19 baseline content set', () => {
+  it('contains the session-26 baseline content set', () => {
     // The default catalog is intentionally narrow — one demo per
     // mechanism. When real content lands, this assertion is expected
     // to change; failing it from new content additions is the correct
@@ -48,8 +48,12 @@ describe('loadDefaultCatalog', () => {
     //   - commandSets: 6 → 7 (lightning_spells)
     //   - classes: 4 → 5 (lightning_mage)
     //   - items: unchanged
+    //
+    // Session 26 added the four R/S/M-parity Movement passives
+    // (bedrock_stride, hotfoot, tidewalker, quickstep):
+    //   - abilities: 42 → 46
     expect(cat.statusTypes()).toHaveLength(20);
-    expect(cat.abilities()).toHaveLength(42);
+    expect(cat.abilities()).toHaveLength(46);
     expect(cat.commandSets()).toHaveLength(7);
     expect(cat.classes()).toHaveLength(5);
     expect(cat.items()).toHaveLength(5);

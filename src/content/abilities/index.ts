@@ -1,6 +1,7 @@
 import type { AbilityDefinition } from '@engine/index.ts';
 import { aetherBloom } from './aether-bloom.ts';
 import { attack } from './attack.ts';
+import { bedrockStride } from './bedrock-stride.ts';
 import { bolt } from './bolt.ts';
 import { brine } from './brine.ts';
 import { bulwarkStance } from './bulwark-stance.ts';
@@ -25,12 +26,14 @@ import { flameLance } from './flame-lance.ts';
 import { float } from './float.ts';
 import { flowState } from './flow-state.ts';
 import { fly } from './fly.ts';
+import { hotfoot } from './hotfoot.ts';
 import { ignition } from './ignition.ts';
 import { lightningStrike } from './lightning-strike.ts';
 import { magneticMark } from './magnetic-mark.ts';
 import { maelstrom } from './maelstrom.ts';
 import { movePlus1 } from './move-plus-1.ts';
 import { powerAttack } from './power-attack.ts';
+import { quickstep } from './quickstep.ts';
 import { smolder } from './smolder.ts';
 import { spark } from './spark.ts';
 import { stasisSword } from './stasis-sword.ts';
@@ -40,11 +43,13 @@ import { taunt } from './taunt.ts';
 import { tidalPull } from './tidal-pull.ts';
 import { tidalWave } from './tidal-wave.ts';
 import { tideSurge } from './tide-surge.ts';
+import { tidewalker } from './tidewalker.ts';
 import { waterStrike } from './water-strike.ts';
 
 export const abilities: ReadonlyArray<AbilityDefinition> = [
   aetherBloom,
   attack,
+  bedrockStride,
   bolt,
   brine,
   bulwarkStance,
@@ -69,12 +74,14 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   float,
   flowState,
   fly,
+  hotfoot,
   ignition,
   lightningStrike,
   magneticMark,
   maelstrom,
   movePlus1,
   powerAttack,
+  quickstep,
   smolder,
   spark,
   stasisSword,
@@ -84,5 +91,6 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   tidalPull,
   tidalWave,
   tideSurge,
+  tidewalker,
   waterStrike,
 ];

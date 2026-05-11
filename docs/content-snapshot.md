@@ -1,6 +1,6 @@
-# Content Snapshot — Wave 2 Close
+# Content Snapshot — Phase B Open
 
-*Frozen as of 2026-05-09, end of session 20b.*
+*Frozen as of 2026-05-11, end of session 26.*
 
 This is a **balancing-pass reference**: every class's stats, every ability's numbers, every equipment item's effects, every status's mechanics, in one scannable document. Used to support a design / planning conversation about the next set of sessions (calibration, content expansion, UI work).
 
@@ -8,29 +8,48 @@ For id ↔ name lookups and file paths, see `docs/content-id-registry.md`. This 
 
 When numbers in this doc diverge from the source files, the source files are authoritative. This is a snapshot, not a contract; expect drift after a calibration pass and refresh accordingly.
 
+## Changelog since session 20b
+
+The previous freeze (2026-05-09, end of session 20b) preceded the L25-target stat reconciliation and the Cluster 2 substrate work. Material deltas in sessions 21–26:
+
+- **Stat baselines reconciled (session 21).** maxHpBase climbed from ~50 to ~100-145; PA/MA bumped for L25 targets. Brave/Faith dropped from 100/80 to 70/70 uniformly. Faith_factor is now ~0.49 (0.7² ≈ 0.49) instead of 0.64. Damage tables below carry the new numbers; "Expected raw" columns no longer hold their session-20b values.
+- **Availability tags (session 25, ADR-0049).** Every ability / item / command-set carries `availability: 'available' | 'hidden'`. Hidden today: `float`, `fly`, `discharge_strike`, `cure`, items `iron_helm`, `iron_mail`, `strength_ring`, command sets `white_magic` and `arcane_skill`. The team-builder UI (forthcoming) hides these; engine semantics are unaffected.
+- **uniform_int initial CT (session 25, ADR-0050).** Default ruleset starts units at CT in [0, 20] rather than 0; pre-battle CT seeds visible jitter in the queue. Calibration-sensitive tests preserved via inline ruleset overlays.
+- **`deploymentZone` field on Tile (session 25).** Substrate for team-builder deployment phase; no current consumer.
+- **AoE base-shape consistency (session 26).** `earth_quake`, `earth_cataclysm`, and `fire_storm` migrated from `cross r1` to `diamond r1`. At r1 the footprint is identical (5 tiles in a plus); the meaningful change is Aether-Bloom-enlarged Fire Storm: now diamond r2 (13 tiles) instead of the pre-26 cross r2 (9).
+- **Four new Movement-bucket passives (session 26).** Bedrock Stride (Earth), Hotfoot (Fire), Tidewalker (Water), Quickstep (Lightning). All available, all in their class's `freeAbilities`. See "Passive abilities" below. Drives two new hook surfaces: `modifySystemDamage` (ADR-0052) for Bedrock Stride's fall-immunity, and the widened `onTurnEnd` (ADR-0053) for Quickstep's Move-axis CT refund.
+- **Terrain texture infrastructure (session 26, ADR-0054).** Renderer-side. Doesn't affect game balance; flagged here because content snapshots historically include renderer-touching changes too.
+- **Demo loadout note.** Knight's Second Action slot is empty (session 25 — White Magic command set hidden). Mages still carry `white_magic` in Second Action (engine-side they can cast Cure mid-battle; presentation only). The four new Movement passives are NOT yet wired into demo loadouts — every demo unit still equips `move_plus_1` in the Movement bucket. The new passives sit in `freeAbilities` for team-builder consumption.
+
 ---
 
 ## 1. Class baselines
 
 Class definitions ship `movement` (moveRange / jump / canEnter / terrainCosts), `evasion` baselines (front / side / back), `firstActionCommandSet`, and `freeAbilities`. Per-unit `baseStats` are set at battle config time (`UnitPlacement.baseStats`) — the values below come from `src/content/battles/demo.ts` and represent the v1 demo's tuning.
 
+Demo stats below are sampled from `src/content/battles/demo.ts` post-session-26. Free-passive lists reflect each class's `freeAbilities` set (no equipment-modifier interactions; pure class baseline).
+
 | Class | spd | pa | ma | maxHpBase | mp | brave | faith | crit_chance / mult | Move/Jump | Evasion (F/S/B) | Free passives |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| **Knight** | 10 | 6 | 4 | 60 | 10 | 100 | 80 | 5% / ×1.5 | 3 / 2 | 0 / 0 / 0 | move_plus_1 |
-| **Earth Mage** | 9 | 4 | 8 | 50 | 40 | 100 | 80 | 5% / ×1.5 | 3 / 3 | 8 / 5 / 0 | — |
-| **Water Mage** | 11 | 3 | 7 | 45 | 45 | 100 | 80 | 5% / ×1.5 | 4 / 3 | 10 / 6 / 0 | — |
-| **Fire Mage** | 10 | 3 | 9 | 42 | 42 | 100 | 80 | 5% / ×1.5 | 3 / 3 | 6 / 4 / 0 | ignition, aether_bloom |
-| **Lightning Mage** | 12 | 3 | 8 | 44 | 44 | 100 | 80 | 5% / ×1.5 | 4 / 3 | 7 / 4 / 0 | discharge, conductor |
+| **Knight** | 9 | 11 | 4 | 144 | 12 | 70 | 70 | 5% / ×1.5 | 3 / 2 | 0 / 0 / 0 | attack |
+| **Earth Mage** | 8 | 4 | 12 | 112 | 60 | 70 | 70 | 5% / ×1.5 | 3 / 3 | 8 / 5 / 0 | attack, earth_resilience, earth_communion, **bedrock_stride** |
+| **Water Mage** | 10 | 4 | 12 | 102 | 60 | 70 | 70 | 5% / ×1.5 | 4 / 3 | 10 / 6 / 0 | attack, tidal_pull, flow_state, **tidewalker** |
+| **Fire Mage** | 9 | 4 | 13 | 96 | 60 | 70 | 70 | 5% / ×1.5 | 3 / 3 | 6 / 4 / 0 | attack, ignition, aether_bloom, smolder, **hotfoot** |
+| **Lightning Mage** | 11 | 4 | 12 | 100 | 60 | 70 | 70 | 5% / ×1.5 | 4 / 3 | 7 / 4 / 0 | attack, discharge, conductor, **quickstep** |
+
+(Bold marks the four Movement-bucket passives added in session 26.)
 
 All five classes equip into all 5 slots (leftHand, rightHand, headgear, armor, accessory). Ground-only `canEnter` for everyone in v1.
 
 **Patterns to notice:**
 
-- **Faith uniformly 80** — produces Faith_factor 0.64 for every magical cast in the demo. Tuning lever for varying class magic effectiveness.
-- **Brave uniformly 100** — every reaction triggers deterministically. No probabilistic-trigger gameplay yet.
-- **Crit baseline 5% / ×1.5** — Lightning Mage's Static Embrace is the only kit that pushes crit_chance higher (+20 → 25%).
-- **HP / MP roughly correlated** — mages have HP ≈ MP. Knight has HP 60 vs MP 10 (no charge spending, mostly attack-and-Cure).
-- **PA / MA polarity is sharp** — Knight pa 6 / ma 4; mages pa 3-4 / ma 7-9. No hybrid stat profiles.
+- **Faith uniformly 70 (session 21)** — produces Faith_factor ≈ 0.49 (0.7²) for every magical cast in the demo. Down from session-20b's 0.64. Tuning lever for varying class magic effectiveness when calibration revisits per-class Faith.
+- **Brave uniformly 70 (session 21)** — was 100. Reactions now trigger probabilistically (70% per attempt). The AI projection still treats reaction-triggering as deterministic at the planning stage; trigger-roll outcome is per-attempt RNG.
+- **Crit baseline 5% / ×1.5** — Lightning Mage's Static Embrace pushes crit_chance higher (+20 → 25%).
+- **HP scaled for L25 (session 21)** — Knight 144, mages 96–112. The previous 50–60 HP range was a low-tier baseline; current values target the post-MVP L25 design.
+- **MP uniform 60 on mages (session 21)** — was 40-45 with class variation. Standardized so Cluster 4's `maxMpBase` introduction has a clean migration point.
+- **PA / MA polarity widened** — Knight pa 11 / ma 4; mages pa 4 / ma 12-13. Reconciliation tightened the archetype distinction. Knight is now a sharp physical bruiser; mages are pure casters.
+- **Class-free passive count rebalanced (session 26).** Each Mage now has 4 class-free passives (3 prior + the new Movement passive) covering one slot in each of reaction / support / movement. Knight has only `attack` free (the universal grant); their identity comes purely from equipped Battle Skill members and equipment.
 
 ---
 
@@ -64,8 +83,8 @@ All magical, earth-tagged, no hitRoll. Expected raw damage = `MA × power_coeffi
 | **earth_strike** | single_unit | 4 arc | 30 | 4 | 6 | Movement Debuff @ 60% (36 CT) | 30.7 |
 | **earth_blessing** | single_unit | 4 arc | 30 | 6 | — | Regen on ally @ 100% (36 CT) | — |
 | **earth_curse** | single_unit | 4 arc | 30 | 8 | — | Blind @ 50% + Silence @ 50% (24 CT each, independent rolls) | — |
-| **earth_quake** | tile (cross r1) | 4 arc | 25 | 14 | 6 | Movement Debuff @ 50% per target (24 CT) | 30.7 / target |
-| **earth_cataclysm** | tile (cross r1) | 4 arc | 18 (Ultimate) | 30 | 10 | Poison @ 60% + Don't Act @ 40% + Don't Move @ 40% per target (24 CT each, independent) | 51.2 / target |
+| **earth_quake** | tile (diamond r1) | 4 arc | 25 | 14 | 6 | Movement Debuff @ 50% per target (24 CT) | 30.7 / target |
+| **earth_cataclysm** | tile (diamond r1) | 4 arc | 18 (Ultimate) | 30 | 10 | Poison @ 60% + Don't Act @ 40% + Don't Move @ 40% per target (24 CT each, independent) | 51.2 / target |
 
 ### Water Mage — Water Spells (`water_spells`)
 
@@ -87,7 +106,7 @@ All magical, fire-tagged, no hitRoll. Expected raw with MA 9 (Faith_factor 0.64)
 |---|---|---|---|---|---|---|---|
 | **fire_strike** | single_unit | 4 arc | 30 | 10 | 5 | linked (PA Down + MA Down) @ 60% / 1 magnitude / permanent | 28.8 |
 | **fire_embrace** | single_unit | 3 arc | 25 | 8 | — | linked (PA Up + MA Up) on ally @ 80% / 1 magnitude / permanent | — |
-| **fire_storm** | tile (cross r1; cross r2 with Aether Bloom) | 4 arc | 25 | 16 | 4 | — | 23.0 / target |
+| **fire_storm** | tile (diamond r1, 5 tiles; diamond r2, 13 tiles with Aether Bloom) | 4 arc | 25 | 16 | 4 | — | 23.0 / target |
 | **spark** | single_unit | 4 arc | 28 | 10 | — | Burn ×2 stacks @ 80% (single roll for both) | applies BURN_COEFFICIENT 0.6 × MA = 5 dmg/stack/tick |
 | **flame_lance** | tile (line length 4, anchor=caster, vTol 5) | 4 arc | 18 (Ultimate) | 28 | 6 | Burn ×1 stack `applyAlways` per hit | 34.6 / target + 5 dmg/stack/tick |
 
@@ -134,16 +153,21 @@ All magical, lightning-tagged, no hitRoll. Expected raw with MA 8 (Faith_factor 
 | **ignition** | support | 2 | fire | `onDamageDealt` (magical, no healing): emits `apply_status` burn ×1 on the target | Free for Fire Mage |
 | **aether_bloom** | support | 2 | fire | `modifyAoeShape`: enlarges `magical`-tagged AoE shapes by one step | Free for Fire Mage. Fire Storm: cross r1 → cross r2; future magical AoEs scale similarly |
 | **conductor** | support | 2 | lightning | `modifyStatQuery` × 1.25 multiplicative on `ma` | Free for Lightning Mage |
-| **move_plus_1** | movement | 1 | — | `modifyStatQuery` +1 to `moveRange` | Free for Knight |
-| **float** | movement | 2 | — | `modifyCanEnter` adds `'water'` terrain | No water tiles in v1 maps |
-| **fly** | movement | 3 | — | `modifySpecialMovement` `'fly'` | Drops jump check; only proven user |
+| **move_plus_1** | movement | 1 | — | `modifyStatQuery` +1 to `moveRange` | Universally available; currently equipped on every demo unit |
+| **float** | movement | 2 | — | `modifyCanEnter` adds `'water'` terrain | `availability: 'hidden'` — no water tiles in v1 maps |
+| **fly** | movement | 3 | — | `modifySpecialMovement` `'fly'` | `availability: 'hidden'` — drops jump check; only proven user |
 | **bulwark_stance** | movement | 2 | — | `modifyStatQuery`: -1 moveRange / -1 jump / × 1.2 maxHp; `modifyEvasion` +10 front evade | Knight tank stance |
+| **bedrock_stride** | movement | 2 | earth | `modifyStatQuery` +1 to `moveRange`; `modifySystemDamage` returns 0 when `source.kind === 'falling'` | Session 26. Free for Earth Mage. First v1 consumer of the `modifySystemDamage` hook (ADR-0052) |
+| **hotfoot** | movement | 2 | fire | `modifyStatQuery` +1 to `moveRange`, +1 to `spd` | Session 26. Free for Fire Mage |
+| **tidewalker** | movement | 1 | water | `modifyTerrainCosts` clones the input map and clamps water-tile cost to `max(1, current - 1)` | Session 26. Free for Water Mage. v1-marginal: no class has elevated water cost, so the floor pins at 1 (no behavioral change today). Forward-compatible with future high-cost water terrain types |
+| **quickstep** | movement | 1 | lightning | `onTurnEnd`: if `state.turnState.consumed.movesConsumed > 0`, emits `system_ct_push` of `+ma` (queried via `runModifyStatQuery`) targeting self | Session 26. Free for Lightning Mage. First v1 consumer of the widened `onTurnEnd` hook (ADR-0053). At Lightning's L25 MA 12, a Move-committed turn refunds 12 CT |
 
 **Patterns to notice:**
 
 - **Reaction baseCost spread:** Counter 1, Tidal Pull 1, others 2. Worth checking whether Tidal Pull's CT manipulation is genuinely cheap (no damage, no debuff — just self-CT bump) or under-priced.
-- **Free-passive grants:** Knight gets 1 free (`move_plus_1`). Fire and Lightning Mages get 2 free each (`ignition`/`aether_bloom` and `discharge`/`conductor` respectively). Earth and Water Mages get 0 free. Asymmetric — Earth and Water identity comes purely from their command set; Fire and Lightning identity comes from passives layered on top. Worth deciding whether Earth/Water's reactions (`earth_resilience`, `tidal_pull`) should be made class-free for parity, or whether the asymmetry is intentional.
+- **Free-passive grants (post-session-26).** The asymmetry called out in the prior snapshot is resolved — every Mage class now has parity in class-free count (1 reaction, 1 support, 1 movement). Knight is the outlier with only the universal `attack` free; their identity sits on the equipped Battle Skill command set. Earth/Water gained their reaction + support (`earth_resilience`/`earth_communion` for Earth; `tidal_pull`/`flow_state` for Water) as class-free between sessions 21–24; session 26 added the Movement-bucket parity passive for each Mage.
 - **Damage Reduction × Bulwark Stance** stack multiplicatively: a Bulwark-stanced Knight with Damage Reduction takes physical hits at × 0.75 × (1 + maxHp 1.2 effective HP) — significant survivability budget. Watch when both ship on demo Knight.
+- **Movement-bucket diversity (session 26).** Five viable Movement passives at L25: `move_plus_1` (cheap baseline), `bedrock_stride` (Earth — same +1 plus fall-immunity), `hotfoot` (Fire — +1 move + +1 spd), `tidewalker` (Water — water-cost reduction), `quickstep` (Lightning — CT refund on move-turn). With Movement bucket capacity 3, a build can stack two depending on capacity headroom; the demo loadout's universal `move_plus_1` choice is calibration-conservative.
 
 ---
 
@@ -285,3 +309,8 @@ Calibration knobs the AI is NOT sensitive to (won't show in playtest until UI/lo
 - `docs/decisions/0030-custom-trigger-status-pattern.md` — Burn / Vulnerable substrate.
 - `docs/decisions/0032-lightning-mage-substrate.md` — crit, chain, self-damage, Vulnerable.
 - `docs/decisions/0033-ai-tier-2-projection-and-joint-planner.md` — current AI shape, projection contract.
+- `docs/decisions/0049-availability-tag-and-catalog-validator.md` — session 25; presentation-only hide bit on abilities / items / command sets.
+- `docs/decisions/0050-uniform-int-initial-ct.md` — session 25; pre-battle CT jitter.
+- `docs/decisions/0052-modify-system-damage-hook.md` — session 26; single modification seam for system-emitted damage (Bedrock Stride's fall-immunity).
+- `docs/decisions/0053-on-turn-end-emission-widening.md` — session 26; widened `onTurnEnd` signature (state + catalog in args, OnTurnEndResult in return) so passives can emit follow-on actions at turn end. Quickstep is the first consumer.
+- `docs/decisions/0054-terrain-texture-infrastructure.md` — session 26; renderer-side texture-overlay pattern + deterministic per-tile variant pick.
