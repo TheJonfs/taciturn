@@ -40,6 +40,7 @@ export const discharge: PassiveAbilityDefinition = compileReactionAbility(
     name: 'Discharge',
     bucket: bucketId('reaction'),
     baseCost: 2,
+    availability: 'available',
     tags: ['magical', 'lightning'],
   },
   {

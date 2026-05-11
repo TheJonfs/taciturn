@@ -23,6 +23,9 @@ import type {
 } from '../../types/index.ts';
 import type { PassiveHookRegistration } from '../../abilities/hooks.ts';
 import type { ReactionAbilityFields } from '../../abilities/reaction-compiler.ts';
+import type { Availability } from './availability.ts';
+
+export type { Availability };
 
 interface AbilityCommon {
   readonly id: AbilityId;
@@ -35,6 +38,8 @@ interface AbilityCommon {
   // Pre-modifier base cost. Per-character cost (`getCost`) may reduce
   // this to 0 via class grants or other modulations.
   readonly baseCost: number;
+  // Required per ADR-0049. Catalog construction throws if missing.
+  readonly availability: Availability;
   // Optional tags for category-based interactions (Silence blocking
   // 'voice'-tagged actions, Fire Mage Support adding Burn to all
   // 'magical'-tagged hits, etc.). Open string union — adding a new tag

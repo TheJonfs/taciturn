@@ -36,6 +36,7 @@ export const conductor: PassiveAbilityDefinition = {
   kind: 'passive',
   bucket: bucketId('support'),
   baseCost: 2,
+  availability: 'available',
   tags: ['lightning'],
   hooks: [
     passiveHook('modifyStatQuery', (args) => {

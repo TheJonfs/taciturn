@@ -78,6 +78,7 @@ function crossDamageSpell(power_coefficient = 5): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     tags: ['magical'],
     targeting: { kind: 'tile', range: { horizontal: 10, vertical: 3 }, rangeMode: 'arc' },
     actionSpeed: 0,
@@ -97,6 +98,7 @@ function crossDebuffSpell(): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     tags: ['magical'],
     targeting: { kind: 'tile', range: { horizontal: 10, vertical: 3 }, rangeMode: 'arc' },
     actionSpeed: 0,
@@ -127,6 +129,7 @@ function selfNovaSpell(): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     tags: ['magical'],
     targeting: { kind: 'self' },
     actionSpeed: 0,
@@ -150,6 +153,7 @@ function strictVerticalSpell(): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     tags: ['magical'],
     targeting: { kind: 'tile', range: { horizontal: 10, vertical: 5 }, rangeMode: 'straight_line' },
     actionSpeed: 0,
@@ -195,7 +199,8 @@ function selfBuffOnHitReaction(): PassiveAbilityDefinition {
     kind: 'passive',
     bucket: bucketId('reaction'),
     baseCost: 1,
-    hooks: compileReaction({
+    availability: 'hidden',
+    hooks:compileReaction({
       triggerOn: ['onActionTargeted'],
       triggerCondition: { type: 'damage_received', minDamage: 1, damageTagsNone: ['healing'] },
       effects: [
@@ -220,7 +225,8 @@ function shapeRewriterPassive(): PassiveAbilityDefinition {
     kind: 'passive',
     bucket: bucketId('support'),
     baseCost: 1,
-    hooks: [
+    availability: 'hidden',
+    hooks:[
       passiveHook('modifyAoeShape', (args) => {
         if (args.baseShape.kind === 'tile') {
           return { kind: 'cross', radius: 1 };
@@ -240,6 +246,7 @@ function singleTileAoe(): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     tags: ['magical'],
     targeting: { kind: 'tile', range: { horizontal: 10, vertical: 3 }, rangeMode: 'arc' },
     actionSpeed: 0,
@@ -263,6 +270,7 @@ function battleSkill(): CommandSetDefinition {
       abilityId('nudge'),
     ],
     baseCost: 1,
+    availability: 'hidden',
   };
 }
 
@@ -532,7 +540,7 @@ describe('session 17a — AoE per-target dispatch', () => {
       statusTypes: [],
       abilities: [novaWithCasterExcluded],
       commandSets: [
-        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('nova')], baseCost: 1 },
+        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('nova')], baseCost: 1, availability: 'hidden' },
       ],
       classes: [knightClass()],
       items: [],
@@ -581,7 +589,7 @@ describe('session 17a — AoE per-target dispatch', () => {
       statusTypes: [],
       abilities: [selfNovaSpell()],
       commandSets: [
-        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('nova')], baseCost: 1 },
+        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('nova')], baseCost: 1, availability: 'hidden' },
       ],
       classes: [knightClass()],
       items: [],

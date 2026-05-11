@@ -216,6 +216,7 @@ describe('runOnActionTargeted — Brave-gated reaction trigger (ADR-0021)', () =
       kind: 'passive',
       bucket: bucketId('reaction'),
       baseCost: 1,
+      availability: 'hidden',
       hooks: [
         passiveHook('onActionTargeted', (args) => {
           const incoming = args.incomingAction;
@@ -256,6 +257,7 @@ describe('runOnActionTargeted — Brave-gated reaction trigger (ADR-0021)', () =
       kind: 'active',
       bucket: bucketId('first_action'),
       baseCost: 1,
+      availability: 'hidden',
       targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
       actionSpeed: 0,
       mpCost: 0,
@@ -269,6 +271,7 @@ describe('runOnActionTargeted — Brave-gated reaction trigger (ADR-0021)', () =
       name: 'Battle Skill',
       members: [abilityId('attack')],
       baseCost: 1,
+      availability: 'hidden',
     };
   }
 

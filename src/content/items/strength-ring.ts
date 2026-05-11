@@ -15,6 +15,7 @@ import { itemId, type AccessoryEquipment } from '@engine/index.ts';
 export const strengthRing: AccessoryEquipment = {
   id: itemId('strength_ring'),
   name: 'Strength Ring',
+  availability: 'hidden',
   kind: 'accessory',
   statMods: { pa: 1 },
 };

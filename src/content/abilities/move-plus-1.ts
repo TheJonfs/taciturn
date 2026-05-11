@@ -16,6 +16,7 @@ export const movePlus1: PassiveAbilityDefinition = {
   kind: 'passive',
   bucket: bucketId('movement'),
   baseCost: 1,
+  availability: 'available',
   hooks: [
     passiveHook('modifyStatQuery', (args) =>
       args.statName === 'moveRange' ? args.baseValue + 1 : args.baseValue,

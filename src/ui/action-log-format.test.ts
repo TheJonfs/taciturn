@@ -439,6 +439,119 @@ describe('formatActionLog', () => {
     expect(rows[1]!.tagKind).toBe('turn');
   });
 
+  it('tags unit-name segments with the unit team for team-coloring (ADR-0051)', () => {
+    const blueAttacker = makeUnit({ id: 'blue1', spd: 10, team: 'team_a' });
+    const redTarget = makeUnit({ id: 'red1', spd: 10, team: 'team_b' });
+    const state = makeGameState({
+      units: [blueAttacker, redTarget],
+      map: flatMap(3, 3),
+      turnState: activeTurnFor(blueAttacker.id),
+    });
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, actorId: blueAttacker.id }),
+        type: 'use_ability',
+        payload: { abilityId: abilityId('attack'), target: { kind: 'unit', unitId: redTarget.id } },
+        outcome: {
+          kind: 'use_ability',
+          abilityId: abilityId('attack'),
+          mpSpent: 0,
+          perTargetResults: [{ target: { kind: 'unit', unitId: redTarget.id }, hit: true, damage: 10 }],
+        },
+      },
+    ];
+    const rows = formatActionLog(log, state, emptyCatalog());
+    expect(rows).toHaveLength(1);
+    const segs = rows[0]!.segments;
+    // Actor segment is the blue unit's name with team_a tag.
+    const actorSeg = segs.find((s) => s.text === blueAttacker.name);
+    expect(actorSeg?.team).toBe('team_a');
+    // Target segment is the red unit's name with team_b tag.
+    const targetSeg = segs.find((s) => s.text === redTarget.name);
+    expect(targetSeg?.team).toBe('team_b');
+    // Plain text segments carry no team field.
+    const plainSeg = segs.find((s) => s.text.includes(' → '));
+    expect(plainSeg?.team).toBeUndefined();
+  });
+
+  it('charged_action_resolve includes the target (unit name or tile coords) per session 25', () => {
+    const blueCaster = makeUnit({ id: 'blue1', spd: 10, team: 'team_a' });
+    const redTarget = makeUnit({ id: 'red1', spd: 10, team: 'team_b' });
+    const state = makeGameState({
+      units: [blueCaster, redTarget],
+      map: flatMap(3, 3),
+      turnState: activeTurnFor(blueCaster.id),
+    });
+    // Unit-targeted charged spell: cast → resolve.
+    const chargedId = 'ca-unit' as unknown as import('@engine/index.ts').ChargedActionId;
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, actorId: blueCaster.id }),
+        type: 'use_ability',
+        payload: { abilityId: abilityId('earth_strike'), target: { kind: 'unit', unitId: redTarget.id } },
+        outcome: {
+          kind: 'use_ability',
+          abilityId: abilityId('earth_strike'),
+          mpSpent: 4,
+          perTargetResults: [],
+          chargedActionId: chargedId,
+        },
+      },
+      {
+        ...env({ sequenceNumber: 2, source: 'system' }),
+        type: 'charged_action_resolve',
+        payload: { chargedActionId: chargedId },
+        outcome: { kind: 'charged_action_resolve', chargedActionId: chargedId, perTargetResults: [] },
+      },
+    ];
+    const rows = formatActionLog(log, state, emptyCatalog());
+    // Two rows: the "began casting" cast row + the resolve row.
+    const resolveRow = rows.find((r) => r.tag === 'T0001');
+    expect(resolveRow).toBeDefined();
+    // The resolve row's flattened text includes "on <redTarget.name>".
+    expect(resolveRow!.text).toContain(`on ${redTarget.name}`);
+    // The target unit segment carries its team color.
+    const targetSeg = resolveRow!.segments.find((s) => s.text === redTarget.name);
+    expect(targetSeg?.team).toBe('team_b');
+  });
+
+  it('charged_action_resolve on a tile renders (x, y) coords (no unit segment)', () => {
+    const blueCaster = makeUnit({ id: 'blue1', spd: 10, team: 'team_a' });
+    const state = makeGameState({
+      units: [blueCaster],
+      map: flatMap(5, 5),
+      turnState: activeTurnFor(blueCaster.id),
+    });
+    const chargedId = 'ca-tile' as unknown as import('@engine/index.ts').ChargedActionId;
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, actorId: blueCaster.id }),
+        type: 'use_ability',
+        payload: {
+          abilityId: abilityId('bolt'),
+          target: { kind: 'tile', position: { x: 3, y: 4, layer: 0 } },
+        },
+        outcome: {
+          kind: 'use_ability',
+          abilityId: abilityId('bolt'),
+          mpSpent: 8,
+          perTargetResults: [],
+          chargedActionId: chargedId,
+        },
+      },
+      {
+        ...env({ sequenceNumber: 2, source: 'system' }),
+        type: 'charged_action_resolve',
+        payload: { chargedActionId: chargedId },
+        outcome: { kind: 'charged_action_resolve', chargedActionId: chargedId, perTargetResults: [] },
+      },
+    ];
+    const rows = formatActionLog(log, state, emptyCatalog());
+    const resolveRow = rows.find((r) => r.tag === 'T0001');
+    expect(resolveRow).toBeDefined();
+    expect(resolveRow!.text).toContain('on (3, 4)');
+  });
+
   it('attaches participants and actionSeq to every emitted row', () => {
     const log: Action[] = [
       {

@@ -233,26 +233,35 @@ function livingAllies(state: GameState, actor: Unit): Unit[] {
 // =====================
 
 // Walk the actor's loadout and resolve every active member of every
-// equipped command set, returning unique active abilities. Other
-// enumerators filter the result.
+// equipped command set, plus any active class-granted free abilities
+// (per session 25: Attack lives as a class free ability rather than a
+// command-set member, mirroring the player's picker which surfaces
+// free abilities as peers of command sets). Returns unique active
+// abilities; other enumerators filter the result.
 function enumerateActiveAbilities(
   actor: Unit,
   catalog: Catalog,
 ): ActiveAbilityDefinition[] {
   const seen = new Set<AbilityId>();
   const out: ActiveAbilityDefinition[] = [];
+  const push = (memberId: AbilityId): void => {
+    if (seen.has(memberId)) return;
+    seen.add(memberId);
+    if (!catalog.hasAbility(memberId)) return;
+    const ability = catalog.getAbility(memberId);
+    if (ability.kind !== 'active') return;
+    out.push(ability);
+  };
+  // Class-granted free abilities first (Attack appears at the head of
+  // the picker; mirror that ordering here for deterministic tie-breaks).
+  const cls = catalog.getClass(actor.classState.currentClass);
+  for (const freeId of cls.freeAbilities) push(freeId);
+  // Then command-set members.
   for (const commandSetId of Object.values(actor.loadout.actionBuckets)) {
     if (commandSetId === null) continue;
     if (!catalog.hasCommandSet(commandSetId)) continue;
     const cs = catalog.getCommandSet(commandSetId);
-    for (const memberId of cs.members) {
-      if (seen.has(memberId)) continue;
-      seen.add(memberId);
-      if (!catalog.hasAbility(memberId)) continue;
-      const ability = catalog.getAbility(memberId);
-      if (ability.kind !== 'active') continue;
-      out.push(ability);
-    }
+    for (const memberId of cs.members) push(memberId);
   }
   return out;
 }

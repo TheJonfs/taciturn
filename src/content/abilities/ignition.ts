@@ -44,6 +44,7 @@ export const ignition: PassiveAbilityDefinition = {
   kind: 'passive',
   bucket: bucketId('support'),
   baseCost: 2,
+  availability: 'available',
   tags: ['fire'],
   hooks: [
     passiveHook('onDamageDealt', (args) => {

@@ -73,12 +73,13 @@ const KNIGHT_EQUIPMENT: UnitEquipment = {
 };
 
 // Knight loadout: Battle Skill on First Action (class-pinned),
-// White Magic on Second Action (Cure), Counter in the Reaction bucket,
-// Move +1 in Movement.
+// Second Action empty (per session 25: White Magic is hidden until the
+// repertoire grows past Cure), Counter in the Reaction bucket, Move +1
+// in Movement.
 const KNIGHT_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
     [bucketId('first_action')]: commandSetId('battle_skill'),
-    [bucketId('second_action')]: commandSetId('white_magic'),
+    [bucketId('second_action')]: null,
   },
   passiveBuckets: {
     [bucketId('reaction')]: [abilityId('counter')],

@@ -33,6 +33,7 @@ export const brine: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,
+  availability: 'available',
   tags: ['magical', 'water'],
   targeting: {
     kind: 'single_unit',

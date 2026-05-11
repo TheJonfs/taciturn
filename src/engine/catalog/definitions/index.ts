@@ -1,3 +1,4 @@
+export type { Availability } from './availability.ts';
 export type {
   AbilityDefinition,
   AbilityEffects,

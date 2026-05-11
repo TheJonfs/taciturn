@@ -14,7 +14,7 @@ describe('projectTurnEndCt', () => {
       turnState: {
         unitId: unit.id,
         budget: { movesAvailable: 1, actsAvailable: 1 },
-        consumed: { movesConsumed: 0, actsConsumed: 0, waited: false },
+        consumed: { movesConsumed: 0, actsConsumed: 0 },
         reactionsUsedThisTurn: new Map(),
       },
     });
@@ -30,7 +30,7 @@ describe('projectTurnEndCt', () => {
       turnState: {
         unitId: unit.id,
         budget: { movesAvailable: 0, actsAvailable: 1 },
-        consumed: { movesConsumed: 1, actsConsumed: 0, waited: false },
+        consumed: { movesConsumed: 1, actsConsumed: 0 },
         reactionsUsedThisTurn: new Map(),
       },
     });
@@ -46,7 +46,7 @@ describe('projectTurnEndCt', () => {
       turnState: {
         unitId: unit.id,
         budget: { movesAvailable: 1, actsAvailable: 1 },
-        consumed: { movesConsumed: 0, actsConsumed: 0, waited: false },
+        consumed: { movesConsumed: 0, actsConsumed: 0 },
         reactionsUsedThisTurn: new Map(),
       },
     });
@@ -62,7 +62,7 @@ describe('projectTurnEndCt', () => {
       turnState: {
         unitId: unit.id,
         budget: { movesAvailable: 1, actsAvailable: 1 },
-        consumed: { movesConsumed: 1, actsConsumed: 0, waited: false },
+        consumed: { movesConsumed: 1, actsConsumed: 0 },
         reactionsUsedThisTurn: new Map(),
       },
     });

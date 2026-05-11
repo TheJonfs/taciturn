@@ -34,6 +34,7 @@ export const fireEmbrace: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,
+  availability: 'available',
   tags: ['magical', 'fire'],
   targeting: {
     kind: 'single_unit',

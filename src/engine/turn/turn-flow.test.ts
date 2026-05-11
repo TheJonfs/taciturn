@@ -72,6 +72,7 @@ function attackAbility(power_coefficient = 4): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
     actionSpeed: 0,
     mpCost: 0,
@@ -85,6 +86,7 @@ function battleSkill(): CommandSetDefinition {
     name: 'Battle Skill',
     members: [abilityId('attack')],
     baseCost: 1,
+    availability: 'hidden',
   };
 }
 
@@ -275,6 +277,7 @@ describe('reaction fizzle — chain validation failure', () => {
       kind: 'passive',
       bucket: bucketId('reaction'),
       baseCost: 1,
+      availability: 'hidden',
       hooks: [
         passiveHook('onActionTargeted', (args) => {
           if (args.damageDealt === undefined || args.damageDealt <= 0) return [];

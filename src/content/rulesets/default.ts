@@ -135,10 +135,13 @@ export const defaultRuleset: RulesetDefinition = {
     stages: DEFAULT_DAMAGE_PIPELINE,
   },
 
-  // v1 simplest plausible formula: every unit starts at CT 0. The
-  // design doc's speed-based + variance formula lands as another
-  // discriminant when its tuning settles.
-  initialCT: { kind: 'fixed', value: 0 },
+  // Session 25: uniform integer in [0, 20] per unit (ADR-0050). A small
+  // starting-tempo wobble — every unit rolls the same window regardless
+  // of Speed — so two openings of the same battle vary slightly without
+  // unbalancing the action queue. Tests that need deterministic CT-0
+  // starts pass an inline overlay `initialCT: { kind: 'fixed', value: 0 }`
+  // through `createCatalog`.
+  initialCT: { kind: 'uniform_int', min: 0, max: 20 },
 
   bucketCapacities: DEFAULT_BUCKET_CAPACITIES,
 

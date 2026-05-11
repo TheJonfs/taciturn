@@ -38,6 +38,7 @@ export const aetherBloom: PassiveAbilityDefinition = {
   kind: 'passive',
   bucket: bucketId('support'),
   baseCost: 2,
+  availability: 'available',
   tags: ['fire'],
   hooks: [
     passiveHook('modifyAoeShape', (args) => {

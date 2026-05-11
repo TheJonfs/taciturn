@@ -21,11 +21,40 @@
 // demoBattle) — that's the integration surface we ship.
 
 import { describe, expect, it } from 'vitest';
-import { loadDefaultCatalog } from '@content/index.ts';
+import {
+  abilities,
+  classes,
+  commandSets,
+  items,
+  statusTypes,
+} from '@content/index.ts';
+import { defaultRuleset } from '@content/rulesets/default.ts';
 import { demoBattle } from '@content/battles/demo.ts';
-import { createInitialState, type BattleConfig, type TeamId } from '@engine/index.ts';
+import {
+  createCatalog,
+  createInitialState,
+  type BattleConfig,
+  type Catalog,
+  type TeamId,
+} from '@engine/index.ts';
 import { DemoOrchestrator, greedyMeleeController, type ControllerMap } from '../demo/index.ts';
 import { createBasicAiController } from './ai-controller.ts';
+
+// Build a catalog whose default ruleset pins initial CT to 0 — preserves
+// the calibration of the AI-vs-greedy win-rate assertion against the
+// session-25 default-ruleset switch to `uniform_int { 0, 20 }` (ADR-0050).
+// Inline overlay rather than an exported helper since this is the only
+// calibration-sensitive consumer.
+function calibrationCatalog(): Catalog {
+  return createCatalog({
+    statusTypes,
+    abilities,
+    commandSets,
+    classes,
+    items,
+    rulesets: [{ ...defaultRuleset, initialCT: { kind: 'fixed', value: 0 } }],
+  });
+}
 
 interface RunResult {
   readonly winner: string | null;
@@ -39,7 +68,7 @@ function runBattle(opts: {
   readonly greedyTeam: TeamId;
   readonly maxSteps?: number;
 }): RunResult {
-  const catalog = loadDefaultCatalog();
+  const catalog = calibrationCatalog();
   const config: BattleConfig = { ...demoBattle, masterSeed: opts.seed };
   const initialState = createInitialState(config, catalog);
   const controllers: ControllerMap = new Map([

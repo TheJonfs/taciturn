@@ -29,6 +29,7 @@ export const earthCommunion: PassiveAbilityDefinition = {
   kind: 'passive',
   bucket: bucketId('support'),
   baseCost: 1,
+  availability: 'available',
   tags: ['magical', 'earth'],
   hooks: [
     passiveHook(

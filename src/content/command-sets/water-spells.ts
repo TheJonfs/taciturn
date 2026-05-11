@@ -25,4 +25,5 @@ export const waterSpells: CommandSetDefinition = {
     abilityId('maelstrom'),
   ],
   baseCost: 1,
+  availability: 'available',
 };

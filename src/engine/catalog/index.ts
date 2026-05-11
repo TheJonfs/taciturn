@@ -10,6 +10,7 @@ export {
   type AccessoryEquipment,
   type ActiveAbilityDefinition,
   type ArmorEquipment,
+  type Availability,
   type ClassDefinition,
   type ClassEquipmentSlots,
   type ClassEvasionBaseline,
@@ -28,4 +29,8 @@ export {
   type TargetingSpec,
   type WeaponEquipment,
 } from './definitions/index.ts';
-export { DuplicateDefinitionError, UnknownDefinitionError } from './errors.ts';
+export {
+  DuplicateDefinitionError,
+  MissingAvailabilityError,
+  UnknownDefinitionError,
+} from './errors.ts';

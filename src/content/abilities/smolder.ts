@@ -34,6 +34,7 @@ export const smolder: PassiveAbilityDefinition = compileReactionAbility(
     name: 'Smolder',
     bucket: bucketId('reaction'),
     baseCost: 2,
+    availability: 'available',
     tags: ['magical', 'fire'],
   },
   {

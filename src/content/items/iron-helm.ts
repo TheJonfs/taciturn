@@ -9,6 +9,7 @@ import { itemId, type HeadgearEquipment } from '@engine/index.ts';
 export const ironHelm: HeadgearEquipment = {
   id: itemId('iron_helm'),
   name: 'Iron Helm',
+  availability: 'hidden',
   kind: 'headgear',
   statMods: { maxHpBase: 20 },
 };

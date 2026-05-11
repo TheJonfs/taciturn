@@ -9,6 +9,7 @@ import { itemId, type ArmorEquipment } from '@engine/index.ts';
 export const ironMail: ArmorEquipment = {
   id: itemId('iron_mail'),
   name: 'Iron Mail',
+  availability: 'hidden',
   kind: 'armor',
   statMods: { maxHpBase: 30 },
 };

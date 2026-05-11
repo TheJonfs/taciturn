@@ -89,6 +89,7 @@ function tileBolt(args: { actionSpeed?: number; mpCost?: number; power_coefficie
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     targeting: { kind: 'tile', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
     actionSpeed: args.actionSpeed ?? 25,
     mpCost: args.mpCost ?? 6,
@@ -103,6 +104,7 @@ function attackAbility(): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
     actionSpeed: 0,
     mpCost: 0,
@@ -119,6 +121,7 @@ function lethalCounter(): PassiveAbilityDefinition {
     kind: 'passive',
     bucket: bucketId('reaction'),
     baseCost: 1,
+    availability: 'hidden',
     hooks: [
       passiveHook('onActionTargeted', (args) => {
         if (!args.damageTags?.has('physical')) return [];
@@ -151,6 +154,7 @@ function overkillAbility(): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     targeting: { kind: 'single_unit', range: { horizontal: 8, vertical: 8 }, rangeMode: 'melee' },
     actionSpeed: 0,
     mpCost: 0,
@@ -179,7 +183,7 @@ function turnFor(unitIdString: string) {
   return {
     unitId: unitId(unitIdString),
     budget: { movesAvailable: 1, actsAvailable: 1 },
-    consumed: { movesConsumed: 0, actsConsumed: 0, waited: false },
+    consumed: { movesConsumed: 0, actsConsumed: 0 },
     reactionsUsedThisTurn: new Map(),
   };
 }
@@ -198,7 +202,7 @@ describe('charged action commit', () => {
       statusTypes: [chargingType()],
       abilities: [tileBolt()],
       commandSets: [
-        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1 },
+        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1, availability: 'hidden' },
       ],
       classes: [knightClass()],
       items: [],
@@ -253,7 +257,7 @@ describe('charged action resolve — happy path', () => {
       statusTypes: [chargingType()],
       abilities: [tileBolt()],
       commandSets: [
-        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1 },
+        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1, availability: 'hidden' },
       ],
       classes: [knightClass()],
       items: [],
@@ -343,7 +347,7 @@ describe('charged action resolve — happy path', () => {
       statusTypes: [chargingType()],
       abilities: [tileBolt()],
       commandSets: [
-        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1 },
+        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1, availability: 'hidden' },
       ],
       classes: [knightClass()],
       items: [],
@@ -430,7 +434,7 @@ describe('charged action interruption — caster KO', () => {
       statusTypes: [chargingType()],
       abilities: [tileBolt()],
       commandSets: [
-        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1 },
+        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1, availability: 'hidden' },
       ],
       classes: [knightClass()],
       items: [],
@@ -518,7 +522,7 @@ describe('charged action interruption — Stop pauses charge', () => {
       statusTypes: [chargingType(), stopType()],
       abilities: [tileBolt()],
       commandSets: [
-        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1 },
+        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1, availability: 'hidden' },
       ],
       classes: [knightClass()],
       items: [],
@@ -609,7 +613,7 @@ describe('Charging skips the casters own turns', () => {
       statusTypes: [chargingType()],
       abilities: [tileBolt()],
       commandSets: [
-        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1 },
+        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1, availability: 'hidden' },
       ],
       classes: [knightClass()],
       items: [],
@@ -679,7 +683,7 @@ describe('engine-side turn_end auto-emit on active unit KO', () => {
       statusTypes: [],
       abilities: [attackAbility(), lethalCounter(), overkillAbility()],
       commandSets: [
-        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('attack')], baseCost: 1 },
+        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('attack')], baseCost: 1, availability: 'hidden' },
       ],
       classes: [knightClass()],
       items: [],
@@ -744,7 +748,7 @@ describe('tile validation', () => {
       statusTypes: [chargingType()],
       abilities: [tileBolt()],
       commandSets: [
-        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1 },
+        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1, availability: 'hidden' },
       ],
       classes: [knightClass()],
       items: [],

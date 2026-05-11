@@ -47,6 +47,7 @@ export const bolt: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,
+  availability: 'available',
   tags: ['magical', 'lightning'],
   targeting: {
     kind: 'tile',

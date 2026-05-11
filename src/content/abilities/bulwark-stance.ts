@@ -31,6 +31,7 @@ export const bulwarkStance: PassiveAbilityDefinition = {
   kind: 'passive',
   bucket: bucketId('movement'),
   baseCost: 2,
+  availability: 'available',
   hooks: [
     // -1 Move
     passiveHook('modifyStatQuery', (args) => {

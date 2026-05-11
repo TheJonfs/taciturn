@@ -20,6 +20,7 @@ import type {
   PartialBaseStats,
   StatusTypeId,
 } from '../../types/index.ts';
+import type { Availability } from './availability.ts';
 
 // Common fields across every equipment kind. Stat mods, status grants,
 // and damage tags all default to "none" when omitted; consumers pattern
@@ -27,6 +28,8 @@ import type {
 interface EquipmentBase {
   readonly id: ItemId;
   readonly name: string;
+  // Required per ADR-0049. Catalog construction throws if missing.
+  readonly availability: Availability;
 
   // Additive stat modifiers contributed by this item while equipped.
   // Each declared stat is read by a corresponding `modifyStatQuery`

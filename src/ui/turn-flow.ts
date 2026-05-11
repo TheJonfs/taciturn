@@ -33,6 +33,16 @@
 
 import type { AbilityId, CommandSetId, Direction, Position, ProposedAction } from '@engine/index.ts';
 
+// One entry in the Act picker — either a class-granted free ability
+// (Attack today; future classless utility actions) or a command set.
+// Per session 25 (Chris's "Attack and Battle Skill as peers" call):
+// the picker treats both kinds at the same level. Selecting a
+// `free_ability` jumps straight to target-select; selecting a
+// `command_set` drills into its member ability list.
+export type ActEntry =
+  | { readonly kind: 'free_ability'; readonly abilityId: AbilityId }
+  | { readonly kind: 'command_set'; readonly commandSetId: CommandSetId };
+
 export type TurnFlowState =
   | { readonly kind: 'idle' }
   | { readonly kind: 'action-menu' }
@@ -100,7 +110,7 @@ export type TurnFlowEvent =
   | { readonly kind: 'animationEnded'; readonly stillOurTurn: boolean }
   // Top-level menu picks.
   | { readonly kind: 'pickMove' }
-  | { readonly kind: 'pickAct'; readonly commandSets: ReadonlyArray<CommandSetId> }
+  | { readonly kind: 'pickAct'; readonly entries: ReadonlyArray<ActEntry> }
   // Direct free-ability invocation (universal Attack, etc.). Skips
   // command-set-select and ability-list; goes straight to target-select.
   | { readonly kind: 'pickFreeAbility'; readonly abilityId: AbilityId }
@@ -169,11 +179,21 @@ export function transition(
         };
       }
       if (event.kind === 'pickAct') {
-        if (event.commandSets.length === 0) return state;
-        if (event.commandSets.length === 1) {
+        if (event.entries.length === 0) return state;
+        if (event.entries.length === 1) {
+          const only = event.entries[0]!;
+          if (only.kind === 'free_ability') {
+            return {
+              kind: 'target-select',
+              commandSetId: null,
+              commandSetCount: 0,
+              abilityId: only.abilityId,
+              hoverTarget: null,
+            };
+          }
           return {
             kind: 'ability-list',
-            commandSetId: event.commandSets[0]!,
+            commandSetId: only.commandSetId,
             commandSetCount: 1,
           };
         }
@@ -211,8 +231,22 @@ export function transition(
         return {
           kind: 'ability-list',
           commandSetId: event.commandSetId,
-          // Reached from command-set-select implies >1 sets.
+          // Reached from command-set-select implies >1 entries in the
+          // picker, so cancel from ability-list returns to picker.
           commandSetCount: 2,
+        };
+      }
+      if (event.kind === 'pickFreeAbility') {
+        // Free ability picked from the Act picker (per session 25:
+        // Attack appears as a peer of command sets). Cancel from
+        // target-select returns to the picker because we came from
+        // a multi-entry picker — encoded by `commandSetCount: 2`.
+        return {
+          kind: 'target-select',
+          commandSetId: null,
+          commandSetCount: 2,
+          abilityId: event.abilityId,
+          hoverTarget: null,
         };
       }
       return state;
@@ -236,11 +270,16 @@ export function transition(
 
     case 'target-select':
       if (event.kind === 'cancel') {
-        // Free-ability invocations (commandSetId === null) cancel back
-        // to action-menu directly; command-set-sourced abilities return
-        // to the ability list.
+        // Free-ability target-select: `commandSetId === null`. Cancel
+        // returns to the Act picker when we came from a multi-entry
+        // picker (commandSetCount > 1) — that's the common case in
+        // session 25 where Attack is one of several picker peers. When
+        // there was only one entry to begin with (commandSetCount: 0),
+        // the picker was skipped and cancel returns to action-menu.
         if (state.commandSetId === null) {
-          return { kind: 'action-menu' };
+          return state.commandSetCount > 1
+            ? { kind: 'command-set-select' }
+            : { kind: 'action-menu' };
         }
         return {
           kind: 'ability-list',

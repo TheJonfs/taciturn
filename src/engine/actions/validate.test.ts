@@ -207,6 +207,7 @@ describe('validateAction — UseAbility', () => {
       kind: 'passive' as const,
       bucket: bucketId('movement'),
       baseCost: 1,
+      availability: 'hidden' as const,
       hooks: [],
     };
     const cat = makeAbilitiesCatalog({ abilities: [passive] });

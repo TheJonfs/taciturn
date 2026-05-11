@@ -12,8 +12,21 @@
 //     hover-counterpart pulse. Hover off → callback with empty set.
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react';
-import type { Action, Catalog, GameState, UnitId } from '@engine/index.ts';
-import { formatActionLog, type LogRow } from './action-log-format.ts';
+import type { Action, Catalog, GameState, TeamId, UnitId } from '@engine/index.ts';
+import { formatActionLog, type LogRow, type LogSegment } from './action-log-format.ts';
+
+// Per-team text color for unit-name segments in log rows. Mirrors the
+// renderer's TEAM_COLORS and the queue-tower's border palette so the
+// log visually pairs with the canvas + tower. Plain segments inherit the
+// row's default text color.
+const TEAM_TEXT_COLORS: Readonly<Record<string, string>> = {
+  team_a: '#7eb6ec',
+  team_b: '#e07866',
+};
+function teamTextColor(team: TeamId | undefined): string | undefined {
+  if (team === undefined) return undefined;
+  return TEAM_TEXT_COLORS[team];
+}
 
 export interface ActionLogPanelProps {
   readonly state: GameState | null;
@@ -138,7 +151,11 @@ function RowView(props: {
     >
       <div style={rowStyle(row.indent)}>
         {row.tag !== null && <span style={tagStyle(row.tagKind)}>{row.tag}</span>}
-        <span style={textStyle}>{row.text}</span>
+        <span style={textStyle}>
+          {row.segments.map((s, i) => (
+            <SegmentSpan key={i} segment={s} />
+          ))}
+        </span>
         {isExpandable && (
           <span style={chevronStyle}>{isExpanded ? '▾' : '▸'}</span>
         )}
@@ -148,6 +165,15 @@ function RowView(props: {
       )}
     </div>
   );
+}
+
+// Inline span renderer for a single log segment. Applies team-color
+// styling when the segment carries a `team` field; otherwise inherits
+// the row's default text color. Per ADR-0051.
+function SegmentSpan({ segment }: { readonly segment: LogSegment }): ReactElement {
+  const color = teamTextColor(segment.team);
+  if (color === undefined) return <>{segment.text}</> as unknown as ReactElement;
+  return <span style={{ color, fontWeight: 500 }}>{segment.text}</span>;
 }
 
 // Renders the post-click expanded view of an action. v1 shows the

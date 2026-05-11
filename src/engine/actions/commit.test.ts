@@ -111,7 +111,7 @@ describe('commitAction — chain processing', () => {
     const cat = createCatalog({
       statusTypes: [poison],
       abilities: [],
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1, availability: 'hidden' }],
       classes: [makeKnight()],
       items: [],
       rulesets: defaultTestRulesets,
@@ -154,7 +154,7 @@ describe('commitAction — onActionAttempted hook', () => {
     const cat = createCatalog({
       statusTypes: [stop],
       abilities: [],
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1, availability: 'hidden' }],
       classes: [makeKnight()],
       items: [],
       rulesets: defaultTestRulesets,
@@ -197,7 +197,7 @@ describe('commitAction — onActionAttempted hook', () => {
     const cat = createCatalog({
       statusTypes: [berserk],
       abilities: [],
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1, availability: 'hidden' }],
       classes: [makeKnight()],
       items: [],
       rulesets: defaultTestRulesets,
@@ -287,7 +287,7 @@ describe('commitAction — chain depth cap', () => {
     const cat = createCatalog({
       statusTypes: [poison],
       abilities: [],
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1, availability: 'hidden' }],
       classes: [makeKnight()],
       items: [],
       rulesets: [tinyRuleset],

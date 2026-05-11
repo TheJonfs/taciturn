@@ -72,8 +72,11 @@ describe('defaultRuleset', () => {
     expect(stages.finalize).toEqual(['finalize']);
   });
 
-  it("initialCT uses the v1 'fixed' kind", () => {
-    expect(defaultRuleset.initialCT.kind).toBe('fixed');
+  it("initialCT uses uniform_int in [0, 20] per session 25 / ADR-0050", () => {
+    expect(defaultRuleset.initialCT.kind).toBe('uniform_int');
+    if (defaultRuleset.initialCT.kind !== 'uniform_int') return;
+    expect(defaultRuleset.initialCT.min).toBe(0);
+    expect(defaultRuleset.initialCT.max).toBe(20);
   });
 
   it('chain termination caps follow the design doc defaults (1 reaction/turn, depth cap 8)', () => {

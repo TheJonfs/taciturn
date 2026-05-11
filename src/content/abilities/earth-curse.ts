@@ -30,6 +30,7 @@ export const earthCurse: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,
+  availability: 'available',
   tags: ['magical', 'earth'],
   targeting: {
     kind: 'single_unit',

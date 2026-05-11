@@ -34,6 +34,7 @@ export const tidalPull: PassiveAbilityDefinition = compileReactionAbility(
     name: 'Tidal Pull',
     bucket: bucketId('reaction'),
     baseCost: 1,
+    availability: 'available',
     tags: ['magical', 'water'],
   },
   {

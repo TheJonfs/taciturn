@@ -21,10 +21,8 @@
 // directly; the hook owns all validation.
 
 import type { CSSProperties, ReactElement } from 'react';
-import { abilityId, projectTurnEndCt, type ActiveAbilityDefinition, type Catalog, type Direction, type GameState } from '@engine/index.ts';
+import { projectTurnEndCt, type ActiveAbilityDefinition, type Catalog, type Direction, type GameState } from '@engine/index.ts';
 import type { TurnFlow } from './use-turn-flow.ts';
-
-const ATTACK_ABILITY_ID = abilityId('attack');
 
 export interface ActionMenuProps {
   readonly turnFlow: TurnFlow;
@@ -155,7 +153,7 @@ function TopLevel(props: {
   readonly onOpenUnitDetail?: (unitId: import('@engine/index.ts').UnitId) => void;
 }): ReactElement {
   const { turnFlow, catalog, engineState, onOpenUnitDetail } = props;
-  const { movesAvailable, actsAvailable, waitDisabled, activeCommandSets, activeUnit } = turnFlow;
+  const { movesAvailable, actsAvailable, waitDisabled, activeUnit } = turnFlow;
 
   // Move/Act show the CT-cost the action would contribute to the
   // turn's end-cost deduction. Wait/End-turn shows the projected
@@ -205,13 +203,13 @@ function TopLevel(props: {
   const fmtCost = (n: number | null): string => (n === null ? '' : ` · ${n} CT`);
   const fmtLeftover = (n: number | null): string => (n === null ? '' : ` · CT after: ${n}`);
 
-  // Attack — universal free-ability per the elemental-wheel designer
-  // call (2026-05-10). Surfaces as a top-level action menu button when
-  // the active unit has `attack` in their class's free-abilities set.
-  // Costs the actOnly bucket (same as any Act).
-  const cls = activeUnit !== null ? catalog.getClass(activeUnit.classState.currentClass) : null;
-  const hasAttack = cls?.freeAbilities.has(ATTACK_ABILITY_ID) ?? false;
-  const attackDisabled = actsAvailable <= 0;
+  // Top-level menu is Move / Act / End turn / Status. Per session 25:
+  // Attack appears as a peer of the command sets inside the Act picker,
+  // not as its own top-level button. The Act button is enabled when
+  // there's Act budget AND the unit has at least one picker entry
+  // (free Attack and/or a command set).
+  const { actEntries } = turnFlow;
+  const actSurfaceHasContent = actEntries.length > 0;
 
   return (
     <Panel header="Action Menu">
@@ -220,17 +218,10 @@ function TopLevel(props: {
         disabled={movesAvailable <= 0}
         onClick={() => turnFlow.dispatch({ kind: 'pickMove' })}
       />
-      {hasAttack && (
-        <Button
-          label={`Attack (${actsAvailable})${fmtCost(actCost)}`}
-          disabled={attackDisabled}
-          onClick={() => turnFlow.dispatch({ kind: 'pickFreeAbility', abilityId: ATTACK_ABILITY_ID })}
-        />
-      )}
       <Button
         label={`Act (${actsAvailable})${fmtCost(actCost)}`}
-        disabled={actsAvailable <= 0 || activeCommandSets.length === 0}
-        onClick={() => turnFlow.dispatch({ kind: 'pickAct', commandSets: activeCommandSets })}
+        disabled={actsAvailable <= 0 || !actSurfaceHasContent}
+        onClick={() => turnFlow.dispatch({ kind: 'pickAct', entries: actEntries })}
       />
       <Button
         label={`End turn${fmtLeftover(waitLeftover)}`}
@@ -251,17 +242,33 @@ function TopLevel(props: {
 }
 
 function CommandSetPicker({ turnFlow, catalog }: { readonly turnFlow: TurnFlow; readonly catalog: Catalog }): ReactElement {
+  // Renders the Act picker — free abilities (Attack) and equipped
+  // command sets as peers. Per session 25: a Knight with Battle Skill
+  // sees "Attack, Battle Skill"; a Fire Mage with Lightning Magic
+  // backup would see "Attack, Fire Magic, Lightning Magic".
   return (
-    <Panel header="Choose Command Set">
-      {turnFlow.activeCommandSets.map((csId) => {
-        const cs = catalog.hasCommandSet(csId) ? catalog.getCommandSet(csId) : null;
-        const label = cs?.name ?? String(csId);
+    <Panel header="Choose Act">
+      {turnFlow.actEntries.map((entry) => {
+        if (entry.kind === 'free_ability') {
+          const ability = catalog.hasAbility(entry.abilityId) ? catalog.getAbility(entry.abilityId) : null;
+          const label = ability?.name ?? String(entry.abilityId);
+          return (
+            <Button
+              key={`free:${String(entry.abilityId)}`}
+              label={label}
+              disabled={false}
+              onClick={() => turnFlow.dispatch({ kind: 'pickFreeAbility', abilityId: entry.abilityId })}
+            />
+          );
+        }
+        const cs = catalog.hasCommandSet(entry.commandSetId) ? catalog.getCommandSet(entry.commandSetId) : null;
+        const label = cs?.name ?? String(entry.commandSetId);
         return (
           <Button
-            key={String(csId)}
+            key={`set:${String(entry.commandSetId)}`}
             label={label}
             disabled={false}
-            onClick={() => turnFlow.dispatch({ kind: 'pickCommandSet', commandSetId: csId })}
+            onClick={() => turnFlow.dispatch({ kind: 'pickCommandSet', commandSetId: entry.commandSetId })}
           />
         );
       })}

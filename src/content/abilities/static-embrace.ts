@@ -33,6 +33,7 @@ export const staticEmbrace: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,
+  availability: 'available',
   tags: ['magical', 'lightning'],
   targeting: {
     kind: 'single_unit',

@@ -101,13 +101,12 @@ describe('reduceMove', () => {
 });
 
 describe('reduceWait', () => {
-  it('zeroes the budget and marks waited', () => {
+  it('zeroes the budget so no further actions commit this turn', () => {
     const u = makeUnit({ id: 'u1', spd: 10, loadout: knightLoadout() });
     const state = makeGameState({ units: [u], turnState: activeTurnFor(u.id) });
     const action = asAction('wait', { sequenceNumber: 1, actorId: 'u1' }, {});
     const { newState } = reduceWait(state, action);
     expect(newState.turnState!.budget).toEqual({ movesAvailable: 0, actsAvailable: 0 });
-    expect(newState.turnState!.consumed.waited).toBe(true);
   });
 });
 
@@ -142,7 +141,7 @@ describe('reduceUseAbility — instant + status-application', () => {
     const cat = createCatalog({
       statusTypes: [haste],
       abilities: [battleCry],
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1, availability: 'hidden' }],
       classes: [
         {
           id: { __brand: 'ClassId' } as never,
@@ -297,7 +296,7 @@ describe('reduceTurnEnd', () => {
     const u = makeUnit({ id: 'u1', spd: 10, ct: 110, loadout: knightLoadout() });
     const turn = {
       ...activeTurnFor(u.id),
-      consumed: { movesConsumed: 1, actsConsumed: 1, waited: false },
+      consumed: { movesConsumed: 1, actsConsumed: 1 },
     };
     const state = makeGameState({ units: [u], turnState: turn });
     const action = asAction('turn_end', { sequenceNumber: 1 }, { unitId: u.id });
@@ -312,7 +311,7 @@ describe('reduceTurnEnd', () => {
     const u = makeUnit({ id: 'u1', spd: 10, ct: 100, loadout: knightLoadout() });
     const turn = {
       ...activeTurnFor(u.id),
-      consumed: { movesConsumed: 1, actsConsumed: 0, waited: false },
+      consumed: { movesConsumed: 1, actsConsumed: 0 },
     };
     const state = makeGameState({ units: [u], turnState: turn });
     const action = asAction('turn_end', { sequenceNumber: 1 }, { unitId: u.id });
@@ -325,7 +324,7 @@ describe('reduceTurnEnd', () => {
     const u = makeUnit({ id: 'u1', spd: 10, ct: 100, loadout: knightLoadout() });
     const turn = {
       ...activeTurnFor(u.id),
-      consumed: { movesConsumed: 0, actsConsumed: 0, waited: true },
+      consumed: { movesConsumed: 0, actsConsumed: 0 },
     };
     const state = makeGameState({ units: [u], turnState: turn });
     const action = asAction('turn_end', { sequenceNumber: 1 }, { unitId: u.id });

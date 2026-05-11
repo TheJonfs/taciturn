@@ -13,6 +13,7 @@ import { itemId, statusTypeId, type AccessoryEquipment } from '@engine/index.ts'
 export const bootsOfHaste: AccessoryEquipment = {
   id: itemId('boots_of_haste'),
   name: 'Boots of Haste',
+  availability: 'available',
   kind: 'accessory',
   statusGrants: [statusTypeId('haste')],
 };

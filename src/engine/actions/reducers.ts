@@ -187,7 +187,6 @@ export function reduceWait(
   const newTurn = {
     ...state.turnState,
     budget: { movesAvailable: 0, actsAvailable: 0 },
-    consumed: { ...state.turnState.consumed, waited: true },
   };
 
   const newState: GameState = { ...state, turnState: newTurn };
@@ -1239,7 +1238,7 @@ export function reduceTurnStart(
   const newTurn = {
     unitId,
     budget: skip !== null ? { movesAvailable: 0, actsAvailable: 0 } : { ...ruleset.defaultTurnBudget },
-    consumed: { movesConsumed: 0, actsConsumed: 0, waited: false },
+    consumed: { movesConsumed: 0, actsConsumed: 0 },
     reactionsUsedThisTurn: new Map<UnitId, number>(),
   };
 
@@ -1315,12 +1314,13 @@ export function reduceTurnEnd(
 
   // Determine CT cost based on what was consumed. Per the post-MVP
   // designer call (2026-05-10): Wait is the user-facing "end turn now"
-  // action and inherits the consumed-bucket cost rather than carrying
-  // a special low cost. The `waited` flag no longer overrides; it's
-  // retained only so the action log + analytics can distinguish "user
-  // chose to end the turn" from "engine auto-ended after budget
-  // exhaustion." The standalone `ctCosts.wait` applies when literally
-  // nothing was consumed (the "hold for cheap delay" case).
+  // action and inherits the consumed-bucket cost rather than carrying a
+  // special low cost. The `ctCosts.wait` standalone path applies only
+  // when literally nothing was consumed (the "hold for cheap delay"
+  // case — user clicks End turn before any Move or Act). The action
+  // log distinguishes "user chose to end" from "auto-ended" via the
+  // presence of a `wait` action entry; session 25 dropped the
+  // decorative `consumed.waited` flag that previously mirrored that.
   const ruleset = catalog.getRuleset(state.ruleset.id);
   const consumed = state.turnState.consumed;
   let ctCost: number;

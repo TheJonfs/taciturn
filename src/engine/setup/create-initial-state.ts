@@ -248,6 +248,21 @@ function resolveInitialCT(
       // triggered (the scheduler is the path that lifts CT to ≥ 100).
       return Math.max(0, Math.min(TRIGGER_THRESHOLD - 1, Math.round(raw)));
     }
+    case 'uniform_int': {
+      // Speed-independent uniform draw in `[min, max]` inclusive.
+      // Stable per-unit: same (masterSeed, unitId) → same value.
+      // Per ADR-0050.
+      const { min, max } = ruleset.initialCT;
+      const lo = Math.min(min, max);
+      const hi = Math.max(min, max);
+      const span = hi - lo + 1;
+      const v = unitFloatFromKey(masterSeed, placement.id);
+      const draw = lo + Math.floor(v * span);
+      // Floor at 0; ceil one below threshold so no unit starts pre-
+      // triggered. Authoring `max >= 100` would be a content bug; clamp
+      // defensively here rather than throw.
+      return Math.max(0, Math.min(TRIGGER_THRESHOLD - 1, draw));
+    }
   }
 }
 

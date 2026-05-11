@@ -148,7 +148,7 @@ export function activeTurnFor(unitId: UnitId): NonNullable<GameState['turnState'
   return {
     unitId,
     budget: { movesAvailable: 1, actsAvailable: 1 },
-    consumed: { movesConsumed: 0, actsConsumed: 0, waited: false },
+    consumed: { movesConsumed: 0, actsConsumed: 0 },
     reactionsUsedThisTurn: new Map(),
   };
 }

@@ -85,6 +85,7 @@ function attackAbility(power_coefficient = 4): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
     actionSpeed: 0,
     mpCost: 0,
@@ -104,6 +105,7 @@ function magicalDebuffAbility(args: {
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     tags: ['magical', 'earth'],
     targeting: {
       kind: 'single_unit',
@@ -133,6 +135,7 @@ function earthCurseAbility(): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     tags: ['magical', 'earth'],
     targeting: {
       kind: 'single_unit',
@@ -157,6 +160,7 @@ function silencedAbility(): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('second_action'),
     baseCost: 1,
+    availability: 'hidden',
     tags: ['magical', 'voice'],
     targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
     actionSpeed: 0,
@@ -290,7 +294,8 @@ function earthCommunionPassive(factor = 1.25): PassiveAbilityDefinition {
     kind: 'passive',
     bucket: bucketId('support'),
     baseCost: 1,
-    hooks: [
+    availability: 'hidden',
+    hooks:[
       passiveHook('modifyStatusApplicationChance', (args) => args.baseChance * factor),
     ],
   };
@@ -303,6 +308,7 @@ function earthResiliencePassive(): PassiveAbilityDefinition {
     kind: 'passive',
     bucket: bucketId('reaction'),
     baseCost: 2,
+    availability: 'hidden',
     hooks: compileReaction({
       triggerOn: ['onActionTargeted'],
       triggerCondition: { type: 'damage_received', minDamage: 1, damageTagsNone: ['healing'] },
@@ -326,7 +332,8 @@ function counterPassive(): PassiveAbilityDefinition {
     kind: 'passive',
     bucket: bucketId('reaction'),
     baseCost: 1,
-    hooks: compileReaction({
+    availability: 'hidden',
+    hooks:compileReaction({
       triggerOn: ['onActionTargeted'],
       triggerCondition: {
         type: 'damage_received',
@@ -347,6 +354,7 @@ function battleSkill(): CommandSetDefinition {
     name: 'Battle Skill',
     members: [abilityId('attack')],
     baseCost: 1,
+    availability: 'hidden',
   };
 }
 
@@ -356,6 +364,7 @@ function earthSpells(): CommandSetDefinition {
     name: 'Earth Spells',
     members: [abilityId('earth_strike'), abilityId('earth_curse')],
     baseCost: 1,
+    availability: 'hidden',
   };
 }
 
@@ -365,6 +374,7 @@ function whiteMagic(): CommandSetDefinition {
     name: 'White Magic',
     members: [abilityId('cure')],
     baseCost: 1,
+    availability: 'hidden',
   };
 }
 

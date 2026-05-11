@@ -25,4 +25,5 @@ export const fireSpells: CommandSetDefinition = {
     abilityId('flame_lance'),
   ],
   baseCost: 1,
+  availability: 'available',
 };

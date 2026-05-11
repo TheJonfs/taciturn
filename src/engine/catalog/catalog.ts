@@ -16,6 +16,7 @@ import type {
   RulesetDefinition,
   StatusEffectType,
 } from './definitions/index.ts';
+import { MissingAvailabilityError } from './errors.ts';
 import { Registry } from './registry.ts';
 import type {
   AbilityId,
@@ -114,5 +115,27 @@ export class Catalog {
 }
 
 export function createCatalog(input: CatalogInput): Catalog {
+  // ADR-0049: availability is required on every ability, item, and
+  // command set. The TS type already requires it; this runtime guard
+  // catches authoring that slipped through casts or dynamic content.
+  for (const ability of input.abilities) {
+    if (!isValidAvailability(ability.availability)) {
+      throw new MissingAvailabilityError('Ability', ability.id);
+    }
+  }
+  for (const item of input.items) {
+    if (!isValidAvailability(item.availability)) {
+      throw new MissingAvailabilityError('Item', item.id);
+    }
+  }
+  for (const cs of input.commandSets) {
+    if (!isValidAvailability(cs.availability)) {
+      throw new MissingAvailabilityError('CommandSet', cs.id);
+    }
+  }
   return new Catalog(input);
+}
+
+function isValidAvailability(value: unknown): boolean {
+  return value === 'available' || value === 'hidden';
 }

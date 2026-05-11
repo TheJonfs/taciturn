@@ -195,7 +195,7 @@ function MiniCard(props: {
     >
       <div style={miniCardPositionStyle}>{position}</div>
       <div style={miniCardPortraitStyle}>
-        <MiniPortrait classId={classId} isCharged={isCharged} fallbackColor={borderColor} />
+        <MiniPortrait classId={classId} isCharged={isCharged} fallbackColor={borderColor} teamId={teamId} />
       </div>
       <div style={miniCardLabelColStyle}>
         <div style={miniCardNameStyle}>{label}</div>
@@ -234,6 +234,8 @@ function ActiveUnitAnchor(props: {
   const borderColor = teamColor(unit.team);
 
   const portraitUrl = portraitUrlFor(unit.classState.currentClass);
+  // Enemy-team portrait flip per session 25 (matches canvas convention).
+  const portraitTransform = unit.team === 'team_b' ? 'scaleX(-1)' : undefined;
   return (
     <div style={anchorStyle(borderColor)}>
       <div style={anchorHeaderStyle}>Active Unit</div>
@@ -251,6 +253,7 @@ function ActiveUnitAnchor(props: {
               borderWidth: 2,
               borderStyle: 'solid',
               borderColor,
+              ...(portraitTransform !== undefined ? { transform: portraitTransform } : {}),
             }}
           />
         ) : (
@@ -394,13 +397,19 @@ function describeEvent(
 // falls back to the colored block (the prior visual) when missing.
 // Charged-action cards get a circular crop + dashed border accent to
 // preserve the existing "this is a spell, not a unit" visual idiom.
+//
+// Per session 25: enemy-team portraits (team_b) flip horizontally via
+// `transform: scaleX(-1)` to match the canvas-sprite convention. Ally
+// portraits (team_a) render unflipped.
 function MiniPortrait(props: {
   readonly classId: ClassId | null;
   readonly isCharged: boolean;
   readonly fallbackColor: string;
+  readonly teamId: TeamId | null;
 }): ReactElement {
-  const { classId, isCharged, fallbackColor } = props;
+  const { classId, isCharged, fallbackColor, teamId } = props;
   const url = classId !== null ? portraitUrlFor(classId) : null;
+  const transform = teamId === 'team_b' ? 'scaleX(-1)' : undefined;
   if (url === null) {
     return <div style={miniCardPortraitFillStyle(fallbackColor, isCharged)} />;
   }
@@ -416,6 +425,7 @@ function MiniPortrait(props: {
         borderWidth: isCharged ? 1 : 0,
         borderStyle: isCharged ? 'dashed' : 'solid',
         borderColor: '#f6e5a8',
+        ...(transform !== undefined ? { transform } : {}),
       }}
     />
   );

@@ -32,6 +32,7 @@ export const attack: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,
+  availability: 'available',
   targeting: {
     kind: 'single_unit',
     range: { horizontal: 1, vertical: 3 },

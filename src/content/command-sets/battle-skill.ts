@@ -5,6 +5,13 @@
 // from the action menu when their First Action fires. The broader
 // sword-tech repertoire (Hero Sword, Break, etc.) lands with later
 // Knight content passes.
+//
+// Session 25 (Attack-in-Act refit): the universal `attack` ability
+// is surfaced via the class's `freeAbilities` and renders as a peer
+// of the command sets in the Act picker — so Knight sees "Attack,
+// Battle Skill" rather than seeing Attack twice (once at the picker
+// level, once inside Battle Skill's members). Removing `attack` from
+// `members` keeps it a single-source-of-truth picker entry.
 
 import {
   abilityId,
@@ -16,10 +23,10 @@ export const battleSkill: CommandSetDefinition = {
   id: commandSetId('battle_skill'),
   name: 'Battle Skill',
   members: [
-    abilityId('attack'),
     abilityId('power_attack'),
     abilityId('stasis_sword'),
     abilityId('taunt'),
   ],
   baseCost: 1,
+  availability: 'available',
 };

@@ -33,6 +33,7 @@ export const flowState: PassiveAbilityDefinition = {
   kind: 'passive',
   bucket: bucketId('support'),
   baseCost: 1,
+  availability: 'available',
   tags: ['magical', 'water'],
   hooks: [
     passiveHook('onActionResolved', (args, ctx) => {

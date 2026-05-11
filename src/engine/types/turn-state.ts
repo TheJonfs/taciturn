@@ -28,10 +28,16 @@ export interface TurnBudget {
 // cost calculation at turn_end (Move-only vs Act-only vs Move+Act vs
 // Wait). Re-deriving from the action log is possible but expensive on
 // every turn_end; one counter per kind is the lighter shape.
+//
+// Session 25 removed the decorative `waited: boolean` field — the
+// post-MVP turn-end logic (`reduceTurnEnd`) infers the wait branch from
+// `movesConsumed === 0 && actsConsumed === 0`, so the flag carried no
+// information. Restore it only when a future surface needs to
+// distinguish "user clicked Wait" from "engine auto-ended after budget
+// exhaustion" beyond what the action log already encodes.
 export interface TurnConsumption {
   readonly movesConsumed: number;
   readonly actsConsumed: number;
-  readonly waited: boolean;
 }
 
 // One unit's turn-in-progress. Constructed at turn_start, cleared at

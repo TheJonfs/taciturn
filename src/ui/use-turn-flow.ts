@@ -16,6 +16,7 @@
 
 import { useEffect, useMemo, useReducer, useRef, useState, type Dispatch } from 'react';
 import {
+  abilityId,
   aoeFootprint,
   cardinalFromTo,
   canCommitAction,
@@ -36,11 +37,14 @@ import {
   type Unit,
   type UnitId,
 } from '@engine/index.ts';
+
+const UNIVERSAL_ATTACK_ID = abilityId('attack');
 import type { BattleRenderer } from '@renderer/index.ts';
 import type { UiController } from '@app/controllers/index.ts';
 import {
   INITIAL_TURN_FLOW,
   transition,
+  type ActEntry,
   type TurnFlowEvent,
   type TurnFlowState,
 } from './turn-flow.ts';
@@ -61,6 +65,11 @@ export interface TurnFlow {
   // Active command sets equipped on the active unit (sorted by bucket
   // order so the picker UI is deterministic).
   readonly activeCommandSets: ReadonlyArray<CommandSetId>;
+  // Picker entries shown when the player clicks Act. Class-granted free
+  // abilities (Attack) appear as peers of the equipped command sets so
+  // the picker reads "Attack, Battle Skill, …" rather than splicing
+  // Attack inside one of the sets. Per ADR-0051's session-25 fix.
+  readonly actEntries: ReadonlyArray<ActEntry>;
   // Abilities of a specific command set, decorated with disable info.
   // Returns `null` if the active unit doesn't have this command set.
   abilitiesFor(commandSetId: CommandSetId): ReadonlyArray<ActionMenuAbility> | null;
@@ -162,6 +171,11 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     return out;
   }, [activeUnit, catalog]);
 
+  // Per session 25: Attack lives at the picker level as a peer of the
+  // command sets (per Chris's call). It is NOT spliced into each set's
+  // ability list — the picker treats free abilities and command sets
+  // uniformly via `actEntries`. `abilitiesFor` therefore walks only the
+  // command set's own members.
   const abilitiesFor = useMemo(() => {
     return (commandSetId: CommandSetId): ReadonlyArray<ActionMenuAbility> | null => {
       if (activeUnit === null || state === null) return null;
@@ -178,6 +192,26 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       return out;
     };
   }, [activeUnit, state, catalog]);
+
+  // Picker entries shown when the player clicks Act. Class-granted free
+  // abilities (Attack today) lead, followed by equipped command sets in
+  // bucket order. Selecting a free ability skips straight to target-
+  // select; selecting a command set drills into its member ability list.
+  const actEntries = useMemo<ReadonlyArray<ActEntry>>(() => {
+    if (activeUnit === null) return [];
+    const out: ActEntry[] = [];
+    const cls = catalog.getClass(activeUnit.classState.currentClass);
+    if (cls.freeAbilities.has(UNIVERSAL_ATTACK_ID) && catalog.hasAbility(UNIVERSAL_ATTACK_ID)) {
+      const attack = catalog.getAbility(UNIVERSAL_ATTACK_ID);
+      if (attack.kind === 'active') {
+        out.push({ kind: 'free_ability', abilityId: UNIVERSAL_ATTACK_ID });
+      }
+    }
+    for (const csId of activeCommandSets) {
+      out.push({ kind: 'command_set', commandSetId: csId });
+    }
+    return out;
+  }, [activeUnit, catalog, activeCommandSets]);
 
   // ===== Targeting computations =====
 
@@ -494,6 +528,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     isOurTurn,
     dispatch,
     activeCommandSets,
+    actEntries,
     abilitiesFor,
     movesAvailable,
     actsAvailable,

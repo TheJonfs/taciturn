@@ -36,6 +36,7 @@ export const flameLance: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,
+  availability: 'available',
   tags: ['magical', 'fire'],
   targeting: {
     kind: 'tile',

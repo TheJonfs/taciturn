@@ -70,6 +70,7 @@ function attackAbility(power_coefficient = 4): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
     actionSpeed: 0,
     mpCost: 0,
@@ -84,6 +85,7 @@ function battleSkillSet(): CommandSetDefinition {
     name: 'Battle Skill',
     members: [abilityId('attack')],
     baseCost: 1,
+    availability: 'hidden',
   };
 }
 
@@ -195,6 +197,7 @@ function counterPassive(): PassiveAbilityDefinition {
     kind: 'passive',
     bucket: bucketId('reaction'),
     baseCost: 1,
+    availability: 'hidden',
     hooks: compileReaction({
       triggerOn: ['onActionTargeted'],
       triggerCondition: {
@@ -681,6 +684,7 @@ describe('session 17b — Earth Quake AoE', () => {
       kind: 'active',
       bucket: bucketId('first_action'),
       baseCost: 1,
+      availability: 'hidden',
       tags: ['magical', 'earth'],
       targeting: { kind: 'tile', range: { horizontal: 4, vertical: 2 }, rangeMode: 'arc' },
       actionSpeed: 0, // instant for test simplicity
@@ -718,6 +722,7 @@ describe('session 17b — Earth Quake AoE', () => {
       name: 'Earth Spells',
       members: [abilityId('earth_quake')],
       baseCost: 1,
+      availability: 'hidden',
     };
   }
 
@@ -846,6 +851,7 @@ describe('session 17b — Earth Cataclysm AoE three-status combo', () => {
       kind: 'active',
       bucket: bucketId('first_action'),
       baseCost: 1,
+      availability: 'hidden',
       tags: ['magical', 'earth'],
       targeting: { kind: 'tile', range: { horizontal: 4, vertical: 2 }, rangeMode: 'arc' },
       actionSpeed: 0, // instant for test simplicity
@@ -883,6 +889,7 @@ describe('session 17b — Earth Cataclysm AoE three-status combo', () => {
       name: 'Earth Spells',
       members: [abilityId('earth_cataclysm')],
       baseCost: 1,
+      availability: 'hidden',
     };
     const mageClass: ClassDefinition = {
       id: classId('earth_mage'),

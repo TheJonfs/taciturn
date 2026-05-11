@@ -35,6 +35,7 @@ export const damageReduction: PassiveAbilityDefinition = {
   kind: 'passive',
   bucket: bucketId('support'),
   baseCost: 2,
+  availability: 'available',
   hooks: [
     passiveHook('onDamageReceived', (args) => {
       if (!args.ctx.damageTags.has('physical')) return args.ctx;

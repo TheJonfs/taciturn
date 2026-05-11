@@ -30,6 +30,9 @@ import {
   PASSIVE_BUCKET_IDS,
 } from './constants.ts';
 
+// Test-only definitions default to `availability: 'hidden'` so future
+// team-builder integrations never pick them up — they're scaffolding
+// for engine tests, not real content. Per ADR-0049.
 export function makePassive(args: {
   readonly id: string;
   readonly bucket: BucketId;
@@ -42,6 +45,7 @@ export function makePassive(args: {
     kind: 'passive',
     bucket: args.bucket,
     baseCost: args.baseCost ?? 1,
+    availability: 'hidden',
     hooks: args.hooks ?? [],
   };
 }
@@ -61,6 +65,7 @@ export function makeActive(args: {
     kind: 'active',
     bucket: args.bucket ?? bucketId('first_action'),
     baseCost: args.baseCost ?? 1,
+    availability: 'hidden',
     targeting: args.targeting ?? { kind: 'self' },
     actionSpeed: args.actionSpeed ?? 0,
     mpCost: args.mpCost ?? 0,
@@ -78,6 +83,7 @@ export function makeCommandSet(args: {
     name: args.id,
     members: (args.members ?? []).map(abilityId),
     baseCost: args.baseCost ?? 1,
+    availability: 'hidden',
   };
 }
 

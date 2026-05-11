@@ -13,10 +13,17 @@
 // higher). Capacity is a property of the bucket, not the set.
 
 import type { AbilityId, CommandSetId } from '../../types/index.ts';
+import type { Availability } from './availability.ts';
 
 export interface CommandSetDefinition {
   readonly id: CommandSetId;
   readonly name: string;
   readonly members: ReadonlyArray<AbilityId>;
   readonly baseCost: number;
+  // Required per ADR-0049. Catalog construction throws if missing.
+  // Hiding a command set keeps its members usable when authored onto
+  // a unit's loadout but excludes the set from team-builder offerings —
+  // appropriate when the set is too thin to surface (v1 `white_magic`)
+  // or reserved for future progression content.
+  readonly availability: Availability;
 }

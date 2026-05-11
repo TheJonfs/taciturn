@@ -23,4 +23,5 @@ export const earthSpells: CommandSetDefinition = {
     abilityId('earth_cataclysm'),
   ],
   baseCost: 1,
+  availability: 'available',
 };

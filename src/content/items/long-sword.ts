@@ -21,6 +21,7 @@ import { itemId, type WeaponEquipment } from '@engine/index.ts';
 export const longSword: WeaponEquipment = {
   id: itemId('long_sword'),
   name: 'Long Sword',
+  availability: 'available',
   kind: 'weapon',
   wp: 8,
   accuracy: 95,

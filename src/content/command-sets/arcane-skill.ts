@@ -20,4 +20,7 @@ export const arcaneSkill: CommandSetDefinition = {
   name: 'Arcane Skill',
   members: [abilityId('bolt')],
   baseCost: 1,
+  // Hidden — Bolt is a throwaway from session 15; Arcane Skill retires
+  // when its content moves into proper class command sets.
+  availability: 'hidden',
 };

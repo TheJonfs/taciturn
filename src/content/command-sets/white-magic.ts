@@ -18,4 +18,8 @@ export const whiteMagic: CommandSetDefinition = {
   name: 'White Magic',
   members: [abilityId('cure')],
   baseCost: 1,
+  // Hidden in v1 per session 25: a one-member set is too thin to surface
+  // to the team builder. Re-enable once the broader white-magic repertoire
+  // (Cura, Raise, Esuna, Protect, Shell, …) lands.
+  availability: 'hidden',
 };

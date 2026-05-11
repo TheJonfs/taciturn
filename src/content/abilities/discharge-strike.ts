@@ -32,6 +32,7 @@ export const dischargeStrike: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,
+  availability: 'hidden',
   tags: ['magical', 'lightning'],
   targeting: {
     kind: 'single_unit',

@@ -30,6 +30,7 @@ export const counter: PassiveAbilityDefinition = compileReactionAbility(
     name: 'Counter',
     bucket: bucketId('reaction'),
     baseCost: 1,
+    availability: 'available',
   },
   {
     triggerOn: ['onActionTargeted'],

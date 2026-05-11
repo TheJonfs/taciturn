@@ -12,6 +12,10 @@ import { items } from './items/index.ts';
 import { rulesets } from './rulesets/index.ts';
 import { statusTypes } from './statuses/index.ts';
 
+// Per-kind exports for tests that need to rebuild the catalog with a
+// ruleset override (per ADR-0050).
+export { abilities, classes, commandSets, items, rulesets, statusTypes };
+
 export function loadDefaultCatalog(): Catalog {
   return createCatalog({ statusTypes, abilities, commandSets, classes, items, rulesets });
 }

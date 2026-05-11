@@ -20,6 +20,7 @@ export const float: PassiveAbilityDefinition = {
   kind: 'passive',
   bucket: bucketId('movement'),
   baseCost: 1,
+  availability: 'hidden',
   hooks: [
     passiveHook('modifyCanEnter', (args) => new Set([...args.baseValue, 'water'])),
   ],

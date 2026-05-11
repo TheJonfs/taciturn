@@ -106,7 +106,7 @@ describe('createInitialState — basics', () => {
       abilities: [],
       // Knight's first_action pins to battle_skill; the catalog must
       // carry it to satisfy the validator.
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1, availability: 'hidden' }],
       classes: [makeKnight()],
       items: [],
       rulesets: [customRuleset],
@@ -173,12 +173,13 @@ describe('createInitialState — validation', () => {
       kind: 'passive' as const,
       bucket: bucketId('support'),
       baseCost: 1,
+      availability: 'hidden' as const,
       hooks: [],
     };
     const cat = createCatalog({
       statusTypes: [],
       abilities: [passive],
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1, availability: 'hidden' }],
       classes: [makeKnight()],
       items: [],
       rulesets: [makeTestRuleset()],

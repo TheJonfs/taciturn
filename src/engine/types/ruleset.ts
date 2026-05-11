@@ -140,7 +140,7 @@ export interface RulesetDamagePipeline {
 
 // Initial-CT formula for battle start.
 //
-// Two v1 variants:
+// Three v1 variants:
 // - `fixed`: every unit starts at the named CT. Used by tests and
 //   simple deterministic openings.
 // - `speed_with_variance`: each unit starts at a value derived from
@@ -153,8 +153,13 @@ export interface RulesetDamagePipeline {
 //
 //   The base is `clamp(speed * speedFactor, 0, 99)` (so no unit starts
 //   pre-triggered) plus a stable-hashed offset in `[-variancePct/2,
-//   +variancePct/2]` of the threshold. v1 default ruleset uses
-//   `speedFactor = 5` and `variancePct = 20` (±10 around the base).
+//   +variancePct/2]` of the threshold.
+// - `uniform_int`: each unit starts at an integer drawn uniformly from
+//   `[min, max]` inclusive, derived from `(masterSeed, unitId)`. Speed-
+//   independent — the mage and the knight both roll the same range.
+//   Default v1 ruleset uses `{ min: 0, max: 20 }` per the spec, giving
+//   a small but real starting-tempo wobble without unbalancing the
+//   action queue. Per ADR-0050.
 //
 // Adding a new variant: a new discriminant here plus a clause in
 // `engine/setup/create-initial-state.ts`'s `resolveInitialCT`.
@@ -164,6 +169,11 @@ export type RulesetInitialCT =
       readonly kind: 'speed_with_variance';
       readonly speedFactor: number;
       readonly variancePct: number;
+    }
+  | {
+      readonly kind: 'uniform_int';
+      readonly min: number;
+      readonly max: number;
     };
 
 // Per-bucket capacity baseline. The capacity *floor* — equipment, status,

@@ -26,4 +26,5 @@ export const lightningSpells: CommandSetDefinition = {
     abilityId('storm_caller'),
   ],
   baseCost: 1,
+  availability: 'available',
 };

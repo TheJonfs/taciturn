@@ -9,6 +9,7 @@ import {
 import {
   createCatalog,
   DuplicateDefinitionError,
+  MissingAvailabilityError,
   UnknownDefinitionError,
   type AbilityDefinition,
   type ClassDefinition,
@@ -36,6 +37,7 @@ const cure: AbilityDefinition = {
   kind: 'active',
   bucket: bucketId('second_action'),
   baseCost: 1,
+  availability: 'hidden',
   targeting: { kind: 'self' },
   actionSpeed: 0,
   mpCost: 0,
@@ -47,6 +49,7 @@ const fire: AbilityDefinition = {
   kind: 'active',
   bucket: bucketId('second_action'),
   baseCost: 1,
+  availability: 'hidden',
   targeting: { kind: 'self' },
   actionSpeed: 0,
   mpCost: 0,
@@ -57,6 +60,7 @@ const battleSkill: CommandSetDefinition = {
   name: 'Battle Skill',
   members: [],
   baseCost: 1,
+  availability: 'hidden',
 };
 const knight: ClassDefinition = {
   id: classId('knight'),
@@ -72,7 +76,14 @@ const knight: ClassDefinition = {
   firstActionCommandSet: commandSetId('battle_skill'),
   freeAbilities: new Set(),
 };
-const longSword: ItemDefinition = { id: itemId('long_sword'), name: 'Long Sword' };
+const longSword: ItemDefinition = {
+  id: itemId('long_sword'),
+  name: 'Long Sword',
+  availability: 'hidden',
+  kind: 'weapon',
+  wp: 1,
+  accuracy: 100,
+};
 
 function defaults() {
   return {
@@ -108,6 +119,7 @@ describe('createCatalog', () => {
       kind: 'active',
       bucket: bucketId('second_action'),
       baseCost: 1,
+      availability: 'hidden',
       targeting: { kind: 'self' },
       actionSpeed: 0,
       mpCost: 0,
@@ -126,7 +138,12 @@ describe('createCatalog', () => {
   it('treats duplicates as a per-kind concern; the same id in different kinds is fine', () => {
     // ItemId 'haste' and StatusTypeId 'haste' are different brands; the
     // registries are independent. The catalog should accept both.
-    const dualUse: ItemDefinition = { id: itemId('haste'), name: 'Haste Belt' };
+    const dualUse: ItemDefinition = {
+      id: itemId('haste'),
+      name: 'Haste Belt',
+      availability: 'hidden',
+      kind: 'accessory',
+    };
     const cat = createCatalog({ ...defaults(), items: [longSword, dualUse] });
     expect(cat.hasStatusType(statusTypeId('haste'))).toBe(true);
     expect(cat.hasItem(itemId('haste'))).toBe(true);
@@ -177,6 +194,55 @@ describe('Catalog lookup', () => {
       expect((e as UnknownDefinitionError).kindName).toBe('Class');
       expect((e as UnknownDefinitionError).id).toBe('squire');
     }
+  });
+});
+
+describe('Catalog availability validation (ADR-0049)', () => {
+  it('throws MissingAvailabilityError when an ability omits availability', () => {
+    // Force a stripped-down ability through the type system via `unknown`
+    // — the TS type already requires the field; this guards against
+    // dynamic content that bypasses the type.
+    const stripped: AbilityDefinition = ({
+      id: abilityId('stripped'),
+      name: 'Stripped',
+      kind: 'active',
+      bucket: bucketId('second_action'),
+      baseCost: 1,
+      targeting: { kind: 'self' },
+      actionSpeed: 0,
+      mpCost: 0,
+      effects: {},
+    } as unknown) as AbilityDefinition;
+    expect(() =>
+      createCatalog({ ...defaults(), abilities: [stripped] }),
+    ).toThrowError(MissingAvailabilityError);
+  });
+
+  it('throws MissingAvailabilityError when an item omits availability', () => {
+    const stripped: ItemDefinition = ({
+      id: itemId('stripped'),
+      name: 'Stripped Item',
+      kind: 'accessory',
+    } as unknown) as ItemDefinition;
+    expect(() =>
+      createCatalog({ ...defaults(), items: [stripped] }),
+    ).toThrowError(MissingAvailabilityError);
+  });
+
+  it('throws MissingAvailabilityError when a command set omits availability', () => {
+    const stripped: CommandSetDefinition = ({
+      id: commandSetId('stripped'),
+      name: 'Stripped Set',
+      members: [],
+      baseCost: 1,
+    } as unknown) as CommandSetDefinition;
+    expect(() =>
+      createCatalog({ ...defaults(), commandSets: [stripped] }),
+    ).toThrowError(MissingAvailabilityError);
+  });
+
+  it('accepts catalog with availability everywhere', () => {
+    expect(() => createCatalog(defaults())).not.toThrow();
   });
 });
 

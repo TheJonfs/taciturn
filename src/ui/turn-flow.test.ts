@@ -106,9 +106,12 @@ describe('turn-flow reducer — top-level menu picks', () => {
     });
   });
 
-  it('pickAct with single command set → ability-list directly', () => {
+  it('pickAct with a single command-set entry → ability-list directly', () => {
     const s: TurnFlowState = { kind: 'action-menu' };
-    const next = transition(s, { kind: 'pickAct', commandSets: [setA] });
+    const next = transition(s, {
+      kind: 'pickAct',
+      entries: [{ kind: 'command_set', commandSetId: setA }],
+    });
     expect(next).toEqual({
       kind: 'ability-list',
       commandSetId: setA,
@@ -116,15 +119,84 @@ describe('turn-flow reducer — top-level menu picks', () => {
     });
   });
 
-  it('pickAct with two command sets → command-set-select', () => {
+  it('pickAct with two command-set entries → command-set-select', () => {
     const s: TurnFlowState = { kind: 'action-menu' };
-    const next = transition(s, { kind: 'pickAct', commandSets: [setA, setB] });
+    const next = transition(s, {
+      kind: 'pickAct',
+      entries: [
+        { kind: 'command_set', commandSetId: setA },
+        { kind: 'command_set', commandSetId: setB },
+      ],
+    });
     expect(next).toEqual({ kind: 'command-set-select' });
   });
 
-  it('pickAct with zero command sets is a no-op', () => {
+  it('pickAct with zero entries is a no-op', () => {
     const s: TurnFlowState = { kind: 'action-menu' };
-    expect(transition(s, { kind: 'pickAct', commandSets: [] })).toEqual(s);
+    expect(transition(s, { kind: 'pickAct', entries: [] })).toEqual(s);
+  });
+
+  it('pickAct with a single free-ability entry → target-select directly', () => {
+    // Hypothetical class with only Attack free and no command sets:
+    // the picker is skipped.
+    const s: TurnFlowState = { kind: 'action-menu' };
+    const next = transition(s, {
+      kind: 'pickAct',
+      entries: [{ kind: 'free_ability', abilityId: attack }],
+    });
+    expect(next).toEqual({
+      kind: 'target-select',
+      commandSetId: null,
+      commandSetCount: 0,
+      abilityId: attack,
+      hoverTarget: null,
+    });
+  });
+
+  it('pickAct with free-ability + command-set entries → command-set-select (the typical Knight/Mage shape)', () => {
+    const s: TurnFlowState = { kind: 'action-menu' };
+    const next = transition(s, {
+      kind: 'pickAct',
+      entries: [
+        { kind: 'free_ability', abilityId: attack },
+        { kind: 'command_set', commandSetId: setA },
+      ],
+    });
+    expect(next).toEqual({ kind: 'command-set-select' });
+  });
+
+  it('pickFreeAbility from command-set-select → target-select with cancel routing back to the picker', () => {
+    const s: TurnFlowState = { kind: 'command-set-select' };
+    const next = transition(s, { kind: 'pickFreeAbility', abilityId: attack });
+    expect(next).toEqual({
+      kind: 'target-select',
+      commandSetId: null,
+      commandSetCount: 2,
+      abilityId: attack,
+      hoverTarget: null,
+    });
+  });
+
+  it('cancel from target-select on a free ability picked via picker → command-set-select', () => {
+    const s: TurnFlowState = {
+      kind: 'target-select',
+      commandSetId: null,
+      commandSetCount: 2,
+      abilityId: attack,
+      hoverTarget: null,
+    };
+    expect(transition(s, { kind: 'cancel' })).toEqual({ kind: 'command-set-select' });
+  });
+
+  it('cancel from target-select on a free ability picked without a picker → action-menu', () => {
+    const s: TurnFlowState = {
+      kind: 'target-select',
+      commandSetId: null,
+      commandSetCount: 0,
+      abilityId: attack,
+      hoverTarget: null,
+    };
+    expect(transition(s, { kind: 'cancel' })).toEqual({ kind: 'action-menu' });
   });
 
   it('pickWait → wait-confirm (facing picker)', () => {

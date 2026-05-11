@@ -63,6 +63,7 @@ const attack: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: FIRST,
   baseCost: 1,
+  availability: 'hidden',
   targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
   actionSpeed: 0,
   mpCost: 0,
@@ -75,6 +76,7 @@ const cure: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: SECOND,
   baseCost: 1,
+  availability: 'hidden',
   targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
   actionSpeed: 0,
   mpCost: 4,
@@ -86,6 +88,7 @@ const battleSkill: CommandSetDefinition = {
   name: 'Battle Skill',
   members: [ATTACK_ID],
   baseCost: 1,
+  availability: 'hidden',
 };
 
 const whiteMagic: CommandSetDefinition = {
@@ -93,6 +96,7 @@ const whiteMagic: CommandSetDefinition = {
   name: 'White Magic',
   members: [CURE_ID],
   baseCost: 1,
+  availability: 'hidden',
 };
 
 const knight: ClassDefinition = {
@@ -177,7 +181,7 @@ function buildBattle(opts: BuildOpts): { state: GameState; catalog: Catalog } {
     turnState: {
       unitId: unitId(activeId),
       budget: { movesAvailable: 1, actsAvailable: 1 },
-      consumed: { movesConsumed: 0, actsConsumed: 0, waited: false },
+      consumed: { movesConsumed: 0, actsConsumed: 0 },
       reactionsUsedThisTurn: new Map(),
     },
   };

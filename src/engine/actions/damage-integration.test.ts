@@ -48,6 +48,7 @@ function attackAbility(power_coefficient = 4): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('first_action'),
     baseCost: 1,
+    availability: 'hidden',
     targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
     actionSpeed: 0,
     mpCost: 0,
@@ -62,6 +63,7 @@ function cureAbility(power_coefficient = 5): ActiveAbilityDefinition {
     kind: 'active',
     bucket: bucketId('second_action'),
     baseCost: 1,
+    availability: 'hidden',
     targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
     actionSpeed: 0,
     mpCost: 4,
@@ -82,6 +84,7 @@ function counterPassive(): PassiveAbilityDefinition {
     kind: 'passive',
     bucket: bucketId('reaction'),
     baseCost: 1,
+    availability: 'hidden',
     hooks: [
       passiveHook('onActionTargeted', (args) => {
         const tags = args.damageTags;
@@ -112,6 +115,7 @@ function battleSkill(): CommandSetDefinition {
     name: 'Battle Skill',
     members: [abilityId('attack')],
     baseCost: 1,
+    availability: 'hidden',
   };
 }
 
@@ -136,7 +140,7 @@ function defaultActiveTurn(unitIdString: string) {
   return {
     unitId: unitId(unitIdString),
     budget: { movesAvailable: 1, actsAvailable: 1 },
-    consumed: { movesConsumed: 0, actsConsumed: 0, waited: false },
+    consumed: { movesConsumed: 0, actsConsumed: 0 },
     reactionsUsedThisTurn: new Map(),
   };
 }
@@ -240,6 +244,7 @@ describe('reduceUseAbility — damage application', () => {
       kind: 'active',
       bucket: bucketId('first_action'),
       baseCost: 1,
+      availability: 'hidden',
       targeting: { kind: 'self' },
       actionSpeed: 0,
       mpCost: 0,
@@ -249,7 +254,7 @@ describe('reduceUseAbility — damage application', () => {
     const cat = createCatalog({
       statusTypes: [],
       abilities: [battleCry],
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [], baseCost: 1, availability: 'hidden' }],
       classes: [knightClass()],
       items: [],
       rulesets: [ruleset],
@@ -278,7 +283,7 @@ describe('reduceUseAbility — healing application', () => {
     const cat = createCatalog({
       statusTypes: [],
       abilities: [cure],
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('cure')], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('cure')], baseCost: 1, availability: 'hidden' }],
       classes: [knightClass()],
       items: [],
       rulesets: [ruleset],
@@ -565,7 +570,7 @@ describe('Counter reaction chain', () => {
     const cat = createCatalog({
       statusTypes: [],
       abilities: [cure, counter, attackAbility()],
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('cure')], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('cure')], baseCost: 1, availability: 'hidden' }],
       classes: [knightClass()],
       items: [],
       rulesets: [ruleset],
@@ -617,6 +622,7 @@ describe('Magical damage end-to-end (session 14)', () => {
       kind: 'active',
       bucket: bucketId('first_action'),
       baseCost: 1,
+      availability: 'hidden',
       targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
       actionSpeed: 0,
       mpCost: args.mpCost ?? 4,
@@ -630,7 +636,7 @@ describe('Magical damage end-to-end (session 14)', () => {
     const cat = createCatalog({
       statusTypes: [],
       abilities: [spell],
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('magical_bolt')], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('magical_bolt')], baseCost: 1, availability: 'hidden' }],
       classes: [knightClass()],
       items: [],
       rulesets: [ruleset],
@@ -687,7 +693,7 @@ describe('Magical damage end-to-end (session 14)', () => {
     const cat = createCatalog({
       statusTypes: [],
       abilities: [spell],
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('magical_bolt')], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('magical_bolt')], baseCost: 1, availability: 'hidden' }],
       classes: [knightClass()],
       items: [],
       rulesets: [ruleset],
@@ -741,7 +747,7 @@ describe('MP cost timing (deduct on commit; no refund path)', () => {
     const cat = createCatalog({
       statusTypes: [],
       abilities: [cure],
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('cure')], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('cure')], baseCost: 1, availability: 'hidden' }],
       classes: [knightClass()],
       items: [],
       rulesets: [ruleset],
@@ -793,7 +799,7 @@ describe('MP cost timing (deduct on commit; no refund path)', () => {
     const cat = createCatalog({
       statusTypes: [],
       abilities: [cure],
-      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('cure')], baseCost: 1 }],
+      commandSets: [{ id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('cure')], baseCost: 1, availability: 'hidden' }],
       classes: [knightClass()],
       items: [],
       rulesets: [ruleset],
