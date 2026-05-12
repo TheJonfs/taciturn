@@ -15,9 +15,11 @@
 // per `createInitialState`.
 
 import type {
+  BucketId,
   DamageTag,
   ItemId,
   PartialBaseStats,
+  StatName,
   StatusTag,
   StatusTypeId,
 } from '../../types/index.ts';
@@ -44,6 +46,17 @@ export type IncomingStatusModifier =
   | { readonly kind: 'by_type'; readonly statusTypeId: StatusTypeId; readonly chanceMultiplier: number }
   | { readonly kind: 'by_tag'; readonly statusTag: StatusTag; readonly chanceMultiplier: number };
 
+// Status-tick-amount multiplier — applied multiplicatively to the
+// per-tick decrement amount (default 1). Either per-status-type
+// (`statusTypeId`) or per-status-tag (`statusTag`); both undefined
+// means "applies to every status." Purifier authors `{ factor: 2,
+// statusTag: 'negative' }`. Per ADR-0060.
+export interface StatusTickAmountMultiplier {
+  readonly factor: number;
+  readonly statusTypeId?: StatusTypeId;
+  readonly statusTag?: StatusTag;
+}
+
 // Common fields across every equipment kind. Stat mods, status grants,
 // and damage tags all default to "none" when omitted; consumers pattern
 // against the optional shape directly.
@@ -56,10 +69,20 @@ interface EquipmentBase {
   // Additive stat modifiers contributed by this item while equipped.
   // Each declared stat is read by a corresponding `modifyStatQuery`
   // handler emitted from the equipment hook source. Composition is
-  // additive; equipment never multiplies base stats today (statuses /
-  // passives use multiplicative composition for that — keeps equipment
-  // and status modifier semantics distinct).
+  // additive; multiplicative shifts use `statModsMultiplicative` below.
   readonly statMods?: PartialBaseStats;
+
+  // Multiplicative stat modifiers — keyed by query StatName (not
+  // BaseStats storage key) so authors write `{ maxMp: 1.5 }` for Staff
+  // of Abundance. Each declared entry contributes one handler that
+  // multiplies the running baseValue by the factor. Composition within
+  // the Equipment tier runs *after* all additive handlers per
+  // ADR-0058 — `(60 + 40) × 1.5 = 150` for a Mage in Wizard's Robe
+  // (+40 MP additive) with Staff of Abundance (×1.5 multiplicative).
+  // Per-handler tieBreakIndex within the multiplicative group orders
+  // multiple multipliers stably; the final composition is associative
+  // so order among multipliers doesn't matter mathematically.
+  readonly statModsMultiplicative?: Partial<Record<StatName, number>>;
 
   // Statuses applied to the wearer at battle start. Anchored with
   // `StatusInstanceSource = { kind: 'equipment', equipmentId, ... }`
@@ -99,6 +122,22 @@ interface EquipmentBase {
   // entry; the chain composes multiplicatively against the post-
   // caster-chain chance.
   readonly incomingStatusModifiers?: ReadonlyArray<IncomingStatusModifier>;
+
+  // Per ADR-0059 (Session 28). Additive bucket-capacity deltas — e.g.
+  // Steel Helm `{ reaction: 1 }`, Augmentor `{ support: 1 }`, Magus
+  // Crown `{ first_action: 1 }`. Each entry contributes one handler
+  // that returns `args.baseCapacity + delta` when `args.bucket`
+  // matches the entry's key. No v1 item declares the field; Session 29
+  // populates it on Steel Helm / Augmentor / Magus Crown.
+  readonly bucketCapacityMods?: ReadonlyMap<BucketId, number>;
+
+  // Per ADR-0060 (Session 28). Multiplicative status-tick-amount
+  // modifiers — Purifier `[{ factor: 2, statusTag: 'negative' }]`
+  // doubles the per-tick stack-consumption rate on Burn / Poison /
+  // negative-tagged statuses. Each entry contributes one handler that
+  // returns `args.baseAmount * factor` when the status's type / tags
+  // match the gate; no-op otherwise.
+  readonly statusTickAmountMultipliers?: ReadonlyArray<StatusTickAmountMultiplier>;
 }
 
 export interface WeaponEquipment extends EquipmentBase {

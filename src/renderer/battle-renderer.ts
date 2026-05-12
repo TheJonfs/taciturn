@@ -18,6 +18,7 @@
 
 import { Assets, Container, type Application, type FederatedPointerEvent, type Texture } from 'pixi.js';
 import {
+  runModifyStatQuery,
   tilesAt,
   unitAt,
   type Action,
@@ -51,7 +52,6 @@ export class BattleRenderer {
   private readonly unitLayer: Container;
   private readonly sprites: Map<UnitId, UnitSprite> = new Map();
   private readonly animator: Animator = new Animator();
-  private readonly maxMp: Map<UnitId, number> = new Map();
   private camera: CameraController | null = null;
   private catalog: Catalog | null = null;
   private lastActiveUnit: UnitId | null = null;
@@ -128,13 +128,9 @@ export class BattleRenderer {
     const playerTeam: TeamId = state.units.values().next().value?.team ?? ('team_a' as TeamId);
 
     for (const unit of state.units.values()) {
-      // Capture the unit's starting MP as their effective max for the
-      // duration of the battle. v1 has no maxMp stat (Cluster 4 /
-      // Session 28); MP-restoration sources are rare in current
-      // content, so the starting value is a workable cap. If a future
-      // session adds MP gain past this, surface a refresh hook here.
-      this.maxMp.set(unit.id, unit.vitals.mp);
-
+      // Per ADR-0058: `maxMp` is queried per-frame via
+      // `runModifyStatQuery` in `applyVisualState`, so equipment /
+      // status contributions compose live. No mount-captured cache.
       const sprite = new UnitSprite(unit, { enemyTeam: unit.team !== playerTeam });
       this.sprites.set(unit.id, sprite);
       this.unitLayer.addChild(sprite.container);
@@ -470,7 +466,19 @@ export class BattleRenderer {
       // tween-on-flash behavior so damage reads feel like impact.
       const unit = this.lastState?.units.get(unitId);
       const mp = unit?.vitals.mp ?? 0;
-      const maxMp = this.maxMp.get(unitId) ?? Math.max(mp, 1);
+      // Per ADR-0058: read effective `maxMp` per-frame via
+      // `runModifyStatQuery` so equipment / status contributions
+      // compose live. Falls back to `Math.max(mp, 1)` when state /
+      // catalog are absent (mid-mount transient).
+      let maxMp = Math.max(mp, 1);
+      if (unit !== undefined && this.lastState !== null && this.catalog !== null) {
+        const queried = runModifyStatQuery(this.lastState, this.catalog, {
+          unit,
+          statName: 'maxMp',
+          baseValue: unit.baseStats.maxMpBase,
+        });
+        maxMp = Math.max(1, Math.floor(queried));
+      }
       const statuses = unit !== undefined ? this.computeStatusBadges(unit) : [];
       sprite.setVisualState({
         position: snap.position,

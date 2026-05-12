@@ -22,6 +22,7 @@ export {
 } from './collector.ts';
 export {
   runModifyActionSpeed,
+  runModifyBucketCapacity,
   runModifyCanEnter,
   runModifyEvasion,
   runModifyHitChance,
@@ -31,6 +32,7 @@ export {
   runModifySpecialMovement,
   runModifyStatQuery,
   runModifyStatusApplicationChance,
+  runModifyStatusTickAmount,
   runModifySystemDamage,
   runModifyTerrainCosts,
   runOnActionAttempted,

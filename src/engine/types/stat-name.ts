@@ -11,6 +11,10 @@
 // - 'jump'          — engine/map/movement-profile.ts, session 4.
 // - 'pa', 'ma'      — engine/damage/ pipeline base handlers, session 8.
 // - 'maxHp'         — engine/damage/ pipeline cap stage (healing), session 8.
+// - 'maxMp'         — added session 28 (ADR-0058). Consumed by the
+//   renderer's MP bar (per-frame query) and by `fillVitalsFromComputedMaxes`
+//   at battle start. Equipment contributes via additive `statMods` and the
+//   new multiplicative `statModsMultiplicative` field on ItemDefinition.
 // - 'brave', 'faith' — added 13.7. Consumers ship in session 14
 //   (Faith_factor in magical damage / status application formulas;
 //   Brave/100 in reaction trigger chance and certain physical formulas).
@@ -31,6 +35,7 @@ export type StatName =
   | 'pa'
   | 'ma'
   | 'maxHp'
+  | 'maxMp'
   | 'brave'
   | 'faith'
   | 'crit_chance'

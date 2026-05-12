@@ -199,7 +199,11 @@ function fillVitalsFromComputedMaxes(
   battleConfig: BattleConfig,
   catalog: Catalog,
 ): GameState {
-  // Map placement.id → whether the placement supplied explicit vitals.
+  // Per ADR-0058: `maxMpBase` is a first-class stat; placements that
+  // omit `vitals` fill BOTH hp and mp from the computed `maxHp` / `maxMp`
+  // queries (so equipment contributions — Wizard's Robe +40 MP, Staff
+  // of Abundance ×1.5 maxMp — compose before vitals land). Explicit
+  // `placement.vitals` overrides still win when present.
   const explicitVitals = new Set<UnitId>();
   for (const p of battleConfig.units) {
     if (p.vitals !== undefined) explicitVitals.add(p.id);
@@ -214,12 +218,18 @@ function fillVitalsFromComputedMaxes(
       statName: 'maxHp',
       baseValue: unit.baseStats.maxHpBase,
     });
-    // MP isn't yet a `modifyStatQuery` consumer — equipment doesn't
-    // contribute MP today (no `maxMpBase` stat exists). When it does,
-    // this is where the read lands. v1 fills hp from computed max,
-    // mp at 0 (placeholder for the still-stored loadout/spell-cost
-    // accounting, which lives off the unit's vitals.mp field).
-    newUnits.set(unit.id, { ...unit, vitals: { hp: Math.max(0, Math.floor(maxHp)), mp: 0 } });
+    const maxMp = runModifyStatQuery(state, catalog, {
+      unit,
+      statName: 'maxMp',
+      baseValue: unit.baseStats.maxMpBase,
+    });
+    newUnits.set(unit.id, {
+      ...unit,
+      vitals: {
+        hp: Math.max(0, Math.floor(maxHp)),
+        mp: Math.max(0, Math.floor(maxMp)),
+      },
+    });
   }
   return { ...state, units: newUnits };
 }

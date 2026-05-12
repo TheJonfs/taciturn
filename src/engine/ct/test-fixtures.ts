@@ -33,6 +33,7 @@ export function makeUnit(overrides: {
   readonly pa?: number;
   readonly ma?: number;
   readonly maxHpBase?: number;
+  readonly maxMpBase?: number;
   readonly brave?: number;
   readonly faith?: number;
   // Session 20: crit defaults to 0/1 in fixtures so pre-session-20 tests
@@ -67,6 +68,7 @@ export function makeUnit(overrides: {
       pa: overrides.pa ?? 5,
       ma: overrides.ma ?? 4,
       maxHpBase: overrides.maxHpBase ?? 100,
+      maxMpBase: overrides.maxMpBase ?? 50,
       brave: overrides.brave ?? 100,
       faith: overrides.faith ?? 80,
       crit_chance: overrides.crit_chance ?? 0,

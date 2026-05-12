@@ -1,13 +1,14 @@
 // Per-character bucket capacity computation.
-// See docs/design/ability-slots.md and ADR-0007 / ADR-0008.
+// See docs/design/ability-slots.md and ADR-0007 / ADR-0008 / ADR-0059.
 //
 // Like cost, capacity is *computed* — never stored on the loadout. The
 // baseline (read from the active ruleset's `bucketCapacities`) is the
-// floor; equipment, status, and class traits with "+1 Active capacity"
-// or "-2 Reaction capacity" effects compose at query time when their
-// hook surfaces land.
+// floor; equipment, status, and class traits compose additively through
+// `modifyBucketCapacity` (Session 28 / ADR-0059). The final value is
+// floored at 0 to prevent author errors from producing negative capacity.
 
 import type { Catalog } from '../catalog/index.ts';
+import { runModifyBucketCapacity } from '../hooks/runners.ts';
 import {
   getUnit,
   type BucketId,
@@ -22,9 +23,7 @@ export function getCapacity(
   bucketId: BucketId,
   catalog: Catalog,
 ): number {
-  // Side-effect: confirms the unit exists. Once equipment / class
-  // traits modify capacity, their lookups go through the unit too.
-  void getUnit(state, unitId);
+  const unit = getUnit(state, unitId);
   if (!ALL_BUCKET_IDS.includes(bucketId)) {
     throw new Error(
       `getCapacity: unknown BucketId ${JSON.stringify(bucketId)} — only the v1 buckets are supported`,
@@ -39,5 +38,10 @@ export function getCapacity(
       `getCapacity: ruleset ${JSON.stringify(ruleset.id)} has no baseline capacity for bucket ${JSON.stringify(bucketId)}`,
     );
   }
-  return baseline;
+  const composed = runModifyBucketCapacity(state, catalog, {
+    unit,
+    bucket: bucketId,
+    baseCapacity: baseline,
+  });
+  return Math.max(0, Math.floor(composed));
 }

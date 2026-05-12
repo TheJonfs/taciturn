@@ -31,6 +31,15 @@
 // scoring layer handles them separately. Same for self-damage costs —
 // `selfDamage` is dispatcher-emitted, not pipeline-driven.
 //
+// **MP-cap-aware features:** v1 AI's MP awareness is limited to
+// `canAfford` (current `vitals.mp` vs `computeMpCost`). Future
+// projection of MP-cap-aware decisions (MP-gain procs, drains capped
+// by `maxMp`, opportunistic over-pour to drain target MP) must read
+// effective max via `runModifyStatQuery(state, catalog, { unit,
+// statName: 'maxMp', baseValue: unit.baseStats.maxMpBase })` per
+// ADR-0058 so equipment / status contributions to maxMp compose.
+// `vitals.mp` is current MP only — never use it as a max-cap read.
+//
 // Per the session-20b ADR: drift risk is mitigated by a contract test
 // (`projection.test.ts`) that asserts the projection equals the
 // average of N live `runDamagePipeline` runs within a small tolerance

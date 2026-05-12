@@ -674,19 +674,6 @@ function projectExpectedDamageFromActor(
   return projectExpectedDamage({ state, catalog, attacker: repositioned, target, ability });
 }
 
-// Whether the actor has any damage-dealing offensive ability — used
-// to gate the Magnetic Mark setup→exploit bonus. Without a follow-up,
-// marking is wasted.
-function actorHasDamageFollowUp(state: GameState, actor: Unit, catalog: Catalog): boolean {
-  const offensives = enumerateOffensiveAbilities(state, actor, catalog);
-  for (const a of offensives) {
-    if (a.effects.damage !== undefined && !a.effects.damage.tags.includes('healing')) {
-      return true;
-    }
-  }
-  return false;
-}
-
 // Score for an AoE ability anchored at `anchor`. Sums per-target
 // damage projections for enemies in the cluster (each evaluated through
 // the live damage pipeline with the cluster's targetCount, so chainBonus

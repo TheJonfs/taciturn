@@ -11,6 +11,14 @@
 // from the *computed* `maxHp` query (StatName: 'maxHp'). pa and ma are
 // stored under their query names (no suffix) since the v1 hook surface
 // happens to query the same name as the stored field.
+//
+// Session 28 added `maxMpBase` (StatName: 'maxMp') for parallel MP-cap
+// composition through `modifyStatQuery`. Per-class baselines populate
+// the field; equipment (Wizard's Robe +40 additive, Staff of Abundance
+// ×1.5 multiplicative) contributes via additive `statMods` and the new
+// multiplicative `statModsMultiplicative` field on ItemDefinition.
+// Composition order within the Equipment tier is additive-first-then-
+// multiplicative — see ADR-0058.
 
 export interface BaseStats {
   readonly spd: number;
@@ -23,6 +31,12 @@ export interface BaseStats {
   // `maxHp` query (modifyStatQuery hook chain) consumed by healing's
   // cap stage. Damage's lower-bound cap is 0 and doesn't read this.
   readonly maxHpBase: number;
+  // Stored maxMp baseline; the *effective* max MP is the computed
+  // `maxMp` query (modifyStatQuery hook chain). Consumed by the
+  // renderer's MP bar (per-frame query), `fillVitalsFromComputedMaxes`
+  // at battle start when placement omits explicit `vitals.mp`, and
+  // future MP-cap-aware features (MP-gain procs, drains). Per ADR-0058.
+  readonly maxMpBase: number;
   // Character-layer stats. Stored on BaseStats for v1 simplicity; their
   // "character layer" property in the design (durability across battles,
   // class changes, equipment swaps) describes their progression model,

@@ -163,8 +163,14 @@ const LIGHTNING_MAGE_LOADOUT: UnitPlacement['loadout'] = {
 // magical interactions; Brave_factor 0.70). Reactions become probabilistic
 // at Brave 70 — tests that needed deterministic triggers either override
 // Brave to 100 explicitly or use seeded RNG (see audit report's test
-// summary). All five classes carry the L25 stat targets from the spec;
-// vitals fill from maxHpBase / mp at battle start.
+// summary). All five classes carry the L25 stat targets from the spec.
+//
+// Session 28 (ADR-0058): `maxMpBase` joins `maxHpBase` as a stat-layer
+// baseline. Knight 20 / Mages 60 per the spec. Placements omit explicit
+// `vitals` and let `fillVitalsFromComputedMaxes` derive hp/mp from the
+// computed maxHp / maxMp queries at battle start — so any equipment
+// contribution (Wizard's Robe +40 MP, Staff of Abundance ×1.5 maxMp)
+// composes through `modifyStatQuery` before vitals land.
 //
 // Session 20: all demo units carry the crit baseline (crit_chance: 5,
 // crit_multiplier: 1.5) per ADR-0032. Lightning Mage's Static Embrace
@@ -174,13 +180,13 @@ const KNIGHT_BASE_STATS = {
   pa: 11,
   ma: 4,
   maxHpBase: 144,
+  // 20 MP buys five Cures (mpCost 4 each).
+  maxMpBase: 20,
   brave: 70,
   faith: 70,
   crit_chance: 5,
   crit_multiplier: 1.5,
 } as const;
-// 20 MP buys five Cures (mpCost 4 each).
-const KNIGHT_VITALS = { hp: 144, mp: 20 } as const;
 
 // Earth Mage L25 stats per the spec.
 const MAGE_BASE_STATS = {
@@ -188,12 +194,12 @@ const MAGE_BASE_STATS = {
   pa: 4,
   ma: 12,
   maxHpBase: 112,
+  maxMpBase: 60,
   brave: 70,
   faith: 70,
   crit_chance: 5,
   crit_multiplier: 1.5,
 } as const;
-const MAGE_VITALS = { hp: 112, mp: 60 } as const;
 
 // Water Mage L25 stats: fastest mage (Speed 10), HP 102.
 const WATER_MAGE_BASE_STATS = {
@@ -201,12 +207,12 @@ const WATER_MAGE_BASE_STATS = {
   pa: 4,
   ma: 12,
   maxHpBase: 102,
+  maxMpBase: 60,
   brave: 70,
   faith: 70,
   crit_chance: 5,
   crit_multiplier: 1.5,
 } as const;
-const WATER_MAGE_VITALS = { hp: 102, mp: 60 } as const;
 
 // Fire Mage L25 stats: glass-cannon profile — MA 13 (highest among
 // non-Lightning mages), HP 97. At MA 13, Burn coefficient 0.6 → 7
@@ -216,12 +222,12 @@ const FIRE_MAGE_BASE_STATS = {
   pa: 4,
   ma: 13,
   maxHpBase: 97,
+  maxMpBase: 60,
   brave: 70,
   faith: 70,
   crit_chance: 5,
   crit_multiplier: 1.5,
 } as const;
-const FIRE_MAGE_VITALS = { hp: 97, mp: 60 } as const;
 
 // Lightning Mage L25 stats: highest MA (14), lowest HP (87) — burst
 // caster who folds before sustained pressure but brings extreme single-
@@ -232,12 +238,12 @@ const LIGHTNING_MAGE_BASE_STATS = {
   pa: 4,
   ma: 14,
   maxHpBase: 87,
+  maxMpBase: 60,
   brave: 70,
   faith: 70,
   crit_chance: 5,
   crit_multiplier: 1.5,
 } as const;
-const LIGHTNING_MAGE_VITALS = { hp: 87, mp: 60 } as const;
 
 export const demoBattle: BattleConfig = {
   battleId: 'demo_asymmetric',
@@ -261,7 +267,6 @@ export const demoBattle: BattleConfig = {
       position: { x: 2, y: 2, layer: 0 },
       facing: 'E',
       baseStats: KNIGHT_BASE_STATS,
-      vitals: KNIGHT_VITALS,
       loadout: KNIGHT_LOADOUT,
       equipment: KNIGHT_EQUIPMENT,
     },
@@ -273,7 +278,6 @@ export const demoBattle: BattleConfig = {
       position: { x: 1, y: 4, layer: 0 },
       facing: 'E',
       baseStats: WATER_MAGE_BASE_STATS,
-      vitals: WATER_MAGE_VITALS,
       loadout: WATER_MAGE_LOADOUT,
     },
     {
@@ -284,7 +288,6 @@ export const demoBattle: BattleConfig = {
       position: { x: 0, y: 3, layer: 0 },
       facing: 'E',
       baseStats: LIGHTNING_MAGE_BASE_STATS,
-      vitals: LIGHTNING_MAGE_VITALS,
       loadout: LIGHTNING_MAGE_LOADOUT,
     },
     {
@@ -295,7 +298,6 @@ export const demoBattle: BattleConfig = {
       position: { x: 5, y: 2, layer: 0 },
       facing: 'W',
       baseStats: MAGE_BASE_STATS,
-      vitals: MAGE_VITALS,
       loadout: EARTH_MAGE_LOADOUT,
     },
     {
@@ -306,7 +308,6 @@ export const demoBattle: BattleConfig = {
       position: { x: 4, y: 1, layer: 0 },
       facing: 'W',
       baseStats: LIGHTNING_MAGE_BASE_STATS,
-      vitals: LIGHTNING_MAGE_VITALS,
       loadout: LIGHTNING_MAGE_LOADOUT,
     },
     {
@@ -317,7 +318,6 @@ export const demoBattle: BattleConfig = {
       position: { x: 3, y: 3, layer: 0 },
       facing: 'W',
       baseStats: FIRE_MAGE_BASE_STATS,
-      vitals: FIRE_MAGE_VITALS,
       loadout: FIRE_MAGE_LOADOUT,
     },
   ],

@@ -18,6 +18,7 @@ import type {
 } from '../catalog/index.ts';
 import type {
   AoeShape,
+  BucketId,
   DamageContext,
   DamageTag,
   GameState,
@@ -26,6 +27,7 @@ import type {
   ProposedAction,
   StatName,
   StatusInstance,
+  StatusTag,
   StatusTypeId,
   SystemDamageSource,
   TerrainType,
@@ -267,6 +269,46 @@ export interface HookSignatures {
       unit: Unit;
       tag: DamageTag;
       baseValue: number;
+    };
+    return: number;
+  };
+
+  // Bucket-capacity modifier — additive on the unit's effective capacity
+  // for a single bucket. Equipment / status / passive contributors
+  // (Steel Helm +1 reaction, Augmentor +1 support, Magus Crown +1 active)
+  // fire against the wearer's hooks; the additive chain runs through
+  // `getCapacity` which floors the final value at 0. The contributor
+  // reads `args.bucket` to gate per-bucket — a Steel Helm handler
+  // returns `args.baseCapacity + 1` only when `args.bucket === 'reaction'`.
+  // First v1 consumer (Session 29): Steel Helm, Augmentor, Magus Crown
+  // equipment items. Per ADR-0059.
+  modifyBucketCapacity: {
+    args: {
+      unit: Unit;
+      bucket: BucketId;
+      baseCapacity: number;
+    };
+    return: number;
+  };
+
+  // Status-tick-amount modifier — multiplicative on the per-tick
+  // decrement (default `baseAmount = 1`). Equipment contributors
+  // (Purifier ×2 on `negative`-tagged statuses) gate on `args.statusTags`
+  // / `args.statusTypeId` and return `args.baseAmount * factor`.
+  //
+  // Standard duration-mode statuses consume the chain product in
+  // `reduceStatusTick`'s decrement step (decrements `remainingDuration`
+  // by `floor(K)` instead of 1). Custom-mode statuses (Burn) read the
+  // chain in their own onTick handler to scale stack-consumption rate:
+  // Burn under Purifier emits `floor(K)` `status_decrement_stack`
+  // actions per tick, halving effective duration without altering the
+  // per-tick damage formula. Per ADR-0060.
+  modifyStatusTickAmount: {
+    args: {
+      unit: Unit;
+      statusTypeId: StatusTypeId;
+      statusTags: ReadonlyArray<StatusTag>;
+      baseAmount: number;
     };
     return: number;
   };

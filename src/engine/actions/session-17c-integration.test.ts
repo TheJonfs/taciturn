@@ -90,7 +90,7 @@ const TEAM_B = teamId('team_b');
 function buildBattle(args: {
   knightEquipment?: UnitEquipment;
   knightLoadout?: Loadout;
-  knightStats?: { spd?: number; pa?: number; ma?: number; maxHpBase?: number; brave?: number; faith?: number };
+  knightStats?: { spd?: number; pa?: number; ma?: number; maxHpBase?: number; maxMpBase?: number; brave?: number; faith?: number };
   // Optionally provide explicit vitals; otherwise they fill from
   // computed maxes per ADR-0028.
   knightVitals?: { hp: number; mp: number };
@@ -101,6 +101,7 @@ function buildBattle(args: {
     pa: 5,
     ma: 4,
     maxHpBase: 60,
+    maxMpBase: 50,
     brave: 100,
     faith: 80,
     crit_chance: 0,
@@ -716,7 +717,7 @@ describe('source-KO status sweep — Taunted', () => {
           classId: classId('knight'),
           position: { x: 1, y: 1, layer: 0 },
           facing: 'E',
-          baseStats: { spd: 10, pa: 50, ma: 4, maxHpBase: 60, brave: 100, faith: 80, crit_chance: 0, crit_multiplier: 1 },
+          baseStats: { spd: 10, pa: 50, ma: 4, maxHpBase: 60, maxMpBase: 50, brave: 100, faith: 80, crit_chance: 0, crit_multiplier: 1 },
           vitals: { hp: 1, mp: 0 },
           loadout: knightLoadout(),
           equipment: LONG_SWORD_EQUIPMENT,
@@ -728,7 +729,7 @@ describe('source-KO status sweep — Taunted', () => {
           classId: classId('knight'),
           position: { x: 2, y: 1, layer: 0 },
           facing: 'W',
-          baseStats: { spd: 10, pa: 50, ma: 4, maxHpBase: 60, brave: 100, faith: 80, crit_chance: 0, crit_multiplier: 1 },
+          baseStats: { spd: 10, pa: 50, ma: 4, maxHpBase: 60, maxMpBase: 50, brave: 100, faith: 80, crit_chance: 0, crit_multiplier: 1 },
           vitals: { hp: 60, mp: 0 },
           loadout: knightLoadout(),
           equipment: LONG_SWORD_EQUIPMENT,

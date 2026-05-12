@@ -358,9 +358,16 @@ function AbilityButton(props: {
   readonly onClick: () => void;
 }): ReactElement {
   const { ability, disabled, reason, onClick } = props;
+  // Per Session 28 acceptance criteria: suppress the MP-cost line when
+  // an ability is free (Attack and other 0-MP abilities). The button
+  // shows the charge time alone when present; nothing when both are
+  // zero. General rule — applies to any zero-MP ability, not just
+  // Attack.
   const mp = ability.mpCost;
-  const charge = ability.actionSpeed > 0 ? ` · charge ${ability.actionSpeed}` : '';
-  const subline = `MP ${mp}${charge}`;
+  const parts: string[] = [];
+  if (mp > 0) parts.push(`MP ${mp}`);
+  if (ability.actionSpeed > 0) parts.push(`charge ${ability.actionSpeed}`);
+  const subline = parts.join(' · ');
   return (
     <button
       type="button"
@@ -377,7 +384,9 @@ function AbilityButton(props: {
       title={reason ?? undefined}
     >
       <span style={{ fontWeight: 500 }}>{ability.name}</span>
-      <span style={{ fontSize: 11, opacity: 0.7 }}>{subline}</span>
+      {subline.length > 0 && (
+        <span style={{ fontSize: 11, opacity: 0.7 }}>{subline}</span>
+      )}
       {disabled && reason !== null && (
         <span style={{ fontSize: 10, opacity: 0.6, fontStyle: 'italic' }}>{reason}</span>
       )}

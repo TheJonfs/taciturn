@@ -17,6 +17,7 @@ import { runDamagePipeline } from '../damage/pipeline.ts';
 import {
   runModifyAoeShape,
   runModifyStatQuery,
+  runModifyStatusTickAmount,
   runModifySystemDamage,
   runOnActionAttempted,
   runOnActionResolved,
@@ -1528,7 +1529,21 @@ export function reduceStatusTick(
       generatedActions: emissions,
     };
   }
-  const nextDuration = instance.remainingDuration - 1;
+  // Per ADR-0060: route the per-tick decrement through
+  // `modifyStatusTickAmount`. Default baseAmount 1; equipment (Purifier
+  // × 2 on `negative`-tagged statuses) multiplies. Floor at 1 so a
+  // pathological 0-or-negative chain product doesn't freeze a status
+  // forever; floor at remainingDuration so we never overdraw past
+  // expiry. Multiplicative-only chain semantics for v1 — additive
+  // shifts can be expressed as factors (× 2 = "doubles per tick").
+  const tickAmountRaw = runModifyStatusTickAmount(state, catalog, {
+    unit,
+    statusTypeId,
+    statusTags: type.tags,
+    baseAmount: 1,
+  });
+  const decrement = Math.max(1, Math.floor(tickAmountRaw));
+  const nextDuration = instance.remainingDuration - decrement;
 
   if (nextDuration > 0) {
     const newInstance: StatusInstance = { ...instance, remainingDuration: nextDuration };

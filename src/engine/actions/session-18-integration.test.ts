@@ -381,6 +381,7 @@ function buildWaterBattle(args: {
           pa: 3,
           ma: args.casterMA ?? 7,
           maxHpBase: 45,
+          maxMpBase: 50,
           brave: 100,
           faith: 80,
           crit_chance: 0,
@@ -403,7 +404,7 @@ function buildWaterBattle(args: {
         classId: classId('knight'),
         position: { x: 3, y: 1, layer: 0 },
         facing: 'W',
-        baseStats: { spd: 10, pa: 6, ma: 4, maxHpBase: 60, brave: 100, faith: 80, crit_chance: 0, crit_multiplier: 1 },
+        baseStats: { spd: 10, pa: 6, ma: 4, maxHpBase: 60, maxMpBase: 50, brave: 100, faith: 80, crit_chance: 0, crit_multiplier: 1 },
         vitals: { hp: 60, mp: 0 },
         loadout: {
           actionBuckets: {

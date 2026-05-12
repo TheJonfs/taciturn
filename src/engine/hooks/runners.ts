@@ -10,6 +10,7 @@
 import type { ActiveAbilityDefinition, Catalog, StatusEffectType } from '../catalog/index.ts';
 import type {
   AoeShape,
+  BucketId,
   DamageContext,
   DamageTag,
   GameState,
@@ -17,6 +18,7 @@ import type {
   MovementProfile,
   ProposedAction,
   StatName,
+  StatusTag,
   StatusTypeId,
   SystemDamageSource,
   TerrainType,
@@ -302,6 +304,60 @@ export function runModifyAoeShape(
     shape = h.invoke({ unit: args.unit, ability: args.ability, baseShape: shape });
   }
   return shape;
+}
+
+// Additive chain over bucket-capacity modifiers. Handlers fire against
+// the unit's registrations (Steel Helm +1 R, Augmentor +1 S, Magus Crown
+// +1 active). Each handler returns the next running capacity (shape:
+// `args.baseCapacity + delta`); per-bucket gating happens inside the
+// handler (`if (args.bucket !== 'reaction') return args.baseCapacity`).
+// Called by `getCapacity`; the helper floors the final value at 0.
+// Per ADR-0059.
+export function runModifyBucketCapacity(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    bucket: BucketId;
+    baseCapacity: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyBucketCapacity');
+  let value = args.baseCapacity;
+  for (const h of handlers) {
+    value = h.invoke({ unit: args.unit, bucket: args.bucket, baseCapacity: value });
+  }
+  return value;
+}
+
+// Multiplicative chain over status-tick-amount modifiers. Handlers fire
+// against the unit-being-ticked's registrations (Purifier ×2 on
+// `negative`-tagged statuses). Each handler receives the running
+// baseAmount (default 1) and returns the next (shape:
+// `args.baseAmount * factor`). Per-tag / per-type gating happens inside
+// the handler. Called once per tick by `reduceStatusTick` (standard
+// duration mode) and once by Burn's onTick (custom mode). Per ADR-0060.
+export function runModifyStatusTickAmount(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    statusTypeId: StatusTypeId;
+    statusTags: ReadonlyArray<StatusTag>;
+    baseAmount: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyStatusTickAmount');
+  let value = args.baseAmount;
+  for (const h of handlers) {
+    value = h.invoke({
+      unit: args.unit,
+      statusTypeId: args.statusTypeId,
+      statusTags: args.statusTags,
+      baseAmount: value,
+    });
+  }
+  return value;
 }
 
 // System-damage amount modifier — fires inside `reduceSystemDamage`

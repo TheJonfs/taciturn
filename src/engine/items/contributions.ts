@@ -46,26 +46,37 @@ type EquipmentContributor<K extends HookName> = (
 
 // Map the BaseStats field names we surface as `modifyStatQuery` to the
 // stat names the runner queries. The two are identical for the v1 set;
-// the indirection is here so a future stat with a different storage
-// vs. query key (e.g., `maxHpBase` → `maxHp`) can be added in one place.
+// the indirection is here so a stat with a different storage vs. query
+// key (`maxHpBase` → `maxHp`, `maxMpBase` → `maxMp`) is added in one place.
 const STAT_MOD_KEYS: ReadonlyArray<{ readonly statKey: keyof PartialBaseStats; readonly statName: StatName }> = [
   { statKey: 'spd', statName: 'spd' },
   { statKey: 'pa', statName: 'pa' },
   { statKey: 'ma', statName: 'ma' },
   { statKey: 'maxHpBase', statName: 'maxHp' },
+  { statKey: 'maxMpBase', statName: 'maxMp' },
   { statKey: 'brave', statName: 'brave' },
   { statKey: 'faith', statName: 'faith' },
 ];
 
-// modifyStatQuery contributor: each item's `statMods` declares additive
-// deltas on the BaseStats subset. One handler per non-zero stat per
-// item. The handler gates on `args.statName` so a unit reading 'pa'
-// only sees the +PA contributions, not the +MA ones.
+// modifyStatQuery contributor: yields ADDITIVE handlers first (from
+// `statMods`), then MULTIPLICATIVE handlers (from `statModsMultiplicative`).
+// Within the Equipment tier, the per-handler `tieBreakIndex` orders all
+// handlers — additives' indices come before multiplicatives', so the
+// runner applies all additive deltas to baseValue, then all multiplicative
+// factors. Per ADR-0058. Result: Wizard's Robe (+40 MP additive) +
+// Staff of Abundance (×1.5 multiplicative) on a 60-base Mage composes as
+// `(60 + 40) × 1.5 = 150`, not `(60 × 1.5) + 40 = 130`.
+//
+// The handler gates on `args.statName` so a unit reading 'pa' only sees
+// the +PA contributions, not the +MA ones. The multiplicative handler
+// keys directly off `statName` (no storage→query mapping) because
+// `statModsMultiplicative` is authored against StatName already.
 function* statQueryContributor(
   unit: Unit,
   catalog: Catalog,
 ): Generator<SourceContribution<'modifyStatQuery'>> {
   let tieBreakIndex = 0;
+  // Pass 1: additive deltas from `statMods` (BaseStats-keyed).
   for (const { item } of iterateEquippedItems(unit, catalog)) {
     if (item.statMods === undefined) continue;
     for (const { statKey, statName } of STAT_MOD_KEYS) {
@@ -81,6 +92,29 @@ function* statQueryContributor(
         invoke: (args) => {
           if (args.statName !== localStatName) return args.baseValue;
           return args.baseValue + localDelta;
+        },
+      };
+    }
+  }
+  // Pass 2: multiplicative factors from `statModsMultiplicative`
+  // (StatName-keyed). Yielded after every additive handler so all
+  // additives apply before any multiplicative — ADR-0058's composition
+  // order rule. Factor 1.0 short-circuits (no-op handler).
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    const multiplicative = item.statModsMultiplicative;
+    if (multiplicative === undefined) continue;
+    for (const [statNameKey, factor] of Object.entries(multiplicative)) {
+      if (factor === undefined || factor === 1) continue;
+      const localIndex = tieBreakIndex++;
+      const localStatName = statNameKey as StatName;
+      const localFactor = factor;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (args.statName !== localStatName) return args.baseValue;
+          return args.baseValue * localFactor;
         },
       };
     }
@@ -208,6 +242,68 @@ function* incomingStatusChanceContributor(
   }
 }
 
+// modifyBucketCapacity contributor: each item's `bucketCapacityMods`
+// declares per-bucket additive deltas (Steel Helm `{ reaction: 1 }`,
+// Augmentor `{ support: 1 }`, Magus Crown `{ first_action: 1 }`).
+// The handler gates on `args.bucket`; mismatched buckets return the
+// running value unchanged. Per ADR-0059.
+function* bucketCapacityContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'modifyBucketCapacity'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.bucketCapacityMods === undefined) continue;
+    for (const [bucket, delta] of item.bucketCapacityMods) {
+      if (delta === 0) continue;
+      const localIndex = tieBreakIndex++;
+      const localBucket = bucket;
+      const localDelta = delta;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (args.bucket !== localBucket) return args.baseCapacity;
+          return args.baseCapacity + localDelta;
+        },
+      };
+    }
+  }
+}
+
+// modifyStatusTickAmount contributor: each item's
+// `statusTickAmountMultipliers` declares multiplicative factors gated
+// on the ticking status's type or tag set. Purifier authors
+// `[{ factor: 2, statusTag: 'negative' }]`. Per ADR-0060.
+function* statusTickAmountContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'modifyStatusTickAmount'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.statusTickAmountMultipliers === undefined) continue;
+    for (const mod of item.statusTickAmountMultipliers) {
+      const localIndex = tieBreakIndex++;
+      const localMod = mod;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (localMod.statusTypeId !== undefined && args.statusTypeId !== localMod.statusTypeId) {
+            return args.baseAmount;
+          }
+          if (localMod.statusTag !== undefined && !args.statusTags.includes(localMod.statusTag)) {
+            return args.baseAmount;
+          }
+          return args.baseAmount * localMod.factor;
+        },
+      };
+    }
+  }
+}
+
 // Per-hook contributor registry. The dispatch is a single map lookup;
 // hooks with no entry yield no equipment contributors. Adding equipment
 // integration for a new hook is one entry plus the contributor body.
@@ -223,6 +319,8 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   modifyActionSpeed: actionSpeedContributor,
   modifyResistance: resistanceContributor,
   modifyIncomingStatusApplicationChance: incomingStatusChanceContributor,
+  modifyBucketCapacity: bucketCapacityContributor,
+  modifyStatusTickAmount: statusTickAmountContributor,
 };
 
 export function* equipmentContributionsFor<K extends HookName>(

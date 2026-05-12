@@ -25,6 +25,7 @@
 
 import {
   runModifyStatQuery,
+  runModifyStatusTickAmount,
   statusHook,
   statusTypeId,
   type StatusEffectType,
@@ -92,9 +93,19 @@ export const burn: StatusEffectType = {
     // CT-100 trigger fires via the per-unit-CT status_tick fan-out
     // (because `customTrigger.kind === 'on_unit_ct_100'`). The onTick
     // handler computes the damage sum, emits `system_damage` plus
-    // `status_decrement_stack`. The reducer skips the duration
-    // decrement for `'custom'` mode, so the lifecycle is fully driven
-    // by these emissions.
+    // one or more `status_decrement_stack` actions. The reducer skips
+    // the duration decrement for `'custom'` mode, so the lifecycle is
+    // fully driven by these emissions.
+    //
+    // Per ADR-0060 (Session 28): `modifyStatusTickAmount` scales the
+    // stack-consumption rate. Default chain product = 1 (one stack
+    // consumed per tick, preserving baseline Burn behavior). Purifier
+    // ×2 on `'negative'`-tagged statuses bumps the chain product to 2;
+    // Burn responds by emitting 2 decrement actions per tick — same
+    // per-tick damage, but the diminishing-damage profile (28, 21, 14,
+    // 7 → 28, 14) collapses in half the ticks. Net less total damage,
+    // which matches Purifier's design intent (counter-pick for the
+    // wearer against status-spread strategies).
     statusHook('onTick', (args) => {
       const target = args.state.units.get(args.unit.id);
       if (target === undefined || target.vitals.hp <= 0) {
@@ -108,6 +119,26 @@ export const burn: StatusEffectType = {
       const stackDamages = readStackDamages(instance.customState);
       if (stackDamages.length === 0) return {};
       const total = stackDamages.reduce((sum, v) => sum + v, 0);
+      const burnType = args.catalog.getStatusType(args.statusTypeId);
+      const tickAmountRaw = runModifyStatusTickAmount(args.state, args.catalog, {
+        unit: target,
+        statusTypeId: args.statusTypeId,
+        statusTags: burnType.tags,
+        baseAmount: 1,
+      });
+      // Cap at the remaining stack count so we don't emit more
+      // decrements than there are stacks (each decrement is a
+      // discrete action; the reducer handles the case where a
+      // decrement fires against zero stacks, but cleaner to gate here).
+      const decrementCount = Math.max(
+        1,
+        Math.min(stackDamages.length, Math.floor(tickAmountRaw)),
+      );
+      const decrementActions = Array.from({ length: decrementCount }, () => ({
+        type: 'status_decrement_stack' as const,
+        source: 'system' as const,
+        payload: { targetId: args.unit.id, statusTypeId: args.statusTypeId },
+      }));
       return {
         emittedActions: [
           {
@@ -124,11 +155,7 @@ export const burn: StatusEffectType = {
               },
             },
           },
-          {
-            type: 'status_decrement_stack',
-            source: 'system',
-            payload: { targetId: args.unit.id, statusTypeId: args.statusTypeId },
-          },
+          ...decrementActions,
         ],
       };
     }),
