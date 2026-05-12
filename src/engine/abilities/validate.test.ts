@@ -4,7 +4,7 @@ import {
   BUCKET_MOVEMENT,
   BUCKET_REACTION,
   BUCKET_FIRST_ACTION,
-  BUCKET_SECOND_ACTION,
+  BUCKET_SECONDARY_COMMAND_SETS,
   BUCKET_SUPPORT,
 } from './constants.ts';
 import {
@@ -147,14 +147,14 @@ describe('validateLoadout — violations', () => {
     const u = makeUnit({ id: 'u1', spd: 10 });
     const state = makeGameState({ units: [u] });
     const loadout = knightLoadout({
-      active: [[BUCKET_SECOND_ACTION, commandSetId('not_in_catalog')]],
+      active: [[BUCKET_SECONDARY_COMMAND_SETS, commandSetId('not_in_catalog')]],
     });
     const result = validateLoadout(state, u.id, loadout, cat);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.violations).toContainEqual({
       kind: 'unknown_command_set',
-      bucketId: BUCKET_SECOND_ACTION,
+      bucketId: BUCKET_SECONDARY_COMMAND_SETS,
       commandSetId: commandSetId('not_in_catalog'),
     });
   });

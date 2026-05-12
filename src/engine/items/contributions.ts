@@ -56,6 +56,9 @@ const STAT_MOD_KEYS: ReadonlyArray<{ readonly statKey: keyof PartialBaseStats; r
   { statKey: 'maxMpBase', statName: 'maxMp' },
   { statKey: 'brave', statName: 'brave' },
   { statKey: 'faith', statName: 'faith' },
+  // Session 29: Arcane Lens authors `+10 crit_chance` via statMods.
+  // Storage and query key are identical (no maxHpBase-style mapping).
+  { statKey: 'crit_chance', statName: 'crit_chance' },
 ];
 
 // modifyStatQuery contributor: yields ADDITIVE handlers first (from
@@ -84,6 +87,29 @@ function* statQueryContributor(
       if (delta === undefined || delta === 0) continue;
       const localIndex = tieBreakIndex++;
       const localStatName = statName;
+      const localDelta = delta;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (args.statName !== localStatName) return args.baseValue;
+          return args.baseValue + localDelta;
+        },
+      };
+    }
+  }
+  // Pass 1b: additive deltas from `movementMods` for moveRange / jump
+  // (StatName-keyed; these don't live on BaseStats — they come from
+  // ClassMovementBaseline). Lightfoot writes `{ moveRange: 1, jump: 1 }`.
+  // Yielded alongside the BaseStats-additive pass so all additives still
+  // run before any multiplicative.
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.movementMods === undefined) continue;
+    for (const [statNameKey, delta] of Object.entries(item.movementMods)) {
+      if (delta === undefined || delta === 0) continue;
+      const localIndex = tieBreakIndex++;
+      const localStatName = statNameKey as StatName;
       const localDelta = delta;
       yield {
         tier: 'equipment',
@@ -304,6 +330,100 @@ function* statusTickAmountContributor(
   }
 }
 
+// modifyAbilityRange contributor: each item's `abilityRangeModifiers`
+// declares per-axis additive deltas, optionally gated on the ability's
+// damage tags. Wand of Depths: `+1` horizontal/`+1` vertical on
+// `water`-tagged spells. The handler reads `args.ability.effects.damage?.tags`
+// to gate. Per Session 29.
+function* abilityRangeContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'modifyAbilityRange'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.abilityRangeModifiers === undefined) continue;
+    for (const mod of item.abilityRangeModifiers) {
+      const localIndex = tieBreakIndex++;
+      const localMod = mod;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (localMod.tagFilter !== undefined) {
+            const abilityTags = args.ability.effects.damage?.tags;
+            if (abilityTags === undefined) return { horizontal: args.baseHorizontal, vertical: args.baseVertical };
+            const matches = localMod.tagFilter.some((t: DamageTag) => abilityTags.includes(t));
+            if (!matches) return { horizontal: args.baseHorizontal, vertical: args.baseVertical };
+          }
+          return {
+            horizontal: args.baseHorizontal + (localMod.deltaHorizontal ?? 0),
+            vertical: args.baseVertical + (localMod.deltaVertical ?? 0),
+          };
+        },
+      };
+    }
+  }
+}
+
+// modifyOutgoingHitChance contributor: each item's
+// `outgoingHitChanceMultipliers` declares multiplicative factors
+// (Arcane Lens × 1.10). Caster-side, composes after the target-side
+// `modifyHitChance` chain inside `evasionCheck`. Per Session 29.
+function* outgoingHitChanceContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'modifyOutgoingHitChance'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.outgoingHitChanceMultipliers === undefined) continue;
+    for (const factor of item.outgoingHitChanceMultipliers) {
+      const localIndex = tieBreakIndex++;
+      const localFactor = factor;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => args.baseHitChance * localFactor,
+      };
+    }
+  }
+}
+
+// modifyEvasion contributor: each item's `evasionMods` declares per-
+// facing additive deltas (Steel Helm `{ side: -20, back: -20 }`). One
+// handler per item; the handler reads `args.facing` and adds the
+// matching delta to the running evasion. Negative deltas are valid
+// (they produce hit-chance > weapon accuracy from the targeted facing,
+// clamped at the existing damage-pipeline exit). Per Session 29.
+function* evasionContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'modifyEvasion'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.evasionMods === undefined) continue;
+    const mods = item.evasionMods;
+    const localIndex = tieBreakIndex++;
+    const localMods = mods;
+    yield {
+      tier: 'equipment',
+      priority: DEFAULT_HOOK_PRIORITY,
+      tieBreakIndex: localIndex,
+      invoke: (args) => {
+        const delta =
+          args.facing === 'front'
+            ? localMods.front
+            : args.facing === 'side'
+              ? localMods.side
+              : localMods.back;
+        if (delta === undefined || delta === 0) return args.baseEvasion;
+        return args.baseEvasion + delta;
+      },
+    };
+  }
+}
+
 // Per-hook contributor registry. The dispatch is a single map lookup;
 // hooks with no entry yield no equipment contributors. Adding equipment
 // integration for a new hook is one entry plus the contributor body.
@@ -321,6 +441,9 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   modifyIncomingStatusApplicationChance: incomingStatusChanceContributor,
   modifyBucketCapacity: bucketCapacityContributor,
   modifyStatusTickAmount: statusTickAmountContributor,
+  modifyAbilityRange: abilityRangeContributor,
+  modifyOutgoingHitChance: outgoingHitChanceContributor,
+  modifyEvasion: evasionContributor,
 };
 
 export function* equipmentContributionsFor<K extends HookName>(

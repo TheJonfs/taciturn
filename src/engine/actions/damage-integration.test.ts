@@ -61,7 +61,7 @@ function cureAbility(power_coefficient = 5): ActiveAbilityDefinition {
     id: abilityId('cure'),
     name: 'Cure',
     kind: 'active',
-    bucket: bucketId('second_action'),
+    bucket: bucketId('secondary_command_sets'),
     baseCost: 1,
     availability: 'hidden',
     targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
@@ -120,9 +120,9 @@ function battleSkill(): CommandSetDefinition {
 }
 
 function loadoutWithReaction(reaction?: AbilityId): Loadout {
-  const actionBuckets: Record<string, ReturnType<typeof commandSetId> | null> = {};
-  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = null;
-  actionBuckets[bucketId('first_action')] = commandSetId('battle_skill');
+  const actionBuckets: Record<string, ReadonlyArray<ReturnType<typeof commandSetId>>> = {};
+  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = [];
+  actionBuckets[bucketId('first_action')] = [commandSetId('battle_skill')];
   const passiveBuckets: Record<string, ReadonlyArray<AbilityId>> = {};
   for (const b of PASSIVE_BUCKET_IDS) passiveBuckets[b] = [];
   if (reaction !== undefined) passiveBuckets[bucketId('reaction')] = [reaction];

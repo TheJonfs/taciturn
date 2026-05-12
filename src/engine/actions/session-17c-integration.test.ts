@@ -67,9 +67,9 @@ function knightLoadout(args: {
   passive_movement?: AbilityId;
   passive_reaction?: AbilityId;
 } = {}): Loadout {
-  const actionBuckets: Record<string, CommandSetId | null> = {};
-  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = null;
-  actionBuckets[bucketId('first_action')] = commandSetId('battle_skill');
+  const actionBuckets: Record<string, ReadonlyArray<CommandSetId>> = {};
+  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = [];
+  actionBuckets[bucketId('first_action')] = [commandSetId('battle_skill')];
   const passiveBuckets: Record<string, ReadonlyArray<AbilityId>> = {};
   for (const b of PASSIVE_BUCKET_IDS) passiveBuckets[b] = [];
   if (args.passive_support !== undefined) {

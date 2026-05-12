@@ -31,7 +31,7 @@ function chargedAbility(actionSpeed: number): ActiveAbilityDefinition {
     id: abilityId('test_spell'),
     name: 'Test Spell',
     kind: 'active',
-    bucket: { kind: 'second_action' } as never,
+    bucket: { kind: 'secondary_command_sets' } as never,
     baseCost: 1,
     availability: 'hidden',
     mpCost: 0,

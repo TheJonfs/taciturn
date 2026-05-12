@@ -34,6 +34,7 @@ import { hasLineOfSight } from '../map/line-of-sight.ts';
 import { arcTargetable } from '../map/arc.ts';
 import { UnknownDefinitionError } from '../catalog/index.ts';
 import { computeMpCost } from '../abilities/cost.ts';
+import { computeAbilityRange } from '../abilities/range.ts';
 
 export interface ValidationResult {
   readonly valid: boolean;
@@ -252,13 +253,14 @@ function validateUseAbility(
     if (destTile === undefined) {
       return invalid(`Target tile (${tilePos.x},${tilePos.y},${tilePos.layer}) does not exist`);
     }
+    const effectiveTileRange = computeAbilityRange(state, catalog, actor.id, ability);
     const tileInRange = inRange({
       source: endpointFrom(actor.position, sourceTile.elevation),
       target: endpointFrom(tilePos, destTile.elevation),
       params: {
-        horizontalMax: ability.targeting.range.horizontal,
-        horizontalMin: ability.targeting.range.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
-        verticalMax: ability.targeting.range.vertical,
+        horizontalMax: effectiveTileRange.horizontal,
+        horizontalMin: effectiveTileRange.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
+        verticalMax: effectiveTileRange.vertical,
       },
     });
     if (!tileInRange) return invalid('Target tile is out of range');
@@ -296,13 +298,14 @@ function validateUseAbility(
   if (targetTile === undefined) {
     return invalid('Target tile does not exist');
   }
+  const effectiveUnitRange = computeAbilityRange(state, catalog, actor.id, ability);
   const inRangeOk = inRange({
     source: endpointFrom(actor.position, sourceTile.elevation),
     target: endpointFrom(targetUnit.position, targetTile.elevation),
     params: {
-      horizontalMax: ability.targeting.range.horizontal,
-      horizontalMin: ability.targeting.range.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
-      verticalMax: ability.targeting.range.vertical,
+      horizontalMax: effectiveUnitRange.horizontal,
+      horizontalMin: effectiveUnitRange.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
+      verticalMax: effectiveUnitRange.vertical,
     },
   });
   if (!inRangeOk) return invalid('Target is out of range');

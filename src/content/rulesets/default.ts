@@ -10,7 +10,7 @@ import {
   BUCKET_FIRST_ACTION,
   BUCKET_MOVEMENT,
   BUCKET_REACTION,
-  BUCKET_SECOND_ACTION,
+  BUCKET_SECONDARY_COMMAND_SETS,
   BUCKET_SUPPORT,
   DEFAULT_HOOK_SOURCE_TIER_ORDER,
   rulesetId,
@@ -26,7 +26,7 @@ import {
 // override (e.g., hardcore mode might give 4-capacity Movement).
 const DEFAULT_BUCKET_CAPACITIES: ReadonlyMap<BucketId, number> = new Map([
   [BUCKET_FIRST_ACTION, 1],
-  [BUCKET_SECOND_ACTION, 1],
+  [BUCKET_SECONDARY_COMMAND_SETS, 1],
   [BUCKET_REACTION, 3],
   [BUCKET_SUPPORT, 3],
   [BUCKET_MOVEMENT, 3],

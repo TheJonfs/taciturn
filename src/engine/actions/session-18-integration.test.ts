@@ -337,11 +337,11 @@ function waterMageLoadout(args: {
   passive_reaction?: AbilityId;
   second_action?: CommandSetId;
 } = {}): Loadout {
-  const actionBuckets: Record<string, CommandSetId | null> = {};
-  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = null;
-  actionBuckets[bucketId('first_action')] = commandSetId('water_spells');
+  const actionBuckets: Record<string, ReadonlyArray<CommandSetId>> = {};
+  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = [];
+  actionBuckets[bucketId('first_action')] = [commandSetId('water_spells')];
   if (args.second_action !== undefined) {
-    actionBuckets[bucketId('second_action')] = args.second_action;
+    actionBuckets[bucketId('secondary_command_sets')] = [args.second_action];
   }
   const passiveBuckets: Record<string, ReadonlyArray<AbilityId>> = {};
   for (const b of PASSIVE_BUCKET_IDS) passiveBuckets[b] = [];
@@ -408,7 +408,7 @@ function buildWaterBattle(args: {
         vitals: { hp: 60, mp: 0 },
         loadout: {
           actionBuckets: {
-            [bucketId('first_action')]: commandSetId('battle_skill'),
+            [bucketId('first_action')]: [commandSetId('battle_skill')],
           },
           passiveBuckets: {},
         },

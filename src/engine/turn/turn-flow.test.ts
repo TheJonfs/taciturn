@@ -56,9 +56,9 @@ function knightClass(): ClassDefinition {
 }
 
 function loadoutWith(reaction?: AbilityId): Loadout {
-  const actionBuckets: Record<string, ReturnType<typeof commandSetId> | null> = {};
-  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = null;
-  actionBuckets[bucketId('first_action')] = commandSetId('battle_skill');
+  const actionBuckets: Record<string, ReadonlyArray<ReturnType<typeof commandSetId>>> = {};
+  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = [];
+  actionBuckets[bucketId('first_action')] = [commandSetId('battle_skill')];
   const passiveBuckets: Record<string, ReadonlyArray<AbilityId>> = {};
   for (const b of PASSIVE_BUCKET_IDS) passiveBuckets[b] = [];
   if (reaction !== undefined) passiveBuckets[bucketId('reaction')] = [reaction];

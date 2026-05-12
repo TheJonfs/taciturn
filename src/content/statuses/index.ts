@@ -13,7 +13,9 @@ import { movementSelfBuff } from './movement-self-buff.ts';
 import { paDown } from './pa-down.ts';
 import { paUp } from './pa-up.ts';
 import { poison } from './poison.ts';
+import { protect } from './protect.ts';
 import { regen } from './regen.ts';
+import { shell } from './shell.ts';
 import { silence } from './silence.ts';
 import { speedDown } from './speed-down.ts';
 import { stop } from './stop.ts';
@@ -35,7 +37,9 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   paDown,
   paUp,
   poison,
+  protect,
   regen,
+  shell,
   silence,
   speedDown,
   stop,

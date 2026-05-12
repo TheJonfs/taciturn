@@ -78,8 +78,8 @@ const KNIGHT_EQUIPMENT: UnitEquipment = {
 // in Movement.
 const KNIGHT_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
-    [bucketId('first_action')]: commandSetId('battle_skill'),
-    [bucketId('second_action')]: null,
+    [bucketId('first_action')]: [commandSetId('battle_skill')],
+    [bucketId('secondary_command_sets')]: [],
   },
   passiveBuckets: {
     [bucketId('reaction')]: [abilityId('counter')],
@@ -94,8 +94,8 @@ const KNIGHT_LOADOUT: UnitPlacement['loadout'] = {
 // Movement (session 26.5: +1 moveRange + falling-damage immunity).
 const EARTH_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
-    [bucketId('first_action')]: commandSetId('earth_spells'),
-    [bucketId('second_action')]: commandSetId('white_magic'),
+    [bucketId('first_action')]: [commandSetId('earth_spells')],
+    [bucketId('secondary_command_sets')]: [commandSetId('white_magic')],
   },
   passiveBuckets: {
     [bucketId('reaction')]: [abilityId('earth_resilience')],
@@ -112,8 +112,8 @@ const EARTH_MAGE_LOADOUT: UnitPlacement['loadout'] = {
 // clamp; v1-marginal until elevated water-cost terrain ships).
 const WATER_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
-    [bucketId('first_action')]: commandSetId('water_spells'),
-    [bucketId('second_action')]: commandSetId('white_magic'),
+    [bucketId('first_action')]: [commandSetId('water_spells')],
+    [bucketId('secondary_command_sets')]: [commandSetId('white_magic')],
   },
   passiveBuckets: {
     [bucketId('reaction')]: [abilityId('tidal_pull')],
@@ -130,8 +130,8 @@ const WATER_MAGE_LOADOUT: UnitPlacement['loadout'] = {
 // in Movement (session 26.5: +1 moveRange + +1 spd).
 const FIRE_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
-    [bucketId('first_action')]: commandSetId('fire_spells'),
-    [bucketId('second_action')]: commandSetId('white_magic'),
+    [bucketId('first_action')]: [commandSetId('fire_spells')],
+    [bucketId('secondary_command_sets')]: [commandSetId('white_magic')],
   },
   passiveBuckets: {
     [bucketId('reaction')]: [abilityId('smolder')],
@@ -148,8 +148,8 @@ const FIRE_MAGE_LOADOUT: UnitPlacement['loadout'] = {
 // (session 26.5: onTurnEnd CT refund of +MA on Move-committed turns).
 const LIGHTNING_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
-    [bucketId('first_action')]: commandSetId('lightning_spells'),
-    [bucketId('second_action')]: commandSetId('white_magic'),
+    [bucketId('first_action')]: [commandSetId('lightning_spells')],
+    [bucketId('secondary_command_sets')]: [commandSetId('white_magic')],
   },
   passiveBuckets: {
     [bucketId('reaction')]: [abilityId('discharge')],

@@ -313,6 +313,43 @@ export interface HookSignatures {
     return: number;
   };
 
+  // Ability-range modifier — caster-side, additive. Fires from
+  // `computeAbilityRange` to thread per-axis deltas. Equipment contributors
+  // (Wand of Depths +1 horizontal/+1 vertical on Water-tagged spells) and
+  // future status/passive contributors compose additively per axis. The
+  // chain is invoked once per query; handlers gate on the ability (e.g.,
+  // `ability.effects.damage?.tags.includes('water')`) and return adjusted
+  // `{ horizontal, vertical }`. `validateProposedAction`, the AI's
+  // targeting / range scoring, and the UI's target-picker overlay all
+  // route through `computeAbilityRange` so equipment-shifted range is
+  // consistent across systems. Per Session 29.
+  modifyAbilityRange: {
+    args: {
+      unit: Unit;
+      ability: ActiveAbilityDefinition;
+      baseHorizontal: number;
+      baseVertical: number;
+    };
+    return: { readonly horizontal: number; readonly vertical: number };
+  };
+
+  // Outgoing hit-chance modifier — caster-side mirror of target-side
+  // `modifyHitChance`. Equipment contributors (Arcane Lens ×1.10) fire
+  // against the attacker's hooks during evasion_check; the composition is
+  // multiplicative, applied after the target-side chain:
+  //   final = base × ∏casterHooks × ∏targetHooks
+  // The combined product is clamped to [0.05, 1.0] at the existing exit
+  // clamp. Per Session 29 (ADR-0063 sibling).
+  modifyOutgoingHitChance: {
+    args: {
+      attacker: Unit;
+      target: Unit;
+      ability: ActiveAbilityDefinition;
+      baseHitChance: number;
+    };
+    return: number;
+  };
+
   // System-damage amount modifier — fires inside `reduceSystemDamage`
   // against the *target's* hooks before the HP delta is applied. Each
   // handler receives the running amount and returns a new one; the chain

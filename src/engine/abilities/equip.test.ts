@@ -17,7 +17,7 @@ import {
   makeCommandSet,
   makePassive,
 } from './test-fixtures.ts';
-import { BUCKET_SECOND_ACTION } from './constants.ts';
+import { BUCKET_SECONDARY_COMMAND_SETS } from './constants.ts';
 
 describe('equipPassive', () => {
   it('appends a passive to the bucket and returns the new state when valid', () => {
@@ -110,18 +110,18 @@ describe('setActiveBucket', () => {
     const result = setActiveBucket(
       state,
       u.id,
-      BUCKET_SECOND_ACTION,
+      BUCKET_SECONDARY_COMMAND_SETS,
       commandSetId('second_skill'),
       cat,
     );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.state.units.get(u.id)!.loadout.actionBuckets[BUCKET_SECOND_ACTION]).toBe(
+    expect(result.state.units.get(u.id)!.loadout.actionBuckets[BUCKET_SECONDARY_COMMAND_SETS]).toEqual([
       commandSetId('second_skill'),
-    );
+    ]);
   });
 
-  it('clears the second_action bucket with null', () => {
+  it('clears the secondary_command_sets bucket with null', () => {
     const cat = makeAbilitiesCatalog({
       commandSets: [
         makeCommandSet({ id: 'battle_skill' }),
@@ -132,14 +132,14 @@ describe('setActiveBucket', () => {
       id: 'u1',
       spd: 10,
       loadout: knightLoadout({
-        active: [[BUCKET_SECOND_ACTION, commandSetId('second_skill')]],
+        active: [[BUCKET_SECONDARY_COMMAND_SETS, commandSetId('second_skill')]],
       }),
     });
     const state = makeGameState({ units: [u] });
-    const result = setActiveBucket(state, u.id, BUCKET_SECOND_ACTION, null, cat);
+    const result = setActiveBucket(state, u.id, BUCKET_SECONDARY_COMMAND_SETS, null, cat);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.state.units.get(u.id)!.loadout.actionBuckets[BUCKET_SECOND_ACTION]).toBeNull();
+    expect(result.state.units.get(u.id)!.loadout.actionBuckets[BUCKET_SECONDARY_COMMAND_SETS]).toEqual([]);
   });
 
   it('refuses clearing first_action (would violate the class pin)', () => {
@@ -164,7 +164,7 @@ describe('setActiveBucket', () => {
     const result = setActiveBucket(
       state,
       u.id,
-      BUCKET_SECOND_ACTION,
+      BUCKET_SECONDARY_COMMAND_SETS,
       commandSetId('not_real'),
       cat,
     );

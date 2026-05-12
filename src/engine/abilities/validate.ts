@@ -102,14 +102,16 @@ export function validateLoadout(
   const violations: LoadoutViolation[] = [];
 
   // First Action class-pin: the first_action active bucket must hold
-  // the unit's class's `firstActionCommandSet`. Class is the source of
-  // truth for what command set lives there; loadout cannot deviate.
-  // The check runs against the catalog'd class definition; an unknown
-  // class throws (programmer error per ADR-0002).
+  // the unit's class's `firstActionCommandSet` as its sole entry. Class
+  // is the source of truth for what command set lives there; loadout
+  // cannot deviate. Per ADR-0061, the bucket holds a list, but the pin
+  // semantics still require exactly one entry matching the class.
   const classDef = catalog.getClass(unit.classState.currentClass);
+  const firstActionList: ReadonlyArray<CommandSetId> =
+    loadout.actionBuckets[BUCKET_FIRST_ACTION] ?? [];
   const firstActionSlot: CommandSetId | null =
-    loadout.actionBuckets[BUCKET_FIRST_ACTION] ?? null;
-  if (firstActionSlot !== classDef.firstActionCommandSet) {
+    firstActionList.length === 1 ? (firstActionList[0] ?? null) : null;
+  if (firstActionSlot !== classDef.firstActionCommandSet || firstActionList.length !== 1) {
     violations.push({
       kind: 'first_action_pin_violated',
       expected: classDef.firstActionCommandSet,
@@ -117,18 +119,26 @@ export function validateLoadout(
     });
   }
 
-  // Active buckets.
+  // Active buckets. Per ADR-0061, each bucket holds a list of command
+  // sets; total cost (sum of per-set baseCost) is gated against capacity.
   for (const bucketId of ACTIVE_BUCKET_IDS) {
-    const slot: CommandSetId | null = loadout.actionBuckets[bucketId] ?? null;
-    if (slot === null) continue;
-    if (!catalog.hasCommandSet(slot)) {
-      violations.push({ kind: 'unknown_command_set', bucketId, commandSetId: slot });
-      continue;
+    const entries: ReadonlyArray<CommandSetId> = loadout.actionBuckets[bucketId] ?? [];
+    if (entries.length === 0) continue;
+    let used = 0;
+    let bucketHasUnknown = false;
+    for (const csId of entries) {
+      if (!catalog.hasCommandSet(csId)) {
+        violations.push({ kind: 'unknown_command_set', bucketId, commandSetId: csId });
+        bucketHasUnknown = true;
+        continue;
+      }
+      used += getCommandSetCost(state, unitId, csId, catalog);
     }
-    const cost = getCommandSetCost(state, unitId, slot, catalog);
-    const cap = getCapacity(state, unitId, bucketId, catalog);
-    if (cost > cap) {
-      violations.push({ kind: 'over_capacity', bucketId, capacity: cap, used: cost });
+    if (!bucketHasUnknown) {
+      const cap = getCapacity(state, unitId, bucketId, catalog);
+      if (used > cap) {
+        violations.push({ kind: 'over_capacity', bucketId, capacity: cap, used });
+      }
     }
   }
 

@@ -166,10 +166,10 @@ function loadoutWith(args: {
   readonly firstAction?: string;
   readonly reactionPassive?: AbilityId;
 }): Loadout {
-  const actionBuckets: Record<string, ReturnType<typeof commandSetId> | null> = {};
-  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = null;
+  const actionBuckets: Record<string, ReadonlyArray<ReturnType<typeof commandSetId>>> = {};
+  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = [];
   if (args.firstAction !== undefined) {
-    actionBuckets[bucketId('first_action')] = commandSetId(args.firstAction);
+    actionBuckets[bucketId('first_action')] = [commandSetId(args.firstAction)];
   }
   const passiveBuckets: Record<string, ReadonlyArray<AbilityId>> = {};
   for (const b of PASSIVE_BUCKET_IDS) passiveBuckets[b] = [];

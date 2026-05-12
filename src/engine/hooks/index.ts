@@ -21,6 +21,7 @@ export {
   type SourceContribution,
 } from './collector.ts';
 export {
+  runModifyAbilityRange,
   runModifyActionSpeed,
   runModifyBucketCapacity,
   runModifyCanEnter,
@@ -28,6 +29,7 @@ export {
   runModifyHitChance,
   runModifyIncomingStatusApplicationChance,
   runModifyMpCost,
+  runModifyOutgoingHitChance,
   runModifyResistance,
   runModifySpecialMovement,
   runModifyStatQuery,

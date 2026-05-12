@@ -16,6 +16,7 @@
 
 import type {
   BucketId,
+  ClassId,
   DamageTag,
   ItemId,
   PartialBaseStats,
@@ -37,6 +38,26 @@ import type { Availability } from './availability.ts';
 export interface ActionSpeedModifier {
   readonly delta: number;
   readonly tagFilter?: ReadonlyArray<DamageTag>;
+}
+
+// Per-axis ability-range delta, optionally gated on the ability's damage
+// tags. Wand of Depths authors `{ deltaHorizontal: 1, deltaVertical: 1,
+// tagFilter: ['water'] }`. Composition is additive per axis. Per
+// Session 29.
+export interface AbilityRangeModifier {
+  readonly deltaHorizontal?: number;
+  readonly deltaVertical?: number;
+  readonly tagFilter?: ReadonlyArray<DamageTag>;
+}
+
+// Per-facing evasion delta. Steel Helm authors `{ side: -20, back: -20 }`.
+// Composition is additive; negative deltas are valid (they produce
+// hit-chance > weapon accuracy from the targeted facing, clamped at the
+// damage pipeline's final [0.05, 1.0] hit-chance exit). Per Session 29.
+export interface EvasionMods {
+  readonly front?: number;
+  readonly side?: number;
+  readonly back?: number;
 }
 
 // Target-side incoming-status-application chance modifier. Either
@@ -138,6 +159,37 @@ interface EquipmentBase {
   // returns `args.baseAmount * factor` when the status's type / tags
   // match the gate; no-op otherwise.
   readonly statusTickAmountMultipliers?: ReadonlyArray<StatusTickAmountMultiplier>;
+
+  // Session 29: optional class allowlist. When present, only units of
+  // a listed class may equip the item — Knight-only shields, Mage-only
+  // robes, etc. Validated at `createInitialState` time alongside the
+  // existing slot-permission check on `ClassEquipmentSlots`. Omitting
+  // the field means "any class permitted."
+  readonly classRestrictions?: ReadonlyArray<ClassId>;
+
+  // Session 29: ability-range modifiers — per-axis deltas gated on
+  // ability tags. Wand of Depths' "+1 horizontal/+1 vertical on Water-
+  // tagged spells" composes here. Read by `computeAbilityRange`.
+  readonly abilityRangeModifiers?: ReadonlyArray<AbilityRangeModifier>;
+
+  // Session 29: caster-side outgoing hit-chance multipliers. Arcane Lens
+  // authors `[1.10]`. Each entry contributes one handler that multiplies
+  // the running hit chance; chain product composes after the existing
+  // target-side `modifyHitChance` chain. Per Session 29.
+  readonly outgoingHitChanceMultipliers?: ReadonlyArray<number>;
+
+  // Session 29: per-facing evasion modifications on the wearer. Steel
+  // Helm authors `{ side: -20, back: -20 }`. Composed through the
+  // existing `modifyEvasion` additive chain at evasion-check time.
+  readonly evasionMods?: EvasionMods;
+
+  // Session 29: additive deltas on movement-class stats (moveRange,
+  // jump). These don't live on BaseStats — they come from the unit's
+  // class via `ClassMovementBaseline`. Lightfoot authors `{ moveRange:
+  // 1, jump: 1 }`. Speed lives on BaseStats and rides `statMods`.
+  // The contributor emits one `modifyStatQuery` handler per (stat,
+  // delta) entry, gated on the query stat name.
+  readonly movementMods?: Partial<Record<'moveRange' | 'jump', number>>;
 }
 
 export interface WeaponEquipment extends EquipmentBase {
@@ -152,6 +204,14 @@ export interface WeaponEquipment extends EquipmentBase {
   // accuracy is the override path. Default for unarmed is 100 per the
   // Battle Mechanics Guide.
   readonly accuracy: number;
+}
+
+// Session 29: shields occupy the left-hand slot but aren't weapons —
+// they carry no WP/accuracy and don't feed the physical-damage base
+// stage. Their value is in evasion mods, resistance shifts, and stat
+// boosts. Knight-only via `classRestrictions` per the equipment doc.
+export interface ShieldEquipment extends EquipmentBase {
+  readonly kind: 'shield';
 }
 
 export interface ArmorEquipment extends EquipmentBase {
@@ -171,6 +231,7 @@ export interface AccessoryEquipment extends EquipmentBase {
 // return type narrowing).
 export type EquipmentDefinition =
   | WeaponEquipment
+  | ShieldEquipment
   | ArmorEquipment
   | HeadgearEquipment
   | AccessoryEquipment;

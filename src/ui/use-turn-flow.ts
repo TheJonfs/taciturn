@@ -20,6 +20,8 @@ import {
   aoeFootprint,
   cardinalFromTo,
   canCommitAction,
+  computeAbilityRange,
+  computeBaseActionSpeed,
   computeMpCost,
   getLegalMoves,
   positionKey,
@@ -56,6 +58,13 @@ export interface ActionMenuAbility {
   readonly ability: ActiveAbilityDefinition;
   readonly disabled: boolean;
   readonly disableReason: string | null;
+  // Per Session 29: precomputed effective MP cost and action speed so the
+  // displayed values match what the commit path applies after the
+  // `modifyMpCost` / `modifyActionSpeed` chains run. Without these,
+  // Staff of Power's × 1.2 MP and Wand of Deepwood's +5 Earth speed
+  // would show their unmodified base values in the picker.
+  readonly effectiveMpCost: number;
+  readonly effectiveActionSpeed: number;
 }
 
 export interface TurnFlow {
@@ -168,10 +177,11 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     if (activeUnit === null) return [];
     const out: CommandSetId[] = [];
     for (const bucketId of ACTIVE_BUCKET_IDS) {
-      const csId = activeUnit.loadout.actionBuckets[bucketId];
-      if (csId === null || csId === undefined) continue;
-      if (!catalog.hasCommandSet(csId)) continue;
-      out.push(csId);
+      const entries = activeUnit.loadout.actionBuckets[bucketId] ?? [];
+      for (const csId of entries) {
+        if (!catalog.hasCommandSet(csId)) continue;
+        out.push(csId);
+      }
     }
     return out;
   }, [activeUnit, catalog]);
@@ -192,7 +202,18 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
         const ability = catalog.getAbility(memberId);
         if (ability.kind !== 'active') continue;
         const disableReason = computeAbilityDisableReason(state, catalog, activeUnit, ability);
-        out.push({ ability, disabled: disableReason !== null, disableReason });
+        // Per Session 29: precompute effective MP and action speed via
+        // the canonical helpers so equipment / status / passive mods
+        // shown in the picker match the committed cost.
+        const effectiveMpCost = computeMpCost(state, catalog, activeUnit.id, ability.id);
+        const effectiveActionSpeed = computeBaseActionSpeed(state, catalog, activeUnit, ability);
+        out.push({
+          ability,
+          disabled: disableReason !== null,
+          disableReason,
+          effectiveMpCost,
+          effectiveActionSpeed,
+        });
       }
       return out;
     };
@@ -679,8 +700,10 @@ function computeLegalTargets(
     return { positions, unitIds, tilePositions: tileKeys };
   }
 
-  // tile-targeted
-  const range = ability.targeting.range.horizontal;
+  // tile-targeted. Use effective range (post-`modifyAbilityRange`) so the
+  // candidate window the picker scans matches what `validateAction` will
+  // accept downstream.
+  const range = computeAbilityRange(state, catalog, actor.id, ability).horizontal;
   for (let dy = -range; dy <= range; dy++) {
     for (let dx = -range; dx <= range; dx++) {
       const tx = actor.position.x + dx;

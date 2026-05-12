@@ -5,7 +5,7 @@ import {
   BUCKET_FIRST_ACTION,
   BUCKET_MOVEMENT,
   BUCKET_REACTION,
-  BUCKET_SECOND_ACTION,
+  BUCKET_SECONDARY_COMMAND_SETS,
   BUCKET_SUPPORT,
 } from './constants.ts';
 import { makeAbilitiesCatalog } from './test-fixtures.ts';
@@ -17,7 +17,7 @@ describe('getCapacity', () => {
 
   it('returns the v1 baseline for First Action / Second Action (1 each)', () => {
     expect(getCapacity(state, u.id, BUCKET_FIRST_ACTION, cat)).toBe(1);
-    expect(getCapacity(state, u.id, BUCKET_SECOND_ACTION, cat)).toBe(1);
+    expect(getCapacity(state, u.id, BUCKET_SECONDARY_COMMAND_SETS, cat)).toBe(1);
   });
 
   it('returns the v1 baseline for Reaction / Support / Movement (3 each)', () => {

@@ -166,6 +166,14 @@ function validateEquipmentPlacement(
         `Unit ${JSON.stringify(placement.id)}: ${(err as Error).message}`,
       );
     }
+    // Session 29: per-item class allowlist. Fails loud per CLAUDE.md
+    // "don't catch errors silently."
+    if (item.classRestrictions !== undefined && !item.classRestrictions.includes(placement.classId)) {
+      throw new BattleConfigError(
+        `Unit ${JSON.stringify(placement.id)}: class ${JSON.stringify(placement.classId)} ` +
+          `cannot equip ${JSON.stringify(id)} (restricted to ${JSON.stringify([...item.classRestrictions])})`,
+      );
+    }
   }
 }
 

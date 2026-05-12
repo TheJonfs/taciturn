@@ -21,6 +21,7 @@ import { collectActiveHandlers } from '../hooks/collector.ts';
 import {
   runModifyEvasion,
   runModifyHitChance,
+  runModifyOutgoingHitChance,
   runModifyStatQuery,
   runOnDamageDealt,
   runOnDamageReceived,
@@ -274,13 +275,24 @@ export const evasionCheck: DamageHandler = (ctx, env) => {
   const elevationModifier = computeElevationModifier(env.state, ctx.attacker.position, ctx.target.position);
 
   const baseChance = accuracy * evasionFactor * elevationModifier;
-  // Apply hit-chance modifiers (Blind, etc.). The runner threads the
-  // value through each handler's multiplicative return.
-  const modifiedChance = runModifyHitChance(env.state, env.catalog, {
+  // Apply hit-chance modifiers in two passes: target-side (Blind) then
+  // caster-side (Arcane Lens). Both are multiplicative; the runners
+  // thread the value through each handler. Composition:
+  //   final = base × ∏targetHooks × ∏casterHooks
+  // The order of target vs caster within the composition is
+  // associative — same final product either way — but running target-
+  // first matches the existing pre-Session-29 trace order.
+  const afterTarget = runModifyHitChance(env.state, env.catalog, {
     target: ctx.target,
     attacker: ctx.attacker,
     ability,
     baseHitChance: baseChance,
+  });
+  const modifiedChance = runModifyOutgoingHitChance(env.state, env.catalog, {
+    attacker: ctx.attacker,
+    target: ctx.target,
+    ability,
+    baseHitChance: afterTarget,
   });
   const hitChance = Math.max(0.05, Math.min(1.0, modifiedChance));
 

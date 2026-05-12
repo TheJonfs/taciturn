@@ -341,6 +341,8 @@ function AbilityListPicker(props: {
         <AbilityButton
           key={String(entry.ability.id)}
           ability={entry.ability}
+          mpCost={entry.effectiveMpCost}
+          actionSpeed={entry.effectiveActionSpeed}
           disabled={entry.disabled}
           reason={entry.disableReason}
           onClick={() => turnFlow.dispatch({ kind: 'pickAbility', abilityId: entry.ability.id })}
@@ -353,20 +355,20 @@ function AbilityListPicker(props: {
 
 function AbilityButton(props: {
   readonly ability: ActiveAbilityDefinition;
+  readonly mpCost: number;
+  readonly actionSpeed: number;
   readonly disabled: boolean;
   readonly reason: string | null;
   readonly onClick: () => void;
 }): ReactElement {
-  const { ability, disabled, reason, onClick } = props;
-  // Per Session 28 acceptance criteria: suppress the MP-cost line when
-  // an ability is free (Attack and other 0-MP abilities). The button
-  // shows the charge time alone when present; nothing when both are
-  // zero. General rule — applies to any zero-MP ability, not just
-  // Attack.
-  const mp = ability.mpCost;
+  const { ability, mpCost, actionSpeed, disabled, reason, onClick } = props;
+  // Per Session 28: suppress the MP-cost line when free. Per Session 29:
+  // display the *effective* values (post-`modifyMpCost` /
+  // `modifyActionSpeed`) precomputed by `AbilityListPicker` so equipment
+  // and status modifiers are visible to the player before commit.
   const parts: string[] = [];
-  if (mp > 0) parts.push(`MP ${mp}`);
-  if (ability.actionSpeed > 0) parts.push(`charge ${ability.actionSpeed}`);
+  if (mpCost > 0) parts.push(`MP ${mpCost}`);
+  if (actionSpeed > 0) parts.push(`charge ${actionSpeed}`);
   const subline = parts.join(' · ');
   return (
     <button

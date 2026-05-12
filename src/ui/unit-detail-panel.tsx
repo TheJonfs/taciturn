@@ -9,8 +9,10 @@
 
 import { useEffect, type CSSProperties, type ReactElement } from 'react';
 import {
+  ACTIVE_BUCKET_IDS,
   computeSpeed,
   EQUIPMENT_SLOT_IDS,
+  PASSIVE_BUCKET_IDS,
   runModifyStatQuery,
   type Catalog,
   type EquipmentSlotId,
@@ -143,28 +145,37 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
         </Section>
 
         <Section title="Loadout">
-          {Object.entries(unit.loadout.actionBuckets).map(([bucketId, csId]) => {
-            const csName =
-              csId !== null && csId !== undefined && catalog.hasCommandSet(csId)
-                ? catalog.getCommandSet(csId).name
-                : '(empty)';
+          {ACTIVE_BUCKET_IDS.map((bucketId) => {
+            const entries = unit.loadout.actionBuckets[bucketId] ?? [];
+            const display =
+              entries.length === 0
+                ? '(empty)'
+                : entries
+                    .map((csId) =>
+                      catalog.hasCommandSet(csId) ? catalog.getCommandSet(csId).name : String(csId),
+                    )
+                    .join(', ');
             return (
-              <div key={bucketId} style={resRowStyle}>
-                <span style={statusNameStyle}>{bucketId}</span>
-                <span style={statusDurStyle}>{csName}</span>
+              <div key={String(bucketId)} style={resRowStyle}>
+                <span style={statusNameStyle}>{String(bucketId)}</span>
+                <span style={statusDurStyle}>{display}</span>
               </div>
             );
           })}
-          {Object.entries(unit.loadout.passiveBuckets).map(([bucketId, abilityList]) => {
-            if (abilityList.length === 0) return null;
-            const names = abilityList.map((id) => {
-              if (!catalog.hasAbility(id)) return String(id);
-              return catalog.getAbility(id).name;
-            });
+          {PASSIVE_BUCKET_IDS.map((bucketId) => {
+            const abilityList = unit.loadout.passiveBuckets[bucketId] ?? [];
+            const display =
+              abilityList.length === 0
+                ? '(empty)'
+                : abilityList
+                    .map((id) =>
+                      catalog.hasAbility(id) ? catalog.getAbility(id).name : String(id),
+                    )
+                    .join(', ');
             return (
-              <div key={`p-${bucketId}`} style={resRowStyle}>
-                <span style={statusNameStyle}>{bucketId}</span>
-                <span style={statusDurStyle}>{names.join(', ')}</span>
+              <div key={`p-${String(bucketId)}`} style={resRowStyle}>
+                <span style={statusNameStyle}>{String(bucketId)}</span>
+                <span style={statusDurStyle}>{display}</span>
               </div>
             );
           })}

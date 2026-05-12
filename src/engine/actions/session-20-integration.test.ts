@@ -450,7 +450,7 @@ describe('Conductor support — × 1.25 MA via modifyStatQuery', () => {
       hp: 44,
       classId: 'lightning_mage',
       loadout: {
-        actionBuckets: { first_action: null, second_action: null } as never,
+        actionBuckets: { first_action: [], secondary_command_sets: [] } as never,
         passiveBuckets: {
           reaction: [],
           support: [abilityId('conductor')],
@@ -508,8 +508,8 @@ describe('Storm Caller — selfDamage emits system_damage with ability_self_cost
       team: 'team_a',
       loadout: {
         actionBuckets: {
-          first_action: { id: 'lightning_spells' },
-          second_action: null,
+          first_action: [{ id: 'lightning_spells' }],
+          secondary_command_sets: [],
         } as never,
         passiveBuckets: {
           reaction: [],

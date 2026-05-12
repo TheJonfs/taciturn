@@ -158,7 +158,7 @@ function silencedAbility(): ActiveAbilityDefinition {
     id: abilityId('cure'),
     name: 'Cure',
     kind: 'active',
-    bucket: bucketId('second_action'),
+    bucket: bucketId('secondary_command_sets'),
     baseCost: 1,
     availability: 'hidden',
     tags: ['magical', 'voice'],
@@ -384,10 +384,10 @@ function loadoutWith(args: {
   reactions?: AbilityId[];
   supports?: AbilityId[];
 } = {}): Loadout {
-  const actionBuckets: Record<string, ReturnType<typeof commandSetId> | null> = {};
-  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = null;
-  if (args.firstActionSet) actionBuckets[bucketId('first_action')] = args.firstActionSet;
-  if (args.secondActionSet) actionBuckets[bucketId('second_action')] = args.secondActionSet;
+  const actionBuckets: Record<string, ReadonlyArray<ReturnType<typeof commandSetId>>> = {};
+  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = [];
+  if (args.firstActionSet) actionBuckets[bucketId('first_action')] = [args.firstActionSet];
+  if (args.secondActionSet) actionBuckets[bucketId('secondary_command_sets')] = [args.secondActionSet];
   const passiveBuckets: Record<string, ReadonlyArray<AbilityId>> = {};
   for (const b of PASSIVE_BUCKET_IDS) passiveBuckets[b] = [];
   if (args.reactions) passiveBuckets[bucketId('reaction')] = args.reactions;

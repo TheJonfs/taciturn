@@ -58,6 +58,7 @@
 
 import {
   canCommitAction,
+  computeAbilityRange,
   computeMpCost,
   endpointFrom,
   getLegalMoves,
@@ -257,12 +258,14 @@ function enumerateActiveAbilities(
   // the picker; mirror that ordering here for deterministic tie-breaks).
   const cls = catalog.getClass(actor.classState.currentClass);
   for (const freeId of cls.freeAbilities) push(freeId);
-  // Then command-set members.
-  for (const commandSetId of Object.values(actor.loadout.actionBuckets)) {
-    if (commandSetId === null) continue;
-    if (!catalog.hasCommandSet(commandSetId)) continue;
-    const cs = catalog.getCommandSet(commandSetId);
-    for (const memberId of cs.members) push(memberId);
+  // Then command-set members. Per ADR-0061, each active bucket holds a
+  // list of CommandSetIds (capacity-gated). Flatten across all buckets.
+  for (const entries of Object.values(actor.loadout.actionBuckets)) {
+    for (const commandSetId of entries) {
+      if (!catalog.hasCommandSet(commandSetId)) continue;
+      const cs = catalog.getCommandSet(commandSetId);
+      for (const memberId of cs.members) push(memberId);
+    }
   }
   return out;
 }
@@ -503,6 +506,7 @@ function killValue(target: Unit): number {
 // a uniform Position-to-Position check.
 function positionInAbilityRange(
   state: GameState,
+  actor: Unit,
   source: Position,
   target: Position,
   ability: ActiveAbilityDefinition,
@@ -512,39 +516,42 @@ function positionInAbilityRange(
   const targetTile = tileAt(state.map, target.x, target.y, target.layer);
   if (sourceTile === undefined || targetTile === undefined) return false;
   const ruleset = catalog.getRuleset(state.ruleset.id);
+  const effective = computeAbilityRange(state, catalog, actor.id, ability);
   return inRange({
     source: endpointFrom(source, sourceTile.elevation),
     target: endpointFrom(target, targetTile.elevation),
     params: {
-      horizontalMax: ability.targeting.range.horizontal,
-      horizontalMin: ability.targeting.range.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
-      verticalMax: ability.targeting.range.vertical,
+      horizontalMax: effective.horizontal,
+      horizontalMin: effective.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
+      verticalMax: effective.vertical,
     },
   });
 }
 
 function targetIsInAbilityRange(
   state: GameState,
+  actor: Unit,
   source: Position,
   target: Unit,
   ability: ActiveAbilityDefinition,
   catalog: Catalog,
 ): boolean {
-  return positionInAbilityRange(state, source, target.position, ability, catalog);
+  return positionInAbilityRange(state, actor, source, target.position, ability, catalog);
 }
 
 // Enumerate every reachable tile within an ability's range from the
 // given source position. Used by AoE scoring to find candidate
-// anchors. Bounded by the ability's `horizontal` range — for a
-// horizontal=4 ability, scans a 9×9 window around the source.
+// anchors. Bounded by the ability's effective horizontal range
+// (post-`modifyAbilityRange` for the actor).
 function tilesInAbilityRange(
   state: GameState,
+  actor: Unit,
   source: Position,
   ability: ActiveAbilityDefinition,
   catalog: Catalog,
 ): Tile[] {
   const out: Tile[] = [];
-  const range = ability.targeting.range.horizontal;
+  const range = computeAbilityRange(state, catalog, actor.id, ability).horizontal;
   for (let dy = -range; dy <= range; dy++) {
     for (let dx = -range; dx <= range; dx++) {
       const tx = source.x + dx;
@@ -557,7 +564,7 @@ function tilesInAbilityRange(
       const t = tileAt(state.map, tx, ty, 0);
       if (t === undefined) continue;
       const candidatePos: Position = { x: tx, y: ty, layer: 0 };
-      if (!positionInAbilityRange(state, source, candidatePos, ability, catalog)) continue;
+      if (!positionInAbilityRange(state, actor, source, candidatePos, ability, catalog)) continue;
       out.push(t);
     }
   }
@@ -584,7 +591,7 @@ function scoreSingleUnitOffensive(
   ability: ActiveAbilityDefinition,
 ): number {
   if (selfDamageWouldKO(actor, ability)) return Number.NEGATIVE_INFINITY;
-  if (!targetIsInAbilityRange(state, source, target, ability, catalog)) {
+  if (!targetIsInAbilityRange(state, actor, source, target, ability, catalog)) {
     return Number.NEGATIVE_INFINITY;
   }
 
@@ -690,7 +697,7 @@ function scoreAoeOffensive(
   allies: ReadonlyArray<Unit>,
 ): number {
   if (selfDamageWouldKO(actor, ability)) return Number.NEGATIVE_INFINITY;
-  if (!positionInAbilityRange(state, source, anchor, ability, catalog)) {
+  if (!positionInAbilityRange(state, actor, source, anchor, ability, catalog)) {
     return Number.NEGATIVE_INFINITY;
   }
   const aoe = ability.effects.aoe;
@@ -817,7 +824,7 @@ function scoreAllyBuff(
   ability: ActiveAbilityDefinition,
 ): number {
   if (target.team !== actor.team) return Number.NEGATIVE_INFINITY;
-  if (!targetIsInAbilityRange(state, source, target, ability, catalog)) {
+  if (!targetIsInAbilityRange(state, actor, source, target, ability, catalog)) {
     return Number.NEGATIVE_INFINITY;
   }
   // The buff's effect is applying status_effects; we don't know which
@@ -855,7 +862,7 @@ function pickBestHeal(
   for (const target of sortedTargets) {
     const sortedAbilities = [...healing].sort((a, b) => abilityScore(b) - abilityScore(a));
     for (const ability of sortedAbilities) {
-      if (!targetIsInAbilityRange(state, actor.position, target, ability, catalog)) continue;
+      if (!targetIsInAbilityRange(state, actor, actor.position, target, ability, catalog)) continue;
       const proposed: ProposedAction = {
         type: 'use_ability',
         source: 'player',
@@ -916,7 +923,7 @@ function bestActFromSource(
   for (const ability of offensive) {
     if (ability.effects.aoe !== undefined) {
       if (ability.targeting.kind === 'tile') {
-        const tiles = tilesInAbilityRange(state, source, ability, catalog);
+        const tiles = tilesInAbilityRange(state, actor, source, ability, catalog);
         for (const tile of tiles) {
           const anchor: Position = { x: tile.x, y: tile.y, layer: tile.layer };
           const score = scoreAoeOffensive(state, catalog, actor, source, anchor, ability, enemies, allies);
@@ -1225,7 +1232,7 @@ function bestOffensiveScoreFrom(
   for (const ability of offensive) {
     if (ability.effects.aoe !== undefined) {
       if (ability.targeting.kind === 'tile') {
-        const tiles = tilesInAbilityRange(state, from, ability, catalog);
+        const tiles = tilesInAbilityRange(state, actor, from, ability, catalog);
         for (const tile of tiles) {
           const anchor: Position = { x: tile.x, y: tile.y, layer: tile.layer };
           const score = scoreAoeOffensive(state, catalog, actor, from, anchor, ability, enemies, allies);

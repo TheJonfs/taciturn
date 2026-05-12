@@ -58,7 +58,7 @@ function basicCure(power_coefficient = 5): ActiveAbilityDefinition {
     id: abilityId('cure'),
     name: 'Cure',
     kind: 'active',
-    bucket: bucketId('second_action'),
+    bucket: bucketId('secondary_command_sets'),
     baseCost: 1,
     availability: 'hidden',
     targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },

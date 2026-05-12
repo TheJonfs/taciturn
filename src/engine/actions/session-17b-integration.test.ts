@@ -219,9 +219,9 @@ function loadoutWith(args: {
   firstActionSet?: ReturnType<typeof commandSetId>;
   reactions?: AbilityId[];
 } = {}): Loadout {
-  const actionBuckets: Record<string, ReturnType<typeof commandSetId> | null> = {};
-  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = null;
-  if (args.firstActionSet) actionBuckets[bucketId('first_action')] = args.firstActionSet;
+  const actionBuckets: Record<string, ReadonlyArray<ReturnType<typeof commandSetId>>> = {};
+  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = [];
+  if (args.firstActionSet) actionBuckets[bucketId('first_action')] = [args.firstActionSet];
   const passiveBuckets: Record<string, ReadonlyArray<AbilityId>> = {};
   for (const b of PASSIVE_BUCKET_IDS) passiveBuckets[b] = [];
   if (args.reactions) passiveBuckets[bucketId('reaction')] = args.reactions;

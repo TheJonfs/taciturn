@@ -18,11 +18,14 @@ export type {
 } from './class-definition.ts';
 export type { CommandSetDefinition } from './command-set-definition.ts';
 export type {
+  AbilityRangeModifier,
   AccessoryEquipment,
   ArmorEquipment,
   EquipmentDefinition,
+  EvasionMods,
   HeadgearEquipment,
   ItemDefinition,
+  ShieldEquipment,
   WeaponEquipment,
 } from './item-definition.ts';
 export type { RulesetDefinition } from './ruleset-definition.ts';

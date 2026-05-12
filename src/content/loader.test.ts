@@ -52,11 +52,20 @@ describe('loadDefaultCatalog', () => {
     // Session 26 added the four R/S/M-parity Movement passives
     // (bedrock_stride, hotfoot, tidewalker, quickstep):
     //   - abilities: 42 → 46
-    expect(cat.statusTypes()).toHaveLength(20);
+    //
+    // Session 29 added Shell and Protect statuses (Auto-Shell from
+    // Sorcerer's Robe is the v1 consumer; Auto-Protect substrate
+    // staged for future Knight gear):
+    //   - statuses: 20 → 22
+    //
+    // Session 29 Equipment Batch A: 28 new items authored (6 weapons,
+    // 3 shields, 6 body, 6 head, 7 accessories):
+    //   - items: 5 → 33
+    expect(cat.statusTypes()).toHaveLength(22);
     expect(cat.abilities()).toHaveLength(46);
     expect(cat.commandSets()).toHaveLength(7);
     expect(cat.classes()).toHaveLength(5);
-    expect(cat.items()).toHaveLength(5);
+    expect(cat.items()).toHaveLength(33);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

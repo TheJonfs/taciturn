@@ -330,6 +330,66 @@ export function runModifyBucketCapacity(
   return value;
 }
 
+// Additive chain over per-axis ability range. Caster-side. Wand of
+// Depths' +1 horizontal/+1 vertical on Water-tagged spells composes
+// through here; future status/passive contributors compose additively
+// per axis. Handlers gate on the ability internally (e.g. checking
+// `args.ability.effects.damage?.tags`); the runner just threads.
+// Per Session 29.
+export function runModifyAbilityRange(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    ability: ActiveAbilityDefinition;
+    baseHorizontal: number;
+    baseVertical: number;
+  },
+): { readonly horizontal: number; readonly vertical: number } {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyAbilityRange');
+  let horizontal = args.baseHorizontal;
+  let vertical = args.baseVertical;
+  for (const h of handlers) {
+    const out = h.invoke({
+      unit: args.unit,
+      ability: args.ability,
+      baseHorizontal: horizontal,
+      baseVertical: vertical,
+    });
+    horizontal = out.horizontal;
+    vertical = out.vertical;
+  }
+  return { horizontal, vertical };
+}
+
+// Multiplicative chain over caster-side outgoing hit-chance modifiers.
+// Mirror of `runModifyHitChance` (target-side). Arcane Lens (×1.10)
+// composes here. The caller multiplies the result into the running
+// chance after the target-side chain; final clamp happens at the
+// existing `evasionCheck` exit. Per Session 29.
+export function runModifyOutgoingHitChance(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    attacker: Unit;
+    target: Unit;
+    ability: ActiveAbilityDefinition;
+    baseHitChance: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(state, args.attacker.id, catalog, 'modifyOutgoingHitChance');
+  let value = args.baseHitChance;
+  for (const h of handlers) {
+    value = h.invoke({
+      attacker: args.attacker,
+      target: args.target,
+      ability: args.ability,
+      baseHitChance: value,
+    });
+  }
+  return value;
+}
+
 // Multiplicative chain over status-tick-amount modifiers. Handlers fire
 // against the unit-being-ticked's registrations (Purifier ×2 on
 // `negative`-tagged statuses). Each handler receives the running
@@ -470,6 +530,22 @@ export function runOnActionTargeted(
     seed: number;
   },
 ): ReadonlyArray<GeneratedReaction> {
+  // Session 29 (ADR-0062): skip reactions when the incoming action's
+  // actor is on the same team as the reacting unit. Reactions are
+  // adversarial by default; allies shouldn't trigger each other's
+  // Counter, Smolder, Discharge, Tidal Pull, Earth Resilience.
+  // System actions (no `actorId` on the envelope — fall damage, status
+  // ticks, environmental) fall through unfiltered: a unit can still
+  // react to environmental damage. A future opt-in `triggerOnAllies`
+  // field on reaction definitions can override per-content when berserk-
+  // or ally-protection content asks for it.
+  if ('actorId' in args.incomingAction) {
+    const source = state.units.get(args.incomingAction.actorId);
+    if (source !== undefined && source.team === args.unit.team) {
+      return [];
+    }
+  }
+
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onActionTargeted');
   const proposed: ProposedAction[] = [];
   for (const h of handlers) {

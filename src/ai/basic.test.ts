@@ -41,7 +41,7 @@ const TEAM_A = teamId('team_a');
 const TEAM_B = teamId('team_b');
 const KNIGHT = classId('knight');
 const FIRST = bucketId('first_action');
-const SECOND = bucketId('second_action');
+const SECOND = bucketId('secondary_command_sets');
 const ATTACK_ID = abilityId('attack');
 const CURE_ID = abilityId('cure');
 const BATTLE_SKILL = commandSetId('battle_skill');
@@ -161,8 +161,8 @@ function buildBattle(opts: BuildOpts): { state: GameState; catalog: Catalog } {
       vitals: { hp: p.hp ?? 60, mp: p.mp ?? (p.cure ? 10 : 0) },
       loadout: {
         actionBuckets: p.cure
-          ? { [FIRST]: BATTLE_SKILL, [SECOND]: WHITE_MAGIC }
-          : { [FIRST]: BATTLE_SKILL },
+          ? { [FIRST]: [BATTLE_SKILL], [SECOND]: [WHITE_MAGIC] }
+          : { [FIRST]: [BATTLE_SKILL] },
         passiveBuckets: {},
       },
     })),
@@ -525,7 +525,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
     const cat = loadDefaultCatalog();
     const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 2, y: 2, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('lightning_spells')] },
       passiveBuckets: {},
     } });
     // Enemies on opposite sides of the attacker, far enough apart that
@@ -572,7 +572,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
     const cat = loadDefaultCatalog();
     const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, maxHpBase: 44, hp: 11, mp: 44, classId: 'lightning_mage', position: { x: 1, y: 1, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('lightning_spells')] },
       passiveBuckets: {},
     } });
     const tgt = makeUnit({ id: 'tgt', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 2, y: 1, layer: 0 } });
@@ -600,7 +600,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
     const cat = loadDefaultCatalog();
     const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 1, y: 1, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('lightning_spells')] },
       passiveBuckets: {},
     } });
     const tgt = makeUnit({ id: 'tgt', team: 'team_b', spd: 10, maxHpBase: 60, hp: 60, classId: 'knight', position: { x: 2, y: 1, layer: 0 } });
@@ -624,7 +624,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
     const cat = loadDefaultCatalog();
     const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 1, y: 1, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('lightning_spells')] },
       passiveBuckets: {},
     } });
     const tgt = makeUnit({ id: 'tgt', team: 'team_b', spd: 10, maxHpBase: 60, hp: 8, classId: 'knight', position: { x: 2, y: 1, layer: 0 } });
@@ -647,15 +647,15 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
     const cat = loadDefaultCatalog();
     const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 2, y: 2, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('lightning_spells')] },
       passiveBuckets: {},
     } });
     const knight = makeUnit({ id: 'ally_knight', team: 'team_a', spd: 10, ma: 4, hp: 60, classId: 'knight', position: { x: 1, y: 2, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('battle_skill') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('battle_skill')] },
       passiveBuckets: {},
     } });
     const mage = makeUnit({ id: 'ally_mage', team: 'team_a', spd: 9, ma: 8, hp: 50, mp: 40, classId: 'earth_mage', position: { x: 3, y: 2, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('earth_spells') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('earth_spells')] },
       passiveBuckets: {},
     } });
     // No reachable enemies — joint planner finds no offensive plan, so
@@ -687,7 +687,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
     const cat = loadDefaultCatalog();
     const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 1, y: 1, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('lightning_spells')] },
       passiveBuckets: {},
     } });
     const e1 = makeUnit({ id: 'e1', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 3, y: 2, layer: 0 } });
@@ -717,7 +717,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
     const cat = loadDefaultCatalog();
     const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 1, y: 1, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('lightning_spells')] },
       passiveBuckets: {},
     } });
     const enemy = makeUnit({ id: 'enemy', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 3, y: 2, layer: 0 } });
@@ -763,7 +763,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
       id: 'attacker', spd: 10, pa: 6, hp: 60, classId: 'knight',
       position: { x: 2, y: 2, layer: 0 },
       loadout: {
-        actionBuckets: { [bucketId('first_action')]: commandSetId('battle_skill') },
+        actionBuckets: { [bucketId('first_action')]: [commandSetId('battle_skill')] },
         passiveBuckets: {},
       },
       equipment: { leftHand: null, rightHand: longSword.id, headgear: null, armor: null, accessory: null },
@@ -772,7 +772,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
       id: 'tgt_counter', team: 'team_b', spd: 10, hp: 30, classId: 'knight',
       position: { x: 3, y: 2, layer: 0 },
       loadout: {
-        actionBuckets: { [bucketId('first_action')]: commandSetId('battle_skill') },
+        actionBuckets: { [bucketId('first_action')]: [commandSetId('battle_skill')] },
         passiveBuckets: { [bucketId('reaction')]: [abilityId('counter')] },
       },
     });
@@ -780,7 +780,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
       id: 'tgt_plain', team: 'team_b', spd: 10, hp: 30, classId: 'knight',
       position: { x: 2, y: 3, layer: 0 },
       loadout: {
-        actionBuckets: { [bucketId('first_action')]: commandSetId('battle_skill') },
+        actionBuckets: { [bucketId('first_action')]: [commandSetId('battle_skill')] },
         passiveBuckets: {},
       },
     });
@@ -814,7 +814,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
     const cat = loadDefaultCatalog();
     const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 0, y: 0, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('lightning_spells')] },
       passiveBuckets: {},
     } });
     const enemy = makeUnit({ id: 'enemy', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 5, y: 0, layer: 0 } });
@@ -841,7 +841,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
     const cat = loadDefaultCatalog();
     const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 2, y: 2, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('lightning_spells')] },
       passiveBuckets: {},
     } });
     const enemy = makeUnit({ id: 'enemy', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 3, y: 2, layer: 0 } });
@@ -867,7 +867,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const cat = loadDefaultCatalog();
     // Place the mage at (2,1) and three enemies south at (1,3), (2,3), (3,3).
     const attacker = makeUnit({ id: 'attacker', spd: 11, ma: 7, hp: 45, mp: 45, classId: 'water_mage', position: { x: 2, y: 1, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('water_spells') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('water_spells')] },
       passiveBuckets: {},
     } });
     const e1 = makeUnit({ id: 'e1', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 1, y: 3, layer: 0 } });
@@ -912,15 +912,15 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const { activeTurnFor, makeGameState, makeUnit } = await import('../engine/ct/test-fixtures.ts');
     const cat = loadDefaultCatalog();
     const attacker = makeUnit({ id: 'attacker', spd: 12, ma: 8, hp: 44, mp: 44, classId: 'lightning_mage', position: { x: 2, y: 2, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('lightning_spells') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('lightning_spells')] },
       passiveBuckets: {},
     } });
     const tgtCounter = makeUnit({ id: 'tgt_counter', team: 'team_b', spd: 10, hp: 30, classId: 'knight', position: { x: 5, y: 2, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('battle_skill') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('battle_skill')] },
       passiveBuckets: { [bucketId('reaction')]: [abilityId('counter')] },
     } });
     const tgtPlain = makeUnit({ id: 'tgt_plain', team: 'team_b', spd: 10, hp: 30, classId: 'knight', position: { x: 2, y: 5, layer: 0 }, loadout: {
-      actionBuckets: { [bucketId('first_action')]: commandSetId('battle_skill') },
+      actionBuckets: { [bucketId('first_action')]: [commandSetId('battle_skill')] },
       passiveBuckets: {},
     } });
     const state = makeGameState({

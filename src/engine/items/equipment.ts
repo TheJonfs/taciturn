@@ -68,12 +68,14 @@ export function validateSlotItem(
   slot: EquipmentSlotId,
   item: EquipmentDefinition,
 ): void {
-  // Hand slots accept weapons (and eventually shields). Other slots
-  // require their kind exactly.
+  // Hand slots accept weapons or shields. Other slots require their
+  // kind exactly. Per Session 29: shields became a real kind (vs the
+  // pre-Session-29 placeholder comment) so Knight-only shield content
+  // can ship.
   if (slot === 'leftHand' || slot === 'rightHand') {
-    if (item.kind !== 'weapon') {
+    if (item.kind !== 'weapon' && item.kind !== 'shield') {
       throw new EquipmentSlotMismatchError(
-        `Slot ${slot} expects a weapon, received ${item.kind}`,
+        `Slot ${slot} expects a weapon or shield, received ${item.kind}`,
       );
     }
     return;

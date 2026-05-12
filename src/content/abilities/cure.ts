@@ -15,7 +15,7 @@ export const cure: ActiveAbilityDefinition = {
   id: abilityId('cure'),
   name: 'Cure',
   kind: 'active',
-  bucket: bucketId('second_action'),
+  bucket: bucketId('secondary_command_sets'),
   baseCost: 1,
   availability: 'hidden',
   // 'magical' added in session 18 so Water Mage's Flow State support

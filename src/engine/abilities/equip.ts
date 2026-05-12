@@ -109,6 +109,11 @@ export function unequipPassive(
   return commitOrFail(state, unit, candidate, catalog);
 }
 
+// Replaces the bucket's contents with `[commandSetId]` (or `[]` when
+// null). v1 mutators stay single-set per call; multi-set composition
+// (needed when Magus Crown lifts the secondary capacity to 2) is
+// expressed at loadout-authoring time via the array shape. A future
+// team-builder UI gets its own add/remove helpers.
 export function setActiveBucket(
   state: GameState,
   unitId: UnitId,
@@ -117,9 +122,11 @@ export function setActiveBucket(
   catalog: Catalog,
 ): EquipResult {
   const unit = getUnit(state, unitId);
+  const nextEntries: ReadonlyArray<CommandSetId> =
+    commandSetId === null ? [] : [commandSetId];
   const candidate: Loadout = {
     ...unit.loadout,
-    actionBuckets: { ...unit.loadout.actionBuckets, [bucketId]: commandSetId },
+    actionBuckets: { ...unit.loadout.actionBuckets, [bucketId]: nextEntries },
   };
   return commitOrFail(state, unit, candidate, catalog);
 }

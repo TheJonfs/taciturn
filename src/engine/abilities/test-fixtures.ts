@@ -121,13 +121,26 @@ export function makeAbilitiesCatalog(args: {
   });
 }
 
+// Per ADR-0061, active buckets hold lists. The `active` tuples accept
+// either a CommandSetId (sugar for a single-entry list), null (empty),
+// or an explicit list — keeps existing callsites terse while making the
+// list-shape callable for tests that exercise Magus Crown's +1 bucket
+// capacity in the secondary_command_sets bucket.
+type ActiveEntry = CommandSetId | null | ReadonlyArray<CommandSetId>;
+
+function asList(entry: ActiveEntry): ReadonlyArray<CommandSetId> {
+  if (entry === null) return [];
+  if (Array.isArray(entry)) return entry;
+  return [entry as CommandSetId];
+}
+
 export function loadoutOf(args: {
-  readonly active?: ReadonlyArray<readonly [BucketId, CommandSetId | null]>;
+  readonly active?: ReadonlyArray<readonly [BucketId, ActiveEntry]>;
   readonly passive?: ReadonlyArray<readonly [BucketId, ReadonlyArray<AbilityId>]>;
 }): Loadout {
-  const actionBuckets: Record<string, CommandSetId | null> = {};
-  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = null;
-  for (const [b, v] of args.active ?? []) actionBuckets[b] = v;
+  const actionBuckets: Record<string, ReadonlyArray<CommandSetId>> = {};
+  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = [];
+  for (const [b, v] of args.active ?? []) actionBuckets[b] = asList(v);
   const passiveBuckets: Record<string, ReadonlyArray<AbilityId>> = {};
   for (const b of PASSIVE_BUCKET_IDS) passiveBuckets[b] = [];
   for (const [b, v] of args.passive ?? []) passiveBuckets[b] = v;
@@ -139,10 +152,10 @@ export function loadoutOf(args: {
 // Use this whenever a test goes through `validateLoadout` or
 // `createInitialState` for a Knight-class unit.
 export function knightLoadout(args?: {
-  readonly active?: ReadonlyArray<readonly [BucketId, CommandSetId | null]>;
+  readonly active?: ReadonlyArray<readonly [BucketId, ActiveEntry]>;
   readonly passive?: ReadonlyArray<readonly [BucketId, ReadonlyArray<AbilityId>]>;
 }): Loadout {
-  const active: Array<readonly [BucketId, CommandSetId | null]> = [
+  const active: Array<readonly [BucketId, ActiveEntry]> = [
     [bucketId('first_action'), commandSetId('battle_skill')],
   ];
   if (args?.active) {

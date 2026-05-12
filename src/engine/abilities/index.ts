@@ -7,7 +7,7 @@ export {
   BUCKET_FIRST_ACTION,
   BUCKET_MOVEMENT,
   BUCKET_REACTION,
-  BUCKET_SECOND_ACTION,
+  BUCKET_SECONDARY_COMMAND_SETS,
   BUCKET_SUPPORT,
   bucketKind,
   PASSIVE_BUCKET_IDS,
@@ -29,6 +29,7 @@ export {
   type ReactionTriggerHook,
 } from './reaction-compiler.ts';
 export { computeMpCost, getCommandSetCost, getCost } from './cost.ts';
+export { computeAbilityRange, type AbilityRangeView } from './range.ts';
 export { getCapacity } from './capacity.ts';
 export {
   validateLoadout,
