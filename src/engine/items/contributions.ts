@@ -28,9 +28,11 @@ import {
   type SourceContribution,
 } from '../hooks/collector.ts';
 import type { HookName } from '../hooks/hooks.ts';
+import { PROC_ROLL_SUB_STREAM, unitFloatFromSeed } from '../hooks/runners.ts';
 import type {
   DamageTag,
   PartialBaseStats,
+  ProposedAction,
   StatName,
   Unit,
 } from '../types/index.ts';
@@ -424,6 +426,126 @@ function* evasionContributor(
   }
 }
 
+// onDamageDealt contributor: each item's `attackProcs` declares
+// (chance, abilityId) entries that fire `use_ability` against the
+// original target when a physical hit lands. Per ADR-0064 (Session 30).
+//
+// Gates (handler-side, so author intent is preserved across all sources):
+//  - ctx.hit must be true (no proc on a miss).
+//  - ctx.damageTags must include 'physical' (procs trigger on weapon
+//    hits, not on spells the wielder casts — per Chris's design call).
+//  - ctx.actionSeed must be present (handlers without a seed can't roll
+//    deterministically; pipeline always provides one).
+//
+// Determinism: each proc handler is assigned a stable contributor-wide
+// `procIndex`; the per-action roll is `unitFloatFromSeed(actionSeed ^
+// (PROC_ROLL_SUB_STREAM + procIndex))`. Same action seed + same item
+// load produces the same proc pattern across replays.
+//
+// Emission: on a roll under `chance`, the handler emits a `use_ability`
+// against ctx.target with `riderSource: { kind: 'equipment_proc', itemId }`.
+// The reducer's MP-deduction and `onActionAttempted` veto gates read
+// the rider flag and skip — see ADR-0064 for the bypass rationale
+// (the proc is the weapon's power, not the wielder's). Procs share
+// chain-depth with reactions and are bounded by the existing cap.
+function* attackProcContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'onDamageDealt'>> {
+  let tieBreakIndex = 0;
+  let procIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.attackProcs === undefined) continue;
+    for (const proc of item.attackProcs) {
+      const localIndex = tieBreakIndex++;
+      const localProcIndex = procIndex++;
+      const localChance = proc.chance;
+      const localAbilityId = proc.abilityId;
+      const localItemId = item.id;
+      const localAttackerId = unit.id;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          const ctx = args.ctx;
+          if (!ctx.hit) return ctx;
+          if (!ctx.damageTags.has('physical')) return ctx;
+          if (ctx.actionSeed === undefined) return ctx;
+          const subSeed = (ctx.actionSeed ^ ((PROC_ROLL_SUB_STREAM + localProcIndex) >>> 0)) >>> 0;
+          const roll = unitFloatFromSeed(subSeed);
+          if (roll >= localChance) return ctx;
+          const emission: ProposedAction = {
+            type: 'use_ability',
+            source: 'system',
+            actorId: localAttackerId,
+            payload: {
+              abilityId: localAbilityId,
+              target: { kind: 'unit', unitId: ctx.target.id },
+              riderSource: { kind: 'equipment_proc', itemId: localItemId },
+            },
+          };
+          return { ctx, emittedActions: [emission] };
+        },
+      };
+    }
+  }
+}
+
+// onFinalDamage contributor: each item's `damageMpDrainPercent` declares
+// a percentage (0-100) of final damage to drain from the target's MP
+// into the wearer's. Per ADR-0065 (Session 30). Rasp Pendant (Session 31)
+// authors `10`.
+//
+// Gates:
+//  - The damage was not absorbed (resistance > 100 flip — no MP drain
+//    when no damage actually landed; per Chris's design call).
+//  - `damageDealt > 0` (zero damage means no drain to compute).
+//  - `floor(damageDealt × percent / 100) > 0` (rounding produced
+//    something to drain; otherwise no emission for log cleanliness).
+//  - The target is not KO'd (Rasp Pendant's spec says no drain on a
+//    KO'd target; the reducer also no-ops on KO'd targets, but gating
+//    here keeps the action log free of trivial zero-amount entries).
+//
+// Emission: `system_mp_drain { source: attacker.id, target: target.id,
+// amount }`. The reducer applies the transfer-bounded math (target floor
+// at 0, source cap at maxMp).
+function* finalDamageDrainContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'onFinalDamage'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.damageMpDrainPercent === undefined) continue;
+    if (item.damageMpDrainPercent <= 0) continue;
+    const localIndex = tieBreakIndex++;
+    const localPercent = item.damageMpDrainPercent;
+    const localAttackerId = unit.id;
+    yield {
+      tier: 'equipment',
+      priority: DEFAULT_HOOK_PRIORITY,
+      tieBreakIndex: localIndex,
+      invoke: (args) => {
+        if (args.absorbed) return {};
+        if (args.damageDealt <= 0) return {};
+        if (args.target.vitals.hp <= 0) return {};
+        const amount = Math.floor((args.damageDealt * localPercent) / 100);
+        if (amount <= 0) return {};
+        const emission: ProposedAction = {
+          type: 'system_mp_drain',
+          source: 'system',
+          payload: {
+            source: localAttackerId,
+            target: args.target.id,
+            amount,
+          },
+        };
+        return { emittedActions: [emission] };
+      },
+    };
+  }
+}
+
 // Per-hook contributor registry. The dispatch is a single map lookup;
 // hooks with no entry yield no equipment contributors. Adding equipment
 // integration for a new hook is one entry plus the contributor body.
@@ -444,6 +566,10 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   modifyAbilityRange: abilityRangeContributor,
   modifyOutgoingHitChance: outgoingHitChanceContributor,
   modifyEvasion: evasionContributor,
+  // ADR-0064 (Session 30): weapon spell-cast riders.
+  onDamageDealt: attackProcContributor,
+  // ADR-0065 (Session 30): damage-to-MP-drain on equipment.
+  onFinalDamage: finalDamageDrainContributor,
 };
 
 export function* equipmentContributionsFor<K extends HookName>(

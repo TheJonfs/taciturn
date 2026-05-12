@@ -25,6 +25,7 @@ import {
   runModifyStatQuery,
   runOnDamageDealt,
   runOnDamageReceived,
+  runOnFinalDamage,
 } from '../hooks/runners.ts';
 import type { Catalog } from '../catalog/index.ts';
 import type { GameState } from '../types/index.ts';
@@ -38,6 +39,11 @@ import {
   type Unit,
 } from '../types/index.ts';
 import type { DamageHandler } from './registry.ts';
+import {
+  computeAttackerFacing,
+  computeElevationModifier,
+  pickEvasion,
+} from './hit-chance-internals.ts';
 
 // Faith_factor for symmetric magical formulas — `(Faith_user / 100) ×
 // (Faith_target / 100)` per docs/battle-mechanics-guide.md "Magical
@@ -506,6 +512,31 @@ export const finalize: DamageHandler = (ctx) => {
   return { ...ctx, finalDamage: Math.floor(value) };
 };
 
+// --- postFinalize stage (Session 30, ADR-0065) ---
+
+// Fires `onFinalDamage` against the attacker's hooks after finalize has
+// produced the integer `damageDealt`. Emission-only: handlers may append
+// to `ctx.emittedActions` but cannot mutate the damage. The `absorbed`
+// arg signals when the cap stage tag-flipped the result to healing
+// (resistance > 100 per ADR-0057); handlers gate on it (Rasp Pendant
+// skips MP drain on absorbed hits).
+export const fireOnFinalDamage: DamageHandler = (ctx, env) => {
+  const attacker = getUnit(env.state, ctx.attacker.id);
+  const target = getUnit(env.state, ctx.target.id);
+  const damageDealt = ctx.finalDamage ?? 0;
+  const absorbed = ctx.damageTags.has('healing');
+  const emissions = runOnFinalDamage(env.state, env.catalog, {
+    unit: attacker,
+    target,
+    damageDealt,
+    damageTags: ctx.damageTags,
+    absorbed,
+  });
+  if (emissions.length === 0) return ctx;
+  const accumulated = ctx.emittedActions ? [...ctx.emittedActions, ...emissions] : [...emissions];
+  return { ...ctx, emittedActions: accumulated };
+};
+
 // Compose the effective `power_coefficient` for a base-stage handler.
 // Per ADR-0032: when the ability declares `damage.chainBonus`, the
 // scalar grows with the AoE cluster size:
@@ -546,66 +577,10 @@ function computeRawDamage(ctx: DamageContext): number {
 // back; otherwise side. The grid layer dimension is ignored — facing
 // is a 2D model.
 //
-// Edge case: attacker on the same tile as target is degenerate and
-// shouldn't happen in v1 (an ability targets self via `'self'`
-// targeting, not by passing the attacker's own position). When it does,
-// returns 'front' as a safe default.
-function computeAttackerFacing(
-  attacker: Position,
-  target: Position,
-  facing: Direction,
-): 'front' | 'side' | 'back' {
-  const dx = attacker.x - target.x;
-  const dy = attacker.y - target.y;
-  if (dx === 0 && dy === 0) return 'front';
-  const mag = Math.sqrt(dx * dx + dy * dy);
-  const ux = dx / mag;
-  const uy = dy / mag;
-  // Facing vector. y increases downward (S = +y, N = -y).
-  let fx = 0;
-  let fy = 0;
-  switch (facing) {
-    case 'N': fy = -1; break;
-    case 'S': fy = 1; break;
-    case 'E': fx = 1; break;
-    case 'W': fx = -1; break;
-  }
-  const cos = ux * fx + uy * fy;
-  const COS_45 = Math.SQRT1_2; // √2 / 2 ≈ 0.7071
-  if (cos >= COS_45) return 'front';
-  if (cos <= -COS_45) return 'back';
-  return 'side';
-}
-
-function pickEvasion(
-  evasion: { readonly front: number; readonly side: number; readonly back: number },
-  facing: 'front' | 'side' | 'back',
-): number {
-  if (facing === 'front') return evasion.front;
-  if (facing === 'side') return evasion.side;
-  return evasion.back;
-}
-
-// Elevation modifier per BMG: attacker higher → 1.05; attacker lower →
-// 0.95; same elevation → 1.0. Reads tile elevation at the attacker's
-// and target's positions. If either tile is missing (impossible in v1
-// well-formed maps but defensive), returns 1.0.
-function computeElevationModifier(
-  state: import('../types/index.ts').GameState,
-  attacker: Position,
-  target: Position,
-): number {
-  const attackerTile = state.map.tiles.find(
-    (t) => t.x === attacker.x && t.y === attacker.y && t.layer === attacker.layer,
-  );
-  const targetTile = state.map.tiles.find(
-    (t) => t.x === target.x && t.y === target.y && t.layer === target.layer,
-  );
-  if (attackerTile === undefined || targetTile === undefined) return 1.0;
-  if (attackerTile.elevation > targetTile.elevation) return 1.05;
-  if (attackerTile.elevation < targetTile.elevation) return 0.95;
-  return 1.0;
-}
+// Facing classification, per-facing evasion lookup, and elevation
+// modifier all live in `./hit-chance-internals.ts` so the forecast
+// helper (`computeOutgoingHitChance`) shares them with `evasionCheck`
+// without duplication. Per Session 30 fold-in.
 
 // signedMax — returns the largest signed value in the list, defaulting
 // to 0 when empty. Per ADR-0015: most resistant tag wins; ties between

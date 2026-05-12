@@ -87,6 +87,7 @@ export function validateAction(
     case 'charged_action_resolve':
     case 'system_heal':
     case 'system_damage':
+    case 'system_mp_drain':
     case 'system_apply_status':
     case 'system_ct_push':
     case 'status_remove':
@@ -215,12 +216,17 @@ function validateUseAbility(
 
   // MP cost — routed through `computeMpCost` so equipment / status /
   // passive `modifyMpCost` contributors compose into the affordability
-  // check (per ADR-0056).
-  const mpCost = computeMpCost(state, catalog, actor.id, ability.id);
-  if (actor.vitals.mp < mpCost) {
-    return invalid(
-      `Insufficient MP for ${JSON.stringify(ability.id)}: have ${actor.vitals.mp}, need ${mpCost}`,
-    );
+  // check (per ADR-0056). Per ADR-0064 (Session 30): rider casts skip
+  // the affordability check because the weapon pays the cost, not the
+  // wielder — Bolt Hammer's Lightning proc is free of MP, and a Mage
+  // with 0 MP still procs Burn off a Flametongue swing.
+  if (action.payload.riderSource === undefined) {
+    const mpCost = computeMpCost(state, catalog, actor.id, ability.id);
+    if (actor.vitals.mp < mpCost) {
+      return invalid(
+        `Insufficient MP for ${JSON.stringify(ability.id)}: have ${actor.vitals.mp}, need ${mpCost}`,
+      );
+    }
   }
 
   // Target check. The targeting union has three kinds: `self`,

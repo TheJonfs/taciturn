@@ -26,10 +26,13 @@ import type {
 } from '../types/index.ts';
 import type { DamageHandlerRegistry, PipelineEnv } from './registry.ts';
 
-// Ordering of the seven stages — matches the design doc's enumeration.
+// Ordering of the stages — matches the design doc's enumeration.
 // Kept here (rather than read off the ruleset) because the *order* is
 // architectural; the ruleset chooses which handlers run *within* each
 // stage but does not reorder the stages themselves.
+//
+// `postFinalize` (Session 30, ADR-0065) runs after `finalize` so handlers
+// fire against the integer `damageDealt` — purely emission, no transform.
 const STAGE_ORDER: ReadonlyArray<DamageStage> = [
   'base',
   'attacker',
@@ -38,6 +41,7 @@ const STAGE_ORDER: ReadonlyArray<DamageStage> = [
   'variance',
   'cap',
   'finalize',
+  'postFinalize',
 ];
 
 export interface RunDamagePipelineArgs {
@@ -78,6 +82,10 @@ export function runDamagePipeline(args: RunDamagePipelineArgs): DamageContext {
     variance,
     hit: true,
     targetCount: args.targetCount ?? 1,
+    // Expose the per-action seed so source-tier hook handlers (e.g.
+    // `attackProcContributor`) can roll deterministically off the same
+    // stream as pipeline-stage handlers. Per ADR-0064.
+    actionSeed: args.seed,
   };
 
   for (const stage of STAGE_ORDER) {
@@ -92,7 +100,11 @@ function runStage(
   args: RunDamagePipelineArgs,
   ruleset: RulesetDefinition,
 ): DamageContext {
-  const refs = ruleset.damagePipeline.stages[stage];
+  // Stage may be absent in a custom ruleset that predates the stage's
+  // introduction (e.g. test fixtures composed before `postFinalize`
+  // landed in Session 30). Treat absence as an empty handler list —
+  // identical to the explicit empty-array case below.
+  const refs = ruleset.damagePipeline.stages[stage] ?? [];
   if (refs.length === 0) return ctx;
   const env: PipelineEnv = {
     state: args.state,

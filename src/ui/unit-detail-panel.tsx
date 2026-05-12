@@ -13,6 +13,7 @@ import {
   computeSpeed,
   EQUIPMENT_SLOT_IDS,
   PASSIVE_BUCKET_IDS,
+  runModifyEvasion,
   runModifyStatQuery,
   type Catalog,
   type EquipmentSlotId,
@@ -20,6 +21,7 @@ import {
   type Unit,
 } from '@engine/index.ts';
 import { portraitUrlFor } from '../assets/portraits/index.ts';
+import { bucketLabel, slotLabel } from './labels.ts';
 
 export interface UnitDetailPanelProps {
   readonly state: GameState;
@@ -78,6 +80,34 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
     baseValue: cls.movement.jump,
   });
 
+  // Per-facing evasion display (Session 30 fold-in). Reads each of the
+  // three facings through `runModifyEvasion` so equipment / status
+  // contributors are reflected: a Knight in Steel Helm shows
+  // F: 5  S: -15  B: -15 (class baseline + Steel Helm's -20 side/back).
+  // The "attacker" arg on `modifyEvasion` is required by the hook signature
+  // but no v1 handler reads it; we pass the unit itself as a stand-in.
+  // The display value is "the effective evasion against a generic
+  // attacker" — if a future handler gates on attacker identity, this
+  // display diverges from per-attacker reality. Watch in playtest.
+  const evasionFront = runModifyEvasion(state, catalog, {
+    unit,
+    attacker: unit,
+    baseEvasion: cls.evasion.front,
+    facing: 'front',
+  });
+  const evasionSide = runModifyEvasion(state, catalog, {
+    unit,
+    attacker: unit,
+    baseEvasion: cls.evasion.side,
+    facing: 'side',
+  });
+  const evasionBack = runModifyEvasion(state, catalog, {
+    unit,
+    attacker: unit,
+    baseEvasion: cls.evasion.back,
+    facing: 'back',
+  });
+
   return (
     <>
       <div style={backdropStyle} onClick={onClose} />
@@ -108,6 +138,14 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
             <StatPair label="Move" value={String(moveRange)} />
             <StatPair label="Jump" value={String(jump)} />
           </StatGrid>
+          <div style={evasionRowStyle}>
+            <span style={statLabelStyle}>Evade</span>
+            <span style={evasionValuesStyle}>
+              <span style={evasionEntryStyle}>F {evasionFront}</span>
+              <span style={evasionEntryStyle}>S {evasionSide}</span>
+              <span style={evasionEntryStyle}>B {evasionBack}</span>
+            </span>
+          </div>
         </Section>
 
         <Section title="Active Statuses">
@@ -157,7 +195,7 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
                     .join(', ');
             return (
               <div key={String(bucketId)} style={resRowStyle}>
-                <span style={statusNameStyle}>{String(bucketId)}</span>
+                <span style={statusNameStyle}>{bucketLabel(bucketId)}</span>
                 <span style={statusDurStyle}>{display}</span>
               </div>
             );
@@ -174,7 +212,7 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
                     .join(', ');
             return (
               <div key={`p-${String(bucketId)}`} style={resRowStyle}>
-                <span style={statusNameStyle}>{String(bucketId)}</span>
+                <span style={statusNameStyle}>{bucketLabel(bucketId)}</span>
                 <span style={statusDurStyle}>{display}</span>
               </div>
             );
@@ -190,7 +228,7 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
                 : '(empty)';
             return (
               <div key={slot} style={resRowStyle}>
-                <span style={statusNameStyle}>{slot}</span>
+                <span style={statusNameStyle}>{slotLabel(slot)}</span>
                 <span style={statusDurStyle}>{itemName}</span>
               </div>
             );
@@ -357,6 +395,32 @@ const statPairStyle: CSSProperties = {
 
 const statLabelStyle: CSSProperties = { opacity: 0.7 };
 const statValueStyle: CSSProperties = { fontWeight: 500 };
+
+// Per-facing evasion display — single row below the 2-column Stats
+// grid. The values pack into a horizontal flex on the right so all
+// three facings read at a glance.
+const evasionRowStyle: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  fontSize: 12,
+  fontVariantNumeric: 'tabular-nums',
+  padding: '2px 6px',
+  marginTop: 4,
+  background: 'rgba(255,255,255,0.04)',
+  borderRadius: 3,
+};
+
+const evasionValuesStyle: CSSProperties = {
+  display: 'flex',
+  gap: 10,
+  fontWeight: 500,
+};
+
+const evasionEntryStyle: CSSProperties = {
+  minWidth: 36,
+  textAlign: 'right',
+};
 
 const statusRowStyle: CSSProperties = {
   display: 'flex',

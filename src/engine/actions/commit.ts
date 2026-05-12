@@ -144,6 +144,13 @@ function envelopeFor(
 // the engine's own emissions is design noise). The `isReaction` flag
 // (per ADR-0027) is threaded through so handlers like Don't Act can
 // distinguish volitional UseAbility (block) from reactions (allow).
+//
+// Per ADR-0064 (Session 30): rider casts (weapon `attackProcs`) also
+// skip onActionAttempted — the spell is the weapon's power, not the
+// wielder's, so Silence / Stop / Don't Act handlers on the wielder do
+// not gate the proc. (Stop on the wielder prevents the underlying
+// swing from ever happening, so the proc can't fire either; explicit
+// bypass here makes the intent clear at the gate.)
 function runPreHook(
   state: GameState,
   proposed: ProposedAction,
@@ -154,6 +161,9 @@ function runPreHook(
   | { readonly outcome: 'replaced'; readonly action: ProposedAction }
   | { readonly outcome: 'blocked'; readonly reason: string } {
   if (proposed.source === 'system') return { outcome: 'allowed', action: proposed };
+  if (proposed.type === 'use_ability' && proposed.payload.riderSource !== undefined) {
+    return { outcome: 'allowed', action: proposed };
+  }
   if (!('actorId' in proposed)) return { outcome: 'allowed', action: proposed };
   const actor = getUnit(state, proposed.actorId);
   const result = runOnActionAttempted(state, catalog, {

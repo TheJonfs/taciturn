@@ -15,6 +15,7 @@
 // per `createInitialState`.
 
 import type {
+  AbilityId,
   BucketId,
   ClassId,
   DamageTag,
@@ -76,6 +77,20 @@ export interface StatusTickAmountMultiplier {
   readonly factor: number;
   readonly statusTypeId?: StatusTypeId;
   readonly statusTag?: StatusTag;
+}
+
+// Per ADR-0064 (Session 30): weapon spell-cast rider. Each entry declares
+// a probability and the ability to fire when the proc lands. Procs fire
+// from `onDamageDealt` against the attacker's hooks, gated to physical-
+// tagged hits that landed (no proc on misses, no proc on magical-only
+// damage). The procced ability is fired against the original target,
+// MP-free, and bypasses caster-status gates (Silence does not stop a
+// weapon's proc — it's the weapon's power, not the wielder's). Bolt
+// Hammer authors `[{ chance: 0.25, abilityId: 'lightning_basic' }]`;
+// Flametongue authors `[{ chance: 0.25, abilityId: 'apply_burn' }]`.
+export interface AttackProcDef {
+  readonly chance: number;       // [0, 1]
+  readonly abilityId: AbilityId;
 }
 
 // Common fields across every equipment kind. Stat mods, status grants,
@@ -190,6 +205,24 @@ interface EquipmentBase {
   // The contributor emits one `modifyStatQuery` handler per (stat,
   // delta) entry, gated on the query stat name.
   readonly movementMods?: Partial<Record<'moveRange' | 'jump', number>>;
+
+  // ADR-0064 (Session 30): weapon spell-cast riders. Each entry is a
+  // (chance, abilityId) pair fired when a physical hit lands. The proc
+  // ability is MP-free and bypasses Silence (it's the weapon's power,
+  // not the wielder's). Procs share chain-depth with reactions; they
+  // do not count against the per-unit-per-turn reactor cap (reactor cap
+  // is target-side; procs are attacker-side). No v1 item declares this
+  // field; Session 31 ships Bolt Hammer + Flametongue Burn proc.
+  readonly attackProcs?: ReadonlyArray<AttackProcDef>;
+
+  // ADR-0065 (Session 30): damage-to-MP-drain percentage. When a
+  // physical hit from this item's wearer lands (and isn't absorbed), the
+  // wearer drains `floor(damageDealt × percent / 100)` MP from the
+  // target via `system_mp_drain`. Drain is transfer-bounded by both
+  // target's current MP (floor at 0) and source's headroom under maxMp.
+  // Rasp Pendant authors `10` (Session 31). No v1 item declares this
+  // field. The contributor wires it into the new `onFinalDamage` hook.
+  readonly damageMpDrainPercent?: number;
 }
 
 export interface WeaponEquipment extends EquipmentBase {

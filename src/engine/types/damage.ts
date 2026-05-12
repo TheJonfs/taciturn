@@ -108,6 +108,16 @@ export interface DamageContext {
   // forwards the emissions onto the reducer's `generatedActions`.
   // Defaults to an empty array — handlers that don't emit don't touch it.
   readonly emittedActions?: ReadonlyArray<ProposedAction>;
+
+  // Per-action (or per-target-dispatch) seed, mirroring the pipeline
+  // orchestrator's `env.seed`. Exposed on the context so source-tier
+  // hook handlers (status / equipment / passive) — which see args rather
+  // than env — can roll deterministically off the same stream as
+  // pipeline-stage handlers. v1 consumer: `attackProcContributor`'s
+  // proc-roll lane. Defaults to undefined on context shapes built by
+  // tests that don't need a seed; handlers that read it gate accordingly.
+  // Per ADR-0064 (Session 30).
+  readonly actionSeed?: number;
 }
 
 // Resolved outcome of a single pipeline run. The orchestrator returns

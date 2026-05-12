@@ -41,7 +41,8 @@ export function ForecastPanel({ forecast, catalog, state }: ForecastPanelProps):
     );
   }
 
-  const { ability, caster, casterMpAfter, endOfTurnCt, targets, chargedTiming } = forecast;
+  const { ability, caster, casterMpAfter, endOfTurnCt, targets, chargedTiming, effectiveRange } =
+    forecast;
   const affected = targets.filter((t) => t.affected);
   return (
     <aside style={panelStyle} aria-label="Forecast">
@@ -51,6 +52,14 @@ export function ForecastPanel({ forecast, catalog, state }: ForecastPanelProps):
         {ability.actionSpeed > 0 && (
           <span style={chargedTagStyle}>charged · {ability.actionSpeed} CT</span>
         )}
+      </div>
+      <div style={accuracyStripStyle}>
+        <span style={accuracyEntryStyle}>
+          <span style={accuracyLabelStyle}>Range</span>
+          <span style={accuracyValueStyle}>
+            {effectiveRange.horizontal}H · {effectiveRange.vertical}V
+          </span>
+        </span>
       </div>
       {chargedTiming !== null && (
         <div style={timingSectionStyle}>
@@ -106,6 +115,14 @@ export function ForecastPanel({ forecast, catalog, state }: ForecastPanelProps):
                       {dmg.min === dmg.max
                         ? `${dmg.expected}`
                         : `${dmg.min}–${dmg.max} (${dmg.expected})`}
+                    </span>
+                  </div>
+                )}
+                {row.hitChance !== undefined && (
+                  <div style={dmgRowStyle}>
+                    <span style={dmgLabelStyle}>hit</span>
+                    <span style={dmgValueStyle}>
+                      {Math.round(row.hitChance * 100)}%
                     </span>
                   </div>
                 )}
@@ -304,6 +321,27 @@ const chargedTagStyle: CSSProperties = {
   borderRadius: 8,
   fontSize: 10,
 };
+
+// Range strip — sits between the sub-header and the per-target table.
+// One-line summary of effective range for this cast (post equipment /
+// status modifiers via `computeAbilityRange`). Per-target hit chance
+// rows render inside each target card below.
+const accuracyStripStyle: CSSProperties = {
+  display: 'flex',
+  gap: 12,
+  marginTop: 4,
+  fontSize: 11,
+  fontVariantNumeric: 'tabular-nums',
+};
+
+const accuracyEntryStyle: CSSProperties = {
+  display: 'flex',
+  gap: 4,
+  alignItems: 'baseline',
+};
+
+const accuracyLabelStyle: CSSProperties = { opacity: 0.65 };
+const accuracyValueStyle: CSSProperties = { fontWeight: 500 };
 
 const tableStyle: CSSProperties = {
   display: 'flex',

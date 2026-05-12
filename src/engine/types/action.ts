@@ -13,7 +13,7 @@
 // branch and (where applicable) a validator clause.
 
 import type { DamageTag } from './damage.ts';
-import type { AbilityId, ChargedActionId, StatusTypeId, TeamId, UnitId } from './ids.ts';
+import type { AbilityId, ChargedActionId, ItemId, StatusTypeId, TeamId, UnitId } from './ids.ts';
 import type { Direction, Position } from './spatial.ts';
 import type { StatusApplicationOutcome } from './status-application-outcome.ts';
 
@@ -28,6 +28,7 @@ export type ActionType =
   | 'status_tick'
   | 'system_heal'
   | 'system_damage'
+  | 'system_mp_drain'
   | 'system_apply_status'
   | 'system_ct_push'
   | 'status_remove'
@@ -76,9 +77,22 @@ export interface MoveOutcome {
   readonly facingAfter: Direction;
 }
 
+// Per ADR-0064 (Session 30): rider provenance for ability casts that are
+// fired by equipment rather than chosen by the wielder. When present, the
+// reducer treats the cast as a weapon's power, not the unit's: MP is not
+// deducted, `onActionAttempted` veto handlers (Silence on `'magical'`,
+// Don't Act on volitional casts) are bypassed, and the action log can
+// attribute the cast to the source item. v1 producer: weapon `attackProcs`
+// (Bolt Hammer, Flametongue's Burn proc, etc., authored in Session 31).
+export type UseAbilityRiderSource = {
+  readonly kind: 'equipment_proc';
+  readonly itemId: ItemId;
+};
+
 export interface UseAbilityPayload {
   readonly abilityId: AbilityId;
   readonly target: AbilityTarget;
+  readonly riderSource?: UseAbilityRiderSource;
 }
 export interface UseAbilityOutcome {
   readonly kind: 'use_ability';
@@ -205,6 +219,35 @@ export type SystemDamageSource =
   | { readonly kind: 'status_tick'; readonly statusTypeId: StatusTypeId; readonly unitId: UnitId }
   | { readonly kind: 'falling'; readonly unitId: UnitId; readonly dropDistance: number }
   | { readonly kind: 'ability_self_cost'; readonly abilityId: AbilityId; readonly casterId: UnitId };
+
+// `system_mp_drain` — engine-emitted MP transfer used by Rasp Pendant
+// (Session 31) and any future damage-to-MP-drain effects. Distinct from
+// system_damage / system_heal because the resource moved is MP, not HP,
+// and the action models a transfer (source gains; target loses) rather
+// than a one-sided write. Per ADR-0065 (Session 30).
+//
+// `amount` is the requested transfer in MP. The reducer applies the
+// transfer-bounded math:
+//   targetApplied = min(target.vitals.mp, amount)        // floor at 0
+//   sourceApplied = min(maxMp(source) − source.mp, targetApplied)
+// so the source never goes above maxMp, and never gains more than the
+// target actually had to give. KO'd targets short-circuit to applied=0
+// on both sides (matches Rasp Pendant's spec "doesn't apply to KO'd
+// targets") rather than transferring; the entry is still logged for
+// action-log readability.
+export interface SystemMpDrainPayload {
+  readonly source: UnitId;
+  readonly target: UnitId;
+  readonly amount: number; // requested transfer
+}
+export interface SystemMpDrainOutcome {
+  readonly kind: 'system_mp_drain';
+  readonly source: UnitId;
+  readonly target: UnitId;
+  readonly requested: number;
+  readonly targetApplied: number; // MP removed from target after floor at 0
+  readonly sourceApplied: number; // MP added to source after cap at maxMp
+}
 
 // `system_apply_status` — engine-emitted action that applies a status
 // to a target unit *without* running the BMG application chance formula.
@@ -384,6 +427,11 @@ export type Action = ActionEnvelope &
         readonly outcome?: SystemDamageOutcome;
       }
     | {
+        readonly type: 'system_mp_drain';
+        readonly payload: SystemMpDrainPayload;
+        readonly outcome?: SystemMpDrainOutcome;
+      }
+    | {
         readonly type: 'system_apply_status';
         readonly payload: SystemApplyStatusPayload;
         readonly outcome?: SystemApplyStatusOutcome;
@@ -421,6 +469,7 @@ export type ActionOutcome =
   | StatusTickOutcome
   | SystemHealOutcome
   | SystemDamageOutcome
+  | SystemMpDrainOutcome
   | SystemApplyStatusOutcome
   | SystemCtPushOutcome
   | StatusRemoveOutcome
@@ -506,6 +555,11 @@ export type ProposedAction =
       readonly type: 'system_damage';
       readonly source: 'system';
       readonly payload: SystemDamagePayload;
+    }
+  | {
+      readonly type: 'system_mp_drain';
+      readonly source: 'system';
+      readonly payload: SystemMpDrainPayload;
     }
   | {
       readonly type: 'system_apply_status';

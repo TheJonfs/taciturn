@@ -519,6 +519,17 @@ function resolveAbilityTags(action: ProposedAction, catalog: Catalog): ReadonlyS
 // the action's seed is recorded on its envelope.
 const BRAVE_REACTION_SUB_STREAM = 2;
 
+// Per-action proc-roll sub-stream (ADR-0064, Session 30). Weapon
+// `attackProcs` entries each consume `seed ^ (PROC_ROLL_SUB_STREAM +
+// procIndex)` so multiple proc entries on the same weapon (or two procs
+// on stacked weapons in dual-wield) roll independently of each other
+// AND independently of variance (0), evasion (1), brave (2), status-
+// chance (3+effectIndex), crit (4), and ability-chance (16+effectIndex).
+// Lane 8 is clearly outside every existing range. Exported because the
+// `attackProcContributor` reads it directly off the per-action seed in
+// the DamageContext.
+export const PROC_ROLL_SUB_STREAM = 8;
+
 export function runOnActionTargeted(
   state: GameState,
   catalog: Catalog,
@@ -591,8 +602,11 @@ export function runOnActionTargeted(
 
 // mulberry32-style mixer matching engine/damage/handlers.ts's variance
 // roll. Kept here so reaction-roll determinism doesn't depend on a
-// damage-package import. Returns a unit float in [0, 1).
-function unitFloatFromSeed(seed: number): number {
+// damage-package import. Returns a unit float in [0, 1). Exported so
+// source-tier hook contributors (e.g. `attackProcContributor`) can roll
+// deterministically off a per-action seed XOR'd with their sub-stream
+// constant.
+export function unitFloatFromSeed(seed: number): number {
   let s = seed >>> 0;
   s = (s + 0x6d2b79f5) >>> 0;
   let t = s;
@@ -607,6 +621,15 @@ function unitFloatFromSeed(seed: number): number {
 // contribute multipliers / additives / hit overrides, and returns the
 // next ctx. The pipeline orchestrator threads the chain through all
 // stages; these runners thread it through one stage's handlers.
+//
+// Per Session 30 (ADR-0064), `onDamageDealt` accepts either bare-ctx
+// returns (legacy) or `OnDamageDealtResult` returns ({ ctx, emittedActions? }).
+// Same normalization pattern as `runOnDamageReceived` — bare returns are
+// treated as `{ ctx, emittedActions: undefined }`. Emissions are
+// accumulated onto `ctx.emittedActions` so the value flowing out carries
+// them; `fireOnDamageDealt` returns this ctx as-is, the orchestrator
+// threads it through subsequent stages, and `resolveAbilityEffect`
+// forwards `ctx.emittedActions` onto the reducer's `generatedActions`.
 export function runOnDamageDealt(
   state: GameState,
   catalog: Catalog,
@@ -614,10 +637,60 @@ export function runOnDamageDealt(
 ): DamageContext {
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onDamageDealt');
   let ctx = args.ctx;
+  const accumulatedEmissions: ProposedAction[] = ctx.emittedActions ? [...ctx.emittedActions] : [];
   for (const h of handlers) {
-    ctx = h.invoke({ unit: args.unit, ctx });
+    const result = h.invoke({ unit: args.unit, ctx });
+    if (isOnDamageDealtResult(result)) {
+      ctx = result.ctx;
+      if (result.emittedActions !== undefined) {
+        for (const a of result.emittedActions) accumulatedEmissions.push(a);
+      }
+    } else {
+      ctx = result;
+    }
   }
-  return ctx;
+  return accumulatedEmissions.length > 0 ? { ...ctx, emittedActions: accumulatedEmissions } : ctx;
+}
+
+function isOnDamageDealtResult(
+  value: DamageContext | { readonly ctx: DamageContext; readonly emittedActions?: ReadonlyArray<ProposedAction> },
+): value is { readonly ctx: DamageContext; readonly emittedActions?: ReadonlyArray<ProposedAction> } {
+  return typeof value === 'object' && value !== null && 'ctx' in value;
+}
+
+// Post-finalize emission hook (per ADR-0065, Session 30). Fires after the
+// cap/finalize stages have written the integer `damageDealt` to ctx;
+// handlers see locked-in damage and may emit follow-on actions but cannot
+// mutate the damage already applied. Rasp Pendant (Session 31) emits
+// `system_mp_drain` for 10% of damageDealt against the target on physical
+// hits that landed for damage; the `absorbed` arg lets handlers gate
+// against absorption-flipped hits (resistance > 100 per ADR-0057).
+export function runOnFinalDamage(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    target: Unit;
+    damageDealt: number;
+    damageTags: ReadonlySet<DamageTag>;
+    absorbed: boolean;
+  },
+): ReadonlyArray<ProposedAction> {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onFinalDamage');
+  const emissions: ProposedAction[] = [];
+  for (const h of handlers) {
+    const result = h.invoke({
+      unit: args.unit,
+      target: args.target,
+      damageDealt: args.damageDealt,
+      damageTags: args.damageTags,
+      absorbed: args.absorbed,
+    });
+    if (result !== undefined && result.emittedActions !== undefined) {
+      for (const a of result.emittedActions) emissions.push(a);
+    }
+  }
+  return emissions;
 }
 
 // onDamageReceived accepts either bare-ctx returns (legacy) or

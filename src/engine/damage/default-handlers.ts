@@ -10,6 +10,7 @@ import {
   finalize,
   fireOnDamageDealt,
   fireOnDamageReceived,
+  fireOnFinalDamage,
   healingBase,
   magicalMaPower,
   physicalPaWp,
@@ -39,4 +40,6 @@ export const defaultDamageHandlers: DamageHandlerRegistry = new Map<string, Dama
   ['clamp_min_max', clampMinMax],
   // finalize
   ['finalize', finalize],
+  // postFinalize (ADR-0065): emission-only post-finalize hook fire site.
+  ['fire_on_final_damage', fireOnFinalDamage],
 ]);

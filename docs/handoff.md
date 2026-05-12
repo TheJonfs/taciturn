@@ -21,155 +21,151 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-12 (Session 29 — Equipment Batch A + engine fold-ins)
+## From session 2026-05-12 (Session 30 — Cluster 5 substrate + Session 29 polish fold-ins)
 
-Session 29 shipped the bulk of `mage-war-equipment.md`: 28 new equipment items (Long Sword updated, plus Flametongue, War Axe, two wands, two staves, three Knight-only shields, six body armors, six head armors, seven accessories) and the engine fold-ins they consume. Tests: **796 passing across 66 files, 0 failing** (up from 770 in Session 28). +26 new tests in `session-29-integration.test.ts`.
+Session 30 landed the Cluster 5 engine substrate (procs + drains) plus three Session-29-carry UI fold-ins. Tests: **816 passing across 68 files, 0 failing** (up from 796 in Session 29). +20 new tests (17 substrate integration in `session-30-integration.test.ts`, 3 label-helper tests in `ui/labels.test.ts`).
 
 ### Scope completed
 
-**Engine fold-ins:**
+**Engine substrate (Cluster 5):**
 
-1. **Loadout shape change (ADR-0061).** `actionBuckets: Readonly<Record<BucketId, ReadonlyArray<CommandSetId>>>` — both active buckets unified to list shape. `BUCKET_SECOND_ACTION` renamed to `BUCKET_SECONDARY_COMMAND_SETS` (bucket id literal `'secondary_command_sets'`). `validateLoadout` iterates the list, sums per-entry `getCommandSetCost`, gates against `getCapacity`. First-action pin still requires exactly-one entry matching the class. Magus Crown's `bucketCapacityMods: { secondary_command_sets: 1 }` lifts the bucket cap from 1 to 2.
+1. **`attack_proc` effect shape (ADR-0064).** New optional field `attackProcs?: ReadonlyArray<AttackProcDef>` on `EquipmentBase` where `AttackProcDef = { chance: number; abilityId: AbilityId }`. Equipment contributor `attackProcContributor` registers against `onDamageDealt`; each (item × procs entry) yields a synthetic handler. The handler gates on `ctx.hit === true` + `ctx.damageTags.has('physical')` + `ctx.actionSeed !== undefined`, rolls `unitFloatFromSeed(ctx.actionSeed ^ (PROC_ROLL_SUB_STREAM + procIndex))` against `chance`, and on success emits a `use_ability` against `ctx.target.id` with `riderSource: { kind: 'equipment_proc', itemId }`.
 
-2. **`classRestrictions` on `EquipmentBase`.** Optional `ReadonlyArray<ClassId>`; validated at `createInitialState` alongside the slot-permission check. Throws `BattleConfigError` with a clear message naming both the unit class and the item's allowlist when violated.
+2. **`onDamageDealt` return widening (ADR-0064).** Mirrors the existing `onDamageReceived` pattern. New `OnDamageDealtResult = { ctx; emittedActions? }`. `runOnDamageDealt` normalizes wrapped-or-bare returns; `fireOnDamageDealt` forwards `ctx.emittedActions`. No new hook surface — just a return-type widening on an existing hook.
 
-3. **Shell + Protect statuses.** `permanent_per_unit_ct` duration mode (Auto-X variant); default magnitude 50; register `modifyResistance` handlers gated on `'magical'` / `'physical'` damage tags respectively. Sorcerer's Robe's `statusGrants: [shell]` produces the permanent +50 magical resistance grant.
+3. **`riderSource` on `UseAbilityPayload` (ADR-0064).** Discriminated union; sole v1 variant is `{ kind: 'equipment_proc'; itemId }`. When present: `validateAction` skips MP affordability; `reduceUseAbility` skips MP deduction and records `mpSpent: 0`; `runPreHook` (in `commitAction`) skips `onActionAttempted`, bypassing Silence / Stop / Don't Act on the wielder. The proc is the weapon's power, not the wielder's.
 
-   **Cast Shell / cast Protect deferred** — there's no Shell/Protect spell in v1 content. When a future session ships those, author a sibling `shell_cast` / `protect_cast` status type with `durationMode: 'per_unit_ct'` and 6-tick default (per Chris's call this session). `composeResistance`'s signedMax composition then provides the "cast supersedes auto for the duration; auto resumes on expiry" semantics with no additional engine work.
+4. **`onFinalDamage` hook + new `postFinalize` pipeline stage (ADR-0065).** Post-finalize, emission-only. Args: `{ unit (attacker), target, damageDealt, damageTags, absorbed }`. Return: `OnFinalDamageResult | void`. New stage `'postFinalize'` added to `DamageStage`; `STAGE_ORDER` extends to eight stages; default ruleset registers `fire_on_final_damage`. The pipeline's `runStage` now reads `ruleset.damagePipeline.stages[stage] ?? []` to tolerate custom rulesets that pre-date the stage (test fixtures don't need a churn pass).
 
-4. **Same-team reaction skip (ADR-0062).** `runOnActionTargeted` filters at the entrance: if the incoming action's `actorId` exists and the source unit is on the reacting unit's team, returns `[]`. System actions (no actorId) fall through unfiltered. No `triggerOnAllies` opt-in field added; reserved for future content per CLAUDE.md "no features for hypothetical requirements."
+5. **`damageMpDrainPercent` field + contributor (ADR-0065).** New optional `number` field on `EquipmentBase`. `finalDamageDrainContributor` registers against `onFinalDamage`; emits `system_mp_drain { source, target, amount }` where `amount = floor(damageDealt × percent / 100)`. Gates on `!absorbed`, `damageDealt > 0`, `target.vitals.hp > 0`, and non-zero rounded amount.
 
-5. **`modifyAbilityRange` hook (ADR-0063).** Caster-side, per-axis additive. Args `{ unit, ability, baseHorizontal, baseVertical }` → `{ horizontal, vertical }`. New helper `computeAbilityRange(state, catalog, unitId, ability)` is the chokepoint; `validateProposedAction`, AI targeting helpers (`positionInAbilityRange`, `targetIsInAbilityRange`, `tilesInAbilityRange` — now all take `actor: Unit`), and the UI's tile picker all route through it. Wand of Depths' `abilityRangeModifiers: [{ deltaHorizontal: 1, deltaVertical: 1, tagFilter: ['water'] }]` is the v1 consumer.
+6. **`system_mp_drain` action (ADR-0065).** New action type. Payload `{ source, target, amount }`; outcome `{ kind, source, target, requested, targetApplied, sourceApplied }`. Reducer applies transfer-bounded math: `targetApplied = min(target.mp, requested)`; `sourceApplied = min(maxMp − source.mp, targetApplied)`. KO'd / missing source or target short-circuits to all-zero applied fields; entry still logged.
 
-6. **`modifyOutgoingHitChance` hook (ADR-0063).** Caster-side mirror of target-side `modifyHitChance`. Multiplicative chain composed after target-side inside `evasionCheck`. Arcane Lens' `outgoingHitChanceMultipliers: [1.1]` is the v1 consumer.
+7. **`DamageContext.actionSeed` and exported `unitFloatFromSeed`.** Optional `actionSeed?: number` on the context; pipeline orchestrator (`runDamagePipeline`) initializes it from `args.seed`. Hook contributors (which see only `args`, not `env.seed`) read it to roll deterministically. `PROC_ROLL_SUB_STREAM = 8` — well past variance (0), evasion (1), brave (2), status_chance (3..), crit (4), and ability_chance (16..).
 
-7. **`evasionMods` field + equipment contributor (ADR-0063).** Per-facing additive on the existing `modifyEvasion` hook. Steel Helm's `{ side: -20, back: -20 }` lands negative-evasion-as-positive-hit-rate on those facings (intentional per equipment doc); the final `[0.05, 1.0]` hit-chance clamp prevents overflow above 100%. No clamp needed in the modifier path itself.
+**UI fold-ins (Session 29 carry):**
 
-8. **Action menu display threading.** `AbilityListPicker` precomputes effective MP cost and action speed per ability via `computeMpCost` / `computeBaseActionSpeed`; passes precomputed scalars to `AbilityButton` (was reading `ability.mpCost` / `ability.actionSpeed` directly). Displayed values now match the committed values when equipment modifies them.
+8. **Bucket / slot label helpers (`src/ui/labels.ts`).** Constant maps + `bucketLabel(id)` / `slotLabel(id)` helper functions. Labels per Chris's preference: `Primary Action`, `Secondary Action(s)`, `Reaction(s)`, `Support(s)`, `Movement(s)` for buckets; `Left Hand`, `Right Hand`, `Head`, `Body`, `Accessory` for slots. Helpers wrap the maps so a future text → text+icon migration is a one-helper change, not a sweep across every call site.
 
-9. **Bonus: `ShieldEquipment` kind.** New `kind: 'shield'` on the EquipmentDefinition union. Hand-slot validator (`validateSlotItem`) accepts both `weapon` and `shield`. Three Knight-only shields ship in this session (Escutcheon, Warrior's Aegis, Managuard).
+9. **Per-facing evasion in unit detail panel.** New row below the Stats grid: `Evade F: 10  S: 6  B: 0` (Water Mage example). Reads through `runModifyEvasion` for each facing, so Steel Helm's `-20 side/back` shows in the display.
 
-10. **Bonus: `movementMods` field.** New optional `Partial<Record<'moveRange' | 'jump', number>>`. Composes through existing `modifyStatQuery` via a new contributor pass (1b in the equipment contributor). Lightfoot's `{ moveRange: 1, jump: 1 }` is the v1 consumer; Sorcerer's Robe also uses `movementMods: { moveRange: 1 }` for its "Move +1" effect.
+10. **`computeOutgoingHitChance` helper.** Pure function in `engine/damage/hit-chance.ts` that mirrors `evasionCheck`'s composition (accuracy × evasion × elevation × ∏targetHooks × ∏casterHooks, clamped to [0.05, 1.0]) but returns the value instead of rolling. Helper internals `computeAttackerFacing` / `pickEvasion` / `computeElevationModifier` extracted to `hit-chance-internals.ts` and shared between the pipeline handler and the forecast helper (single-source-of-truth for the math).
 
-11. **Bonus: `STAT_MOD_KEYS` extension.** Added `{ statKey: 'crit_chance', statName: 'crit_chance' }` so Arcane Lens's `statMods: { crit_chance: 10 }` composes additively into the existing `modifyStatQuery('crit_chance')` chain.
-
-**Content authoring (28 items):**
-
-- **Weapons:** Long Sword (no change, spec-correct already); Flametongue (WP 6, accuracy 90, tags `['sword', 'fire']`); War Axe (WP 12, accuracy 75, tags `['axe']` — variance deferred); Wand of Depths (range +1/+1 on water); Wand of Deepwood (+5 speed on earth); Staff of Power (+3 MA, × 1.2 MP); Staff of Abundance (× 1.5 maxMp, −5 speed all spells).
-- **Shields (Knight-only):** Escutcheon (front +20 / side +10 evade, +10 all four elements); Warrior's Aegis (+5 evade, +2 PA); Managuard (+10 / +5 evade, +2 MA).
-- **Body armor:** Battle Gear (universal, +110 HP / +1 PA); Silvered Vest (universal, +50 HP / +30 MP / +2 MA); Soldier's Leathers (Knight, +90 HP / +1 Sp / +1 PA); War Plate (Knight, +150 HP / −1 Sp / +25 all elements); Wizard's Robe (Mage, +40 HP / +40 MP / +3 MA / −25 all elements); Sorcerer's Robe (Mage, +30 HP / +30 MP / Auto-Shell / +1 moveRange).
-- **Head armor:** Guard Cap (universal, +20 HP / +25 all elements); Focus Band (universal, +10 HP / +10 MP / × 0.75 incoming negative status chance); Steel Helm (Knight, +40 HP / +1 reaction capacity / −20 side+back evade); Tactical Mask (Knight, +20 HP / +1 PA / +1 Sp); Pointy Hat (Mage, +10 HP / +20 MP / +1 MA / × 0.5 incoming Silence chance); Magus Crown (Mage, −3 MA / +1 secondary_command_sets capacity).
-- **Accessories:** Capacitor Ring (+100 Lightning resist); Tintinibar (Auto-Regen via statusGrants); Lightfoot (+1 Sp / +1 moveRange / +1 jump); Augmentor (+1 support capacity); Diamond Bracelet (+1 PA / +1 MA); Purifier (× 2 negative-tag tick rate); Arcane Lens (×1.10 outgoing accuracy / +10 crit_chance).
+11. **Forecast hit-chance + range projection.** New `effectiveRange: { horizontal, vertical }` on `Forecast`; new `hitChance?: number` per `ForecastTargetRow`. The panel renders a `Range: 3H · 2V` strip below the sub-header (effective values after `computeAbilityRange`, no base+bonus annotation per Chris's call) and a `hit XX%` row inside each target card. The row always shows when `hitChance` is defined, including at 100% — consistent reading across attacks per Chris's playtest preference (auto-hit / non-physical land at 1.0 and just display "hit 100%").
 
 ### Architecture records
 
-- **ADR-0061** — Loadout shape change + `secondary_command_sets` rename + Magus Crown enabling. Documents the bilateral list shape, the bucket rename rationale, and the cost-vs-capacity gating that lets Magus Crown enable a second secondary set without further engine work.
+- **ADR-0064** — `attack_proc` substrate: `onDamageDealt` emission widening, `attackProcContributor` shape, `riderSource` bypass machinery (MP + Silence), seed sub-stream architecture, chain-depth sharing with reactions. Documents the rationale for mirroring `onDamageReceived`'s wrapped return rather than introducing a parallel emitter hook.
 
-- **ADR-0062** — Same-team reaction skip semantics. Documents the entrance-of-runner filter site, the null-actor fall-through, and why `triggerOnAllies` opt-in is deferred until content asks for it.
-
-- **ADR-0063** — `modifyAbilityRange` and `modifyOutgoingHitChance` hooks, plus the three new equipment fields without new hook surfaces (`classRestrictions`, `evasionMods`, `movementMods`). Documents the per-axis range hook shape, the caster/target hit-chance mirroring, why class-restrictions don't need a hook (binary gate, not composing value), and the `ShieldEquipment` kind addition.
+- **ADR-0065** — `onFinalDamage` substrate: new `postFinalize` pipeline stage, emission-only hook semantics, `system_mp_drain` action shape and transfer-bounded reducer math. Documents the rationale for tolerating missing stages in the orchestrator (avoiding a churn pass through test fixtures).
 
 ### Test reconciliation
 
-- 28 new test fixtures touching `actionBuckets` were refit to the list shape. A new `ActiveEntry` union (`CommandSetId | null | ReadonlyArray<CommandSetId>`) on `loadoutOf` / `knightLoadout` lets test fixtures pass either single-set, null, or explicit list — keeps existing callsites terse.
-- `BUCKET_SECOND_ACTION` import renamed to `BUCKET_SECONDARY_COMMAND_SETS` everywhere; `bucketId('second_action')` literals renamed to `bucketId('secondary_command_sets')` in test files (catalog, ai/projection, ai/basic, charged-timing, session-16/17b/17c/18/19/20 integration, damage-integration, pipeline, modify-system-damage, aoe-substrate, on-turn-end-emit, etc.).
-- Catalog count expectations updated in `src/content/loader.test.ts`: statuses 20 → 22 (shell + protect), items 5 → 33 (Session 29 batch A).
-- TypeScript strict-mode error count unchanged from baseline. Zero net new strict-mode errors.
+- 17 new tests in `src/engine/actions/session-30-integration.test.ts` cover: proc-firing chain (5 cases — hit, miss, non-physical, deterministic, multi-proc independent sub-streams), `onFinalDamage` emission semantics (4 cases — damage, absorbed, zero damage, KO'd target), `reduceSystemMpDrain` (5 cases — transfer math, target floor, source cap, KO'd target, missing units), `riderSource` bypass (3 cases — validator accepts, validator regression, reducer records mpSpent: 0).
+- 3 new tests in `src/ui/labels.test.ts` cover the bucket / slot label lookups and the raw-id fallback.
+- TypeScript strict-mode error count unchanged from baseline; zero new strict-mode errors.
+- The validator's switch was missing a `system_mp_drain` case in the pass-through list — caught by test #2 returning `undefined` for `result.kind` (which exposed the missing branch). Added.
 
 ### Limitations + watch-fors
 
-- **Bucket display polish.** The bucket id `'secondary_command_sets'` is internal; the player-facing label still reads the bucket id (or has no labeled surface yet). Polish pass: surface human-readable bucket names — "Secondary Command Sets", "Support", "Reaction", "Movement", "First Action" — in the unit detail panel and the team-builder UI when it ships. Same opportunity for passive bucket names and equipment-slot labels. Chris flagged this for a future polish session.
+- **`damageMpDrainPercent` is integer percent (0–100), not a [0, 1] fraction.** Author-friendly (`damageMpDrainPercent: 10` reads "10%"); floor-math keeps drain integer-valued. If a fractional-percent need surfaces (a debug equipment item with 0.5%), the field reshapes.
 
-- **Unit detail panel doesn't show evasion.** Steel Helm's `-20 Side/Back` is mechanically live but invisible in the UI. When a player wears Steel Helm and gets hit harder from the side / back than the front, they have no in-UI way to see why. Add per-facing evasion to the detail panel (alongside HP/MP/SPD/CT). Flagged as a Session 29 carry-forward.
+- **Multi-proc independence depends on lane spacing.** Two `attackProcs` entries roll on lanes 8 and 9. If a future weapon ships with N>8 procs (probably never), the lanes 8..15 fill up and N=9 collides with ability_chance lane 16. Reserve `PROC_ROLL_SUB_STREAM = 8` plus 7 entries; revisit if equipment ever wants more.
 
-- **Forecast doesn't project hit chance / accuracy.** Wand of Depths' range bonus, Arcane Lens's accuracy, Steel Helm's negative evasion — none of these surface in the per-attack forecast tooltip. The forecast computes expected damage but not the hit-chance/range pre-roll. Add forecast projection for hit chance per facing when forecast-compose lands its next pass.
+- **Procs don't count against any per-attacker-per-turn cap.** Reactions cap at 1 per reactor per turn (`perUnitPerTurnReactions`); procs have no symmetric cap. In v1 (single-act units) this is moot. If multi-act content surfaces and procs feel spammy, add `perUnitPerTurnProcs` to `chainTermination` and gate in `commitAction`.
 
-- **Cast Shell / cast Protect.** Sorcerer's Robe's Auto-Shell is the v1 consumer of the Shell status type; no spell applies Shell or Protect yet. When a Shell or Protect spell ships, author the cast variant as a sibling status type (per the in-file comments in `src/content/statuses/shell.ts` and `protect.ts`) — 6 ticks duration, REFRESH stacking, magnitude 50 default. `composeResistance`'s signedMax handles the "cast supersedes auto for the duration, auto resumes on expiry" semantics with no further engine work.
+- **`onFinalDamage` fires on absorbed hits but handlers gate on `absorbed: true`.** The hook always fires post-finalize; the contributor pattern is responsible for the gate. A future handler that wants to react to absorption (a "thanks for the heal" debuff trigger?) can gate on `absorbed === true` rather than skipping.
 
-- **Tintinibar's Regen duration mode.** Regen's `durationMode: 'per_unit_ct'` (timed) means `applyEquipmentStatusGrants` doesn't have an explicit duration to pass. The current implementation lands but Regen ticks until its default `remainingDuration` expires. For Tintinibar's "permanent Auto-Regen" intent to hold, either (a) Regen's mode shifts to `permanent_per_unit_ct` (also affects Earth Mage's Buff ability if that grants Regen), OR (b) author a sibling `regen_auto` type. Verify on Tintinibar's first playtest — if Regen wears off mid-battle, that's the bug.
+- **Forecast facing uses the actual attacker→target geometry.** No "what if I moved here first" projection. For a Move + Attack flow, the displayed hit chance reflects the current attacker position, not the move destination. If a future Move + Attack confirmation flow surfaces, the forecast may need a hypothetical-position arg.
 
-- **War Axe variance.** Axe family identity is "[0.9, 1.3] asymmetric variance" per the equipment doc. Variance currently sources from `ability.variance`, not the weapon. Wiring weapon-sourced variance through the damage pipeline's variance stage is a future-session engine seam. Until then, War Axe ships with default ability variance.
+- **Unit detail panel's per-facing evasion uses `unit` as the attacker stand-in.** No v1 evasion handler reads `attacker`, so the displayed value matches reality for every v1 case. If a future handler gates on attacker identity (a Frost reaction that ignores cold-resistant attackers, for example), the panel's display diverges from per-attacker reality. Flagged for playtest watch.
 
-- **Wand on-hit resistance shifts.** Wand of Depths / Wand of Deepwood's on-hit "+25/-25 elemental resistance on target, persistent for the battle" is deferred to Session 31. The wielder-side effects (range bonus, action speed bonus) ship this session.
+- **Constant-map labels don't carry icons today.** Per Chris's question about future icons: the helper-function wrapper (`bucketLabel(id)` / `slotLabel(id)`) is the migration seam. Extending the helpers to return `{ text, icon }` is a one-helper change; every consumer already reads through it.
 
-- **Bolt Hammer, Flametongue Burn proc, Rasp Pendant.** Deferred to Session 31 alongside the on-hit infrastructure (Cluster 5's `attack_proc` + `onFinalDamage`).
+- **`riderSource` is consumed at three sites today** (validator MP gate, reducer MP deduction, commit pre-hook). A future site that adds a *new* gate against player-action affordability (cooldowns, resource budgets) needs to remember to thread the rider check. The pattern is "if `riderSource !== undefined`, skip the gate." Tests should cover the bypass for any new gate.
 
-- **Sorcerer's Robe "Move +1" interpretation.** Settled on `movementMods: { moveRange: 1 }` (direct moveRange +1) over the alternative `bucketCapacityMods: { movement: 1 }` (extra movement-bucket slot). Matches the equipment doc's framing ("harder to pin down for physical attackers"). If playtest reads this as cap-based ("I expected to slot another Movement passive"), revisit.
+- **Equipment-procced spell uses the actor's stats for damage formula.** A Knight wearing Bolt Hammer fires a Lightning spell that scales on the *Knight's* MA, not the weapon's. (FFT-accurate: the weapon's power funnels through the user's stats.) If Mage War design ever wants weapon-flat-power on procs (no MA scaling), the contributor would author a `system_damage` directly rather than emitting `use_ability`.
 
-- **AI's actor-threaded range helpers.** `positionInAbilityRange` / `targetIsInAbilityRange` / `tilesInAbilityRange` now require an `actor: Unit` param so they can route through `computeAbilityRange`. Six call sites updated this session; future AI extensions need to remember the parameter.
-
-- **`computeBaseActionSpeed`'s return value.** Currently returns the same value regardless of whether `args.ability.actionSpeed > 0` (charged vs instant). The Wand of Deepwood test passes "actionSpeed: 10" base and expects 15 — confirming the additive +5 lands. If a future Wand granted +5 to instant abilities (actionSpeed: 0 → 5), the existing "charged vs instant gate stays on the unmodified value" semantic from ADR-0056 still holds.
+- **`finalize` and `postFinalize` share the same `ctx.finalDamage` value.** Future `postFinalize` handlers must not mutate `ctx.finalDamage` (the contract); they emit `system_*` actions instead. The runner's `OnFinalDamageResult` shape carries `emittedActions?` only — no `ctx` field — which enforces this at the type level.
 
 ### Considered and rejected this session
 
-- **Variance band on weapon.** Considered as part of fold-in 6/7. Rejected — variance source is `ability.variance` today; weapon-sourced variance needs a separate engine seam. Flagged for a future session.
+- **Parallel `onAttackHit` hook for proc firing.** Rejected — `onDamageDealt` already carries the attacker/target/tag information at the right fire site. Extending its return shape is cheaper than adding a hook surface.
 
-- **Asymmetric loadout shape (only secondary becomes a list).** Rejected per ADR-0061 — bilateral list is the cleaner long-term shape.
+- **Strict equipment-doc reading of Rasp Pendant (10% damage reduction + 10% MP drain).** Reconsidered per Chris's call this session: simpler "no damage reduction, bonus MP drain" reading was chosen. Pendant becomes slightly more powerful in exchange for not needing a `modifyOutgoingDamage`-style transform. Equipment doc to update in Session 31's authoring pass.
 
-- **`triggerOnAllies` opt-in on reaction definitions.** Rejected per ADR-0062 — no current content asks for it. Reserved for when berserker-class or ally-protection content surfaces.
+- **Procs share the per-unit-per-turn reactor cap.** Rejected — reactor cap is target-side (the reactor's per-turn budget); procs are attacker-side. Different conceptual axis.
 
-- **Single status type for Shell with cast / auto modes determined per-application.** Rejected — the apply pipeline's duration semantics are type-driven (computeInitialDuration reads `type.durationMode`); per-application override would touch the apply contract. The "sibling type" pattern (`haste` permanent / future `quickening` timed) is the precedent.
+- **`mpFree: boolean` flag instead of `riderSource: { kind; itemId }`.** Rejected — the wrapper carries action-log readability ("Bolt Hammer procced") and extends to future rider variants without parallel flags.
 
-- **Per-handler same-team check.** Rejected per ADR-0062 — easy to forget on a new reaction author.
+- **Per-stage handler list churn vs. tolerating missing `postFinalize` stage in the orchestrator.** Rejected the churn; the orchestrator's `?? []` fallback is the smaller-blast-radius change.
 
-- **Shared `statQueryMods?: Partial<Record<StatName, number>>` replacing `statMods` AND `movementMods`.** Rejected — `statMods` is BaseStats-keyed for historical / authoring-muscle-memory reasons. Two specific fields are the smaller surface.
+- **`computeAbilityRange` chokepoint also in the forecast.** Already routed (ADR-0063); the forecast was the last consumer that read bare fields, and is now wired this session.
 
-- **Class-restriction as a `modifyEquipPermission` hook.** Rejected per ADR-0063 — class-restriction is a binary gate, not a composing value.
+- **Forecast accuracy row separate from hit row.** Rejected — accuracy folds into the hit chance via the composition; surfacing both would invite a "why are these different?" question. Hit chance is the single number that matters.
 
 ### Empirical-questions checklist for Chris's next playtest
 
-Most equipment effects are mechanically live but only observable when the relevant item is equipped. The demo battle's default loadouts don't equip any Session 29 items, so the empirical surface is small until a battle ships them.
+Most Cluster 5 effects don't surface until Session 31 authors Bolt Hammer / Flametongue / Rasp Pendant. The fold-ins ARE observable now:
 
-**Action-menu display threading (regression check):**
-- [ ] Move / Act / End turn / Status all show clean sublines. With no equipment modifying MP / action speed, the displayed values should match the bare ability fields exactly (Water Strike `MP 10 · charge 30`, etc.).
+**Unit detail panel:**
+- [ ] Open Status for any demo unit. Should show the new `Evade F X  S Y  B Z` row below the Stats grid. Default classes (Knight, Mages) all have zero front evade and zero side/back evade in v1 baselines; the row shows `F 0  S 0  B 0`. The Water Mage in my smoke test showed `F 10  S 6  B 0` — confirm those are the intended Water Mage class baselines.
+- [ ] Loadout section should use the new labels: "Primary Action", "Secondary Action(s)", "Reaction(s)", "Support(s)", "Movement(s)". No raw bucket ids visible.
+- [ ] Equipment section should use the new labels: "Left Hand", "Right Hand", "Head", "Body", "Accessory". No `leftHand` / `headgear` / `armor` raw strings visible.
 
-**Demo battle starts clean (regression check):**
-- [ ] All 6 demo units initialize with correct HP/MP, classes, loadouts. No `BattleConfigError` from the new `classRestrictions` validator (no demo unit equips a restricted item).
-- [ ] Mages still have white_magic in the `secondary_command_sets` bucket; AI can still cast Cure as a Cure-only White Magic.
+**Forecast panel:**
+- [ ] Engage Act → Water Spells → Water Strike → hover any valid target. The forecast should show "Range: 3H · 2V" (the effective horizontal/vertical range strip) above the per-target damage row.
+- [ ] Hit-chance row always shows. For a physical attack against a same-elevation target with default front facing: row displays "hit 100%". Magical auto-hit spells also show "hit 100%" (per Chris's preference for consistent reading across all attacks).
+- [ ] (Synthetic test) — if you author a demo battle with a Knight wearing Steel Helm and a target with the Knight on the Mage's side, hit chance should still display as 100% (the equipment's `-20` side evade plays through, but the final clamp at 1.0 hides the overflow).
 
-**Hand-authored equipment test (manual):**
-- [ ] If you author a demo battle with a Mage wearing Sorcerer's Robe, the unit should start with Shell active in their status list, magnitude 50, permanent. Incoming magical damage should land at half intensity.
-- [ ] A Knight with Magus Crown should fail equipment validation (Mage-only). A Mage with Magus Crown + two secondary command sets should validate cleanly.
+**Substrate (no observable v1 surface):**
+- [ ] Demo battle launches normally — no Session 30 item is equipped on any demo unit; no `attack_proc` or `damageMpDrainPercent` field is set on any v1 item. Regression check only.
 
 ### Longer-term carry-forward
 
-- **Cast Shell / cast Protect substrate** — sibling `shell_cast` / `protect_cast` status types (6-tick default, REFRESH, magnitude 50) when a future Shell/Protect spell ships.
-- **Weapon-sourced variance engine seam** — axe family's [0.9, 1.3] identity ships when wired.
-- **Unit detail panel evasion display** — show per-facing evasion (front / side / back).
-- **Forecast projection for hit chance and accuracy** — surface the per-attack hit chance per facing in the forecast tooltip; expose Wand of Depths' range bonus visibly.
-- **Bucket / passive / equipment-slot display polish** — human-readable labels in the team-builder UI and unit detail panel.
-- **Wand on-hit resistance shifts** — Session 31 (alongside proc / on-hit infrastructure).
-- **Bolt Hammer, Flametongue Burn proc, Rasp Pendant** — Session 31 (Cluster 5 content).
-- **Tintinibar's Regen duration** — verify on first playtest; switch Regen's durationMode or sibling-type if needed.
-- **AI active absorption exploitation** — tactics-layer pass (post-v1 or when class content surfaces it).
-- **`onTurnStart` symmetric widening** (Session 26 carry).
-- **Renderer's HP "max" captured at mount** (sibling to MP lift from Session 28).
+- **Session 31 content authoring** — Bolt Hammer (`attackProcs: [{ chance: 0.25, abilityId: 'bolt_basic' }]`), Flametongue Burn proc (`attackProcs: [{ chance: 0.25, abilityId: 'apply_burn_proc' }]`), Rasp Pendant (`damageMpDrainPercent: 10`), Wand of Depths / Wand of Deepwood on-hit resistance shifts.
+- **Wand on-hit resistance shifts** — engine substrate for "+25/-25 elemental resistance on target, persistent for battle" is NOT in Cluster 5; it's a separate need (status-tier per-tag resistance shift?). Surface during Session 31 authoring; may require additional engine work (new status type carrying tag-keyed resistance delta).
+- **Procced spell uses caster's MA for damage** — flagged above. Watch playtest; if Mage War design wants weapon-flat-power on procs (no MA scaling), the contributor can author `system_damage` directly. Today's `use_ability` emission goes through the full damage pipeline including MA scaling.
+- **Equipment doc update** — Rasp Pendant spec needs to update from "10% damage reduction + 10% MP drain" to "bonus 10% MP drain" per Chris's design call. Schedule for Session 31 when the item is authored.
+- **Tintinibar Regen duration verification** (Session 29 carry; first playtest reveals if needed).
+- **Weapon-sourced variance engine seam** (Session 29 carry; future).
+- **Cast Shell / Cast Protect substrate** (Session 29 carry; future spells).
+- **Sorcerer's Robe "Move +1" playtest read** (Session 29 carry).
+- **AI active absorption exploitation** (Session 27 carry; tactics-layer pass).
+- **`onTurnStart` symmetric widening** (Session 26 carry; defer until emitter).
+- **Multiplicative tick-amount stacking** (Session 28 carry; design noted, no v1 stacking case).
+- **AI projection forecast extension** — `computeOutgoingHitChance` is now available; the AI's tier-2 projection can route through it for a sharper expected-damage estimate (today the AI's projection threads hit-chance separately). Optional refinement.
+- **`onActionAttempted` bypass for procs is currently double-gated** (source === 'system' AND riderSource !== undefined). Either is sufficient. If a future content path wants `source: 'player'` rider casts, only the riderSource gate matters; the system-source gate is incidental.
+- **Forecast layout — accuracy row** considered and rejected; revisit if playtest finds the missing accuracy multiplier surface confusing.
+- **Per-attacker proc cap** — none today; revisit if multi-act content makes procs feel spammy.
+- **Renderer's HP "max" captured at mount** (Session 28 carry; sibling to MP lift).
 - **Status-badge polarity convention** (Session 22 carry).
 - **rAF vs setInterval for animation drain** (Session 23 carry).
-- **AoE preview correctness across all shapes** (Session 23 carry; Sessions 26-28 confirmed shape-agnostic).
+- **AoE preview correctness across all shapes** (Session 23 carry; Sessions 26-30 confirmed shape-agnostic).
 - **MP / status snapshot ahead-of-tween fix** (Session 22 carry).
 - **`pa_factor` NotYetImplementedError** (audit E3).
-- **TS strict-mode test errors** (audit E8) — pre-existing list carries forward; Session 29 added zero.
+- **TS strict-mode test errors** (audit E8) — pre-existing list carries forward; Session 30 added zero.
 - **Surrender flow** (Session 34 / ADR-0041).
 - **MVP-unit smarter algorithm** (Session 24 Wave 1).
 - **Permadeath timer** (Session 24 Wave 1).
 - **Settings expansion** (Session 24 Wave 1).
 - **Reactions in projection column** (Session 24 Wave 1).
-- **Bug 1** (Session 24.5 ADR-0046): mid-battle targeting failure; instrumentation in place, no recurrence in Sessions 25-29.
+- **Bug 1** (Session 24.5 ADR-0046): mid-battle targeting failure; instrumentation in place, no recurrence in Sessions 25-30.
 - **Vite HMR cache invalidation** occasional issue.
 - **Hardcoded team color palette across three sites** (Session 25 carry).
 - **Active-ring + counterpart-ring still circles after portrait restructure** (Session 26.5 carry).
-- **Bedrock Stride fall-immunity untested until River Ridge ships** (Session 33).
+- **Tile-info effect-icon area still empty in v1** (Session 26.5 carry).
 - **Item #5 pacing constants** — tuneable per playtest feedback (Session 26.5 carry).
-- **Multiplicative tick-amount stacking** (Session 28 carry — design noted, no v1 stacking case).
-- **Burn × Purifier action-log readability** — first Purifier playtest is now possible since Purifier ships this session.
+- **Burn × Purifier action-log readability** — first Purifier playtest possible now (Purifier shipped in Session 29 batch A).
+- **Bedrock Stride fall-immunity untested until River Ridge ships** (Session 33).
 
-### Suggested scope for Session 30
+### Suggested scope for Session 31
 
-Per `docs/twentyOnePlanning/roadmap-sessions-21-plus.md`, Session 30 is **Cluster 5: procs / drains** — the engine substrate that unblocks the three deferred procced items:
+Per `docs/twentyOnePlanning/roadmap-sessions-21-plus.md`, Session 31 is **Cluster 5 content authoring** — the items that consume the substrate landing this session:
 
-- **Item 4: spell-cast riders on weapons.** Generalize the reaction-compiler to fire `use_ability` from `onDamageDealt` against the attacker's hooks. New effect shape `{ kind: 'attack_proc', chance, abilityId }` on equipment. Per-action seed sub-stream for proc roll. Bolt Hammer, Flametongue Burn proc, and the Wand on-hit resistance shifts all consume this.
+- **Bolt Hammer** (`kind: 'weapon'`, WP 10, accuracy 75, variance [0.9, 1.3], `tags: ['axe']`, `attackProcs: [{ chance: 0.25, abilityId: '<lightning_basic_proc>' }]`). The procced Lightning ability needs authoring too — likely a simple SP-12 magical Lightning hit, no AoE.
+- **Flametongue Burn proc** — extend Session 29's Flametongue (`{ tags: ['sword', 'fire'] }`) with `attackProcs: [{ chance: 0.25, abilityId: '<apply_burn_proc>' }]`. The procced ability is a single-target Burn application — `system_apply_status` carrier or a stripped-down `use_ability`.
+- **Rasp Pendant** (`kind: 'accessory'`, `damageMpDrainPercent: 10`). Update equipment doc spec to "bonus 10% MP drain" (no damage reduction).
+- **Wand of Depths / Wand of Deepwood on-hit resistance shifts** — Session 31 also picks up this carry from Session 29. Needs a status-tier resistance-shift substrate that's NOT in Cluster 5; likely a new status type carrying tag-keyed resistance deltas. Surface design call early in the session.
 
-- **Item 9: damage-to-MP-drain conversion.** New `onFinalDamage` hook (post-finalize, emission-only). New `system_mp_drain` action type. Rasp Pendant consumes this.
-
-Substrate-only — no content authoring in Session 30. Session 31 then authors Bolt Hammer, Flametongue's Burn proc, Rasp Pendant, and the Wand on-hit resistance shifts.
+Authoring-only for the proc items (engine work is complete). The wand on-hit shifts may need a small engine seam — assess during the audit phase of Session 31.

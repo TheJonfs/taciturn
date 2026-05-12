@@ -21,6 +21,7 @@ import {
   reduceSystemCtPush,
   reduceSystemDamage,
   reduceSystemHeal,
+  reduceSystemMpDrain,
   reduceTurnEnd,
   reduceTurnStart,
   reduceUseAbility,
@@ -58,6 +59,8 @@ export function reduce(state: GameState, action: Action, catalog: Catalog): Redu
       return reduceSystemHeal(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_damage':
       return reduceSystemDamage(state, action, catalog) as ReduceResult<ActionOutcome>;
+    case 'system_mp_drain':
+      return reduceSystemMpDrain(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_apply_status':
       return reduceSystemApplyStatus(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_ct_push':

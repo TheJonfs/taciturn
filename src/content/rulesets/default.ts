@@ -63,6 +63,11 @@ const DEFAULT_DAMAGE_PIPELINE: Readonly<Record<DamageStage, ReadonlyArray<Damage
   variance: ['variance_roll', 'crit_roll'],
   cap: ['clamp_min_max'],
   finalize: ['finalize'],
+  // ADR-0065 (Session 30): post-finalize emission-only stage. Fires the
+  // `onFinalDamage` hook against the attacker so equipment / passives can
+  // emit follow-on actions (Rasp Pendant's `system_mp_drain`) after the
+  // integer `damageDealt` is locked in.
+  postFinalize: ['fire_on_final_damage'],
 };
 
 export const defaultRuleset: RulesetDefinition = {

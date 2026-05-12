@@ -17,6 +17,7 @@ export {
   varianceRoll,
 } from './handlers.ts';
 export { defaultDamageHandlers } from './default-handlers.ts';
+export { computeOutgoingHitChance, type ComputeHitChanceArgs } from './hit-chance.ts';
 export {
   runDamagePipeline,
   type RunDamagePipelineArgs,

@@ -102,6 +102,25 @@ export interface OnDamageReceivedResult {
   readonly emittedActions?: ReadonlyArray<ProposedAction>;
 }
 
+// Result of `onDamageDealt`. Mirrors `OnDamageReceivedResult` on the
+// attacker side. Handlers may modify the in-flight DamageContext (the
+// legacy shape) or wrap it with `emittedActions` to propose follow-on
+// actions — `attackProcs` (weapon spell-cast riders) fire `use_ability`
+// emissions when their proc roll lands. Per Session 30 (ADR-0064).
+export interface OnDamageDealtResult {
+  readonly ctx: DamageContext;
+  readonly emittedActions?: ReadonlyArray<ProposedAction>;
+}
+
+// Result of `onFinalDamage` (per ADR-0065, Session 30). Emission-only —
+// the post-finalize stage fires this hook after the cap/finalize stages
+// have written the integer `damageDealt`, and handlers may emit follow-on
+// system actions (Rasp Pendant's `system_mp_drain`) but cannot mutate the
+// damage already applied. Empty / undefined result is the no-op case.
+export interface OnFinalDamageResult {
+  readonly emittedActions?: ReadonlyArray<ProposedAction>;
+}
+
 // Per-hook signature map. New hooks add an entry; that's it.
 export interface HookSignatures {
   // Stat query: consumed by computeSpeed today and computeMovementProfile
@@ -433,9 +452,33 @@ export interface HookSignatures {
     args: { unit: Unit; ctx: DamageContext };
     return: DamageContext | OnDamageReceivedResult;
   };
+  // `onDamageDealt` accepts either a bare `DamageContext` (legacy —
+  // handlers that only modify damage) or `OnDamageDealtResult`
+  // ({ ctx, emittedActions? }) for handlers that propose follow-on
+  // actions on hit. The runner normalizes. v1 emitting consumer:
+  // `attackProcs` (weapon spell-cast riders fire `use_ability` on a
+  // physical hit). Per Session 30 (ADR-0064).
   onDamageDealt: {
     args: { unit: Unit; ctx: DamageContext };
-    return: DamageContext;
+    return: DamageContext | OnDamageDealtResult;
+  };
+
+  // Post-finalize damage hook. Fires after the cap/finalize stages have
+  // written the integer `damageDealt` to ctx; handlers see the locked-in
+  // final damage value and may emit follow-on system actions. Cannot
+  // mutate damage (emission-only). `absorbed` is true when the cap stage
+  // tag-flipped the result to healing (resistance > 100 per ADR-0057);
+  // handlers gate accordingly (Rasp Pendant skips MP drain on absorbed
+  // hits since no damage actually landed). Per Session 30 (ADR-0065).
+  onFinalDamage: {
+    args: {
+      unit: Unit;       // attacker (matches onDamageDealt convention)
+      target: Unit;
+      damageDealt: number;     // post-finalize integer
+      damageTags: ReadonlySet<DamageTag>;
+      absorbed: boolean;
+    };
+    return: OnFinalDamageResult | void;
   };
 
   // Action filtering: fired pre-resolution against the actor's hooks

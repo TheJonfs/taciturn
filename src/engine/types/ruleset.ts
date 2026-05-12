@@ -119,6 +119,12 @@ export interface RulesetHookOrdering {
 // action-resolution.md ("Damage pipeline"). Each stage names which
 // damage-handler refs run (resolved against a session-8 registry).
 // v1 ships empty arrays; session 8 specifies the default ordering.
+//
+// Session 30 (ADR-0065) adds `postFinalize` as an eighth stage. It runs
+// after `finalize` so handlers see the integer `damageDealt`; the only
+// v1 handler is `fire_on_final_damage` (the emission-only `onFinalDamage`
+// hook fire site). Handlers here can emit follow-on actions onto
+// `ctx.emittedActions` but cannot mutate the damage already finalized.
 export type DamageStage =
   | 'base'
   | 'attacker'
@@ -126,7 +132,8 @@ export type DamageStage =
   | 'environment'
   | 'variance'
   | 'cap'
-  | 'finalize';
+  | 'finalize'
+  | 'postFinalize';
 
 // String-keyed reference to a damage handler. Handlers themselves
 // register with the (session-8) damage-handler registry; the ruleset

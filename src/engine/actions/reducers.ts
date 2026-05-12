@@ -63,6 +63,7 @@ import {
   type SystemCtPushOutcome,
   type SystemDamageOutcome,
   type SystemHealOutcome,
+  type SystemMpDrainOutcome,
   type TargetRef,
   type TurnEndOutcome,
   type TurnStartOutcome,
@@ -246,11 +247,21 @@ export function reduceUseAbility(
   // commit time and not refunded on fizzle — applies to both instant
   // and charged abilities. The cost is read through `computeMpCost` so
   // equipment / status `modifyMpCost` contributors compose (per ADR-0056).
-  const mpCost = computeMpCost(state, catalog, actor.id, ability.id);
-  let workingState: GameState = withUnit(state, {
-    ...actor,
-    vitals: { ...actor.vitals, mp: actor.vitals.mp - mpCost },
-  });
+  //
+  // Per ADR-0064 (Session 30): rider casts (weapon `attackProcs`) bypass
+  // MP deduction — the weapon pays, not the wielder. `mpSpent` is
+  // recorded as 0 on the outcome so logs and replays know the cast was
+  // free. The validator already skipped the affordability check for
+  // rider casts.
+  const isRider = action.payload.riderSource !== undefined;
+  const mpCost = isRider ? 0 : computeMpCost(state, catalog, actor.id, ability.id);
+  let workingState: GameState = state;
+  if (!isRider && mpCost > 0) {
+    workingState = withUnit(state, {
+      ...actor,
+      vitals: { ...actor.vitals, mp: actor.vitals.mp - mpCost },
+    });
+  }
 
   // Decrement actsAvailable. The Act is consumed at commit even for
   // charged spells (the caster spent their action; the spell resolves
@@ -1697,6 +1708,117 @@ export function reduceSystemDamage(
     newState,
     outcome: { kind: 'system_damage', targetId, amount: modifiedAmount, applied },
     generatedActions,
+  };
+}
+
+// --- system_mp_drain ---
+//
+// Engine-emitted MP transfer used by Rasp Pendant (Session 31) and any
+// future damage-to-MP-drain effects. Distinct from system_damage /
+// system_heal because the resource moved is MP, not HP, and the action
+// models a transfer (source gains; target loses) rather than a one-sided
+// write. Per ADR-0065 (Session 30).
+//
+// Transfer-bounded math:
+//   targetApplied = min(target.vitals.mp, requested)        // floor at 0
+//   sourceApplied = min(maxMp(source) − source.mp, targetApplied)
+// so the source never goes above maxMp, and never gains more than the
+// target actually had to give. The source's MP rises by sourceApplied;
+// the target's MP falls by targetApplied. (The two CAN differ when the
+// source is near MP cap — the spillover is lost; no buffer.)
+//
+// KO'd / missing source or target short-circuits to all-zero applied
+// fields. The entry is still logged for action-log readability so a
+// downstream "Bolt Hammer procced but target was already dead" trace
+// is recoverable from the log.
+export function reduceSystemMpDrain(
+  state: GameState,
+  action: Extract<Action, { type: 'system_mp_drain' }>,
+  catalog: Catalog,
+): ReduceResult<SystemMpDrainOutcome> {
+  const { source: sourceId, target: targetId, amount: requested } = action.payload;
+  const sourceUnit = state.units.get(sourceId);
+  const targetUnit = state.units.get(targetId);
+  if (sourceUnit === undefined || targetUnit === undefined) {
+    return {
+      newState: state,
+      outcome: {
+        kind: 'system_mp_drain',
+        source: sourceId,
+        target: targetId,
+        requested,
+        targetApplied: 0,
+        sourceApplied: 0,
+      },
+      generatedActions: [],
+    };
+  }
+  if (targetUnit.vitals.hp <= 0 || sourceUnit.vitals.hp <= 0) {
+    return {
+      newState: state,
+      outcome: {
+        kind: 'system_mp_drain',
+        source: sourceId,
+        target: targetId,
+        requested,
+        targetApplied: 0,
+        sourceApplied: 0,
+      },
+      generatedActions: [],
+    };
+  }
+  const safeRequested = Math.max(0, Math.floor(requested));
+  const targetApplied = Math.min(targetUnit.vitals.mp, safeRequested);
+  const sourceMaxMp = runModifyStatQuery(state, catalog, {
+    unit: sourceUnit,
+    statName: 'maxMp',
+    baseValue: sourceUnit.baseStats.maxMpBase,
+  });
+  const sourceRoom = Math.max(0, sourceMaxMp - sourceUnit.vitals.mp);
+  const sourceApplied = Math.min(sourceRoom, targetApplied);
+  if (targetApplied === 0 && sourceApplied === 0) {
+    return {
+      newState: state,
+      outcome: {
+        kind: 'system_mp_drain',
+        source: sourceId,
+        target: targetId,
+        requested,
+        targetApplied: 0,
+        sourceApplied: 0,
+      },
+      generatedActions: [],
+    };
+  }
+  let nextState = state;
+  if (targetApplied > 0) {
+    const newTarget: Unit = {
+      ...targetUnit,
+      vitals: { ...targetUnit.vitals, mp: targetUnit.vitals.mp - targetApplied },
+    };
+    nextState = withUnit(nextState, newTarget);
+  }
+  if (sourceApplied > 0) {
+    // Re-read the source in case `withUnit` returned a new GameState with
+    // a different unit reference (it doesn't today, but cheap to be safe).
+    const refreshedSource = nextState.units.get(sourceId) ?? sourceUnit;
+    const newSource: Unit = {
+      ...refreshedSource,
+      vitals: { ...refreshedSource.vitals, mp: refreshedSource.vitals.mp + sourceApplied },
+    };
+    nextState = withUnit(nextState, newSource);
+  }
+  return {
+    newState: nextState,
+    outcome: {
+      kind: 'system_mp_drain',
+      source: sourceId,
+      target: targetId,
+      requested,
+      targetApplied,
+      sourceApplied,
+    },
+    generatedActions: [],
   };
 }
 

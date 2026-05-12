@@ -7,7 +7,9 @@
 // surfaces never disagree.
 
 import {
+  computeAbilityRange,
   computeMpCost,
+  computeOutgoingHitChance,
   estimateChargedTiming as engineEstimateChargedTiming,
   projectAoePreview,
   projectDamageRange,
@@ -44,6 +46,12 @@ export interface ForecastTargetRow {
   readonly damage?: DamageRange;
   // Status chances per declared effect on the ability.
   readonly statusChances: ReadonlyArray<StatusChanceForecast>;
+  // Per Session 30 fold-in: effective hit chance for this target,
+  // already composed through caster (Arcane Lens) and target (Blind,
+  // Steel Helm) hooks and clamped to [0.05, 1.0]. Omitted for
+  // auto-hit and non-physical damage; the renderer reads `undefined`
+  // as "always lands."
+  readonly hitChance?: number;
 }
 
 // Charged-action timing forecast — present only when the hovered
@@ -92,6 +100,13 @@ export interface Forecast {
   readonly casterMpAfter: number;
   // Set when `ability.actionSpeed > 0`. `null` for instant casts.
   readonly chargedTiming: ChargedTiming | null;
+  // Per Session 30 fold-in: effective ability range after equipment /
+  // status / passive `modifyAbilityRange` contributors compose. The
+  // forecast panel renders "Range: HxV"; per Chris's design call, the
+  // displayed numbers are the effective values with no base+bonus
+  // annotation (Wand of Depths' +1 on water spells just shows the
+  // already-+1 number when targeting a water spell).
+  readonly effectiveRange: { readonly horizontal: number; readonly vertical: number };
 }
 
 export interface ComposeForecastArgs {
@@ -146,6 +161,17 @@ export function composeForecast(args: ComposeForecastArgs): Forecast {
       target: tile.occupant,
       ability: args.ability,
     });
+    // Effective hit chance — caster + target hook chains composed,
+    // clamped to [0.05, 1.0]. Returns 1.0 for auto-hit / non-physical
+    // (the renderer reads `hitChance === 1` as "always lands" and can
+    // omit the row when desired).
+    const hitChance = computeOutgoingHitChance({
+      state: args.state,
+      catalog: args.catalog,
+      attacker: args.caster,
+      target: tile.occupant,
+      ability: args.ability,
+    });
     targets.push({
       position: tile.position,
       unit: tile.occupant,
@@ -153,6 +179,7 @@ export function composeForecast(args: ComposeForecastArgs): Forecast {
       hp,
       ...(damage !== undefined ? { damage } : {}),
       statusChances,
+      hitChance,
     });
   }
 
@@ -175,6 +202,11 @@ export function composeForecast(args: ComposeForecastArgs): Forecast {
     ? estimateChargedTiming(args, tiles)
     : null;
 
+  // Effective range — equipment modifiers (Wand of Depths' +1 on water
+  // spells) compose through `computeAbilityRange`. Forecast renders the
+  // already-modified numbers, no base+bonus annotation.
+  const effectiveRange = computeAbilityRange(args.state, args.catalog, args.caster.id, args.ability);
+
   return {
     caster: args.caster,
     ability: args.ability,
@@ -184,6 +216,7 @@ export function composeForecast(args: ComposeForecastArgs): Forecast {
     endOfTurnCt,
     casterMpAfter,
     chargedTiming,
+    effectiveRange: { horizontal: effectiveRange.horizontal, vertical: effectiveRange.vertical },
   };
 }
 
