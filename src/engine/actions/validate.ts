@@ -181,8 +181,20 @@ function validateUseAbility(
   // budget check — they fire during another unit's turn and draw from
   // a separate per-unit-per-turn counter. The actor still has to exist
   // and not be KO'd.
+  //
+  // Per Session 31 (ADR-0068 extension): rider casts (`riderSource !==
+  // undefined`) also skip the actsAvailable budget check. The original
+  // swing already consumed the wielder's Act; the proc fires off the
+  // swing (the weapon's power, not the wielder's). Sibling bypass to
+  // the MP affordability skip (ADR-0064) below.
   let actor: Unit;
+  const isRider = (action as { readonly payload: { readonly riderSource?: unknown } }).payload
+    ?.riderSource !== undefined;
   if (isReaction) {
+    const probe = getActorIfActive(state, action.actorId);
+    if ('valid' in probe) return probe;
+    actor = probe;
+  } else if (isRider) {
     const probe = getActorIfActive(state, action.actorId);
     if ('valid' in probe) return probe;
     actor = probe;
@@ -191,7 +203,8 @@ function validateUseAbility(
     if ('valid' in probe) return probe;
     actor = probe;
 
-    // Budget: UseAbility requires actsAvailable > 0 (non-reaction path).
+    // Budget: UseAbility requires actsAvailable > 0 (non-reaction,
+    // non-rider path).
     const turn = state.turnState!;
     if (turn.budget.actsAvailable <= 0) {
       return invalid('No Act budget remaining this turn');

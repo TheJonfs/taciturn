@@ -1,5 +1,6 @@
 import type { AbilityDefinition } from '@engine/index.ts';
 import { aetherBloom } from './aether-bloom.ts';
+import { applyBurnProc } from './apply-burn-proc.ts';
 import { attack } from './attack.ts';
 import { bedrockStride } from './bedrock-stride.ts';
 import { bolt } from './bolt.ts';
@@ -44,10 +45,13 @@ import { tidalPull } from './tidal-pull.ts';
 import { tidalWave } from './tidal-wave.ts';
 import { tideSurge } from './tide-surge.ts';
 import { tidewalker } from './tidewalker.ts';
+import { wandOfDeepwoodApplyShift } from './wand-of-deepwood-apply-shift.ts';
+import { wandOfDepthsApplyShift } from './wand-of-depths-apply-shift.ts';
 import { waterStrike } from './water-strike.ts';
 
 export const abilities: ReadonlyArray<AbilityDefinition> = [
   aetherBloom,
+  applyBurnProc,
   attack,
   bedrockStride,
   bolt,
@@ -92,5 +96,7 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   tidalWave,
   tideSurge,
   tidewalker,
+  wandOfDeepwoodApplyShift,
+  wandOfDepthsApplyShift,
   waterStrike,
 ];

@@ -234,6 +234,17 @@ export function deriveActionParticipants(action: Action): ActionParticipants {
       if (tid !== undefined) targetIds.push(tid);
       break;
     }
+    case 'system_mp_drain': {
+      // MP transfer carries both source and target. Both participate
+      // for hover-counterpart highlighting; the source goes on actorId
+      // (the unit "doing" the drain) and the target in targetIds.
+      // No envelope actorId on system actions (per the commit-side
+      // exclusion list); set it inline here.
+      return {
+        actorId: action.payload.source,
+        targetIds: [action.payload.target],
+      };
+    }
     default:
       // move, wait, set_facing, turn_start, turn_end, battle_end —
       // single-actor or no-target events.

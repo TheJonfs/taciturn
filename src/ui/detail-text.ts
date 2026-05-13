@@ -1,0 +1,472 @@
+// detail-text — pure formatters for hover-tooltip detail content on
+// abilities and equipment items. Pulls everything from the catalog's
+// existing fields (no new schema); auto-generates a mechanical summary
+// readable at-a-glance.
+//
+// Session 31.5 candidate: extend with an authored `description?: string`
+// field on AbilityCommon + EquipmentBase + content-side author pass.
+// Until then, the small `PASSIVE_DESCRIPTIONS` map below carries
+// short placeholder strings for the most opaque passives so the hover
+// surface is useful in v1 demo playtest. New passives without an entry
+// fall back to a "(not yet summarized)" placeholder — flagged in the
+// returned content so authors notice.
+
+import {
+  abilityId,
+  type AbilityDefinition,
+  type AbilityId,
+  type ActiveAbilityDefinition,
+  type Catalog,
+  type ItemDefinition,
+  type PassiveAbilityDefinition,
+  type WeaponEquipment,
+} from '@engine/index.ts';
+import { bucketLabel } from './labels.ts';
+
+export interface DetailContent {
+  readonly title: string;
+  readonly subtitle?: string;
+  readonly lines: ReadonlyArray<string>;
+}
+
+// Short authored placeholders for the demo passives. Each line is the
+// minimum prose that beats "you have to read the source." Replace with
+// fuller authored descriptions in the Session 31.5 content pass.
+const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
+  [abilityId('counter'), 'On taking a non-healing physical hit, swing back at the attacker with the same weapon.'],
+  [abilityId('move_plus_1'), '+1 Move Range.'],
+  [abilityId('float'), 'Treat water tiles as walkable.'],
+  [abilityId('fly'), 'Ignore terrain and jump entirely — move freely over any tile.'],
+  [abilityId('earth_resilience'), 'On taking a non-healing hit, gain +1 Move / +1 Jump (stackable, lingering).'],
+  [abilityId('earth_communion'), '× 1.25 status application chance on every cast.'],
+  [abilityId('bedrock_stride'), '+1 Move Range. Falling damage is suppressed.'],
+  [abilityId('tidal_pull'), 'On taking damage, the attacker is pulled toward the reactor (Water Mage CT push back on hit).'],
+  [abilityId('flow_state'), 'On committing a magical action, refund some CT to the caster.'],
+  [abilityId('tidewalker'), '+1 Move Range. Water tiles cost 1 move instead of full terrain cost.'],
+  [abilityId('smolder'), 'On taking damage, apply 1 stack of Burn to the attacker (uses reactor MA).'],
+  [abilityId('ignition'), 'Fire-tagged casts also apply 1 stack of Burn at the proc rate.'],
+  [abilityId('aether_bloom'), 'AoE casts gain +1 tile to their area shape.'],
+  [abilityId('hotfoot'), '+1 Move Range, +1 Speed.'],
+  [abilityId('discharge'), 'On taking damage, retaliate with a Lightning swing at the attacker.'],
+  [abilityId('conductor'), '× 1.25 MA multiplier — boosts every magical cast.'],
+  [abilityId('quickstep'), 'On a Move-only turn, refund CT equal to MA after the turn ends.'],
+  [abilityId('damage_reduction'), 'Reduce incoming non-healing damage by a flat amount.'],
+  [abilityId('static_embrace'), '+20 Crit Modifier (passive — drives crit damage when the wielder lands one).'],
+  [abilityId('magnetic_mark'), 'Apply Vulnerable to a target on hit — next damage taken is amplified.'],
+]);
+
+// Tiny formatting helpers — kept inline rather than a regex zoo so the
+// output is easy to scan and edit.
+function formatRange(h: number, v: number): string {
+  if (h === v) return `${h} tiles`;
+  return `${h}H · ${v}V`;
+}
+
+function formatPercent(p: number): string {
+  return `${Math.round(p * 100)}%`;
+}
+
+function formatVarianceBand(min: number, max: number): string {
+  return `[${min.toFixed(2)}, ${max.toFixed(2)}]`;
+}
+
+// Equipment kind label for the tooltip subtitle.
+function kindLabel(item: ItemDefinition): string {
+  switch (item.kind) {
+    case 'weapon': {
+      const w = item as WeaponEquipment;
+      const tag = w.tags?.[0];
+      return tag !== undefined ? `Weapon · ${String(tag)}` : 'Weapon';
+    }
+    case 'shield':
+      return 'Shield';
+    case 'armor':
+      return 'Body Armor';
+    case 'headgear':
+      return 'Headgear';
+    case 'accessory':
+      return 'Accessory';
+  }
+}
+
+// Stat-mod entries → "+2 PA · +30 MP · ×1.5 MaxMP" etc.
+function formatStatMods(
+  add: ItemDefinition['statMods'],
+  mul: ItemDefinition['statModsMultiplicative'],
+): string[] {
+  const parts: string[] = [];
+  if (add !== undefined) {
+    for (const [stat, value] of Object.entries(add)) {
+      if (value === undefined) continue;
+      const sign = value >= 0 ? '+' : '';
+      parts.push(`${sign}${value} ${statShortLabel(stat)}`);
+    }
+  }
+  if (mul !== undefined) {
+    for (const [stat, factor] of Object.entries(mul)) {
+      if (factor === undefined) continue;
+      parts.push(`×${factor} ${statShortLabel(stat)}`);
+    }
+  }
+  return parts;
+}
+
+function statShortLabel(key: string): string {
+  switch (key) {
+    case 'pa':
+      return 'PA';
+    case 'ma':
+      return 'MA';
+    case 'spd':
+      return 'Spd';
+    case 'maxHpBase':
+    case 'maxHp':
+      return 'HP';
+    case 'maxMpBase':
+    case 'maxMp':
+      return 'MP';
+    case 'brave':
+      return 'Brave';
+    case 'faith':
+      return 'Faith';
+    case 'crit_chance':
+      return 'Crit';
+    case 'crit_multiplier':
+      return 'Crit×';
+    default:
+      return key;
+  }
+}
+
+export function formatItemDetail(item: ItemDefinition, catalog: Catalog): DetailContent {
+  const lines: string[] = [];
+
+  // Weapon block — WP / accuracy / variance / weapon tags.
+  if (item.kind === 'weapon') {
+    const w = item as WeaponEquipment;
+    const bits: string[] = [`WP ${w.wp}`, `Acc ${w.accuracy}`];
+    if (w.physicalVariance !== undefined) {
+      bits.push(`Var ${formatVarianceBand(w.physicalVariance.min, w.physicalVariance.max)}`);
+    }
+    lines.push(bits.join(' · '));
+    if (w.tags !== undefined && w.tags.length > 0) {
+      lines.push(`Tags: ${w.tags.map(String).join(', ')}`);
+    }
+  }
+
+  // Stat modifications (additive + multiplicative).
+  const statBits = formatStatMods(item.statMods, item.statModsMultiplicative);
+  if (statBits.length > 0) {
+    lines.push(`Stats: ${statBits.join(' · ')}`);
+  }
+
+  // Movement mods (Move / Jump from non-stat slot — e.g., Lightfoot).
+  if (item.movementMods !== undefined) {
+    const mm: string[] = [];
+    if (item.movementMods.moveRange !== undefined) {
+      const v = item.movementMods.moveRange;
+      mm.push(`${v >= 0 ? '+' : ''}${v} Move`);
+    }
+    if (item.movementMods.jump !== undefined) {
+      const v = item.movementMods.jump;
+      mm.push(`${v >= 0 ? '+' : ''}${v} Jump`);
+    }
+    if (mm.length > 0) lines.push(`Movement: ${mm.join(' · ')}`);
+  }
+
+  // Bucket capacity (Steel Helm, Augmentor, Magus Crown).
+  if (item.bucketCapacityMods !== undefined && item.bucketCapacityMods.size > 0) {
+    const parts: string[] = [];
+    for (const [bucket, delta] of item.bucketCapacityMods) {
+      parts.push(`${delta >= 0 ? '+' : ''}${delta} ${bucketLabel(bucket)} capacity`);
+    }
+    lines.push(parts.join(' · '));
+  }
+
+  // Per-tag resistance shifts (Capacitor Ring, future wards).
+  if (item.resistanceMods !== undefined && item.resistanceMods.size > 0) {
+    const parts: string[] = [];
+    for (const [tag, delta] of item.resistanceMods) {
+      parts.push(`${delta >= 0 ? '+' : ''}${delta} ${String(tag)} res`);
+    }
+    lines.push(`Resistance: ${parts.join(' · ')}`);
+  }
+
+  // Per-facing evasion (Steel Helm).
+  if (item.evasionMods !== undefined) {
+    const parts: string[] = [];
+    if (item.evasionMods.front !== undefined) {
+      parts.push(`${item.evasionMods.front >= 0 ? '+' : ''}${item.evasionMods.front} front`);
+    }
+    if (item.evasionMods.side !== undefined) {
+      parts.push(`${item.evasionMods.side >= 0 ? '+' : ''}${item.evasionMods.side} side`);
+    }
+    if (item.evasionMods.back !== undefined) {
+      parts.push(`${item.evasionMods.back >= 0 ? '+' : ''}${item.evasionMods.back} back`);
+    }
+    if (parts.length > 0) lines.push(`Evasion: ${parts.join(' · ')}`);
+  }
+
+  // Ability-range modifiers (Wand of Depths +1H/+1V on water spells).
+  if (item.abilityRangeModifiers !== undefined && item.abilityRangeModifiers.length > 0) {
+    for (const mod of item.abilityRangeModifiers) {
+      const dh = mod.deltaHorizontal ?? 0;
+      const dv = mod.deltaVertical ?? 0;
+      const tag = mod.tagFilter?.[0] !== undefined ? `${String(mod.tagFilter[0])}-tagged` : 'all';
+      lines.push(
+        `Range: ${dh >= 0 ? '+' : ''}${dh}H · ${dv >= 0 ? '+' : ''}${dv}V on ${tag} casts`,
+      );
+    }
+  }
+
+  // Action-speed (charge-rate) modifiers (Wand of Deepwood +5 on earth).
+  if (item.actionSpeedModifiers !== undefined && item.actionSpeedModifiers.length > 0) {
+    for (const mod of item.actionSpeedModifiers) {
+      const tag = mod.tagFilter?.[0] !== undefined ? `${String(mod.tagFilter[0])}-tagged` : 'all';
+      lines.push(
+        `Spell speed: ${mod.delta >= 0 ? '+' : ''}${mod.delta} on ${tag} casts`,
+      );
+    }
+  }
+
+  // MP-cost multipliers (Staff of Power ×1.20).
+  if (item.mpCostMultipliers !== undefined && item.mpCostMultipliers.length > 0) {
+    for (const factor of item.mpCostMultipliers) {
+      const pct = Math.round((factor - 1) * 100);
+      const sign = pct >= 0 ? '+' : '';
+      lines.push(`MP cost: ${sign}${pct}% on all casts`);
+    }
+  }
+
+  // Outgoing hit chance multipliers (Arcane Lens × 1.10).
+  if (item.outgoingHitChanceMultipliers !== undefined && item.outgoingHitChanceMultipliers.length > 0) {
+    for (const factor of item.outgoingHitChanceMultipliers) {
+      lines.push(`Hit chance × ${factor.toFixed(2)} on outgoing attacks`);
+    }
+  }
+
+  // Incoming status modifiers (Focus Band × 0.75 negative; Pointy Hat × 0.5 Silence).
+  if (item.incomingStatusModifiers !== undefined && item.incomingStatusModifiers.length > 0) {
+    for (const mod of item.incomingStatusModifiers) {
+      const factor = mod.chanceMultiplier;
+      const subject =
+        mod.kind === 'by_type'
+          ? catalog.hasStatusType(mod.statusTypeId)
+            ? catalog.getStatusType(mod.statusTypeId).name
+            : String(mod.statusTypeId)
+          : `${String(mod.statusTag)}-tagged statuses`;
+      lines.push(`Incoming ${subject}: × ${factor.toFixed(2)} apply chance`);
+    }
+  }
+
+  // Status-tick-amount (Purifier × 2 negative).
+  if (item.statusTickAmountMultipliers !== undefined && item.statusTickAmountMultipliers.length > 0) {
+    for (const mod of item.statusTickAmountMultipliers) {
+      const subject =
+        mod.statusTypeId !== undefined
+          ? catalog.hasStatusType(mod.statusTypeId)
+            ? catalog.getStatusType(mod.statusTypeId).name
+            : String(mod.statusTypeId)
+          : mod.statusTag !== undefined
+            ? `${String(mod.statusTag)}-tagged statuses`
+            : 'every status';
+      lines.push(`Tick rate × ${mod.factor.toFixed(2)} on ${subject}`);
+    }
+  }
+
+  // attackProcs (Bolt Hammer, Flametongue, wands).
+  if (item.attackProcs !== undefined && item.attackProcs.length > 0) {
+    for (const proc of item.attackProcs) {
+      const procName = catalog.hasAbility(proc.abilityId)
+        ? catalog.getAbility(proc.abilityId).name
+        : String(proc.abilityId);
+      lines.push(`On hit: ${formatPercent(proc.chance)} chance to trigger ${procName}`);
+    }
+  }
+
+  // damageMpDrainPercent (Rasp Pendant).
+  if (item.damageMpDrainPercent !== undefined && item.damageMpDrainPercent > 0) {
+    lines.push(`On hit: drain ${item.damageMpDrainPercent}% of final damage as MP from target`);
+  }
+
+  // Status grants (Auto-Haste, Auto-Shell, Auto-Regen).
+  if (item.statusGrants !== undefined && item.statusGrants.length > 0) {
+    const names = item.statusGrants.map((id) =>
+      catalog.hasStatusType(id) ? catalog.getStatusType(id).name : String(id),
+    );
+    lines.push(`Grants at battle start: ${names.join(', ')}`);
+  }
+
+  // Class restrictions (mage-only robes, Knight-only shields).
+  if (item.classRestrictions !== undefined && item.classRestrictions.length > 0) {
+    const names = item.classRestrictions.map((id) =>
+      catalog.hasClass(id) ? catalog.getClass(id).name : String(id),
+    );
+    lines.push(`Class restricted: ${names.join(', ')}`);
+  }
+
+  // Item-level damage tags (separate from weapon-specific tags shown above).
+  if (item.kind !== 'weapon' && item.tags !== undefined && item.tags.length > 0) {
+    lines.push(`Tags: ${item.tags.map(String).join(', ')}`);
+  }
+
+  if (lines.length === 0) lines.push('(no mechanical effect declared)');
+
+  return {
+    title: item.name,
+    subtitle: kindLabel(item),
+    lines,
+  };
+}
+
+export function formatAbilityDetail(
+  ability: AbilityDefinition,
+  catalog: Catalog,
+): DetailContent {
+  if (ability.kind === 'active') return formatActiveDetail(ability, catalog);
+  return formatPassiveDetail(ability, catalog);
+}
+
+function formatActiveDetail(ability: ActiveAbilityDefinition, catalog: Catalog): DetailContent {
+  const lines: string[] = [];
+
+  // Cost line: MP cost + action speed (charge time).
+  const costParts: string[] = [];
+  if (ability.mpCost > 0) costParts.push(`MP ${ability.mpCost}`);
+  if (ability.actionSpeed > 0) costParts.push(`Charge ${ability.actionSpeed}`);
+  if (costParts.length > 0) lines.push(`Cost: ${costParts.join(' · ')}`);
+
+  // Targeting.
+  if (ability.targeting.kind === 'single_unit' || ability.targeting.kind === 'tile') {
+    const range = ability.targeting.range;
+    const mode = ability.targeting.rangeMode;
+    lines.push(
+      `Target: ${ability.targeting.kind === 'tile' ? 'tile' : 'unit'} · ${formatRange(range.horizontal, range.vertical)} (${mode})`,
+    );
+  } else if (ability.targeting.kind === 'self') {
+    lines.push('Target: self');
+  }
+
+  // Damage spec.
+  const dmg = ability.effects.damage;
+  if (dmg !== undefined) {
+    const tagSeg = dmg.tags.map(String).join(', ');
+    const power = dmg.power_coefficient ?? 1;
+    if (dmg.tags.includes('healing')) {
+      lines.push(`Heal: MA × ${power} × Faith`);
+    } else if (dmg.tags.includes('magical')) {
+      lines.push(`Damage: MA × ${power} × Faith [${tagSeg}]`);
+    } else if (dmg.tags.includes('physical')) {
+      lines.push(`Damage: PA × WP × ${power} × Brave [${tagSeg}]`);
+    }
+    if (dmg.variance !== undefined) {
+      lines.push(`Variance: ${formatVarianceBand(dmg.variance.min, dmg.variance.max)}`);
+    }
+    if (dmg.ctPush !== undefined) {
+      lines.push(`CT push (on hit): −${dmg.ctPush.factor} × caster MA`);
+    }
+    if (dmg.knockback !== undefined) {
+      const chanceSeg = dmg.knockback.chance === undefined ? '(always)' : `at ${formatPercent(dmg.knockback.chance)}`;
+      lines.push(`Knockback: ${dmg.knockback.distance} tiles ${chanceSeg}`);
+    }
+    if (dmg.chainBonus !== undefined) {
+      lines.push(`Chain bonus: +${dmg.chainBonus.powerPerAdditionalTarget} power per extra target`);
+    }
+  }
+
+  // AoE.
+  if (ability.effects.aoe !== undefined) {
+    const a = ability.effects.aoe;
+    lines.push(`AoE: ${a.shape.kind}${a.anchorMode === 'caster' ? ' (caster-anchored)' : ''}`);
+  }
+
+  // Status effects.
+  if (ability.effects.statusEffects !== undefined) {
+    for (const fx of ability.effects.statusEffects) {
+      const name = catalog.hasStatusType(fx.typeId)
+        ? catalog.getStatusType(fx.typeId).name
+        : String(fx.typeId);
+      const chance =
+        fx.applyAlways === true
+          ? 'always'
+          : fx.baseChance !== undefined
+            ? `${fx.baseChance}% base`
+            : '100% base';
+      const target = fx.target === 'caster' ? 'self' : 'target';
+      const stacks = fx.stackQuantity !== undefined && fx.stackQuantity > 1 ? ` × ${fx.stackQuantity}` : '';
+      lines.push(`Apply ${name}${stacks} to ${target} (${chance})`);
+    }
+  }
+
+  // CT effects.
+  if (ability.effects.ctEffects !== undefined) {
+    for (const fx of ability.effects.ctEffects) {
+      const sign = fx.factor >= 0 ? '+' : '';
+      const target = fx.target === 'caster' ? 'self' : 'target';
+      const chance = fx.baseChance !== undefined ? `${fx.baseChance}% base` : '100% base';
+      lines.push(`CT: ${sign}${fx.factor} × caster MA on ${target} (${chance})`);
+    }
+  }
+
+  // Self-damage (Storm Caller).
+  if (ability.selfDamage !== undefined) {
+    lines.push(`Self-damage: ${Math.round(ability.selfDamage.fraction * 100)}% of caster MaxHP per cast`);
+  }
+
+  // Hit roll presence.
+  if (ability.hitRoll !== undefined) {
+    if (ability.hitRoll.accuracy !== undefined) {
+      lines.push(`Accuracy override: ${ability.hitRoll.accuracy}`);
+    } else if (dmg !== undefined && !dmg.tags.includes('magical')) {
+      // Physical attack — uses weapon accuracy.
+      lines.push('Accuracy: from equipped weapon');
+    }
+  }
+
+  // Tags line (if not already implied by damage tags).
+  if (ability.tags !== undefined && ability.tags.length > 0 && dmg === undefined) {
+    lines.push(`Tags: ${ability.tags.map(String).join(', ')}`);
+  }
+
+  if (lines.length === 0) lines.push('(no mechanical effect declared)');
+
+  return {
+    title: ability.name,
+    subtitle: `${bucketLabel(ability.bucket)} ability`,
+    lines,
+  };
+}
+
+function formatPassiveDetail(ability: PassiveAbilityDefinition, catalog: Catalog): DetailContent {
+  void catalog;
+  const lines: string[] = [];
+
+  // Authored description (preferred).
+  const desc = PASSIVE_DESCRIPTIONS.get(ability.id);
+  if (desc !== undefined) {
+    lines.push(desc);
+  } else {
+    lines.push(`(Description not yet authored — flag for Session 31.5 content pass.)`);
+    // Best-effort hook-name summary so the curious reader sees what
+    // surfaces the passive registers against.
+    const hookNames = new Set<string>();
+    for (const h of ability.hooks) hookNames.add(h.name);
+    if (hookNames.size > 0) {
+      lines.push(`Registers hooks: ${Array.from(hookNames).join(', ')}`);
+    }
+  }
+
+  // Cost (visible across all passives — relevant when capacity matters).
+  lines.push(`Cost: ${ability.baseCost} · ${bucketLabel(ability.bucket)}`);
+
+  // Tags.
+  if (ability.tags !== undefined && ability.tags.length > 0) {
+    lines.push(`Tags: ${ability.tags.map(String).join(', ')}`);
+  }
+
+  return {
+    title: ability.name,
+    subtitle: `${bucketLabel(ability.bucket)} passive`,
+    lines,
+  };
+}

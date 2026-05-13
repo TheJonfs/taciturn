@@ -224,6 +224,10 @@ function ExpandedDetail({ action, state }: { readonly action: Action; readonly s
     lines.push(`amount: ${action.payload.amount}  ·  applied: ${action.outcome?.applied ?? '?'}`);
   } else if (action.type === 'system_heal') {
     lines.push(`amount: ${action.payload.amount}  ·  applied: ${action.outcome?.applied ?? '?'}`);
+  } else if (action.type === 'system_mp_drain') {
+    const t = action.outcome?.targetApplied ?? '?';
+    const s = action.outcome?.sourceApplied ?? '?';
+    lines.push(`requested: ${action.payload.amount}  ·  target lost: ${t}  ·  source gained: ${s}`);
   }
   return (
     <div style={detailStyle}>

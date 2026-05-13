@@ -38,7 +38,7 @@ import {
   type Position,
   type Unit,
 } from '../types/index.ts';
-import type { DamageHandler } from './registry.ts';
+import type { DamageHandler, PipelineEnv } from './registry.ts';
 import {
   computeAttackerFacing,
   computeElevationModifier,
@@ -353,22 +353,48 @@ export const fireOnDamageReceived: DamageHandler = (ctx, env) => {
 
 // --- variance stage ---
 
-// Deterministic uniform roll within `[variance.min, variance.max]`,
-// applied as a multiplier. Uses a hash of the per-action seed plus a
-// small sub-index — matches the design's "stream-within-action" model.
+// Deterministic uniform roll within `[band.min, band.max]`, applied as
+// a multiplier. Uses a hash of the per-action seed plus a small
+// sub-index — matches the design's "stream-within-action" model.
+//
+// Per Session 31 (ADR-0067): the band fork. Physical hits whose
+// wielder weapon declares `physicalVariance` use the weapon's band
+// instead of the ability's `ctx.variance`. War Axe (`[0.9, 1.3]`,
+// asymmetric, mean 1.1) and Bolt Hammer ride this path; sword / wand /
+// staff wielders without a declared band fall through to the ability's
+// `ctx.variance` (default `{ 1, 1 }` → no-op short-circuit).
+// Magical-only damage always reads `ctx.variance` regardless of
+// equipped weapon — the weapon-side band gates on the 'physical' tag
+// so a Wand-wielding Mage casting a spell still gets the ability's
+// declared variance, not the wand's (which is none anyway).
 //
 // For the v1 MVP we use a tiny mulberry32-style mixer rather than
 // pulling in a full PRNG: the seed is already the action's stable
 // per-action value, and the variance roll is the only consumer in v1.
 export const varianceRoll: DamageHandler = (ctx, env) => {
-  if (ctx.variance.min === 1 && ctx.variance.max === 1) return ctx;
+  const band = resolveVarianceBand(ctx, env);
+  if (band.min === 1 && band.max === 1) return ctx;
   const r = unitFloatFromSeed(env.seed, /* sub-index */ 0);
-  const factor = ctx.variance.min + (ctx.variance.max - ctx.variance.min) * r;
+  const factor = band.min + (band.max - band.min) * r;
   return {
     ...ctx,
     multipliers: [...ctx.multipliers, { source: 'variance', factor }],
   };
 };
+
+// Per Session 31 (ADR-0067). Physical hits with a wielder weapon that
+// declares `physicalVariance` use the weapon's band; everything else
+// uses the ability's `ctx.variance`. The function is small and inline
+// here so the variance stage stays single-file.
+function resolveVarianceBand(
+  ctx: DamageContext,
+  env: PipelineEnv,
+): { readonly min: number; readonly max: number } {
+  if (!ctx.damageTags.has('physical')) return ctx.variance;
+  const weapon = getEquippedWeapon(ctx.attacker, env.catalog);
+  if (weapon?.physicalVariance !== undefined) return weapon.physicalVariance;
+  return ctx.variance;
+}
 
 // Shared crit_chance read site (per ADR-0034 / ADR-0042). Reads
 // `crit_chance` through `runModifyStatQuery` so Crit_modifier and any

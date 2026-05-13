@@ -237,6 +237,15 @@ export interface WeaponEquipment extends EquipmentBase {
   // accuracy is the override path. Default for unarmed is 100 per the
   // Battle Mechanics Guide.
   readonly accuracy: number;
+  // Session 31: weapon-sourced asymmetric variance band, optional.
+  // When set, physical damage from this wielder uses this band on
+  // sub-stream 0 in place of the ability's `damageSpec.variance`.
+  // Axe-family identity ([0.9, 1.3] asymmetric, mean 1.1). The pipeline
+  // variance stage forks: `'physical'` damage tag + wielder weapon
+  // declares `physicalVariance` → use this band; otherwise the ability's
+  // band (default `{ min: 1, max: 1 }`) applies. The fork preserves
+  // determinism per (state, action, seed).
+  readonly physicalVariance?: { readonly min: number; readonly max: number };
 }
 
 // Session 29: shields occupy the left-hand slot but aren't weapons —

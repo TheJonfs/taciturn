@@ -22,6 +22,8 @@ import {
 } from '@engine/index.ts';
 import { portraitUrlFor } from '../assets/portraits/index.ts';
 import { bucketLabel, slotLabel } from './labels.ts';
+import { DetailHover } from './detail-hover.tsx';
+import { formatAbilityDetail, formatItemDetail } from './detail-text.ts';
 
 export interface UnitDetailPanelProps {
   readonly state: GameState;
@@ -202,18 +204,28 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
           })}
           {PASSIVE_BUCKET_IDS.map((bucketId) => {
             const abilityList = unit.loadout.passiveBuckets[bucketId] ?? [];
-            const display =
-              abilityList.length === 0
-                ? '(empty)'
-                : abilityList
-                    .map((id) =>
-                      catalog.hasAbility(id) ? catalog.getAbility(id).name : String(id),
-                    )
-                    .join(', ');
             return (
               <div key={`p-${String(bucketId)}`} style={resRowStyle}>
                 <span style={statusNameStyle}>{bucketLabel(bucketId)}</span>
-                <span style={statusDurStyle}>{display}</span>
+                <span style={statusDurStyle}>
+                  {abilityList.length === 0 ? (
+                    '(empty)'
+                  ) : (
+                    abilityList.map((id, i) => {
+                      const ability = catalog.hasAbility(id) ? catalog.getAbility(id) : null;
+                      const name = ability !== null ? ability.name : String(id);
+                      const content = ability !== null ? formatAbilityDetail(ability, catalog) : null;
+                      return (
+                        <span key={String(id)}>
+                          {i > 0 && ', '}
+                          <DetailHover content={content} style={hoverInlineStyle}>
+                            {name}
+                          </DetailHover>
+                        </span>
+                      );
+                    })
+                  )}
+                </span>
               </div>
             );
           })}
@@ -222,14 +234,21 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
         <Section title="Equipment">
           {EQUIPMENT_SLOT_IDS.map((slot: EquipmentSlotId) => {
             const itemId = unit.equipment[slot];
-            const itemName =
-              itemId !== null && catalog.hasItem(itemId)
-                ? catalog.getItem(itemId).name
-                : '(empty)';
+            const item =
+              itemId !== null && catalog.hasItem(itemId) ? catalog.getItem(itemId) : null;
+            const content = item !== null ? formatItemDetail(item, catalog) : null;
             return (
               <div key={slot} style={resRowStyle}>
                 <span style={statusNameStyle}>{slotLabel(slot)}</span>
-                <span style={statusDurStyle}>{itemName}</span>
+                <span style={statusDurStyle}>
+                  {item !== null ? (
+                    <DetailHover content={content} style={hoverInlineStyle}>
+                      {item.name}
+                    </DetailHover>
+                  ) : (
+                    '(empty)'
+                  )}
+                </span>
               </div>
             );
           })}
@@ -439,6 +458,18 @@ const statusDurStyle: CSSProperties = {
 };
 
 const resRowStyle: CSSProperties = statusRowStyle;
+
+// Inline-block on the DetailHover wrapper so the cursor change + hover
+// hit area covers the hovered ability / item name without breaking the
+// row's flex layout. Underline-on-hover lets the player know the name is
+// interactive (mechanical detail tooltip on hover).
+const hoverInlineStyle: CSSProperties = {
+  display: 'inline-block',
+  textDecoration: 'underline',
+  textDecorationStyle: 'dotted',
+  textDecorationColor: 'rgba(231, 233, 238, 0.35)',
+  cursor: 'help',
+};
 
 const emptyStyle: CSSProperties = {
   fontSize: 11,

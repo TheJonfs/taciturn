@@ -1,16 +1,12 @@
-// Tintinibar — Auto-Regen accessory. Wearer enters battle with Regen
-// status active. Currently Regen ticks via the per-application duration
-// passed at apply time; Tintinibar's equipment-grant lifecycle wraps
-// the Regen lifetime to "as long as Tintinibar is equipped" per
-// ADR-0028.
+// Tintinibar — Auto-Regen accessory. Wearer enters battle with the
+// Auto-Regen status active for the duration of the battle.
 //
-// Watch-for: Regen's durationMode is `per_unit_ct` (not permanent),
-// so the equipment statusGrants pipeline currently passes no duration
-// and the apply path throws. Resolved by switching Regen to
-// `permanent_per_unit_ct` for Auto-Regen-or-die semantics, OR by
-// authoring a sibling `regen_auto` type. Tracked in handoff; for now
-// the grant rides Regen as-is and tests pin this behavior so we
-// notice when the apply contract changes.
+// Session 31: switched the statusGrants target from `regen` (cast,
+// `'per_unit_ct'` duration-counted) to `regen_auto` (battle-long,
+// `'permanent_per_unit_ct'`). Tied to the equipment lifecycle per
+// ADR-0028 — the status sticks as long as the accessory is equipped
+// and unsticks if the item is removed. Cast Regen retains its
+// timed semantics for Earth Mage's Buff ability.
 
 import { itemId, statusTypeId, type AccessoryEquipment } from '@engine/index.ts';
 
@@ -19,5 +15,5 @@ export const tintinibar: AccessoryEquipment = {
   name: 'Tintinibar',
   availability: 'available',
   kind: 'accessory',
-  statusGrants: [statusTypeId('regen')],
+  statusGrants: [statusTypeId('regen_auto')],
 };

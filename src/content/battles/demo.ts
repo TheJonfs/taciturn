@@ -59,16 +59,76 @@ function buildFlatGround(): BattleMap {
 const TEAM_A = teamId('team_a');
 const TEAM_B = teamId('team_b');
 
-// Knight equipment: Long Sword in the right hand for v1 (per
-// ADR-0028). Headgear / armor / accessory slots stay open in the demo
-// so equipment integration is exercised without changing the demo's
-// damage tuning. WP=4 from the long_sword × power_coefficient=1.0 from
-// the basic Attack ability reproduces the prior demo damage exactly.
+// Blue Knight equipment (Session 31): Bolt Hammer + Managuard +
+// Silvered Vest + Focus Band + Tintinibar. Exercises Session 31
+// substrate (attackProcs Lightning, asymmetric variance), Session 29
+// fold-ins (Managuard +2 MA hybrid shield, Silvered Vest +30 MP +2 MA,
+// Focus Band status defense, Tintinibar Auto-Regen).
 const KNIGHT_EQUIPMENT: UnitEquipment = {
+  leftHand: itemId('managuard'),
+  rightHand: itemId('bolt_hammer'),
+  headgear: itemId('focus_band'),
+  armor: itemId('silvered_vest'),
+  accessory: itemId('tintinibar'),
+};
+
+// Blue Water Mage equipment (Session 31): Wand of the Depths +
+// Sorcerer's Robe + Pointy Hat + Lightfoot. Exercises Session 31's
+// wand on-hit shift, Session 29's Auto-Shell from Sorcerer's Robe and
+// Move +1 (so total Move = Water Mage base 4 + Sorcerer's Robe +1 +
+// Lightfoot +1 = 6).
+const WATER_MAGE_EQUIPMENT: UnitEquipment = {
   leftHand: null,
-  rightHand: itemId('long_sword'),
-  headgear: null,
-  armor: null,
+  rightHand: itemId('wand_of_depths'),
+  headgear: itemId('pointy_hat'),
+  armor: itemId('sorcerers_robe'),
+  accessory: itemId('lightfoot'),
+};
+
+// Blue Lightning Mage equipment (Session 31): Flametongue + Wizard's
+// Robe + Pointy Hat + Rasp Pendant. The Flametongue Burn proc gives
+// the Lightning Mage cross-element pressure; Rasp Pendant exercises
+// Session 30's MP drain.
+const LIGHTNING_MAGE_EQUIPMENT: UnitEquipment = {
+  leftHand: null,
+  rightHand: itemId('flametongue'),
+  headgear: itemId('pointy_hat'),
+  armor: itemId('wizards_robe'),
+  accessory: itemId('rasp_pendant'),
+};
+
+// Red Earth Mage equipment (Session 31): Wand of the Deepwood +
+// Wizard's Robe + Pointy Hat + Capacitor Ring. Capacitor Ring +100
+// Lightning resistance stacked on Earth Mage's natural +50 = +150 →
+// incoming Lightning damage triggers ADR-0057 absorption (tag-flip
+// to healing). End-to-end absorption pipeline exercised with real
+// equipment. The Wand of the Deepwood on-hit applies the inverse
+// resistance shift, so a blue Wand-of-Depths Water Mage swing and a
+// red Wand-of-Deepwood Earth Mage swing on the same target produce
+// the cross-wand cancellation case.
+const RED_EARTH_MAGE_EQUIPMENT: UnitEquipment = {
+  leftHand: null,
+  rightHand: itemId('wand_of_deepwood'),
+  headgear: itemId('pointy_hat'),
+  armor: itemId('wizards_robe'),
+  accessory: itemId('capacitor_ring'),
+};
+
+// Red Fire Mage equipment (Session 31): Magus Crown + Wizard's Robe.
+// Magus Crown wires through the +1 secondary command set capacity
+// (Session 29 / ADR-0059); the unit's loadout uses both slots —
+// `fire_spells` (class-pinned) + `white_magic` (Cure backup) +
+// `water_spells` (Magus Crown's added slot) — exercising the multi-
+// secondary-command-set machinery end-to-end. The Magus Crown's -3 MA
+// is a deliberate cost; Wizard's Robe's +3 MA / +40 MP cancels the
+// stat hit while keeping the broad elemental vulnerability the robe
+// brings. No weapon / accessory authored — left open to keep the
+// build's identity centered on the variety capacity.
+const RED_FIRE_MAGE_EQUIPMENT: UnitEquipment = {
+  leftHand: null,
+  rightHand: null,
+  headgear: itemId('magus_crown'),
+  armor: itemId('wizards_robe'),
   accessory: null,
 };
 
@@ -132,6 +192,28 @@ const FIRE_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
     [bucketId('first_action')]: [commandSetId('fire_spells')],
     [bucketId('secondary_command_sets')]: [commandSetId('white_magic')],
+  },
+  passiveBuckets: {
+    [bucketId('reaction')]: [abilityId('smolder')],
+    [bucketId('support')]: [abilityId('ignition'), abilityId('aether_bloom')],
+    [bucketId('movement')]: [abilityId('hotfoot')],
+  },
+};
+
+// Red Fire Mage loadout (Session 31): identical to FIRE_MAGE_LOADOUT
+// except the secondary_command_sets bucket carries TWO command sets
+// (`white_magic` + `water_spells`) — only valid because Magus Crown's
+// +1 secondary-capacity is equipped on this unit. Exercises the
+// Session 29 / ADR-0059 capacity expansion end-to-end. Validates that
+// the unit can compose a cross-element kit through equipment-driven
+// capacity rather than via class definition.
+const RED_FIRE_MAGE_LOADOUT: UnitPlacement['loadout'] = {
+  actionBuckets: {
+    [bucketId('first_action')]: [commandSetId('fire_spells')],
+    [bucketId('secondary_command_sets')]: [
+      commandSetId('white_magic'),
+      commandSetId('water_spells'),
+    ],
   },
   passiveBuckets: {
     [bucketId('reaction')]: [abilityId('smolder')],
@@ -279,6 +361,7 @@ export const demoBattle: BattleConfig = {
       facing: 'E',
       baseStats: WATER_MAGE_BASE_STATS,
       loadout: WATER_MAGE_LOADOUT,
+      equipment: WATER_MAGE_EQUIPMENT,
     },
     {
       id: unitId('blue_lightning_mage'),
@@ -289,6 +372,7 @@ export const demoBattle: BattleConfig = {
       facing: 'E',
       baseStats: LIGHTNING_MAGE_BASE_STATS,
       loadout: LIGHTNING_MAGE_LOADOUT,
+      equipment: LIGHTNING_MAGE_EQUIPMENT,
     },
     {
       id: unitId('red_earth_mage'),
@@ -299,6 +383,7 @@ export const demoBattle: BattleConfig = {
       facing: 'W',
       baseStats: MAGE_BASE_STATS,
       loadout: EARTH_MAGE_LOADOUT,
+      equipment: RED_EARTH_MAGE_EQUIPMENT,
     },
     {
       id: unitId('red_lightning_mage'),
@@ -318,7 +403,8 @@ export const demoBattle: BattleConfig = {
       position: { x: 3, y: 3, layer: 0 },
       facing: 'W',
       baseStats: FIRE_MAGE_BASE_STATS,
-      loadout: FIRE_MAGE_LOADOUT,
+      loadout: RED_FIRE_MAGE_LOADOUT,
+      equipment: RED_FIRE_MAGE_EQUIPMENT,
     },
   ],
   victoryConditions: [

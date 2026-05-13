@@ -92,6 +92,7 @@ function envelopeFor(
     proposed.type !== 'system_damage' &&
     proposed.type !== 'system_apply_status' &&
     proposed.type !== 'system_ct_push' &&
+    proposed.type !== 'system_mp_drain' &&
     proposed.type !== 'status_remove' &&
     proposed.type !== 'status_decrement_stack' &&
     proposed.type !== 'battle_end' &&
@@ -130,12 +131,28 @@ function envelopeFor(
       return { ...envelope, type: 'system_apply_status', payload: proposed.payload };
     case 'system_ct_push':
       return { ...envelope, type: 'system_ct_push', payload: proposed.payload };
+    case 'system_mp_drain':
+      return { ...envelope, type: 'system_mp_drain', payload: proposed.payload };
     case 'status_remove':
       return { ...envelope, type: 'status_remove', payload: proposed.payload };
     case 'status_decrement_stack':
       return { ...envelope, type: 'status_decrement_stack', payload: proposed.payload };
     case 'battle_end':
       return { ...envelope, type: 'battle_end', payload: proposed.payload };
+    default: {
+      // Exhaustiveness check. The `never` typing forces TS-strict to flag
+      // missing cases at compile time when a new `ActionType` ships
+      // without a matching envelope-construction branch. Surfaced via
+      // playtest in Session 31: `system_mp_drain` shipped in Session 30
+      // but the envelope switch silently fell through, returning
+      // undefined at runtime and crashing the chain only when v1 content
+      // (Rasp Pendant) finally emitted one. With this guard, the next
+      // such omission fails the build.
+      const _exhaustive: never = proposed;
+      throw new Error(
+        `envelopeFor: unhandled action type — add a case for the new ActionType. Got: ${JSON.stringify((_exhaustive as ProposedAction).type)}`,
+      );
+    }
   }
 }
 

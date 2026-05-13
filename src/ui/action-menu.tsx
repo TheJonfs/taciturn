@@ -23,6 +23,8 @@
 import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
 import { projectTurnEndCt, type ActiveAbilityDefinition, type Catalog, type Direction, type GameState } from '@engine/index.ts';
 import type { TurnFlow } from './use-turn-flow.ts';
+import { DetailHover } from './detail-hover.tsx';
+import { formatAbilityDetail } from './detail-text.ts';
 
 export interface ActionMenuProps {
   readonly turnFlow: TurnFlow;
@@ -341,6 +343,7 @@ function AbilityListPicker(props: {
         <AbilityButton
           key={String(entry.ability.id)}
           ability={entry.ability}
+          catalog={catalog}
           mpCost={entry.effectiveMpCost}
           actionSpeed={entry.effectiveActionSpeed}
           disabled={entry.disabled}
@@ -355,13 +358,14 @@ function AbilityListPicker(props: {
 
 function AbilityButton(props: {
   readonly ability: ActiveAbilityDefinition;
+  readonly catalog: Catalog;
   readonly mpCost: number;
   readonly actionSpeed: number;
   readonly disabled: boolean;
   readonly reason: string | null;
   readonly onClick: () => void;
 }): ReactElement {
-  const { ability, mpCost, actionSpeed, disabled, reason, onClick } = props;
+  const { ability, catalog, mpCost, actionSpeed, disabled, reason, onClick } = props;
   // Per Session 28: suppress the MP-cost line when free. Per Session 29:
   // display the *effective* values (post-`modifyMpCost` /
   // `modifyActionSpeed`) precomputed by `AbilityListPicker` so equipment
@@ -370,29 +374,33 @@ function AbilityButton(props: {
   if (mpCost > 0) parts.push(`MP ${mpCost}`);
   if (actionSpeed > 0) parts.push(`charge ${actionSpeed}`);
   const subline = parts.join(' · ');
+  const detail = formatAbilityDetail(ability, catalog);
   return (
-    <button
-      type="button"
-      style={{
-        ...buttonBaseStyle,
-        ...buttonPrimaryStyle,
-        ...(disabled ? buttonDisabledStyle : null),
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        gap: 2,
-      }}
-      onClick={disabled ? noop : onClick}
-      disabled={disabled}
-      title={reason ?? undefined}
-    >
-      <span style={{ fontWeight: 500 }}>{ability.name}</span>
-      {subline.length > 0 && (
-        <span style={{ fontSize: 11, opacity: 0.7 }}>{subline}</span>
-      )}
-      {disabled && reason !== null && (
-        <span style={{ fontSize: 10, opacity: 0.6, fontStyle: 'italic' }}>{reason}</span>
-      )}
-    </button>
+    <DetailHover content={detail} style={{ display: 'block' }}>
+      <button
+        type="button"
+        style={{
+          ...buttonBaseStyle,
+          ...buttonPrimaryStyle,
+          ...(disabled ? buttonDisabledStyle : null),
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          gap: 2,
+          width: '100%',
+        }}
+        onClick={disabled ? noop : onClick}
+        disabled={disabled}
+        title={reason ?? undefined}
+      >
+        <span style={{ fontWeight: 500 }}>{ability.name}</span>
+        {subline.length > 0 && (
+          <span style={{ fontSize: 11, opacity: 0.7 }}>{subline}</span>
+        )}
+        {disabled && reason !== null && (
+          <span style={{ fontSize: 10, opacity: 0.6, fontStyle: 'italic' }}>{reason}</span>
+        )}
+      </button>
+    </DetailHover>
   );
 }
 

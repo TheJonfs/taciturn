@@ -269,7 +269,12 @@ export function reduceUseAbility(
   // Reactions don't consume the actor's turn budget — they fire out-of-
   // turn — so skip the budget decrement when isReaction is true OR when
   // there's no turn at all (the reactor isn't the active unit anyway).
-  if (state.turnState !== null && !action.isReaction) {
+  //
+  // Per Session 31 (ADR-0068 extension): rider casts also skip Act
+  // budget decrement — the wielder paid for the original swing's Act
+  // and the rider proc fires off that swing's resolution. Sibling
+  // bypass to validate.ts's actsAvailable skip.
+  if (state.turnState !== null && !action.isReaction && !isRider) {
     workingState = decrementActBudget(workingState);
   }
 
@@ -277,7 +282,18 @@ export function reduceUseAbility(
   // `ct: 0, speed: actionSpeed` and apply the Charging status to the
   // caster. Effect resolution happens later via charged_action_resolve.
   // actionSpeed === 0 → resolve immediately.
-  if (ability.actionSpeed > 0) {
+  //
+  // Per Session 31 (ADR-0068): rider casts (`riderSource !== undefined`)
+  // bypass the charge path and resolve instantly regardless of the
+  // ability's authored `actionSpeed`. Bolt Hammer procs Lightning Strike
+  // (authored `actionSpeed: 30`) directly via this gate — the proc is
+  // the weapon's power, fired against the target on the same swing's
+  // resolution rather than queued for the target to charge through.
+  // The sibling bypasses for MP affordability and `onActionAttempted`
+  // (Silence / Stop / Don't Act) also key off `riderSource`; this is
+  // the fourth such bypass site (per ADR-0064's "one bypass, three
+  // semantics" rationale, now four).
+  if (ability.actionSpeed > 0 && !isRider) {
     return commitCharged(workingState, action, ability, actor, catalog, mpCost);
   }
 

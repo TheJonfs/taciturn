@@ -2,6 +2,7 @@ import type { ItemDefinition } from '@engine/index.ts';
 import { arcaneLens } from './arcane-lens.ts';
 import { augmentor } from './augmentor.ts';
 import { battleGear } from './battle-gear.ts';
+import { boltHammer } from './bolt-hammer.ts';
 import { bootsOfHaste } from './boots-of-haste.ts';
 import { capacitorRing } from './capacitor-ring.ts';
 import { diamondBracelet } from './diamond-bracelet.ts';
@@ -17,6 +18,7 @@ import { magusCrown } from './magus-crown.ts';
 import { managuard } from './managuard.ts';
 import { pointyHat } from './pointy-hat.ts';
 import { purifier } from './purifier.ts';
+import { raspPendant } from './rasp-pendant.ts';
 import { silveredVest } from './silvered-vest.ts';
 import { soldiersLeathers } from './soldiers-leathers.ts';
 import { sorcerersRobe } from './sorcerers-robe.ts';
@@ -47,6 +49,8 @@ export const items: ReadonlyArray<ItemDefinition> = [
   wandOfDeepwood,
   staffOfPower,
   staffOfAbundance,
+  // Session 31 batch B — new weapon
+  boltHammer,
   // Shields (Knight-only)
   escutcheon,
   warriorsAegis,
@@ -73,4 +77,6 @@ export const items: ReadonlyArray<ItemDefinition> = [
   diamondBracelet,
   purifier,
   arcaneLens,
+  // Session 31 batch B — new accessory
+  raspPendant,
 ];

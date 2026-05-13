@@ -15,10 +15,12 @@ import { paUp } from './pa-up.ts';
 import { poison } from './poison.ts';
 import { protect } from './protect.ts';
 import { regen } from './regen.ts';
+import { regenAuto } from './regen-auto.ts';
 import { shell } from './shell.ts';
 import { silence } from './silence.ts';
 import { speedDown } from './speed-down.ts';
 import { stop } from './stop.ts';
+import { taggedResistanceShift } from './tagged-resistance-shift.ts';
 import { taunted } from './taunted.ts';
 import { vulnerable } from './vulnerable.ts';
 
@@ -39,10 +41,12 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   poison,
   protect,
   regen,
+  regenAuto,
   shell,
   silence,
   speedDown,
   stop,
+  taggedResistanceShift,
   taunted,
   vulnerable,
 ];

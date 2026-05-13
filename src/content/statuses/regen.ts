@@ -29,9 +29,45 @@ import {
   statusHook,
   statusTypeId,
   type StatusEffectType,
+  type StatusHookRegistration,
 } from '@engine/index.ts';
 
 const REGEN_COEFFICIENT = 0.10;
+
+// Shared onTick handler — used by both `regen` (timed cast) and
+// `regen_auto` (battle-long Auto-Regen via Tintinibar). Per Session 31:
+// the two share lifecycle/duration semantics but not the heal formula,
+// so the formula lives in one place.
+export const regenOnTick: StatusHookRegistration = statusHook('onTick', (args) => {
+  const faith = runModifyStatQuery(args.state, args.catalog, {
+    unit: args.unit,
+    statName: 'faith',
+    baseValue: args.unit.baseStats.faith,
+  });
+  const maxHp = runModifyStatQuery(args.state, args.catalog, {
+    unit: args.unit,
+    statName: 'maxHp',
+    baseValue: args.unit.baseStats.maxHpBase,
+  });
+  const amount = Math.floor((faith / 100) * REGEN_COEFFICIENT * maxHp);
+  if (amount <= 0) {
+    return {};
+  }
+  return {
+    emittedActions: [
+      {
+        type: 'system_heal',
+        source: 'system',
+        payload: {
+          targetId: args.unit.id,
+          amount,
+          tags: ['healing'],
+          source: { kind: 'status_tick', statusTypeId: args.statusTypeId, unitId: args.unit.id },
+        },
+      },
+    ],
+  };
+});
 
 export const regen: StatusEffectType = {
   id: statusTypeId('regen'),
@@ -40,36 +76,5 @@ export const regen: StatusEffectType = {
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
   aiHints: { polarity: 'buff' },
-  hooks: [
-    statusHook('onTick', (args) => {
-      const faith = runModifyStatQuery(args.state, args.catalog, {
-        unit: args.unit,
-        statName: 'faith',
-        baseValue: args.unit.baseStats.faith,
-      });
-      const maxHp = runModifyStatQuery(args.state, args.catalog, {
-        unit: args.unit,
-        statName: 'maxHp',
-        baseValue: args.unit.baseStats.maxHpBase,
-      });
-      const amount = Math.floor((faith / 100) * REGEN_COEFFICIENT * maxHp);
-      if (amount <= 0) {
-        return {};
-      }
-      return {
-        emittedActions: [
-          {
-            type: 'system_heal',
-            source: 'system',
-            payload: {
-              targetId: args.unit.id,
-              amount,
-              tags: ['healing'],
-              source: { kind: 'status_tick', statusTypeId: args.statusTypeId, unitId: args.unit.id },
-            },
-          },
-        ],
-      };
-    }),
-  ],
+  hooks: [regenOnTick],
 };

@@ -322,6 +322,7 @@ export class Animator {
       case 'status_tick':
       case 'system_apply_status':
       case 'system_ct_push':
+      case 'system_mp_drain':
       case 'status_remove':
       case 'status_decrement_stack':
         // No v1 visual; the renderer can pull the next action.

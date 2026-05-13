@@ -61,11 +61,21 @@ describe('loadDefaultCatalog', () => {
     // Session 29 Equipment Batch A: 28 new items authored (6 weapons,
     // 3 shields, 6 body, 6 head, 7 accessories):
     //   - items: 5 → 33
-    expect(cat.statusTypes()).toHaveLength(22);
-    expect(cat.abilities()).toHaveLength(46);
+    //
+    // Session 31 Cluster 5 content + tagged_resistance_shift substrate:
+    //   - statuses: 22 → 24 (tagged_resistance_shift; regen_auto sibling
+    //     authored to give Tintinibar an Auto-Regen with battle-long
+    //     duration — the cast `regen` keeps `'per_unit_ct'` for Earth
+    //     Blessing)
+    //   - abilities: 46 → 49 (apply_burn_proc + the two wand apply_shift
+    //     abilities; hidden, fired by attackProcs)
+    //   - items: 33 → 35 (bolt_hammer + rasp_pendant; existing items
+    //     extended in place)
+    expect(cat.statusTypes()).toHaveLength(24);
+    expect(cat.abilities()).toHaveLength(49);
     expect(cat.commandSets()).toHaveLength(7);
     expect(cat.classes()).toHaveLength(5);
-    expect(cat.items()).toHaveLength(33);
+    expect(cat.items()).toHaveLength(35);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

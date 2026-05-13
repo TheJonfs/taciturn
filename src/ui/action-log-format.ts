@@ -386,6 +386,26 @@ function formatAction(
       return [row({ tag: '[tick]', segments, indent: true, tagKind: 'system' })];
     }
 
+    case 'system_mp_drain': {
+      // Per ADR-0065 (Session 30 substrate, Session 31 first consumer
+      // via Rasp Pendant): MP transfer event. The outcome records two
+      // applied values — `targetApplied` (what the target lost) and
+      // `sourceApplied` (what the source gained); they can differ when
+      // the source's MP headroom is below the target's loss. Skip the
+      // log entry entirely when both applied values are zero (KO'd
+      // target / source, or rounded-down drain) — those are noise.
+      const t = action.outcome?.targetApplied ?? 0;
+      const s = action.outcome?.sourceApplied ?? 0;
+      if (t === 0 && s === 0) return [];
+      const segments: LogSegment[] = [
+        unitSeg(state, action.payload.source),
+        plain(` drained ${t} MP from `),
+        unitSeg(state, action.payload.target),
+      ];
+      if (s < t) segments.push(plain(` (${t - s} lost to MP cap)`));
+      return [row({ tag: '[tick]', segments, indent: true, tagKind: 'system' })];
+    }
+
     case 'status_remove': {
       if (action.outcome?.removed === false) return []; // no-op removals are noise
       const statusName = safeStatusName(catalog, action.payload.statusTypeId);
@@ -415,6 +435,17 @@ function formatAction(
       const desc = action.outcome?.description ?? '';
       const text = desc === '' ? `${winner} wins` : `${winner} wins — ${desc}`;
       return [row({ tag: '[end]', segments: [plain(text)], indent: false, tagKind: 'system' })];
+    }
+    default: {
+      // Exhaustiveness check (Session 31 — same gap that crashed the UI
+      // when system_mp_drain shipped to v1 content without a formatter
+      // case). The `never` cast forces TS-strict to flag a missing case
+      // at compile time. Runtime fallback returns an empty row list so a
+      // missed case shows nothing rather than crashing React; the build
+      // failure is the real load-bearing guarantee.
+      const _exhaustive: never = action;
+      void _exhaustive;
+      return [];
     }
   }
 }
