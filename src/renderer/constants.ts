@@ -42,14 +42,28 @@ export const PORTRAIT_FRAME_WIDTH = 3;
 // than a circle.
 export const PORTRAIT_FRAME_CORNER = 4;
 
-// Team colors for the unit layer. Hardcoded by id rather than read from
-// data — `Team` doesn't carry visual style today, and shoehorning it in
-// would mix UI concerns into engine types. The renderer owns visuals.
-export const TEAM_COLORS: ReadonlyMap<TeamId, number> = new Map([
-  [teamId('team_a'), 0x4a90e2], // blue
-  [teamId('team_b'), 0xd0533d], // red
+// Team color palette. Hardcoded by id rather than read from data —
+// `Team` doesn't carry visual style today, and shoehorning it in would
+// mix UI concerns into engine types. The renderer owns visuals.
+//
+// Single source of truth for both the Pixi-native 0xRRGGBB integer (read
+// by the canvas renderer) and the CSS hex string (read by React UI
+// components — queue-tower, forecast-panel). Pre-Session-31.5 the three
+// consumers carried inline duplicates; Session 31.5 centralized here.
+type TeamPaletteEntry = { readonly pixi: number; readonly css: string };
+export const TEAM_PALETTE: ReadonlyMap<TeamId, TeamPaletteEntry> = new Map([
+  [teamId('team_a'), { pixi: 0x4a90e2, css: '#4a90e2' }], // blue
+  [teamId('team_b'), { pixi: 0xd0533d, css: '#d0533d' }], // red
 ]);
-export const TEAM_COLOR_FALLBACK = 0xaaaaaa;
+export const TEAM_PALETTE_FALLBACK_PIXI = 0xaaaaaa;
+export const TEAM_PALETTE_FALLBACK_CSS = '#aaaaaa';
+
+// Convenience: the Pixi-side map the renderer consumes. Same data
+// shape as before so existing call sites stay one-line.
+export const TEAM_COLORS: ReadonlyMap<TeamId, number> = new Map(
+  Array.from(TEAM_PALETTE.entries()).map(([t, p]) => [t, p.pixi]),
+);
+export const TEAM_COLOR_FALLBACK = TEAM_PALETTE_FALLBACK_PIXI;
 
 // KO'd units render as a flat gray circle.
 export const KO_COLOR = 0x55585d;

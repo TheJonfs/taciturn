@@ -34,6 +34,7 @@ import {
   type UnitId,
 } from '@engine/index.ts';
 import { portraitUrlFor } from '../assets/portraits/index.ts';
+import { TEAM_PALETTE, TEAM_PALETTE_FALLBACK_CSS } from '@renderer/index.ts';
 
 // Number of *future* events rendered above the active-unit anchor. We
 // request one more than this from `projectUpcoming` so we can drop the
@@ -41,16 +42,6 @@ import { portraitUrlFor } from '../assets/portraits/index.ts';
 // at the bottom of the column, redundant per session 24.5 playtest).
 const VISIBLE_UPCOMING_EVENTS = 20;
 const UPCOMING_REQUEST_COUNT = VISIBLE_UPCOMING_EVENTS + 1;
-
-// Mirrors the renderer's TEAM_COLORS so card borders match the on-canvas
-// color. Renderer-as-source-of-truth would be cleaner, but the renderer
-// returns Pixi numbers (0xRRGGBB) and React styles want CSS strings;
-// duplicating two entries is the lowest-cost path.
-const TEAM_BORDER_COLORS: Readonly<Record<string, string>> = {
-  team_a: '#4a90e2',
-  team_b: '#d0533d',
-};
-const TEAM_BORDER_FALLBACK = '#aaaaaa';
 
 export interface QueueTowerProps {
   readonly state: GameState | null;
@@ -454,8 +445,8 @@ function describeChargedTarget(
 }
 
 function teamColor(team: TeamId | null): string {
-  if (team === null) return TEAM_BORDER_FALLBACK;
-  return TEAM_BORDER_COLORS[team] ?? TEAM_BORDER_FALLBACK;
+  if (team === null) return TEAM_PALETTE_FALLBACK_CSS;
+  return TEAM_PALETTE.get(team)?.css ?? TEAM_PALETTE_FALLBACK_CSS;
 }
 
 // ---- styles ----

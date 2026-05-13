@@ -20,7 +20,12 @@ import { regenOnTick } from './regen.ts';
 
 export const regenAuto: StatusEffectType = {
   id: statusTypeId('regen_auto'),
-  name: 'Auto-Regen',
+  // Per Session 31.5 bug 1: display name matches the cast Regen ability
+  // for player readability. The two statuses are distinguished by their
+  // type id (`regen_auto` vs `regen`) and their durations — Auto-Regen
+  // displays as "Regen ∞" while cast Regen displays as "Regen N" — but
+  // the name shown to the player is the same.
+  name: 'Regen',
   tags: ['positive'],
   durationMode: 'permanent_per_unit_ct',
   stackingRule: 'REFRESH',

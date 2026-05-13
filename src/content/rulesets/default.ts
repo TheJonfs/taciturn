@@ -57,8 +57,15 @@ const DEFAULT_BUCKET_CAPACITIES: ReadonlyMap<BucketId, number> = new Map([
 // multiplier, not a replacement for variance.
 const DEFAULT_DAMAGE_PIPELINE: Readonly<Record<DamageStage, ReadonlyArray<DamageHandlerRef>>> = {
   base: ['physical_pa_wp', 'magical_ma_power', 'healing_base'],
-  attacker: ['fire_on_damage_dealt'],
-  target: ['evasion_check', 'resistance_check', 'fire_on_damage_received'],
+  // `attacker` stage retained for future handlers that need to fire
+  // pre-evasion against the attacker (none in v1).
+  attacker: [],
+  // `fire_on_damage_dealt` moved here (post-evasion) per Session 31.5
+  // bug 4: the proc gate (`ctx.hit === true`) must read the resolved
+  // hit value. Pre-31.5, the handler fired at the `attacker` stage
+  // before `evasion_check`, so `ctx.hit` was still its pipeline-default
+  // `true` and procs (Bolt Hammer) fired on missed swings. ADR-0069.
+  target: ['evasion_check', 'fire_on_damage_dealt', 'resistance_check', 'fire_on_damage_received'],
   environment: [],
   variance: ['variance_roll', 'crit_roll'],
   cap: ['clamp_min_max'],

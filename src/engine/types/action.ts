@@ -63,6 +63,14 @@ export interface AbilityTargetResult {
   // damage / native heal results.
   readonly absorbed?: boolean;
   readonly statusesApplied?: ReadonlyArray<StatusApplicationOutcome>;
+  // Session 31.5: when a knockback rider on the ability displaced this
+  // (unit-kind) target, the new position is recorded here so the
+  // renderer can settle its snap to the destination at flash finalize.
+  // Pre-31.5 the engine updated unit.position inline (the engine state
+  // tracked the displacement correctly — clicking the new tile opened
+  // the unit's detail panel) but no animator event carried it, so the
+  // sprite stayed on the original tile until that unit's next Move.
+  readonly displacedTo?: Position;
 }
 
 // === Per-action payload + outcome pairs ===

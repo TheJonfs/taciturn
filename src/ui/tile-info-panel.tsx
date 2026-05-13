@@ -16,25 +16,74 @@
 // for pre-mount and between-battles renders.
 
 import type { CSSProperties, ReactElement } from 'react';
-import { tileAt, type GameState, type Position } from '@engine/index.ts';
+import { tileAt, unitAt, type Catalog, type GameState, type Position, type Unit } from '@engine/index.ts';
+import { badgeStyleFor } from './status-polarity.ts';
+import { DetailHover } from './detail-hover.tsx';
+import { formatStatusDetail } from './detail-text.ts';
 
 export interface TileInfoPanelProps {
   readonly state: GameState | null;
+  readonly catalog: Catalog;
   readonly cursorTile: Position | null;
 }
 
-export function TileInfoPanel({ state, cursorTile }: TileInfoPanelProps): ReactElement {
+export function TileInfoPanel({ state, catalog, cursorTile }: TileInfoPanelProps): ReactElement {
   const fields = resolveFields(state, cursorTile);
+  const hoveredUnit = resolveHoveredUnit(state, cursorTile);
   return (
     <header style={panelStyle} aria-label="Tile info">
       <Field label="X" value={fields.x} />
       <Field label="Y" value={fields.y} />
       <Field label="Elev" value={fields.elevation} />
       <Field label="Terrain" value={fields.terrain} />
-      {/* Reserved slot for future tile-effect icons. Empty in v1. */}
-      <div style={iconSlotStyle} aria-hidden="true" />
+      {/* Session 31.5 polish #2: when a unit occupies the hovered tile,
+          render its active statuses as polarity-tinted chips. Empty for
+          tiles without a unit or when no tile is hovered. */}
+      <div style={iconSlotStyle} aria-hidden={hoveredUnit === null}>
+        {hoveredUnit !== null &&
+          hoveredUnit.statuses.map((s, i) => {
+            const type = catalog.hasStatusType(s.typeId) ? catalog.getStatusType(s.typeId) : null;
+            const csName =
+              s.customState !== undefined &&
+              typeof (s.customState as { displayName?: unknown }).displayName === 'string'
+                ? ((s.customState as { displayName: string }).displayName)
+                : null;
+            const name = csName ?? type?.name ?? String(s.typeId);
+            const badge = badgeStyleFor(type);
+            const chipStyle: CSSProperties = {
+              ...chipBaseStyle,
+              background: badge.background,
+              color: badge.color,
+              border: `1px solid ${badge.borderColor}`,
+            };
+            // Session 31.5 extension: chip carries the same DetailHover
+            // tooltip surface as the unit detail panel. The `title`
+            // attribute is dropped in favor of the rich tooltip — the
+            // browser's native tooltip and the DetailHover would
+            // otherwise both appear on hover.
+            const detail = type !== null
+              ? formatStatusDetail(type, s)
+              : { title: String(s.typeId), lines: ['(unknown status type)'] };
+            return (
+              <DetailHover key={`${String(s.typeId)}-${i}`} content={detail} style={chipHoverWrapperStyle}>
+                <span style={chipStyle}>{name}</span>
+              </DetailHover>
+            );
+          })}
+      </div>
     </header>
   );
+}
+
+function resolveHoveredUnit(state: GameState | null, pos: Position | null): Unit | null {
+  if (state === null || pos === null) return null;
+  try {
+    return unitAt(state, pos.x, pos.y, pos.layer) ?? null;
+  } catch {
+    // Out-of-bounds cursor — defensive; cursor signal is normally
+    // clamped, but ignore the rare race during map switches.
+    return null;
+  }
 }
 
 interface ResolvedFields {
@@ -132,4 +181,19 @@ const iconSlotStyle: CSSProperties = {
   alignItems: 'center',
   gap: 4,
   justifyContent: 'flex-end',
+};
+
+const chipBaseStyle: CSSProperties = {
+  padding: '1px 7px',
+  borderRadius: 8,
+  fontSize: 10,
+  letterSpacing: '0.02em',
+  textTransform: 'none',
+  fontWeight: 500,
+  whiteSpace: 'nowrap',
+};
+
+// DetailHover wrapper affordance for the tile-info effect chips.
+const chipHoverWrapperStyle: CSSProperties = {
+  cursor: 'help',
 };

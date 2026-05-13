@@ -19,13 +19,17 @@
 //     `sourceUnitId = attacker.id` so Burn's composeApplyState reads
 //     the *Fire Mage's* MA at trigger time
 //
-// Hook timing note: `onDamageDealt` fires at the attacker stage, before
-// the target stage's evasion_check / resistance_check. For magical
-// damage this is fine — magical-only abilities skip the hit roll and
-// resistance only modifies the damage value, not whether the spell
-// connects. Future content that wants "Burn only on actually-landed
-// damage" against physical attacks would need a different hook
-// (likely `onActionResolved` against the actor with target enumeration).
+// Hook timing note (Session 31.5 / ADR-0069 update): `onDamageDealt`
+// fires at the target stage AFTER `evasion_check` but BEFORE
+// `resistance_check`. The handler sees the resolved `ctx.hit` (so
+// future physical-attack consumers can gate on hit/miss) but the
+// pre-resistance ctx (so multipliers haven't folded in). For Ignition
+// this is fine: magical-only abilities skip evasion entirely, and
+// Burn application is keyed off "damage was attempted," not "post-
+// resistance damage value." The earlier pre-31.5 framing was that
+// onDamageDealt ran before evasion — corrected by ADR-0069 because
+// the Session 30 proc surface (Bolt Hammer) needed a meaningful hit
+// gate.
 
 import {
   abilityId,

@@ -10,7 +10,7 @@
 
 import { loadDefaultCatalog } from '@content/index.ts';
 import { demoBattle } from '@content/battles/demo.ts';
-import { createInitialState } from '@engine/index.ts';
+import { applyStatus, createInitialState, statusTypeId, type Controller, type ProposedAction } from '@engine/index.ts';
 import { DemoOrchestrator, greedyMeleeController } from './index.ts';
 
 const MAX_STEPS = 500;
@@ -37,5 +37,73 @@ describe('DemoOrchestrator', () => {
     const finalState = orchestrator.getState();
     expect(steps).toBeLessThan(MAX_STEPS);
     expect(finalState.outcome).toBeDefined();
+  });
+
+  // Session 31.5 regression: pre-31.5 the orchestrator threw on any
+  // commit failure — including legitimate runtime refusals like Don't
+  // Move's onActionAttempted hook block. The throw propagated through
+  // the pump loop and crashed the React tree. Now the orchestrator
+  // returns a `rejection` on the step instead.
+  it('returns rejection (no throw) when commitAction is hook_blocked', () => {
+    const catalog = loadDefaultCatalog();
+    let state = createInitialState(demoBattle, catalog);
+
+    // Drive the engine until a turn starts so there's an active unit.
+    const noopController: Controller = () => ({ kind: 'pending' });
+    const controllers = new Map([
+      [demoBattle.teams[0]!.id, noopController],
+      [demoBattle.teams[1]!.id, noopController],
+    ]);
+    const orchestrator = new DemoOrchestrator(state, catalog, controllers);
+    let safety = 0;
+    while (orchestrator.getState().turnState === null && safety < 100) {
+      orchestrator.step();
+      safety++;
+    }
+    state = orchestrator.getState();
+    const activeId = state.turnState!.unitId;
+
+    // Apply Don't Move directly to the active unit. Engine state edits
+    // outside the reducer flow normally violate the discipline, but the
+    // test needs to reach the hook-block path without scripting an
+    // actual ability application.
+    state = applyStatus(
+      state,
+      {
+        targetId: activeId,
+        typeId: statusTypeId('dont_move'),
+        sourceUnitId: null,
+        sourceActionSeq: null,
+        duration: 100,
+      },
+      catalog,
+    ).newState;
+
+    // Hand the orchestrator a controller that proposes a Move action
+    // it will then expect to fail.
+    const moveAction: ProposedAction = {
+      type: 'move',
+      source: 'player',
+      actorId: activeId,
+      payload: { destination: state.units.get(activeId)!.position },
+    };
+    const activeTeam = state.units.get(activeId)!.team;
+    const submittingController: Controller = () => ({ kind: 'commit', action: moveAction });
+    const blockedControllers = new Map<typeof activeTeam, Controller>([
+      [activeTeam, submittingController],
+    ]);
+    for (const [team] of controllers) {
+      if (team !== activeTeam) blockedControllers.set(team, noopController);
+    }
+    const blockedOrch = new DemoOrchestrator(state, catalog, blockedControllers);
+
+    // Pre-31.5 this throws. Post-31.5 it returns a rejection.
+    const result = blockedOrch.step();
+    expect(result.committed).toEqual([]);
+    expect(result.rejection).toBeDefined();
+    expect(result.rejection!.stage).toBe('hook_blocked');
+    expect(result.rejection!.action.type).toBe('move');
+    // State is unchanged.
+    expect(blockedOrch.getState()).toBe(state);
   });
 });

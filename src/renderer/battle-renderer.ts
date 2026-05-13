@@ -138,7 +138,12 @@ export class BattleRenderer {
         position: positionCenter(unit.position),
         facing: unit.facing,
         hp: unit.vitals.hp,
+        // maxHp is unused at read time post-31.5 (lifted to a per-frame
+        // runModifyStatQuery in applyVisualState); kept on the snapshot
+        // shape for compatibility with the existing animator pathway
+        // that mutates it at flash finalize.
         maxHp: unit.baseStats.maxHpBase,
+        mp: unit.vitals.mp,
         ko: unit.vitals.hp <= 0,
         flash: 0,
       });
@@ -460,12 +465,15 @@ export class BattleRenderer {
     for (const [unitId, sprite] of this.sprites) {
       const snap = this.animator.getSnapshot(unitId);
       if (snap === undefined) continue;
-      // MP and statuses snap to current engine state (no animator-side
-      // tween tracking yet). The state's-eye view: mp/statuses are
-      // "instant" facts about the unit; HP keeps the existing
-      // tween-on-flash behavior so damage reads feel like impact.
+      // Session 31.5 polish #5: MP now reads from the animator's
+      // snapshot (settled at action finalize) so MP changes move in
+      // sync with the action's flash, not ahead of it. Statuses still
+      // snap to current engine state — fixing that would require the
+      // animator to track per-unit status arrays through every action
+      // type that mutates them (system_apply_status, status_tick,
+      // status_remove); deferred per the carry-forward.
       const unit = this.lastState?.units.get(unitId);
-      const mp = unit?.vitals.mp ?? 0;
+      const mp = snap.mp;
       // Per ADR-0058: read effective `maxMp` per-frame via
       // `runModifyStatQuery` so equipment / status contributions
       // compose live. Falls back to `Math.max(mp, 1)` when state /
@@ -480,11 +488,26 @@ export class BattleRenderer {
         maxMp = Math.max(1, Math.floor(queried));
       }
       const statuses = unit !== undefined ? this.computeStatusBadges(unit) : [];
+      // Session 31.5 polish #6: maxHp lifted to a per-frame read via
+      // `runModifyStatQuery` (matching maxMp's pattern, ADR-0058). The
+      // snapshot's `maxHp` was captured at mount as `unit.baseStats.maxHpBase`
+      // — equipment contributions (Wizard's Robe +40 maxHp etc.) were
+      // not reflected, so a Mage's HP bar fill fraction read against the
+      // wrong denominator and the bar drew too full.
+      let maxHp = Math.max(snap.hp, 1);
+      if (unit !== undefined && this.lastState !== null && this.catalog !== null) {
+        const queried = runModifyStatQuery(this.lastState, this.catalog, {
+          unit,
+          statName: 'maxHp',
+          baseValue: unit.baseStats.maxHpBase,
+        });
+        maxHp = Math.max(1, Math.floor(queried));
+      }
       sprite.setVisualState({
         position: snap.position,
         facing: snap.facing,
         hp: snap.hp,
-        maxHp: snap.maxHp,
+        maxHp,
         mp,
         maxMp,
         ko: snap.ko,

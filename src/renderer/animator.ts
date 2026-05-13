@@ -30,7 +30,7 @@ import {
   TURN_END_PAUSE_MS,
   TURN_START_PAUSE_MS,
 } from './constants.ts';
-import { lerp, tileCenter, type ScreenPoint } from './world.ts';
+import { lerp, positionCenter, tileCenter, type ScreenPoint } from './world.ts';
 
 // Exhaustiveness helper. Reaching this function means the discriminated
 // switch missed an `Action` type — TypeScript turns that into a compile
@@ -45,6 +45,14 @@ export interface UnitVisualSnapshot {
   facing: Direction;
   hp: number;
   maxHp: number;
+  // Session 31.5 polish #5: MP tracked on the snapshot (like HP) so MP
+  // changes settle in sync with the action's tween, not ahead of it.
+  // Pre-31.5 the renderer read MP live from engine state — the value
+  // appeared the instant the action committed, before the damage flash
+  // completed. Statuses still read live (the visual mismatch is less
+  // pronounced and statuses arrive from a wider set of actions; see
+  // session-31-5 handoff for the carry-forward).
+  mp: number;
   ko: boolean;
   flash: number;
 }
@@ -63,6 +71,14 @@ interface FlashTargetSpec {
   readonly hpAfter: number;
   readonly maxHpAfter: number;
   readonly koAfter: boolean;
+  // Polish #5: post-flash MP for this unit. `undefined` means the
+  // flash does not modify MP (the existing damage-only path).
+  readonly mpAfter?: number;
+  // Session 31.5 (bug A): post-flash screen position when a knockback
+  // rider displaced this target. Settled at finalize so the sprite
+  // jumps to the new tile in sync with the damage flash. `undefined`
+  // means no displacement (the existing in-place damage path).
+  readonly positionAfter?: ScreenPoint;
 }
 
 interface FlashAnim {
@@ -221,7 +237,16 @@ export class Animator {
         if (outcome.chargedActionId !== undefined) {
           return { kind: 'pause', totalMs: ATTACK_FLASH_DURATION_MS / 2, elapsed: 0 };
         }
-        return this.buildFlashFromTargets(outcome.perTargetResults);
+        // Polish #5: thread the actor's post-cast MP into the flash so
+        // a cast's MP cost settles in sync with the damage flash, not
+        // ahead of it. The flash's finalize writes `mpAfter` onto the
+        // actor's snapshot.
+        const actorMpDelta = outcome.mpSpent ?? 0;
+        const actorMpAfter =
+          actorMpDelta > 0 && action.actorId !== undefined
+            ? { actorId: action.actorId, mpDelta: -actorMpDelta }
+            : undefined;
+        return this.buildFlashFromTargets(outcome.perTargetResults, ATTACK_FLASH_DURATION_MS, actorMpAfter);
       }
 
       case 'turn_start': {
@@ -318,11 +343,48 @@ export class Animator {
         };
       }
 
+      case 'system_mp_drain': {
+        // Polish #5: settle MP on the snapshot so the visible value
+        // moves in sync with the attack flash that triggered the drain.
+        // Short pause + finalize writes mp on both source and target.
+        const outcome = action.outcome;
+        const sourceApplied = outcome?.sourceApplied ?? 0;
+        const targetApplied = outcome?.targetApplied ?? 0;
+        if (sourceApplied === 0 && targetApplied === 0) return null;
+        const specs: FlashTargetSpec[] = [];
+        const sourceSnap = this.snapshots.get(action.payload.source);
+        if (sourceSnap !== undefined && sourceApplied > 0) {
+          specs.push({
+            unitId: action.payload.source,
+            hpAfter: sourceSnap.hp,
+            maxHpAfter: sourceSnap.maxHp,
+            koAfter: sourceSnap.ko,
+            mpAfter: sourceSnap.mp + sourceApplied,
+          });
+        }
+        const targetSnap = this.snapshots.get(action.payload.target);
+        if (targetSnap !== undefined && targetApplied > 0) {
+          specs.push({
+            unitId: action.payload.target,
+            hpAfter: targetSnap.hp,
+            maxHpAfter: targetSnap.maxHp,
+            koAfter: targetSnap.ko,
+            mpAfter: Math.max(0, targetSnap.mp - targetApplied),
+          });
+        }
+        if (specs.length === 0) return null;
+        return {
+          kind: 'flash',
+          targets: specs,
+          totalMs: ATTACK_FLASH_DURATION_MS / 2,
+          elapsed: 0,
+        };
+      }
+
       case 'wait':
       case 'status_tick':
       case 'system_apply_status':
       case 'system_ct_push':
-      case 'system_mp_drain':
       case 'status_remove':
       case 'status_decrement_stack':
         // No v1 visual; the renderer can pull the next action.
@@ -383,6 +445,12 @@ export class Animator {
           snap.hp = target.hpAfter;
           snap.maxHp = target.maxHpAfter;
           snap.ko = target.koAfter;
+          if (target.mpAfter !== undefined) {
+            snap.mp = target.mpAfter;
+          }
+          if (target.positionAfter !== undefined) {
+            snap.position = target.positionAfter;
+          }
         }
         return;
       }
@@ -403,6 +471,7 @@ export class Animator {
   private buildFlashFromTargets(
     results: ReadonlyArray<import('@engine/index.ts').AbilityTargetResult>,
     durationMs: number = ATTACK_FLASH_DURATION_MS,
+    actorMpAdjustment?: { readonly actorId: UnitId; readonly mpDelta: number },
   ): Anim {
     const specs: FlashTargetSpec[] = [];
     for (const result of results) {
@@ -414,12 +483,42 @@ export class Animator {
       const damage = result.damage ?? 0;
       const healing = result.healing ?? 0;
       const hpAfter = Math.max(0, Math.min(snap.maxHp, snap.hp - damage + healing));
+      // Session 31.5 (bug A): knockback rider displacement settles the
+      // sprite onto the new tile at flash finalize. `displacedTo` is
+      // populated by the reducer when applyKnockback moved the target.
+      const positionAfter =
+        result.displacedTo !== undefined ? positionCenter(result.displacedTo) : undefined;
       specs.push({
         unitId: targetId,
         hpAfter,
         maxHpAfter: snap.maxHp,
         koAfter: hpAfter <= 0,
+        ...(positionAfter !== undefined ? { positionAfter } : {}),
       });
+    }
+    // Polish #5: if the actor's MP changed (use_ability mpSpent), bundle
+    // it into the flash's finalize. If the actor was also damaged (rare
+    // — self-targeted spells), merge the mpAfter into their existing
+    // spec; otherwise add a no-HP-change spec just for the MP settle.
+    if (actorMpAdjustment !== undefined) {
+      const actorSnap = this.snapshots.get(actorMpAdjustment.actorId);
+      if (actorSnap !== undefined) {
+        const mpAfter = Math.max(0, actorSnap.mp + actorMpAdjustment.mpDelta);
+        const existing = specs.find((s) => s.unitId === actorMpAdjustment.actorId);
+        if (existing !== undefined) {
+          // Replace the existing spec with one that carries mpAfter.
+          const idx = specs.indexOf(existing);
+          specs[idx] = { ...existing, mpAfter };
+        } else {
+          specs.push({
+            unitId: actorMpAdjustment.actorId,
+            hpAfter: actorSnap.hp,
+            maxHpAfter: actorSnap.maxHp,
+            koAfter: actorSnap.ko,
+            mpAfter,
+          });
+        }
+      }
     }
     if (specs.length === 0) {
       return { kind: 'pause', totalMs: durationMs / 2, elapsed: 0 };

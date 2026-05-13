@@ -21,10 +21,27 @@
 // directly; the hook owns all validation.
 
 import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
-import { projectTurnEndCt, type ActiveAbilityDefinition, type Catalog, type Direction, type GameState } from '@engine/index.ts';
+import { projectTurnEndCt, statusTypeId, type ActiveAbilityDefinition, type Catalog, type Direction, type GameState, type Unit } from '@engine/index.ts';
 import type { TurnFlow } from './use-turn-flow.ts';
 import { DetailHover } from './detail-hover.tsx';
 import { formatAbilityDetail } from './detail-text.ts';
+
+// Status-effect gates for the top-level Move / Act buttons. Read off the
+// active unit's `statuses` array; the same gates fire on `onActionAttempted`
+// at commit time (per the dont_move / dont_act status definitions), so
+// the menu disable is a UX surface — without it, a click on Move with
+// Don't Move applied enters move-select, then the engine rejects the
+// commit and the UI lands in a soft-lock state. Per Session 31.5 bug 6.
+const DONT_MOVE_TYPE_ID = statusTypeId('dont_move');
+const DONT_ACT_TYPE_ID = statusTypeId('dont_act');
+
+function hasDontMove(unit: Unit): boolean {
+  return unit.statuses.some((s) => s.typeId === DONT_MOVE_TYPE_ID);
+}
+
+function hasDontAct(unit: Unit): boolean {
+  return unit.statuses.some((s) => s.typeId === DONT_ACT_TYPE_ID);
+}
 
 export interface ActionMenuProps {
   readonly turnFlow: TurnFlow;
@@ -260,17 +277,22 @@ function TopLevel(props: {
   // (free Attack and/or a command set).
   const { actEntries } = turnFlow;
   const actSurfaceHasContent = actEntries.length > 0;
+  // Status-driven gates per Session 31.5 bug 6. Active-unit may be null
+  // pre-render; the outer component guarantees it's set by the time the
+  // menu paints, but the optional read keeps the type narrow.
+  const dontMove = activeUnit !== null && hasDontMove(activeUnit);
+  const dontAct = activeUnit !== null && hasDontAct(activeUnit);
 
   return (
     <Panel header="Action Menu">
       <Button
         label={`Move (${movesAvailable})${fmtCost(moveCost)}`}
-        disabled={movesAvailable <= 0}
+        disabled={movesAvailable <= 0 || dontMove}
         onClick={() => turnFlow.dispatch({ kind: 'pickMove' })}
       />
       <Button
         label={`Act (${actsAvailable})${fmtCost(actCost)}`}
-        disabled={actsAvailable <= 0 || !actSurfaceHasContent}
+        disabled={actsAvailable <= 0 || !actSurfaceHasContent || dontAct}
         onClick={() => turnFlow.dispatch({ kind: 'pickAct', entries: actEntries })}
       />
       <Button

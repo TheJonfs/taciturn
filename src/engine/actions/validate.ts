@@ -35,6 +35,7 @@ import { arcTargetable } from '../map/arc.ts';
 import { UnknownDefinitionError } from '../catalog/index.ts';
 import { computeMpCost } from '../abilities/cost.ts';
 import { computeAbilityRange } from '../abilities/range.ts';
+import { isRiderCast } from './payload-helpers.ts';
 
 export interface ValidationResult {
   readonly valid: boolean;
@@ -188,8 +189,7 @@ function validateUseAbility(
   // swing (the weapon's power, not the wielder's). Sibling bypass to
   // the MP affordability skip (ADR-0064) below.
   let actor: Unit;
-  const isRider = (action as { readonly payload: { readonly riderSource?: unknown } }).payload
-    ?.riderSource !== undefined;
+  const isRider = isRiderCast(action.payload);
   if (isReaction) {
     const probe = getActorIfActive(state, action.actorId);
     if ('valid' in probe) return probe;
@@ -233,7 +233,7 @@ function validateUseAbility(
   // the affordability check because the weapon pays the cost, not the
   // wielder — Bolt Hammer's Lightning proc is free of MP, and a Mage
   // with 0 MP still procs Burn off a Flametongue swing.
-  if (action.payload.riderSource === undefined) {
+  if (!isRider) {
     const mpCost = computeMpCost(state, catalog, actor.id, ability.id);
     if (actor.vitals.mp < mpCost) {
       return invalid(

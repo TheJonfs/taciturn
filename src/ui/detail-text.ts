@@ -13,12 +13,17 @@
 
 import {
   abilityId,
+  statusTypeId,
   type AbilityDefinition,
   type AbilityId,
   type ActiveAbilityDefinition,
   type Catalog,
+  type DamageTag,
   type ItemDefinition,
   type PassiveAbilityDefinition,
+  type StatusEffectType,
+  type StatusInstance,
+  type StatusTypeId,
   type WeaponEquipment,
 } from '@engine/index.ts';
 import { bucketLabel } from './labels.ts';
@@ -28,6 +33,37 @@ export interface DetailContent {
   readonly subtitle?: string;
   readonly lines: ReadonlyArray<string>;
 }
+
+// Short authored placeholders for v1 demo statuses. Same convention as
+// PASSIVE_DESCRIPTIONS below: minimum prose that beats "read the source"
+// for the most opaque entries. New statuses without an entry fall back
+// to the auto-generated mechanical summary plus a hook-list line.
+const STATUS_DESCRIPTIONS: ReadonlyMap<StatusTypeId, string> = new Map([
+  [statusTypeId('burn'), 'Periodic fire damage that ticks on the affected unit’s CT cadence. Each tick consumes one stack; expires when stacks reach zero.'],
+  [statusTypeId('poison'), 'Periodic damage that ticks on the affected unit’s CT cadence. Persists until cleared.'],
+  [statusTypeId('regen'), 'Periodic healing on the affected unit’s CT cadence. Expires when duration runs out.'],
+  [statusTypeId('regen_auto'), 'Battle-long Regen — same healing math as cast Regen, but never expires on time. Granted by equipment (Tintinibar).'],
+  [statusTypeId('shell'), 'Magical damage taken is reduced — +50 magical resistance while active. Composes additively with native resistance.'],
+  [statusTypeId('protect'), 'Physical damage taken is reduced — +50 physical resistance while active. Composes additively with native resistance.'],
+  [statusTypeId('haste'), 'Speed increased. Composes multiplicatively with the unit’s base Speed.'],
+  [statusTypeId('stop'), 'CT freezes — the unit takes no turns and queued charged actions pause until the status expires.'],
+  [statusTypeId('silence'), 'Magical abilities can’t be cast. Physical actions are unaffected.'],
+  [statusTypeId('blind'), 'Hit chance against the affected unit’s attacks is reduced.'],
+  [statusTypeId('dont_move'), 'Can’t use the Move action this turn. Knockback and other forced movement still apply.'],
+  [statusTypeId('dont_act'), 'Can’t use abilities or Attack this turn. Reactions (Counter, etc.) still fire.'],
+  [statusTypeId('charging'), 'Carrying a queued charged ability. Resolves automatically when the charge timer completes.'],
+  [statusTypeId('taunted'), 'Will preferentially target the taunter on AI decisions.'],
+  [statusTypeId('vulnerable'), 'Next damage taken is amplified. Consumed on the next hit.'],
+  [statusTypeId('pa_up'), 'PA increased — raises physical damage output for the duration.'],
+  [statusTypeId('pa_down'), 'PA decreased — reduces physical damage output for the duration.'],
+  [statusTypeId('ma_up'), 'MA increased — raises magical damage and healing output for the duration.'],
+  [statusTypeId('ma_down'), 'MA decreased — reduces magical damage and healing output for the duration.'],
+  [statusTypeId('speed_down'), 'Speed decreased for the duration.'],
+  [statusTypeId('movement_self_buff'), '+Move Range while active. Self-applied movement buff.'],
+  [statusTypeId('movement_debuff'), '−Move Range while active.'],
+  [statusTypeId('crit_modifier'), 'Crit chance / multiplier modified for the duration.'],
+  [statusTypeId('tagged_resistance_shift'), 'Per-tag resistance shift carried as instance customState. Composes additively across multiple applications; opposite-signed shifts cancel.'],
+]);
 
 // Short authored placeholders for the demo passives. Each line is the
 // minimum prose that beats "you have to read the source." Replace with
@@ -469,4 +505,142 @@ function formatPassiveDetail(ability: PassiveAbilityDefinition, catalog: Catalog
     subtitle: `${bucketLabel(ability.bucket)} passive`,
     lines,
   };
+}
+
+// Status-effect hover content. Session 31.5 extension: the same
+// DetailHover surface that abilities + items use now covers active
+// statuses on units. Pulls from the status type's catalog fields plus
+// the optional per-instance state (`magnitude`, `stacks`, `remainingDuration`,
+// `customState`) so the tooltip surfaces the live values when an
+// instance is available (unit detail panel, tile-info chip) and falls
+// back to the static type-level summary when not.
+//
+// Title prefers the instance's `customState.displayName` when present
+// (the parametric `tagged_resistance_shift` carries per-application
+// names like "Wand of the Depths Resonance"); otherwise the type name.
+export function formatStatusDetail(
+  type: StatusEffectType,
+  instance: StatusInstance | null = null,
+): DetailContent {
+  const lines: string[] = [];
+
+  // 1. Authored description (preferred), else a hook-list fallback.
+  const desc = STATUS_DESCRIPTIONS.get(type.id);
+  if (desc !== undefined) {
+    lines.push(desc);
+  } else {
+    const hookNames = new Set<string>();
+    for (const h of type.hooks) hookNames.add(h.name);
+    if (hookNames.size > 0) {
+      lines.push(`Hooks: ${Array.from(hookNames).join(', ')}`);
+    }
+  }
+
+  // 2. Duration (instance-aware).
+  const durationLine = formatStatusDuration(type, instance);
+  if (durationLine !== null) lines.push(durationLine);
+
+  // 3. Magnitude (instance's value preferred over type default).
+  const magnitude = instance?.magnitude ?? type.defaultMagnitude;
+  if (magnitude !== undefined) {
+    lines.push(`Magnitude: ${magnitude}`);
+  }
+
+  // 4. Stacks (only when relevant — instance has > 1).
+  if (instance?.stacks !== undefined && instance.stacks > 1) {
+    lines.push(`Stacks: ${instance.stacks}`);
+  }
+
+  // 5. customState — known shapes get specific rendering; unknown
+  // shapes get a one-line key:value dump for the curious reader.
+  const cs = instance?.customState;
+  if (cs !== undefined) {
+    if (isTagDeltasState(cs)) {
+      const parts: string[] = [];
+      for (const [tag, delta] of Object.entries(cs.tagDeltas)) {
+        if (delta === undefined || delta === 0) continue;
+        const sign = delta > 0 ? '+' : '';
+        parts.push(`${tag} ${sign}${delta}`);
+      }
+      if (parts.length > 0) lines.push(`Shift: ${parts.join(', ')}`);
+    }
+  }
+
+  // 6. Resistance tag — when present, status application reads through
+  // `(100 - resistance)/100` against this tag on the target.
+  if (type.resistanceTag !== undefined) {
+    lines.push(`Resisted by: ${type.resistanceTag}`);
+  }
+
+  // 7. Stacking rule (informational; matters when the player tries to
+  // double-apply or wonders whether duration refreshes).
+  lines.push(`Stacking: ${type.stackingRule}`);
+
+  // 8. Tags line — `'positive' | 'negative' | 'dispellable' | …`
+  if (type.tags.length > 0) {
+    lines.push(`Tags: ${type.tags.map(String).join(', ')}`);
+  }
+
+  // Title prefers the customState displayName when present (used by
+  // tagged_resistance_shift's per-application names).
+  let title = type.name;
+  if (cs !== undefined && typeof (cs as { displayName?: unknown }).displayName === 'string') {
+    title = (cs as { displayName: string }).displayName;
+  }
+
+  const subtitle = formatStatusSubtitle(type);
+
+  return { title, subtitle, lines };
+}
+
+function formatStatusDuration(
+  type: StatusEffectType,
+  instance: StatusInstance | null,
+): string | null {
+  switch (type.durationMode) {
+    case 'permanent':
+      return 'Duration: permanent';
+    case 'permanent_per_unit_ct':
+      return 'Duration: permanent (ticks each CT-100)';
+    case 'custom':
+      return 'Duration: event-driven';
+    case 'conditional':
+      return 'Duration: until cleared';
+    case 'per_unit_ct': {
+      if (instance?.remainingDuration !== null && instance?.remainingDuration !== undefined) {
+        return `Duration: ${instance.remainingDuration} CT (per-unit cadence)`;
+      }
+      return 'Duration: per-unit CT';
+    }
+    case 'turn_based': {
+      if (instance?.remainingDuration !== null && instance?.remainingDuration !== undefined) {
+        return `Duration: ${instance.remainingDuration} turn(s)`;
+      }
+      return 'Duration: per turn';
+    }
+    case 'global_ticks': {
+      if (instance?.remainingDuration !== null && instance?.remainingDuration !== undefined) {
+        return `Duration: ${instance.remainingDuration} ticks (global)`;
+      }
+      return 'Duration: global ticks';
+    }
+  }
+}
+
+function formatStatusSubtitle(type: StatusEffectType): string {
+  const polarity = type.aiHints?.polarity;
+  if (polarity === 'buff') return 'Status · Buff';
+  // Match the catalog's documented "default to debuff" convention
+  // (status-effect-type.ts) for any status without an aiHints
+  // declaration — Burn, Poison, Don't Move, etc. all surface as Debuff.
+  if (polarity === 'debuff' || polarity === undefined) return 'Status · Debuff';
+  return 'Status';
+}
+
+function isTagDeltasState(
+  cs: Readonly<Record<string, unknown>>,
+): cs is { readonly tagDeltas: Readonly<Record<DamageTag, number>>; readonly displayName?: string } {
+  const td = (cs as { tagDeltas?: unknown }).tagDeltas;
+  if (td === null || typeof td !== 'object') return false;
+  return true;
 }

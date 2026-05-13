@@ -259,12 +259,15 @@ export class UnitSprite {
     const g = this.counterpartRing;
     g.clear();
     if (strength <= 0) return;
-    // Concentric outer ring: brighter than the active ring, drawn
-    // beneath all other unit content so the unit's body is still
-    // legible. Strength scales the alpha so a future hover-pulse tween
-    // can animate it; v1 toggles between 0 and 1.
+    // Session 31.5 polish #4: match the team-frame's rounded-square
+    // shape rather than drawing a circle around a square. Pre-31.5 the
+    // ring's curve diverged from the framed-picture portrait silhouette,
+    // looking visually loose. Outer corner radius scales with the
+    // outer radius so the curvature is proportional to PORTRAIT_FRAME_CORNER.
     const alpha = Math.min(1, strength) * 0.8;
-    g.circle(0, 0, UNIT_RADIUS + ACTIVE_RING_PAD + 4);
+    const outer = UNIT_RADIUS + ACTIVE_RING_PAD + 4;
+    const corner = PORTRAIT_FRAME_CORNER + ACTIVE_RING_PAD + 4;
+    g.roundRect(-outer, -outer, outer * 2, outer * 2, corner);
     g.stroke({ color: COUNTERPART_RING_COLOR, width: 3, alpha });
   }
 
@@ -342,7 +345,11 @@ export class UnitSprite {
     const g = this.activeRing;
     g.clear();
     if (!active) return;
-    g.circle(0, 0, UNIT_RADIUS + ACTIVE_RING_PAD);
+    // Session 31.5 polish #4: rounded-square fitment matching the
+    // team frame. See drawCounterpart for rationale.
+    const outer = UNIT_RADIUS + ACTIVE_RING_PAD;
+    const corner = PORTRAIT_FRAME_CORNER + ACTIVE_RING_PAD;
+    g.roundRect(-outer, -outer, outer * 2, outer * 2, corner);
     g.stroke({ color: ACTIVE_HIGHLIGHT_COLOR, width: 2, alpha: 0.8 });
   }
 

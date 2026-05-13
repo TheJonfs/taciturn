@@ -47,17 +47,46 @@ export type Controller = (state: GameState, catalog: Catalog) => ControllerDecis
 
 export type ControllerMap = ReadonlyMap<TeamId, Controller>;
 
+// Rejection record for a controller-submitted action that the engine
+// refused at commit time. Pre-Session-31.5 the orchestrator threw on
+// any commit failure — including legitimate runtime refusals like
+// `hook_blocked` (Don't Move / Don't Act / Silence) and `battle_decided`.
+// The throw propagated through the pump loop and crashed the React tree.
+//
+// Per Session 31.5: the orchestrator now communicates these via the
+// step's `rejection` field instead of throwing. The pump can re-step
+// (the controller's queued decision was drained, so the controller will
+// report `pending` until the UI / AI submits something new). The UI's
+// own `animationEnded` recovery (via the rAF idle poll) brings the menu
+// back to the top level automatically.
+//
+// Scheduler-emitted system actions (turn_start, charged_action_resolve)
+// still throw on failure — those are engine-internal and any rejection
+// indicates a programmer error, not a runtime refusal.
+export interface OrchestratorRejection {
+  readonly action: ProposedAction;
+  readonly stage: 'validation' | 'hook_blocked' | 'battle_decided';
+  readonly reason: string;
+}
+
 export interface OrchestratorStep {
   // Engine state after this step's commits.
   readonly newState: GameState;
   // Every action that committed this step (root + chain), in commit order.
   // Empty when the orchestrator has nothing more to do (battle decided
-  // or scheduler exhausted).
+  // or scheduler exhausted) OR when a controller-submitted action was
+  // rejected (see `rejection`).
   readonly committed: ReadonlyArray<Action>;
   // True when the orchestrator has reached a terminal state and `step()`
   // will keep returning empty results. Renderer uses this to stop
   // pumping.
   readonly done: boolean;
+  // Set when a controller-submitted action was refused by the engine.
+  // The action's controller-side queue was already drained when the
+  // orchestrator pulled the decision, so callers don't need to do
+  // anything to recover — the controller will return `pending` on the
+  // next step. Callers may log / surface the reason to the player.
+  readonly rejection?: OrchestratorRejection;
 }
 
 export class DemoOrchestrator {
@@ -131,9 +160,23 @@ export class DemoOrchestrator {
 
     const result = commitAction(this.state, action, this.catalog);
     if (!result.ok) {
-      throw new Error(
-        `DemoOrchestrator: commit failed for ${action.type} by ${JSON.stringify(actor.id)}: ${result.reason}`,
-      );
+      // Session 31.5: controller-submitted action refused by the engine
+      // (Don't Move's hook block, Silence on a cast, post-state-change
+      // validation drift). No state change; surface the rejection
+      // upward so the pump can log / surface a reason. The UI flow's
+      // `animationEnded` rAF poll handles the menu-return recovery
+      // (the renderer stays idle, so `isIdle()` is true on the next
+      // tick).
+      return {
+        newState: this.state,
+        committed: [],
+        done: this.state.outcome !== undefined,
+        rejection: {
+          action,
+          stage: result.stage,
+          reason: result.reason,
+        },
+      };
     }
     this.state = result.newState;
     return {

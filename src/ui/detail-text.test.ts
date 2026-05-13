@@ -3,9 +3,10 @@
 // surfaces stay in sync.
 
 import { describe, expect, it } from 'vitest';
-import { createCatalog } from '@engine/index.ts';
+import { createCatalog, statusTypeId } from '@engine/index.ts';
 import { defaultTestRulesets } from '../engine/catalog/test-fixtures.ts';
 import { makeKnight } from '../engine/abilities/test-fixtures.ts';
+import { makeStatusInstance } from '../engine/status/test-fixtures.ts';
 import { boltHammer } from '../content/items/bolt-hammer.ts';
 import { raspPendant } from '../content/items/rasp-pendant.ts';
 import { wandOfDepths } from '../content/items/wand-of-depths.ts';
@@ -14,7 +15,10 @@ import { magusCrown } from '../content/items/magus-crown.ts';
 import { lightningStrike } from '../content/abilities/lightning-strike.ts';
 import { counter } from '../content/abilities/counter.ts';
 import { movePlus1 } from '../content/abilities/move-plus-1.ts';
-import { formatAbilityDetail, formatItemDetail } from './detail-text.ts';
+import { burn } from '../content/statuses/burn.ts';
+import { shell } from '../content/statuses/shell.ts';
+import { taggedResistanceShift } from '../content/statuses/tagged-resistance-shift.ts';
+import { formatAbilityDetail, formatItemDetail, formatStatusDetail } from './detail-text.ts';
 
 function makeCat() {
   return createCatalog({
@@ -99,5 +103,56 @@ describe('formatAbilityDetail', () => {
     const cat = makeCat();
     const d = formatAbilityDetail(movePlus1, cat);
     expect(d.lines[0]).toContain('+1 Move Range');
+  });
+});
+
+// Session 31.5: formatStatusDetail
+describe('formatStatusDetail', () => {
+  it('summarizes Burn with authored description + duration + tags', () => {
+    const d = formatStatusDetail(burn, null);
+    expect(d.title).toBe('Burn');
+    expect(d.subtitle).toContain('Debuff');
+    const joined = d.lines.join('\n');
+    expect(joined).toMatch(/fire damage|periodic/i);
+    expect(joined).toContain('Stacking:');
+    expect(joined).toContain('Tags:');
+  });
+
+  it("uses an instance's customState displayName as the title (tagged_resistance_shift)", () => {
+    const instance = makeStatusInstance({
+      typeId: statusTypeId('tagged_resistance_shift'),
+      customState: {
+        tagDeltas: { fire: 25, lightning: -25 },
+        displayName: 'Wand of the Depths Resonance',
+      },
+    });
+    const d = formatStatusDetail(taggedResistanceShift, instance);
+    expect(d.title).toBe('Wand of the Depths Resonance');
+    expect(d.lines.join('\n')).toContain('fire +25');
+    expect(d.lines.join('\n')).toContain('lightning -25');
+  });
+
+  it("renders the instance's remainingDuration when the type is per_unit_ct", () => {
+    const instance = makeStatusInstance({
+      typeId: statusTypeId('shell'),
+      remainingDuration: 240,
+      magnitude: 50,
+    });
+    const d = formatStatusDetail(shell, instance);
+    const joined = d.lines.join('\n');
+    expect(joined).toContain('permanent');
+    expect(joined).toContain('Magnitude: 50');
+  });
+
+  it('falls back to a hook list when no authored description exists', () => {
+    // Construct a synthetic status type that the description map
+    // doesn't know about.
+    const synthetic = {
+      ...shell,
+      id: statusTypeId('synthetic_unknown_status'),
+      name: 'Synthetic',
+    };
+    const d = formatStatusDetail(synthetic, null);
+    expect(d.lines.join('\n')).toContain('Hooks:');
   });
 });

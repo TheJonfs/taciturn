@@ -240,6 +240,17 @@ function BattleViewInner() {
           battleRenderer.playActions(step.committed, step.newState);
           setLatestState(step.newState);
         }
+        if (step.rejection !== undefined) {
+          // Session 31.5: a controller-submitted action was refused by
+          // the engine (e.g., Don't Move's onActionAttempted block).
+          // The flow's rAF idle poll handles the menu-return on the
+          // next tick. Surface the reason for dev visibility; a player-
+          // facing toast / status-line message is future polish.
+          // eslint-disable-next-line no-console
+          console.info(
+            `[orchestrator] ${step.rejection.action.type} refused (${step.rejection.stage}): ${step.rejection.reason}`,
+          );
+        }
         if (step.done) {
           finished = true;
         }

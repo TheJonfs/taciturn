@@ -23,6 +23,7 @@ import {
   type UnitId,
 } from '../types/index.ts';
 import { reduce } from './reduce.ts';
+import { isRiderCast } from './payload-helpers.ts';
 import { deriveActionSeed } from './seed.ts';
 import { validateAction, type ValidationResult } from './validate.ts';
 
@@ -178,7 +179,7 @@ function runPreHook(
   | { readonly outcome: 'replaced'; readonly action: ProposedAction }
   | { readonly outcome: 'blocked'; readonly reason: string } {
   if (proposed.source === 'system') return { outcome: 'allowed', action: proposed };
-  if (proposed.type === 'use_ability' && proposed.payload.riderSource !== undefined) {
+  if (proposed.type === 'use_ability' && isRiderCast(proposed.payload)) {
     return { outcome: 'allowed', action: proposed };
   }
   if (!('actorId' in proposed)) return { outcome: 'allowed', action: proposed };

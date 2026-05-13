@@ -11,16 +11,8 @@
 
 import type { CSSProperties, ReactElement } from 'react';
 import type { Catalog, GameState, ProjectedEvent, TeamId } from '@engine/index.ts';
+import { TEAM_PALETTE, TEAM_PALETTE_FALLBACK_CSS } from '@renderer/index.ts';
 import type { ChargedTiming, Forecast } from './forecast-compose.ts';
-
-// Team color palette (mirrors QueueTower / renderer; see session 25
-// carry-forward note about the duplicated palette — out of scope for
-// 26.5). Used by the mini-timeline chips so unit events read by team.
-const TEAM_CHIP_COLORS: Readonly<Record<string, string>> = {
-  team_a: '#4a90e2',
-  team_b: '#d0533d',
-};
-const TEAM_CHIP_FALLBACK = '#aaaaaa';
 
 export interface ForecastPanelProps {
   readonly forecast: Forecast | null;
@@ -259,8 +251,8 @@ function chipTeam(event: ProjectedEvent, state: GameState): TeamId | null {
 }
 
 function teamChipColor(team: TeamId | null): string {
-  if (team === null) return TEAM_CHIP_FALLBACK;
-  return TEAM_CHIP_COLORS[team] ?? TEAM_CHIP_FALLBACK;
+  if (team === null) return TEAM_PALETTE_FALLBACK_CSS;
+  return TEAM_PALETTE.get(team)?.css ?? TEAM_PALETTE_FALLBACK_CSS;
 }
 
 function chipTitle(

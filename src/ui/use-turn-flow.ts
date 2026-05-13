@@ -154,21 +154,34 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
   }, [isOurTurn, uiController]);
 
   // Animation drain: while in `animation`, poll the renderer's idle
-  // flag and dispatch `animationEnded` when it goes idle. setInterval
-  // is more robust than rAF here — rAF is suspended when the tab is
-  // backgrounded (or in headless preview), and the animator continuing
-  // via the Pixi ticker would otherwise leave the state machine stuck.
-  // 16ms polling matches a 60fps frame budget without over-firing.
+  // flag and dispatch `animationEnded` when it goes idle.
+  //
+  // Session 31.5 polish #7: switched from setInterval(16ms) to
+  // requestAnimationFrame. rAF naturally paint-syncs (no over-firing
+  // between frames), avoids the ~16ms-but-not-quite-aligned drift of
+  // setInterval, and pauses when the tab is hidden — which is the
+  // desired behavior here too, because the animator's underlying Pixi
+  // ticker is itself rAF-based and is also paused. Polling at the same
+  // cadence as the animator's tick keeps the state machine fully
+  // responsive when the tab is foregrounded again.
   useEffect(() => {
     if (flowState.kind !== 'animation') return;
     if (renderer === null) return;
-    const id = setInterval(() => {
+    let cancelled = false;
+    let raf = 0;
+    const poll = (): void => {
+      if (cancelled) return;
       if (renderer.isIdle()) {
         dispatch({ kind: 'animationEnded', stillOurTurn: isOurTurn });
-        clearInterval(id);
+        return;
       }
-    }, 16);
-    return () => clearInterval(id);
+      raf = window.requestAnimationFrame(poll);
+    };
+    raf = window.requestAnimationFrame(poll);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(raf);
+    };
   }, [flowState.kind, renderer, isOurTurn]);
 
   // ===== Loadout-derived data =====

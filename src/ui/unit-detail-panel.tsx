@@ -14,8 +14,10 @@ import {
   EQUIPMENT_SLOT_IDS,
   PASSIVE_BUCKET_IDS,
   runModifyEvasion,
+  runModifyResistance,
   runModifyStatQuery,
   type Catalog,
+  type DamageTag,
   type EquipmentSlotId,
   type GameState,
   type Unit,
@@ -23,7 +25,24 @@ import {
 import { portraitUrlFor } from '../assets/portraits/index.ts';
 import { bucketLabel, slotLabel } from './labels.ts';
 import { DetailHover } from './detail-hover.tsx';
-import { formatAbilityDetail, formatItemDetail } from './detail-text.ts';
+import { formatAbilityDetail, formatItemDetail, formatStatusDetail } from './detail-text.ts';
+import { badgeStyleFor } from './status-polarity.ts';
+
+// Damage tags the panel walks when computing displayed resistance values.
+// Excludes `'healing'` (never resisted per ADR-0016) and the category
+// tags (`'physical'`, `'magical'`, `'weapon'`, `'sword'`) that surface as
+// Shell/Protect/Steel-Helm modifiers rather than as units' native
+// resistances in v1. If a v1 native or contributor begins authoring
+// against the category tags, surface them here.
+const DISPLAY_RESISTANCE_TAGS: ReadonlyArray<DamageTag> = [
+  'fire',
+  'ice',
+  'lightning',
+  'earth',
+  'holy',
+  'dark',
+  'poison',
+];
 
 export interface UnitDetailPanelProps {
   readonly state: GameState;
@@ -56,6 +75,11 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
     unit,
     statName: 'maxHp',
     baseValue: unit.baseStats.maxHpBase,
+  });
+  const maxMp = runModifyStatQuery(state, catalog, {
+    unit,
+    statName: 'maxMp',
+    baseValue: unit.baseStats.maxMpBase,
   });
   const pa = runModifyStatQuery(state, catalog, {
     unit,
@@ -130,7 +154,7 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
         <Section title="Stats">
           <StatGrid>
             <StatPair label="HP" value={`${unit.vitals.hp} / ${maxHp}`} />
-            <StatPair label="MP" value={`${unit.vitals.mp}`} />
+            <StatPair label="MP" value={`${unit.vitals.mp} / ${maxMp}`} />
             <StatPair label="PA" value={String(pa)} />
             <StatPair label="MA" value={String(ma)} />
             <StatPair label="Speed" value={String(speed)} />
@@ -156,14 +180,40 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
           ) : (
             unit.statuses.map((s, i) => {
               const type = catalog.hasStatusType(s.typeId) ? catalog.getStatusType(s.typeId) : null;
-              const name = type?.name ?? String(s.typeId);
+              // Title prefers the per-instance displayName for parametric
+              // statuses (tagged_resistance_shift's wand-specific names).
+              const csName =
+                s.customState !== undefined &&
+                typeof (s.customState as { displayName?: unknown }).displayName === 'string'
+                  ? ((s.customState as { displayName: string }).displayName)
+                  : null;
+              const name = csName ?? type?.name ?? String(s.typeId);
               const stacks = s.stacks ?? 1;
               const dur = s.remainingDuration ?? '∞';
+              const badge = badgeStyleFor(type);
+              // Polarity convention (Session 31.5 polish #1): the
+              // name pill picks up a subdued positive/negative tint so
+              // the player can scan buff vs. debuff at a glance.
+              const nameStyle: CSSProperties = {
+                ...statusBadgeStyle,
+                background: badge.background,
+                color: badge.color,
+                border: `1px solid ${badge.borderColor}`,
+              };
+              // Session 31.5 extension: hover the name pill to reveal
+              // the status's mechanical summary via the shared
+              // DetailHover surface. Falls back to a minimal "Unknown
+              // status type" content when the catalog lookup misses.
+              const detail = type !== null
+                ? formatStatusDetail(type, s)
+                : { title: String(s.typeId), lines: ['(unknown status type)'] };
               return (
                 <div key={`${String(s.typeId)}-${i}`} style={statusRowStyle}>
-                  <span style={statusNameStyle}>
-                    {name}{stacks > 1 ? ` ×${stacks}` : ''}
-                  </span>
+                  <DetailHover content={detail} style={statusHoverWrapperStyle}>
+                    <span style={nameStyle}>
+                      {name}{stacks > 1 ? ` ×${stacks}` : ''}
+                    </span>
+                  </DetailHover>
                   <span style={statusDurStyle}>{dur}</span>
                 </div>
               );
@@ -172,16 +222,35 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
         </Section>
 
         <Section title="Resistances">
-          {unit.resistances.size === 0 ? (
-            <Empty>None</Empty>
-          ) : (
-            Array.from(unit.resistances.entries()).map(([tag, value]) => (
+          {(() => {
+            // Thread each candidate damage tag through `runModifyResistance`
+            // so equipment-side (`resistanceMods` — Capacitor Ring +100
+            // Lightning, Wizard's Robe -25 to all four elements) and
+            // status-side (`tagged_resistance_shift`, Shell/Protect)
+            // contributions both reach the display. Per ADR-0056's chain
+            // composition + composeResistance's inclusion rule: a tag
+            // surfaces iff the unit natively carries it OR a contributor
+            // produced a non-zero value. The same rule the damage
+            // pipeline uses; the previous panel read raw map entries and
+            // showed only the native baseline.
+            const rows = DISPLAY_RESISTANCE_TAGS.flatMap((tag) => {
+              const native = unit.resistances.get(tag);
+              const value = runModifyResistance(state, catalog, {
+                unit,
+                tag,
+                baseValue: native ?? 0,
+              });
+              if (native === undefined && value === 0) return [];
+              return [{ tag, value }];
+            });
+            if (rows.length === 0) return <Empty>None</Empty>;
+            return rows.map(({ tag, value }) => (
               <div key={String(tag)} style={resRowStyle}>
                 <span style={statusNameStyle}>{String(tag)}</span>
                 <span style={statusDurStyle}>{value >= 0 ? `+${value}` : value}</span>
               </div>
-            ))
-          )}
+            ));
+          })()}
         </Section>
 
         <Section title="Loadout">
@@ -455,6 +524,25 @@ const statusNameStyle: CSSProperties = { opacity: 0.85 };
 const statusDurStyle: CSSProperties = {
   opacity: 0.65,
   fontVariantNumeric: 'tabular-nums',
+};
+
+// Compact pill applied to status badges in the Active Statuses section.
+// Background / color / border come from `badgeStyleFor(type)` per the
+// status's polarity. Polish #1 (Session 31.5).
+const statusBadgeStyle: CSSProperties = {
+  display: 'inline-block',
+  padding: '1px 8px',
+  borderRadius: 8,
+  fontSize: 11,
+  letterSpacing: '0.02em',
+};
+
+// Affordance for the DetailHover wrapper around a status pill: the
+// `cursor: help` hint tells the player the pill is hoverable. Same
+// pattern as ability / item DetailHover wraps (Session 31). Session
+// 31.5 extension.
+const statusHoverWrapperStyle: CSSProperties = {
+  cursor: 'help',
 };
 
 const resRowStyle: CSSProperties = statusRowStyle;

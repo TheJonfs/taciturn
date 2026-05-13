@@ -38,7 +38,7 @@ export function BattleHud({
 }: BattleHudProps): ReactElement {
   return (
     <div style={hudOverlayStyle}>
-      <TileInfoPanel state={state} cursorTile={turnFlow.cursorTile} />
+      <TileInfoPanel state={state} catalog={catalog} cursorTile={turnFlow.cursorTile} />
       <div style={leftPanelStyle}>
         <QueueTower
           state={state}

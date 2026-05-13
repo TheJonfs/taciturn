@@ -58,11 +58,21 @@ describe('defaultRuleset', () => {
   it('damage pipeline ships the v1 stage handlers (physical, magical, healing; elemental amplification lands later)', () => {
     const stages = defaultRuleset.damagePipeline.stages;
     expect(stages.base).toEqual(['physical_pa_wp', 'magical_ma_power', 'healing_base']);
-    expect(stages.attacker).toEqual(['fire_on_damage_dealt']);
+    // Session 31.5 / ADR-0069: `fire_on_damage_dealt` moved from
+    // `attacker` to the target stage post-`evasion_check` so the proc
+    // gate (`ctx.hit === true` in Bolt Hammer's contributor) reads the
+    // resolved hit value rather than the pipeline-default `true`.
+    expect(stages.attacker).toEqual([]);
     // Target-stage order matters: evasion_check first (ADR-0019), then
-    // resistance_check, then onDamageReceived hooks see the resolved
-    // hit + post-resistance ctx.
-    expect(stages.target).toEqual(['evasion_check', 'resistance_check', 'fire_on_damage_received']);
+    // fire_on_damage_dealt (post-evasion so attack-proc gates see the
+    // resolved hit), then resistance_check, then onDamageReceived hooks
+    // see the resolved hit + post-resistance ctx.
+    expect(stages.target).toEqual([
+      'evasion_check',
+      'fire_on_damage_dealt',
+      'resistance_check',
+      'fire_on_damage_received',
+    ]);
     expect(stages.environment).toEqual([]);
     // Variance-stage order matters: variance_roll first, then crit_roll
     // layered on top (ADR-0032 — crit composes as a separate multiplier

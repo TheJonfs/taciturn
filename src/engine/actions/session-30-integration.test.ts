@@ -541,7 +541,15 @@ describe('Session 30 reduceSystemMpDrain', () => {
     expect(result.newState.units.get(tgt.id)!.vitals.mp).toBe(40);
   });
 
-  it('KO\'d target is a no-op (both applied = 0, entry still logged)', () => {
+  // Session 31.5 / ADR-0069: KO'd target is NOT a reducer-level no-op.
+  // The contributor's pre-fire HP gate (in `finalDamageDrainContributor`)
+  // already filters "target was already dead before the swing." The
+  // mid-chain case — the swing's damage KO'd the target this turn — is
+  // the load-bearing one for v1 (Rasp Pendant on a fatal cast). Pre-31.5
+  // the reducer's HP gate zeroed those drains; the drain represents
+  // "10% of the damage you just dealt" and should apply whether or not
+  // the target survived. MP doesn't need HP to transfer.
+  it("KO'd target still drains MP (mid-chain fatal-hit case per ADR-0069)", () => {
     const src = makeUnit({ id: 'src', spd: 10, mp: 0 });
     const koTgt = makeUnit({ id: 'tgt', spd: 10, team: 'team_b', hp: 0, mp: 50 });
     const state = makeGameState({ units: [src, koTgt] });
@@ -555,10 +563,10 @@ describe('Session 30 reduceSystemMpDrain', () => {
     });
     const action = makeMpDrainAction({ source: src, target: koTgt, amount: 8 });
     const result = reduceSystemMpDrain(state, action, cat);
-    expect(result.outcome.targetApplied).toBe(0);
-    expect(result.outcome.sourceApplied).toBe(0);
-    expect(result.newState.units.get(src.id)!.vitals.mp).toBe(0);
-    expect(result.newState.units.get(koTgt.id)!.vitals.mp).toBe(50);
+    expect(result.outcome.targetApplied).toBe(8);
+    expect(result.outcome.sourceApplied).toBe(8);
+    expect(result.newState.units.get(src.id)!.vitals.mp).toBe(8);
+    expect(result.newState.units.get(koTgt.id)!.vitals.mp).toBe(42);
   });
 
   it('missing source or target is a no-op (entry logged, no state change)', () => {

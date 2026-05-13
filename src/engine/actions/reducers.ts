@@ -73,6 +73,7 @@ import {
   type WaitOutcome,
 } from '../types/index.ts';
 import { expectActiveAbility } from './validate.ts';
+import { isRiderCast } from './payload-helpers.ts';
 import { computeMpCost } from '../abilities/cost.ts';
 import { computeBaseActionSpeed } from '../ct/speed.ts';
 
@@ -253,7 +254,7 @@ export function reduceUseAbility(
   // recorded as 0 on the outcome so logs and replays know the cast was
   // free. The validator already skipped the affordability check for
   // rider casts.
-  const isRider = action.payload.riderSource !== undefined;
+  const isRider = isRiderCast(action.payload);
   const mpCost = isRider ? 0 : computeMpCost(state, catalog, actor.id, ability.id);
   let workingState: GameState = state;
   if (!isRider && mpCost > 0) {
@@ -515,6 +516,11 @@ function resolveAbilityEffect(
   let damageDealt: number | undefined;
   let healingDealt: number | undefined;
   let absorbed = false;
+  // Records the new position when a knockback rider successfully
+  // displaced the target. Populated below; threaded onto the per-target
+  // result so the renderer can settle the sprite to the new tile at
+  // flash finalize. Per Session 31.5 (bug A).
+  let displacedTo: Position | undefined;
   const pipelineEmissions: ProposedAction[] = [];
   if (args.ability.effects.damage !== undefined && args.targetUnit !== null) {
     const targetBefore = workingState.units.get(args.targetUnit.id);
@@ -610,6 +616,12 @@ function resolveAbilityEffect(
       // set; deterministic when omitted. Direction is uniform across
       // an AoE — caster→effectAnchorPosition cardinal, captured by the
       // dispatcher before per-target dispatch.
+      //
+      // Session 31.5: when knockback displaces the target, the new
+      // position is recorded onto the per-target result (`displacedTo`)
+      // so the renderer can settle its snapshot to the destination at
+      // flash finalize. Pre-31.5 the engine state updated correctly but
+      // the renderer's sprite stayed on the original tile.
       if (damage.knockback !== undefined) {
         let chanceLanded = true;
         if (damage.knockback.chance !== undefined) {
@@ -640,13 +652,16 @@ function resolveAbilityEffect(
           if (knockResult.stepsTaken > 0) {
             // Apply the position update. The path is logged on the
             // result for future renderer consumption (a knockback
-            // animation). Today the renderer pulls through unrecognized
-            // visuals; the position change shows up on the next
-            // animatable action's snapshot refresh.
+            // animation). Session 31.5: also record the destination
+            // onto the per-target result's `displacedTo` so the
+            // animator settles `snap.position` at flash finalize. Pre-
+            // 31.5 the renderer's sprite stayed on the original tile
+            // until the unit's next Move action.
             workingState = withUnit(workingState, {
               ...targetCurrent,
               position: knockResult.finalPosition,
             });
+            displacedTo = knockResult.finalPosition;
           }
           if (knockResult.fallingDamageAction !== undefined) {
             pipelineEmissions.push(knockResult.fallingDamageAction);
@@ -841,6 +856,7 @@ function resolveAbilityEffect(
     ...(healingDealt !== undefined ? { healing: healingDealt } : {}),
     ...(absorbed ? { absorbed: true } : {}),
     ...(statusOutcomes.length > 0 ? { statusesApplied: statusOutcomes } : {}),
+    ...(displacedTo !== undefined ? { displacedTo } : {}),
   };
 
   return {
@@ -1179,6 +1195,19 @@ function applyDamageToTarget(state: GameState, ctx: DamageContext): GameState {
   const currentTarget = state.units.get(ctx.target.id);
   if (currentTarget === undefined) return state;
   const isHealing = ctx.damageTags.has('healing');
+  // Session 31.5 (bug B / ADR-0070): healing-tagged effects don't raise
+  // a KO'd target's HP. This covers two cases with the same gate:
+  //   - The absorption tag-flip path (ADR-0057): a Lightning attack on
+  //     a unit with +150 Lightning resistance flips to healing in the
+  //     cap stage. If the target was already KO'd from earlier damage
+  //     in the chain, the absorption-flipped heal would revive them —
+  //     bringing a KO'd unit back to HP > 0, which the scheduler then
+  //     picks up for a normal turn. (Reproduced via playtest.)
+  //   - Explicit healing abilities (Cure, future content): match the
+  //     FFT precedent that ambient healing doesn't revive — explicit
+  //     Raise / Phoenix Down is required (deferred in v1).
+  // Parallel to system_apply_status's KO'd-target gate at line 1855.
+  if (isHealing && currentTarget.vitals.hp <= 0) return state;
   const nextHp = isHealing
     ? currentTarget.vitals.hp + finalDamage
     : Math.max(0, currentTarget.vitals.hp - finalDamage);
@@ -1743,10 +1772,21 @@ export function reduceSystemDamage(
 // the target's MP falls by targetApplied. (The two CAN differ when the
 // source is near MP cap — the spillover is lost; no buffer.)
 //
-// KO'd / missing source or target short-circuits to all-zero applied
-// fields. The entry is still logged for action-log readability so a
-// downstream "Bolt Hammer procced but target was already dead" trace
-// is recoverable from the log.
+// Missing source / target short-circuits to all-zero applied fields.
+// The entry is still logged for action-log readability so a downstream
+// "drain emitted but the unit no longer exists" trace is recoverable.
+//
+// Session 31.5 / ADR-0069: the prior `vitals.hp <= 0` short-circuit was
+// dropped. The contributor's pre-fire gate (`finalDamageDrainContributor`
+// reads pre-damage HP) already filters "target was already dead before
+// the swing" — a no-emission case. The reducer's same check then bit
+// a different scenario: when the swing's damage KO'd the target this
+// chain, the drain emission was already queued at pre-damage HP > 0,
+// but by the time the reducer ran (after `applyDamageToTarget`), the
+// target's HP was 0 and the reducer zeroed the transfer. The drain
+// represents "10% of the damage you just dealt" — it should apply
+// whether or not the target survived the hit. MP doesn't need HP
+// to transfer; the reducer now reads MP directly.
 export function reduceSystemMpDrain(
   state: GameState,
   action: Extract<Action, { type: 'system_mp_drain' }>,
@@ -1756,20 +1796,6 @@ export function reduceSystemMpDrain(
   const sourceUnit = state.units.get(sourceId);
   const targetUnit = state.units.get(targetId);
   if (sourceUnit === undefined || targetUnit === undefined) {
-    return {
-      newState: state,
-      outcome: {
-        kind: 'system_mp_drain',
-        source: sourceId,
-        target: targetId,
-        requested,
-        targetApplied: 0,
-        sourceApplied: 0,
-      },
-      generatedActions: [],
-    };
-  }
-  if (targetUnit.vitals.hp <= 0 || sourceUnit.vitals.hp <= 0) {
     return {
       newState: state,
       outcome: {
