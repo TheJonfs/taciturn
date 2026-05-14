@@ -22,11 +22,13 @@
 import { Container, Text } from 'pixi.js';
 import type { BattleMap, Tile } from '@engine/index.ts';
 import {
-  ELEVATION_LABEL_COLOR,
+  ELEVATION_LABEL_COLOR_HIGH,
+  ELEVATION_LABEL_COLOR_LOW,
   ELEVATION_LABEL_FONT_SIZE,
   ELEVATION_LABEL_OUTLINE,
   ELEVATION_LABEL_OUTLINE_WIDTH,
   ELEVATION_LABEL_PADDING,
+  ELEVATION_LABEL_SATURATION_ELEV,
   TILE_INSET,
   TILE_SIZE,
 } from './constants.ts';
@@ -35,6 +37,29 @@ import {
 // is labelled — there is no threshold. Exposed for unit tests.
 export function elevationLabelFor(elevation: number): string {
   return String(elevation);
+}
+
+// Linear-RGB interpolation between two 0xRRGGBB ints at parameter
+// `t` ∈ [0, 1].
+function lerpColor(a: number, b: number, t: number): number {
+  const ar = (a >> 16) & 0xff;
+  const ag = (a >> 8) & 0xff;
+  const ab = a & 0xff;
+  const br = (b >> 16) & 0xff;
+  const bg = (b >> 8) & 0xff;
+  const bb = b & 0xff;
+  const r = Math.round(ar + (br - ar) * t);
+  const g = Math.round(ag + (bg - ag) * t);
+  const bl = Math.round(ab + (bb - ab) * t);
+  return (r << 16) | (g << 8) | bl;
+}
+
+// Fill color for an elevation label: a two-hue cyan→gold ramp. Clamps
+// to the LOW color at elevation 0 and the HIGH color at (and above)
+// the saturation elevation. Exposed for unit tests.
+export function elevationLabelColor(elevation: number): number {
+  const t = Math.max(0, Math.min(1, elevation / ELEVATION_LABEL_SATURATION_ELEV));
+  return lerpColor(ELEVATION_LABEL_COLOR_LOW, ELEVATION_LABEL_COLOR_HIGH, t);
 }
 
 export class ElevationLabelLayer {
@@ -68,7 +93,7 @@ function buildLabel(tile: Tile, label: string): Text {
       fontFamily: 'system-ui, sans-serif',
       fontSize: ELEVATION_LABEL_FONT_SIZE,
       fontWeight: 'bold',
-      fill: ELEVATION_LABEL_COLOR,
+      fill: elevationLabelColor(tile.elevation),
       stroke: {
         color: ELEVATION_LABEL_OUTLINE,
         width: ELEVATION_LABEL_OUTLINE_WIDTH,

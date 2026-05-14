@@ -88,14 +88,34 @@ export const CLIFF_EDGE_DARKEN_HIGHLIGHT = 0.78;
 //
 // The earlier pip-stack design (1-4 pips by categorical tier) read as a
 // tier-meter; players parsed it as relative tiers rather than absolute
-// elevation. The numeric label is unambiguous. A future polish pass can
-// add color-coding or styling per tier; v1 keeps it minimal.
+// elevation. The numeric label is unambiguous.
+//
+// Color cue (Session 33, second revision): the label fill ramps from a
+// pale cyan at elevation 0 to the existing gold at the saturation
+// point — a two-hue cyan→gold gradient. The digit + hue together give
+// a dual-channel read: you parse "the ridge warms up as it climbs"
+// before reading the number. Cyan low end is also thematically
+// coherent with the water tiles it labels.
+//
+// Both endpoints are kept *light* deliberately so the constant dark
+// outline (`ELEVATION_LABEL_OUTLINE`) stays legible at every fill
+// value — a perceptual scale like inferno/viridis would force the
+// outline to co-vary at its dark end. The linear-RGB lerp passes
+// through a pale green midpoint, which reads fine as a low→mid→high
+// progression.
 export const ELEVATION_LABEL_FONT_SIZE = 11;
 export const ELEVATION_LABEL_PADDING = 2;
-// Light gold matches the existing active-highlight palette
-// (ACTIVE_HIGHLIGHT_COLOR). Reads against grass / rock alike.
-export const ELEVATION_LABEL_COLOR = 0xf6e5a8;
-// Dark outline / stroke so the digit reads against any terrain.
+// Two-hue ramp endpoints. LOW = pale cyan (elevation 0); HIGH = gold
+// (elevation ≥ saturation point). The gold matches the existing
+// active-highlight palette (ACTIVE_HIGHLIGHT_COLOR).
+export const ELEVATION_LABEL_COLOR_LOW = 0xaceaea;
+export const ELEVATION_LABEL_COLOR_HIGH = 0xf6e5a8;
+// Elevation at which the ramp reaches the HIGH color and clamps. River
+// Ridge tops out at 9; saturating at 10 keeps 9 just shy of full gold
+// while still handling taller maps without the ramp running away.
+export const ELEVATION_LABEL_SATURATION_ELEV = 10;
+// Dark outline / stroke so the digit reads against any terrain. Held
+// constant across the whole ramp — see the color-cue note above.
 export const ELEVATION_LABEL_OUTLINE = 0x14171c;
 export const ELEVATION_LABEL_OUTLINE_WIDTH = 3;
 
