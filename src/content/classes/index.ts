@@ -12,3 +12,7 @@ export const classes: ReadonlyArray<ClassDefinition> = [
   lightningMage,
   waterMage,
 ];
+
+// Per-class L25 baseline numeric stats — single source of truth,
+// consumed by battle configs and external guide tooling.
+export { classBaselineStats, type ClassBaselineStats } from './baseline-stats.ts';

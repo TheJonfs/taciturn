@@ -64,9 +64,12 @@ These are uniform across all v1 units — set per-placement, not per-class:
 
 ## Sources of truth
 
-- **Numeric base stats** — `src/content/battles/demo.ts` (the per-class
-  `*_BASE_STATS` constants; `riverRidgeBattle` inherits them unchanged).
+- **Numeric base stats** — `src/content/classes/baseline-stats.ts` (the
+  `classBaselineStats` map; battle configs consume it, they do not
+  re-declare the values). Re-exported from `src/content/classes/index.ts`.
 - **Movement / evasion / resistances / slots** — the per-class
   `ClassDefinition` files in `src/content/classes/`.
+- **Shared placement defaults** (Brave / Faith / crit) — `SHARED_STAT_DEFAULTS`
+  in `src/content/battles/demo.ts`; not class-differentiated.
 - **Calibration intent** — `docs/mage-war-content-spec.md` §1 ("Class
   baselines at L25").

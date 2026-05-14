@@ -29,12 +29,15 @@ import {
   rulesetId,
   teamId,
   unitId,
+  type BaseStats,
   type BattleConfig,
   type BattleMap,
+  type ClassId,
   type Tile,
   type UnitEquipment,
   type UnitPlacement,
 } from '@engine/index.ts';
+import { classBaselineStats } from '../classes/baseline-stats.ts';
 
 const MAP_WIDTH = 6;
 const MAP_HEIGHT = 6;
@@ -257,92 +260,51 @@ const LIGHTNING_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   },
 };
 
-// Post-reconciliation tuning (mage-war-content-spec, captured 2026-05-09):
-// Brave / Faith default to 70 / 70 (Faith_factor 0.49 for symmetric
-// magical interactions; Brave_factor 0.70). Reactions become probabilistic
-// at Brave 70 — tests that needed deterministic triggers either override
-// Brave to 100 explicitly or use seeded RNG (see audit report's test
-// summary). All five classes carry the L25 stat targets from the spec.
+// Post-reconciliation tuning (mage-war-content-spec, captured 2026-05-09).
 //
-// Session 28 (ADR-0058): `maxMpBase` joins `maxHpBase` as a stat-layer
-// baseline. Knight 20 / Mages 60 per the spec. Placements omit explicit
-// `vitals` and let `fillVitalsFromComputedMaxes` derive hp/mp from the
-// computed maxHp / maxMp queries at battle start — so any equipment
-// contribution (Wizard's Robe +40 MP, Staff of Abundance ×1.5 maxMp)
-// composes through `modifyStatQuery` before vitals land.
+// The class-differentiated numeric stats (HP/MP/PA/MA/Speed at the L25
+// reference level) are the single source of truth in
+// `src/content/classes/baseline-stats.ts` — consumed here, not
+// re-declared. The values below are the *uniform placement defaults*
+// that are not class-differentiated:
 //
-// Session 20: all demo units carry the crit baseline (crit_chance: 5,
-// crit_multiplier: 1.5) per ADR-0032. Lightning Mage's Static Embrace
-// (Crit_modifier +20) layers additively on top.
-const KNIGHT_BASE_STATS = {
-  spd: 9,
-  pa: 11,
-  ma: 4,
-  maxHpBase: 144,
-  // 20 MP buys five Cures (mpCost 4 each).
-  maxMpBase: 20,
+// - Brave / Faith default to 70 / 70 (Faith_factor 0.49 for symmetric
+//   magical interactions; Brave_factor 0.70). Reactions become
+//   probabilistic at Brave 70 — tests that need deterministic triggers
+//   override Brave to 100 explicitly or use seeded RNG.
+// - Crit baseline 5% / ×1.5 per ADR-0032 (session 20). Lightning Mage's
+//   Static Embrace (Crit_modifier +20) layers additively on top.
+//
+// Placements omit explicit `vitals` and let `fillVitalsFromComputedMaxes`
+// derive hp/mp from the computed maxHp / maxMp queries at battle start —
+// so any equipment contribution (Wizard's Robe +40 MP, Staff of
+// Abundance ×1.5 maxMp) composes through `modifyStatQuery` before vitals
+// land (session 28 / ADR-0058).
+const SHARED_STAT_DEFAULTS = {
   brave: 70,
   faith: 70,
   crit_chance: 5,
   crit_multiplier: 1.5,
 } as const;
 
-// Earth Mage L25 stats per the spec.
-const MAGE_BASE_STATS = {
-  spd: 8,
-  pa: 4,
-  ma: 12,
-  maxHpBase: 112,
-  maxMpBase: 60,
-  brave: 70,
-  faith: 70,
-  crit_chance: 5,
-  crit_multiplier: 1.5,
-} as const;
+// Build a full `BaseStats` for a class: the class-differentiated
+// baseline (source of truth in `baseline-stats.ts`) plus the uniform
+// placement defaults. Fails loudly if a class has no registered
+// baseline rather than silently producing a malformed stat block.
+function baseStatsFor(id: ClassId): BaseStats {
+  const baseline = classBaselineStats.get(id);
+  if (baseline === undefined) {
+    throw new Error(`demo.ts: no baseline stats registered for class ${String(id)}`);
+  }
+  return { ...baseline, ...SHARED_STAT_DEFAULTS };
+}
 
-// Water Mage L25 stats: fastest mage (Speed 10), HP 102.
-const WATER_MAGE_BASE_STATS = {
-  spd: 10,
-  pa: 4,
-  ma: 12,
-  maxHpBase: 102,
-  maxMpBase: 60,
-  brave: 70,
-  faith: 70,
-  crit_chance: 5,
-  crit_multiplier: 1.5,
-} as const;
-
-// Fire Mage L25 stats: glass-cannon profile — MA 13 (highest among
-// non-Lightning mages), HP 97. At MA 13, Burn coefficient 0.6 → 7
-// dmg/stack.
-const FIRE_MAGE_BASE_STATS = {
-  spd: 9,
-  pa: 4,
-  ma: 13,
-  maxHpBase: 97,
-  maxMpBase: 60,
-  brave: 70,
-  faith: 70,
-  crit_chance: 5,
-  crit_multiplier: 1.5,
-} as const;
-
-// Lightning Mage L25 stats: highest MA (14), lowest HP (87) — burst
-// caster who folds before sustained pressure but brings extreme single-
-// turn damage via Storm Caller (now ~247 raw at MA 14) and crit-stacked
-// follow-ups via Static Embrace.
-const LIGHTNING_MAGE_BASE_STATS = {
-  spd: 9,
-  pa: 4,
-  ma: 14,
-  maxHpBase: 87,
-  maxMpBase: 60,
-  brave: 70,
-  faith: 70,
-  crit_chance: 5,
-  crit_multiplier: 1.5,
-} as const;
+const KNIGHT_BASE_STATS = baseStatsFor(classId('knight'));
+const MAGE_BASE_STATS = baseStatsFor(classId('earth_mage'));
+// Exported — consumed by `river-ridge-battle.ts`'s extra placements.
+export const WATER_MAGE_BASE_STATS = baseStatsFor(classId('water_mage'));
+export const FIRE_MAGE_BASE_STATS = baseStatsFor(classId('fire_mage'));
+const LIGHTNING_MAGE_BASE_STATS = baseStatsFor(classId('lightning_mage'));
 
 export const demoBattle: BattleConfig = {
   battleId: 'demo_asymmetric',
