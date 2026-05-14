@@ -33,6 +33,7 @@ import { demoBattle } from '@content/battles/demo.ts';
 import {
   createCatalog,
   createInitialState,
+  enumeratePreBattleActions,
   type BattleConfig,
   type Catalog,
   type TeamId,
@@ -71,11 +72,12 @@ function runBattle(opts: {
   const catalog = calibrationCatalog();
   const config: BattleConfig = { ...demoBattle, masterSeed: opts.seed };
   const initialState = createInitialState(config, catalog);
+  const preBattleActions = enumeratePreBattleActions(initialState, config, catalog);
   const controllers: ControllerMap = new Map([
     [opts.aiTeam, createBasicAiController()],
     [opts.greedyTeam, greedyMeleeController()],
   ]);
-  const orch = new DemoOrchestrator(initialState, catalog, controllers);
+  const orch = new DemoOrchestrator(initialState, catalog, controllers, preBattleActions);
   let steps = 0;
   const maxSteps = opts.maxSteps ?? 1000;
   while (steps < maxSteps) {

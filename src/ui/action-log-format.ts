@@ -369,6 +369,19 @@ function formatAction(
       const statusName = safeStatusName(catalog, action.payload.statusTypeId);
       const result = action.outcome?.result;
       const verb = result === undefined ? 'attempted' : classifyStatusOutcome(result).label;
+      // Session 32 / ADR-0071: pre-battle equipment grants render with
+      // item attribution ("Tintinibar grants Regen to Blue Knight") and
+      // an [init] tag so the action log distinguishes setup-phase
+      // applies from in-battle status emissions.
+      const context = action.payload.context;
+      if (context !== undefined && context.kind === 'pre_battle_equipment') {
+        const itemName = safeItemName(catalog, context.itemId);
+        const segments: LogSegment[] = [
+          plain(`${itemName} grants ${statusName} to `),
+          unitSeg(state, action.payload.targetId),
+        ];
+        return [row({ tag: '[init]', segments, indent: false, tagKind: 'system' })];
+      }
       const segments: LogSegment[] = [
         plain(`${statusName} ${verb} on `),
         unitSeg(state, action.payload.targetId),
@@ -384,6 +397,18 @@ function formatAction(
         plain(` CT ${sign}${delta}`),
       ];
       return [row({ tag: '[tick]', segments, indent: true, tagKind: 'system' })];
+    }
+
+    case 'system_set_ct': {
+      // Session 32 / ADR-0071: emitted once per unit during the
+      // orchestrator's pre-battle phase, recording the ruleset-derived
+      // initial CT randomization into the action log. [init] tag.
+      const ct = action.outcome?.ct ?? action.payload.ct;
+      const segments: LogSegment[] = [
+        unitSeg(state, action.payload.targetId),
+        plain(` enters battle at CT ${ct}`),
+      ];
+      return [row({ tag: '[init]', segments, indent: false, tagKind: 'system' })];
     }
 
     case 'system_mp_drain': {
@@ -544,6 +569,14 @@ function safeAbilityName(catalog: Catalog, id: import('@engine/index.ts').Abilit
 function safeStatusName(catalog: Catalog, id: import('@engine/index.ts').StatusTypeId): string {
   try {
     return catalog.getStatusType(id).name;
+  } catch {
+    return String(id);
+  }
+}
+
+function safeItemName(catalog: Catalog, id: import('@engine/index.ts').ItemId): string {
+  try {
+    return catalog.getItem(id).name;
   } catch {
     return String(id);
   }

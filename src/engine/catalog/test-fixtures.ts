@@ -44,6 +44,7 @@ const EMPTY_DAMAGE_PIPELINE: Readonly<Record<DamageStage, ReadonlyArray<DamageHa
   variance: [],
   cap: [],
   finalize: [],
+  postFinalize: [],
 };
 
 // V1 default-equivalent stage list, exported for damage-flow tests
@@ -56,6 +57,12 @@ const EMPTY_DAMAGE_PIPELINE: Readonly<Record<DamageStage, ReadonlyArray<DamageHa
 // crit_roll at the variance stage (per ADR-0032). Pre-session-20
 // fixtures with crit_chance 0 are unaffected — the handler short-
 // circuits.
+//
+// Session 32: `postFinalize` stage added to mirror production. Pre-32 the
+// test fixture was missing this stage entirely — divergence that let
+// bug 4 (proc-on-miss) slip through the test surface (see ADR-0069
+// + S31.5 handoff). A structural-equivalence test now enforces
+// shape parity with `DEFAULT_DAMAGE_PIPELINE`.
 export const DEFAULT_TEST_DAMAGE_PIPELINE: Readonly<
   Record<DamageStage, ReadonlyArray<DamageHandlerRef>>
 > = {
@@ -69,6 +76,7 @@ export const DEFAULT_TEST_DAMAGE_PIPELINE: Readonly<
   variance: ['variance_roll', 'crit_roll'],
   cap: ['clamp_min_max'],
   finalize: ['finalize'],
+  postFinalize: ['fire_on_final_damage'],
 };
 
 export function makeTestRuleset(overrides?: {

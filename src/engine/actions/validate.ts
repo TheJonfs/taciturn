@@ -91,6 +91,7 @@ export function validateAction(
     case 'system_mp_drain':
     case 'system_apply_status':
     case 'system_ct_push':
+    case 'system_set_ct':
     case 'status_remove':
     case 'status_decrement_stack':
     case 'battle_end':

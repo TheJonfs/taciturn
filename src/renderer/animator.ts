@@ -385,9 +385,14 @@ export class Animator {
       case 'status_tick':
       case 'system_apply_status':
       case 'system_ct_push':
+      case 'system_set_ct':
       case 'status_remove':
       case 'status_decrement_stack':
         // No v1 visual; the renderer can pull the next action.
+        // `system_set_ct` lands during the orchestrator's pre-battle
+        // phase (per ADR-0071) and updates engine state directly; no
+        // tween needed because the visual snapshot reads through
+        // `state.units[id].ct` for the queue tower.
         return null;
 
       default:

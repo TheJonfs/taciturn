@@ -31,6 +31,7 @@ export type ActionType =
   | 'system_mp_drain'
   | 'system_apply_status'
   | 'system_ct_push'
+  | 'system_set_ct'
   | 'status_remove'
   | 'status_decrement_stack'
   | 'battle_end';
@@ -279,7 +280,22 @@ export interface SystemApplyStatusPayload {
   // composeApplyState (Burn snapshots applier MA × coefficient N
   // times). Defaults to 1 when omitted.
   readonly stackQuantity?: number;
+  // Per ADR-0071 (Session 32): provenance for the apply, in addition
+  // to (sourceUnitId, sourceActionSeq) which still travel through
+  // `applyStatus`. The action-log formatter reads this to render
+  // attribution like "Tintinibar grants Regen". Omitted for
+  // reaction-emitted applies (sourceUnitId carries the actor) and other
+  // pre-S32 emitters; new since Session 32 to support the pre-battle
+  // equipment auto-status reroute via `commitAction`.
+  readonly context?: SystemApplyStatusContext;
 }
+// Discriminator union for the optional `context` field. Open to
+// extension as new emission sites need attribution beyond a unit-id +
+// sequence-number pair.
+export type SystemApplyStatusContext = {
+  readonly kind: 'pre_battle_equipment';
+  readonly itemId: ItemId;
+};
 export interface SystemApplyStatusOutcome {
   readonly kind: 'system_apply_status';
   readonly targetId: UnitId;
@@ -319,6 +335,29 @@ export type SystemCtPushSource =
   | { readonly kind: 'ct_effect'; readonly abilityId: AbilityId; readonly attackerId: UnitId }
   | { readonly kind: 'reaction'; readonly abilityId: AbilityId; readonly attackerId: UnitId }
   | { readonly kind: 'support'; readonly abilityId: AbilityId; readonly unitId: UnitId };
+
+// `system_set_ct` — engine-emitted action that sets a unit's CT to an
+// absolute value. Distinct from `system_ct_push` (delta-based): set is
+// "make this unit's CT exactly N." v1 producer is the orchestrator's
+// pre-battle phase per ADR-0071, emitting one `system_set_ct` per unit
+// to record the initial-CT randomization into the action log (so replay
+// captures the wobble from sequence 0). Future use cases (debug-reset,
+// content-driven absolute-CT manipulation) extend the source union.
+//
+// Clamps to [0, TRIGGER_THRESHOLD - 1] inclusive — no unit starts pre-
+// triggered; the scheduler is the only path that lifts CT to ≥ 100.
+export interface SystemSetCtPayload {
+  readonly targetId: UnitId;
+  readonly ct: number;
+  readonly source: SystemSetCtSource;
+}
+export interface SystemSetCtOutcome {
+  readonly kind: 'system_set_ct';
+  readonly targetId: UnitId;
+  readonly ct: number; // post-clamp applied value
+  readonly previousCt: number;
+}
+export type SystemSetCtSource = { readonly kind: 'initial_ct' };
 
 // `status_remove` — engine-emitted action that removes a named status
 // instance from a target unit. Idempotent: a no-op if the status is
@@ -450,6 +489,11 @@ export type Action = ActionEnvelope &
         readonly outcome?: SystemCtPushOutcome;
       }
     | {
+        readonly type: 'system_set_ct';
+        readonly payload: SystemSetCtPayload;
+        readonly outcome?: SystemSetCtOutcome;
+      }
+    | {
         readonly type: 'status_remove';
         readonly payload: StatusRemovePayload;
         readonly outcome?: StatusRemoveOutcome;
@@ -480,6 +524,7 @@ export type ActionOutcome =
   | SystemMpDrainOutcome
   | SystemApplyStatusOutcome
   | SystemCtPushOutcome
+  | SystemSetCtOutcome
   | StatusRemoveOutcome
   | StatusDecrementStackOutcome
   | BattleEndOutcome;
@@ -578,6 +623,11 @@ export type ProposedAction =
       readonly type: 'system_ct_push';
       readonly source: 'system';
       readonly payload: SystemCtPushPayload;
+    }
+  | {
+      readonly type: 'system_set_ct';
+      readonly source: 'system';
+      readonly payload: SystemSetCtPayload;
     }
   | {
       readonly type: 'status_remove';

@@ -401,3 +401,179 @@ describe('getLegalMoves — pure function', () => {
     }
   });
 });
+
+// Session 32 / Item 15: jump-over-water leap candidates.
+// Cardinal two-step leap where the intermediate is water (elev 0 or 1)
+// and the destination is land (elev ≥ 2). Cost 2 fixed. Requires jump ≥ 1.
+// Per docs/twentyOneDesign/river-ridge.md "Jump-Over-Water Rule".
+//
+// Tests use a custom legend pairing water terrain with elevation 0/1
+// and ground terrain with elevation 2 (matches the universal water-table
+// convention: elev → water-ness).
+describe('getLegalMoves — jump-over-water leap (Session 32)', () => {
+  // Legend: 'L' land at elev 2, 's' shallow water elev 1, 'd' deep water elev 0.
+  // Unit's canEnter must include 'ground' (the land terrain); water terrains
+  // can be omitted (leap doesn't require canEnter on the intermediate).
+  const LEAP_LEGEND = {
+    L: { terrain: 'ground', elevation: 2 },
+    s: { terrain: 'water', elevation: 1 },
+    d: { terrain: 'water', elevation: 0 },
+  };
+
+  it('generates a leap candidate over shallow water (1 water tile, land destination)', () => {
+    // 3-tile strip: land, shallow water, land. Unit at (0,0), moveRange 2,
+    // jump 1. Should reach (2,0) at cost 2 via leap; not (1,0) since
+    // water isn't in canEnter and is elev 1 (no step possible).
+    const cat = knightCatalog({ moveRange: 2, jump: 1, canEnter: ['ground'] });
+    const u = makeUnit({ id: 'u1', spd: 10, position: { x: 0, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [u], map: mapFrom(['LsL'], LEAP_LEGEND) });
+    const { reachable } = getLegalMoves(state, u.id, cat);
+    const dest = reachable.get(positionKey({ x: 2, y: 0, layer: 0 }));
+    expect(dest).toBeDefined();
+    expect(dest!.cost).toBe(2);
+    // Path is [start, leap-destination] (intermediate water not in path).
+    expect(dest!.path).toEqual([
+      { x: 0, y: 0, layer: 0 },
+      { x: 2, y: 0, layer: 0 },
+    ]);
+    // Intermediate water tile is not reachable (canEnter excludes water).
+    expect(reachable.has(positionKey({ x: 1, y: 0, layer: 0 }))).toBe(false);
+  });
+
+  it('generates a leap over deep water (elev 0)', () => {
+    const cat = knightCatalog({ moveRange: 2, jump: 1, canEnter: ['ground'] });
+    const u = makeUnit({ id: 'u1', spd: 10, position: { x: 0, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [u], map: mapFrom(['LdL'], LEAP_LEGEND) });
+    const { reachable } = getLegalMoves(state, u.id, cat);
+    expect(reachable.get(positionKey({ x: 2, y: 0, layer: 0 }))!.cost).toBe(2);
+  });
+
+  it('does not leap when the unit has jump 0', () => {
+    const cat = knightCatalog({ moveRange: 5, jump: 0, canEnter: ['ground'] });
+    const u = makeUnit({ id: 'u1', spd: 10, position: { x: 0, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [u], map: mapFrom(['LsL'], LEAP_LEGEND) });
+    const { reachable } = getLegalMoves(state, u.id, cat);
+    expect(reachable.has(positionKey({ x: 2, y: 0, layer: 0 }))).toBe(false);
+  });
+
+  it('does not leap when the destination is also water (must land on land)', () => {
+    // L s s L — leap from (0,0) to (2,0) requires destination land,
+    // (2,0) is shallow water — should not generate. (1,0) and (3,0)
+    // also water-only, not reachable.
+    const cat = knightCatalog({ moveRange: 5, jump: 1, canEnter: ['ground'] });
+    const u = makeUnit({ id: 'u1', spd: 10, position: { x: 0, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [u], map: mapFrom(['LssL'], LEAP_LEGEND) });
+    const { reachable } = getLegalMoves(state, u.id, cat);
+    expect(reachable.has(positionKey({ x: 2, y: 0, layer: 0 }))).toBe(false);
+    // The land 3 tiles out *isn't* reachable via a single leap (two water
+    // tiles between source and destination). Confirms one-water-tile rule.
+    expect(reachable.has(positionKey({ x: 3, y: 0, layer: 0 }))).toBe(false);
+  });
+
+  it('does not leap when the intermediate is land (standard step path covers it)', () => {
+    // L L L — three land tiles. Should not generate a leap candidate
+    // because the intermediate is not water; standard adjacency handles it.
+    const cat = knightCatalog({ moveRange: 2, jump: 1, canEnter: ['ground'] });
+    const u = makeUnit({ id: 'u1', spd: 10, position: { x: 0, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [u], map: mapFrom(['LLL'], LEAP_LEGEND) });
+    const { reachable } = getLegalMoves(state, u.id, cat);
+    // (2,0) reaches via two standard steps at cost 2 (matching leap cost
+    // by coincidence; what matters is path content, not just cost).
+    const dest = reachable.get(positionKey({ x: 2, y: 0, layer: 0 }))!;
+    expect(dest.cost).toBe(2);
+    expect(dest.path.length).toBe(3); // includes intermediate land tile
+    expect(dest.path[1]).toEqual({ x: 1, y: 0, layer: 0 });
+  });
+
+  it('does not leap diagonally — cardinals only', () => {
+    // 2x2 of land with diagonal-adjacent water: leap would need to be
+    // cardinal-two-step. CARDINAL_DELTAS already enforces this; we
+    // confirm by setup that the leap predicate isn't hit on a diagonal
+    // pairing. (No leap dest exists since there's no row of L-W-L
+    // diagonally.)
+    const cat = knightCatalog({ moveRange: 2, jump: 1, canEnter: ['ground'] });
+    const u = makeUnit({ id: 'u1', spd: 10, position: { x: 0, y: 0, layer: 0 } });
+    const state = makeGameState({
+      units: [u],
+      map: mapFrom(
+        [
+          'Ls',
+          'sL',
+        ],
+        LEAP_LEGEND,
+      ),
+    });
+    const { reachable } = getLegalMoves(state, u.id, cat);
+    // (1,1) — diagonally across the water — is not reachable.
+    expect(reachable.has(positionKey({ x: 1, y: 1, layer: 0 }))).toBe(false);
+  });
+
+  it('respects elevation tolerance — leap blocked when source-to-dest delta exceeds jump', () => {
+    // Source at elev 2; intermediate water elev 1; destination at elev 6
+    // (high cliff). Δelev = 4. With jump 2 the leap is blocked; with
+    // jump 4 it succeeds.
+    const HIGH_LEGEND = {
+      L: { terrain: 'ground', elevation: 2 },
+      s: { terrain: 'water', elevation: 1 },
+      H: { terrain: 'ground', elevation: 6 },
+    };
+    const blockedCat = knightCatalog({ moveRange: 2, jump: 2, canEnter: ['ground'] });
+    const allowedCat = knightCatalog({ moveRange: 2, jump: 4, canEnter: ['ground'] });
+    const u = makeUnit({ id: 'u1', spd: 10, position: { x: 0, y: 0, layer: 0 } });
+    const blockedState = makeGameState({
+      units: [u],
+      map: mapFrom(['LsH'], HIGH_LEGEND),
+    });
+    const allowedState = makeGameState({
+      units: [u],
+      map: mapFrom(['LsH'], HIGH_LEGEND),
+    });
+    expect(
+      getLegalMoves(blockedState, u.id, blockedCat).reachable.has(
+        positionKey({ x: 2, y: 0, layer: 0 }),
+      ),
+    ).toBe(false);
+    expect(
+      getLegalMoves(allowedState, u.id, allowedCat).reachable.has(
+        positionKey({ x: 2, y: 0, layer: 0 }),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not generate leap when destination is occupied by an enemy', () => {
+    const cat = knightCatalog({ moveRange: 2, jump: 1, canEnter: ['ground'] });
+    const u1 = makeUnit({ id: 'u1', spd: 10, team: 'team_a', position: { x: 0, y: 0, layer: 0 } });
+    const u2 = makeUnit({ id: 'u2', spd: 10, team: 'team_b', position: { x: 2, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [u1, u2], map: mapFrom(['LsL'], LEAP_LEGEND) });
+    const { reachable } = getLegalMoves(state, u1.id, cat);
+    expect(reachable.has(positionKey({ x: 2, y: 0, layer: 0 }))).toBe(false);
+  });
+
+  it('leap cost stays fixed at 2 even when terrainCosts increase water cost', () => {
+    // Even if a custom terrain cost is authored for 'water', the leap is
+    // a category of move that pays a fixed 2 — it doesn't lookup
+    // terrainCosts for the intermediate. Confirms River Ridge's
+    // "leap pays 2 move points total" framing.
+    const cat = knightCatalog({
+      moveRange: 2,
+      jump: 1,
+      canEnter: ['ground'],
+      terrainCosts: [['water', 3]],
+    });
+    const u = makeUnit({ id: 'u1', spd: 10, position: { x: 0, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [u], map: mapFrom(['LsL'], LEAP_LEGEND) });
+    const { reachable } = getLegalMoves(state, u.id, cat);
+    expect(reachable.get(positionKey({ x: 2, y: 0, layer: 0 }))!.cost).toBe(2);
+  });
+
+  it('no spurious leaps on a land-only flat map (regression)', () => {
+    // Pre-S32 reachable-set on a flat 5×5 map should be unchanged. The
+    // leap predicate's water check short-circuits before any leap edges
+    // are added.
+    const cat = knightCatalog({ moveRange: 2, jump: 2 });
+    const u = makeUnit({ id: 'u1', spd: 10, position: { x: 2, y: 2, layer: 0 } });
+    const state = makeGameState({ units: [u], map: flatMap(5, 5) });
+    const { reachable } = getLegalMoves(state, u.id, cat);
+    expect(reachable.size).toBe(13);
+  });
+});

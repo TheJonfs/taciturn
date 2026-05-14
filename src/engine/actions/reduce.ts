@@ -19,6 +19,7 @@ import {
   reduceStatusTick,
   reduceSystemApplyStatus,
   reduceSystemCtPush,
+  reduceSystemSetCt,
   reduceSystemDamage,
   reduceSystemHeal,
   reduceSystemMpDrain,
@@ -65,6 +66,8 @@ export function reduce(state: GameState, action: Action, catalog: Catalog): Redu
       return reduceSystemApplyStatus(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_ct_push':
       return reduceSystemCtPush(state, action) as ReduceResult<ActionOutcome>;
+    case 'system_set_ct':
+      return reduceSystemSetCt(state, action) as ReduceResult<ActionOutcome>;
     case 'status_remove':
       return reduceStatusRemove(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'status_decrement_stack':

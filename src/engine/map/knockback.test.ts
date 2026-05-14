@@ -136,4 +136,39 @@ describe('applyKnockback', () => {
     expect(result.stepsTaken).toBe(0);
     expect(result.cancellation).toBeNull();
   });
+
+  // Session 32 / Item 16 — River Ridge ridge-into-water knockback case.
+  // Per docs/twentyOneDesign/river-ridge.md "Knockback Into Water":
+  // a unit knocked off the elev-7 ridge into adjacent shallow water at
+  // elev 1 should land on the water tile with dropDistance 6 and emit
+  // fall damage of 10 × 6 = 60. Confirms the primitive does not filter
+  // water tiles as invalid destinations (water destinations are allowed
+  // regardless of Walk-on-Water status — that's a future passive).
+  it('knockback from a ridge into adjacent shallow water (dropDistance 6, fall damage 60)', () => {
+    // 2×1 map: ridge tile at (0,0) elev 7, shallow water at (1,0) elev 1.
+    const map: BattleMap = {
+      width: 2,
+      height: 1,
+      tiles: [
+        { x: 0, y: 0, layer: 0, elevation: 7, terrain: 'ground', properties: [] },
+        { x: 1, y: 0, layer: 0, elevation: 1, terrain: 'water', properties: [] },
+      ],
+    };
+    const u = makeUnit({ id: 'u', position: { x: 0, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [u], map });
+    const result = applyKnockback({ state, unit: u, direction: 'E', distance: 1 });
+    expect(result.finalPosition).toEqual({ x: 1, y: 0, layer: 0 });
+    expect(result.stepsTaken).toBe(1);
+    expect(result.cancellation).toBeNull();
+    expect(result.dropDistance).toBe(6);
+    expect(result.fallingDamageAction).toBeDefined();
+    if (result.fallingDamageAction !== undefined) {
+      expect(result.fallingDamageAction.type).toBe('system_damage');
+      if (result.fallingDamageAction.type === 'system_damage') {
+        expect(result.fallingDamageAction.payload.amount).toBe(60);
+        expect(result.fallingDamageAction.payload.targetId).toBe(unitId('u'));
+        expect(result.fallingDamageAction.payload.source.kind).toBe('falling');
+      }
+    }
+  });
 });

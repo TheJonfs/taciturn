@@ -30,6 +30,32 @@ export const TERRAIN_FALLBACK_COLOR = 0xff00ff;
 export const TILE_OUTLINE_COLOR = 0x000000;
 export const TILE_OUTLINE_ALPHA = 0.18;
 
+// Cliff-edge overlay (Session 32 / ADR-0072). For each tile, the
+// renderer reads the four cardinal neighbors' elevations; for any
+// neighbor with strictly lower elevation, draws a "cliff face" strip
+// on the higher tile's edge facing the lower neighbor.
+//
+// Thickness scales categorically by elevation delta — chosen over a
+// continuous scaling to keep gentle climbs readable without making
+// sharp drops disruptive. Gentle 1-step rises along a ridge get a
+// 1px hint; the dramatic 5-7 drops from a high perch get the full 3px.
+// Δ=1 → 1px, Δ=2-3 → 2px, Δ≥4 → 3px.
+//
+// Color: a darker shade of the higher tile's terrain palette color
+// (multiplicative darken). Cliff faces read as part of the same
+// material as the tile they rise from. S+E edges get the heavier
+// darken (lit-from-upper-left convention); N+W edges get a lighter
+// darken suggesting the cliff catches the light.
+export const CLIFF_EDGE_THICKNESS_PX_DELTA_1 = 1;
+export const CLIFF_EDGE_THICKNESS_PX_DELTA_2_3 = 2;
+export const CLIFF_EDGE_THICKNESS_PX_DELTA_4_PLUS = 3;
+// Multiplicative darken applied to a tile's palette color for the
+// cliff face. < 1.0 darkens. The lit side (N + W edges) reads brighter
+// than the shadowed side (S + E edges) so the volume reads correctly
+// against the lit-from-upper-left convention.
+export const CLIFF_EDGE_DARKEN_SHADOW = 0.55;
+export const CLIFF_EDGE_DARKEN_HIGHLIGHT = 0.78;
+
 // Portrait restructure (session 26.5 / item #2). Replaces the prior
 // inscribed-circle layout (colored body + team ring at body edge) with
 // a black-square portrait backdrop + colored team ring as a rounded-

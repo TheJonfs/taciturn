@@ -6,7 +6,9 @@ import {
   ALL_BUCKET_IDS,
   DEFAULT_HOOK_SOURCE_TIER_ORDER,
   rulesetId,
+  type DamageStage,
 } from '@engine/index.ts';
+import { DEFAULT_TEST_DAMAGE_PIPELINE } from '@engine/catalog/test-fixtures.ts';
 import { defaultRuleset } from './default.ts';
 
 describe('defaultRuleset', () => {
@@ -80,6 +82,29 @@ describe('defaultRuleset', () => {
     expect(stages.variance).toEqual(['variance_roll', 'crit_roll']);
     expect(stages.cap).toEqual(['clamp_min_max']);
     expect(stages.finalize).toEqual(['finalize']);
+    // Session 30 / ADR-0065: `postFinalize` is an emission-only stage
+    // after the integer `damageDealt` is locked in. Rasp Pendant's
+    // `system_mp_drain` emits here via `fire_on_final_damage`.
+    expect(stages.postFinalize).toEqual(['fire_on_final_damage']);
+  });
+
+  // Session 32 defensive: `DEFAULT_TEST_DAMAGE_PIPELINE` (test fixture)
+  // must match `defaultRuleset.damagePipeline.stages` (production) in
+  // shape AND handler arrays. Pre-32, the test fixture lagged production
+  // (missing `postFinalize` entirely) which let bug 4 (proc-on-miss) slip
+  // through the test surface (the test pipeline didn't carry the
+  // `fire_on_damage_dealt` ordering bug because it was reconstructed
+  // manually). This assertion catches the next divergence class.
+  // See S31.5 handoff carry-forward.
+  it('DEFAULT_TEST_DAMAGE_PIPELINE is structurally equivalent to production', () => {
+    const productionStages = defaultRuleset.damagePipeline.stages;
+    const testStages = DEFAULT_TEST_DAMAGE_PIPELINE;
+    const productionKeys = (Object.keys(productionStages) as DamageStage[]).sort();
+    const testKeys = (Object.keys(testStages) as DamageStage[]).sort();
+    expect(testKeys).toEqual(productionKeys);
+    for (const stage of productionKeys) {
+      expect(testStages[stage]).toEqual(productionStages[stage]);
+    }
   });
 
   it("initialCT uses uniform_int in [0, 20] per session 25 / ADR-0050", () => {
@@ -100,3 +125,4 @@ describe('defaultRuleset', () => {
     expect(defaultRuleset.rangeDefaults.aoeVerticalTolerance).toBe(1);
   });
 });
+

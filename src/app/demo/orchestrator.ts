@@ -93,11 +93,28 @@ export class DemoOrchestrator {
   private state: GameState;
   private readonly catalog: Catalog;
   private readonly controllers: ControllerMap;
+  // Per ADR-0071 (Session 32): pre-battle action queue. The orchestrator
+  // commits each entry through `commitAction` before the first scheduler
+  // advance fires, so the action log captures equipment auto-status grants
+  // (Tintinibar's Regen, Sorcerer's Robe's Shell) and the ruleset-derived
+  // initial-CT randomization from sequence 0 forward. The queue is
+  // pre-computed by the caller via `enumeratePreBattleActions` so the
+  // orchestrator doesn't need the BattleConfig at construction time.
+  // Empty when the caller doesn't supply one (e.g. older test fixtures
+  // that build state by hand) — `step()` just falls through to the
+  // scheduler-advance branch.
+  private preBattleQueue: ProposedAction[];
 
-  constructor(initialState: GameState, catalog: Catalog, controllers: ControllerMap) {
+  constructor(
+    initialState: GameState,
+    catalog: Catalog,
+    controllers: ControllerMap,
+    preBattleActions: ReadonlyArray<ProposedAction> = [],
+  ) {
     this.state = initialState;
     this.catalog = catalog;
     this.controllers = controllers;
+    this.preBattleQueue = [...preBattleActions];
   }
 
   getState(): GameState {
@@ -107,6 +124,26 @@ export class DemoOrchestrator {
   step(): OrchestratorStep {
     if (this.state.outcome !== undefined) {
       return { newState: this.state, committed: [], done: true };
+    }
+
+    // Pre-battle phase (Session 32 / ADR-0071). Drains queued
+    // `system_apply_status` and `system_set_ct` actions one-per-step
+    // before the first turn fires. Failures throw — these are
+    // engine-emitted actions that should always validate.
+    if (this.preBattleQueue.length > 0) {
+      const proposed = this.preBattleQueue.shift()!;
+      const result = commitAction(this.state, proposed, this.catalog);
+      if (!result.ok) {
+        throw new Error(
+          `DemoOrchestrator: pre-battle commit failed at ${proposed.type}: ${result.reason}`,
+        );
+      }
+      this.state = result.newState;
+      return {
+        newState: this.state,
+        committed: result.committed,
+        done: false,
+      };
     }
 
     if (this.state.turnState === null) {

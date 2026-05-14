@@ -34,6 +34,7 @@ import { applyStatus } from '../status/apply.ts';
 import { rollAbilityChance, rollStatusChance } from '../status/chance.ts';
 import { removeStatus } from '../status/remove.ts';
 import { evaluateBattleOutcome } from '../turn/evaluate-battle-outcome.ts';
+import { TRIGGER_THRESHOLD } from '../ct/constants.ts';
 import { perTargetSeed } from './seed.ts';
 import {
   chargedActionId,
@@ -61,6 +62,7 @@ import {
   type StatusTypeId,
   type SystemApplyStatusOutcome,
   type SystemCtPushOutcome,
+  type SystemSetCtOutcome,
   type SystemDamageOutcome,
   type SystemHealOutcome,
   type SystemMpDrainOutcome,
@@ -1877,8 +1879,16 @@ export function reduceSystemApplyStatus(
   action: Extract<Action, { type: 'system_apply_status' }>,
   catalog: Catalog,
 ): ReduceResult<SystemApplyStatusOutcome> {
-  const { targetId, statusTypeId, sourceUnitId, magnitude, duration, customState, stackQuantity } =
-    action.payload;
+  const {
+    targetId,
+    statusTypeId,
+    sourceUnitId,
+    magnitude,
+    duration,
+    customState,
+    stackQuantity,
+    context,
+  } = action.payload;
   const target = state.units.get(targetId);
   if (target === undefined || target.vitals.hp <= 0) {
     // KO'd targets don't receive new statuses (parallel to BMG: DoTs
@@ -1896,6 +1906,16 @@ export function reduceSystemApplyStatus(
       generatedActions: [],
     };
   }
+  // Per ADR-0071 (Session 32): when `context.kind === 'pre_battle_equipment'`,
+  // thread the equipment source through `applyStatus` so the resulting
+  // status instance carries `source.kind === 'equipment'` and the
+  // equipment id. This preserves the ADR-0028 invariant (equipment-
+  // granted instances are immune to in-battle removal until the
+  // equipment itself is removed).
+  const equipmentSource =
+    context !== undefined && context.kind === 'pre_battle_equipment'
+      ? { sourceKind: 'equipment' as const, sourceEquipmentId: context.itemId }
+      : {};
   const applied = applyStatus(
     state,
     {
@@ -1903,6 +1923,7 @@ export function reduceSystemApplyStatus(
       typeId: statusTypeId,
       sourceUnitId,
       sourceActionSeq: action.sequenceNumber,
+      ...equipmentSource,
       ...(magnitude !== undefined ? { magnitude } : {}),
       ...(duration !== undefined ? { duration } : {}),
       ...(customState !== undefined ? { customState } : {}),
@@ -1961,6 +1982,45 @@ export function reduceSystemCtPush(
   return {
     newState: withUnit(state, newTarget),
     outcome: { kind: 'system_ct_push', targetId, delta, applied },
+    generatedActions: [],
+  };
+}
+
+// --- system_set_ct ---
+//
+// Engine-emitted action that sets a unit's CT to an absolute value
+// (vs. `system_ct_push`'s signed delta). Per ADR-0071 (Session 32), the
+// orchestrator's pre-battle phase emits one of these per unit at battle
+// setup to log the initial-CT randomization into the action log. Clamps
+// to [0, TRIGGER_THRESHOLD - 1] inclusive so no unit can start
+// pre-triggered. Missing target is an idempotent no-op (same shape as
+// `reduceSystemCtPush`).
+export function reduceSystemSetCt(
+  state: GameState,
+  action: Extract<Action, { type: 'system_set_ct' }>,
+): ReduceResult<SystemSetCtOutcome> {
+  const { targetId, ct: requested } = action.payload;
+  const target = state.units.get(targetId);
+  if (target === undefined) {
+    // No target: report the requested ct echoed back with previousCt 0.
+    return {
+      newState: state,
+      outcome: { kind: 'system_set_ct', targetId, ct: 0, previousCt: 0 },
+      generatedActions: [],
+    };
+  }
+  const clamped = Math.max(0, Math.min(TRIGGER_THRESHOLD - 1, Math.floor(requested)));
+  if (clamped === target.ct) {
+    return {
+      newState: state,
+      outcome: { kind: 'system_set_ct', targetId, ct: clamped, previousCt: target.ct },
+      generatedActions: [],
+    };
+  }
+  const newTarget: Unit = { ...target, ct: clamped };
+  return {
+    newState: withUnit(state, newTarget),
+    outcome: { kind: 'system_set_ct', targetId, ct: clamped, previousCt: target.ct },
     generatedActions: [],
   };
 }

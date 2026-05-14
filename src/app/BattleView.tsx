@@ -26,6 +26,7 @@ import { loadDefaultCatalog } from '@content/index.ts';
 import { trainingFieldBattle } from '@content/battles/training-field-battle.ts';
 import {
   createInitialState,
+  enumeratePreBattleActions,
   type Catalog,
   type ChargedActionId,
   type GameState,
@@ -125,6 +126,15 @@ function BattleViewInner() {
 
     void (async () => {
       const initialState = createInitialState(trainingFieldBattle, catalog);
+      // Per ADR-0071 (Session 32): equipment auto-status grants and the
+      // ruleset-derived initial-CT randomization land as logged actions
+      // commit by the orchestrator's pre-battle phase. Compute the queue
+      // here so the orchestrator just plays it back.
+      const preBattleActions = enumeratePreBattleActions(
+        initialState,
+        trainingFieldBattle,
+        catalog,
+      );
 
       const app = new Application();
       await app.init({
@@ -153,7 +163,12 @@ function BattleViewInner() {
         [trainingFieldBattle.teams[0]!.id, uiController.controller],
         [trainingFieldBattle.teams[1]!.id, createBasicAiController()],
       ]);
-      const orchestrator = new DemoOrchestrator(initialState, catalog, controllers);
+      const orchestrator = new DemoOrchestrator(
+        initialState,
+        catalog,
+        controllers,
+        preBattleActions,
+      );
 
       // Camera input — keyboard for pan, wheel for zoom.
       const panState: { left: boolean; right: boolean; up: boolean; down: boolean } = {

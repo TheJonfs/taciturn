@@ -17,7 +17,21 @@ import {
   type RulesetInitialCT,
   type UnitPlacement,
 } from '../types/index.ts';
-import { createInitialState } from './create-initial-state.ts';
+import {
+  createInitialState as createInitialStateImpl,
+  runPreBattlePhase,
+} from './create-initial-state.ts';
+
+// Helper: per Session 32 / ADR-0071, ruleset-derived initial CT now
+// lands via the orchestrator's pre-battle phase as logged `system_set_ct`
+// actions. These tests assert post-pre-battle-phase state, so we wrap
+// `createInitialState` + `runPreBattlePhase` and call the wrapper as
+// `createInitialState` to keep the test bodies readable. The values
+// stay deterministic from `(masterSeed, unitId)` — same as pre-S32.
+function createInitialState(cfg: BattleConfig, cat: Catalog) {
+  const state = createInitialStateImpl(cfg, cat);
+  return runPreBattlePhase(state, cfg, cat);
+}
 
 function placement(args: {
   readonly id: string;

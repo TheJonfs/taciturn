@@ -21,7 +21,7 @@ import {
   type Loadout,
   type UnitPlacement,
 } from '../types/index.ts';
-import { BattleConfigError, createInitialState } from './create-initial-state.ts';
+import { BattleConfigError, createInitialState, runPreBattlePhase } from './create-initial-state.ts';
 
 function placementOf(overrides: {
   readonly id: string;
@@ -97,22 +97,26 @@ describe('createInitialState — basics', () => {
     expect(u.ct).toBe(0);
   });
 
-  it("seeds initial CT from a non-zero ruleset 'fixed' value", () => {
+  it("seeds initial CT from a non-zero ruleset 'fixed' value via the pre-battle phase", () => {
+    // Per ADR-0071 (Session 32): ruleset-derived initial CT is emitted
+    // by the orchestrator's pre-battle phase as logged `system_set_ct`
+    // actions, not applied inside `createInitialState`. Bare
+    // `createInitialState` leaves ct = 0; `runPreBattlePhase` produces
+    // the final value (50 in this fixture).
     const ruleset = makeTestRuleset();
-    // Replace initialCT to be non-zero.
     const customRuleset = { ...ruleset, initialCT: { kind: 'fixed' as const, value: 50 } };
     const cat = createCatalog({
       statusTypes: [],
       abilities: [],
-      // Knight's first_action pins to battle_skill; the catalog must
-      // carry it to satisfy the validator.
       commandSets: [{ id: commandSetId('battle_skill'), name: 'Battle Skill', members: [], baseCost: 1, availability: 'hidden' }],
       classes: [makeKnight()],
       items: [],
       rulesets: [customRuleset],
     });
     const cfg = configOf({});
-    const state = createInitialState(cfg, cat);
+    const raw = createInitialState(cfg, cat);
+    expect(raw.units.get(unitId('u1'))!.ct).toBe(0);
+    const state = runPreBattlePhase(raw, cfg, cat);
     expect(state.units.get(unitId('u1'))!.ct).toBe(50);
   });
 

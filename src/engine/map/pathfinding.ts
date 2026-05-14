@@ -21,6 +21,17 @@
 //
 // Cost model: each step costs `terrainCosts.get(destinationTerrain) ?? 1`.
 // The unit may move along any path whose total cost is ≤ moveRange.
+//
+// Session 32 / Item 15: jump-over-water leap candidates. During node
+// expansion, in addition to the four cardinal one-step adjacents, the
+// algorithm considers four cardinal two-step leaps where the
+// intermediate tile is water (elevation 0 or 1) and the destination is
+// land (elevation ≥ 2). Each leap costs a fixed 2 move points and
+// requires the moving unit to have `jump ≥ 1`. The elevation differential
+// from source to destination must still satisfy the jump tolerance
+// (same rule as a standard step). The intermediate tile is *not*
+// required to satisfy `canEnter` — the unit leaps over it. See
+// docs/twentyOneDesign/river-ridge.md ("Jump-Over-Water Rule").
 
 import { computeMovementProfile } from './movement-profile.ts';
 import { tileAt, tilesAt, unitAt } from './accessors.ts';
@@ -75,6 +86,24 @@ const CARDINAL_DELTAS: ReadonlyArray<{ readonly dx: number; readonly dy: number 
   { dx: 0, dy: -1 },
 ];
 
+// Jump-over-water leap is a fixed 2 move points (per river-ridge.md and
+// Session 32 brief Item 15). Independent of `terrainCosts` — the leap
+// is a category of move, not a per-tile cost lookup.
+const LEAP_COST = 2;
+
+// Per universal water-table convention (river-ridge.md "Elevation Grid"):
+// elev 0 = deep water, elev 1 = shallow water, elev ≥ 2 = land. The
+// elevation alone determines water-ness; no separate terrain check is
+// needed. Future terrain-manipulation abilities mutate elevation +
+// terrain in lockstep so the cost lookup also flips.
+function isWaterTile(tile: Tile): boolean {
+  return tile.elevation <= 1;
+}
+
+function isLandTile(tile: Tile): boolean {
+  return tile.elevation >= 2;
+}
+
 function inBounds(state: GameState, x: number, y: number): boolean {
   return x >= 0 && y >= 0 && x < state.map.width && y < state.map.height;
 }
@@ -127,6 +156,35 @@ function canStep(
 
 function stepCost(profile: MovementProfile, toTile: Tile): number {
   return profile.terrainCosts.get(toTile.terrain) ?? 1;
+}
+
+// Leap legality: like canStep, but the elevation differential is
+// measured source-to-destination (the leap is one atomic move; the
+// intermediate water tile is hopped over and contributes no terrain
+// constraint). canEnter and occupancy still gate the destination.
+// Flying units don't need leaps (they path straight across water at
+// terrain-cost-1) but the rule lets them anyway — no behavior change.
+function canLeapTo(
+  state: GameState,
+  movingUnit: { readonly id: UnitId; readonly team: TeamId },
+  fromTile: Tile,
+  destTile: Tile,
+  profile: MovementProfile,
+  friendlyPassThrough: boolean,
+): boolean {
+  if (!profile.canEnter.has(destTile.terrain)) return false;
+  if (
+    profile.specialMovement !== 'fly' &&
+    Math.abs(destTile.elevation - fromTile.elevation) > profile.jump
+  ) {
+    return false;
+  }
+  const occupant = unitAt(state, destTile.x, destTile.y, destTile.layer);
+  if (occupant !== undefined && occupant.id !== movingUnit.id) {
+    if (!friendlyPassThrough) return false;
+    if (occupant.team !== movingUnit.team) return false;
+  }
+  return true;
 }
 
 export function getLegalMoves(
@@ -194,6 +252,40 @@ export function getLegalMoves(
           cameFrom.set(toKey, current.key);
           positions.set(toKey, toPos);
           frontier.push({ key: toKey, position: toPos, cost: newCost });
+        }
+      }
+
+      // Jump-over-water leap candidates (Session 32 / Item 15). Two-step
+      // cardinal leap where the intermediate is water (elev 0 or 1) and
+      // the destination is land (elev ≥ 2). Cost 2; requires jump ≥ 1.
+      // The intermediate tile's `canEnter` does not gate the leap; the
+      // destination still must.
+      if (profile.jump >= 1) {
+        const lx = current.position.x + 2 * delta.dx;
+        const ly = current.position.y + 2 * delta.dy;
+        if (!inBounds(state, lx, ly)) continue;
+        // For the intermediate, take any tile at the cell — water on
+        // *any* layer (river map is single-layer in v1) is a leap-over
+        // candidate. If multiple intermediates exist, we treat the leap
+        // as valid if any of them is water.
+        const intermediates = tilesAt(state.map, nx, ny);
+        const intermediateIsWater = intermediates.some(isWaterTile);
+        if (!intermediateIsWater) continue;
+        const leapCandidates = tilesAt(state.map, lx, ly);
+        for (const destTile of leapCandidates) {
+          if (!isLandTile(destTile)) continue;
+          if (!canLeapTo(state, unit, fromTile, destTile, profile, friendlyPassThrough)) continue;
+          const leapCost = current.cost + LEAP_COST;
+          if (leapCost > profile.moveRange) continue;
+          const destPos: Position = { x: destTile.x, y: destTile.y, layer: destTile.layer };
+          const destKey = positionKey(destPos);
+          const previousBest = bestCost.get(destKey) ?? Infinity;
+          if (leapCost < previousBest) {
+            bestCost.set(destKey, leapCost);
+            cameFrom.set(destKey, current.key);
+            positions.set(destKey, destPos);
+            frontier.push({ key: destKey, position: destPos, cost: leapCost });
+          }
         }
       }
     }

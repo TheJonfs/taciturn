@@ -33,6 +33,7 @@ import {
 } from '@engine/index.ts';
 import { TILE_SIZE } from './constants.ts';
 import { TileLayer } from './tile-layer.ts';
+import { CliffEdgeLayer } from './cliff-edge-layer.ts';
 import { statusBadgeFromInstance, UnitSprite, type StatusBadge } from './unit-layer.ts';
 import { HighlightLayer, type HighlightKind } from './highlight-layer.ts';
 import { Animator } from './animator.ts';
@@ -48,6 +49,11 @@ export class BattleRenderer {
   readonly app: Application;
   private readonly world: Container;
   private readonly tileLayer: TileLayer;
+  // Per ADR-0072 (Session 32): cliff-edge overlay between tiles and
+  // highlights. Renders darkened edge strips on any tile whose cardinal
+  // neighbor sits at lower elevation. Static for the map's lifetime;
+  // a future elevation-mutation ability would re-call `draw`.
+  private readonly cliffEdgeLayer: CliffEdgeLayer;
   private readonly highlightLayer: HighlightLayer;
   private readonly unitLayer: Container;
   private readonly sprites: Map<UnitId, UnitSprite> = new Map();
@@ -85,11 +91,13 @@ export class BattleRenderer {
     this.app.stage.addChild(this.world);
 
     this.tileLayer = new TileLayer();
+    this.cliffEdgeLayer = new CliffEdgeLayer();
     this.highlightLayer = new HighlightLayer();
     this.unitLayer = new Container();
     this.unitLayer.label = 'units';
     this.world.addChild(
       this.tileLayer.container,
+      this.cliffEdgeLayer.container,
       this.highlightLayer.container,
       this.unitLayer,
     );
@@ -113,6 +121,7 @@ export class BattleRenderer {
     this.lastState = state;
     this.catalog = catalog;
     this.tileLayer.draw(state.map);
+    this.cliffEdgeLayer.draw(state.map);
 
     this.camera = new CameraController({
       mapWidth: state.map.width,

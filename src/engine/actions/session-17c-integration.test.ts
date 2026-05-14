@@ -35,7 +35,11 @@ import { activeTurnFor, makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { flatMap } from '../map/test-fixtures.ts';
 import { getEquippedWeapon, validateSlotItem } from '../items/equipment.ts';
 import { runModifyEvasion, runModifyStatQuery } from '../hooks/runners.ts';
-import { createInitialState, BattleConfigError } from '../setup/create-initial-state.ts';
+import {
+  createInitialState,
+  BattleConfigError,
+  runPreBattlePhase,
+} from '../setup/create-initial-state.ts';
 import {
   abilityId,
   bucketId,
@@ -154,7 +158,13 @@ function buildBattle(args: {
     ],
     masterSeed: 0xC0FFEE,
   };
-  const state = createInitialState(config, catalog);
+  // Per ADR-0071 (Session 32): equipment status grants apply via the
+  // orchestrator's pre-battle phase as logged `system_apply_status`
+  // actions. These tests assert the post-pre-battle-phase state — same
+  // shape pre-S32 saw at `createInitialState` exit. Equivalence is
+  // verified by the structural-equivalence pipeline test elsewhere.
+  const rawState = createInitialState(config, catalog);
+  const state = runPreBattlePhase(rawState, config, catalog);
   return { state, catalog };
 }
 
