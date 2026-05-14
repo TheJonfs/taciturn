@@ -44,7 +44,6 @@ export interface UnitVisualSnapshot {
   position: ScreenPoint;
   facing: Direction;
   hp: number;
-  maxHp: number;
   // Session 31.5 polish #5: MP tracked on the snapshot (like HP) so MP
   // changes settle in sync with the action's tween, not ahead of it.
   // Pre-31.5 the renderer read MP live from engine state — the value
@@ -69,7 +68,6 @@ interface MoveAnim {
 interface FlashTargetSpec {
   readonly unitId: UnitId;
   readonly hpAfter: number;
-  readonly maxHpAfter: number;
   readonly koAfter: boolean;
   // Polish #5: post-flash MP for this unit. `undefined` means the
   // flash does not modify MP (the existing damage-only path).
@@ -231,21 +229,25 @@ export class Animator {
       case 'use_ability': {
         const outcome = action.outcome;
         if (outcome === undefined) return null;
-        // Charged-cast commits enter a pending state — the visible
-        // effects fire at `charged_action_resolve` time. Pause briefly
-        // so the cast itself reads as a beat.
-        if (outcome.chargedActionId !== undefined) {
-          return { kind: 'pause', totalMs: ATTACK_FLASH_DURATION_MS / 2, elapsed: 0 };
-        }
-        // Polish #5: thread the actor's post-cast MP into the flash so
-        // a cast's MP cost settles in sync with the damage flash, not
-        // ahead of it. The flash's finalize writes `mpAfter` onto the
-        // actor's snapshot.
-        const actorMpDelta = outcome.mpSpent ?? 0;
+        // Polish #5 / ADR-0074 amendment: thread the actor's post-cast MP
+        // into the flash so a cast's MP cost settles in sync with the
+        // beat, not ahead of it. The flash's finalize writes `mpAfter`
+        // onto the actor's snapshot. `outcome.mpAfter` is the engine-
+        // reported absolute — no `snap.mp - mpSpent` arithmetic.
         const actorMpAfter =
-          actorMpDelta > 0 && action.actorId !== undefined
-            ? { actorId: action.actorId, mpDelta: -actorMpDelta }
+          outcome.mpSpent > 0 && action.actorId !== undefined && outcome.mpAfter !== undefined
+            ? { actorId: action.actorId, mpAfter: outcome.mpAfter }
             : undefined;
+        // Charged-cast commits enter a pending state — the visible
+        // effects fire at `charged_action_resolve` time. The commit still
+        // deducts MP up front, so settle the caster's MP bar in sync with
+        // a brief cast beat; fall back to a plain pause when no MP moved.
+        if (outcome.chargedActionId !== undefined) {
+          if (actorMpAfter === undefined) {
+            return { kind: 'pause', totalMs: ATTACK_FLASH_DURATION_MS / 2, elapsed: 0 };
+          }
+          return this.buildFlashFromTargets([], ATTACK_FLASH_DURATION_MS / 2, actorMpAfter);
+        }
         return this.buildFlashFromTargets(outcome.perTargetResults, ATTACK_FLASH_DURATION_MS, actorMpAfter);
       }
 
@@ -303,19 +305,20 @@ export class Animator {
       case 'system_damage': {
         // Apply HP delta to the targeted unit and play a short flash so
         // damage-over-time ticks (Burn, Poison) and falling damage are
-        // visible. No v1 popup for the magnitude.
+        // visible. No v1 popup for the magnitude. ADR-0074 amendment:
+        // settle from the engine-reported `outcome.hpAfter` absolute
+        // rather than `snap.hp - applied` arithmetic on a drifting snapshot.
         const outcome = action.outcome;
         const applied = outcome?.applied ?? action.payload.amount;
         if (applied <= 0) return null;
         const snap = this.snapshots.get(action.payload.targetId);
         if (snap === undefined) return null;
-        const hpAfter = Math.max(0, snap.hp - applied);
+        const hpAfter = outcome?.hpAfter ?? Math.max(0, snap.hp - applied);
         return {
           kind: 'flash',
           targets: [{
             unitId: action.payload.targetId,
             hpAfter,
-            maxHpAfter: snap.maxHp,
             koAfter: hpAfter <= 0,
           }],
           totalMs: ATTACK_FLASH_DURATION_MS / 2,
@@ -324,18 +327,20 @@ export class Animator {
       }
 
       case 'system_heal': {
+        // ADR-0074 amendment: settle from the engine-reported
+        // `outcome.hpAfter` absolute. The fallback `snap.hp + applied`
+        // needs no maxHp clamp — `applied` is already the post-cap delta.
         const outcome = action.outcome;
         const applied = outcome?.applied ?? action.payload.amount;
         if (applied <= 0) return null;
         const snap = this.snapshots.get(action.payload.targetId);
         if (snap === undefined) return null;
-        const hpAfter = Math.min(snap.maxHp, snap.hp + applied);
+        const hpAfter = outcome?.hpAfter ?? snap.hp + applied;
         return {
           kind: 'flash',
           targets: [{
             unitId: action.payload.targetId,
             hpAfter,
-            maxHpAfter: snap.maxHp,
             koAfter: false,
           }],
           totalMs: ATTACK_FLASH_DURATION_MS / 2,
@@ -344,9 +349,10 @@ export class Animator {
       }
 
       case 'system_mp_drain': {
-        // Polish #5: settle MP on the snapshot so the visible value
-        // moves in sync with the attack flash that triggered the drain.
-        // Short pause + finalize writes mp on both source and target.
+        // Polish #5 / ADR-0074 amendment: settle MP on the snapshot so the
+        // visible value moves in sync with the attack flash that triggered
+        // the drain. `outcome.sourceMpAfter` / `targetMpAfter` are the
+        // engine-reported absolutes — no `snap.mp ± applied` arithmetic.
         const outcome = action.outcome;
         const sourceApplied = outcome?.sourceApplied ?? 0;
         const targetApplied = outcome?.targetApplied ?? 0;
@@ -357,9 +363,8 @@ export class Animator {
           specs.push({
             unitId: action.payload.source,
             hpAfter: sourceSnap.hp,
-            maxHpAfter: sourceSnap.maxHp,
             koAfter: sourceSnap.ko,
-            mpAfter: sourceSnap.mp + sourceApplied,
+            mpAfter: outcome?.sourceMpAfter ?? sourceSnap.mp,
           });
         }
         const targetSnap = this.snapshots.get(action.payload.target);
@@ -367,9 +372,8 @@ export class Animator {
           specs.push({
             unitId: action.payload.target,
             hpAfter: targetSnap.hp,
-            maxHpAfter: targetSnap.maxHp,
             koAfter: targetSnap.ko,
-            mpAfter: Math.max(0, targetSnap.mp - targetApplied),
+            mpAfter: outcome?.targetMpAfter ?? targetSnap.mp,
           });
         }
         if (specs.length === 0) return null;
@@ -448,7 +452,6 @@ export class Animator {
           if (snap === undefined) continue;
           snap.flash = 0;
           snap.hp = target.hpAfter;
-          snap.maxHp = target.maxHpAfter;
           snap.ko = target.koAfter;
           if (target.mpAfter !== undefined) {
             snap.mp = target.mpAfter;
@@ -476,7 +479,7 @@ export class Animator {
   private buildFlashFromTargets(
     results: ReadonlyArray<import('@engine/index.ts').AbilityTargetResult>,
     durationMs: number = ATTACK_FLASH_DURATION_MS,
-    actorMpAdjustment?: { readonly actorId: UnitId; readonly mpDelta: number },
+    actorMpAdjustment?: { readonly actorId: UnitId; readonly mpAfter: number },
   ): Anim {
     const specs: FlashTargetSpec[] = [];
     for (const result of results) {
@@ -495,8 +498,7 @@ export class Animator {
       // root cause of the S33 playtest's ghost-HP / missing-red-X bugs.
       const damage = result.damage ?? 0;
       const healing = result.healing ?? 0;
-      const hpAfter =
-        result.hpAfter ?? Math.max(0, Math.min(snap.maxHp, snap.hp - damage + healing));
+      const hpAfter = result.hpAfter ?? Math.max(0, snap.hp - damage + healing);
       // Session 31.5 (bug A): knockback rider displacement settles the
       // sprite onto the new tile at flash finalize. `displacedTo` is
       // populated by the reducer when applyKnockback moved the target.
@@ -505,19 +507,19 @@ export class Animator {
       specs.push({
         unitId: targetId,
         hpAfter,
-        maxHpAfter: snap.maxHp,
         koAfter: hpAfter <= 0,
         ...(positionAfter !== undefined ? { positionAfter } : {}),
       });
     }
-    // Polish #5: if the actor's MP changed (use_ability mpSpent), bundle
-    // it into the flash's finalize. If the actor was also damaged (rare
-    // — self-targeted spells), merge the mpAfter into their existing
-    // spec; otherwise add a no-HP-change spec just for the MP settle.
+    // Polish #5 / ADR-0074 amendment: if the actor's MP changed (a cast
+    // with mpSpent > 0), bundle the engine-reported `mpAfter` absolute
+    // into the flash's finalize. If the actor was also damaged (rare —
+    // self-targeted spells), merge the mpAfter into their existing spec;
+    // otherwise add a no-HP-change spec just for the MP settle.
     if (actorMpAdjustment !== undefined) {
       const actorSnap = this.snapshots.get(actorMpAdjustment.actorId);
       if (actorSnap !== undefined) {
-        const mpAfter = Math.max(0, actorSnap.mp + actorMpAdjustment.mpDelta);
+        const mpAfter = actorMpAdjustment.mpAfter;
         const existing = specs.find((s) => s.unitId === actorMpAdjustment.actorId);
         if (existing !== undefined) {
           // Replace the existing spec with one that carries mpAfter.
@@ -527,7 +529,6 @@ export class Animator {
           specs.push({
             unitId: actorMpAdjustment.actorId,
             hpAfter: actorSnap.hp,
-            maxHpAfter: actorSnap.maxHp,
             koAfter: actorSnap.ko,
             mpAfter,
           });

@@ -22,7 +22,15 @@
 // fixture (consumed by `orchestrator.test.ts` and
 // `ai-controller.integration.test.ts`).
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Component,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react';
 import { Application } from 'pixi.js';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
@@ -63,11 +71,79 @@ const BACKGROUND = '#0e0f12';
 // a discrete zoom step rather than a snap.
 const WHEEL_ZOOM_STEP = 0.0015;
 
+// Error boundary around `BattleViewInner` (Session 33.5A / S33.5 carry).
+// `BattleViewInner` mounts PixiJS + the orchestrator pump in a large
+// effect; a render-time throw — most reliably reproduced by the
+// content-file HMR path, which black-screens the whole view — otherwise
+// unmounts the React tree to a blank canvas with no recovery affordance.
+// This catches the throw and degrades to a panel with a hard-refresh
+// button. It is a defensive add: it does not fix the underlying
+// HMR/Pixi-init crash (carry-forward), only stops it from black-screening.
+export class BattleErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    // Console-log for dev visibility — the boundary swallows the throw,
+    // so without this the error would vanish silently.
+    console.error('BattleView crashed:', error, info.componentStack);
+  }
+
+  render(): ReactNode {
+    if (this.state.hasError) {
+      return (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '1rem',
+            height: '100vh',
+            background: BACKGROUND,
+            color: '#e8e8ea',
+            fontFamily: 'system-ui, sans-serif',
+          }}
+        >
+          <div style={{ fontSize: '1.1rem' }}>Something went wrong rendering the battle.</div>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            style={{
+              padding: '0.5rem 1rem',
+              fontSize: '0.95rem',
+              cursor: 'pointer',
+              background: '#2a2c33',
+              color: '#e8e8ea',
+              border: '1px solid #44464f',
+              borderRadius: '4px',
+            }}
+          >
+            Reload
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export function BattleView() {
   return (
-    <SettingsProvider>
-      <BattleViewInner />
-    </SettingsProvider>
+    <BattleErrorBoundary>
+      <SettingsProvider>
+        <BattleViewInner />
+      </SettingsProvider>
+    </BattleErrorBoundary>
   );
 }
 

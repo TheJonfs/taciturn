@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-14
+**Amended:** 2026-05-14 (Session 33.5A — post-state absolutes generalized; see amendment at end)
 
 ## Context
 
@@ -97,3 +98,57 @@ The pre-battle phase opts out via a new `CommitOptions.checkVictoryConditions: f
 - ADR-0070 — the `applyDamageToTarget` KO'd-target healing gate (this ADR codifies the invariant it introduced and extends the renderer side).
 - ADR-0071 — pre-battle action-source + orchestrator phase (the pre-battle opt-out composes with this).
 - `docs/design/turn-structure.md` — "Battle outcomes" (the victory-condition checkpoint moves from turn_end to per-action).
+
+---
+
+## Amendment (Session 33.5A, 2026-05-14): post-state absolutes generalized to MP + system damage/heal
+
+### Context
+
+A post-Session-33.5 architectural review framed the bug cluster this ADR fixed (#2/#3/#4 — animator HP arithmetic; the phantom `[ko]` — KO-walker HP arithmetic) as instances of **one pattern**: a UI/renderer consumer wants an *absolute* post-state value, the engine outcome only reports a *magnitude/delta* (`damage`, `healing`, `applied`, `mpSpent`), so the consumer reconstructs the absolute by arithmetic on its own prior value — which drifts whenever the engine gates or clamps an application. `hpAfter` on `AbilityTargetResult` closed this for HP on ability per-target results. The same gap remained in three places: animator MP settling (a latent bug — the same drift, just less scrutinized because MP swings are smaller), the KO walker's residual delta-reconstruction for `system_damage` / `system_heal`, and the dead `UnitVisualSnapshot.maxHp` field.
+
+### Decision
+
+**The principle generalizes: every engine outcome that moves HP or MP reports the applied *absolute* alongside the magnitude. UI/renderer consumers settle from the absolute; they never do arithmetic on magnitudes.** The magnitudes (`damage`, `healing`, `applied`, `mpSpent`, `sourceApplied`, `targetApplied`) stay — they are the action-log's player-facing story — but they are no longer load-bearing for any consumer that needs a post-state value.
+
+New outcome fields, all optional, all populated from committed `workingState` in the reducer, all populating the *unchanged* value on gated/no-op paths (so a consumer never has to special-case "the engine did nothing"):
+
+- `UseAbilityOutcome.mpAfter` — caster MP after the cast (instant path *and* the charged-cast commit, which deducts MP up front).
+- `ChargedActionResolveOutcome.mpAfter` — caster MP at resolve. A charged cast's MP was spent at the `use_ability` commit, so this is the *unchanged* current value; it keeps the renderer anchored without re-deriving.
+- `SystemMpDrainOutcome.sourceMpAfter` / `targetMpAfter` — both ends of the transfer. Populated per-unit; absent only for an end not in state.
+- `SystemDamageOutcome.hpAfter` / `SystemHealOutcome.hpAfter` — target HP after application. Engine-clamped — an overkill `system_damage` reports `hpAfter: 0`. Populated on the gated KO'd-target paths with the unchanged value; absent only for a target not in state.
+
+Consumer changes:
+
+- **`Animator.buildFlashFromTargets`** settles caster MP from `mpAfter` — the `mpDelta = -(outcome.mpSpent)` arithmetic is gone. The charged-cast commit, previously a bare `pause` that never settled MP (a latent visual gap), now settles the caster's MP bar in sync with a brief cast beat.
+- **The `system_mp_drain` animator path** settles both ends from `sourceMpAfter` / `targetMpAfter`.
+- **The `system_damage` / `system_heal` animator paths** settle HP from `outcome.hpAfter` — the `snap.hp ∓ applied` arithmetic is gone. (This was an audit-revealed fourth delta-arithmetic site; folded into the same pass.)
+- **`deriveKoEvents` (`ui/derived-events.ts`)** anchors to `hpAfter` for *every* HP-changing action type. The running-HP map is now purely a "last reported HP" cache; KO detection is the positive-to-≤0 crossing on reported values; **no reconstruction branches remain**. `damageDealtByAction` returns engine absolutes only.
+- **`derivePerUnitStats.damageTaken`** now reports **absorbed-by** (actual HP lost, `before - hpAfter`) rather than **dealt-at** (summed `r.damage` magnitude). A 133-damage hit on a 4-HP unit tallies 4, not 133. `damageDealt` / `healingDealt` stay as dealt-at magnitudes — an actor "dealt" / "healed for" what it threw, regardless of overkill / overheal; the asymmetry is intentional.
+
+**`UnitVisualSnapshot.maxHp` (the animator snapshot) is removed**, along with `FlashTargetSpec.maxHpAfter`. The renderer live-reads effective max HP per-frame via `runModifyStatQuery` (S31.5 polish #6, `battle-renderer.ts`) — the snapshot field was captured at mount and never read. (`UnitVisualState.maxHp` / `maxMp` in `unit-layer.ts` are a *different* type, genuinely read by the bar draws, and stay; only `unit-layer.ts`'s wrong mount-time placeholder was corrected — seeded from current vitals, a correct full bar for v1's full-HP-at-start units, overwritten frame 1 by the live-read path.)
+
+### Why an amendment, not a new ADR
+
+The three items are concrete extensions of the *same* decision — "the renderer derives from engine-reported truth" — generalized from one field on one outcome to the full HP/MP outcome surface. The engine-outcome-shape changes are additive and need no independent rationale; a new ADR would carry cost without new design content.
+
+### Defensive fold-in: error boundary around `BattleViewInner`
+
+Orthogonal to the post-state-absolutes work but folded into the same session: a React error boundary (`BattleErrorBoundary` in `BattleView.tsx`) now wraps `BattleViewInner`. A render-time throw — most reliably the content-file HMR path (S33.5 carry-forward) — previously unmounted the React tree to a blank canvas with no recovery affordance. The boundary catches the throw, logs it for dev visibility, and degrades to a fallback panel with a hard-refresh button. It is a defensive add: it does **not** fix the underlying HMR/Pixi-init crash (still carry-forward) — only stops it from black-screening.
+
+### Consequences (amendment)
+
+- **Five outcome interfaces gain optional fields.** Backward-compatible — additive, populated from committed state, deterministic. Replay and AI projection see the absolutes for free.
+- **`deriveKoEvents` no longer carries a delta-reconstruction fallback.** `damageDealtByAction` skips any entry without an engine-reported `hpAfter` (tile-kind ability targets; a system damage/heal whose target left state) — those changed no unit's HP, so contributing nothing is correct.
+- **`derivePerUnitStats.damageTaken` semantics changed** (dealt-at → absorbed-by). The metric is a stat-report consumer (results screen / future MVP metric); not load-bearing on game state.
+- **Tests:** +21 — 11 in `session-33-5a-integration.test.ts` (new — reducer-side population of all five fields, incl. gated/clamped/missing-unit paths), +5 in `animator.test.ts` (MP settle from `mpAfter`; `system_mp_drain` from both absolutes; `system_damage` / `system_heal` from `hpAfter`), +3 in `derived-events.test.ts` (KO walker anchors to `system_damage` `hpAfter`; `damageTaken` absorbed-by on overkill), +2 in `BattleView.test.tsx` (new — the error boundary catches a synthetic throw / passes children through). Existing `derived-events.test.ts` / `action-log-format.test.ts` fixtures updated to carry `hpAfter` (the new contract). Total: 996 passing across 83 files.
+
+### References (amendment)
+
+- `src/engine/types/action.ts` — `UseAbilityOutcome.mpAfter`, `ChargedActionResolveOutcome.mpAfter`, `SystemMpDrainOutcome.{source,target}MpAfter`, `SystemDamageOutcome.hpAfter`, `SystemHealOutcome.hpAfter`.
+- `src/engine/actions/reducers.ts` — `reduceUseAbility` / `commitCharged` / `finalizeResolution` (caster `mpAfter`), `reduceSystemMpDrain`, `reduceSystemDamage`, `reduceSystemHeal`.
+- `src/renderer/animator.ts` — `buildFlashFromTargets` MP settle; `system_mp_drain` / `system_damage` / `system_heal` cases; `UnitVisualSnapshot.maxHp` + `FlashTargetSpec.maxHpAfter` removed.
+- `src/ui/derived-events.ts` — `deriveKoEvents`, `damageDealtByAction`, `derivePerUnitStats`.
+- `src/renderer/battle-renderer.ts`, `src/renderer/unit-layer.ts` — snapshot-maxHp cleanup; mount-placeholder correction.
+- `src/app/BattleView.tsx` — `BattleErrorBoundary`.
+- ADR-0058 — `maxMp` lifted to live `runModifyStatQuery` reads (the sibling pattern the snapshot-maxHp cleanup completes for `maxHp`).

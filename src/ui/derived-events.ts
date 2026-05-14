@@ -16,18 +16,21 @@
 // unit, which the action log doesn't carry directly. The walker
 // initializes each unit's HP to its *computed* max HP (equipment and
 // status maxHp modifiers included) — v1 units enter battle at full
-// computed HP per `fillVitalsFromComputedMaxes`. Damage/heal actions
-// adjust running HP; the crossing-from-positive-to-zero edge emits a KO
-// event. Where a `use_ability` / `charged_action_resolve` per-target
-// result carries `hpAfter` (the engine's actual post-application HP,
-// ADR-0074), the walker anchors to that absolute value rather than
-// trusting delta arithmetic. This is O(N actions × M units-affected-
-// per-action); fast for v1's battle sizes and replays cleanly.
+// computed HP per `fillVitalsFromComputedMaxes`. Every HP-changing
+// action carries the engine's actual post-application HP (`hpAfter`,
+// ADR-0074 + its Session 33.5A amendment — on per-target results for
+// abilities, on the outcome for `system_damage` / `system_heal`); the
+// walker anchors to that absolute. The running-HP map is purely a
+// "last reported HP" cache — there is no delta-arithmetic
+// reconstruction. KO detection is the positive-to-≤0 crossing on
+// reported values. O(N actions × M units-affected-per-action); fast for
+// v1's battle sizes and replays cleanly.
 //
 // (Pre-ADR-0074 the walker initialized from `baseStats.maxHpBase` — the
-// class base, *excluding* equipment HP. Any equipped unit's tracker
-// started ~tens of HP low, so a heavy-but-non-fatal hit crossed a
-// phantom zero and produced a spurious `[ko]` log row.)
+// class base, *excluding* equipment HP — and re-derived HP by delta
+// arithmetic. Any equipped unit's tracker started ~tens of HP low, so a
+// heavy-but-non-fatal hit crossed a phantom zero and produced a spurious
+// `[ko]` log row.)
 
 import {
   runModifyStatQuery,
@@ -114,14 +117,12 @@ export function deriveKoEvents(
   for (const action of log) {
     if (action.type === 'turn_start') tNumber += 1;
     const effects = damageDealtByAction(action);
-    for (const { targetId, hp, hpAfter } of effects) {
+    for (const { targetId, hpAfter } of effects) {
       if (koed.has(targetId)) continue;
       const before = runningHp.get(targetId) ?? 0;
-      // ADR-0074: when the engine reported an absolute post-application
-      // HP (`hpAfter`), anchor to it; otherwise fall back to delta
-      // arithmetic (system_damage / system_heal carry an applied amount
-      // but no absolute HP).
-      const after = hpAfter !== undefined ? Math.max(0, hpAfter) : Math.max(0, before + hp);
+      // ADR-0074 (+ S33.5A amendment): every HP-changing action reports
+      // its engine-absolute `hpAfter`. Anchor to it — no reconstruction.
+      const after = Math.max(0, hpAfter);
       runningHp.set(targetId, after);
       if (before > 0 && after <= 0) {
         koed.add(targetId);
@@ -163,35 +164,50 @@ export function derivePerUnitStats(
 
   const chargedActor = buildChargedActorMap(log);
 
-  // Single pass: tally damage / healing per-action, and use the KO walker's
-  // attribution to credit kosScored.
+  // Use the KO walker's attribution to credit kosScored.
   const koEvents = deriveKoEvents(log, state, catalog);
   for (const ev of koEvents) {
     if (ev.killingActor !== null) addTo(kos, ev.killingActor, 1);
   }
 
+  // `damageTaken` is absorbed-by (actual HP lost), not dealt-at: a
+  // 133-damage hit on a 4-HP unit tallies 4, not 133. It rides the same
+  // engine-reported `hpAfter` absolutes the KO walker uses (ADR-0074 +
+  // S33.5A amendment) — running HP per unit, seeded from computed max HP,
+  // and `taken += before - after` on any HP drop. `damageDealt` /
+  // `healingDealt` stay as computed magnitudes — an actor "dealt" /
+  // "healed for" what it threw, regardless of overkill / overheal.
+  const runningHp = new Map<UnitId, number>();
+  for (const u of state.units.values()) {
+    runningHp.set(
+      u.id,
+      runModifyStatQuery(state, catalog, {
+        unit: u,
+        statName: 'maxHp',
+        baseValue: u.baseStats.maxHpBase,
+      }),
+    );
+  }
+
   for (const action of log) {
+    for (const { targetId, hpAfter } of damageDealtByAction(action)) {
+      const before = runningHp.get(targetId) ?? 0;
+      const after = Math.max(0, hpAfter);
+      runningHp.set(targetId, after);
+      if (after < before) addTo(taken, targetId, before - after);
+    }
     if (action.type === 'use_ability' || action.type === 'charged_action_resolve') {
       const results = action.outcome?.perTargetResults ?? [];
       const actorId = attributeActor(action, chargedActor);
+      if (actorId === null) continue;
       for (const r of results) {
         if (!r.hit) continue;
-        const targetId = r.target.kind === 'unit' ? r.target.unitId : null;
-        if (r.damage !== undefined && r.damage > 0) {
-          if (actorId !== null) addTo(dealt, actorId, r.damage);
-          if (targetId !== null) addTo(taken, targetId, r.damage);
-        }
-        if (r.healing !== undefined && r.healing > 0) {
-          if (actorId !== null) addTo(healing, actorId, r.healing);
-        }
+        if (r.damage !== undefined && r.damage > 0) addTo(dealt, actorId, r.damage);
+        if (r.healing !== undefined && r.healing > 0) addTo(healing, actorId, r.healing);
       }
-    } else if (action.type === 'system_damage') {
-      const applied = action.outcome?.applied ?? action.payload.amount;
-      addTo(taken, action.payload.targetId, applied);
     } else if (action.type === 'system_heal') {
       const applied = action.outcome?.applied ?? action.payload.amount;
       if (action.actorId !== undefined) addTo(healing, action.actorId, applied);
-      void applied;
     }
   }
 
@@ -282,41 +298,32 @@ export function deriveActionParticipants(action: Action): ActionParticipants {
   return { actorId, targetIds };
 }
 
-// Per-action HP-effect extraction. `hp` is a signed delta (negative =
-// damage, positive = healing). `hpAfter`, when present, is the engine's
-// actual post-application HP for that target (ADR-0074) — the walker
-// anchors to it instead of the delta. Returns one entry per affected
-// target.
+// Per-action HP-effect extraction. Each entry is the engine's actual
+// post-application HP (`hpAfter`) for one affected target — ADR-0074 for
+// `use_ability` / `charged_action_resolve` per-target results, its
+// Session 33.5A amendment for `system_damage` / `system_heal` outcomes.
+// The walker anchors to these absolutes; it never reconstructs HP by
+// delta arithmetic. Targets / actions with no engine-reported absolute
+// (tile-kind ability targets; a system damage/heal whose target left
+// state before it ran) contribute nothing — they changed no unit's HP.
 function damageDealtByAction(
   action: Action,
-): ReadonlyArray<{ targetId: UnitId; hp: number; hpAfter?: number }> {
+): ReadonlyArray<{ targetId: UnitId; hpAfter: number }> {
   if (action.type === 'use_ability' || action.type === 'charged_action_resolve') {
-    const out: { targetId: UnitId; hp: number; hpAfter?: number }[] = [];
+    const out: { targetId: UnitId; hpAfter: number }[] = [];
     const results = action.outcome?.perTargetResults ?? [];
     for (const r of results) {
       if (!r.hit) continue;
       if (r.target.kind !== 'unit') continue;
-      const damage = r.damage ?? 0;
-      const healing = r.healing ?? 0;
-      const delta = healing - damage;
-      // The engine reports `hpAfter` for unit-kind targets — the
-      // applied truth, which diverges from `damage - healing` whenever
-      // an application is gated. Surface it so the walker anchors to it.
-      if (r.hpAfter !== undefined) {
-        out.push({ targetId: r.target.unitId, hp: delta, hpAfter: r.hpAfter });
-      } else if (delta !== 0) {
-        out.push({ targetId: r.target.unitId, hp: delta });
-      }
+      if (r.hpAfter === undefined) continue;
+      out.push({ targetId: r.target.unitId, hpAfter: r.hpAfter });
     }
     return out;
   }
-  if (action.type === 'system_damage') {
-    const applied = action.outcome?.applied ?? action.payload.amount;
-    return [{ targetId: action.payload.targetId, hp: -applied }];
-  }
-  if (action.type === 'system_heal') {
-    const applied = action.outcome?.applied ?? action.payload.amount;
-    return [{ targetId: action.payload.targetId, hp: applied }];
+  if (action.type === 'system_damage' || action.type === 'system_heal') {
+    const hpAfter = action.outcome?.hpAfter;
+    if (hpAfter === undefined) return [];
+    return [{ targetId: action.payload.targetId, hpAfter }];
   }
   return [];
 }

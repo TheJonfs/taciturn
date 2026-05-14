@@ -157,11 +157,10 @@ export class BattleRenderer {
         position: positionCenter(unit.position),
         facing: unit.facing,
         hp: unit.vitals.hp,
-        // maxHp is unused at read time post-31.5 (lifted to a per-frame
-        // runModifyStatQuery in applyVisualState); kept on the snapshot
-        // shape for compatibility with the existing animator pathway
-        // that mutates it at flash finalize.
-        maxHp: unit.baseStats.maxHpBase,
+        // maxHp / maxMp are not on the snapshot — the renderer live-reads
+        // both per-frame via `runModifyStatQuery` in `applyVisualState`
+        // (ADR-0058 for maxMp, S31.5 polish #6 for maxHp; the dead
+        // snapshot `maxHp` field was removed in S33.5A / ADR-0074).
         mp: unit.vitals.mp,
         ko: unit.vitals.hp <= 0,
         flash: 0,

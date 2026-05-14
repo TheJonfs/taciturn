@@ -117,6 +117,14 @@ export interface UseAbilityOutcome {
   readonly abilityId: AbilityId;
   readonly perTargetResults: ReadonlyArray<AbilityTargetResult>;
   readonly mpSpent: number;
+  // Session 33.5A (ADR-0074 amendment): the caster's actual MP after the
+  // cast committed. `mpSpent` is the *computed* cost (what the action log
+  // shows); `mpAfter` is the *applied* truth — the renderer settles its
+  // MP bar from this absolute rather than `snap.mp - mpSpent` arithmetic
+  // on a drifting snapshot. Present on both the instant-cast path and the
+  // charged-cast commit (which deducts MP up front). Absent for rider
+  // casts that spend no MP (the snapshot doesn't move).
+  readonly mpAfter?: number;
   // When actionSpeed > 0, the UseAbility commit creates a ChargedAction
   // and applies the Charging status; the actual effect resolution
   // happens later via `charged_action_resolve`.
@@ -165,6 +173,12 @@ export interface ChargedActionResolveOutcome {
   readonly kind: 'charged_action_resolve';
   readonly chargedActionId: ChargedActionId;
   readonly perTargetResults: ReadonlyArray<AbilityTargetResult>;
+  // Session 33.5A (ADR-0074 amendment): the caster's MP after the resolve
+  // committed. A charged cast's MP is deducted at the `use_ability` commit
+  // (not here), so at resolve `mpAfter` is the *unchanged* current value —
+  // it keeps the renderer's MP snapshot anchored to engine truth without
+  // re-deriving. Absent when the caster KO'd / left state before resolve.
+  readonly mpAfter?: number;
 }
 
 export interface StatusTickPayload {
@@ -199,6 +213,12 @@ export interface SystemHealOutcome {
   readonly targetId: UnitId;
   readonly amount: number;
   readonly applied: number; // post-cap-at-maxHp delta
+  // Session 33.5A (ADR-0074 amendment): the target's actual HP after this
+  // heal committed. `applied` is the delta (action-log magnitude); this is
+  // the applied absolute the renderer / KO walker anchor to. Populated on
+  // every path including the gated ones (KO'd target, applied: 0) with the
+  // unchanged value. Absent only when the target isn't in state.
+  readonly hpAfter?: number;
 }
 // Provenance for a system_heal — which subsystem emitted it. Lets the
 // log (and a future debug overlay) trace "this 4 HP came from Regen,
@@ -227,6 +247,13 @@ export interface SystemDamageOutcome {
   readonly targetId: UnitId;
   readonly amount: number;
   readonly applied: number; // post-floor-at-0 delta
+  // Session 33.5A (ADR-0074 amendment): the target's actual HP after this
+  // damage committed. `applied` is the delta (action-log magnitude); this
+  // is the applied absolute the renderer / KO walker anchor to — it is
+  // engine-clamped at 0, so an overkill tick reports `hpAfter: 0`.
+  // Populated on every path including gated ones (KO'd target, applied: 0)
+  // with the unchanged value. Absent only when the target isn't in state.
+  readonly hpAfter?: number;
 }
 // Provenance for a system_damage. `status_tick` covers Poison; `falling`
 // covers ADR-0026 forced-movement landing damage; `ability_self_cost`
@@ -265,6 +292,15 @@ export interface SystemMpDrainOutcome {
   readonly requested: number;
   readonly targetApplied: number; // MP removed from target after floor at 0
   readonly sourceApplied: number; // MP added to source after cap at maxMp
+  // Session 33.5A (ADR-0074 amendment): both ends' actual MP after the
+  // transfer committed. `sourceApplied` / `targetApplied` are the deltas
+  // (action-log magnitudes); these are the applied absolutes the renderer
+  // settles from. Both populated on every path — including the gated
+  // all-zero paths (missing unit, KO'd target) — with the unchanged value
+  // so the renderer never re-derives. Absent only when the unit isn't in
+  // state at all (nothing to settle).
+  readonly sourceMpAfter?: number;
+  readonly targetMpAfter?: number;
 }
 
 // `system_apply_status` — engine-emitted action that applies a status

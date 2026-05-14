@@ -332,11 +332,19 @@ export function reduceUseAbility(
     for (const a of resolvedEmissions) generatedActions.push(a);
   }
 
+  // ADR-0074 amendment: record the caster's actual post-cast MP from the
+  // committed state, so the renderer settles its MP bar from this absolute
+  // rather than `snap.mp - mpSpent` arithmetic. KO'd-self casts still leave
+  // the actor in state (KO is derived; removal is a later generatedAction),
+  // so the read resolves.
+  const casterMpAfter = resolved.newState.units.get(actor.id)?.vitals.mp;
+
   const outcome: UseAbilityOutcome = {
     kind: 'use_ability',
     abilityId: ability.id,
     perTargetResults: resolved.perTargetResults,
     mpSpent: mpCost,
+    ...(casterMpAfter !== undefined ? { mpAfter: casterMpAfter } : {}),
   };
 
   return {
@@ -415,11 +423,17 @@ function commitCharged(
   );
   workingState = applied.newState;
 
+  // ADR-0074 amendment: a charged cast deducts MP at this commit (the
+  // `workingState` above already has it removed). Record the absolute so
+  // the renderer settles the caster's MP bar in sync with the cast beat.
+  const casterMpAfter = workingState.units.get(actor.id)?.vitals.mp;
+
   const outcome: UseAbilityOutcome = {
     kind: 'use_ability',
     abilityId: ability.id,
     perTargetResults: [],
     mpSpent: mpCost,
+    ...(casterMpAfter !== undefined ? { mpAfter: casterMpAfter } : {}),
     chargedActionId: caId,
   };
 
@@ -1641,7 +1655,8 @@ export function reduceSystemHeal(
   const { targetId, amount } = action.payload;
   const target = state.units.get(targetId);
   if (target === undefined) {
-    // Target removed mid-chain — silent no-op.
+    // Target removed mid-chain — silent no-op. `hpAfter` absent (no unit
+    // in state to settle against).
     return {
       newState: state,
       outcome: { kind: 'system_heal', targetId, amount, applied: 0 },
@@ -1649,9 +1664,12 @@ export function reduceSystemHeal(
     };
   }
   if (target.vitals.hp <= 0) {
+    // ADR-0074 amendment: gated heal on a KO'd target — `hpAfter` reports
+    // the unchanged HP (the KO walker / renderer anchor to truth, not the
+    // `applied` delta which is 0 here anyway).
     return {
       newState: state,
-      outcome: { kind: 'system_heal', targetId, amount, applied: 0 },
+      outcome: { kind: 'system_heal', targetId, amount, applied: 0, hpAfter: target.vitals.hp },
       generatedActions: [],
     };
   }
@@ -1665,7 +1683,7 @@ export function reduceSystemHeal(
   if (applied === 0) {
     return {
       newState: state,
-      outcome: { kind: 'system_heal', targetId, amount, applied: 0 },
+      outcome: { kind: 'system_heal', targetId, amount, applied: 0, hpAfter: target.vitals.hp },
       generatedActions: [],
     };
   }
@@ -1675,7 +1693,7 @@ export function reduceSystemHeal(
   };
   return {
     newState: withUnit(state, newTarget),
-    outcome: { kind: 'system_heal', targetId, amount, applied },
+    outcome: { kind: 'system_heal', targetId, amount, applied, hpAfter: newTarget.vitals.hp },
     generatedActions: [],
   };
 }
@@ -1697,6 +1715,7 @@ export function reduceSystemDamage(
   const { targetId, amount: baseAmount, source, tags } = action.payload;
   const target = state.units.get(targetId);
   if (target === undefined) {
+    // Target removed mid-chain — `hpAfter` absent (no unit to settle against).
     return {
       newState: state,
       outcome: { kind: 'system_damage', targetId, amount: baseAmount, applied: 0 },
@@ -1704,9 +1723,17 @@ export function reduceSystemDamage(
     };
   }
   if (target.vitals.hp <= 0) {
+    // ADR-0074 amendment: already-KO'd target — `hpAfter` reports the
+    // unchanged HP (engine-clamped, ≤ 0).
     return {
       newState: state,
-      outcome: { kind: 'system_damage', targetId, amount: baseAmount, applied: 0 },
+      outcome: {
+        kind: 'system_damage',
+        targetId,
+        amount: baseAmount,
+        applied: 0,
+        hpAfter: target.vitals.hp,
+      },
       generatedActions: [],
     };
   }
@@ -1727,7 +1754,13 @@ export function reduceSystemDamage(
   if (applied === 0) {
     return {
       newState: state,
-      outcome: { kind: 'system_damage', targetId, amount: modifiedAmount, applied: 0 },
+      outcome: {
+        kind: 'system_damage',
+        targetId,
+        amount: modifiedAmount,
+        applied: 0,
+        hpAfter: target.vitals.hp,
+      },
       generatedActions: [],
     };
   }
@@ -1746,7 +1779,13 @@ export function reduceSystemDamage(
   }
   return {
     newState,
-    outcome: { kind: 'system_damage', targetId, amount: modifiedAmount, applied },
+    outcome: {
+      kind: 'system_damage',
+      targetId,
+      amount: modifiedAmount,
+      applied,
+      hpAfter: newTarget.vitals.hp,
+    },
     generatedActions,
   };
 }
@@ -1791,6 +1830,8 @@ export function reduceSystemMpDrain(
   const sourceUnit = state.units.get(sourceId);
   const targetUnit = state.units.get(targetId);
   if (sourceUnit === undefined || targetUnit === undefined) {
+    // ADR-0074 amendment: populate the MP absolutes per-unit for whichever
+    // end is still in state; absent for the missing end (nothing to settle).
     return {
       newState: state,
       outcome: {
@@ -1800,6 +1841,8 @@ export function reduceSystemMpDrain(
         requested,
         targetApplied: 0,
         sourceApplied: 0,
+        ...(sourceUnit !== undefined ? { sourceMpAfter: sourceUnit.vitals.mp } : {}),
+        ...(targetUnit !== undefined ? { targetMpAfter: targetUnit.vitals.mp } : {}),
       },
       generatedActions: [],
     };
@@ -1814,6 +1857,9 @@ export function reduceSystemMpDrain(
   const sourceRoom = Math.max(0, sourceMaxMp - sourceUnit.vitals.mp);
   const sourceApplied = Math.min(sourceRoom, targetApplied);
   if (targetApplied === 0 && sourceApplied === 0) {
+    // Gated all-zero path (both units exist; nothing transferred). Populate
+    // the MP absolutes with the unchanged values so the renderer settles
+    // from truth rather than re-deriving.
     return {
       newState: state,
       outcome: {
@@ -1823,6 +1869,8 @@ export function reduceSystemMpDrain(
         requested,
         targetApplied: 0,
         sourceApplied: 0,
+        sourceMpAfter: sourceUnit.vitals.mp,
+        targetMpAfter: targetUnit.vitals.mp,
       },
       generatedActions: [],
     };
@@ -1854,6 +1902,8 @@ export function reduceSystemMpDrain(
       requested,
       targetApplied,
       sourceApplied,
+      sourceMpAfter: nextState.units.get(sourceId)?.vitals.mp ?? sourceUnit.vitals.mp,
+      targetMpAfter: nextState.units.get(targetId)?.vitals.mp ?? targetUnit.vitals.mp,
     },
     generatedActions: [],
   };
@@ -2407,10 +2457,18 @@ function finalizeResolution(
     }
   }
 
+  // ADR-0074 amendment: record the caster's MP from committed state. A
+  // charged cast's MP was spent at the `use_ability` commit, so this is
+  // the unchanged current value — it keeps the renderer's MP snapshot
+  // anchored without re-deriving. Absent when the caster KO'd / left state.
+  const casterMpAfter =
+    caster !== null ? newState.units.get(caster.id)?.vitals.mp : undefined;
+
   const outcome: ChargedActionResolveOutcome = {
     kind: 'charged_action_resolve',
     chargedActionId: ca.id,
     perTargetResults,
+    ...(casterMpAfter !== undefined ? { mpAfter: casterMpAfter } : {}),
   };
 
   return {

@@ -66,7 +66,6 @@ describe('Animator — flash settles HP/KO from result.hpAfter (ADR-0074)', () =
       position: { x: 0, y: 0 },
       facing: 'N',
       hp: 100,
-      maxHp: 100,
       mp: 0,
       ko: false,
       flash: 0,
@@ -114,6 +113,119 @@ describe('Animator — flash settles HP/KO from result.hpAfter (ADR-0074)', () =
     const snap = animator.getSnapshot(unitId('t'))!;
     expect(snap.hp).toBe(75);
     expect(snap.ko).toBe(false);
+  });
+});
+
+// Session 33.5A (ADR-0074 amendment): the renderer settles MP and
+// system-damage/heal HP from engine-reported *absolutes*, never UI
+// arithmetic on magnitude deltas. `UseAbilityOutcome.mpAfter`,
+// `SystemMpDrainOutcome.{source,target}MpAfter`,
+// `SystemDamageOutcome.hpAfter` / `SystemHealOutcome.hpAfter`.
+describe('Animator — MP / system HP settle from engine absolutes (S33.5A / ADR-0074)', () => {
+  function snap(overrides: Partial<UnitVisualSnapshot>): UnitVisualSnapshot {
+    return {
+      position: { x: 0, y: 0 },
+      facing: 'N',
+      hp: 100,
+      mp: 0,
+      ko: false,
+      flash: 0,
+      ...overrides,
+    };
+  }
+
+  it('an instant cast settles the caster MP from outcome.mpAfter (not snap.mp - mpSpent)', () => {
+    const animator = new Animator();
+    animator.initSnapshot(unitId('caster'), snap({ mp: 30 }));
+    const action = {
+      ...baseEnvelope(1),
+      type: 'use_ability',
+      actorId: unitId('caster'),
+      payload: {},
+      outcome: { kind: 'use_ability', perTargetResults: [], mpSpent: 8, mpAfter: 22 },
+    } as unknown as Action;
+    animator.enqueue([action]);
+    animator.tick(1000);
+    expect(animator.getSnapshot(unitId('caster'))!.mp).toBe(22);
+  });
+
+  it('a charged-cast commit settles the caster MP (the cost is paid up front)', () => {
+    const animator = new Animator();
+    animator.initSnapshot(unitId('caster'), snap({ mp: 30 }));
+    const action = {
+      ...baseEnvelope(1),
+      type: 'use_ability',
+      actorId: unitId('caster'),
+      payload: {},
+      outcome: {
+        kind: 'use_ability',
+        perTargetResults: [],
+        mpSpent: 8,
+        mpAfter: 22,
+        chargedActionId: 'ca1',
+      },
+    } as unknown as Action;
+    animator.enqueue([action]);
+    animator.tick(1000);
+    expect(animator.getSnapshot(unitId('caster'))!.mp).toBe(22);
+  });
+
+  it('system_mp_drain settles both ends from sourceMpAfter / targetMpAfter', () => {
+    const animator = new Animator();
+    animator.initSnapshot(unitId('src'), snap({ mp: 10 }));
+    animator.initSnapshot(unitId('tgt'), snap({ mp: 50 }));
+    const action = {
+      ...baseEnvelope(1),
+      type: 'system_mp_drain',
+      payload: { source: unitId('src'), target: unitId('tgt'), amount: 8 },
+      outcome: {
+        kind: 'system_mp_drain',
+        source: unitId('src'),
+        target: unitId('tgt'),
+        requested: 8,
+        sourceApplied: 8,
+        targetApplied: 8,
+        sourceMpAfter: 18,
+        targetMpAfter: 42,
+      },
+    } as unknown as Action;
+    animator.enqueue([action]);
+    animator.tick(1000);
+    expect(animator.getSnapshot(unitId('src'))!.mp).toBe(18);
+    expect(animator.getSnapshot(unitId('tgt'))!.mp).toBe(42);
+  });
+
+  it('system_damage settles HP/KO from outcome.hpAfter — engine-clamped, not snap arithmetic', () => {
+    const animator = new Animator();
+    // Snapshot at 4 HP; an overkill tick of 133 would underflow to a
+    // negative if reconstructed by `snap.hp - applied`. The engine reports
+    // `applied: 4, hpAfter: 0` — the animator anchors to the absolute.
+    animator.initSnapshot(unitId('t'), snap({ hp: 4 }));
+    const action = {
+      ...baseEnvelope(1),
+      type: 'system_damage',
+      payload: { targetId: unitId('t'), amount: 133 },
+      outcome: { kind: 'system_damage', targetId: unitId('t'), amount: 133, applied: 4, hpAfter: 0 },
+    } as unknown as Action;
+    animator.enqueue([action]);
+    animator.tick(1000);
+    const s = animator.getSnapshot(unitId('t'))!;
+    expect(s.hp).toBe(0);
+    expect(s.ko).toBe(true);
+  });
+
+  it('system_heal settles HP from outcome.hpAfter', () => {
+    const animator = new Animator();
+    animator.initSnapshot(unitId('t'), snap({ hp: 60 }));
+    const action = {
+      ...baseEnvelope(1),
+      type: 'system_heal',
+      payload: { targetId: unitId('t'), amount: 25 },
+      outcome: { kind: 'system_heal', targetId: unitId('t'), amount: 25, applied: 25, hpAfter: 85 },
+    } as unknown as Action;
+    animator.enqueue([action]);
+    animator.tick(1000);
+    expect(animator.getSnapshot(unitId('t'))!.hp).toBe(85);
   });
 });
 

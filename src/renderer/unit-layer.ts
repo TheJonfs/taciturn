@@ -160,11 +160,19 @@ export class UnitSprite {
       this.statusRow,
     );
 
+    // Mount-time initial draw. `maxHp` / `maxMp` here are seeded from the
+    // unit's current vitals — a full bar — which is correct for v1 (units
+    // enter battle at full computed HP/MP per `fillVitalsFromComputedMaxes`)
+    // and is overwritten on frame 1 by `BattleRenderer.applyVisualState`,
+    // which live-reads the true effective maxes via `runModifyStatQuery`.
+    // The constructor has no `state` / `catalog` to query directly; the
+    // full-bar seed is the right placeholder rather than a wrong one
+    // (S33.5A / ADR-0074 — the prior `maxHpBase` seed excluded equipment HP).
     this.setVisualState({
       position: positionCenter(unit.position),
       facing: unit.facing,
       hp: unit.vitals.hp,
-      maxHp: unit.baseStats.maxHpBase,
+      maxHp: unit.vitals.hp,
       mp: unit.vitals.mp,
       maxMp: unit.vitals.mp,
       ko: unit.vitals.hp <= 0,

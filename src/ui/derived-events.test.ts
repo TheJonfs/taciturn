@@ -58,7 +58,7 @@ describe('deriveKoEvents', () => {
           abilityId: abilityId('strike'),
           mpSpent: 0,
           perTargetResults: [
-            { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 120 },
+            { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 120, hpAfter: 0 },
           ],
         },
       },
@@ -83,7 +83,9 @@ describe('deriveKoEvents', () => {
           kind: 'use_ability',
           abilityId: abilityId('a'),
           mpSpent: 0,
-          perTargetResults: [{ target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 120 }],
+          perTargetResults: [
+            { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 120, hpAfter: 0 },
+          ],
         },
       },
       {
@@ -94,7 +96,11 @@ describe('deriveKoEvents', () => {
           kind: 'use_ability',
           abilityId: abilityId('a'),
           mpSpent: 0,
-          perTargetResults: [{ target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 50 }],
+          // Post-KO hit — gated; `hpAfter` stays 0. The walker skips it
+          // anyway (already in `koed`), but the contract still holds.
+          perTargetResults: [
+            { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 50, hpAfter: 0 },
+          ],
         },
       },
     ];
@@ -131,7 +137,7 @@ describe('deriveKoEvents', () => {
           kind: 'charged_action_resolve',
           chargedActionId: 'charge_1' as import('@engine/index.ts').ChargedActionId,
           perTargetResults: [
-            { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 120 },
+            { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 120, hpAfter: 0 },
           ],
         },
       },
@@ -163,6 +169,7 @@ describe('deriveKoEvents', () => {
           targetId: victim.id,
           amount: 999,
           applied: 100,
+          hpAfter: 0,
           source: { kind: 'falling', dropDistance: 9 },
         },
       },
@@ -254,10 +261,68 @@ describe('deriveKoEvents', () => {
     expect(ko).toHaveLength(1);
     expect(ko[0]!.unitId).toBe(victim.id);
   });
+
+  // S33.5A (ADR-0074 amendment): `system_damage` / `system_heal` outcomes
+  // now carry `hpAfter`, so the walker anchors to them too — no more
+  // delta-reconstruction for the system-emitted HP paths (Burn/Poison
+  // ticks, falling damage, Regen). A heavy-but-non-fatal Burn tick must
+  // not phantom-KO.
+  it('anchors to system_damage hpAfter — a heavy non-fatal Burn tick emits no KO', () => {
+    const victim = makeUnit({ id: 'victim', spd: 10, maxHpBase: 137 });
+    const state = makeGameState({ units: [victim] });
+    const log: Action[] = [
+      {
+        ...envelope(1),
+        type: 'system_damage',
+        payload: {
+          targetId: victim.id,
+          amount: 130,
+          tags: ['fire'],
+          source: { kind: 'status_tick', statusTypeId: 'burn', unitId: victim.id },
+        },
+        outcome: {
+          kind: 'system_damage',
+          targetId: victim.id,
+          amount: 130,
+          applied: 130,
+          hpAfter: 7,
+        },
+      } as unknown as Action,
+    ];
+    expect(deriveKoEvents(log, state, catalog)).toHaveLength(0);
+  });
+
+  it('anchors to system_damage hpAfter — a tick that leaves the target at 0 emits a KO', () => {
+    const victim = makeUnit({ id: 'victim', spd: 10, maxHpBase: 137 });
+    const state = makeGameState({ units: [victim] });
+    const log: Action[] = [
+      {
+        ...envelope(1),
+        type: 'system_damage',
+        payload: {
+          targetId: victim.id,
+          amount: 200,
+          tags: ['fire'],
+          source: { kind: 'status_tick', statusTypeId: 'burn', unitId: victim.id },
+        },
+        outcome: {
+          kind: 'system_damage',
+          targetId: victim.id,
+          amount: 200,
+          applied: 137,
+          hpAfter: 0,
+        },
+      } as unknown as Action,
+    ];
+    const ko = deriveKoEvents(log, state, catalog);
+    expect(ko).toHaveLength(1);
+    expect(ko[0]!.unitId).toBe(victim.id);
+    expect(ko[0]!.killingActor).toBeNull();
+  });
 });
 
 describe('derivePerUnitStats', () => {
-  it('tallies dealt/taken and credits the kosScored to the killing actor', () => {
+  it('credits dealt-at magnitude but absorbed-by HP loss; kosScored to the killing actor', () => {
     const killer = makeUnit({ id: 'killer', spd: 10, maxHpBase: 100 });
     const victim = makeUnit({ id: 'victim', spd: 10, maxHpBase: 100 });
     const state = makeGameState({ units: [killer, victim] });
@@ -270,14 +335,49 @@ describe('derivePerUnitStats', () => {
           kind: 'use_ability',
           abilityId: abilityId('a'),
           mpSpent: 0,
-          perTargetResults: [{ target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 120 }],
+          // 120 damage thrown at a 100-HP unit — overkill.
+          perTargetResults: [
+            { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 120, hpAfter: 0 },
+          ],
         },
       },
     ];
     const stats = derivePerUnitStats(log, state, catalog);
+    // `damageDealt` is dealt-at — the computed magnitude the actor threw.
     expect(stats.get(killer.id)!.damageDealt).toBe(120);
     expect(stats.get(killer.id)!.kosScored).toBe(1);
-    expect(stats.get(victim.id)!.damageTaken).toBe(120);
+    // `damageTaken` is absorbed-by — actual HP lost (ADR-0074 S33.5A
+    // amendment). The 120-damage hit on a 100-HP unit tallies 100, not 120.
+    expect(stats.get(victim.id)!.damageTaken).toBe(100);
+  });
+
+  it('damageTaken is absorbed-by for system_damage overkill, anchored to hpAfter', () => {
+    // A falling-damage tick of 999 on a 100-HP unit: the engine applies
+    // 100 and reports `hpAfter: 0`. `damageTaken` tallies the 100 actually
+    // absorbed, not the 999 thrown.
+    const victim = makeUnit({ id: 'victim', spd: 10, maxHpBase: 100 });
+    const state = makeGameState({ units: [victim] });
+    const log: Action[] = [
+      {
+        ...envelope(1),
+        type: 'system_damage',
+        payload: {
+          targetId: victim.id,
+          amount: 999,
+          tags: [],
+          source: { kind: 'falling', unitId: victim.id, dropDistance: 9 },
+        },
+        outcome: {
+          kind: 'system_damage',
+          targetId: victim.id,
+          amount: 999,
+          applied: 100,
+          hpAfter: 0,
+        },
+      } as unknown as Action,
+    ];
+    const stats = derivePerUnitStats(log, state, catalog);
+    expect(stats.get(victim.id)!.damageTaken).toBe(100);
   });
 
   it('seeds zero entries for units with no log activity', () => {

@@ -239,7 +239,9 @@ describe('formatActionLog', () => {
           kind: 'use_ability',
           abilityId: abilityId('strike'),
           mpSpent: 0,
-          perTargetResults: [{ target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 120 }],
+          perTargetResults: [
+            { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 120, hpAfter: 0 },
+          ],
         },
       },
     ];
