@@ -32,7 +32,11 @@ export const waterMage: ClassDefinition = {
     moveRange: 4,
     jump: 3,
     terrainCosts: new Map(),
-    canEnter: new Set(['ground']),
+    // Session 33 (ADR-0073): water is universally enterable; cost is
+    // the gate. Tidewalker (free passive) reduces shallow 2 → 1 and
+    // deep 3 → 2, making water-traversal the Water Mage's signature.
+    // See knight.ts for the universal convention.
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep']),
   },
   // Slightly higher front evade than Earth Mage (8/5/0) — Water's
   // mobility identity nudges into evasion. Real numbers land in the

@@ -22,6 +22,22 @@ export {
 export { hasLineOfSight } from './line-of-sight.ts';
 export { arcTargetable, type ArcEndpoint } from './arc.ts';
 export {
+  addTerrainsWithTag,
+  mapTerrainCostsByTag,
+  terrainHasTag,
+  terrainsWithTag,
+  type TerrainRegistry,
+  type TerrainTag,
+} from './terrain-registry.ts';
+export {
+  assertMapValid,
+  MapValidationError_Throw,
+  validateMap,
+  type MapValidationError,
+  type MapValidationOptions,
+  type MapValidationResult,
+} from './map-validator.ts';
+export {
   aoeFootprint,
   cardinalFromTo,
   enlargeAoeShape,

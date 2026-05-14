@@ -26,6 +26,8 @@ import { pickTerrainVariantIndex } from '../assets/terrain/index.ts';
 import {
   TERRAIN_COLORS,
   TERRAIN_FALLBACK_COLOR,
+  TERRAIN_TINT_DEFAULT,
+  TERRAIN_TINTS,
   TILE_INSET,
   TILE_OUTLINE_ALPHA,
   TILE_OUTLINE_COLOR,
@@ -101,6 +103,7 @@ export class TileLayer {
       }
     }
     const size = TILE_SIZE - TILE_INSET;
+    const tint = TERRAIN_TINTS[terrainType] ?? TERRAIN_TINT_DEFAULT;
     for (const tile of map.tiles) {
       if (tile.terrain !== terrainType) continue;
       const idx = pickTerrainVariantIndex(masterSeed, tile.x, tile.y, textures.length);
@@ -112,6 +115,7 @@ export class TileLayer {
       sprite.y = tile.y * TILE_SIZE + TILE_INSET / 2;
       const src = Math.max(texture.width, texture.height, 1);
       sprite.scale.set(size / src);
+      if (tint !== TERRAIN_TINT_DEFAULT) sprite.tint = tint;
       this.overlay.addChild(sprite);
     }
   }

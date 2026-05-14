@@ -24,7 +24,11 @@ export const knight: ClassDefinition = {
     moveRange: 3,
     jump: 2,
     terrainCosts: new Map(),
-    canEnter: new Set(['ground']),
+    // Session 33 (ADR-0073): water is universally enterable; the cost
+    // (ruleset default: water_shallow 2, water_deep 3) is the tactical
+    // gate, not access. A Knight can wade through water at penalty
+    // cost or leap over it via jump-over-water pathfinding.
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep']),
   },
   // Heavy class baseline per docs/battle-mechanics-guide.md "Evasion and
   // accuracy" (most classes 5-15 front, 3-8 side, 0 back). Values stay

@@ -255,9 +255,10 @@ export function runModifyCanEnter(
   args: { unit: Unit; baseValue: ReadonlySet<TerrainType> },
 ): ReadonlySet<TerrainType> {
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyCanEnter');
+  const terrainRegistry = catalog.getRuleset(state.ruleset.id).terrain.tags;
   let value = args.baseValue;
   for (const h of handlers) {
-    value = h.invoke({ unit: args.unit, baseValue: value });
+    value = h.invoke({ unit: args.unit, baseValue: value, terrainRegistry });
   }
   return value;
 }
@@ -268,9 +269,10 @@ export function runModifyTerrainCosts(
   args: { unit: Unit; baseValue: ReadonlyMap<TerrainType, number> },
 ): ReadonlyMap<TerrainType, number> {
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyTerrainCosts');
+  const terrainRegistry = catalog.getRuleset(state.ruleset.id).terrain.tags;
   let value = args.baseValue;
   for (const h of handlers) {
-    value = h.invoke({ unit: args.unit, baseValue: value });
+    value = h.invoke({ unit: args.unit, baseValue: value, terrainRegistry });
   }
   return value;
 }

@@ -28,10 +28,21 @@
 import ground01Url from './ground-01.png';
 import ground02Url from './ground-02.png';
 import ground03Url from './ground-03.png';
+import shallowWater01Url from './shallow-water-01.png';
+import shallowWater02Url from './shallow-water-02.png';
+import shallowWater03Url from './shallow-water-03.png';
+import deepWater01Url from './deep-water-01.png';
+import deepWater02Url from './deep-water-02.png';
+import deepWater03Url from './deep-water-03.png';
 import type { TerrainType } from '@engine/index.ts';
 
+// Session 33 (ADR-0073): `water_shallow` / `water_deep` ship with
+// three variants each, mirroring `ground`. The texture pool determinism
+// (via masterSeed + position) keeps replay-stable.
 export const TERRAIN_MANIFEST: ReadonlyMap<TerrainType, ReadonlyArray<string>> = new Map([
   ['ground', [ground01Url, ground02Url, ground03Url]],
+  ['water_shallow', [shallowWater01Url, shallowWater02Url, shallowWater03Url]],
+  ['water_deep', [deepWater01Url, deepWater02Url, deepWater03Url]],
 ]);
 
 // Returns the texture-URL pool for a terrain type, or `null` if no

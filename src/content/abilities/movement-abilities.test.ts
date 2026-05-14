@@ -193,7 +193,44 @@ describe('Hotfoot', () => {
 });
 
 describe('Tidewalker', () => {
-  it('floors water tile cost at 1 (no-op when base is already 1)', () => {
+  // Session 33 (ADR-0073): Tidewalker now keys on the `'water'` tag,
+  // reducing cost for every water-tagged terrain (water_shallow,
+  // water_deep) in the active ruleset's registry. The test ruleset
+  // (makeTestRuleset) ships those defaults, mirroring production.
+  it('reduces ruleset-default water costs by 1 (water_shallow 2 → 1, water_deep 3 → 2)', () => {
+    const cat = setupCatalog(['tidewalker']);
+    const u = makeUnit({
+      id: 'u',
+      spd: 10,
+      loadout: loadoutWith(bucketId('movement'), [tidewalker.id]),
+    });
+    const state = makeGameState({ units: [u], map: flatMap(3, 3) });
+    const base = new Map<TerrainType, number>([
+      ['water_shallow', 2],
+      ['water_deep', 3],
+    ]);
+    const result = runModifyTerrainCosts(state, cat, { unit: u, baseValue: base });
+    expect(result.get('water_shallow')).toBe(1);
+    expect(result.get('water_deep')).toBe(2);
+  });
+
+  it('clamps to 1 when an elevated cost decrements past the floor', () => {
+    const cat = setupCatalog(['tidewalker']);
+    const u = makeUnit({
+      id: 'u',
+      spd: 10,
+      loadout: loadoutWith(bucketId('movement'), [tidewalker.id]),
+    });
+    const state = makeGameState({ units: [u], map: flatMap(3, 3) });
+    const base = new Map<TerrainType, number>([['water_shallow', 1]]);
+    const result = runModifyTerrainCosts(state, cat, { unit: u, baseValue: base });
+    expect(result.get('water_shallow')).toBe(1);
+  });
+
+  it('seeds the cost from the registry default when no base entry exists', () => {
+    // Empty baseValue: the helper defaults the per-terrain cost to 1
+    // (the ruleset's defaultStepCost equivalent for "unspecified").
+    // Tidewalker then floors the decrement — water_shallow stays at 1.
     const cat = setupCatalog(['tidewalker']);
     const u = makeUnit({
       id: 'u',
@@ -203,33 +240,8 @@ describe('Tidewalker', () => {
     const state = makeGameState({ units: [u], map: flatMap(3, 3) });
     const base = new Map<TerrainType, number>();
     const result = runModifyTerrainCosts(state, cat, { unit: u, baseValue: base });
-    expect(result.get('water')).toBe(1);
-  });
-
-  it('reduces an elevated water cost by 1', () => {
-    const cat = setupCatalog(['tidewalker']);
-    const u = makeUnit({
-      id: 'u',
-      spd: 10,
-      loadout: loadoutWith(bucketId('movement'), [tidewalker.id]),
-    });
-    const state = makeGameState({ units: [u], map: flatMap(3, 3) });
-    const base = new Map<TerrainType, number>([['water', 3]]);
-    const result = runModifyTerrainCosts(state, cat, { unit: u, baseValue: base });
-    expect(result.get('water')).toBe(2);
-  });
-
-  it('clamps to 1 when the running cost is already at the floor', () => {
-    const cat = setupCatalog(['tidewalker']);
-    const u = makeUnit({
-      id: 'u',
-      spd: 10,
-      loadout: loadoutWith(bucketId('movement'), [tidewalker.id]),
-    });
-    const state = makeGameState({ units: [u], map: flatMap(3, 3) });
-    const base = new Map<TerrainType, number>([['water', 1]]);
-    const result = runModifyTerrainCosts(state, cat, { unit: u, baseValue: base });
-    expect(result.get('water')).toBe(1);
+    expect(result.get('water_shallow')).toBe(1);
+    expect(result.get('water_deep')).toBe(1);
   });
 });
 

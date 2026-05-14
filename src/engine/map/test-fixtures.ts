@@ -17,7 +17,13 @@
 // `tileSpec` and `mapWith` are the lower-level builders for tests that
 // need multi-layer or property-tagged tiles.
 
-import type { BattleMap, TerrainType, Tile, TileProperty } from '../types/index.ts';
+import type {
+  BattleMap,
+  TeamId,
+  TerrainType,
+  Tile,
+  TileProperty,
+} from '../types/index.ts';
 
 export interface TileSpec {
   readonly x: number;
@@ -26,6 +32,11 @@ export interface TileSpec {
   readonly elevation?: number;
   readonly terrain?: TerrainType;
   readonly properties?: ReadonlyArray<TileProperty>;
+  // Optional deployment-zone tag. Pass `undefined` (or omit) for a
+  // non-zone tile; pass a TeamId for a team-tagged zone; `null` is the
+  // "shared zone" sentinel reserved for future content. Mirrors the
+  // `Tile.deploymentZone` field.
+  readonly deploymentZone?: TeamId | null;
 }
 
 export function tileFrom(spec: TileSpec): Tile {
@@ -36,6 +47,7 @@ export function tileFrom(spec: TileSpec): Tile {
     elevation: spec.elevation ?? 0,
     terrain: spec.terrain ?? 'ground',
     properties: spec.properties ?? [],
+    ...(spec.deploymentZone !== undefined ? { deploymentZone: spec.deploymentZone } : {}),
   };
 }
 

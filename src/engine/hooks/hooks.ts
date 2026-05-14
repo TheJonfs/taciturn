@@ -203,14 +203,29 @@ export interface HookSignatures {
   };
 
   // Movement-profile structural modifiers — chain hooks over the
-  // class-baseline values. Float adds 'water' to canEnter; Fly sets
-  // specialMovement = 'fly'; future: marsh-walking, road bonus, etc.
+  // class-baseline values. Float adds water-tagged terrains to
+  // canEnter; Fly sets specialMovement = 'fly'; future: marsh-walking,
+  // road bonus, etc.
+  //
+  // Session 33 (ADR-0073): both hooks pass `terrainRegistry` (sourced
+  // from the active ruleset) so handlers can register against a tag
+  // ('water') rather than enumerating every terrain literal. The
+  // helpers in `engine/map/terrain-registry.ts` make tag-based
+  // composition compact.
   modifyCanEnter: {
-    args: { unit: Unit; baseValue: ReadonlySet<TerrainType> };
+    args: {
+      unit: Unit;
+      baseValue: ReadonlySet<TerrainType>;
+      terrainRegistry: ReadonlyMap<TerrainType, ReadonlySet<string>>;
+    };
     return: ReadonlySet<TerrainType>;
   };
   modifyTerrainCosts: {
-    args: { unit: Unit; baseValue: ReadonlyMap<TerrainType, number> };
+    args: {
+      unit: Unit;
+      baseValue: ReadonlyMap<TerrainType, number>;
+      terrainRegistry: ReadonlyMap<TerrainType, ReadonlySet<string>>;
+    };
     return: ReadonlyMap<TerrainType, number>;
   };
   modifySpecialMovement: {

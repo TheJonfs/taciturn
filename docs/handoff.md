@@ -21,155 +21,145 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-13 (Session 32 — Cluster 6 substrate + cliff-edge rendering)
+## From session 2026-05-13 (Session 33 — River Ridge content + terrain-tag abstraction + corner stack markers)
 
-Session 32 shipped Phase D substrate: Cluster 6 map mechanics (jump-over-water pathfinding, knockback-into-water verification, pre-battle equipment auto-status as logged actions), the orchestrator pre-battle phase (rerouting initial state through the reducer per CLAUDE ground rule 3), the cliff-edge rendering substrate (R-D / shaping for River Ridge in S33), and the S31.5-flagged defensive structural-equivalence test on the damage pipeline. Tests: **887 passing across 73 files, 0 failing** (up from 859 across 71). Two new ADRs (0071, 0072).
+Session 33 shipped Phase D content: River Ridge (the first authored Mage War battlefield) end-to-end on the runtime, the terrain-tag abstraction substrate (ADR-0073) that lets Tidewalker / Float compose without enumerating water variants, the long-promised `defaultTerrainCosts` merge in `computeMovementProfile`, a load-time map validator, corner stack markers (in-session decision to ship), and the renderer's water-terrain texture wiring. **Tests: 960 passing across 80 files, 0 failing** (up from 887 across 73). One new ADR (0073).
 
 ### Scope completed
 
-**Cluster 6 — Map mechanics (4 items):**
+**Engine substrate (ADR-0073):**
 
-1. **Item 15 — Jump-over-water pathfinding.** Dijkstra expansion in `src/engine/map/pathfinding.ts` adds four cardinal two-step leap candidates per visited node when the intermediate tile is water (elevation 0 or 1) and the destination is land (elevation ≥ 2). Cost: fixed 2 move points per leap. Requires `Jump ≥ 1`. Elevation tolerance measured source-to-destination (Δelev ≤ jump). Intermediate tile's `canEnter` does NOT gate the leap (the unit hops over it); destination still does. 10 new unit tests covering candidate generation, Jump requirement, water-then-land constraint, cardinal-only constraint, elevation tolerance, occupant blocking, fixed-cost behavior under `terrainCosts` overrides, and no-spurious-leaps regression on flat maps.
+1. **Terrain tag registry.** `src/engine/map/terrain-registry.ts` ships the `TerrainTag` / `TerrainRegistry` types + four helpers (`terrainHasTag`, `terrainsWithTag`, `mapTerrainCostsByTag`, `addTerrainsWithTag`). The registry is a top-level field on `RulesetDefinition` (`ruleset.terrain.tags`); the default ruleset registers `ground` → `['land']`, `water_shallow` → `['water', 'shallow']`, `water_deep` → `['water', 'deep']`. The hook surface (`modifyCanEnter`, `modifyTerrainCosts`) widened to pass `terrainRegistry` to handlers; the runners source it from `catalog.getRuleset(state.ruleset.id).terrain.tags` internally so existing callers stay unchanged.
 
-2. **Item 16 — Knockback-into-water verification.** Two test additions (no substrate change — the primitive already supports water destinations):
-   - Primitive test in `src/engine/map/knockback.test.ts`: ridge elev 7 → shallow water elev 1 lands the unit on the water tile with `dropDistance = 6` and `fallingDamageAction.payload.amount === 60` (10 × dropDistance).
-   - End-to-end integration test in new `src/engine/actions/session-32-integration.test.ts`: `reduceUseAbility` with a `damage.knockback` rider produces an `AbilityTargetResult.displacedTo` matching the water tile + emits a `system_damage` action with `source.kind: 'falling'`, `dropDistance: 6`, `amount: 60`.
+2. **`defaultTerrainCosts` honored.** `computeMovementProfile` now merges ruleset's `defaultTerrainCosts` with the class baseline (class entries override ruleset for the same terrain) before the hook chain fires. Default ruleset populates `{ water_shallow: 2, water_deep: 3 }`. Tidewalker reduces both; Float adds both to canEnter via tag.
 
-3. **Item 17 — Pre-battle equipment auto-status as logged actions.** `applyEquipmentStatusGrants` (direct-mutation private helper in `createInitialState`) replaced with `enumeratePreBattleActions` (pure helper returning a queue of `ProposedAction`s). New optional `context` field on `SystemApplyStatusPayload`:
-   ```ts
-   context?: { kind: 'pre_battle_equipment'; itemId: ItemId }
-   ```
-   The reducer threads `sourceKind: 'equipment'` + `sourceEquipmentId` from `context` to `applyStatus` so the resulting status instance carries `source.kind === 'equipment'` — preserves the ADR-0028 in-battle-remove invariant.
+3. **Tidewalker + Float reworked.** Both keyed on literal `'water'` pre-S33; now register against the `'water'` tag via the helpers. One-liner handlers; forward-compatible with future water variants.
 
-4. **Orchestrator pre-battle setup pass.** `DemoOrchestrator` constructor takes an optional fourth argument `preBattleActions: ReadonlyArray<ProposedAction>`. On each `step()`, the orchestrator drains one pre-battle action through `commitAction` before falling through to the existing scheduler-advance branch. Empty queue = behavior identical to pre-S32. Failures throw (engine-emitted actions are programmer errors if they fail validation). `BattleView.tsx` computes the queue via `enumeratePreBattleActions(state, trainingFieldBattle, catalog)` and passes it in.
+4. **Universal water-enter convention (mid-session correction).** Every production class baseline (Knight, Earth Mage, Fire Mage, Lightning Mage, Water Mage) now has `canEnter: { ground, water_shallow, water_deep }`. Water is universally enterable; **cost** is the tactical gate (water_shallow 2 mp, water_deep 3 mp baseline; Tidewalker -1 floor 1). Matches the design doc's "Knockback Into Water" framing ("they escape on subsequent turns at standard water-tile cost"): anyone can be in water, just at penalty cost. This was a course-correction after the initial S33 implementation locked water_deep out of canEnter for all but Float-equipped units — the math then refused to let the Water Mage reach the first deep-water square going west, which violated the design intent. **Side effect on Float:** under the new convention, Float's historical role (open water for ground-only classes) doesn't differentiate against the default catalog. Float remains as substrate (the tag-based modifyCanEnter chain still composes) and stays `availability: 'hidden'`. See "Limitations + watch-fors" for Float's redesign status.
 
-**Cluster 2 Item 13 fold-in (D4 = A):**
+5. **Map validator.** `src/engine/map/map-validator.ts` ships a load-time sanity check (terrain in registry, elevation ≥ 0, in-bounds, no duplicate positions, deployment zones present per team). Returns structured errors; `assertMapValid` throws with all errors bundled.
 
-5. **Initial CT randomization as `system_set_ct` action.** New action type — absolute CT setting, distinct from delta-based `system_ct_push`. Sub-discriminant `source: { kind: 'initial_ct' }` open for future extension (debug-reset, content-driven absolute CT). Reducer clamps to `[0, TRIGGER_THRESHOLD - 1]`. `placementToUnit` leaves `ct = 0` when no explicit `placement.initialCT`; the orchestrator's pre-battle phase emits one `system_set_ct` per such unit via `resolveInitialCT(ruleset, placement, masterSeed)`. Explicit `placement.initialCT` short-circuits the queue (no redundant log entry). `resolveInitialCT` lifted to its own file `src/engine/setup/initial-ct.ts`.
+**Content:**
 
-**Defensive add (S31.5 carry-forward):**
+6. **River Ridge map.** `src/content/maps/river-ridge.ts` authors the 14×14 grid per the design doc. Elevations 0-9 with terrain derived (elev 0 → water_deep, elev 1 → water_shallow, elev ≥2 → ground). Deployment zones: Blue (team_a) rows 0-2 cols 5-8, Red (team_b) rows 11-13 cols 5-8, both at elev 2 flat ground.
 
-6. **`DEFAULT_TEST_DAMAGE_PIPELINE` ↔ production structural equivalence.** Pre-S32 the test fixture was missing the `postFinalize` stage entirely (not just stale handler order). Fixed by adding `postFinalize: ['fire_on_final_damage']` to the test fixture + `postFinalize: []` to `EMPTY_DAMAGE_PIPELINE`. New test in `src/content/rulesets/default.test.ts` asserts same-stage-set + same-handler-arrays between `defaultRuleset.damagePipeline.stages` and `DEFAULT_TEST_DAMAGE_PIPELINE`. Existing pipeline assertion extended to cover `postFinalize`.
+7. **River Ridge battle config.** `src/content/battles/river-ridge-battle.ts` derives from `demoBattle` and restages the 6 demo units in their respective zones (Blue at the north zone's front; Red at the south zone's front). Same loadouts and equipment as the Training Field battle — only the map and starting positions change.
 
-**Cliff-edge rendering substrate (cliff edges only; stack markers deferred to S33):**
+8. **BattleView default.** `BattleView.tsx` now points at `riverRidgeBattle` (replacing `trainingFieldBattle`). Training Field stays as content (the 14×14 flat ground map) plus `demoBattle` as the engine smoke-test fixture (orchestrator + AI integration tests).
 
-7. **`CliffEdgeLayer`** in new `src/renderer/cliff-edge-layer.ts`. Reads `BattleMap` (engine-blind — no `GameState` or `Catalog` dependency). For each tile, checks four cardinal neighbors; for any neighbor with strictly lower elevation, draws a darkened strip on the higher tile's edge facing the lower neighbor.
-   - **Thickness:** categorical tiers per ADR-0072: Δ=1 → 1px; Δ=2-3 → 2px; Δ≥4 → 3px.
-   - **Color:** higher tile's terrain palette color × multiplicative darken. Two darken tiers: `CLIFF_EDGE_DARKEN_HIGHLIGHT = 0.78` (N + W edges, lit) vs `CLIFF_EDGE_DARKEN_SHADOW = 0.55` (S + E edges, shadowed). Upper-left-lit convention.
-   - **Layer placement:** between `TileLayer` and `HighlightLayer` in the world container, so cliff strips appear "on" the tile but under highlights. Units still draw over both.
-   - **Draw timing:** once at `BattleRenderer.mount()`. Static for the map's lifetime in v1 (no elevation-mutation content). Future calls to `draw(map)` repaint cheaply if elevation changes.
-   - 12 new unit tests in `src/renderer/cliff-edge-layer.test.ts` covering thickness scaling (5 cases), darken-factor edge categorization (3 cases), and the multiplicative `darkenColor` helper (5 cases with channel clamping).
-   - Verified visually in browser preview: Training Field renders cleanly with zero strips (uniform elevation = no cliffs drawn).
+**Renderer:**
 
-**Action-log formatter polish (folded in this session per Chris's plan-review pick):**
+9. **Terrain texture manifest.** `src/assets/terrain/index.ts` registers `water_shallow` and `water_deep` with their three-variant PNG pools (already on disk pre-S33; now wired). `TERRAIN_COLORS` gains palette entries for both so the colored-rect fallback reads sensibly before textures load.
 
-8. **`[init]` tag** for `system_apply_status` (when `context.kind === 'pre_battle_equipment'`) and `system_set_ct`. Renders as "Tintinibar grants Regen to Blue Knight" and "Blue Knight enters battle at CT 18". New `safeItemName(catalog, id)` helper alongside the existing `safeAbilityName` / `safeStatusName`. Verified in browser preview — action log shows the new entries at battle start with proper attribution.
+10. **Corner stack markers (in-session decision).** New `CornerStackMarkerLayer` ships in `src/renderer/corner-stack-marker-layer.ts`. Draws a small light-gold pip stack in each tile's top-right corner: 0 pips for elev 0-2, 1 pip for elev 3-4, 2 pips for elev 5-6, 3 pips for elev 7-8, 4 pips for elev ≥9. Layer sits between cliff-edge and highlight. Engine-blind; static at mount. After visual verification in browser preview, the cliff-edge layer alone read insufficiently on River Ridge's smooth west climb (elev 2 → 7) and eastern perch (elev 9): the 1-3px cliff strips blended with tile outlines + grass texture variance. The stack markers close the gap — players can now read elevation tiers at a glance.
+
+**Bedrock Stride first playtest surface:**
+
+11. The S32 handoff flagged Bedrock Stride fall-immunity as "S33 surfaces alongside River Ridge." Integration test `session-33-integration.test.ts` locks the primitive composition: an Earth Mage with Bedrock Stride takes 0 damage from a falling system_damage of magnitude 50 (5-elev drop equivalent). Real knockback-rider exercise lands in the same test file via the synthetic 3×1 ridge maps at three tiers (4→2, 7→2, 9→2) — each tier confirms the `system_damage` action's `amount` matches 10 × dropDistance (per ADR-0026), pairing the Bedrock Stride scenario with the actual primitive that fires.
 
 ### Architecture records
 
-- **ADR-0071** — Pre-battle action-source pattern + orchestrator pre-battle phase. Documents the `SystemApplyStatusContext` extension, the new `system_set_ct` action type, the orchestrator's pre-battle phase boundary, `enumeratePreBattleActions` + `runPreBattlePhase` helpers, equipment-source threading in `reduceSystemApplyStatus`, and the CLAUDE-rule-3 alignment.
-- **ADR-0072** — Cliff-edge rendering convention. Documents the categorical thickness tiers (Δ=1/1px, Δ=2-3/2px, Δ≥4/3px), palette-derived darken color, upper-left-lit directional shading, and the layer placement between tiles and highlights. Stack markers deferred to S33 noted in "Alternatives considered."
+- **ADR-0073** — Terrain-tag abstraction + ruleset-level default terrain costs + map validator. Documents the `TerrainRegistry` shape, the helpers, the hook-surface widening, the `computeMovementProfile` merge contract, Water Mage's canEnter extension, and the small map validator. Bundles three closely-related substrate adds since they share the same River-Ridge-driven motivation.
 
 ### Test reconciliation
 
-- **+10** in `pathfinding.test.ts` — jump-over-water leap candidates.
-- **+1** in `knockback.test.ts` — ridge-into-water primitive.
-- **+1** in new `session-32-integration.test.ts` — end-to-end knockback into water via `reduceUseAbility`.
-- **+2** in `default.test.ts` — `postFinalize` stage assertion + `DEFAULT_TEST_DAMAGE_PIPELINE` structural equivalence.
-- **+3** in `orchestrator.test.ts` — pre-battle queue drain; replay-determinism via the queue; empty-queue falls through to scheduler-advance.
-- **+12** in new `cliff-edge-layer.test.ts` — thickness/darken/edge helpers.
+- **+13** in new `terrain-registry.test.ts` — registry helpers (hasTag, withTag, mapCostsByTag, addWithTag).
+- **+12** in new `map-validator.test.ts` — happy paths + 7 failure modes.
+- **+14** in new `river-ridge.test.ts` — structural + per-elevation-tier + island spot-check + deployment-zone count + validator pass.
+- **+8** in new `river-ridge-battle.test.ts` — config roster integrity, on-board placement, zone correctness.
+- **+13** in new `session-33-integration.test.ts` — pathfinding (Water Mage reaches water_shallow, never water_deep; Knight stays on ground), Tidewalker / Bedrock Stride composition on River Ridge state, knockback fall-damage tiers at three ridge configurations, pre-battle queue smoke check.
+- **+5** in new `corner-stack-marker-layer.test.ts` — categorical pip-count bins.
+- **+1** in `content-end-to-end.test.ts` — Float now adds both water_shallow + water_deep.
 
-Tests updated for new pre-battle phase routing:
-- `src/engine/setup/initial-ct-variance.test.ts` — `createInitialState` wrapper now calls `runPreBattlePhase`; reads CT post-pre-battle-phase. Same value (`resolveInitialCT` unchanged).
-- `src/engine/setup/create-initial-state.test.ts` — "ruleset CT fixed:50" test split: assert ct = 0 at construction, ct = 50 after `runPreBattlePhase`.
-- `src/engine/actions/session-17c-integration.test.ts` — `buildBattle` helper threads `runPreBattlePhase` so equipment statusGrants land before assertions.
-- `src/app/controllers/ai-controller.integration.test.ts` — passes `preBattleActions` to the orchestrator constructor.
-- `src/app/BattleView.tsx` — same.
+Tests updated for the tag convention:
+- `movement-abilities.test.ts` (Tidewalker tests) — reworked to assert against `water_shallow` / `water_deep` (the new convention) rather than literal `'water'`.
+- `content-end-to-end.test.ts` (Float tests) — assert against both water terrain types; "cross water" test uses `water_shallow` legend.
+- `test-fixtures.ts` (`makeTestRuleset`) — populates production water-tag registry + costs as defaults (empty registry was the placeholder; matches production now).
+- `test-fixtures.ts` (`tileFrom` / `TileSpec`) — pass `deploymentZone` through (was previously dropped; the field has existed on `Tile` since Cluster 2 / ADR-0049).
 
-**Final count: 887 passing across 73 files, 0 failing.**
+**Final count: 960 passing across 80 files, 0 failing.**
 
 Browser preview verified twice:
-- After items 3+4+5: action log shows `[init]` entries with proper attribution ("Tintinibar grants Regen to Blue Knight", "Sorcerer's Robe grants Shell to Blue Water Mage", "Blue Knight enters battle at CT 18"). Demo battle launches and pumps through CT spool-up without errors.
-- After item 7 (cliff-edge layer): Training Field renders unchanged (uniform elevation = zero cliff strips). No new visual artifacts. No console errors.
+- After substrate + content + textures: River Ridge renders with the river column (water_shallow / water_deep visually distinct), the ridge band visible across cols 3-13 rows 6-8, units deployed in their zones, pre-battle init entries in the action log ("Tintinibar grants Regen to Blue Knight", "Blue Knight enters battle at CT 18", etc.). Cliff edges drew correctly (69 strips, max delta 7) but were visually subtle at the default 48px tile size — the smooth ridge climb's Δ=1 1px strips disappeared into the tile outlines.
+- After corner stack markers: the ridge structure reads at a glance. The eastern perch (elev 9) shows 4 pips, the mid-ridge band (elev 7) shows 3 pips, the west climb (elev 3 / 4) shows 1 pip. River + flat zone at elev 0/1/2 stay markerless.
 
 ### Limitations + watch-fors
 
-- **Tidewalker terrain-family widening for River Ridge (S33).** River Ridge will author distinct terrain types `water_deep` (elev 0) / `water_shallow` (elev 1) per Chris's call (terrain tied to elevation, settable as a future-proof for elevation-mutation abilities). Tidewalker today keys on `'water'` only in its `modifyTerrainCosts` handler ([src/content/abilities/tidewalker.ts](src/content/abilities/tidewalker.ts)). When River Ridge ships, Tidewalker must widen to decrement both `water_deep` and `water_shallow` costs, OR a terrain-family abstraction (`{ water_deep, water_shallow } → 'water' family`) lets Tidewalker key on the family. S33 audit.
+- **Float's v1 role is unclear under the new universal-water-enter convention.** Pre-S33 Float was the gate that opened water to ground-only classes. With the universal canEnter, Float's modifyCanEnter handler runs but adds terrains already in the baseline. The chain composition is still correct (tested in `content-end-to-end.test.ts`); the *content effect* is currently a no-op against the default catalog. Float remains `availability: 'hidden'` so it isn't player-equippable. Three reasonable redesigns to consider next time we touch movement-bucket content: (a) repurpose Float as a "Walk-on-Water" passive that drops water cost to 1 (the future passive the design doc references); (b) make Float a fall-mitigator (composing with `modifySystemDamage` like Bedrock Stride); (c) delete Float entirely until a clear v1 use case emerges. Worth a deliberate call before the deployment-phase UI starts surfacing passive choice to players.
 
-- **Jump-over-water elevation tolerance: source-to-destination.** Implementation measures Δelev from the source tile to the leap destination (not from the intermediate water tile). Matches "the leap is one atomic move." If a future scenario surfaces "leap from low to leap across to a steep cliff requires intermediate-relative measurement," revisit. No v1 case.
+- **Float's content-end-to-end tests reduced in scope.** Two tests deleted: "lets pathfinding cross water tiles it otherwise could not" (no longer holds — baseline now crosses water too) and the differentiation form of "adds water to canEnter when equipped" (the assertion happens to hold against the production baseline, so it's not actually testing Float's contribution). The remaining `Float composes through the modifyCanEnter chain` test exercises the registry-fed tag mechanism. The `Float + Move +1 stacked` test exercises hook-chain independence (structural + scalar). Mechanism coverage retained; behavioral differentiation pending the Float redesign.
 
-- **Cliff-edge strips draw inward from each tile's footprint.** A south-edge cliff occupies the bottom `thickness` pixels of *that tile's* footprint, not the top of the neighbor's. Tile-ownership clean; the alternative (outward draws) would have produced overlap with the neighbor's own cliffs. Renderer assumption: per-tile cliff visuals are self-contained.
+- **Corner stack-marker layer replaced with numeric elevation labels (in-session revision).** First-iteration design used 1-4 stacked pips in the top-right corner with categorical binning by elevation tier. Playtest read: pips parsed as a tier-meter rather than absolute elevation, and the categorical breaks (3-4 → 1 pip, 5-6 → 2 pips, etc.) obscured the exact tier a tile sits at. Replaced with a numeric digit drawn in the same top-right slot. After a second pass, the labelling threshold was dropped entirely — **every tile is labelled**, including water (elev 0/1) and baseline ground (elev 2), so the readout is uniform and a player never wonders whether an unlabelled tile is baseline or just missing a marker. Layer renamed `corner-stack-marker-layer.ts` → `elevation-label-layer.ts`. Old files deleted; new test in `elevation-label-layer.test.ts`. ADR-0073 / 0072 still capture the cliff-edge + elevation-overlay framing; no new ADR needed for the visual swap. Chris flagged that more elevation-readability work is still wanted (styling / color-coding ideas pending) — the current numeric label is the v1 baseline, not the final form.
 
-- **Cliff-edge layer is static at mount.** No re-paint hook beyond a future `cliffEdgeLayer.draw(state.map)` call. If a future ability mutates elevation mid-battle, the renderer must add a hook to repaint. v1 has no such content.
+- **Shallow water tint added** (`TERRAIN_TINTS` in renderer constants). Pre-revision the shallow water texture (`shallow-water-01/02/03.png`) read as a light cyan-pebble pattern visually too close to the grass texture. New `TERRAIN_TINTS['water_shallow'] = 0x90a8b8` darkens via Pixi's sprite-tint multiplicative blend; deep water stays untreated. Fallback `TERRAIN_COLORS['water_shallow']` also darkened (0x3a78a0 → 0x2a5878). Authoring darker source PNGs is the longer-term move; the tint is a fast post-import calibration. The infrastructure (`TERRAIN_TINTS` map, `TERRAIN_TINT_DEFAULT`) generalizes to any future terrain that wants a tint without re-authoring assets.
 
-- **Corner stack markers deferred.** Per ADR-0072 / plan-review pick. The hint markers (precise per-tile elevation level) ship in S33 alongside River Ridge content if the cliff-edge layer alone reads insufficient against real elevation variance.
+- **HMR-stale-catalog watch-for (Session 33 mid-session gotcha).** `BattleView.tsx` mounts the catalog once via `useMemo(() => loadDefaultCatalog(), [])`. When a class baseline (`canEnter`, `terrainCosts`, etc.) changes mid-session, Vite HMR reloads the source module but the React tree still holds the old catalog (the memo doesn't invalidate). Symptom during this session: after expanding all classes' `canEnter` to include water terrains, a regular Vite reload still produced UI move-highlights computed against the *old* canEnter — Knight could not reach water-side tiles even though the engine was correct. **Workaround: hard refresh (Cmd+Shift+R on Mac)** to force a fresh module + remount. Long-term: a future session could (a) add catalog as a dep on the useMemo + a HMR-hook that invalidates on content reloads, or (b) accept this as a development-loop quirk and note in the dev guide. Flag for the next renderer/UI session.
 
-- **`createInitialState` no longer applies equipment grants at construction.** A test or downstream consumer that bypasses the orchestrator and reads `unit.statuses` immediately after `createInitialState` will see an empty `statuses` array even for units with Tintinibar / Sorcerer's Robe equipped. Call `runPreBattlePhase` (one-shot) or `enumeratePreBattleActions` + orchestrator pump to get the post-grant state. Documented inline + ADR-0071.
+- **Cliff-edge categorical thicknesses (ADR-0072) read subtly on a 48px tile.** Corner stack markers close the gap, but the cliff-edge layer's "this transition is sharp" signal is still hard to distinguish from tile outlines at default zoom. A future polish session could either thicken the bins (2px / 3px / 4px), saturate the darken factor, or accept the markers as the primary elevation read and let cliff edges be a subtle complement. No immediate action.
 
-- **Action log emits N + M pre-battle entries before the first `turn_start`.** N = equipment grants across all units; M = units with formula-derived initial CT. For the demo battle this is ~6 entries (Tintinibar Regen, Sorcerer's Robe Shell, plus 4 initial-CT entries for non-explicit-CT units). The action-log UI scrolls naturally; if a future battle has many more units / more equipment grants and the log opens cluttered, a "collapse setup" toggle is the natural polish add.
+- **`isWaterTile` in pathfinding still keys on `elevation ≤ 1`.** The leap-eligibility check (jump-over-water) uses elevation, not terrain string or tag. Consistent with the design doc's "elevation alone determines water-ness" framing for that specific predicate, even though terrain types now diverge. If a future content piece authors a non-water terrain at elev 0/1 (e.g., a chasm or a magma flow at low elevation), the leap-over-water mechanic would fire incorrectly. The author would need to either tag it `water` (making it pathologically Tidewalker-compatible) or the leap predicate would need to consult the registry. Flag for review when such content emerges.
 
-- **`buildBattle` helper duplication.** Three test files (`initial-ct-variance.test.ts`, `session-17c-integration.test.ts`, plus the orchestrator-side tests via `enumeratePreBattleActions` directly) now wrap `createInitialState` + `runPreBattlePhase` to get the post-pre-battle state. If a fourth test surfaces, a shared test-fixture helper is justified.
+- **`runModifyTerrainCosts` / `runModifyCanEnter` source the registry internally.** Handlers always see a valid registry — never `undefined`. Tests that call these runners directly with a custom catalog must ensure the catalog's ruleset has a `terrain.tags` field. `makeTestRuleset` provides a populated registry by default; any bespoke `RulesetDefinition` construction must include `terrain: { tags: new Map() }` (or a populated map) to satisfy the type.
 
-- **`fillVitalsFromComputedMaxes` runs in `createInitialState` before equipment statuses apply.** Equipment contributors that adjust `maxHp` / `maxMp` (Wizard's Robe +40 maxMp, Staff of Abundance × 1.5 maxMp, etc.) are registered by equipment slot, not by status — so they fire correctly against the post-construction state. No equipment item in v1 grants a status that itself contributes to maxHp/maxMp via `modifyStatQuery`. If a future item authored such a status, vitals fill would lag the status's maxHp contribution by one phase. Flag this if it surfaces.
+- **The Water Mage's `canEnter` includes `water_shallow` but Tidewalker also reduces `water_deep` cost.** The cost reduction is meaningful only for unit/profile combinations whose canEnter includes the terrain. A bare Water Mage can't reach `water_deep` regardless of cost; with Float equipped, they can, and Tidewalker's 3→2 reduction kicks in. Composition is clean; no edge case.
 
-- **`SystemApplyStatusContext` is a union with one variant today.** A future emission site (debug, scripted scenario, content) that wants its own context attribution extends the union. The action-log formatter's exhaustiveness `never` cast catches the next unhandled case.
+- **Map validator is per-battle, not per-catalog.** River Ridge's tests call `validateMap` explicitly with team requirements; nothing in the engine auto-validates maps at catalog load (where team configurations are unknown). When team-builder ships in Phase E, it should validate against the chosen team config + map at battle-config-construction time. Flag for Phase E.
 
-- **`system_set_ct.source.kind` is similarly single-variant (`'initial_ct'`).** Future absolute-CT consumers extend the union.
+- **`TerrainType` is still `string`.** The registry is the discriminator now (a terrain is "real" if it's in the registry); the type itself stays an open union. Tests that construct synthetic tiles with arbitrary terrain strings will still type-check; the validator (or runtime composition) is the gate.
+
+- **Existing demo art (`rock-01/02/03.png`) is on disk but not registered.** Could be wired into a future `rock` terrain type if the ridge wanted distinct visual identity from `ground`. Per the brief's decision 1, we declined to introduce `rock` as a terrain type in v1 (elevation alone differentiates the ridge from the flat plain visually via cliff edges + stack markers). Future content session may revisit.
 
 ### Considered and rejected this session
 
-- **Inline pre-battle phase in `createInitialState`** — violates CLAUDE rule 3; bundles orchestrator's animation pacing into a synchronous step. ADR-0071 Rationale.
+- **Direct enumeration in Tidewalker / Float (decision 2 option A).** Maintenance dependency grows with every water variant. The forward-compat win of the tag abstraction at the first sibling consumer (Float, which has the same widening problem) justifies the substrate. ADR-0073 Rationale.
 
-- **Reuse `system_ct_push` with delta-from-zero for initial CT** — semantically wrong framing; "set initial CT to N" reads as a different operation than the runtime push by Water Strike etc. ADR-0071 Rationale.
+- **Family/parent field per terrain type (option C).** Single-membership; can't tag `water_swamp` as both `'water'` and `'organic'`. The damage-tag pattern (set, not single) is the established precedent. ADR-0073 Alternatives.
 
-- **New top-level `ActionSource` variant `'pre_battle_equipment'`** — would widen the source surface for attribution that only the formatter consumes. Payload-level `context` field is narrower. ADR-0071 Rationale.
+- **Plumbing `terrainRegistry` through every runner caller's args.** Every existing test would need updating; cascading change for no win. Runners source the registry from the catalog internally. ADR-0073 Decision.
 
-- **Stash pre-battle queue on `GameState`** — state describes "what is true now," not "what's queued." Per-orchestrator pending state belongs on the orchestrator.
+- **Authoring `rock` as a distinct terrain type for the ridge.** Decision 1 = A. v1 doesn't need rock as a distinct *movement* context; elevation + cliff edges + stack markers convey the ridge identity visually. Future rock-only abilities can introduce the terrain type when actual mechanics need it.
 
-- **Make `applyEquipmentStatusGrants` synchronous + emit a marker action** — half-measure; doesn't actually route through the reducer per-grant.
+- **A catalog-load-time map validator.** Catalog doesn't know which battles will use which maps with which team counts. Validation is per-battle; called at battle load or in tests. ADR-0073 Alternatives.
 
-- **Continuous cliff-edge thickness (1px per delta, no cap)** — 7-9px cliffs at the eastern perch would dominate the tile. ADR-0072 Rationale.
+- **Continuous (linear) pip count for stack markers.** Would mean elev 9 shows 9 pips — visually noisy and not particularly meaningful since per-elevation differences only matter at tier boundaries (knockback fall-damage tiers, ranged-perch elevation advantage). Categorical binning matches how players think about terrain. Inline rationale in `corner-stack-marker-layer.ts`.
 
-- **Linear-with-cap thickness (1px / 2px / 3px for Δ=1 / 2 / ≥3)** — loses discrimination between Δ=2 and Δ=4. Categorical binning preserves three distinct tiers.
+- **One unified rendering layer for cliff edges + stack markers.** They have different invariants (cliff edges are relationships between adjacent tiles; markers are per-tile absolutes) and different repaint conditions. Two layers keep responsibilities clean. ADR-0073 Alternatives.
 
-- **Generic neutral dark gray cliff color** — visually flat across terrains. Palette-derived darken preserves material identity.
+- **Tag abstraction extending to canEnter via tag-set checks in pathfinding.** Considered. `canEnter` is still a `Set<TerrainType>` (literal terrain strings). The tag abstraction operates at the *handler* level (Float adds tagged terrains to the set; Tidewalker rewrites the cost map by tagged-terrain iteration). Keeping the *pathfinding* check on terrain literals avoids a per-step registry lookup and matches the established hot-path. Future "I want any water-tag terrain to be enterable" passive could compose via Float-style addition.
 
-- **Full-darken-all-four (no directional shading)** — flatter cliff read. Upper-left-lit gives volume.
-
-- **Numerical glyph in tile corner showing elevation level** — reads as text; less spatial; covered by tile-info panel.
-
-- **Stack markers shipped alongside cliff edges in S32** — per plan-review pick. S33 picks them up alongside River Ridge content if cliff edges alone read insufficient.
-
-- **Per-frame repaint of cliff strips** — wasted work; cliff strips are static in v1.
-
-- **Action-log "collapse setup" toggle** — future polish; the current 6-entry pre-battle segment is fine to scroll past.
-
-- **Tidewalker widening to handle `water_deep` + `water_shallow` in S32** — premature. River Ridge content authoring is S33; widen the ability when the content lands so the change pairs with the test surface it needs.
+- **Updating `river-ridge.md`'s elevation grid in place to match the implementation.** The grid is correct; only the "no separate water terrain type needed" assertion in the engine-requirements section is divergent. Surgical edit + reference to ADR-0073 preserves the design intent and rationale. ADR-0073 Rationale.
 
 ### Empirical-questions checklist for Chris's next playtest
 
-The S32 changes are substrate + rendering; no equipment / ability tuning. The visible playtest reads:
+**River Ridge tactical character (first playtest):**
 
-**Action log:**
-- [ ] At battle start, the action log shows `[init]` entries for equipment grants ("Tintinibar grants Regen to Blue Knight", "Sorcerer's Robe grants Shell to Blue Water Mage") and initial CT ("Blue Knight enters battle at CT 18", etc.). The entries appear before the first `turn_start`.
-- [ ] The status badges on units (Regen on Blue Knight, Shell on Blue Water Mage) appear at the same point in the pump — they're driven by the pre-battle `system_apply_status` actions now, not a synchronous construction step. No visual regression — the badges should "pop" in sequence with the action-log entries.
+- [ ] Does the central western passage (cols 3-5) dominate engagement as the design doc anticipated? If "yes — every battle converges there," consider raising col 3 elev or adding an obstacle.
+- [ ] Does the eastern flank read as engageable, or does one team always take the perch unchallenged? The 7-elev drop from col 13 row 7 to col 13 row 8 (a 4-pip cliff) should be both intimidating (knockback risk) and tempting (LoS dominance). If one team always takes it and the other can't contest, the "valley cut at rows 7-8 cols 11-12" proposal in the design doc's open considerations is the fix.
+- [ ] Water Mage with Tidewalker: does the col 2 patrol read as meaningful tempo? The 1-mp shallow-water cost should make col 2 a Water-Mage-only highway. If non-water-mages routinely cross via Float / land detour, the tempo signature is muted.
+- [ ] Knockback off the eastern perch: does the 7-tier fall damage actually KO targets, or does HP scaling at this point in the demo balance dissipate it? (10 × dropDistance = 70 damage from elev 9 → 2; mid-game Mages have ~120-150 HP.)
 
-**Cliff-edge rendering:**
-- [ ] Training Field still renders cleanly. Uniform elevation = no cliff strips. No visual artifacts on grass tiles.
-- [ ] (S33 content authoring is when this really exercises.) A synthetic elevation-variant test map (e.g. one constructed in a dev console) would show cliff strips on tiles facing lower neighbors.
+**Bedrock Stride first read:**
 
-**Replay determinism:**
-- [ ] Restarting the demo battle (or running it with the same masterSeed twice) produces the same initial-CT values per unit. The randomization is `(masterSeed, unitId)` deterministic; the action log captures it from sequence 0.
+- [ ] An Earth Mage with Bedrock Stride takes 0 fall damage when knocked off the ridge. The integration test locks the primitive; first real playtest confirms it feels appropriately defensive (vs. a Float-equipped mage who also avoids fall damage via water landing).
+
+**Visualization:**
+
+- [ ] Corner stack markers read at a glance? Specifically: does the player notice the perch's 4-pip cluster vs. the mid-ridge's 3-pip cluster vs. the gentle climb's 1-pip cluster without hovering for tile info?
+- [ ] Water terrains visually distinct from land — water_shallow + water_deep + ground all three palettes + textures applied. Any "what's that tile?" confusion?
+- [ ] Deployment-zone tinting (Phase E) not yet wired — units just start at their authored positions. Players reading the map can't see "Blue zone is here" without prior knowledge. Phase E adds the visual tinting.
 
 ### Longer-term carry-forward
 
-- **River Ridge map content authoring (S33)** — the primary consumer of S32's substrate. Authors the 14×14 grid per `docs/twentyOneDesign/river-ridge.md`. Will exercise jump-over-water, knockback-into-water, the orchestrator pre-battle phase, and the cliff-edge layer all together.
-- **Tidewalker terrain-family widening** — paired with River Ridge in S33.
-- **Corner stack markers** — paired with River Ridge in S33 if cliff edges alone read insufficient.
-- **Pre-battle UI surfaces (S35-37)** — title screen + battle setup + team builder + deployment phase + sample team templates. The pre-battle phase + initial-CT randomization are now wired through the reducer, so the pre-battle UI surfaces (specifically deployment-phase preview of auto-statuses) compose against the same substrate.
-- **Walk-on-Water passive** — future content. The brief flagged it as deferred; the jump-over-water substrate is independent.
-- **Polish #5 statuses portion** — S31.5 carry. Animator's `UnitVisualSnapshot.statuses` field for ahead-of-tween settle. Not yet a visible problem.
-- **`UnitVisualSnapshot.maxHp` field cleanup** — S31.5 carry. Field retained but unread at the read site.
+- **River Ridge balance tuning** — open considerations from `river-ridge.md` (western passage dominance, eastern flank engagement, water-lane tempo). Playtest-informed.
+- **Jump-over-water leap on River Ridge** — current grid doesn't surface this mechanic. Re-author or accept (see Limitations + watch-fors).
+- **Walk-on-Water passive** — future content. The brief flagged it as deferred; the tag abstraction + Float / Tidewalker substrate composes naturally.
+- **Future terrain types** (`swamp`, `ice`, `sand`, `lava`) — substrate is ready. Author the type, register a tag set (`['water','organic']` for swamp; `['water','frozen']` for ice; `['land','sand']` for sand; etc.), and the tag-aware passives compose.
+- **Pre-battle UI surfaces (S34-37)** — title screen + battle setup + team builder + deployment phase + sample team templates. River Ridge is the deployment phase's first concrete consumer (zones are authored; UI surfaces them).
+- **Map validator @ team-builder time** — Phase E's team-builder should validate the chosen team + map combination so insufficient-zone scenarios fail loud.
+- **Cliff-edge thickness tuning** — corner stack markers carry the elevation read now; cliff edges are a subtle complement. If a future tile-size or zoom-level change makes the bin tuning less ideal, revisit.
+- **`isWaterTile` predicate** — if non-water terrain ever ships at elev 0/1, the leap-over-water predicate needs to consult the registry rather than elevation. No v1 case.
+- **Action-log "collapse setup" toggle** — S32 carry; pending playtest read.
+- **`UnitVisualSnapshot.maxHp` field cleanup** — S31.5 carry.
 - **Wand swing ally-targetability** — S31 carry.
 - **AI active absorption exploitation** — S27 carry. Tactics-layer pass.
 - **AI projection forecast extension via `computeOutgoingHitChance`** — S30 carry.
@@ -195,18 +185,18 @@ The S32 changes are substrate + rendering; no equipment / ability tuning. The vi
 - **Permadeath timer** — S24 Wave 1.
 - **Settings expansion** — S24 Wave 1.
 - **Reactions in projection column** — S24 Wave 1.
-- **Bedrock Stride fall-immunity** — S33 surfaces alongside River Ridge.
 - **Forecast accuracy row visibility** — S30 reject; revisit if confusion surfaces.
-- **Future terrain types (swamp, ice, sand)** — design-doc extensible.
-- **Hit-chance and cover modifiers from elevation differential** — `map-and-battlefield.md` open question.
+- **Hit-chance and cover modifiers from elevation differential** — `map-and-battlefield.md` open question. River Ridge is the first map that exercises elevation; ripe to settle in a follow-on.
+- **`buildBattle` test-fixture extraction** — S32 carry; triggers at fourth duplication. S33 added `initialRiverRidgeState` as the third pattern (after `initial-ct-variance.test.ts` and `session-17c-integration.test.ts`); one more duplication justifies the shared helper.
+- **`fillVitalsFromComputedMaxes` ordering invariant** — S32 carry. River Ridge doesn't author equipment-status-modifies-maxHp content; invariant holds.
 
-### Suggested scope for Session 33
+### Suggested scope for Session 34
 
-Per the roadmap: River Ridge map content authoring. Phase D substrate (S32) is complete; S33 ships the content that exercises it. Concrete deliverables per `roadmap-sessions-21-plus.md`:
+Per the roadmap: **Phase E begins** — title screen + battle setup screen. Per `roadmap-sessions-21-plus.md`'s Session 34 entry:
 
-- Author the 14×14 grid in `src/content/maps/` per `docs/twentyOneDesign/river-ridge.md`.
-- Wire `BattleConfig` for River Ridge so the demo can load it (alongside or replacing the Training Field config).
-- Audit Tidewalker's `'water'` lookup and widen to `water_deep` + `water_shallow` (or introduce a terrain-family abstraction). Audit lands in the S33 plan.
-- Verify the substrate end-to-end via playtest: a Water Mage's M ability + the jump-over-water leap traverse the river; a knockback off the eastern perch deals correct fall damage; the cliff-edge layer renders the ridge clearly.
-- Decide whether to ship corner stack markers in S33 based on the cliff-edge read.
-- Small-to-medium per the roadmap framing.
+- Title screen scaffolding (route into battle setup or directly into a hand-authored battle for now).
+- Battle setup screen — at minimum, "Start River Ridge" as the single selectable battle. Future sessions add team-builder + map selection.
+- Wire the "next battle" / "back to title" buttons on the results screen (deferred from S24).
+- Small. Sets the stage for S35-37 deployment-phase UI.
+
+Phase D content milestone reached this session: River Ridge playable end-to-end via `BattleView.tsx`'s runtime config. The pre-battle phase, terrain abstraction, knockback substrate, cliff-edge + stack-marker rendering, and water-traversal composition all light up at once on the new map.

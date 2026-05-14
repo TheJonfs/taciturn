@@ -34,6 +34,7 @@ import {
 import { TILE_SIZE } from './constants.ts';
 import { TileLayer } from './tile-layer.ts';
 import { CliffEdgeLayer } from './cliff-edge-layer.ts';
+import { ElevationLabelLayer } from './elevation-label-layer.ts';
 import { statusBadgeFromInstance, UnitSprite, type StatusBadge } from './unit-layer.ts';
 import { HighlightLayer, type HighlightKind } from './highlight-layer.ts';
 import { Animator } from './animator.ts';
@@ -54,6 +55,12 @@ export class BattleRenderer {
   // neighbor sits at lower elevation. Static for the map's lifetime;
   // a future elevation-mutation ability would re-call `draw`.
   private readonly cliffEdgeLayer: CliffEdgeLayer;
+  // Per Session 33's in-session decision (revised mid-session): a
+  // numeric per-tile elevation label replaces the earlier pip-stack
+  // design. Cliff edges show *that* two adjacent tiles differ in
+  // elevation; the labels show *the exact elevation*. Drawn above
+  // cliff edges and below highlights.
+  private readonly elevationLabelLayer: ElevationLabelLayer;
   private readonly highlightLayer: HighlightLayer;
   private readonly unitLayer: Container;
   private readonly sprites: Map<UnitId, UnitSprite> = new Map();
@@ -92,12 +99,14 @@ export class BattleRenderer {
 
     this.tileLayer = new TileLayer();
     this.cliffEdgeLayer = new CliffEdgeLayer();
+    this.elevationLabelLayer = new ElevationLabelLayer();
     this.highlightLayer = new HighlightLayer();
     this.unitLayer = new Container();
     this.unitLayer.label = 'units';
     this.world.addChild(
       this.tileLayer.container,
       this.cliffEdgeLayer.container,
+      this.elevationLabelLayer.container,
       this.highlightLayer.container,
       this.unitLayer,
     );
@@ -122,6 +131,7 @@ export class BattleRenderer {
     this.catalog = catalog;
     this.tileLayer.draw(state.map);
     this.cliffEdgeLayer.draw(state.map);
+    this.elevationLabelLayer.draw(state.map);
 
     this.camera = new CameraController({
       mapWidth: state.map.width,

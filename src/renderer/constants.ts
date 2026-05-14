@@ -14,14 +14,34 @@ export const TILE_INSET = 4;
 // Solid background fill (renderer's clear color).
 export const BACKGROUND_COLOR = 0x14171c;
 
-// Terrain palette. v1 ships only `'ground'`; new terrains added by
-// content extend this map (default fallback is a debug magenta so a
-// missing entry is loud).
+// Terrain palette. v1 fallback colors per terrain type — the texture
+// overlay (ADR-0054) covers tiles whose terrain has a manifest entry,
+// but the rect underneath is still drawn so unmapped art (or a
+// loading delay) doesn't read as missing. Magenta on miss so a typo
+// in authoring is loud. Session 33 (ADR-0073): water types split into
+// shallow / deep. The legacy `'water'` key stays for test fixtures
+// that still author the singular literal terrain string.
 export const TERRAIN_COLORS: Readonly<Record<string, number>> = {
   ground: 0x4a5b3c,
   water: 0x274c70,
+  water_shallow: 0x2a5878,
+  water_deep: 0x1a3a5a,
   wall: 0x3b3c41,
 };
+
+// Optional per-terrain multiplicative tint applied to the texture
+// sprite (ADR-0054). Tile color is `texture_pixel * tint / 255`. White
+// (0xffffff) is a no-op. Use to darken or recolor terrain textures
+// without re-authoring the PNGs.
+//
+// Session 33: `water_shallow` tinted toward a mid-cyan so it reads as
+// "water" alongside `water_deep` rather than as a pastel-pebbled grass
+// adjacent. Authoring the textures themselves could go further; this
+// is a quick post-import calibration.
+export const TERRAIN_TINTS: Readonly<Record<string, number>> = {
+  water_shallow: 0x90a8b8,
+};
+export const TERRAIN_TINT_DEFAULT = 0xffffff;
 
 export const TERRAIN_FALLBACK_COLOR = 0xff00ff;
 
@@ -55,6 +75,29 @@ export const CLIFF_EDGE_THICKNESS_PX_DELTA_4_PLUS = 3;
 // against the lit-from-upper-left convention.
 export const CLIFF_EDGE_DARKEN_SHADOW = 0.55;
 export const CLIFF_EDGE_DARKEN_HIGHLIGHT = 0.78;
+
+// Elevation-label markers (Session 33, revised mid-session). Cliff
+// edges convey *that* two adjacent tiles differ in elevation; the
+// per-tile label conveys *the exact elevation*. Drawn in the top-right
+// corner so the unit sprite (centered) is unobstructed.
+//
+// Labelling rule: every tile is labelled, including water (elev 0/1)
+// and baseline ground (elev 2). A uniform readout means the player
+// never wonders whether an unlabelled tile is baseline or just missing
+// a marker.
+//
+// The earlier pip-stack design (1-4 pips by categorical tier) read as a
+// tier-meter; players parsed it as relative tiers rather than absolute
+// elevation. The numeric label is unambiguous. A future polish pass can
+// add color-coding or styling per tier; v1 keeps it minimal.
+export const ELEVATION_LABEL_FONT_SIZE = 11;
+export const ELEVATION_LABEL_PADDING = 2;
+// Light gold matches the existing active-highlight palette
+// (ACTIVE_HIGHLIGHT_COLOR). Reads against grass / rock alike.
+export const ELEVATION_LABEL_COLOR = 0xf6e5a8;
+// Dark outline / stroke so the digit reads against any terrain.
+export const ELEVATION_LABEL_OUTLINE = 0x14171c;
+export const ELEVATION_LABEL_OUTLINE_WIDTH = 3;
 
 // Portrait restructure (session 26.5 / item #2). Replaces the prior
 // inscribed-circle layout (colored body + team ring at body edge) with

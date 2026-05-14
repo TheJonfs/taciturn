@@ -38,7 +38,9 @@ export const lightningMage: ClassDefinition = {
     moveRange: 4,
     jump: 3,
     terrainCosts: new Map(),
-    canEnter: new Set(['ground']),
+    // Session 33 (ADR-0073): water is universally enterable; cost is
+    // the gate. See knight.ts for the convention.
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep']),
   },
   evasion: { front: 7, side: 4, back: 0 },
   equipmentSlots: {

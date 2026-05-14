@@ -117,9 +117,31 @@ export const defaultRuleset: RulesetDefinition = {
 
   // Pathfinding global defaults. Per-class movement baselines override
   // per-terrain; the ruleset's defaults are the unannotated fallbacks.
+  //
+  // Session 33 (ADR-0073): water-tier defaults register here so any
+  // class that has water in `canEnter` pays the spec-correct cost
+  // without enumerating it per class. `ground` stays implicit at
+  // `defaultStepCost`.
   pathfinding: {
     defaultStepCost: 1,
-    defaultTerrainCosts: new Map(),
+    defaultTerrainCosts: new Map<string, number>([
+      ['water_shallow', 2],
+      ['water_deep', 3],
+    ]),
+  },
+
+  // Session 33 (ADR-0073): terrain identity. River Ridge introduces
+  // `water_shallow` (elev 1) and `water_deep` (elev 0) as distinct
+  // terrain types; both carry the `'water'` tag so Tidewalker / Float /
+  // future water passives compose without enumerating literals. `ground`
+  // carries `'land'` for symmetry — future "land-only" abilities can key
+  // on it.
+  terrain: {
+    tags: new Map<string, ReadonlySet<string>>([
+      ['ground', new Set(['land'])],
+      ['water_shallow', new Set(['water', 'shallow'])],
+      ['water_deep', new Set(['water', 'deep'])],
+    ]),
   },
 
   // FFT defaults. Friendly pass-through on, friendly fire on (AoE

@@ -116,7 +116,23 @@ export function makeTestRuleset(overrides?: {
     },
     pathfinding: {
       defaultStepCost: 1,
-      defaultTerrainCosts: new Map(),
+      // Session 33 (ADR-0073): mirror production water costs so tests
+      // that compose movement profiles against water terrains see the
+      // documented defaults. Benign for tests that don't touch water.
+      defaultTerrainCosts: new Map<string, number>([
+        ['water_shallow', 2],
+        ['water_deep', 3],
+      ]),
+    },
+    terrain: {
+      // Session 33 (ADR-0073): water-tag registration mirrors
+      // production. Empty registry would make Tidewalker / Float
+      // no-op in tests that exercise them.
+      tags: new Map<string, ReadonlySet<string>>([
+        ['ground', new Set(['land'])],
+        ['water_shallow', new Set(['water', 'shallow'])],
+        ['water_deep', new Set(['water', 'deep'])],
+      ]),
     },
     behaviors: {
       friendlyFire: overrides?.friendlyFire ?? true,

@@ -21,6 +21,12 @@ import type { BucketId, RulesetId, StatusTypeId } from './ids.ts';
 import type { TerrainType } from './tile.ts';
 import type { HookSourceTier } from './hook-source.ts';
 
+// Tag registry shape lives in `engine/map/terrain-registry.ts` (the
+// home of the helpers that consume it). Re-imported here purely to type
+// the ruleset field; the structural shape is just a nested map.
+type TerrainTagLocal = string;
+type TerrainRegistryShape = ReadonlyMap<TerrainType, ReadonlySet<TerrainTagLocal>>;
+
 // CT subtracted from a unit at turn_end, keyed by what the turn consumed.
 // See docs/design/turn-structure.md ("Turn end") and docs/design/ct-system.md
 // ("Parameterizable elements"). `defend` is reserved for the future Defend
@@ -74,13 +80,28 @@ export interface RulesetRangeDefaults {
 // the ruleset declares the global default (typically 1), the class
 // movement baseline overrides per-terrain, and movement-bucket
 // abilities (modifyTerrainCosts) compose on top.
+//
+// Session 33 (ADR-0073): `defaultTerrainCosts` is now consumed by
+// `computeMovementProfile` — entries here are merged with the class
+// baseline (class overrides ruleset) before the hook chain fires. Lets
+// the ruleset declare "water_shallow = 2" once rather than every class
+// repeating it.
 export interface RulesetPathfinding {
   // Default per-step cost when no per-terrain cost is specified. v1: 1.
   readonly defaultStepCost: number;
-  // Optional global per-terrain costs. Empty in the default ruleset
-  // (every terrain costs `defaultStepCost`); a difficult-terrain
-  // ruleset might set water = 2 globally.
+  // Optional global per-terrain costs. Default ruleset sets water
+  // costs here (ADR-0073). Empty was the pre-Session-33 state — see
+  // `engine/map/movement-profile.ts` for the merge.
   readonly defaultTerrainCosts: ReadonlyMap<TerrainType, number>;
+}
+
+// Terrain identity: each terrain type carries a set of tags that
+// hook handlers can register against. See ADR-0073 and
+// `engine/map/terrain-registry.ts`. Empty registry treats every
+// terrain as unknown (handlers keyed on tags become no-ops). v1
+// default ruleset registers `ground`, `water_shallow`, `water_deep`.
+export interface RulesetTerrain {
+  readonly tags: TerrainRegistryShape;
 }
 
 // Engine-level behavior toggles. Each is a yes/no game-feel knob
@@ -218,6 +239,7 @@ export interface RulesetDefinition {
   readonly defaultTurnBudget: RulesetTurnBudget;
   readonly rangeDefaults: RulesetRangeDefaults;
   readonly pathfinding: RulesetPathfinding;
+  readonly terrain: RulesetTerrain;
   readonly behaviors: RulesetBehaviors;
   readonly chainTermination: RulesetChainTermination;
   readonly hookOrdering: RulesetHookOrdering;

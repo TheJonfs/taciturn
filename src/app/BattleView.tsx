@@ -16,14 +16,16 @@
 //   - The React HUD layout (4-region shell + optional pause overlay).
 //   - Settings provider scoped to the battle.
 //
-// The battle config consumed at runtime is `trainingFieldBattle`. The
-// 6×6 `demoBattle` remains the test fixture (consumed by
-// `orchestrator.test.ts` and `ai-controller.integration.test.ts`).
+// The battle config consumed at runtime is `riverRidgeBattle` (Phase D
+// content milestone, Session 33). Training Field stays as content (the
+// 14×14 flat ground map) and `demoBattle` remains the engine smoke-test
+// fixture (consumed by `orchestrator.test.ts` and
+// `ai-controller.integration.test.ts`).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
 import { loadDefaultCatalog } from '@content/index.ts';
-import { trainingFieldBattle } from '@content/battles/training-field-battle.ts';
+import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import {
   createInitialState,
   enumeratePreBattleActions,
@@ -96,7 +98,7 @@ function BattleViewInner() {
   const uiController = uiControllerRef.current;
 
   const settingsApi = useSettings();
-  const uiTeam = trainingFieldBattle.teams[0]!.id;
+  const uiTeam = riverRidgeBattle.teams[0]!.id;
 
   // Turn-flow hook owns the player's per-turn state machine. It wires
   // the renderer's highlights / click / hover to the menu's choices
@@ -125,14 +127,14 @@ function BattleViewInner() {
     let cleanup: (() => void) | null = null;
 
     void (async () => {
-      const initialState = createInitialState(trainingFieldBattle, catalog);
+      const initialState = createInitialState(riverRidgeBattle, catalog);
       // Per ADR-0071 (Session 32): equipment auto-status grants and the
       // ruleset-derived initial-CT randomization land as logged actions
       // commit by the orchestrator's pre-battle phase. Compute the queue
       // here so the orchestrator just plays it back.
       const preBattleActions = enumeratePreBattleActions(
         initialState,
-        trainingFieldBattle,
+        riverRidgeBattle,
         catalog,
       );
 
@@ -160,8 +162,8 @@ function BattleViewInner() {
 
       // Team A is player-driven; Team B is the basic AI.
       const controllers: ControllerMap = new Map([
-        [trainingFieldBattle.teams[0]!.id, uiController.controller],
-        [trainingFieldBattle.teams[1]!.id, createBasicAiController()],
+        [riverRidgeBattle.teams[0]!.id, uiController.controller],
+        [riverRidgeBattle.teams[1]!.id, createBasicAiController()],
       ]);
       const orchestrator = new DemoOrchestrator(
         initialState,

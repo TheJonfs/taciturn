@@ -52,7 +52,22 @@ describe('Move +1 (passive, scalar via modifyStatQuery)', () => {
 });
 
 describe('Float (passive, modifyCanEnter)', () => {
-  it('adds water to canEnter when equipped', () => {
+  // Session 33 (ADR-0073): the canEnter convention shifted to "water
+  // is universally enterable; cost is the gate." Every production
+  // class baseline now includes water_shallow + water_deep. Float's
+  // historical role ("opens water for ground-only classes") no longer
+  // differentiates against the default catalog — the production Knight
+  // already has water in canEnter. Float remains as substrate (the
+  // tag-based modifyCanEnter chain still composes correctly) and is
+  // marked `availability: 'hidden'` so it isn't player-equippable.
+  // Pending a redesign: see `docs/handoff.md` for Float's status.
+  //
+  // The single test below verifies the chain composition mechanism
+  // still works: a Float handler runs, sees the registry, and adds
+  // the water-tagged terrains. The assertion happens to hold against
+  // the production baseline too, but the test's job is mechanism
+  // coverage, not differentiation.
+  it('Float composes through the modifyCanEnter chain (water terrains in canEnter)', () => {
     const u = makeUnit({
       id: 'u1',
       spd: 10,
@@ -62,30 +77,9 @@ describe('Float (passive, modifyCanEnter)', () => {
     });
     const state = makeGameState({ units: [u] });
     const profile = computeMovementProfile(state, u.id, cat);
-    expect(profile.canEnter.has('water')).toBe(true);
+    expect(profile.canEnter.has('water_shallow')).toBe(true);
+    expect(profile.canEnter.has('water_deep')).toBe(true);
     expect(profile.canEnter.has('ground')).toBe(true);
-  });
-
-  it('lets pathfinding cross water tiles it otherwise could not', () => {
-    // 3-tile strip GWG. Without Float the knight can't cross the water.
-    const map = mapFrom(['GWG']);
-    const baseline = makeUnit({ id: 'a', spd: 10, position: { x: 0, y: 0, layer: 0 } });
-    const floater = makeUnit({
-      id: 'b',
-      spd: 10,
-      position: { x: 0, y: 0, layer: 0 },
-      loadout: loadoutOf({
-        passive: [[BUCKET_MOVEMENT, [abilityId('float')]]],
-      }),
-    });
-    const stateA = makeGameState({ units: [baseline], map });
-    const stateB = makeGameState({ units: [floater], map });
-    expect(
-      getLegalMoves(stateA, baseline.id, cat).reachable.has(positionKey({ x: 2, y: 0, layer: 0 })),
-    ).toBe(false);
-    expect(
-      getLegalMoves(stateB, floater.id, cat).reachable.has(positionKey({ x: 2, y: 0, layer: 0 })),
-    ).toBe(true);
   });
 });
 
@@ -134,6 +128,9 @@ describe('Fly (passive, modifySpecialMovement → fly pathfinding)', () => {
 });
 
 describe('Float + Move +1 stacked', () => {
+  // Confirms structural (`modifyCanEnter`) and scalar (`modifyStatQuery`)
+  // chains compose independently in one profile resolution. See the
+  // Float describe above for the convention shift context.
   it('combines structural and scalar modifiers correctly', () => {
     const u = makeUnit({
       id: 'u1',
@@ -145,6 +142,7 @@ describe('Float + Move +1 stacked', () => {
     const state = makeGameState({ units: [u] });
     const profile = computeMovementProfile(state, u.id, cat);
     expect(profile.moveRange).toBe(4);
-    expect(profile.canEnter.has('water')).toBe(true);
+    expect(profile.canEnter.has('water_shallow')).toBe(true);
+    expect(profile.canEnter.has('water_deep')).toBe(true);
   });
 });
