@@ -2,10 +2,11 @@
 // `state.outcome` becomes defined (the `battle_end` action committed).
 //
 // Per the design doc: winner, MVP unit, per-unit stats, KO timeline,
-// and exit buttons. v1 buttons are disabled-with-tooltip placeholders
-// until Phase E lands the title screen and battle-setup flow. The
-// active Close button dismisses the modal so the player can review the
-// log and map behind it.
+// and exit buttons. Session 34 (Phase E) wired the continuity buttons:
+// New Battle routes back through the battle-setup screen; Main Menu
+// returns to the title screen. Rematch stays a disabled placeholder
+// (no destination yet). The active Close button dismisses the modal so
+// the player can review the log and map behind it.
 //
 // MVP-unit metric: strict highest-damage-dealt, tie-broken by lexical
 // unit-id for determinism. Per Chris's Session 24 call. Future task in
@@ -20,10 +21,14 @@ export interface ResultsScreenProps {
   readonly outcome: BattleOutcome;
   readonly catalog: Catalog;
   readonly onClose: () => void;
+  // Continuity navigation (Session 34). New Battle routes through the
+  // battle-setup screen; Main Menu returns to the title screen.
+  readonly onNewBattle: () => void;
+  readonly onMainMenu: () => void;
 }
 
 export function ResultsScreen(props: ResultsScreenProps): ReactElement {
-  const { state, outcome, catalog, onClose } = props;
+  const { state, outcome, catalog, onClose, onNewBattle, onMainMenu } = props;
   const stats = derivePerUnitStats(state.actionLog, state, catalog);
   const koEvents = deriveKoEvents(state.actionLog, state, catalog);
 
@@ -122,24 +127,14 @@ export function ResultsScreen(props: ResultsScreenProps): ReactElement {
             type="button"
             style={buttonDisabledStyle}
             disabled
-            title="Phase E"
+            title="Coming soon"
           >
             Rematch
           </button>
-          <button
-            type="button"
-            style={buttonDisabledStyle}
-            disabled
-            title="Phase E"
-          >
+          <button type="button" style={buttonActiveStyle} onClick={onNewBattle}>
             New Battle
           </button>
-          <button
-            type="button"
-            style={buttonDisabledStyle}
-            disabled
-            title="Session 34"
-          >
+          <button type="button" style={buttonActiveStyle} onClick={onMainMenu}>
             Main Menu
           </button>
           <button type="button" style={buttonActiveStyle} onClick={onClose}>

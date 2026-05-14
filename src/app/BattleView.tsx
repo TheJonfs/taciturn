@@ -22,16 +22,9 @@
 // fixture (consumed by `orchestrator.test.ts` and
 // `ai-controller.integration.test.ts`).
 
-import {
-  Component,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ErrorInfo,
-  type ReactNode,
-} from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
+import { BattleErrorBoundary } from './BattleErrorBoundary.tsx';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import {
@@ -71,86 +64,36 @@ const BACKGROUND = '#0e0f12';
 // a discrete zoom step rather than a snap.
 const WHEEL_ZOOM_STEP = 0.0015;
 
-// Error boundary around `BattleViewInner` (Session 33.5A / S33.5 carry).
-// `BattleViewInner` mounts PixiJS + the orchestrator pump in a large
-// effect; a render-time throw — most reliably reproduced by the
-// content-file HMR path, which black-screens the whole view — otherwise
-// unmounts the React tree to a blank canvas with no recovery affordance.
-// This catches the throw and degrades to a panel with a hard-refresh
-// button. It is a defensive add: it does not fix the underlying
-// HMR/Pixi-init crash (carry-forward), only stops it from black-screening.
-export class BattleErrorBoundary extends Component<
-  { children: ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { children: ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(): { hasError: boolean } {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo): void {
-    // Console-log for dev visibility — the boundary swallows the throw,
-    // so without this the error would vanish silently.
-    console.error('BattleView crashed:', error, info.componentStack);
-  }
-
-  render(): ReactNode {
-    if (this.state.hasError) {
-      return (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '1rem',
-            height: '100vh',
-            background: BACKGROUND,
-            color: '#e8e8ea',
-            fontFamily: 'system-ui, sans-serif',
-          }}
-        >
-          <div style={{ fontSize: '1.1rem' }}>Something went wrong rendering the battle.</div>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            style={{
-              padding: '0.5rem 1rem',
-              fontSize: '0.95rem',
-              cursor: 'pointer',
-              background: '#2a2c33',
-              color: '#e8e8ea',
-              border: '1px solid #44464f',
-              borderRadius: '4px',
-            }}
-          >
-            Reload
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
+export interface BattleViewProps {
+  // Navigation out of the battle, surfaced on the results screen.
+  readonly onExitToSetup: () => void;
+  readonly onExitToTitle: () => void;
 }
 
-export function BattleView() {
+export function BattleView(props: BattleViewProps) {
   return (
     <BattleErrorBoundary>
       <SettingsProvider>
-        <BattleViewInner />
+        <BattleViewInner {...props} />
       </SettingsProvider>
     </BattleErrorBoundary>
   );
 }
 
-function BattleViewInner() {
+function BattleViewInner({ onExitToSetup, onExitToTitle }: BattleViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const catalog = useMemo<Catalog>(() => loadDefaultCatalog(), []);
+  // The catalog is loaded once and held in a ref — not `useMemo`. A ref
+  // survives React Fast Refresh with stable identity; `useMemo` does
+  // not (Fast Refresh recomputes it). A fresh `catalog` identity would
+  // change the mount effect's deps (`[catalog, uiController]`) and force
+  // a full Pixi teardown + re-init on every content-file edit — the S34
+  // HMR root cause. Same pattern as `uiControllerRef` below.
+  const catalogRef = useRef<Catalog | null>(null);
+  if (catalogRef.current === null) {
+    catalogRef.current = loadDefaultCatalog();
+  }
+  const catalog = catalogRef.current;
 
   // Engine state surfaced to React. Updated from inside the pump after
   // each commit. Renderer's visual state is independent.
@@ -230,6 +173,11 @@ function BattleViewInner() {
       }
 
       host.appendChild(app.canvas);
+      // Capture the canvas element now. The cleanup function must not
+      // read `app.canvas` after `battleRenderer.destroy()` runs
+      // `app.destroy()` — the Pixi v8 getter reads through the (now
+      // null) renderer and throws (S34 HMR root cause).
+      const canvas = app.canvas;
 
       const battleRenderer = new BattleRenderer(app);
       battleRenderer.mount(initialState, catalog);
@@ -310,7 +258,7 @@ function BattleViewInner() {
       };
       window.addEventListener('keydown', onKeyDown);
       window.addEventListener('keyup', onKeyUp);
-      app.canvas.addEventListener('wheel', onWheel, { passive: false });
+      canvas.addEventListener('wheel', onWheel, { passive: false });
 
       // Reflect host-element resizes into the camera.
       const resizeObserver = new ResizeObserver(() => {
@@ -379,12 +327,26 @@ function BattleViewInner() {
         app.ticker.remove(pump);
         window.removeEventListener('keydown', onKeyDown);
         window.removeEventListener('keyup', onKeyUp);
-        app.canvas.removeEventListener('wheel', onWheel);
+        canvas.removeEventListener('wheel', onWheel);
         resizeObserver.disconnect();
         battleRenderer.destroy();
-        if (host.contains(app.canvas)) {
-          host.removeChild(app.canvas);
+        // `app.destroy(true, …)` (inside `battleRenderer.destroy()`)
+        // detaches the canvas via `removeView`; this guarded removal is
+        // a defensive no-op against the captured element, never the
+        // post-destroy `app.canvas` getter.
+        if (host.contains(canvas)) {
+          host.removeChild(canvas);
         }
+        // Drop the now-destroyed renderer/state from React state so the
+        // post-cleanup tree sees the same clean slate as the initial
+        // mount (`renderer === null`). Without this, a Fast Refresh
+        // re-run of this effect leaves the destroyed `BattleRenderer` in
+        // state, and `useTurnFlow`'s highlight effects call into it —
+        // `setHighlights` on a destroyed Pixi context throws (S34 HMR
+        // root cause, second layer). On a real unmount these setters are
+        // harmless no-ops.
+        setRenderer(null);
+        setLatestState(null);
         if (import.meta.env.DEV) {
           delete (window as unknown as { __taciturnDebug?: unknown }).__taciturnDebug;
         }
@@ -493,6 +455,8 @@ function BattleViewInner() {
           outcome={outcome}
           catalog={catalog}
           onClose={() => setResultsDismissed(true)}
+          onNewBattle={onExitToSetup}
+          onMainMenu={onExitToTitle}
         />
       )}
     </div>
