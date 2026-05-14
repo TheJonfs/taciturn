@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addTerrainsWithTag,
+  mapAllTerrainCosts,
   mapTerrainCostsByTag,
   terrainHasTag,
   terrainsWithTag,
@@ -11,6 +12,15 @@ const REGISTRY: TerrainRegistry = new Map([
   ['ground', new Set(['land'])],
   ['water_shallow', new Set(['water', 'shallow'])],
   ['water_deep', new Set(['water', 'deep'])],
+]);
+
+// A forward-looking registry with a high-cost terrain — exercises that
+// Float's leveller stays correct as new terrain types are registered.
+const REGISTRY_WITH_SWAMP: TerrainRegistry = new Map([
+  ['ground', new Set(['land'])],
+  ['water_shallow', new Set(['water', 'shallow'])],
+  ['water_deep', new Set(['water', 'deep'])],
+  ['swamp', new Set(['water', 'organic'])],
 ]);
 
 describe('terrainHasTag', () => {
@@ -76,6 +86,38 @@ describe('mapTerrainCostsByTag', () => {
     const next = mapTerrainCostsByTag(base, REGISTRY, 'lava', (c) => c + 100);
     expect(next.get('ground')).toBe(1);
     expect(next.size).toBe(1);
+  });
+});
+
+describe('mapAllTerrainCosts', () => {
+  it("flattens every registered terrain's cost to min(cost, 1) — Float's leveller", () => {
+    const base = new Map([
+      ['water_shallow', 2],
+      ['water_deep', 3],
+      ['swamp', 4],
+    ]);
+    const next = mapAllTerrainCosts(base, REGISTRY_WITH_SWAMP, (c) => Math.min(c, 1));
+    expect(next.get('water_shallow')).toBe(1);
+    expect(next.get('water_deep')).toBe(1);
+    expect(next.get('swamp')).toBe(1);
+    // `ground` had no entry — picks up defaultCost (1), then min(1,1) = 1.
+    expect(next.get('ground')).toBe(1);
+  });
+
+  it('uses defaultCost for registered terrain absent from baseValue', () => {
+    const base = new Map<string, number>([]);
+    const next = mapAllTerrainCosts(base, REGISTRY_WITH_SWAMP, (c) => c + 10, 4);
+    // Every registered terrain resolves to defaultCost (4) then +10.
+    expect(next.get('ground')).toBe(14);
+    expect(next.get('swamp')).toBe(14);
+  });
+
+  it('returns a new map without mutating the input', () => {
+    const base = new Map([['water_deep', 3]]);
+    const next = mapAllTerrainCosts(base, REGISTRY, (c) => Math.min(c, 1));
+    expect(base.get('water_deep')).toBe(3);
+    expect(next).not.toBe(base);
+    expect(next.get('water_deep')).toBe(1);
   });
 });
 

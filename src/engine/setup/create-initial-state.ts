@@ -176,7 +176,9 @@ export function runPreBattlePhase(
 ): GameState {
   let current = state;
   for (const action of enumeratePreBattleActions(current, battleConfig, catalog)) {
-    const result = commitAction(current, action, catalog);
+    const result = commitAction(current, action, catalog, {
+      checkVictoryConditions: false,
+    });
     if (!result.ok) {
       throw new Error(
         `runPreBattlePhase: pre-battle ${action.type} failed at ${result.stage}: ${result.reason}`,

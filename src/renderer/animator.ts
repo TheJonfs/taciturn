@@ -485,9 +485,18 @@ export class Animator {
       const targetId = result.target.unitId;
       const snap = this.snapshots.get(targetId);
       if (snap === undefined) continue;
+      // Per ADR-0074: the engine reports the target's actual post-
+      // application HP on `result.hpAfter`. Settle the visual from that
+      // truth rather than re-deriving it. The `damage`/`healing`
+      // arithmetic is a fallback for results that don't carry the field
+      // (tile-kind targets never reach here; unit-kind always do in v1) —
+      // it drifts whenever the engine gates an application (a heal on a
+      // KO'd target records `healing` but applies nothing), which is the
+      // root cause of the S33 playtest's ghost-HP / missing-red-X bugs.
       const damage = result.damage ?? 0;
       const healing = result.healing ?? 0;
-      const hpAfter = Math.max(0, Math.min(snap.maxHp, snap.hp - damage + healing));
+      const hpAfter =
+        result.hpAfter ?? Math.max(0, Math.min(snap.maxHp, snap.hp - damage + healing));
       // Session 31.5 (bug A): knockback rider displacement settles the
       // sprite onto the new tile at flash finalize. `displacedTo` is
       // populated by the reducer when applyKnockback moved the target.

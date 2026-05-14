@@ -98,7 +98,7 @@ export function formatActionLog(
   state: GameState,
   catalog: Catalog,
 ): ReadonlyArray<LogRow> {
-  const koEvents = deriveKoEvents(log, state);
+  const koEvents = deriveKoEvents(log, state, catalog);
   const koBySeq = new Map<number, typeof koEvents>();
   for (const ev of koEvents) {
     const list = koBySeq.get(ev.atSequence) ?? [];

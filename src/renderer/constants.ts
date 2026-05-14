@@ -58,17 +58,23 @@ export const TILE_OUTLINE_ALPHA = 0.18;
 // Thickness scales categorically by elevation delta — chosen over a
 // continuous scaling to keep gentle climbs readable without making
 // sharp drops disruptive. Gentle 1-step rises along a ridge get a
-// 1px hint; the dramatic 5-7 drops from a high perch get the full 3px.
-// Δ=1 → 1px, Δ=2-3 → 2px, Δ≥4 → 3px.
+// thin hint; the dramatic 5-7 drops from a high perch get the full
+// treatment. Δ=1 → 2px, Δ=2-3 → 3px, Δ≥4 → 5px.
+//
+// Session 33.5: bumped from the original 1/2/3px bins. Chris's River
+// Ridge playtest read the cliff strips as too subtle at 48px tiles —
+// the Δ=1 1px strips disappeared into tile outlines + grass texture
+// variance. The exaggerated bins make the elevation-change signal a
+// reliable read at default zoom. See ADR-0072.
 //
 // Color: a darker shade of the higher tile's terrain palette color
 // (multiplicative darken). Cliff faces read as part of the same
 // material as the tile they rise from. S+E edges get the heavier
 // darken (lit-from-upper-left convention); N+W edges get a lighter
 // darken suggesting the cliff catches the light.
-export const CLIFF_EDGE_THICKNESS_PX_DELTA_1 = 1;
-export const CLIFF_EDGE_THICKNESS_PX_DELTA_2_3 = 2;
-export const CLIFF_EDGE_THICKNESS_PX_DELTA_4_PLUS = 3;
+export const CLIFF_EDGE_THICKNESS_PX_DELTA_1 = 2;
+export const CLIFF_EDGE_THICKNESS_PX_DELTA_2_3 = 3;
+export const CLIFF_EDGE_THICKNESS_PX_DELTA_4_PLUS = 5;
 // Multiplicative darken applied to a tile's palette color for the
 // cliff face. < 1.0 darkens. The lit side (N + W edges) reads brighter
 // than the shadowed side (S + E edges) so the volume reads correctly
@@ -243,15 +249,22 @@ export const HIT_FLASH_COLOR = 0xffe1a0;
 
 // Animation durations, in milliseconds. Linear tweens for v1; easing
 // belongs to a polish pass.
-export const MOVE_STEP_DURATION_MS = 220; // per tile of path
-export const ATTACK_FLASH_DURATION_MS = 360;
+//
+// Session 33.5: pacing slowed across the board (the Item #5 / S26.5
+// carry-forward, now tuned against real playtest data). Chris's River
+// Ridge playtest read fast-moving multi-action AI sequences as hard to
+// parse — moves, flashes, and charged resolves blurred together. The
+// bumped durations give each beat room to land. Values are still
+// open to in-session iteration.
+export const MOVE_STEP_DURATION_MS = 260; // per tile of path (was 220)
+export const ATTACK_FLASH_DURATION_MS = 480; // was 360
 // Charged-action resolves play with a longer dwell + a pre-resolve tile
 // highlight so the cast reads as a discrete event (session 26.5 / item
 // #5). Pre-26.5 they flashed at the regular attack duration and felt
 // indistinguishable from a normal cast.
 export const PRE_RESOLVE_HIGHLIGHT_MS = 400;
-export const CHARGED_RESOLVE_FLASH_DURATION_MS = 720;
-export const TURN_START_PAUSE_MS = 240;
+export const CHARGED_RESOLVE_FLASH_DURATION_MS = 1100; // was 720
+export const TURN_START_PAUSE_MS = 360; // was 240
 export const TURN_END_PAUSE_MS = 140;
 export const BATTLE_END_HOLD_MS = 600;
 

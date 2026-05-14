@@ -13,6 +13,7 @@
 
 import type { Catalog } from '../catalog/index.ts';
 import { runOnActionAttempted } from '../hooks/runners.ts';
+import { evaluateBattleOutcome } from '../turn/evaluate-battle-outcome.ts';
 import {
   getUnit,
   type Action,
@@ -43,6 +44,16 @@ export interface CommitFailure {
 }
 
 export type CommitResult = CommitSuccess | CommitFailure;
+
+export interface CommitOptions {
+  // When `false`, the post-commit victory-condition checkpoint (ADR-0074)
+  // is skipped. The pre-battle phase passes this: `system_set_ct` /
+  // `system_apply_status` setup actions run before the battle proper, and
+  // a degenerate-but-valid setup (e.g. a side whose units aren't placed
+  // yet) must not "decide" the battle before the first turn fires.
+  // Defaults to `true` — combat callers check on every action.
+  readonly checkVictoryConditions?: boolean;
+}
 
 interface QueueEntry {
   readonly action: ProposedAction;
@@ -215,12 +226,20 @@ export function commitAction(
   initialState: GameState,
   proposed: ProposedAction,
   catalog: Catalog,
+  options?: CommitOptions,
 ): CommitResult {
   const ruleset = catalog.getRuleset(initialState.ruleset.id);
+  const checkVictory = options?.checkVictoryConditions !== false;
   const queue: QueueEntry[] = [{ action: proposed, depth: 0, isReaction: false }];
   const committed: Action[] = [];
   let state = initialState;
   let isRoot = true;
+  // Per ADR-0074: the victory conditions are checked after every action
+  // commits, not only at turn_end. Once a condition fires we enqueue a
+  // single `battle_end`; this flag prevents a second enqueue when a
+  // later action in the same chain re-satisfies the (still-true)
+  // condition before `battle_end` has actually reduced.
+  let battleEndEnqueued = false;
 
   while (true) {
     if (queue.length === 0) {
@@ -383,6 +402,35 @@ export function commitAction(
         isReaction: true,
         reactorId: rxn.reactorId,
       });
+    }
+
+    // Post-commit victory-condition checkpoint (ADR-0074). Any action —
+    // a unit's turn action, a charged-action resolve, a status tick, a
+    // reaction — can be the one that satisfies a victory condition. We
+    // check after the commit so the decided state is observed at the
+    // exact moment it becomes true, and enqueue `battle_end` *after* the
+    // generated actions above so an end-of-turn status tick (e.g. a
+    // Poison KO) still resolves on the same boundary before the battle
+    // closes. The battle-decided guard at the loop head drains anything
+    // still queued once `battle_end` reduces.
+    if (checkVictory && !battleEndEnqueued && state.outcome === undefined) {
+      const evaluated = evaluateBattleOutcome(state);
+      if (evaluated.kind === 'decided') {
+        queue.push({
+          action: {
+            type: 'battle_end',
+            source: 'system',
+            payload: {
+              winner: evaluated.decided.winner,
+              conditionIndex: evaluated.decided.conditionIndex,
+            },
+          },
+          parentSeq: seq,
+          depth: entry.depth + 1,
+          isReaction: false,
+        });
+        battleEndEnqueued = true;
+      }
     }
 
     isRoot = false;

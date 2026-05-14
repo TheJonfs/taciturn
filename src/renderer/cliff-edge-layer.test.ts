@@ -25,23 +25,25 @@ describe('cliffEdgeThicknessFor — categorical scaling (ADR-0072)', () => {
     expect(cliffEdgeThicknessFor(-10)).toBe(0);
   });
 
-  it('returns 1px for Δ=1 (gentle 1-step rise along a ridge)', () => {
+  // Session 33.5: bins bumped from 1/2/3px to 2/3/5px per Chris's River
+  // Ridge playtest read (the original strips were too subtle at 48px).
+  it('returns 2px for Δ=1 (gentle 1-step rise along a ridge)', () => {
     expect(cliffEdgeThicknessFor(1)).toBe(CLIFF_EDGE_THICKNESS_PX_DELTA_1);
-    expect(cliffEdgeThicknessFor(1)).toBe(1);
+    expect(cliffEdgeThicknessFor(1)).toBe(2);
   });
 
-  it('returns 2px for Δ=2 and Δ=3 (moderate climb)', () => {
+  it('returns 3px for Δ=2 and Δ=3 (moderate climb)', () => {
     expect(cliffEdgeThicknessFor(2)).toBe(CLIFF_EDGE_THICKNESS_PX_DELTA_2_3);
     expect(cliffEdgeThicknessFor(3)).toBe(CLIFF_EDGE_THICKNESS_PX_DELTA_2_3);
-    expect(cliffEdgeThicknessFor(2)).toBe(2);
-    expect(cliffEdgeThicknessFor(3)).toBe(2);
+    expect(cliffEdgeThicknessFor(2)).toBe(3);
+    expect(cliffEdgeThicknessFor(3)).toBe(3);
   });
 
-  it('returns 3px for Δ≥4 (sharp drop — high-perch off-the-ridge)', () => {
+  it('returns 5px for Δ≥4 (sharp drop — high-perch off-the-ridge)', () => {
     expect(cliffEdgeThicknessFor(4)).toBe(CLIFF_EDGE_THICKNESS_PX_DELTA_4_PLUS);
     expect(cliffEdgeThicknessFor(7)).toBe(CLIFF_EDGE_THICKNESS_PX_DELTA_4_PLUS);
     expect(cliffEdgeThicknessFor(99)).toBe(CLIFF_EDGE_THICKNESS_PX_DELTA_4_PLUS);
-    expect(cliffEdgeThicknessFor(4)).toBe(3);
+    expect(cliffEdgeThicknessFor(4)).toBe(5);
   });
 });
 

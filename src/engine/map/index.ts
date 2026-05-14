@@ -23,6 +23,7 @@ export { hasLineOfSight } from './line-of-sight.ts';
 export { arcTargetable, type ArcEndpoint } from './arc.ts';
 export {
   addTerrainsWithTag,
+  mapAllTerrainCosts,
   mapTerrainCostsByTag,
   terrainHasTag,
   terrainsWithTag,

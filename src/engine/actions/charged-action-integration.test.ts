@@ -30,6 +30,7 @@ import {
   commandSetId,
   statusHook,
   statusTypeId,
+  teamId,
   unitId,
   type AbilityId,
   type ActiveAbilityDefinition,
@@ -340,6 +341,110 @@ describe('charged action resolve — happy path', () => {
     // ChargedAction and Charging both gone.
     expect(s.chargedActions).toHaveLength(0);
     expect(s.units.get(caster.id)!.statuses).toHaveLength(0);
+  });
+
+  it('charged_action_resolve that KOs the last enemy triggers battle_end in the same commit (ADR-0074)', () => {
+    // Bug #5: pre-ADR-0074, `evaluateBattleOutcome` ran only at turn_end.
+    // A charged action resolving on a between-turns scheduler event KO'd
+    // the last enemy but the battle didn't close — the scheduler advanced
+    // to the next turn_start and an extra turn fired. The centralized
+    // post-commit check in `commitAction` closes the battle at the moment
+    // the charged resolution lands.
+    const cat = createCatalog({
+      statusTypes: [chargingType()],
+      abilities: [tileBolt({ power_coefficient: 50 })],
+      commandSets: [
+        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1, availability: 'hidden' },
+      ],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [ruleset()],
+    });
+    const caster = makeUnit({
+      id: 'caster',
+      spd: 10,
+      ma: 10,
+      mp: 10,
+      faith: 100,
+      loadout: loadoutWith({ firstAction: 'battle_skill' }),
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    // The lone enemy, low enough HP that the charged bolt KOs it.
+    const target = makeUnit({
+      id: 'target',
+      spd: 10,
+      hp: 30,
+      maxHpBase: 100,
+      faith: 100,
+      team: 'team_b',
+      loadout: loadoutWith({ firstAction: 'battle_skill' }),
+      position: { x: 2, y: 0, layer: 0 },
+    });
+    let s = makeGameState({
+      units: [caster, target],
+      map: flatMap(5, 5),
+      turnState: turnFor('caster'),
+      teams: [
+        { id: teamId('team_a'), name: 'A' },
+        { id: teamId('team_b'), name: 'B' },
+      ],
+      victoryConditions: [
+        { kind: 'defeat_all', side: teamId('team_b'), description: 'defeat enemies' },
+      ],
+    });
+    const r1 = commitAction(
+      s,
+      {
+        type: 'use_ability',
+        source: 'player',
+        actorId: caster.id,
+        payload: {
+          abilityId: abilityId('bolt_test'),
+          target: { kind: 'tile', position: { x: 2, y: 0, layer: 0 } },
+        },
+      },
+      cat,
+    );
+    expect(r1.ok).toBe(true);
+    if (!r1.ok) return;
+    s = r1.newState;
+    const r2 = commitAction(
+      s,
+      { type: 'turn_end', source: 'system', payload: { unitId: caster.id } },
+      cat,
+    );
+    expect(r2.ok).toBe(true);
+    if (!r2.ok) return;
+    s = r2.newState;
+    // Drive the scheduler forward to the charged_action_resolve event.
+    let resolveProposed: ProposedAction | null = null;
+    for (let i = 0; i < 40; i++) {
+      const sched = advanceToNextEvent(s, cat);
+      if (sched === null) break;
+      s = sched.newState;
+      if (sched.proposed.type === 'charged_action_resolve') {
+        resolveProposed = sched.proposed;
+        break;
+      }
+      const r = commitAction(s, sched.proposed, cat);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      s = r.newState;
+    }
+    expect(resolveProposed).not.toBeNull();
+    const r3 = commitAction(s, resolveProposed!, cat);
+    expect(r3.ok).toBe(true);
+    if (!r3.ok) return;
+    s = r3.newState;
+    // The enemy was KO'd by the charged spell...
+    expect(s.units.get(target.id)!.vitals.hp).toBe(0);
+    // ...and the battle closed in the *same* commit — battle_end was
+    // committed and the outcome is decided, so the scheduler will refuse
+    // to advance to another turn_start.
+    expect(r3.committed.some((a) => a.type === 'battle_end')).toBe(true);
+    expect(s.outcome).toBeDefined();
+    expect(s.outcome!.winner).toBe(teamId('team_a'));
+    expect(advanceToNextEvent(s, cat)).toBeNull();
   });
 
   it('resolves to no damage when the targeted tile is empty (FFT pinning to position)', () => {

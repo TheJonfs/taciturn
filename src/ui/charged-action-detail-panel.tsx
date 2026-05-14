@@ -28,6 +28,8 @@ import {
   type Position,
 } from '@engine/index.ts';
 import type { BattleRenderer } from '@renderer/index.ts';
+import { DetailHover } from './detail-hover.tsx';
+import { formatAbilityDetail } from './detail-text.ts';
 
 export interface ChargedActionDetailPanelProps {
   readonly state: GameState;
@@ -96,6 +98,10 @@ export function ChargedActionDetailPanel(props: ChargedActionDetailPanelProps): 
     : null;
   const caster = state.units.get(charged.casterId) ?? null;
   const abilityName = ability?.name ?? String(charged.abilityId);
+  // S31 unit-detail-panel pattern: the ability name is a DetailHover
+  // surface so the player can read the in-flight spell's full stat block
+  // without leaving the charged-action panel.
+  const abilityDetail = ability !== null ? formatAbilityDetail(ability, catalog) : null;
   const casterName = caster?.name ?? String(charged.casterId);
 
   // Timing: use the engine's schedule-walk via `projectChargedResolution`
@@ -122,7 +128,11 @@ export function ChargedActionDetailPanel(props: ChargedActionDetailPanelProps): 
       <aside style={panelStyle} aria-label={`Charged action: ${abilityName}`}>
         <header style={headerStyle}>
           <div>
-            <div style={nameStyle}>{abilityName}</div>
+            <div style={nameStyle}>
+              <DetailHover content={abilityDetail} style={hoverInlineStyle}>
+                {abilityName}
+              </DetailHover>
+            </div>
             <div style={subStyle}>cast by {casterName}</div>
           </div>
           <button type="button" style={closeButtonStyle} onClick={onClose}>×</button>
@@ -308,6 +318,16 @@ const nameStyle: CSSProperties = {
   fontSize: 16,
   fontWeight: 600,
   color: '#f6e5a8',
+};
+
+// Affordance for the DetailHover wrapper around the ability name —
+// mirrors the unit-detail-panel's ability/item hover surfaces (S31).
+const hoverInlineStyle: CSSProperties = {
+  display: 'inline-block',
+  textDecoration: 'underline',
+  textDecorationStyle: 'dotted',
+  textDecorationColor: 'rgba(246, 229, 168, 0.4)',
+  cursor: 'help',
 };
 
 const subStyle: CSSProperties = {

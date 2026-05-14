@@ -191,13 +191,15 @@ Base bucket capacities: R 3 / S 3 / M 3. With Steel Helm (+1 R) or Augmentor (+1
 | **bedrock_stride** *(new)* | 2 | `modifyStatQuery` +1 to `moveRange`; `modifyDamageReceived` immune to fall damage | Earth Mage | available |
 | **hotfoot** *(new)* | 2 | `modifyStatQuery` +1 to `moveRange`, +1 to `spd` | Fire Mage | available |
 | **bulwark_stance** | 2 | `modifyStatQuery` -1 moveRange, -1 jump, ×1.2 maxHp; `modifyEvasion` +10 front evade | — | available |
-| **float** | 1 | `modifyCanEnter` adds `'water'` terrain | — | **hidden** |
+| **float** | 1 | `modifyTerrainCosts`: every terrain cost → `min(cost, 1)` | — | available |
 | **fly** | 2 | `modifySpecialMovement` `'fly'` (drops jump check) | — | **hidden** |
 
 **Changes from snapshot:**
-- `float` drops from 2 → 1, marked hidden
+- `float` drops from 2 → 1
 - `fly` drops from 3 → 2, marked hidden
 - Four new movement abilities: tidewalker (Water), quickstep (Lightning), bedrock_stride (Earth), hotfoot (Fire)
+
+**Float redesign (Session 33.5):** originally `modifyCanEnter` adds `'water'` terrain. Under Session 33's universal-water-enter convention (ADR-0073) every class can already enter water at a cost penalty, so that role became a no-op against the production catalog. Float is now the universal terrain-cost leveller — `modifyTerrainCosts` flattens *every* registered terrain's move cost to `min(cost, 1)`, tag-agnostic, forward-compatible for future high-cost terrains (swamp, sand, mud). It is now `available`. Differentiates against the future Walk-on-Water passive (water-only) and Fly (Float + elevation-ignoring).
 
 ---
 
@@ -218,9 +220,10 @@ Validation requires `availability` annotation on every ability and item; engine 
 
 | ID | Reason hidden |
 |---|---|
-| float | Reserved for future class tie-in |
 | fly | Reserved for future class tie-in |
 | discharge_strike | Internal — emitted by discharge reaction, not directly equippable |
+
+(`float` became `available` in Session 33.5 — see the Movement abilities table above.)
 
 ### Hidden equipment (v1)
 

@@ -51,35 +51,32 @@ describe('Move +1 (passive, scalar via modifyStatQuery)', () => {
   });
 });
 
-describe('Float (passive, modifyCanEnter)', () => {
-  // Session 33 (ADR-0073): the canEnter convention shifted to "water
-  // is universally enterable; cost is the gate." Every production
-  // class baseline now includes water_shallow + water_deep. Float's
-  // historical role ("opens water for ground-only classes") no longer
-  // differentiates against the default catalog — the production Knight
-  // already has water in canEnter. Float remains as substrate (the
-  // tag-based modifyCanEnter chain still composes correctly) and is
-  // marked `availability: 'hidden'` so it isn't player-equippable.
-  // Pending a redesign: see `docs/handoff.md` for Float's status.
-  //
-  // The single test below verifies the chain composition mechanism
-  // still works: a Float handler runs, sees the registry, and adds
-  // the water-tagged terrains. The assertion happens to hold against
-  // the production baseline too, but the test's job is mechanism
-  // coverage, not differentiation.
-  it('Float composes through the modifyCanEnter chain (water terrains in canEnter)', () => {
-    const u = makeUnit({
-      id: 'u1',
+describe('Float (passive, modifyTerrainCosts)', () => {
+  // Session 33.5 (ADR-0074 context): Float redesigned. Pre-S33 it added
+  // water to canEnter; under S33's universal-water-enter convention that
+  // role became a no-op against the production catalog. Float is now the
+  // universal terrain-cost leveller — every terrain's move cost drops to
+  // min(cost, 1). On the default ruleset that means water_shallow 2 → 1
+  // and water_deep 3 → 1; ground (already 1) is unchanged.
+  it('flattens every terrain cost to min(cost, 1)', () => {
+    const floatUnit = makeUnit({
+      id: 'f',
       spd: 10,
       loadout: loadoutOf({
         passive: [[BUCKET_MOVEMENT, [abilityId('float')]]],
       }),
     });
-    const state = makeGameState({ units: [u] });
-    const profile = computeMovementProfile(state, u.id, cat);
-    expect(profile.canEnter.has('water_shallow')).toBe(true);
-    expect(profile.canEnter.has('water_deep')).toBe(true);
-    expect(profile.canEnter.has('ground')).toBe(true);
+    const baseUnit = makeUnit({ id: 'b', spd: 10 });
+    const state = makeGameState({ units: [floatUnit, baseUnit] });
+    // Baseline: the ruleset's default water costs apply unmodified.
+    const baseProfile = computeMovementProfile(state, baseUnit.id, cat);
+    expect(baseProfile.terrainCosts.get('water_shallow')).toBe(2);
+    expect(baseProfile.terrainCosts.get('water_deep')).toBe(3);
+    // Float: every terrain capped at cost 1.
+    const floatProfile = computeMovementProfile(state, floatUnit.id, cat);
+    expect(floatProfile.terrainCosts.get('water_shallow')).toBe(1);
+    expect(floatProfile.terrainCosts.get('water_deep')).toBe(1);
+    expect(floatProfile.terrainCosts.get('ground')).toBe(1);
   });
 });
 
@@ -128,10 +125,10 @@ describe('Fly (passive, modifySpecialMovement → fly pathfinding)', () => {
 });
 
 describe('Float + Move +1 stacked', () => {
-  // Confirms structural (`modifyCanEnter`) and scalar (`modifyStatQuery`)
-  // chains compose independently in one profile resolution. See the
-  // Float describe above for the convention shift context.
-  it('combines structural and scalar modifiers correctly', () => {
+  // Confirms a cost-modifier (`modifyTerrainCosts`) and a scalar
+  // (`modifyStatQuery`) chain compose independently in one profile
+  // resolution. See the Float describe above for the redesign context.
+  it('combines cost and scalar modifiers correctly', () => {
     const u = makeUnit({
       id: 'u1',
       spd: 10,
@@ -142,7 +139,7 @@ describe('Float + Move +1 stacked', () => {
     const state = makeGameState({ units: [u] });
     const profile = computeMovementProfile(state, u.id, cat);
     expect(profile.moveRange).toBe(4);
-    expect(profile.canEnter.has('water_shallow')).toBe(true);
-    expect(profile.canEnter.has('water_deep')).toBe(true);
+    expect(profile.terrainCosts.get('water_shallow')).toBe(1);
+    expect(profile.terrainCosts.get('water_deep')).toBe(1);
   });
 });

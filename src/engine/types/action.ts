@@ -72,6 +72,15 @@ export interface AbilityTargetResult {
   // the unit's detail panel) but no animator event carried it, so the
   // sprite stayed on the original tile until that unit's next Move.
   readonly displacedTo?: Position;
+  // Session 33.5 (ADR-0074): the unit-kind target's actual HP after this
+  // result's HP application committed to engine state. `damage` /
+  // `healing` are the *computed* magnitudes (what the action log shows);
+  // `hpAfter` is the *applied* truth. They diverge when the engine gates
+  // an application — e.g. a healing-tagged hit on a KO'd target records
+  // `healing: 35` but applies nothing, so `hpAfter` stays 0. The renderer
+  // settles its visual HP/KO from `hpAfter` rather than re-deriving it by
+  // arithmetic on a drifting snapshot. Absent for tile-kind targets.
+  readonly hpAfter?: number;
 }
 
 // === Per-action payload + outcome pairs ===

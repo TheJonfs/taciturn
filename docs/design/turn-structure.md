@@ -87,8 +87,9 @@ Triggered by Wait, by all budgets being exhausted and the player confirming, or 
    - Custom budget configurations need explicit cost rules; default formula is "the highest cost matching what was actually consumed."
 2. **Fire `onTurnEnd` hooks** in standard ordering. Statuses or class traits with turn-end behavior fire here.
 3. **Check status durations.** Per-unit-CT statuses that haven't already ticked check expiry; durations counted in turns decrement here.
-4. **Check win/loss conditions** (see Battle outcomes below).
-5. **Return to projection queue.** The CT system fast-forwards to the next entity to reach threshold.
+4. **Return to projection queue.** The CT system fast-forwards to the next entity to reach threshold.
+
+(Win/loss conditions are *not* checked here specifically — per ADR-0074 they are checked after every committed action, see Battle outcomes below.)
 
 ## Battle start
 
@@ -104,7 +105,7 @@ Initial CT values matter for first-turn order. v1 default: each unit's initial C
 
 ## Battle outcomes
 
-Win/loss conditions are evaluated at well-defined check points (turn_end is the standard one; some conditions also check on damage application, e.g., "objective unit defeated"). The Ruleset declares the conditions for a given battle.
+Win/loss conditions are evaluated after **every committed action** (per ADR-0074). `commitAction` runs the victory-condition check once each action in the chain commits — a unit's turn action, a `charged_action_resolve`, a status tick, a reaction — so whichever action satisfies a condition decides the battle at the moment it becomes true, not at the next turn boundary. (An earlier design checked only at turn_end; that missed `charged_action_resolve`, which is a between-turns scheduler event with no turn_end, and let an extra turn fire after the last enemy fell.) The pre-battle setup phase opts out of the check — setup actions run before the battle proper. The Ruleset declares the conditions for a given battle.
 
 Common conditions, declared as data:
 

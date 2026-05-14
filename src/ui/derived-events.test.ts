@@ -8,11 +8,18 @@ import {
   type Action,
 } from '@engine/index.ts';
 import { makeGameState, makeUnit } from '@engine/ct/test-fixtures.ts';
+import { loadDefaultCatalog } from '@content/index.ts';
 import {
   deriveActionParticipants,
   deriveKoEvents,
   derivePerUnitStats,
 } from './derived-events.ts';
+
+// The KO walker reads each unit's computed max HP (ADR-0074); the
+// default catalog supplies the class baselines + hook surface. The test
+// units below carry no equipment / statuses, so computed maxHp equals
+// their `maxHpBase` — the catalog is just the query substrate.
+const catalog = loadDefaultCatalog();
 
 // A skeleton action envelope for tests. Sequence numbers must be unique;
 // the walker uses them as the `atSequence` key.
@@ -56,7 +63,7 @@ describe('deriveKoEvents', () => {
         },
       },
     ];
-    const ko = deriveKoEvents(log, state);
+    const ko = deriveKoEvents(log, state, catalog);
     expect(ko).toHaveLength(1);
     expect(ko[0]!.unitId).toBe(victim.id);
     expect(ko[0]!.atSequence).toBe(2);
@@ -91,7 +98,7 @@ describe('deriveKoEvents', () => {
         },
       },
     ];
-    const ko = deriveKoEvents(log, state);
+    const ko = deriveKoEvents(log, state, catalog);
     expect(ko).toHaveLength(1);
     expect(ko[0]!.atSequence).toBe(1);
   });
@@ -129,11 +136,11 @@ describe('deriveKoEvents', () => {
         },
       },
     ];
-    const ko = deriveKoEvents(log, state);
+    const ko = deriveKoEvents(log, state, catalog);
     expect(ko).toHaveLength(1);
     expect(ko[0]!.killingActor).toBe(caster.id);
 
-    const stats = derivePerUnitStats(log, state);
+    const stats = derivePerUnitStats(log, state, catalog);
     expect(stats.get(caster.id)!.damageDealt).toBe(120);
     expect(stats.get(caster.id)!.kosScored).toBe(1);
   });
@@ -160,7 +167,7 @@ describe('deriveKoEvents', () => {
         },
       },
     ];
-    const ko = deriveKoEvents(log, state);
+    const ko = deriveKoEvents(log, state, catalog);
     expect(ko).toHaveLength(1);
     expect(ko[0]!.killingActor).toBeNull();
   });
@@ -192,8 +199,60 @@ describe('deriveKoEvents', () => {
         },
       },
     ];
-    const ko = deriveKoEvents(log, state);
+    const ko = deriveKoEvents(log, state, catalog);
     expect(ko).toHaveLength(0);
+  });
+
+  // ADR-0074: the walker anchors to the per-target result's `hpAfter`
+  // (the engine's actual post-application HP) rather than re-deriving
+  // from `damage`. This is the River Ridge playtest repro: a Maelstrom
+  // dealt 133 to a 137-HP unit — heavy but non-fatal — and the old
+  // walker (init from `maxHpBase`, which excludes equipment HP) crossed
+  // a phantom zero and emitted a spurious `[ko]`.
+  it('anchors to hpAfter — a heavy non-fatal hit emits no KO even if `damage` is large', () => {
+    const victim = makeUnit({ id: 'victim', spd: 10, maxHpBase: 137 });
+    const state = makeGameState({ units: [victim] });
+    const log: Action[] = [
+      {
+        ...envelope(1, { actor: 'killer' }),
+        type: 'use_ability',
+        payload: { abilityId: abilityId('maelstrom'), target: { kind: 'unit', unitId: victim.id } },
+        outcome: {
+          kind: 'use_ability',
+          abilityId: abilityId('maelstrom'),
+          mpSpent: 0,
+          perTargetResults: [
+            { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 133, hpAfter: 4 },
+          ],
+        },
+      },
+    ];
+    expect(deriveKoEvents(log, state, catalog)).toHaveLength(0);
+  });
+
+  it('anchors to hpAfter — a hit that leaves the target at 0 emits a KO regardless of `damage`', () => {
+    const victim = makeUnit({ id: 'victim', spd: 10, maxHpBase: 137 });
+    const state = makeGameState({ units: [victim] });
+    const log: Action[] = [
+      {
+        ...envelope(1, { actor: 'killer' }),
+        type: 'use_ability',
+        payload: { abilityId: abilityId('finisher'), target: { kind: 'unit', unitId: victim.id } },
+        outcome: {
+          kind: 'use_ability',
+          abilityId: abilityId('finisher'),
+          mpSpent: 0,
+          // Small `damage`, but `hpAfter: 0` — the engine says the unit
+          // fell. The walker trusts `hpAfter`, not the magnitude.
+          perTargetResults: [
+            { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 10, hpAfter: 0 },
+          ],
+        },
+      },
+    ];
+    const ko = deriveKoEvents(log, state, catalog);
+    expect(ko).toHaveLength(1);
+    expect(ko[0]!.unitId).toBe(victim.id);
   });
 });
 
@@ -215,7 +274,7 @@ describe('derivePerUnitStats', () => {
         },
       },
     ];
-    const stats = derivePerUnitStats(log, state);
+    const stats = derivePerUnitStats(log, state, catalog);
     expect(stats.get(killer.id)!.damageDealt).toBe(120);
     expect(stats.get(killer.id)!.kosScored).toBe(1);
     expect(stats.get(victim.id)!.damageTaken).toBe(120);
@@ -224,7 +283,7 @@ describe('derivePerUnitStats', () => {
   it('seeds zero entries for units with no log activity', () => {
     const inactive = makeUnit({ id: 'inactive', spd: 10, maxHpBase: 100 });
     const state = makeGameState({ units: [inactive] });
-    const stats = derivePerUnitStats([], state);
+    const stats = derivePerUnitStats([], state, catalog);
     expect(stats.get(inactive.id)).toEqual({
       damageDealt: 0,
       damageTaken: 0,

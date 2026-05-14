@@ -11,8 +11,9 @@
 // and ends idle. Future action types added to the engine should grow a
 // case here.
 
-import { Animator } from './animator.ts';
-import type { Action } from '@engine/index.ts';
+import { describe, expect, it } from 'vitest';
+import { Animator, type UnitVisualSnapshot } from './animator.ts';
+import { unitId, type Action } from '@engine/index.ts';
 
 function baseEnvelope(seq: number) {
   return {
@@ -50,7 +51,73 @@ describe('Animator — no-visual action types drain cleanly (Session 32 regressi
     expect(() => animator.tick(16)).not.toThrow();
     expect(animator.isIdle()).toBe(true);
   });
+});
 
+// ADR-0074: the engine reports the target's actual post-application HP on
+// `AbilityTargetResult.hpAfter`. The animator's flash settles its visual
+// from that truth rather than re-deriving HP by arithmetic on the
+// recorded `damage`/`healing` magnitudes — which diverge from engine
+// state whenever an application is gated (a heal on a KO'd target records
+// a positive `healing` but applies nothing). That divergence was the root
+// cause of the River Ridge playtest's ghost-HP / missing-red-X bugs.
+describe('Animator — flash settles HP/KO from result.hpAfter (ADR-0074)', () => {
+  function snapshotOf(overrides: Partial<UnitVisualSnapshot>): UnitVisualSnapshot {
+    return {
+      position: { x: 0, y: 0 },
+      facing: 'N',
+      hp: 100,
+      maxHp: 100,
+      mp: 0,
+      ko: false,
+      flash: 0,
+      ...overrides,
+    };
+  }
+
+  function healAction(targetId: string, healing: number, hpAfter: number): Action {
+    return {
+      ...baseEnvelope(1),
+      type: 'use_ability',
+      actorId: unitId('caster'),
+      payload: {},
+      outcome: {
+        kind: 'use_ability',
+        perTargetResults: [
+          {
+            target: { kind: 'unit', unitId: unitId(targetId) },
+            hit: true,
+            healing,
+            hpAfter,
+          },
+        ],
+      },
+    } as unknown as Action;
+  }
+
+  it("a heal recorded against a KO'd target leaves the visual KO'd (hpAfter wins over healing)", () => {
+    const animator = new Animator();
+    animator.initSnapshot(unitId('t'), snapshotOf({ hp: 0, ko: true }));
+    // The engine gated the heal: the result carries `healing: 35` (for the
+    // action log) but `hpAfter: 0` (the applied truth).
+    animator.enqueue([healAction('t', 35, 0)]);
+    animator.tick(1000); // well past the flash duration
+    const snap = animator.getSnapshot(unitId('t'))!;
+    expect(snap.hp).toBe(0);
+    expect(snap.ko).toBe(true);
+  });
+
+  it('a real heal on a live target settles the visual to the engine-reported hpAfter', () => {
+    const animator = new Animator();
+    animator.initSnapshot(unitId('t'), snapshotOf({ hp: 40, ko: false }));
+    animator.enqueue([healAction('t', 35, 75)]);
+    animator.tick(1000);
+    const snap = animator.getSnapshot(unitId('t'))!;
+    expect(snap.hp).toBe(75);
+    expect(snap.ko).toBe(false);
+  });
+});
+
+describe('Animator — pre-battle drain (Session 32 regression, continued)', () => {
   it('drains a sequence of pre-battle actions (system_apply_status + system_set_ct) end-to-end', () => {
     // Per ADR-0071 the orchestrator's pre-battle phase emits a
     // deterministic queue of these. Confirm the animator drains them

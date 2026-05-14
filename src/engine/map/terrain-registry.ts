@@ -74,6 +74,29 @@ export function mapTerrainCostsByTag(
   return next;
 }
 
+// Build a new terrain-cost map: copy `baseValue`, then for *every*
+// terrain in the registry, look up its current cost (or `defaultCost`
+// if not present) and apply `transform`. Tag-agnostic sibling of
+// `mapTerrainCostsByTag`.
+//
+// Float uses this to flatten every terrain's cost to `min(cost, 1)`
+// regardless of tag — a universal terrain-cost leveller that stays
+// correct as future high-cost terrains (swamp, sand, mud) are added to
+// the registry without touching the ability.
+export function mapAllTerrainCosts(
+  baseValue: ReadonlyMap<TerrainType, number>,
+  registry: TerrainRegistry,
+  transform: (cost: number) => number,
+  defaultCost: number = 1,
+): ReadonlyMap<TerrainType, number> {
+  const next = new Map<TerrainType, number>(baseValue);
+  for (const terrain of registry.keys()) {
+    const current = next.get(terrain) ?? defaultCost;
+    next.set(terrain, transform(current));
+  }
+  return next;
+}
+
 // Build a new canEnter set: copy `baseValue`, then add every terrain
 // in the registry tagged with `tag`. Float uses this to add every
 // `'water'`-tagged terrain regardless of which water variants ship.

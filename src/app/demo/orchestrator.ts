@@ -132,7 +132,9 @@ export class DemoOrchestrator {
     // engine-emitted actions that should always validate.
     if (this.preBattleQueue.length > 0) {
       const proposed = this.preBattleQueue.shift()!;
-      const result = commitAction(this.state, proposed, this.catalog);
+      const result = commitAction(this.state, proposed, this.catalog, {
+        checkVictoryConditions: false,
+      });
       if (!result.ok) {
         throw new Error(
           `DemoOrchestrator: pre-battle commit failed at ${proposed.type}: ${result.reason}`,

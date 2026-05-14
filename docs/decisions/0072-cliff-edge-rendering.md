@@ -25,17 +25,19 @@ Three tuning knobs to settle:
 
 ```
 Δ = 0     → no strip
-Δ = 1     → 1px
-Δ = 2-3   → 2px
-Δ ≥ 4     → 3px
+Δ = 1     → 2px
+Δ = 2-3   → 3px
+Δ ≥ 4     → 5px
 ```
 
-The categorical binning lets the gentle 1-step rises along River Ridge's west foot (cols 3-5 at elev 2 → 3 → 4) read with a subtle 1px hint, while the dramatic 5-7 step drops off the eastern perch (cols 10-13 at elev 9 surrounded by elev 2 flat) get the full 3px treatment. The narrow 1-3px range keeps the cliff strips visually distinct from tile content (sprites, badges, highlights) without dominating the frame.
+The categorical binning lets the gentle 1-step rises along River Ridge's west foot (cols 3-5 at elev 2 → 3 → 4) read with a thin hint, while the dramatic 5-7 step drops off the eastern perch (cols 10-13 at elev 9 surrounded by elev 2 flat) get the full treatment. The bins keep the cliff strips visually distinct from tile content (sprites, badges, highlights) without dominating the frame.
 
 Constants live in `src/renderer/constants.ts`:
-- `CLIFF_EDGE_THICKNESS_PX_DELTA_1 = 1`
-- `CLIFF_EDGE_THICKNESS_PX_DELTA_2_3 = 2`
-- `CLIFF_EDGE_THICKNESS_PX_DELTA_4_PLUS = 3`
+- `CLIFF_EDGE_THICKNESS_PX_DELTA_1 = 2`
+- `CLIFF_EDGE_THICKNESS_PX_DELTA_2_3 = 3`
+- `CLIFF_EDGE_THICKNESS_PX_DELTA_4_PLUS = 5`
+
+> **Amendment (Session 33.5, 2026-05-14).** The bins were bumped from the original `1 / 2 / 3px` to `2 / 3 / 5px`. Chris's first River Ridge playtest read the cliff strips as too subtle at the default 48px tile size — the Δ=1 1px strips disappeared into tile outlines and grass-texture variance, and the elevation-label layer (S33) was carrying most of the elevation read. The exaggerated bins restore the cliff edge as a reliable secondary cue. The categorical-tier *structure* and every other choice in this ADR are unchanged; only the three thickness constants moved.
 
 The categorization helper `cliffEdgeThicknessFor(delta)` is exported from `src/renderer/cliff-edge-layer.ts` for unit testability.
 

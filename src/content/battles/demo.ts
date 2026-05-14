@@ -120,16 +120,33 @@ const RED_EARTH_MAGE_EQUIPMENT: UnitEquipment = {
 // `fire_spells` (class-pinned) + `white_magic` (Cure backup) +
 // `water_spells` (Magus Crown's added slot) — exercising the multi-
 // secondary-command-set machinery end-to-end. The Magus Crown's -3 MA
-// is a deliberate cost; Wizard's Robe's +3 MA / +40 MP cancels the
-// stat hit while keeping the broad elemental vulnerability the robe
-// brings. No weapon / accessory authored — left open to keep the
-// build's identity centered on the variety capacity.
+// is a deliberate cost; Wizard's Robe's +4 MA / +40 MP more than
+// cancels the stat hit while keeping the broad elemental vulnerability
+// the robe brings. No weapon / accessory authored — left open to keep
+// the build's identity centered on the variety capacity.
 const RED_FIRE_MAGE_EQUIPMENT: UnitEquipment = {
   leftHand: null,
   rightHand: null,
   headgear: itemId('magus_crown'),
   armor: itemId('wizards_robe'),
   accessory: null,
+};
+
+// Red Lightning Mage equipment (Session 33.5): Staff of Power +
+// Wizard's Robe + Pointy Hat + Purifier. First exercise of the Staff
+// of Power staff weapon (+4 MA, × 1.2 MP cost on all spells) and the
+// long-deferred Burn × Purifier interaction — the Blue Lightning Mage's
+// Flametongue procs Burn, which can land on this unit; Purifier doubles
+// the negative-status tick-down rate, halving the Burn's effective
+// duration. A glass-cannon mirror of the Blue Lightning Mage's profile
+// (Wizard's Robe's +4 MA / -25-all-elements), with Purifier in the
+// accessory slot where the Blue unit runs Rasp Pendant.
+const RED_LIGHTNING_MAGE_EQUIPMENT: UnitEquipment = {
+  leftHand: null,
+  rightHand: itemId('staff_of_power'),
+  headgear: itemId('pointy_hat'),
+  armor: itemId('wizards_robe'),
+  accessory: itemId('purifier'),
 };
 
 // Knight loadout: Battle Skill on First Action (class-pinned),
@@ -394,6 +411,7 @@ export const demoBattle: BattleConfig = {
       facing: 'W',
       baseStats: LIGHTNING_MAGE_BASE_STATS,
       loadout: LIGHTNING_MAGE_LOADOUT,
+      equipment: RED_LIGHTNING_MAGE_EQUIPMENT,
     },
     {
       id: unitId('red_fire_mage'),

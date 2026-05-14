@@ -24,8 +24,8 @@ export interface ResultsScreenProps {
 
 export function ResultsScreen(props: ResultsScreenProps): ReactElement {
   const { state, outcome, catalog, onClose } = props;
-  const stats = derivePerUnitStats(state.actionLog, state);
-  const koEvents = deriveKoEvents(state.actionLog, state);
+  const stats = derivePerUnitStats(state.actionLog, state, catalog);
+  const koEvents = deriveKoEvents(state.actionLog, state, catalog);
 
   // MVP: strict highest damage dealt. Tie-broken by lexical unit-id so
   // the result is deterministic for replays.

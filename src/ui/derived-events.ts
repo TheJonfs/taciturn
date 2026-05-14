@@ -14,14 +14,28 @@
 //
 // Implementation note: KO detection requires tracking running HP per
 // unit, which the action log doesn't carry directly. The walker
-// initializes each unit's HP to `baseStats.maxHpBase` from the current
-// state's `units` map (correct under v1's "full HP at battle start"
-// rule from `createInitialState`). Damage/heal actions adjust running
-// HP; the crossing-from-positive-to-zero edge emits a KO event. This is
-// O(N actions × M units-affected-per-action); fast for v1's battle
-// sizes and replays cleanly.
+// initializes each unit's HP to its *computed* max HP (equipment and
+// status maxHp modifiers included) — v1 units enter battle at full
+// computed HP per `fillVitalsFromComputedMaxes`. Damage/heal actions
+// adjust running HP; the crossing-from-positive-to-zero edge emits a KO
+// event. Where a `use_ability` / `charged_action_resolve` per-target
+// result carries `hpAfter` (the engine's actual post-application HP,
+// ADR-0074), the walker anchors to that absolute value rather than
+// trusting delta arithmetic. This is O(N actions × M units-affected-
+// per-action); fast for v1's battle sizes and replays cleanly.
+//
+// (Pre-ADR-0074 the walker initialized from `baseStats.maxHpBase` — the
+// class base, *excluding* equipment HP. Any equipped unit's tracker
+// started ~tens of HP low, so a heavy-but-non-fatal hit crossed a
+// phantom zero and produced a spurious `[ko]` log row.)
 
-import type { Action, GameState, UnitId } from '@engine/index.ts';
+import {
+  runModifyStatQuery,
+  type Action,
+  type Catalog,
+  type GameState,
+  type UnitId,
+} from '@engine/index.ts';
 
 // A unit reached 0 HP at the action with `atSequence`. `killingActor`
 // is whoever the action attributed to (the `actorId` envelope field).
@@ -75,10 +89,20 @@ export interface ActionParticipants {
 export function deriveKoEvents(
   log: ReadonlyArray<Action>,
   state: GameState,
+  catalog: Catalog,
 ): ReadonlyArray<KoEvent> {
   const runningHp = new Map<UnitId, number>();
   for (const u of state.units.values()) {
-    runningHp.set(u.id, u.baseStats.maxHpBase);
+    // Per ADR-0074: start from the *computed* max HP (equipment / status
+    // maxHp modifiers folded in), not the class-base `maxHpBase`.
+    runningHp.set(
+      u.id,
+      runModifyStatQuery(state, catalog, {
+        unit: u,
+        statName: 'maxHp',
+        baseValue: u.baseStats.maxHpBase,
+      }),
+    );
   }
 
   const chargedActor = buildChargedActorMap(log);
@@ -89,11 +113,15 @@ export function deriveKoEvents(
 
   for (const action of log) {
     if (action.type === 'turn_start') tNumber += 1;
-    const deltas = damageDealtByAction(action);
-    for (const { targetId, hp } of deltas) {
+    const effects = damageDealtByAction(action);
+    for (const { targetId, hp, hpAfter } of effects) {
       if (koed.has(targetId)) continue;
       const before = runningHp.get(targetId) ?? 0;
-      const after = Math.max(0, before + hp);
+      // ADR-0074: when the engine reported an absolute post-application
+      // HP (`hpAfter`), anchor to it; otherwise fall back to delta
+      // arithmetic (system_damage / system_heal carry an applied amount
+      // but no absolute HP).
+      const after = hpAfter !== undefined ? Math.max(0, hpAfter) : Math.max(0, before + hp);
       runningHp.set(targetId, after);
       if (before > 0 && after <= 0) {
         koed.add(targetId);
@@ -113,6 +141,7 @@ export function deriveKoEvents(
 export function derivePerUnitStats(
   log: ReadonlyArray<Action>,
   state: GameState,
+  catalog: Catalog,
 ): ReadonlyMap<UnitId, PerUnitStats> {
   const dealt = new Map<UnitId, number>();
   const taken = new Map<UnitId, number>();
@@ -136,7 +165,7 @@ export function derivePerUnitStats(
 
   // Single pass: tally damage / healing per-action, and use the KO walker's
   // attribution to credit kosScored.
-  const koEvents = deriveKoEvents(log, state);
+  const koEvents = deriveKoEvents(log, state, catalog);
   for (const ev of koEvents) {
     if (ev.killingActor !== null) addTo(kos, ev.killingActor, 1);
   }
@@ -253,11 +282,16 @@ export function deriveActionParticipants(action: Action): ActionParticipants {
   return { actorId, targetIds };
 }
 
-// Per-action HP-delta extraction. Negative numbers are damage; positive
-// numbers are healing. Returns one entry per affected target.
-function damageDealtByAction(action: Action): ReadonlyArray<{ targetId: UnitId; hp: number }> {
+// Per-action HP-effect extraction. `hp` is a signed delta (negative =
+// damage, positive = healing). `hpAfter`, when present, is the engine's
+// actual post-application HP for that target (ADR-0074) — the walker
+// anchors to it instead of the delta. Returns one entry per affected
+// target.
+function damageDealtByAction(
+  action: Action,
+): ReadonlyArray<{ targetId: UnitId; hp: number; hpAfter?: number }> {
   if (action.type === 'use_ability' || action.type === 'charged_action_resolve') {
-    const out: { targetId: UnitId; hp: number }[] = [];
+    const out: { targetId: UnitId; hp: number; hpAfter?: number }[] = [];
     const results = action.outcome?.perTargetResults ?? [];
     for (const r of results) {
       if (!r.hit) continue;
@@ -265,7 +299,14 @@ function damageDealtByAction(action: Action): ReadonlyArray<{ targetId: UnitId; 
       const damage = r.damage ?? 0;
       const healing = r.healing ?? 0;
       const delta = healing - damage;
-      if (delta !== 0) out.push({ targetId: r.target.unitId, hp: delta });
+      // The engine reports `hpAfter` for unit-kind targets — the
+      // applied truth, which diverges from `damage - healing` whenever
+      // an application is gated. Surface it so the walker anchors to it.
+      if (r.hpAfter !== undefined) {
+        out.push({ targetId: r.target.unitId, hp: delta, hpAfter: r.hpAfter });
+      } else if (delta !== 0) {
+        out.push({ targetId: r.target.unitId, hp: delta });
+      }
     }
     return out;
   }

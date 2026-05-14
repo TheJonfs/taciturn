@@ -33,7 +33,6 @@ import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
 import { applyStatus } from '../status/apply.ts';
 import { rollAbilityChance, rollStatusChance } from '../status/chance.ts';
 import { removeStatus } from '../status/remove.ts';
-import { evaluateBattleOutcome } from '../turn/evaluate-battle-outcome.ts';
 import { TRIGGER_THRESHOLD } from '../ct/constants.ts';
 import { perTargetSeed } from './seed.ts';
 import {
@@ -851,6 +850,15 @@ function resolveAbilityEffect(
     for (const r of targetedReactions) reactions.push(r);
   }
 
+  // Per ADR-0074: record the target unit's actual post-application HP so
+  // the renderer settles its visual from engine truth rather than from
+  // `damage` / `healing` arithmetic (which diverges when the engine gates
+  // an application — e.g. a heal on a KO'd target).
+  const hpAfter =
+    args.targetUnit !== null
+      ? workingState.units.get(args.targetUnit.id)?.vitals.hp
+      : undefined;
+
   const result: AbilityTargetResult = {
     target: args.payloadTargetForResult,
     hit: damageContext !== null ? damageContext.hit : true,
@@ -859,6 +867,7 @@ function resolveAbilityEffect(
     ...(absorbed ? { absorbed: true } : {}),
     ...(statusOutcomes.length > 0 ? { statusesApplied: statusOutcomes } : {}),
     ...(displacedTo !== undefined ? { displacedTo } : {}),
+    ...(hpAfter !== undefined ? { hpAfter } : {}),
   };
 
   return {
@@ -1441,27 +1450,11 @@ export function reduceTurnEnd(
     turnState: null,
   };
 
-  // Battle-outcome evaluation. Per turn-structure.md, turn_end is the
-  // standard checkpoint. When a condition fires, emit a `battle_end`
-  // action — the chain processor commits it next, sets state.outcome,
-  // and refuses further commits. Generated `status_tick` for turn-based
-  // statuses runs *first* (FIFO), but the design says the duration
-  // decrement is part of turn_end's resolution; in practice the chain
-  // order is status_tick → battle_end, which means a Poison-tick KO at
-  // the end of the unit's own turn correctly triggers battle_end on
-  // the same turn boundary.
-  const evaluated = evaluateBattleOutcome(newState);
-  if (evaluated.kind === 'decided') {
-    generated.push({
-      type: 'battle_end',
-      source: 'system',
-      payload: {
-        winner: evaluated.decided.winner,
-        conditionIndex: evaluated.decided.conditionIndex,
-      },
-    });
-  }
-
+  // Battle-outcome evaluation is no longer turn_end's concern. Per
+  // ADR-0074, `commitAction` checks the victory conditions after *every*
+  // action commits — so a charged-action resolve, a status tick, or a
+  // reaction that eliminates the last enemy decides the battle at the
+  // moment it happens, not at the next turn_end boundary.
   return {
     newState,
     outcome: { kind: 'turn_end', unitId, ctSpent: ctCost },

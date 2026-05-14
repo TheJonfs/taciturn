@@ -112,8 +112,8 @@ Five framing principles guide equipment design:
 **Staff of Power**
 - WP: 4 | Accuracy: 80
 - Class restriction: none
-- Effects: MA +3; all spells cost 20% more MP
-- Notes: Quality-over-quantity. ~25% damage boost on basic spells (12 → 15 effective MA), but ~17% fewer total casts per battle. Best when you expect a short, high-impact engagement.
+- Effects: MA +4; all spells cost 20% more MP
+- Notes: Quality-over-quantity. ~33% damage boost on basic spells (12 → 16 effective MA), but ~17% fewer total casts per battle. Best when you expect a short, high-impact engagement. (Session 31.5: +MA bumped 3 → 4 — the +3 read as unremarkable against the +20% MP-cost drawback.)
 
 **Staff of Abundance**
 - WP: 4 | Accuracy: 80
@@ -152,9 +152,9 @@ The body slot's primary axis is bulk and defense — HP scaling, physical/magica
 ### Mage Body (Mage-only)
 
 **Wizard's Robe**
-- +40 HP, +40 MP, +3 MA, -25 to all four elemental resistances
+- +40 HP, +40 MP, +4 MA, -25 to all four elemental resistances
 - Class restriction: Mage
-- Notes: All-offense robe. ~25% basic spell damage boost (MA 12 → 15) plus the MP for more casts, but the wearer becomes broadly elementally vulnerable. A Wizard's Robe Earth Mage takes 1.75× damage from Fire (-50 + -25 net), 1.25× from Water/Lightning, and only weakly resists Earth (+25 net). The cost matters most in mirror matchups and against teams that can pressure on multiple elements. Stacks aggressively with Staff of Power for full burst-spec builds.
+- Notes: All-offense robe. ~33% basic spell damage boost (MA 12 → 16) plus the MP for more casts, but the wearer becomes broadly elementally vulnerable. A Wizard's Robe Earth Mage takes 1.75× damage from Fire (-50 + -25 net), 1.25× from Water/Lightning, and only weakly resists Earth (+25 net). The cost matters most in mirror matchups and against teams that can pressure on multiple elements. Stacks aggressively with Staff of Power for full burst-spec builds. (Session 31.5: +MA bumped 3 → 4, matching Staff of Power's recalibration.)
 
 **Sorcerer's Robe**
 - +30 HP, +30 MP, Auto-Shell, Move +1

@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from '@content/index.ts';
-import { createInitialState, teamId, tileAt } from '@engine/index.ts';
+import { createInitialState, itemId, teamId, tileAt, unitId } from '@engine/index.ts';
 import { riverRidge } from '../maps/river-ridge.ts';
 import { demoBattle } from './demo.ts';
 import { riverRidgeBattle } from './river-ridge-battle.ts';
@@ -77,5 +77,18 @@ describe('River Ridge battle config', () => {
     expect(state.units.size).toBe(riverRidgeBattle.units.length);
     expect(state.map.width).toBe(14);
     expect(state.map.height).toBe(14);
+  });
+
+  it('Red Lightning Mage carries the Session 33.5 loadout (Staff of Power / Wizard\'s Robe / Pointy Hat / Purifier)', () => {
+    const catalog = loadDefaultCatalog();
+    // createInitialState runs equipment-placement validation; an
+    // ineligible slot or class restriction would throw here.
+    const state = createInitialState(riverRidgeBattle, catalog);
+    const redLightning = state.units.get(unitId('red_lightning_mage'));
+    expect(redLightning).toBeDefined();
+    expect(redLightning!.equipment.rightHand).toBe(itemId('staff_of_power'));
+    expect(redLightning!.equipment.armor).toBe(itemId('wizards_robe'));
+    expect(redLightning!.equipment.headgear).toBe(itemId('pointy_hat'));
+    expect(redLightning!.equipment.accessory).toBe(itemId('purifier'));
   });
 });
