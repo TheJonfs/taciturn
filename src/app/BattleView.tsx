@@ -25,6 +25,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
 import { BattleErrorBoundary } from './BattleErrorBoundary.tsx';
+import { buildDeployedBattleConfig, type DeploymentResult } from './deployment-config.ts';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import {
@@ -65,6 +66,11 @@ const BACKGROUND = '#0e0f12';
 const WHEEL_ZOOM_STEP = 0.0015;
 
 export interface BattleViewProps {
+  // The committed deployment from `DeploymentScreen` (Session 35).
+  // `null` falls back to River Ridge's authored placements — kept so
+  // the battle is still launchable in isolation (tests, a future
+  // skip-deployment debug path).
+  readonly deploymentResult: DeploymentResult | null;
   // Navigation out of the battle, surfaced on the results screen.
   readonly onExitToSetup: () => void;
   readonly onExitToTitle: () => void;
@@ -80,7 +86,11 @@ export function BattleView(props: BattleViewProps) {
   );
 }
 
-function BattleViewInner({ onExitToSetup, onExitToTitle }: BattleViewProps) {
+function BattleViewInner({
+  deploymentResult,
+  onExitToSetup,
+  onExitToTitle,
+}: BattleViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // The catalog is loaded once and held in a ref — not `useMemo`. A ref
@@ -146,14 +156,24 @@ function BattleViewInner({ onExitToSetup, onExitToTitle }: BattleViewProps) {
     let cleanup: (() => void) | null = null;
 
     void (async () => {
-      const initialState = createInitialState(riverRidgeBattle, catalog);
+      // Session 35: fold the deployment phase's chosen placements into
+      // the authored battle config (Blue's placements replaced, Red's
+      // authored placements retained). The engine is downstream-blind —
+      // `createInitialState` consumes the result like any battle config.
+      // `null` falls back to River Ridge's fully-authored placements.
+      const battleConfig =
+        deploymentResult !== null
+          ? buildDeployedBattleConfig(riverRidgeBattle, deploymentResult)
+          : riverRidgeBattle;
+
+      const initialState = createInitialState(battleConfig, catalog);
       // Per ADR-0071 (Session 32): equipment auto-status grants and the
       // ruleset-derived initial-CT randomization land as logged actions
       // commit by the orchestrator's pre-battle phase. Compute the queue
       // here so the orchestrator just plays it back.
       const preBattleActions = enumeratePreBattleActions(
         initialState,
-        riverRidgeBattle,
+        battleConfig,
         catalog,
       );
 
@@ -186,8 +206,8 @@ function BattleViewInner({ onExitToSetup, onExitToTitle }: BattleViewProps) {
 
       // Team A is player-driven; Team B is the basic AI.
       const controllers: ControllerMap = new Map([
-        [riverRidgeBattle.teams[0]!.id, uiController.controller],
-        [riverRidgeBattle.teams[1]!.id, createBasicAiController()],
+        [battleConfig.teams[0]!.id, uiController.controller],
+        [battleConfig.teams[1]!.id, createBasicAiController()],
       ]);
       const orchestrator = new DemoOrchestrator(
         initialState,
@@ -357,7 +377,11 @@ function BattleViewInner({ onExitToSetup, onExitToTitle }: BattleViewProps) {
       disposed = true;
       if (cleanup !== null) cleanup();
     };
-  }, [catalog, uiController]);
+    // `deploymentResult` is a prop set once by `App` when routing into
+    // the battle screen — stable for this BattleView's lifetime and
+    // across Fast Refresh, so including it doesn't reintroduce the S34
+    // mount-effect churn.
+  }, [catalog, uiController, deploymentResult]);
 
   // Mirror the paused state into a ref so the pump closure (captured
   // once on mount) can read the latest value without re-registering.

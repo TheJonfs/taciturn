@@ -21,48 +21,51 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-14 (Session 34 — Phase E kickoff: title screen + battle setup + app-shell routing + HMR root-cause fix)
+## From session 2026-05-14 (Session 35 — Phase E: deployment phase UI)
 
-Phase E foundation landed. **Tests: 1007 passing across 87 files, 0 failing** (up from 996/83 — +11 tests, +4 files; `BattleView.test.tsx` renamed to `BattleErrorBoundary.test.tsx`). No new ADR. No 34a/34b split — the HMR fix, though deeper than the audit first scoped, resolved with small targeted changes.
+Deployment phase landed. **Tests: 1048 passing across 93 files, 0 failing** (up from 1007/90 — +41 tests, +6 files). No new ADR (the pipeline-integration audit confirmed the minimal-surface case the brief predicted — deployment is strictly upstream of `createInitialState`, no engine change).
 
 ### Scope completed
 
-- **App-shell + routing.** `App.tsx` is now a screen-state selector (`'title' | 'setup' | 'battle'`) — simple state-based routing, no router lib. The persistent header is gone. App boots into the title screen.
-- **TitleScreen** (new). Splash image (`src/assets/title/splash.png`) as a `cover` background; full menu shown — New Battle (active) + Continue/Settings/Quit (disabled placeholders, per Chris's call to show the full menu). Enter/Space parallel to the New Battle button.
-- **BattleSetupScreen** (new). Ultra-minimal: River Ridge card, "Start River Ridge" + "Back". No team-builder/map-selection placeholders.
-- **Results-screen continuity buttons.** "New Battle" → battle setup, "Main Menu" → title (both wired through `BattleView`'s new `onExitToSetup`/`onExitToTitle` props). "Rematch" stays a disabled placeholder (Chris's call — no destination yet).
-- **HMR/Pixi-init crash root-cause fix.** Audit-then-fix. Turned out to be **three layers**, the first masking the rest:
-  1. *Cleanup ordering* — the mount-effect cleanup read `app.canvas` after `battleRenderer.destroy()` ran `app.destroy()` (Pixi v8's getter reads through the now-null renderer → throw). Fixed by capturing the canvas element before destroy.
-  2. *Fast Refresh boundary* — `BattleView.tsx` exported the `BattleErrorBoundary` **class**, which disqualified the whole module as a Fast Refresh boundary (`@vitejs/plugin-react` can't refresh a module with a class export). Content edits then propagated up and *remounted* `BattleViewInner`. Fixed by extracting the class to `BattleErrorBoundary.tsx` — `BattleView.tsx` is now a clean function-component-only boundary that Fast-Refreshes in place.
-  3. *useMemo identity churn* — `catalog = useMemo(…)` gets a fresh identity on Fast Refresh, which changed the mount effect's `[catalog, uiController]` deps and forced a full Pixi teardown + re-init on every content edit. Mid-commit, `useTurnFlow`'s highlight effect then called `setHighlights` on the just-destroyed renderer → `clear()` on a null context → throw. Fixed by holding the catalog in a `useRef` one-shot (same pattern as `uiControllerRef`), so the deps stay stable and the mount effect no longer re-runs on Fast Refresh at all.
-  Also added `setRenderer(null)` / `setLatestState(null)` to the cleanup as defense-in-depth (a destroyed renderer is never left in React state). `BattleErrorBoundary` stays as the defensive backstop.
-  Verified in the preview: two consecutive `flametongue.ts` edits, both clean in-place Fast Refresh (`hmr update`, no `invalidate`), canvas intact, no throw.
+- **River Ridge → 4v4.** Blue gained a Fire Mage, Red a Water Mage (Chris's call). The two extra units live in `river-ridge-battle.ts` only; `demoBattle` stays 3v3 — it's the engine smoke-test fixture (`orchestrator.test.ts`, `ai-controller.integration.test.ts`) and was deliberately left untouched. Reusable loadout/stat/equipment constants are now exported from `demo.ts`.
+- **Deployment state machine** — `src/ui/deployment-flow.ts`, pure reducer, sibling to `turn-flow.ts`. `idle → tile_selected → unit_selected → (commit) → idle`; cancel back-paths; lift-and-replace re-placement. Team-parameterized (`currentTeam`).
+- **`useDeploymentFlow` hook** — wires renderer tile-click → events, drives the zone/facing layers and placed-unit sprites.
+- **UI** — `deployment-roster-panel.tsx` (left-edge sidebar, doubles as the unit picker per decision 5/shape A), `deployment-facing-picker.tsx` (keyboard parallel + hint; the renderer owns the on-canvas arrows).
+- **Renderer layers** — `deployment-zone-layer.ts` (zone tint, current team bright / opponent faint), `deployment-facing-layer.ts` (four interactive cardinal arrows). Both composed into `BattleRenderer`, which gained a deployment-sprite API (`setDeploymentUnit` / `removeDeploymentUnit`, bypassing the animator).
+- **`DeploymentScreen`** — a separate App-shell screen (`'deployment'`), not a sub-mode of `BattleView`. Audit-driven: `BattleRenderer.destroy()` is lifecycle-coupled to `app.destroy()`, so "mode-within-BattleView" couldn't simply gate an already-mounted renderer — it would need a parallel Pixi-app lifecycle anyway. The separate screen gives a clean prop contract (`DeploymentResult` in, battle config out) and keeps `BattleView` untouched. **This was the brief's fallback; Chris approved the switch at plan-review.**
+- **Pipeline** — `deployment-config.ts`: `buildDeployedBattleConfig(template, result)` folds the deployment's placements into the authored config (Blue replaced, Red authored retained). Flows into `createInitialState` → `enumeratePreBattleActions` unchanged. `BattleView` takes an optional `deploymentResult` prop; `App` threads it through.
+- **Validation** — `validateMap` runs at `DeploymentScreen` mount; failure renders an inline error card with "Back to Setup" (rather than threading an error string up to `App` — functionally equivalent, self-contained).
 
 ### Limitations + watch-fors
 
-- **The battle → results → continuity-button loop was not driven end-to-end in-browser.** Team A is player-input-driven, so the battle can't be auto-completed to surface the results screen. The button → callback wiring is unit-tested (`results-screen.test.tsx`) and the callback → `setScreen` routing is integration-tested for title↔setup (`App.test.tsx`); the Pixi teardown on battle-exit is the *same* `cleanup` path the HMR fix exercises and passes. Still worth a manual playtest confirm of the full loop.
-- **TitleScreen layout is unconfirmed at real window sizes.** The splash (1399×670) is `background-size: cover`; the menu column sits low-center. Looked fine in the preview snapshot, but button placement / splash framing is explicit polish-deferred scope (S34 brief) — Chris should eyeball it in a full browser window.
-- **`App.test.tsx` covers title↔setup only.** The setup→battle transition mounts a live Pixi `Application`; left to manual verification per CLAUDE.md's "UI/renderer tests deferred". The `setScreen('battle')` setter it fires is the same mechanism the covered transitions exercise.
-- **`npm run typecheck` reports ~200 pre-existing errors on `main`** (the long-standing "TS strict-mode test errors / audit E8" carry). Session 34's files add zero new errors. Not a test gate — `vitest` is green.
-- **Mild conventions worth remembering** (left as thorough code comments, not promoted to ADR): a Fast-Refreshable component module must not export a class component; load-once singletons belong in a `useRef` one-shot, not `useMemo`, so Fast Refresh keeps their identity stable.
+- **`DeploymentScreen` has a DEV-only `__taciturnDeployDebug` surface** (mirrors `BattleView`'s `__taciturnDebug`). Synthetic Pixi pointer events don't reach the renderer's federated event system in a headless preview, so the canvas tile-click can't be driven there. The full loop *was* verified in-browser via that debug surface: place all 4 Blue units → Start Battle → pre-battle phase (`system_apply_status` ×3 + `system_set_ct` ×8 in the log, `[init]`-tagged) → turn 1 → AI turn. Blue units land at the exact deployed positions. Stripped from production builds.
+- **`BattleRenderer` gained a `destroyed` guard on its deployment methods.** Found in browser verification: `useDeploymentFlow`'s effect cleanups call into the renderer (`clearDeploymentZone` etc.) in the *same* unmount pass as `DeploymentScreen`'s mount-effect cleanup that runs `destroy()` — and the ordering isn't controllable from the hook (the mount effect is declared before the hook, so its cleanup runs first). A destroyed-renderer call would hit `Graphics.clear()` on a null context and throw. The guard is scoped to the deployment methods only — *not* the blanket post-destroy guards S34 explicitly rejected.
+- **Opponent (Red) sprites during deployment aren't portrait-flipped to face the player.** The deployment renderer mounts with an opponent-only state, so `mount()`'s "first unit's team is the player" heuristic treats Red as the player team → no flip. Purely cosmetic. If it bothers, pass `currentTeam` into `mount()` instead of inferring it.
+- **Roster panel stats** show base PA/MA/Speed + effective HP/MP (the latter from `createInitialState`'s `fillVitalsFromComputedMaxes`). Not per-frame `runModifyStatQuery` values — fine for a roster glance, but if a future reader expects equipment-modified PA/MA there, it isn't shown.
+- **`docs/roadmap.md` is stale past Session 20b** — the 21+ plan lives in `docs/twentyOnePlanning/roadmap-sessions-21-plus.md`, which is a forward-plan doc with no per-session completion markers. Nothing to update there; noting so the next session doesn't go hunting.
+- **`tsc -b --noEmit` reports 201 errors** — all pre-existing `.test.ts` strict-mode errors (the long-standing S34 carry). Session 35's files (source + tests) add zero. `vitest` is fully green.
 
 ### Considered and rejected this session
 
-- **`setRenderer(null)` in the cleanup as *the* fix.** Insufficient on its own — it's a state update, too late for the same-Fast-Refresh-commit effect setups that already closed over the old renderer. Kept as defense-in-depth; the real fix is the stable-`catalog`-ref.
-- **Guarding `BattleRenderer`'s public methods against post-destroy calls.** Considered for HMR layer 3; unnecessary once `catalog` is ref-stable (the mount effect no longer re-runs on Fast Refresh, so the renderer is never destroyed-then-referenced). `BattleRenderer` left untouched — the S34 brief explicitly scoped out a deep Pixi-lifecycle refactor.
+- **Mode-within-`BattleView`** (the brief's primary plan) — see above; the `destroy()`↔`app.destroy()` coupling made it no simpler than a separate screen while bloating an HMR-delicate component. Switched to the separate-screen fallback with Chris's sign-off.
+- **Expanding `demoBattle` to 4v4** — rejected to avoid perturbing `orchestrator.test.ts` / `ai-controller.integration.test.ts`, which run `demoBattle` on the 6×6 map. The two new units live on `riverRidgeBattle` only.
+- **Blanket post-destroy guards on all `BattleRenderer` methods** — rejected (S34's stance). The `destroyed` flag guards only the deployment surface, which is uniquely exposed to the hook-cleanup ordering problem.
 
-### Suggested scope for Session 35
+### Suggested scope for Session 36
 
-Per the roadmap: **deployment phase UI** (`roadmap-sessions-21-plus.md` Session 35). The battle-setup screen is the slot future pre-battle surfaces (team builder S36, map selection) extend into.
+Per the roadmap: **team builder UI** (`roadmap-sessions-21-plus.md` Session 36). Note the deferred wiring — the team builder's output (the assembled team) becomes the deployment phase's input, replacing `DeploymentScreen`'s current hardcoded `riverRidgeBattle` template + `team_a` currentTeam.
 
-### Longer-term carry-forward (unchanged from S33.5A unless noted)
+### Longer-term carry-forward (unchanged from S34 unless noted)
 
-- **HMR/Pixi-init crash** — *resolved this session*; dropped from carry.
-- **Pacing + cliff-thickness playtest read** — still unplaytested; single-file constant tweaks once Chris runs a battle.
-- **Charged-action tooltip browser verification** — S33.5 carry; needs a charged action in flight.
+- **Pass-and-play toggle + dual deployment + battle-loop AI gating** — dedicated future session. The deployment surfaces are all team-parameterized (`currentTeam`), so adding it is the routing change the brief intended, not a refactor.
+- **AI deployment logic** — Red uses authored placements; future tactics-layer pass.
+- **Title screen layout eyeball at real window sizes** — S34 carry; quick visual check still pending.
+- **Full battle → results → continuity-button loop manual playtest** — S34 carry; the deployment → battle → turn-1 stretch is now browser-verified, but a human-driven battle to the results screen still hasn't been run.
+- **Pacing + cliff-thickness playtest read** — S33.5 carry, still unplaytested.
+- **Charged-action tooltip browser verification** — S33.5 carry.
 - **Burn × Purifier playtest** — exercisable via the Red Lightning Mage loadout.
 - **Walk-on-Water passive** — future content.
-- **River Ridge balance tuning** — playtest-informed; open considerations in `river-ridge.md`.
+- **River Ridge balance tuning** — playtest-informed; now 4v4, so prior 3v3 balance notes need re-reading.
 - **Procced Lightning Strike action-log attribution / Rasp Pendant drain attribution** — S30 carries.
 - **AI active absorption exploitation** — S27 carry. **AI projection forecast extension via `computeOutgoingHitChance`** — S30 carry.
 - **`isWaterTile` predicate keys on elevation, not registry** — S33 carry; no v1 case.
@@ -72,6 +75,7 @@ Per the roadmap: **deployment phase UI** (`roadmap-sessions-21-plus.md` Session 
 - **`map-and-battlefield.md` open questions** — elevation hit-chance/cover, AoE multi-layer, LoS tie-breaking.
 - **`mapAllTerrainCosts` vs. `defaultStepCost`** — no v1 case.
 - **Centralized `canApplyHeal` helper** — explicitly rejected (ADR-0074); revisit at a third heal-application site.
+- **TS strict-mode test errors (~201)** — S34 carry; pre-existing on `main`.
 - **Surrender flow / MVP-unit algorithm / permadeath timer / settings expansion / reactions in projection column** — Phase E/F.
 
 ---

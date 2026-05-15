@@ -1,0 +1,144 @@
+// Tests for the deployment → battle-config bridge and the pipeline
+// integration it feeds: a complete deployment folds into the authored
+// River Ridge config and flows through `createInitialState` +
+// `runPreBattlePhase` unchanged. Also covers the deployment-mount map
+// validation (S33's `validateMap`).
+
+import { describe, expect, it } from 'vitest';
+import { loadDefaultCatalog } from '@content/index.ts';
+import {
+  createInitialState,
+  runPreBattlePhase,
+  teamId,
+  unitId,
+  validateMap,
+  type Direction,
+  type TeamId,
+} from '@engine/index.ts';
+import { riverRidge } from '@content/maps/river-ridge.ts';
+import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
+import type { DeploymentPlacement } from '@ui/index.ts';
+import { buildDeployedBattleConfig, type DeploymentResult } from './deployment-config.ts';
+
+const BLUE: TeamId = teamId('team_a');
+const RED: TeamId = teamId('team_b');
+
+// A complete Blue deployment — all four Blue units on distinct tiles in
+// the northern zone (rows 0-2, cols 5-8), each facing south.
+const south: Direction = 'S';
+function blueDeployment(): DeploymentResult {
+  const at = (x: number, y: number): DeploymentPlacement => ({
+    position: { x, y, layer: 0 },
+    facing: south,
+  });
+  return {
+    team: BLUE,
+    placements: new Map([
+      [unitId('blue_knight_n'), at(5, 0)],
+      [unitId('blue_water_mage'), at(6, 0)],
+      [unitId('blue_lightning_mage'), at(7, 0)],
+      [unitId('blue_fire_mage'), at(8, 0)],
+    ]),
+  };
+}
+
+describe('buildDeployedBattleConfig', () => {
+  it('replaces the deployed team placements, keeps everything else', () => {
+    const result = blueDeployment();
+    const config = buildDeployedBattleConfig(riverRidgeBattle, result);
+
+    // Teams / map / seed / victory conditions untouched.
+    expect(config.teams).toBe(riverRidgeBattle.teams);
+    expect(config.map).toBe(riverRidgeBattle.map);
+    expect(config.masterSeed).toBe(riverRidgeBattle.masterSeed);
+    expect(config.units.length).toBe(riverRidgeBattle.units.length);
+
+    // Blue units take the deployed positions + facings.
+    for (const [id, placement] of result.placements) {
+      const unit = config.units.find((u) => u.id === id)!;
+      expect(unit.position).toEqual(placement.position);
+      expect(unit.facing).toBe(placement.facing);
+    }
+  });
+
+  it('leaves the opponent team authored placements untouched', () => {
+    const config = buildDeployedBattleConfig(riverRidgeBattle, blueDeployment());
+    for (const authored of riverRidgeBattle.units) {
+      if (authored.team !== RED) continue;
+      const unit = config.units.find((u) => u.id === authored.id)!;
+      expect(unit.position).toEqual(authored.position);
+      expect(unit.facing).toBe(authored.facing);
+    }
+  });
+
+  it('throws when a deployed-team unit has no placement in the result', () => {
+    const incomplete: DeploymentResult = {
+      team: BLUE,
+      placements: new Map([
+        [unitId('blue_knight_n'), { position: { x: 5, y: 0, layer: 0 }, facing: south }],
+      ]),
+    };
+    expect(() => buildDeployedBattleConfig(riverRidgeBattle, incomplete)).toThrow(
+      /has no placement/,
+    );
+  });
+});
+
+describe('pipeline integration — deployment commit → initial state → pre-battle', () => {
+  it('a complete deployment flows through createInitialState + runPreBattlePhase', () => {
+    const catalog = loadDefaultCatalog();
+    const result = blueDeployment();
+    const config = buildDeployedBattleConfig(riverRidgeBattle, result);
+
+    const initial = createInitialState(config, catalog);
+    expect(initial.units.size).toBe(8);
+
+    // Blue units sit where deployment placed them.
+    for (const [id, placement] of result.placements) {
+      expect(initial.units.get(id)!.position).toEqual(placement.position);
+      expect(initial.units.get(id)!.facing).toBe(placement.facing);
+    }
+
+    // The orchestrator's pre-battle phase runs unchanged on the
+    // deployment-derived config — equipment auto-statuses + initial-CT
+    // randomization land, and the state is ready for turn 1.
+    const ready = runPreBattlePhase(initial, config, catalog);
+    expect(ready.units.size).toBe(8);
+    // Initial-CT randomization committed: at least one unit has CT > 0
+    // (the default ruleset's uniform_int{0,20} draw is per-unit).
+    expect([...ready.units.values()].some((u) => u.ct > 0)).toBe(true);
+    // The action log captured the pre-battle phase from sequence 0.
+    expect(ready.actionLog.length).toBeGreaterThan(0);
+  });
+});
+
+describe('deployment-mount map validation (validateMap)', () => {
+  const registry = loadDefaultCatalog().getRuleset(
+    riverRidgeBattle.rulesetId,
+  ).terrain.tags;
+
+  it("River Ridge's zones are sufficient for the 4v4 roster", () => {
+    const result = validateMap(riverRidge, registry, {
+      requiredZonesPerTeam: new Map([
+        [BLUE, 4],
+        [RED, 4],
+      ]),
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('a team too large for its deployment zone is caught', () => {
+    // River Ridge authors 12 zone tiles per team; a 20-unit team would
+    // overflow — the same check DeploymentScreen runs at mount.
+    const result = validateMap(riverRidge, registry, {
+      requiredZonesPerTeam: new Map([
+        [BLUE, 20],
+        [RED, 4],
+      ]),
+    });
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((e) => e.code === 'insufficient_deployment_zone')).toBe(
+      true,
+    );
+  });
+});

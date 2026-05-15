@@ -307,9 +307,12 @@ describe('Session 33 — knockback fall-damage tiers', () => {
 });
 
 describe('Session 33 — River Ridge battle bootstraps end-to-end', () => {
-  it('createInitialState + runPreBattlePhase produces all 6 demo units placed', () => {
+  it('createInitialState + runPreBattlePhase produces all 8 River Ridge units placed', () => {
+    // Session 35: River Ridge expanded to 4v4 (the deployment-phase
+    // demo). The 3v3 `demoBattle` fixture is untouched; the two extra
+    // units live on `riverRidgeBattle` directly.
     const state = initialRiverRidgeState();
-    expect(state.units.size).toBe(6);
+    expect(state.units.size).toBe(8);
     expect(state.map).toBe(riverRidge);
   });
 
@@ -343,6 +346,6 @@ describe('Session 33 — River Ridge battle bootstraps end-to-end', () => {
     const initial = createInitialState(riverRidgeBattle, catalog);
     const queue = enumeratePreBattleActions(initial, riverRidgeBattle, catalog);
     const setCtCount = queue.filter((a) => a.type === 'system_set_ct').length;
-    expect(setCtCount).toBe(6);
+    expect(setCtCount).toBe(8);
   });
 });

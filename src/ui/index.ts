@@ -42,6 +42,29 @@ export {
   type TurnFlowEvent,
 } from './turn-flow.ts';
 export {
+  createDeploymentState,
+  isDeploymentComplete,
+  transition as deploymentTransition,
+  unitPlacedOn,
+  type DeploymentEvent,
+  type DeploymentPhase,
+  type DeploymentPlacement,
+  type DeploymentState,
+} from './deployment-flow.ts';
+export {
+  useDeploymentFlow,
+  type DeploymentFlow,
+  type UseDeploymentFlowArgs,
+} from './use-deployment-flow.ts';
+export {
+  DeploymentRosterPanel,
+  type DeploymentRosterPanelProps,
+} from './deployment-roster-panel.tsx';
+export {
+  DeploymentFacingPicker,
+  type DeploymentFacingPickerProps,
+} from './deployment-facing-picker.tsx';
+export {
   composeForecast,
   type Forecast,
   type ForecastTargetRow,

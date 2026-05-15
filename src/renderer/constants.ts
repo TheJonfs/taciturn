@@ -270,3 +270,25 @@ export const BATTLE_END_HOLD_MS = 600;
 
 // Camera lerp factor per frame (0..1). Higher = snappier camera.
 export const CAMERA_LERP = 0.15;
+
+// Deployment-phase visualization (Session 35 / Phase E). Two static-ish
+// layers, only present while the deployment screen is mounted:
+//
+//  - The zone layer tints each team's deployment-zone tiles. The team
+//    currently deploying reads bright (interactive); the opponent's
+//    zone reads faint (visible, so the player can plan around enemy
+//    positions, but not interactive). Colors come from TEAM_COLORS so
+//    the tint matches each side's unit palette.
+//  - The facing layer draws four cardinal arrows around the tile of the
+//    unit being placed — clicked (or arrow-keyed) to commit a facing.
+export const DEPLOYMENT_ZONE_ALPHA_CURRENT = 0.3;
+export const DEPLOYMENT_ZONE_ALPHA_OPPONENT = 0.12;
+export const DEPLOYMENT_ZONE_STROKE_ALPHA_CURRENT = 0.85;
+export const DEPLOYMENT_ZONE_STROKE_ALPHA_OPPONENT = 0.3;
+export const DEPLOYMENT_ZONE_STROKE_WIDTH = 2;
+// Gold arrows — same family as the active-unit ring / AoE highlight, so
+// the facing picker reads as "the thing you act on right now."
+export const DEPLOYMENT_FACING_ARROW_COLOR = 0xf6e5a8;
+export const DEPLOYMENT_FACING_ARROW_ALPHA = 0.92;
+export const DEPLOYMENT_FACING_ARROW_OUTLINE = 0x14171c;
+export const DEPLOYMENT_FACING_ARROW_OUTLINE_WIDTH = 2;

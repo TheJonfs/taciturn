@@ -80,7 +80,10 @@ const KNIGHT_EQUIPMENT: UnitEquipment = {
 // wand on-hit shift, Session 29's Auto-Shell from Sorcerer's Robe and
 // Move +1 (so total Move = Water Mage base 4 + Sorcerer's Robe +1 +
 // Lightfoot +1 = 6).
-const WATER_MAGE_EQUIPMENT: UnitEquipment = {
+// Exported (Session 35): River Ridge's 4v4 expansion reuses this for
+// the Red Water Mage. Equipment definitions are team-blind — the same
+// item ids equip on any unit whose class permits the slot.
+export const WATER_MAGE_EQUIPMENT: UnitEquipment = {
   leftHand: null,
   rightHand: itemId('wand_of_depths'),
   headgear: itemId('pointy_hat'),
@@ -190,7 +193,7 @@ const EARTH_MAGE_LOADOUT: UnitPlacement['loadout'] = {
 // (self-CT bump on damage), Flow State in Support (CT refund on magic
 // actions), Tidewalker in Movement (session 26.5: water-tile cost
 // clamp; v1-marginal until elevated water-cost terrain ships).
-const WATER_MAGE_LOADOUT: UnitPlacement['loadout'] = {
+export const WATER_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
     [bucketId('first_action')]: [commandSetId('water_spells')],
     [bucketId('secondary_command_sets')]: [commandSetId('white_magic')],
@@ -208,7 +211,7 @@ const WATER_MAGE_LOADOUT: UnitPlacement['loadout'] = {
 // (Burn-on-attacker), Ignition + Aether Bloom in Support (both free
 // for Fire Mage — Burn-on-magical-damage and AoE expansion), Hotfoot
 // in Movement (session 26.5: +1 moveRange + +1 spd).
-const FIRE_MAGE_LOADOUT: UnitPlacement['loadout'] = {
+export const FIRE_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
     [bucketId('first_action')]: [commandSetId('fire_spells')],
     [bucketId('secondary_command_sets')]: [commandSetId('white_magic')],

@@ -28,17 +28,28 @@ import { DetailHover } from './detail-hover.tsx';
 import { formatAbilityDetail, formatItemDetail, formatStatusDetail } from './detail-text.ts';
 import { badgeStyleFor } from './status-polarity.ts';
 
-// Damage tags the panel walks when computing displayed resistance values.
+// The four core elemental tags. These are *always* shown in the
+// Resistances section — every unit has a meaningful relationship to all
+// four (each mage class is natively +50/-50 on two of them, and the
+// Wizard's Robe shifts all four), so a unit with a neutral 0 on one is
+// information, not noise. Showing them unconditionally also removes a
+// whole class of "is this missing or genuinely zero?" ambiguity.
+const CORE_RESISTANCE_TAGS: ReadonlyArray<DamageTag> = [
+  'fire',
+  'water',
+  'earth',
+  'lightning',
+];
+
+// Non-core damage tags worth surfacing *when present*. Shown only if the
+// unit natively carries the tag or a contributor produced a non-zero
+// value — these aren't universal, so a row of zeroes would be noise.
 // Excludes `'healing'` (never resisted per ADR-0016) and the category
 // tags (`'physical'`, `'magical'`, `'weapon'`, `'sword'`) that surface as
 // Shell/Protect/Steel-Helm modifiers rather than as units' native
-// resistances in v1. If a v1 native or contributor begins authoring
-// against the category tags, surface them here.
-const DISPLAY_RESISTANCE_TAGS: ReadonlyArray<DamageTag> = [
-  'fire',
+// resistances in v1.
+const EXTRA_RESISTANCE_TAGS: ReadonlyArray<DamageTag> = [
   'ice',
-  'lightning',
-  'earth',
   'holy',
   'dark',
   'poison',
@@ -167,9 +178,9 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
           <div style={evasionRowStyle}>
             <span style={statLabelStyle}>Evade</span>
             <span style={evasionValuesStyle}>
-              <span style={evasionEntryStyle}>F {evasionFront}</span>
-              <span style={evasionEntryStyle}>S {evasionSide}</span>
-              <span style={evasionEntryStyle}>B {evasionBack}</span>
+              <span style={evasionEntryStyle}>Front {evasionFront}</span>
+              <span style={evasionEntryStyle}>Side {evasionSide}</span>
+              <span style={evasionEntryStyle}>Back {evasionBack}</span>
             </span>
           </div>
         </Section>
@@ -223,33 +234,45 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
 
         <Section title="Resistances">
           {(() => {
-            // Thread each candidate damage tag through `runModifyResistance`
-            // so equipment-side (`resistanceMods` — Capacitor Ring +100
+            // Thread each damage tag through `runModifyResistance` so
+            // equipment-side (`resistanceMods` — Capacitor Ring +100
             // Lightning, Wizard's Robe -25 to all four elements) and
             // status-side (`tagged_resistance_shift`, Shell/Protect)
             // contributions both reach the display. Per ADR-0056's chain
-            // composition + composeResistance's inclusion rule: a tag
-            // surfaces iff the unit natively carries it OR a contributor
-            // produced a non-zero value. The same rule the damage
-            // pipeline uses; the previous panel read raw map entries and
-            // showed only the native baseline.
-            const rows = DISPLAY_RESISTANCE_TAGS.flatMap((tag) => {
-              const native = unit.resistances.get(tag);
-              const value = runModifyResistance(state, catalog, {
+            // composition.
+            const valueFor = (tag: DamageTag): number =>
+              runModifyResistance(state, catalog, {
                 unit,
                 tag,
-                baseValue: native ?? 0,
+                baseValue: unit.resistances.get(tag) ?? 0,
               });
+            // The four core elements are always shown — even a neutral 0
+            // is information. The extras surface only when the unit
+            // natively carries the tag or a contributor produced a
+            // non-zero value (composeResistance's inclusion rule).
+            const coreRows = CORE_RESISTANCE_TAGS.map((tag) => ({
+              tag,
+              value: valueFor(tag),
+            }));
+            const extraRows = EXTRA_RESISTANCE_TAGS.flatMap((tag) => {
+              const native = unit.resistances.get(tag);
+              const value = valueFor(tag);
               if (native === undefined && value === 0) return [];
               return [{ tag, value }];
             });
-            if (rows.length === 0) return <Empty>None</Empty>;
-            return rows.map(({ tag, value }) => (
-              <div key={String(tag)} style={resRowStyle}>
-                <span style={statusNameStyle}>{String(tag)}</span>
-                <span style={statusDurStyle}>{value >= 0 ? `+${value}` : value}</span>
-              </div>
-            ));
+            const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+            // Two-column grid, matching the Stats section's layout.
+            return (
+              <StatGrid>
+                {[...coreRows, ...extraRows].map(({ tag, value }) => (
+                  <StatPair
+                    key={String(tag)}
+                    label={cap(String(tag))}
+                    value={value >= 0 ? `+${value}` : String(value)}
+                  />
+                ))}
+              </StatGrid>
+            );
           })()}
         </Section>
 
@@ -506,7 +529,7 @@ const evasionValuesStyle: CSSProperties = {
 };
 
 const evasionEntryStyle: CSSProperties = {
-  minWidth: 36,
+  minWidth: 52,
   textAlign: 'right',
 };
 

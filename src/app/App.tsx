@@ -11,11 +11,17 @@ import { useState } from 'react';
 import { BattleView } from './BattleView.tsx';
 import { TitleScreen } from './TitleScreen.tsx';
 import { BattleSetupScreen } from './BattleSetupScreen.tsx';
+import { DeploymentScreen } from './DeploymentScreen.tsx';
+import type { DeploymentResult } from './deployment-config.ts';
 
-type Screen = 'title' | 'setup' | 'battle';
+type Screen = 'title' | 'setup' | 'deployment' | 'battle';
 
 export function App() {
   const [screen, setScreen] = useState<Screen>('title');
+  // The committed deployment, threaded from DeploymentScreen into
+  // BattleView. `null` until the player commits a deployment (and on
+  // the title / setup screens). Per Session 35 (Phase E).
+  const [deploymentResult, setDeploymentResult] = useState<DeploymentResult | null>(null);
 
   return (
     <div
@@ -31,8 +37,19 @@ export function App() {
       {screen === 'title' && <TitleScreen onStart={() => setScreen('setup')} />}
       {screen === 'setup' && (
         <BattleSetupScreen
-          onStart={() => setScreen('battle')}
+          onStart={() => setScreen('deployment')}
           onBack={() => setScreen('title')}
+        />
+      )}
+      {screen === 'deployment' && (
+        // Conditional render means leaving 'deployment' fully unmounts
+        // `DeploymentScreen` — its mount-effect cleanup tears down Pixi.
+        <DeploymentScreen
+          onCommit={(result) => {
+            setDeploymentResult(result);
+            setScreen('battle');
+          }}
+          onBack={() => setScreen('setup')}
         />
       )}
       {screen === 'battle' && (
@@ -40,6 +57,7 @@ export function App() {
         // `BattleView` — its mount-effect cleanup tears down Pixi, and
         // re-entry mounts a fresh battle. No `key` needed.
         <BattleView
+          deploymentResult={deploymentResult}
           onExitToSetup={() => setScreen('setup')}
           onExitToTitle={() => setScreen('title')}
         />

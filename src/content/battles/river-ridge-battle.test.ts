@@ -15,17 +15,38 @@ describe('River Ridge battle config', () => {
     expect(riverRidgeBattle.map).toBe(riverRidge);
   });
 
-  it('inherits the demo unit roster (same ids, same teams, same classes)', () => {
-    expect(riverRidgeBattle.units.length).toBe(demoBattle.units.length);
-    const demoIds = new Set(demoBattle.units.map((u) => u.id));
+  it('extends the demo roster to 4v4 (all demo units + Blue Fire / Red Water Mage)', () => {
+    // Session 35: River Ridge is the 4v4 deployment-phase demo. It
+    // carries all six `demoBattle` units (unchanged teams / classes)
+    // plus two River-Ridge-specific units so the 3v3 engine smoke-test
+    // fixture stays untouched.
+    expect(riverRidgeBattle.units.length).toBe(8);
+    expect(demoBattle.units.length).toBe(6);
+
     const battleIds = new Set(riverRidgeBattle.units.map((u) => u.id));
-    expect(battleIds).toEqual(demoIds);
-    for (const unit of riverRidgeBattle.units) {
-      const demoUnit = demoBattle.units.find((u) => u.id === unit.id);
-      expect(demoUnit).toBeDefined();
-      expect(unit.team).toBe(demoUnit!.team);
-      expect(unit.classId).toBe(demoUnit!.classId);
+    for (const demoUnit of demoBattle.units) {
+      expect(battleIds.has(demoUnit.id)).toBe(true);
+      const unit = riverRidgeBattle.units.find((u) => u.id === demoUnit.id)!;
+      expect(unit.team).toBe(demoUnit.team);
+      expect(unit.classId).toBe(demoUnit.classId);
     }
+
+    const extras = riverRidgeBattle.units.filter(
+      (u) => !demoBattle.units.some((d) => d.id === u.id),
+    );
+    expect(extras.map((u) => u.id)).toEqual([
+      unitId('blue_fire_mage'),
+      unitId('red_water_mage'),
+    ]);
+
+    let blue = 0;
+    let red = 0;
+    for (const u of riverRidgeBattle.units) {
+      if (u.team === teamId('team_a')) blue += 1;
+      if (u.team === teamId('team_b')) red += 1;
+    }
+    expect(blue).toBe(4);
+    expect(red).toBe(4);
   });
 
   it('places every unit within the 14×14 board', () => {

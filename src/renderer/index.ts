@@ -8,6 +8,20 @@
 export { BattleRenderer, type TileClickHandler } from './battle-renderer.ts';
 export { type HighlightKind } from './highlight-layer.ts';
 export { type PanInput } from './camera-controller.ts';
+// Deployment-phase layers (Session 35 / Phase E). The layer classes are
+// owned + composed inside `BattleRenderer`; only the pure helpers and
+// the facing-pick handler type are part of the public surface.
+export {
+  deploymentZoneTintFor,
+  type DeploymentZoneTint,
+} from './deployment-zone-layer.ts';
+export {
+  DEPLOYMENT_FACING_DIRECTIONS,
+  facingArrowAngle,
+  facingArrowCenter,
+  facingArrowOffset,
+  type FacingPickHandler,
+} from './deployment-facing-layer.ts';
 // Team palette — UI consumers (queue-tower, forecast-panel) read the
 // CSS form; renderer reads the Pixi form. Single source of truth.
 // Per Session 31.5 polish #3.

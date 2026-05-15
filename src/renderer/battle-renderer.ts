@@ -37,6 +37,11 @@ import { CliffEdgeLayer } from './cliff-edge-layer.ts';
 import { ElevationLabelLayer } from './elevation-label-layer.ts';
 import { statusBadgeFromInstance, UnitSprite, type StatusBadge } from './unit-layer.ts';
 import { HighlightLayer, type HighlightKind } from './highlight-layer.ts';
+import { DeploymentZoneLayer } from './deployment-zone-layer.ts';
+import {
+  DeploymentFacingLayer,
+  type FacingPickHandler,
+} from './deployment-facing-layer.ts';
 import { Animator } from './animator.ts';
 import { CameraController, type PanInput } from './camera-controller.ts';
 import { positionCenter, type ScreenPoint } from './world.ts';
@@ -63,6 +68,34 @@ export class BattleRenderer {
   private readonly elevationLabelLayer: ElevationLabelLayer;
   private readonly highlightLayer: HighlightLayer;
   private readonly unitLayer: Container;
+  // Session 35 (Phase E): deployment-phase layers. Inert during a
+  // normal battle (the zone layer is never drawn, the facing layer
+  // never shown); active only while a `DeploymentScreen` drives the
+  // renderer. The zone tint sits below highlights; the facing arrows
+  // draw above the unit layer.
+  private readonly deploymentZoneLayer: DeploymentZoneLayer;
+  private readonly deploymentFacingLayer: DeploymentFacingLayer;
+  // The team currently deploying — captured by `drawDeploymentZone` so
+  // `setDeploymentUnit` can decide the friendly/enemy portrait flip.
+  private deploymentTeam: TeamId | null = null;
+  // Set true in `destroy()`. The deployment-phase methods early-return
+  // once destroyed: they're called from `useDeploymentFlow`'s effect
+  // *cleanups*, which React runs in the same unmount pass as the
+  // DeploymentScreen mount-effect cleanup that ran `destroy()`. The
+  // cleanup ordering isn't controllable from the hook, so the guard
+  // lives here — scoped to the deployment surface, not the whole
+  // renderer (cf. the S34 decision against blanket post-destroy
+  // guards). A destroyed-renderer call on the deployment layers would
+  // otherwise hit `Graphics.clear()` on a null context and throw.
+  private destroyed: boolean = false;
+  // Unit ids whose sprite is a deployment-phase placement (added via
+  // `setDeploymentUnit`, not from the mounted battle state). These
+  // bypass the animator — the per-frame `applyVisualState` loop skips
+  // any sprite without an animator snapshot, so they stay put.
+  private readonly deploymentSprites: Set<UnitId> = new Set();
+  // Class of each deployment sprite — kept so an async portrait load
+  // can re-apply the texture to the matching deployment sprites.
+  private readonly deploymentUnitClass: Map<UnitId, ClassId> = new Map();
   private readonly sprites: Map<UnitId, UnitSprite> = new Map();
   private readonly animator: Animator = new Animator();
   private camera: CameraController | null = null;
@@ -100,15 +133,19 @@ export class BattleRenderer {
     this.tileLayer = new TileLayer();
     this.cliffEdgeLayer = new CliffEdgeLayer();
     this.elevationLabelLayer = new ElevationLabelLayer();
+    this.deploymentZoneLayer = new DeploymentZoneLayer();
     this.highlightLayer = new HighlightLayer();
     this.unitLayer = new Container();
     this.unitLayer.label = 'units';
+    this.deploymentFacingLayer = new DeploymentFacingLayer();
     this.world.addChild(
       this.tileLayer.container,
       this.cliffEdgeLayer.container,
       this.elevationLabelLayer.container,
+      this.deploymentZoneLayer.container,
       this.highlightLayer.container,
       this.unitLayer,
+      this.deploymentFacingLayer.container,
     );
 
     // Pointer events on the stage. Stage covers the full canvas, so
@@ -126,7 +163,14 @@ export class BattleRenderer {
   // The catalog is captured for status-tag lookups (badge polarity);
   // visualization-only consumer of catalog data — the renderer never
   // dispatches actions or reads ability rules.
-  mount(state: GameState, catalog: Catalog): void {
+  //
+  // `playerTeam` is the team whose portraits face "inward" (not flipped);
+  // every other team's portraits are horizontally flipped to face it.
+  // When omitted, it's inferred from the first unit's team — fine for a
+  // battle mounted with the full roster, but the DeploymentScreen mounts
+  // with an opponent-only state (the inference would pick the opponent),
+  // so it passes the deploying team explicitly.
+  mount(state: GameState, catalog: Catalog, playerTeam?: TeamId): void {
     this.lastState = state;
     this.catalog = catalog;
     this.tileLayer.draw(state.map);
@@ -141,16 +185,21 @@ export class BattleRenderer {
       screenHeight: this.app.renderer.height,
     });
 
-    // Establish the "enemy" team — for v1, that's any team other than
-    // team_a (the player). Used for the portrait horizontal-flip so
-    // enemy portraits face toward the player.
-    const playerTeam: TeamId = state.units.values().next().value?.team ?? ('team_a' as TeamId);
+    // Establish the "enemy" team — any team other than the player team.
+    // Used for the portrait horizontal-flip so enemy portraits face
+    // toward the player.
+    const resolvedPlayerTeam: TeamId =
+      playerTeam ??
+      state.units.values().next().value?.team ??
+      ('team_a' as TeamId);
 
     for (const unit of state.units.values()) {
       // Per ADR-0058: `maxMp` is queried per-frame via
       // `runModifyStatQuery` in `applyVisualState`, so equipment /
       // status contributions compose live. No mount-captured cache.
-      const sprite = new UnitSprite(unit, { enemyTeam: unit.team !== playerTeam });
+      const sprite = new UnitSprite(unit, {
+        enemyTeam: unit.team !== resolvedPlayerTeam,
+      });
       this.sprites.set(unit.id, sprite);
       this.unitLayer.addChild(sprite.container);
       this.animator.initSnapshot(unit.id, {
@@ -194,32 +243,46 @@ export class BattleRenderer {
   private async loadPortraitAssets(state: GameState): Promise<void> {
     const classesPresent = new Set<ClassId>();
     for (const u of state.units.values()) classesPresent.add(u.classState.currentClass);
+    await Promise.all([...classesPresent].map((c) => this.loadPortraitForClass(c)));
+  }
 
-    const loads: Promise<void>[] = [];
-    for (const classId of classesPresent) {
-      const url = PORTRAIT_URLS.get(classId);
-      if (url === undefined) continue;
-      loads.push(
-        Assets.load(url)
-          .then((texture: Texture) => {
-            this.portraitTextures.set(classId, texture);
-            // Apply to existing sprites of this class.
-            const currentState = this.lastState;
-            if (currentState === null) return;
-            for (const u of currentState.units.values()) {
-              if (u.classState.currentClass !== classId) continue;
-              this.sprites.get(u.id)?.setPortrait(texture);
-            }
-          })
-          .catch((err: unknown) => {
-            if (import.meta.env.DEV) {
-              // eslint-disable-next-line no-console
-              console.warn('[renderer] portrait load failed for', String(classId), err);
-            }
-          }),
-      );
+  // Load (once) the portrait texture for a single class and apply it to
+  // every sprite of that class — both battle sprites in `lastState` and
+  // deployment-phase sprites (Session 35). Cached after the first load;
+  // a second call for an already-cached class re-applies synchronously.
+  // Errors per-class are swallowed (logged in dev) — a missing asset
+  // leaves the colored-circle fallback in place.
+  private async loadPortraitForClass(classId: ClassId): Promise<void> {
+    const cached = this.portraitTextures.get(classId);
+    if (cached !== undefined) {
+      this.applyPortraitToClass(classId, cached);
+      return;
     }
-    await Promise.all(loads);
+    const url = PORTRAIT_URLS.get(classId);
+    if (url === undefined) return;
+    try {
+      const texture = (await Assets.load(url)) as Texture;
+      this.portraitTextures.set(classId, texture);
+      this.applyPortraitToClass(classId, texture);
+    } catch (err: unknown) {
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn('[renderer] portrait load failed for', String(classId), err);
+      }
+    }
+  }
+
+  // Apply a loaded portrait texture to every current sprite of `classId`.
+  private applyPortraitToClass(classId: ClassId, texture: Texture): void {
+    for (const u of this.lastState?.units.values() ?? []) {
+      if (u.classState.currentClass === classId) {
+        this.sprites.get(u.id)?.setPortrait(texture);
+      }
+    }
+    for (const id of this.deploymentSprites) {
+      const cls = this.deploymentUnitClass.get(id);
+      if (cls === classId) this.sprites.get(id)?.setPortrait(texture);
+    }
   }
 
   // Async terrain texture loader (ADR-0054). For each unique terrain
@@ -339,7 +402,94 @@ export class BattleRenderer {
     this.counterpartUnits = new Set(ids);
   }
 
+  // ---- deployment phase (Session 35 / Phase E) ----
+  //
+  // These drive the `DeploymentScreen`'s visualization. They are inert
+  // during a normal battle (never called). The renderer for a
+  // deployment screen is mounted with an opponent-only state — the
+  // deploying team's units are added incrementally as the player places
+  // them, via `setDeploymentUnit`, which bypasses the animator (the
+  // per-frame loop skips any sprite without an animator snapshot).
+
+  // Tint the map's deployment zones for the team currently deploying.
+  // Called once at deployment-screen mount; `currentTeam` is retained
+  // so `setDeploymentUnit` picks the right friendly/enemy portrait flip.
+  drawDeploymentZone(map: GameState['map'], currentTeam: TeamId): void {
+    if (this.destroyed) return;
+    this.deploymentTeam = currentTeam;
+    this.deploymentZoneLayer.draw(map, currentTeam);
+  }
+
+  clearDeploymentZone(): void {
+    if (this.destroyed) return;
+    this.deploymentZoneLayer.clear();
+  }
+
+  // Register (or clear) the handler invoked when a facing arrow is
+  // clicked.
+  setOnDeploymentFacingPick(handler: FacingPickHandler | null): void {
+    if (this.destroyed) return;
+    this.deploymentFacingLayer.setOnPick(handler);
+  }
+
+  // Show the four cardinal facing arrows around `tile` (the tile of the
+  // unit currently being placed), or hide them by passing `null`.
+  showDeploymentFacing(tile: Position | null): void {
+    if (this.destroyed) return;
+    this.deploymentFacingLayer.draw(tile);
+  }
+
+  // Add or update a deployment-phase unit sprite at the unit's current
+  // position + facing. Bypasses the animator: the sprite is static
+  // until the next `setDeploymentUnit` / `removeDeploymentUnit`. Called
+  // by the deployment flow as units are placed and re-placed.
+  setDeploymentUnit(unit: Unit): void {
+    if (this.destroyed) return;
+    const enemyTeam =
+      this.deploymentTeam !== null && unit.team !== this.deploymentTeam;
+    let sprite = this.sprites.get(unit.id);
+    if (sprite === undefined) {
+      sprite = new UnitSprite(unit, { enemyTeam });
+      this.sprites.set(unit.id, sprite);
+      this.unitLayer.addChild(sprite.container);
+      const cached = this.portraitTextures.get(unit.classState.currentClass);
+      if (cached !== undefined) sprite.setPortrait(cached);
+      else void this.loadPortraitForClass(unit.classState.currentClass);
+    }
+    this.deploymentSprites.add(unit.id);
+    this.deploymentUnitClass.set(unit.id, unit.classState.currentClass);
+    sprite.setVisualState({
+      position: positionCenter(unit.position),
+      facing: unit.facing,
+      hp: unit.vitals.hp,
+      maxHp: Math.max(unit.vitals.hp, 1),
+      mp: unit.vitals.mp,
+      maxMp: Math.max(unit.vitals.mp, 1),
+      ko: false,
+      active: false,
+      flash: 0,
+      statuses: [],
+      counterpart: 0,
+    });
+  }
+
+  // Remove a deployment-phase unit sprite — the unit was lifted back to
+  // the roster. No-op if the id isn't a deployment sprite.
+  removeDeploymentUnit(unitId: UnitId): void {
+    if (this.destroyed) return;
+    if (!this.deploymentSprites.has(unitId)) return;
+    const sprite = this.sprites.get(unitId);
+    if (sprite !== undefined) {
+      this.unitLayer.removeChild(sprite.container);
+      sprite.container.destroy({ children: true });
+      this.sprites.delete(unitId);
+    }
+    this.deploymentSprites.delete(unitId);
+    this.deploymentUnitClass.delete(unitId);
+  }
+
   destroy(): void {
+    this.destroyed = true;
     this.app.destroy(true, { children: true, texture: false });
   }
 
