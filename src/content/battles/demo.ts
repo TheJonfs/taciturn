@@ -159,7 +159,10 @@ const RED_LIGHTNING_MAGE_EQUIPMENT: UnitEquipment = {
 // Second Action empty (per session 25: White Magic is hidden until the
 // repertoire grows past Cure), Counter in the Reaction bucket, Move +1
 // in Movement.
-const KNIGHT_LOADOUT: UnitPlacement['loadout'] = {
+// Exported (Session 36): the team builder's default templates
+// (`src/content/teams/`) reuse the class-default loadouts so a loaded
+// template matches the demo roster's builds.
+export const KNIGHT_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
     [bucketId('first_action')]: [commandSetId('battle_skill')],
     [bucketId('secondary_command_sets')]: [],
@@ -175,7 +178,7 @@ const KNIGHT_LOADOUT: UnitPlacement['loadout'] = {
 // on Second Action so the mage has a backup tool, Earth Resilience in
 // the Reaction bucket, Earth Communion in Support, Bedrock Stride in
 // Movement (session 26.5: +1 moveRange + falling-damage immunity).
-const EARTH_MAGE_LOADOUT: UnitPlacement['loadout'] = {
+export const EARTH_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
     [bucketId('first_action')]: [commandSetId('earth_spells')],
     [bucketId('secondary_command_sets')]: [commandSetId('white_magic')],
@@ -251,7 +254,7 @@ const RED_FIRE_MAGE_LOADOUT: UnitPlacement['loadout'] = {
 // (free for Lightning Mage — magical retaliation), Conductor in
 // Support (free — × 1.25 MA multiplier), Quickstep in Movement
 // (session 26.5: onTurnEnd CT refund of +MA on Move-committed turns).
-const LIGHTNING_MAGE_LOADOUT: UnitPlacement['loadout'] = {
+export const LIGHTNING_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   actionBuckets: {
     [bucketId('first_action')]: [commandSetId('lightning_spells')],
     [bucketId('secondary_command_sets')]: [commandSetId('white_magic')],

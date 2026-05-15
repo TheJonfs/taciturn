@@ -36,11 +36,11 @@ import {
 import { Application } from 'pixi.js';
 import { BattleErrorBoundary } from './BattleErrorBoundary.tsx';
 import { loadDefaultCatalog } from '@content/index.ts';
-import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import {
   createInitialState,
   unitId,
   validateMap,
+  type BattleConfig,
   type Catalog,
   type Direction,
   type GameState,
@@ -58,6 +58,11 @@ const ROSTER_PANEL_WIDTH = 264;
 const WHEEL_ZOOM_STEP = 0.0015;
 
 export interface DeploymentScreenProps {
+  // The battle config to deploy onto — River Ridge with the team
+  // builder's assembled team folded into team_a (Session 36). The
+  // deploying team's units come from here; their positions are
+  // placeholders the player overwrites.
+  readonly template: BattleConfig;
   // Commit: the player placed every unit and clicked "Start Battle".
   readonly onCommit: (result: DeploymentResult) => void;
   // Escape hatch: "Back to Setup" / Escape from idle / validation
@@ -74,6 +79,7 @@ export function DeploymentScreen(props: DeploymentScreenProps): ReactElement {
 }
 
 function DeploymentScreenInner({
+  template,
   onCommit,
   onBack,
 }: DeploymentScreenProps): ReactElement {
@@ -86,9 +92,8 @@ function DeploymentScreenInner({
   }
   const catalog = catalogRef.current;
 
-  // Hardcoded this session: River Ridge, Blue (team_a) deploys, vs-AI.
-  // The same hardcoding BattleView does for `riverRidgeBattle`.
-  const template = riverRidgeBattle;
+  // The `template` is the team builder's output: River Ridge with the
+  // player's team built into team_a. Blue (team_a) deploys, vs-AI.
   const currentTeam: TeamId = template.teams[0]!.id;
 
   // Validate the map's deployment zones against the per-team roster
@@ -292,7 +297,15 @@ function DeploymentScreenInner({
   return (
     <div style={rootStyle}>
       <div ref={containerRef} style={canvasHostStyle} />
-      <DeploymentRosterPanel flow={flow} catalog={catalog} teamName={teamName} />
+      {/* `fullState` is non-null here: the `!validation.ok` branch
+          returned above, and `fullStateRef` is populated whenever
+          validation succeeds. */}
+      <DeploymentRosterPanel
+        flow={flow}
+        catalog={catalog}
+        battleState={fullState!}
+        teamName={teamName}
+      />
       <DeploymentFacingPicker flow={flow} />
       <div style={controlBarStyle}>
         <button type="button" style={secondaryButtonStyle} onClick={onBack}>

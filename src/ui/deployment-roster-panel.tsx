@@ -18,19 +18,32 @@
 // `DeploymentFlow` handlers.
 
 import type { CSSProperties, ReactElement } from 'react';
-import type { Catalog, Unit } from '@engine/index.ts';
+import {
+  runModifyStatQuery,
+  type Catalog,
+  type GameState,
+  type StatName,
+  type Unit,
+} from '@engine/index.ts';
 import { portraitUrlFor } from '../assets/portraits/index.ts';
 import type { DeploymentFlow } from './use-deployment-flow.ts';
 
 export interface DeploymentRosterPanelProps {
   readonly flow: DeploymentFlow;
   readonly catalog: Catalog;
+  // The battle's initial state — the context `runModifyStatQuery` reads
+  // to compute equipment-modified stats (decision 14: the roster shows
+  // live computed PA/MA/Speed, not base values, matching the team
+  // builder). Distinct from `flow.state`, which is the deployment-phase
+  // state machine.
+  readonly battleState: GameState;
   readonly teamName: string;
 }
 
 export function DeploymentRosterPanel({
   flow,
   catalog,
+  battleState,
   teamName,
 }: DeploymentRosterPanelProps): ReactElement {
   const { state, rosterUnits } = flow;
@@ -61,6 +74,7 @@ export function DeploymentRosterPanel({
               key={String(unit.id)}
               unit={unit}
               catalog={catalog}
+              battleState={battleState}
               isPlaced={isPlaced}
               isSelected={isSelected}
               isPickable={isPickable}
@@ -93,15 +107,31 @@ function hintFor(phase: DeploymentFlow['state']['phase']['kind']): string {
 interface RosterEntryProps {
   readonly unit: Unit;
   readonly catalog: Catalog;
+  readonly battleState: GameState;
   readonly isPlaced: boolean;
   readonly isSelected: boolean;
   readonly isPickable: boolean;
   readonly onClick: () => void;
 }
 
+// Equipment-modified stat value — runs the `modifyStatQuery` hook chain
+// so the roster shows what the unit actually fights with (decision 14).
+function effectiveStat(
+  state: GameState,
+  catalog: Catalog,
+  unit: Unit,
+  statName: StatName,
+  baseValue: number,
+): number {
+  return Math.round(
+    runModifyStatQuery(state, catalog, { unit, statName, baseValue }),
+  );
+}
+
 function RosterEntry({
   unit,
   catalog,
+  battleState,
   isPlaced,
   isSelected,
   isPickable,
@@ -138,11 +168,14 @@ function RosterEntry({
         <div style={unitNameStyle}>{unit.name}</div>
         <div style={classNameStyle}>{className}</div>
         <div style={statRowStyle}>
+          {/* HP / MP are already effective maxes — createInitialState's
+              fillVitalsFromComputedMaxes ran the maxHp / maxMp queries.
+              PA / MA / Speed need the query run here. */}
           <Stat label="HP" value={unit.vitals.hp} />
           <Stat label="MP" value={unit.vitals.mp} />
-          <Stat label="PA" value={unit.baseStats.pa} />
-          <Stat label="MA" value={unit.baseStats.ma} />
-          <Stat label="SPD" value={unit.baseStats.spd} />
+          <Stat label="PA" value={effectiveStat(battleState, catalog, unit, 'pa', unit.baseStats.pa)} />
+          <Stat label="MA" value={effectiveStat(battleState, catalog, unit, 'ma', unit.baseStats.ma)} />
+          <Stat label="SPD" value={effectiveStat(battleState, catalog, unit, 'spd', unit.baseStats.spd)} />
         </div>
       </div>
     </button>

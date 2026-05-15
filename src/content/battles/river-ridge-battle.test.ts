@@ -5,7 +5,14 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from '@content/index.ts';
-import { createInitialState, itemId, teamId, tileAt, unitId } from '@engine/index.ts';
+import {
+  createInitialState,
+  itemId,
+  teamId,
+  tileAt,
+  unitId,
+  type UnitId,
+} from '@engine/index.ts';
 import { riverRidge } from '../maps/river-ridge.ts';
 import { demoBattle } from './demo.ts';
 import { riverRidgeBattle } from './river-ridge-battle.ts';
@@ -100,7 +107,7 @@ describe('River Ridge battle config', () => {
     expect(state.map.height).toBe(14);
   });
 
-  it('Red Lightning Mage carries the Session 33.5 loadout (Staff of Power / Wizard\'s Robe / Pointy Hat / Purifier)', () => {
+  it('Red Lightning Mage carries the Session 36 loadout (Staff of Power / Silvered Vest / Guard Cap / Purifier)', () => {
     const catalog = loadDefaultCatalog();
     // createInitialState runs equipment-placement validation; an
     // ineligible slot or class restriction would throw here.
@@ -108,8 +115,38 @@ describe('River Ridge battle config', () => {
     const redLightning = state.units.get(unitId('red_lightning_mage'));
     expect(redLightning).toBeDefined();
     expect(redLightning!.equipment.rightHand).toBe(itemId('staff_of_power'));
-    expect(redLightning!.equipment.armor).toBe(itemId('wizards_robe'));
-    expect(redLightning!.equipment.headgear).toBe(itemId('pointy_hat'));
+    // Session 36: Wizard's Robe → Silvered Vest, Pointy Hat → Guard Cap
+    // (the Red team ran three Wizard's Robes and three Pointy Hats before
+    // the unique-per-team adjustment). Staff of Power and Purifier — the
+    // Session 33.5 Burn × Purifier interaction pieces — are retained.
+    expect(redLightning!.equipment.armor).toBe(itemId('silvered_vest'));
+    expect(redLightning!.equipment.headgear).toBe(itemId('guard_cap'));
     expect(redLightning!.equipment.accessory).toBe(itemId('purifier'));
+  });
+
+  // Session 36: the team builder enforces unique-per-team equipment —
+  // each team carries at most one instance of any item. River Ridge's
+  // authored rosters must satisfy the same rule so they load as valid
+  // teams. This guards against regression on the loadout adjustments.
+  it('each team carries unique-per-team equipment (no item appears twice on a team)', () => {
+    const slots = ['leftHand', 'rightHand', 'headgear', 'armor', 'accessory'] as const;
+    for (const team of [teamId('team_a'), teamId('team_b')]) {
+      const seen = new Map<string, UnitId>();
+      for (const unit of riverRidgeBattle.units) {
+        if (unit.team !== team) continue;
+        const equipment = unit.equipment;
+        if (equipment === undefined) continue;
+        for (const slot of slots) {
+          const item = equipment[slot];
+          if (item === null || item === undefined) continue;
+          const prior = seen.get(String(item));
+          expect(
+            prior,
+            `${String(item)} appears on both ${String(prior)} and ${String(unit.id)} (team ${String(team)})`,
+          ).toBeUndefined();
+          seen.set(String(item), unit.id);
+        }
+      }
+    }
   });
 });

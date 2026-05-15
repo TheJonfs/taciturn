@@ -21,51 +21,52 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-14 (Session 35 — Phase E: deployment phase UI)
+## From session 2026-05-14 (Session 36 — Phase E: team builder UI)
 
-Deployment phase landed. **Tests: 1048 passing across 93 files, 0 failing** (up from 1007/90 — +41 tests, +6 files). No new ADR (the pipeline-integration audit confirmed the minimal-surface case the brief predicted — deployment is strictly upstream of `createInitialState`, no engine change).
+Team builder landed. **Tests: 1077 passing across 97 files, 0 failing** (up from 1048/93 — +29 tests, +4 files). No new ADR — the audit confirmed Chris's read: the ability cost/capacity/validation substrate was already complete (`getCost` / `getCapacity` / `validateLoadout` / `modifyBucketCapacity` all shipped in earlier sessions), so the team builder is a pure UI wrap. No 36a/36b split.
 
 ### Scope completed
 
-- **River Ridge → 4v4.** Blue gained a Fire Mage, Red a Water Mage (Chris's call). The two extra units live in `river-ridge-battle.ts` only; `demoBattle` stays 3v3 — it's the engine smoke-test fixture (`orchestrator.test.ts`, `ai-controller.integration.test.ts`) and was deliberately left untouched. Reusable loadout/stat/equipment constants are now exported from `demo.ts`.
-- **Deployment state machine** — `src/ui/deployment-flow.ts`, pure reducer, sibling to `turn-flow.ts`. `idle → tile_selected → unit_selected → (commit) → idle`; cancel back-paths; lift-and-replace re-placement. Team-parameterized (`currentTeam`).
-- **`useDeploymentFlow` hook** — wires renderer tile-click → events, drives the zone/facing layers and placed-unit sprites.
-- **UI** — `deployment-roster-panel.tsx` (left-edge sidebar, doubles as the unit picker per decision 5/shape A), `deployment-facing-picker.tsx` (keyboard parallel + hint; the renderer owns the on-canvas arrows).
-- **Renderer layers** — `deployment-zone-layer.ts` (zone tint, current team bright / opponent faint), `deployment-facing-layer.ts` (four interactive cardinal arrows). Both composed into `BattleRenderer`, which gained a deployment-sprite API (`setDeploymentUnit` / `removeDeploymentUnit`, bypassing the animator).
-- **`DeploymentScreen`** — a separate App-shell screen (`'deployment'`), not a sub-mode of `BattleView`. Audit-driven: `BattleRenderer.destroy()` is lifecycle-coupled to `app.destroy()`, so "mode-within-BattleView" couldn't simply gate an already-mounted renderer — it would need a parallel Pixi-app lifecycle anyway. The separate screen gives a clean prop contract (`DeploymentResult` in, battle config out) and keeps `BattleView` untouched. **This was the brief's fallback; Chris approved the switch at plan-review.**
-- **Pipeline** — `deployment-config.ts`: `buildDeployedBattleConfig(template, result)` folds the deployment's placements into the authored config (Blue replaced, Red authored retained). Flows into `createInitialState` → `enumeratePreBattleActions` unchanged. `BattleView` takes an optional `deploymentResult` prop; `App` threads it through.
-- **Validation** — `validateMap` runs at `DeploymentScreen` mount; failure renders an inline error card with "Back to Setup" (rather than threading an error string up to `App` — functionally equivalent, self-contained).
+- **River Ridge loadouts made unique-per-team compliant (B2 approach).** Equipment is now re-authored locally in `river-ridge-battle.ts` via a `RIVER_RIDGE_EQUIPMENT` map; `demoBattle` is byte-for-byte untouched (it's the 3v3 engine smoke-test fixture and stays non-compliant — the unique-per-team rule is a playable-content rule, not an engine invariant). A new structural test in `river-ridge-battle.test.ts` asserts compliance and would fail on regression. Loadout adjustments: Blue Lightning Mage Pointy Hat→Magus Crown; Blue Fire Mage Pointy Hat→Guard Cap / Wizard's Robe→Battle Gear / Flametongue→none; Red Lightning Mage Pointy Hat→Guard Cap / Wizard's Robe→Silvered Vest; Red Fire Mage Wizard's Robe→Battle Gear; Red Water Mage Pointy Hat→Focus Band.
+- **`BuiltTeam` type + two default templates** in new `src/content/teams/`. `built-team.ts` (type + `buildBaseStats` + Brave/Faith bounds), `current-test-team.ts` (the adjusted Blue team — a test pins it to `riverRidgeBattle`'s team_a), `pure-mage-team.ts` (one mage of each element), `build-team-battle-config.ts` (`buildTeamBattleConfig` — folds a `BuiltTeam` into a map config; lives in content/, not app/, to avoid a content→app layering inversion).
+- **Team builder state** — `src/ui/team-builder-state.ts`, pure flat editable record (plan decision 2A) + validity predicate + `use-team-builder.ts` hook. Capacity/cost are computed by thin local helpers (`draftBucketCapacity` / `draftAbilityCost`) rather than the engine's `getCapacity`/`getCost` — those need a built `GameState` and `createInitialState` throws on an invalid loadout, so they can't double as a live validity probe. `team-builder-state.test.ts` has engine-agreement tests pinning the local helpers against the real engine functions; drift fails loud.
+- **`computeDraftUnitStats`** — live equipment/ability-modified stats by building a throwaway one-unit config off the map template and running the real `createInitialState` + `runModifyStatQuery`. No reimplemented composition.
+- **TeamBuilderScreen + UI** — `src/app/TeamBuilderScreen.tsx` (new `'teamBuilder'` App-shell screen) + five `src/ui/team-builder-*` components (roster, class-picker, equipment-slots, ability-picker, default-loader). Card-pick class selection, per-slot equipment dropdowns with class-restriction + unique-per-team filtering, ability picker with class-default-free / cross-class-at-cost passives **and secondary command sets** (Chris's call — Magus Crown's capacity bump matters here), Brave/Faith sliders (40–90), live budget indicators.
+- **One unit per class per team** — enforced post-plan-review (this rule wasn't in the brief's decision-12 validity list; Chris flagged it after seeing three Fire Mages get picked). The class picker disables classes already taken by another unit (mirrors the unique-per-team equipment filtering); `computeTeamValidity` reports `duplicateClassIds` as the backstop and factors it into `valid`.
+- **Output contract** — team builder produces a `BuiltTeam`; `App` folds it via `buildTeamBattleConfig` into a `BattleConfig`, threaded to both `DeploymentScreen` (new `template` prop, dropped its `riverRidgeBattle` hardcode) and `BattleView` (new `template` prop). Flow: Title → Battle Setup → Team Builder → Deployment → Battle, browser-verified through the deployment screen.
+- **Deployment roster stats aligned to live computed values** (decision 14, Chris's call) — `deployment-roster-panel.tsx` now runs `runModifyStatQuery` for PA/MA/Speed (HP/MP were already effective maxes). New `battleState: GameState` prop.
 
 ### Limitations + watch-fors
 
-- **`DeploymentScreen` has a DEV-only `__taciturnDeployDebug` surface** (mirrors `BattleView`'s `__taciturnDebug`). Synthetic Pixi pointer events don't reach the renderer's federated event system in a headless preview, so the canvas tile-click can't be driven there. The full loop *was* verified in-browser via that debug surface: place all 4 Blue units → Start Battle → pre-battle phase (`system_apply_status` ×3 + `system_set_ct` ×8 in the log, `[init]`-tagged) → turn 1 → AI turn. Blue units land at the exact deployed positions. Stripped from production builds.
-- **`BattleRenderer` gained a `destroyed` guard on its deployment methods.** Found in browser verification: `useDeploymentFlow`'s effect cleanups call into the renderer (`clearDeploymentZone` etc.) in the *same* unmount pass as `DeploymentScreen`'s mount-effect cleanup that runs `destroy()` — and the ordering isn't controllable from the hook (the mount effect is declared before the hook, so its cleanup runs first). A destroyed-renderer call would hit `Graphics.clear()` on a null context and throw. The guard is scoped to the deployment methods only — *not* the blanket post-destroy guards S34 explicitly rejected.
-- **Opponent (Red) sprites during deployment aren't portrait-flipped to face the player.** The deployment renderer mounts with an opponent-only state, so `mount()`'s "first unit's team is the player" heuristic treats Red as the player team → no flip. Purely cosmetic. If it bothers, pass `currentTeam` into `mount()` instead of inferring it.
-- **Roster panel stats** show base PA/MA/Speed + effective HP/MP (the latter from `createInitialState`'s `fillVitalsFromComputedMaxes`). Not per-frame `runModifyStatQuery` values — fine for a roster glance, but if a future reader expects equipment-modified PA/MA there, it isn't shown.
-- **`docs/roadmap.md` is stale past Session 20b** — the 21+ plan lives in `docs/twentyOnePlanning/roadmap-sessions-21-plus.md`, which is a forward-plan doc with no per-session completion markers. Nothing to update there; noting so the next session doesn't go hunting.
-- **`tsc -b --noEmit` reports 201 errors** — all pre-existing `.test.ts` strict-mode errors (the long-standing S34 carry). Session 35's files (source + tests) add zero. `vitest` is fully green.
+- **Mage equipment pool is exactly catalog-sized.** After excluding hidden items there are exactly 4 mage-eligible headgear and 4 mage-eligible armor items — a pure-mage team consumes every one, so head/armor slots are *forced*, not chosen. Chris's call: flag for a future content session to widen the mage equipment pool. Noted in `pure-mage-team.ts`'s header comment too.
+- **Team builder state is lost on back-navigation.** Leaving `'teamBuilder'` unmounts the screen (and its `useState` draft). Going Deployment → Back → Team Builder lands on a fresh empty builder. Team-build state preservation is explicitly Session 37 scope ("save/restore of in-progress team builds" in the roadmap) — deferred, not a bug.
+- **`computeDraftUnitStats` returns `null` for an over-capacity loadout** (createInitialState throws on invalid loadout; caught). The roster card then shows "— loadout invalid —" instead of stats; the footer validation panel explains the actual violation. Acceptable — the common edit path keeps the loadout valid.
+- **Battle Gear shows a large HP swing in the team builder** (Fire Mage HP ~227 vs ~97 baseline). That's the catalog's `statMods` flowing through `runModifyStatQuery` faithfully — a content-balance observation, not a team-builder bug. Worth a glance during the post-S36 River Ridge balance read.
+- **Full deployment→battle loop still has the S35 synthetic-event limitation.** The team builder is DOM-only and fully browser-verified (load-default → roster with live stats → Continue → deployment screen consumes the built team). Tile placement → Start Battle → battle still needs the `__taciturnDeployDebug` path or a human; `team-builder-integration.test.tsx` covers the data pipeline (BuiltTeam → buildTeamBattleConfig → buildDeployedBattleConfig → createInitialState → runPreBattlePhase).
+- **`tsc -b --noEmit` reports 202 errors** — all pre-existing `.test.ts` strict-mode errors (the long-standing S34 carry; the +1 vs the "201" figure is `orchestrator.test.ts`'s pre-existing `Controller` import error, untouched). Session 36's source + test files add **zero** tsc errors. `vitest` is fully green; `vite build` succeeds.
 
 ### Considered and rejected this session
 
-- **Mode-within-`BattleView`** (the brief's primary plan) — see above; the `destroy()`↔`app.destroy()` coupling made it no simpler than a separate screen while bloating an HMR-delicate component. Switched to the separate-screen fallback with Chris's sign-off.
-- **Expanding `demoBattle` to 4v4** — rejected to avoid perturbing `orchestrator.test.ts` / `ai-controller.integration.test.ts`, which run `demoBattle` on the 6×6 map. The two new units live on `riverRidgeBattle` only.
-- **Blanket post-destroy guards on all `BattleRenderer` methods** — rejected (S34's stance). The `destroyed` flag guards only the deployment surface, which is uniquely exposed to the hook-cleanup ordering problem.
+- **B1 — editing `demo.ts`'s shared equipment constants** to fix the unique-per-team violations. Rejected: it would change `demoBattle` (the engine smoke-test fixture) and risk perturbing `orchestrator.test.ts` / `ai-controller.integration.test.ts`. B2 (local override in `river-ridge-battle.ts`) keeps `demoBattle` untouched. Chris approved B2 at plan-review.
+- **Maintaining a live full-team `GameState` in the team builder** for capacity/cost. Rejected: `createInitialState` throws on a classless or over-capacity unit, so it can't back a live validity probe. Local helpers + engine-agreement tests + the `createInitialState` gate at "Continue" is the chosen shape.
 
-### Suggested scope for Session 36
+### Suggested scope for Session 37
 
-Per the roadmap: **team builder UI** (`roadmap-sessions-21-plus.md` Session 36). Note the deferred wiring — the team builder's output (the assembled team) becomes the deployment phase's input, replacing `DeploymentScreen`'s current hardcoded `riverRidgeBattle` template + `team_a` currentTeam.
+Per the roadmap: **pre-battle UI integration polish.** Smooth the Title → Setup → Team Builder → Deployment → Battle flow; the obvious first item is team-build state preservation on back-navigation (see limitations above). Also a candidate: the narrow-viewport layout of the team builder edit panel (the 5-card class grid + 2-column edit panel want a reasonably wide window — eyeball at real sizes, same S34 carry as the title screen).
 
-### Longer-term carry-forward (unchanged from S34 unless noted)
+### Longer-term carry-forward (unchanged from S35 unless noted)
 
-- **Pass-and-play toggle + dual deployment + battle-loop AI gating** — dedicated future session. The deployment surfaces are all team-parameterized (`currentTeam`), so adding it is the routing change the brief intended, not a refactor.
-- **AI deployment logic** — Red uses authored placements; future tactics-layer pass.
-- **Title screen layout eyeball at real window sizes** — S34 carry; quick visual check still pending.
-- **Full battle → results → continuity-button loop manual playtest** — S34 carry; the deployment → battle → turn-1 stretch is now browser-verified, but a human-driven battle to the results screen still hasn't been run.
+- **Pass-and-play toggle + dual deployment + battle-loop AI gating** — dedicated future session. Deployment surfaces are team-parameterized; the team builder builds only team_a (Blue), Red stays authored.
+- **Mage equipment pool expansion** — new this session; see limitations.
+- **AI deployment logic / AI team random-fill** — Red uses authored placements; future tactics-layer pass.
+- **Title screen + team builder layout eyeball at real window sizes** — S34 carry, now extended to the team builder.
+- **Full battle → results → continuity-button loop manual playtest** — S34 carry; the deployment → battle stretch is browser-verified through deployment, but a human-driven battle to the results screen still hasn't been run.
+- **River Ridge balance tuning** — the post-S36 loadouts shifted (Wizard's Robe / Pointy Hat counts down on both teams); a fresh balance read is needed. Watch the Battle Gear HP swing.
 - **Pacing + cliff-thickness playtest read** — S33.5 carry, still unplaytested.
 - **Charged-action tooltip browser verification** — S33.5 carry.
-- **Burn × Purifier playtest** — exercisable via the Red Lightning Mage loadout.
+- **Burn × Purifier playtest** — exercisable via the Red Lightning Mage loadout (Purifier retained).
 - **Walk-on-Water passive** — future content.
-- **River Ridge balance tuning** — playtest-informed; now 4v4, so prior 3v3 balance notes need re-reading.
+- **Opponent (Red) sprite flip during deployment** — S35 carry; cosmetic.
 - **Procced Lightning Strike action-log attribution / Rasp Pendant drain attribution** — S30 carries.
 - **AI active absorption exploitation** — S27 carry. **AI projection forecast extension via `computeOutgoingHitChance`** — S30 carry.
 - **`isWaterTile` predicate keys on elevation, not registry** — S33 carry; no v1 case.
@@ -75,7 +76,7 @@ Per the roadmap: **team builder UI** (`roadmap-sessions-21-plus.md` Session 36).
 - **`map-and-battlefield.md` open questions** — elevation hit-chance/cover, AoE multi-layer, LoS tie-breaking.
 - **`mapAllTerrainCosts` vs. `defaultStepCost`** — no v1 case.
 - **Centralized `canApplyHeal` helper** — explicitly rejected (ADR-0074); revisit at a third heal-application site.
-- **TS strict-mode test errors (~201)** — S34 carry; pre-existing on `main`.
+- **TS strict-mode test errors (~202)** — S34 carry; pre-existing on `main`.
 - **Surrender flow / MVP-unit algorithm / permadeath timer / settings expansion / reactions in projection column** — Phase E/F.
 
 ---

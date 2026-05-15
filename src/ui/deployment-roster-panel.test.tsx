@@ -17,9 +17,10 @@ import type { DeploymentFlow } from './use-deployment-flow.ts';
 
 const BLUE = teamId('team_a');
 const catalog = loadDefaultCatalog();
-const rosterUnits: ReadonlyArray<Unit> = [
-  ...createInitialState(riverRidgeBattle, catalog).units.values(),
-].filter((u) => u.team === BLUE);
+const initialState = createInitialState(riverRidgeBattle, catalog);
+const rosterUnits: ReadonlyArray<Unit> = [...initialState.units.values()].filter(
+  (u) => u.team === BLUE,
+);
 
 // A `DeploymentFlow` stub with spy handlers. `state` is overridable so
 // each test can drive a particular phase / placement set.
@@ -45,7 +46,12 @@ function render(flow: DeploymentFlow): {
   const root = createRoot(container);
   act(() => {
     root.render(
-      <DeploymentRosterPanel flow={flow} catalog={catalog} teamName="Blue" />,
+      <DeploymentRosterPanel
+        flow={flow}
+        catalog={catalog}
+        battleState={initialState}
+        teamName="Blue"
+      />,
     );
   });
   return {

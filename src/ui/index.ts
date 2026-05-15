@@ -71,6 +71,60 @@ export {
   type ComposeForecastArgs,
 } from './forecast-compose.ts';
 export {
+  buildDefaultLoadout,
+  classCanEquip,
+  computeDraftUnitStats,
+  computeTeamValidity,
+  createEmptyTeamBuilderState,
+  draftAbilityCost,
+  draftBucketCapacity,
+  draftBucketUsage,
+  draftCommandSetCost,
+  selectUnit,
+  setBrave,
+  setClass,
+  setEquipment,
+  setFaith,
+  slotAcceptsKind,
+  teamBuilderStateFromBuiltTeam,
+  teamBuilderStateToBuiltTeam,
+  togglePassive,
+  toggleSecondaryCommandSet,
+  TEAM_SIZE,
+  type BucketOverage,
+  type BucketUsage,
+  type DraftUnit,
+  type DraftUnitStats,
+  type TeamBuilderState,
+  type TeamValidity,
+  type UnitValidity,
+} from './team-builder-state.ts';
+export {
+  useTeamBuilder,
+  type TeamBuilder,
+  type UseTeamBuilderArgs,
+} from './use-team-builder.ts';
+export {
+  TeamBuilderRoster,
+  type TeamBuilderRosterProps,
+} from './team-builder-roster.tsx';
+export {
+  TeamBuilderClassPicker,
+  type TeamBuilderClassPickerProps,
+} from './team-builder-class-picker.tsx';
+export {
+  TeamBuilderEquipmentSlots,
+  type TeamBuilderEquipmentSlotsProps,
+} from './team-builder-equipment-slots.tsx';
+export {
+  TeamBuilderAbilityPicker,
+  type TeamBuilderAbilityPickerProps,
+} from './team-builder-ability-picker.tsx';
+export {
+  TeamBuilderDefaultLoader,
+  type TeamBuilderDefaultLoaderProps,
+} from './team-builder-default-loader.tsx';
+export {
   deriveKoEvents,
   derivePerUnitStats,
   deriveActionParticipants,

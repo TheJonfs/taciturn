@@ -16,9 +16,9 @@
 //   - The React HUD layout (4-region shell + optional pause overlay).
 //   - Settings provider scoped to the battle.
 //
-// The battle config consumed at runtime is `riverRidgeBattle` (Phase D
-// content milestone, Session 33). Training Field stays as content (the
-// 14×14 flat ground map) and `demoBattle` remains the engine smoke-test
+// The battle config consumed at runtime arrives as the `template`
+// prop — River Ridge with the team builder's assembled team folded
+// into team_a (Session 36). `demoBattle` remains the engine smoke-test
 // fixture (consumed by `orchestrator.test.ts` and
 // `ai-controller.integration.test.ts`).
 
@@ -27,10 +27,10 @@ import { Application } from 'pixi.js';
 import { BattleErrorBoundary } from './BattleErrorBoundary.tsx';
 import { buildDeployedBattleConfig, type DeploymentResult } from './deployment-config.ts';
 import { loadDefaultCatalog } from '@content/index.ts';
-import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import {
   createInitialState,
   enumeratePreBattleActions,
+  type BattleConfig,
   type Catalog,
   type ChargedActionId,
   type GameState,
@@ -66,9 +66,14 @@ const BACKGROUND = '#0e0f12';
 const WHEEL_ZOOM_STEP = 0.0015;
 
 export interface BattleViewProps {
+  // The battle config to run — River Ridge with the team builder's
+  // assembled team folded into team_a (Session 36). `App` derives it;
+  // `BattleView` folds the deployment result on top before
+  // `createInitialState`.
+  readonly template: BattleConfig;
   // The committed deployment from `DeploymentScreen` (Session 35).
-  // `null` falls back to River Ridge's authored placements — kept so
-  // the battle is still launchable in isolation (tests, a future
+  // `null` falls back to the template's placeholder placements — kept
+  // so the battle is still launchable in isolation (tests, a future
   // skip-deployment debug path).
   readonly deploymentResult: DeploymentResult | null;
   // Navigation out of the battle, surfaced on the results screen.
@@ -87,6 +92,7 @@ export function BattleView(props: BattleViewProps) {
 }
 
 function BattleViewInner({
+  template,
   deploymentResult,
   onExitToSetup,
   onExitToTitle,
@@ -127,7 +133,7 @@ function BattleViewInner({
   const uiController = uiControllerRef.current;
 
   const settingsApi = useSettings();
-  const uiTeam = riverRidgeBattle.teams[0]!.id;
+  const uiTeam = template.teams[0]!.id;
 
   // Turn-flow hook owns the player's per-turn state machine. It wires
   // the renderer's highlights / click / hover to the menu's choices
@@ -156,15 +162,17 @@ function BattleViewInner({
     let cleanup: (() => void) | null = null;
 
     void (async () => {
-      // Session 35: fold the deployment phase's chosen placements into
-      // the authored battle config (Blue's placements replaced, Red's
-      // authored placements retained). The engine is downstream-blind —
-      // `createInitialState` consumes the result like any battle config.
-      // `null` falls back to River Ridge's fully-authored placements.
+      // Session 35-36: fold the deployment phase's chosen placements
+      // into the `template` config (Blue's placements replaced, Red's
+      // authored placements retained). `template` is itself the team
+      // builder's output (River Ridge with team_a built by the player);
+      // the engine is downstream-blind — `createInitialState` consumes
+      // the result like any battle config. `null` deployment falls back
+      // to the template's placeholder placements.
       const battleConfig =
         deploymentResult !== null
-          ? buildDeployedBattleConfig(riverRidgeBattle, deploymentResult)
-          : riverRidgeBattle;
+          ? buildDeployedBattleConfig(template, deploymentResult)
+          : template;
 
       const initialState = createInitialState(battleConfig, catalog);
       // Per ADR-0071 (Session 32): equipment auto-status grants and the
@@ -377,11 +385,11 @@ function BattleViewInner({
       disposed = true;
       if (cleanup !== null) cleanup();
     };
-    // `deploymentResult` is a prop set once by `App` when routing into
-    // the battle screen — stable for this BattleView's lifetime and
-    // across Fast Refresh, so including it doesn't reintroduce the S34
-    // mount-effect churn.
-  }, [catalog, uiController, deploymentResult]);
+    // `template` and `deploymentResult` are props set once by `App`
+    // when routing into the battle screen — stable for this BattleView's
+    // lifetime and across Fast Refresh, so including them doesn't
+    // reintroduce the S34 mount-effect churn.
+  }, [catalog, uiController, template, deploymentResult]);
 
   // Mirror the paused state into a ref so the pump closure (captured
   // once on mount) can read the latest value without re-registering.
