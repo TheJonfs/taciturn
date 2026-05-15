@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    "types": ["node"],
+
+    "baseUrl": ".",
+    "paths": {
+      "@app/*": ["../src/app/*"],
+      "@engine/*": ["../src/engine/*"],
+      "@ai/*": ["../src/ai/*"],
+      "@renderer/*": ["../src/renderer/*"],
+      "@ui/*": ["../src/ui/*"],
+      "@content/*": ["../src/content/*"]
+    }
+  },
+  "include": ["build", "pages", "styles"]
+}

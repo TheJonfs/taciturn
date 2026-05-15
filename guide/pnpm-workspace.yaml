@@ -1,0 +1,13 @@
+# Single-package "workspace" — exists only to hold pnpm settings, which
+# pnpm reads from here rather than from package.json. The guide is a
+# standalone project with its own node_modules (see guide/CLAUDE.md).
+#
+# allowBuilds: which dependencies may run install/postinstall scripts.
+# esbuild (Vite's bundler) and puppeteer (the PDF renderer's Chromium)
+# genuinely need theirs; core-js and es5-ext are transitive deps of
+# pagedjs whose scripts only print notices.
+allowBuilds:
+  core-js: true
+  es5-ext: true
+  esbuild: true
+  puppeteer: true

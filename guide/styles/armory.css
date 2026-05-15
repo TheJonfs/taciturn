@@ -1,0 +1,175 @@
+/*
+ * The Armory — the equipment catalogue.
+ *
+ * Shares the handbook's weathered, filigree-framed page and its type
+ * (EB Garamond text, Cinzel display). Institutional oxblood accent —
+ * the armory belongs to no element. Item entries flow two columns.
+ * Scoped under .armory.
+ */
+
+@page armory {
+  background:
+    url('../art/page-frame.svg') center / 100% 100% no-repeat,
+    url('../art/paper-texture.svg') repeat,
+    radial-gradient(
+      ellipse 120% 90% at 50% 40%,
+      #f3e9d2 0%,
+      #ece0c2 62%,
+      #ddcca4 100%
+    );
+  @top-center {
+    content: 'The Cadet\2019 s Handbook  \2014   The Armory';
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 8.5pt;
+    color: #8a8478;
+  }
+}
+
+.armory {
+  page: armory;
+  --ink: #2b2620;
+  --accent: #6e2b2b;
+  --hairline: #c4b48f;
+  --muted: #897e68;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: var(--ink);
+  break-before: page;
+}
+
+/* --- Running tag --------------------------------------------------- */
+
+.armory__runner {
+  string-set: running-header content(text);
+  font-family: 'Cinzel', serif;
+  font-size: 7pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #a1937a;
+  margin-bottom: 0.45rem;
+}
+
+/* --- Masthead ------------------------------------------------------ */
+
+.armory__masthead {
+  border-bottom: 2.5px solid var(--ink);
+  padding-bottom: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+
+.armory__title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 30pt;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.armory__intro p {
+  margin: 0;
+  font-style: italic;
+  font-size: 10.5pt;
+  color: #4a443a;
+}
+
+/* --- Section ------------------------------------------------------- */
+
+.armory-section--break {
+  break-before: page;
+}
+
+.armory-section__title {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 15pt;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 0.2rem;
+  margin: 0.3rem 0 0.5rem;
+}
+
+.armory-section--break .armory-section__title {
+  margin-top: 0;
+}
+
+.armory-section__intro p {
+  margin: 0 0 0.8rem;
+  font-size: 9.8pt;
+  color: #3c362d;
+}
+
+/* --- Item entries (two columns) ------------------------------------ */
+
+.armory-items {
+  column-count: 2;
+  column-gap: 1.2rem;
+}
+
+.armory-item {
+  break-inside: avoid;
+  margin-bottom: 0.62rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.armory-item__head {
+  margin: 0 0 0.06rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.armory-item__name {
+  font-weight: 700;
+  font-size: 11pt;
+}
+
+.armory-item__kind {
+  font-family: 'Cinzel', serif;
+  font-size: 6.6pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  text-align: right;
+}
+
+.armory-item__weapon {
+  margin: 0;
+  font-size: 8.4pt;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.armory-item__effects {
+  margin: 0.04rem 0 0;
+  font-size: 8.2pt;
+  color: #4a443a;
+}
+
+.armory-item__flavor {
+  margin: 0.2rem 0 0;
+  font-style: italic;
+  font-size: 9.3pt;
+  line-height: 1.42;
+  color: #3c362d;
+}
+
+.armory-item__tactical {
+  margin: 0.15rem 0 0;
+  font-size: 9.3pt;
+  line-height: 1.42;
+}
+
+.armory-item__use {
+  font-family: 'Cinzel', serif;
+  font-size: 7pt;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}

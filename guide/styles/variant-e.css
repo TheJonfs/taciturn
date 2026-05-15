@@ -1,0 +1,415 @@
+/*
+ * Variant E — The Settled Spread (synthesis).
+ *
+ * Variant A's palette and structure (aged paper, oxblood, EB Garamond /
+ * Cinzel), Variant B's steel-blue stat band, Variant D's Caveat margin
+ * scribbles. The page is weathered: a grain texture, an edge-darkened
+ * vignette, a mild filigree frame, and the occasional crease or folded
+ * corner — a fancy book that has seen use. Scoped under .v-e.
+ */
+
+/* Each chapter takes its own named page so Paged.js re-evaluates the
+   running-header string at the chapter boundary (string-set propagation
+   breaks across shared pages). The weathered, filigree-framed
+   background recipe is the same as the other chapters — kept in lockstep. */
+
+@page variant-e {
+  background:
+    url('../art/page-frame.svg') center / 100% 100% no-repeat,
+    url('../art/paper-texture.svg') repeat,
+    radial-gradient(
+      ellipse 120% 90% at 50% 40%,
+      #f3e9d2 0%,
+      #ece0c2 62%,
+      #ddcca4 100%
+    );
+
+  /* Per-chapter running header as a literal — Paged.js's string-set
+     propagation is unreliable across consecutive chapters, so each
+     named page declares its own @top-center directly. */
+  @top-center {
+    content: 'The Cadet\2019 s Handbook  \2014   Specialization Spread';
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 8.5pt;
+    color: #8a8478;
+  }
+}
+
+.v-e {
+  page: variant-e;
+  --ink: #2b2620;
+  --hairline: #c4b48f;
+  --muted: #897e68;
+  --scribble-blue: #3a4660;
+  /* Per-element palette — defaults are the Knight's (institutional
+     oxblood, steel-blue stat band). Each Mage class overrides these. */
+  --accent: #6e2b2b;
+  --band: #3c5872;
+  --band-label: #e0b487;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+/* Per-element accent palettes. `--accent` tints the drop cap,
+   subsection labels, counsel, and the red scribbles; `--band` /
+   `--band-label` colour the stat band. */
+.v-e--earth {
+  --accent: #516b30;
+  --band: #3d5226;
+  --band-label: #c4cf9a;
+}
+.v-e--water {
+  --accent: #2f6173;
+  --band: #27535f;
+  --band-label: #a3ccd4;
+}
+.v-e--fire {
+  --accent: #9a3a22;
+  --band: #7d2f1c;
+  --band-label: #e9b486;
+}
+.v-e--lightning {
+  --accent: #5b3a78;
+  --band: #462d5d;
+  --band-label: #c5abdc;
+}
+
+.v-e .spread__verso {
+  position: relative;
+}
+
+.v-e .spread__recto {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Weathering: a folded corner and a faint crease --------------- */
+
+/* Verso, top-right: a corner once dog-eared, now flattened — you can
+   still see the triangular crease. */
+.v-e__verso::after {
+  content: '';
+  position: absolute;
+  top: -0.34in;
+  right: -0.4in;
+  width: 0.6in;
+  height: 0.6in;
+  background: linear-gradient(
+    225deg,
+    rgba(150, 132, 96, 0.34) 0%,
+    rgba(150, 132, 96, 0.16) 32%,
+    rgba(255, 255, 255, 0) 33%
+  );
+  border-top: 1px solid rgba(120, 104, 72, 0.28);
+  transform: rotate(0deg);
+  pointer-events: none;
+}
+
+/* Recto: a long faint crease running across the sheet. */
+.v-e__recto::before {
+  content: '';
+  position: absolute;
+  top: 18%;
+  left: -0.5in;
+  right: -0.5in;
+  height: 0.5in;
+  background: linear-gradient(
+    176deg,
+    rgba(255, 255, 255, 0) 46%,
+    rgba(120, 104, 72, 0.14) 49%,
+    rgba(255, 255, 255, 0.32) 51%,
+    rgba(255, 255, 255, 0) 56%
+  );
+  transform: rotate(-1.4deg);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.v-e__recto > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* --- Running tag --------------------------------------------------- */
+
+.v-e__runner {
+  string-set: running-header content(text);
+  font-family: 'Cinzel', serif;
+  font-size: 7pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #a1937a;
+  margin-bottom: 0.4rem;
+}
+
+/* --- Verso: masthead with seal ------------------------------------- */
+
+.v-e__masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 2.5px solid var(--ink);
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+
+.v-e__title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 30pt;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.v-e__tagline {
+  font-style: italic;
+  font-size: 11pt;
+  color: #5a5346;
+  margin-top: 0.32rem;
+}
+
+.v-e__seal {
+  flex: 0 0 auto;
+  width: 1.08in;
+  height: 1.08in;
+}
+
+/* seal.png is a circular medallion centred in a wide canvas — crop to
+   the circle and clip to a round so any backing canvas never shows. */
+.v-e__seal--img {
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
+  filter: drop-shadow(0 1px 2px rgba(43, 38, 32, 0.35));
+}
+
+.v-e__seal--svg {
+  color: var(--accent);
+}
+
+.v-e__seal--svg svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* --- Verso: portrait beside the margin scribbles ------------------- */
+
+.v-e__platerow {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 0.8rem;
+}
+
+.v-e__portrait {
+  flex: 0 0 3.4in;
+}
+
+.v-e__portrait img {
+  width: 100%;
+  max-height: 4.6in;
+  object-fit: cover;
+  object-position: center top;
+  padding: 6px;
+  border: 1px solid var(--ink);
+  background: #fbf6ea;
+  outline: 1px solid var(--hairline);
+  outline-offset: 3px;
+}
+
+.v-e__margins {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-top: 0.2rem;
+}
+
+/* --- Margin scribbles (both pages) --------------------------------- */
+
+.v-e__margin {
+  font-family: 'Caveat', cursive;
+  font-size: 14pt;
+  line-height: 1.22;
+  margin: 0;
+}
+
+.v-e__margin--red {
+  color: var(--accent);
+  transform: rotate(-1.3deg);
+}
+
+.v-e__margin--blue {
+  color: var(--scribble-blue);
+  transform: rotate(0.9deg);
+}
+
+/* the recto scribble sits in the top-right corner of the page —
+   float is ignored on flex items, so it is aligned, not floated */
+.v-e__recto > .v-e__margin {
+  align-self: flex-end;
+  width: 1.9in;
+  text-align: right;
+  margin: 0 0 0.15rem;
+}
+
+/* --- Verso: stat band (from Variant B, tinted to the element) ------ */
+
+.v-e__statband {
+  display: flex;
+  align-items: stretch;
+  background: var(--band);
+  color: #f4efe3;
+  padding: 0.5rem 0.3rem;
+  margin-bottom: 0.85rem;
+  box-shadow: 0 1px 0 rgba(43, 38, 32, 0.25);
+}
+
+.v-e__stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-right: 1px solid rgba(241, 237, 226, 0.22);
+  padding: 0.05rem 0.1rem;
+}
+
+.v-e__stat:last-child {
+  border-right: none;
+}
+
+.v-e__stat-num {
+  font-family: 'Cormorant', Georgia, serif;
+  font-weight: 700;
+  font-size: 20pt;
+  line-height: 1;
+}
+
+.v-e__stat-label {
+  font-size: 6.6pt;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--band-label);
+  margin-top: 0.14rem;
+}
+
+/* --- Verso: brief -------------------------------------------------- */
+
+.v-e__brief p {
+  margin: 0 0 0.5rem;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.v-e__brief p:last-child {
+  margin-bottom: 0;
+}
+
+.v-e__brief p:first-of-type::first-letter {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 3.1em;
+  float: left;
+  line-height: 0.78;
+  padding: 0.04em 0.09em 0 0;
+  color: var(--accent);
+}
+
+/* --- Recto: repertoire (from Variant A) ---------------------------- */
+
+.v-e__section {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 13pt;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 0.22rem;
+  margin-bottom: 0.55rem;
+}
+
+.v-e__subsection {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 8.5pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0.5rem 0 0.4rem;
+}
+
+/* The repertoire runs two columns, to carry the Mages' fuller kits
+   without crowding. Each entry stays whole across the column break. */
+.v-e__abilities {
+  column-count: 2;
+  column-gap: 1.1rem;
+}
+
+.v-e__ability {
+  margin-bottom: 0.42rem;
+  break-inside: avoid;
+}
+
+.v-e__ability-head {
+  margin: 0;
+}
+
+.v-e__ability-name {
+  font-weight: 700;
+  font-size: 11pt;
+}
+
+.v-e__ability-name::after {
+  content: '  —  ';
+  color: var(--hairline);
+  font-weight: 400;
+}
+
+.v-e__ability-facts {
+  font-size: 7.8pt;
+  color: var(--muted);
+}
+
+.v-e__ability-note {
+  margin: 0.08rem 0 0;
+  font-size: 9.6pt;
+  line-height: 1.44;
+  color: #3c362d;
+}
+
+/* --- Recto: instructor's counsel ----------------------------------- */
+
+.v-e__counsel {
+  margin-top: auto;
+  border: 1px solid var(--accent);
+  border-left-width: 3px;
+  padding: 0.65rem 0.8rem 0.5rem;
+  background: rgba(239, 228, 209, 0.78);
+}
+
+.v-e__counsel-head {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 8.5pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.35rem;
+}
+
+.v-e__counsel p {
+  margin: 0 0 0.4rem;
+  font-size: 9.5pt;
+  line-height: 1.44;
+}
+
+.v-e__counsel p:last-child {
+  margin-bottom: 0;
+}

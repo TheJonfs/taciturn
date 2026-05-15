@@ -1,0 +1,310 @@
+/*
+ * Variant D — The Compiled Notes.
+ *
+ * A cadet's compilation of a scattered instructor's lecture notes. Two
+ * voices: the student's tidy fair copy (EB Garamond) and the professor's
+ * margin scribbles (Caveat, in correcting red and faded blue). Portrait
+ * pasted askew; stat block jotted then boxed. Scoped under .v-d.
+ */
+
+@page variant-d {
+  background: #efece1;
+}
+
+.v-d {
+  page: variant-d;
+  --ink: #33312b;
+  --paper: #efece1;
+  --red: #a5302b;
+  --blue: #33405a;
+  --hairline: #cdc6b4;
+  --muted: #837c69;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.v-d .spread__verso,
+.v-d .spread__recto {
+  height: 100%;
+}
+
+/* --- Running tag --------------------------------------------------- */
+
+.v-d__runner {
+  string-set: running-header content(text);
+  font-family: 'Caveat', cursive;
+  font-size: 11pt;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+/* --- Verso: hand-headed title -------------------------------------- */
+
+.v-d__head {
+  margin-bottom: 0.7rem;
+}
+
+.v-d__title {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-weight: 700;
+  font-size: 27pt;
+  display: inline-block;
+  border-bottom: 2.5px solid var(--red);
+  padding-bottom: 0.05rem;
+  line-height: 1.1;
+}
+
+.v-d__subtitle {
+  font-family: 'Caveat', cursive;
+  font-size: 13pt;
+  color: var(--blue);
+  margin-top: 0.25rem;
+}
+
+/* --- Verso: pasted portrait + jotted stat box ---------------------- */
+
+.v-d__toprow {
+  display: flex;
+  gap: 1.1rem;
+  align-items: flex-start;
+  margin-bottom: 0.8rem;
+}
+
+.v-d__pasted {
+  flex: 0 0 2.9in;
+  background: #fbf9f0;
+  padding: 8px 8px 4px;
+  border: 1px solid var(--hairline);
+  box-shadow: 1.5px 2.5px 5px rgba(40, 36, 28, 0.22);
+  transform: rotate(-1.6deg);
+  position: relative;
+}
+
+/* a strip of "tape" across the top corners */
+.v-d__pasted::before,
+.v-d__pasted::after {
+  content: '';
+  position: absolute;
+  top: -7px;
+  width: 46px;
+  height: 15px;
+  background: rgba(180, 170, 140, 0.32);
+  border: 0.5px solid rgba(150, 140, 110, 0.3);
+}
+.v-d__pasted::before {
+  left: -12px;
+  transform: rotate(-32deg);
+}
+.v-d__pasted::after {
+  right: -12px;
+  transform: rotate(34deg);
+}
+
+.v-d__pasted img {
+  width: 100%;
+  display: block;
+}
+
+.v-d__pasted figcaption {
+  font-family: 'Caveat', cursive;
+  font-size: 11pt;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 0.15rem;
+}
+
+.v-d__topright {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.v-d__statbox {
+  border: 1.5px solid var(--ink);
+  outline: 0.5px solid var(--ink);
+  outline-offset: 2.5px;
+  padding: 0.5rem 0.65rem 0.6rem;
+  background: #f4f1e6;
+}
+
+.v-d__statbox-label {
+  font-family: 'Caveat', cursive;
+  font-size: 14pt;
+  color: var(--red);
+  margin-bottom: 0.3rem;
+  line-height: 1;
+}
+
+.v-d__statlines {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.08rem 0.9rem;
+}
+
+.v-d__statlines div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px dotted var(--hairline);
+}
+
+.v-d__statlines dt {
+  font-size: 9pt;
+  color: var(--muted);
+}
+
+.v-d__statlines dd {
+  margin: 0;
+  font-weight: 700;
+  font-size: 10pt;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Margin scribbles (both pages) --------------------------------- */
+
+.v-d__margin {
+  font-family: 'Caveat', cursive;
+  font-size: 13.5pt;
+  line-height: 1.25;
+}
+
+.v-d__margin--red {
+  color: var(--red);
+  transform: rotate(-1.2deg);
+}
+
+.v-d__margin--blue {
+  color: var(--blue);
+  transform: rotate(0.8deg);
+}
+
+/* on the verso, the second scribble sits to the side of the fair copy */
+.v-d__verso > .v-d__margin--blue {
+  width: 2.1in;
+  float: right;
+  margin: 0.2rem 0 0.4rem 0.7rem;
+  text-align: left;
+}
+
+/* --- Verso: the student's fair copy -------------------------------- */
+
+.v-d__faircopy p {
+  margin: 0 0 0.5rem;
+}
+
+.v-d__faircopy p:first-of-type::first-letter {
+  font-weight: 700;
+  font-size: 1.6em;
+  color: var(--ink);
+}
+
+/* --- Recto: fair-copy column + margin rail ------------------------- */
+
+.v-d__recto {
+  display: grid;
+  grid-template-columns: 1fr 1.85in;
+  gap: 1rem;
+}
+
+.v-d__rep-head {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-weight: 700;
+  font-size: 17pt;
+  display: inline-block;
+  border-bottom: 2px solid var(--red);
+  padding-bottom: 0.04rem;
+  margin-bottom: 0.5rem;
+}
+
+.v-d__grouplabel {
+  font-family: 'Caveat', cursive;
+  font-size: 14pt;
+  color: var(--blue);
+  margin: 0.45rem 0 0.2rem;
+}
+
+.v-d__abilities {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.v-d__ability {
+  margin-bottom: 0.42rem;
+  padding-left: 0.7rem;
+  border-left: 2px solid var(--hairline);
+  break-inside: avoid;
+}
+
+.v-d__ability-name {
+  font-weight: 700;
+  font-size: 10.5pt;
+}
+
+.v-d__ability-name::after {
+  content: ' — ';
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.v-d__ability-facts {
+  font-size: 8pt;
+  color: var(--muted);
+}
+
+.v-d__ability-note {
+  display: block;
+  font-size: 9.6pt;
+  line-height: 1.4;
+  margin-top: 0.02rem;
+}
+
+/* --- Recto: closing strategy --------------------------------------- */
+
+.v-d__strategy {
+  margin-top: 0.7rem;
+  border-top: 1.5px solid var(--ink);
+  padding-top: 0.4rem;
+}
+
+.v-d__strategy-head {
+  font-family: 'Caveat', cursive;
+  font-size: 16pt;
+  color: var(--red);
+  margin-bottom: 0.2rem;
+}
+
+.v-d__strategy p {
+  margin: 0 0 0.4rem;
+  font-size: 9.6pt;
+  line-height: 1.42;
+}
+
+.v-d__strategy p:last-child {
+  margin-bottom: 0;
+}
+
+/* --- Recto: the margin rail ---------------------------------------- */
+
+.v-d__rail {
+  border-left: 1px dashed var(--hairline);
+  padding-left: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.v-d__rail .v-d__seal {
+  width: 44px;
+  color: var(--muted);
+  opacity: 0.7;
+  align-self: center;
+}
+
+.v-d__rail .v-d__margin {
+  font-size: 14pt;
+}

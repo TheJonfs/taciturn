@@ -1,0 +1,43 @@
+/*
+ * fonts.css — vendored OFL typefaces (via Fontsource, self-hosted; no
+ * runtime network dependency). Phase 3 concepting deliberately carries a
+ * wide palette so the four spread variants can each commit to a
+ * different type voice. Phase 4+ trims to the settled set.
+ *
+ *  EB Garamond — humanist body serif, warm and classical
+ *  Cinzel      — inscriptional Roman capitals; institutional / heraldic
+ *  Cormorant   — high-contrast display serif; elegant, plate-engraved
+ *  Spectral    — characterful text serif, steady at small sizes
+ *  Caveat      — casual hand; the professor's marginalia in Variant D
+ */
+
+/* EB Garamond */
+@import '@fontsource/eb-garamond/400.css';
+@import '@fontsource/eb-garamond/400-italic.css';
+@import '@fontsource/eb-garamond/600.css';
+@import '@fontsource/eb-garamond/700.css';
+
+/* Cinzel */
+@import '@fontsource/cinzel/400.css';
+@import '@fontsource/cinzel/600.css';
+@import '@fontsource/cinzel/700.css';
+@import '@fontsource/cinzel/900.css';
+
+/* Cormorant */
+@import '@fontsource/cormorant/400.css';
+@import '@fontsource/cormorant/400-italic.css';
+@import '@fontsource/cormorant/500.css';
+@import '@fontsource/cormorant/600.css';
+@import '@fontsource/cormorant/700.css';
+
+/* Spectral */
+@import '@fontsource/spectral/300.css';
+@import '@fontsource/spectral/400.css';
+@import '@fontsource/spectral/400-italic.css';
+@import '@fontsource/spectral/600.css';
+@import '@fontsource/spectral/700.css';
+
+/* Caveat */
+@import '@fontsource/caveat/400.css';
+@import '@fontsource/caveat/600.css';
+@import '@fontsource/caveat/700.css';

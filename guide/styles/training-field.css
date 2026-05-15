@@ -1,0 +1,241 @@
+/*
+ * Training-field chapter (River Ridge in v1). Shares the handbook's
+ * weathered, filigree-framed page and type. Scoped under .field.
+ */
+
+@page training {
+  background:
+    url('../art/page-frame.svg') center / 100% 100% no-repeat,
+    url('../art/paper-texture.svg') repeat,
+    radial-gradient(
+      ellipse 120% 90% at 50% 40%,
+      #f3e9d2 0%,
+      #ece0c2 62%,
+      #ddcca4 100%
+    );
+  @top-center {
+    content: 'The Cadet\2019 s Handbook  \2014   The Training Fields';
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 8.5pt;
+    color: #8a8478;
+  }
+}
+
+.field {
+  page: training;
+  --ink: #2b2620;
+  --accent: #6e2b2b;
+  --hairline: #c4b48f;
+  --muted: #897e68;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: var(--ink);
+  break-before: page;
+}
+
+/* --- Masthead ------------------------------------------------------ */
+
+.field__masthead {
+  border-bottom: 2.5px solid var(--ink);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.field__eyebrow {
+  font-family: 'Cinzel', serif;
+  font-size: 8.5pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.2rem;
+}
+
+.field__title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 28pt;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.field__subtitle {
+  font-family: 'Cormorant', Georgia, serif;
+  font-style: italic;
+  font-size: 13pt;
+  color: #4a443a;
+  margin-top: 0.2rem;
+}
+
+/* --- Intro --------------------------------------------------------- */
+
+.field__intro p {
+  margin: 0 0 0.6rem;
+  text-align: justify;
+  hyphens: auto;
+}
+
+/* --- Map figure ---------------------------------------------------- */
+
+.field__map {
+  margin: 0.6rem auto 0.3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  break-inside: avoid;
+}
+
+.diagram--map {
+  width: 3.6in;
+  display: block;
+}
+
+.field__map figcaption {
+  margin-top: 0.3rem;
+  font-size: 8.5pt;
+  font-style: italic;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* SVG coordinate labels. */
+.d-coord {
+  font-family: 'EB Garamond', serif;
+  font-size: 8px;
+  fill: #4a443a;
+}
+
+/* --- Legend -------------------------------------------------------- */
+
+.field-legend {
+  margin: 0.2rem auto 0.85rem;
+  font-size: 8.5pt;
+  color: #4a443a;
+  text-align: center;
+  break-inside: avoid;
+}
+
+.field-legend__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  justify-content: center;
+  margin-bottom: 0.35rem;
+}
+
+.legend-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.legend-cell__sw {
+  width: 0.6em;
+  height: 0.6em;
+  display: inline-block;
+  border: 0.5px solid #2b2620;
+}
+
+.field-legend__zones {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-style: italic;
+}
+
+.zone-swatch {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  border: 0.5px solid #2b2620;
+}
+
+.zone-swatch--blue {
+  background: rgba(60, 90, 130, 0.34);
+}
+
+.zone-swatch--red {
+  background: rgba(150, 60, 60, 0.34);
+  margin-left: 0.6rem;
+}
+
+/* --- Section headings & subsections -------------------------------- */
+
+.field__heading {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 13pt;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 0.18rem;
+  margin: 0.7rem 0 0.4rem;
+  break-after: avoid;
+}
+
+.field-section {
+  margin-bottom: 0.55rem;
+  break-inside: avoid;
+}
+
+.field-section__title {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 9pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 0.2rem;
+}
+
+.field-section__body p {
+  margin: 0 0 0.4rem;
+  font-size: 10pt;
+  line-height: 1.45;
+}
+
+.field-section__body p:last-child {
+  margin-bottom: 0;
+}
+
+.field-prose p {
+  margin: 0 0 0.5rem;
+  font-size: 10pt;
+  line-height: 1.45;
+}
+
+.field-prose p:last-child {
+  margin-bottom: 0;
+}
+
+/* --- Counsel box --------------------------------------------------- */
+
+.field__counsel {
+  margin-top: 0.7rem;
+  border: 1px solid var(--accent);
+  border-left-width: 3px;
+  padding: 0.6rem 0.8rem 0.5rem;
+  background: rgba(239, 228, 209, 0.78);
+  break-inside: avoid;
+}
+
+.field__counsel-head {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 8.5pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.35rem;
+}
+
+.field__counsel p {
+  margin: 0 0 0.4rem;
+  font-size: 9.7pt;
+  line-height: 1.44;
+}
+
+.field__counsel p:last-child {
+  margin-bottom: 0;
+}

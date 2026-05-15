@@ -1,0 +1,115 @@
+/*
+ * base.css — shared scaffolding for the handbook.
+ *
+ * Owns the font imports, the CSS reset, the page geometry (with the
+ * weathered, filigree-framed background used by every chapter), and
+ * the on-screen preview chrome.
+ */
+
+@import './fonts.css';
+
+/* --- Reset --------------------------------------------------------- */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+ul,
+ol,
+figure,
+table {
+  margin: 0;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* --- Page geometry (shared) ---------------------------------------- */
+
+/* Default page geometry (size, margins, header/folio). The weathered
+   background lives on each chapter's own named page (variant-e,
+   armory, welcome, foundations, title, colophon) — Paged.js does not
+   re-evaluate the running-header string-set when chapters share a
+   single named page, so each chapter takes its own. */
+@page {
+  size: 8.5in 11in;
+  margin: 0.8in 0.85in 0.95in;
+
+  @top-center {
+    content: string(running-header);
+    font-family: 'EB Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 8.5pt;
+    color: #8a8478;
+  }
+  @bottom-center {
+    content: counter(page);
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 9pt;
+    color: #8a8478;
+  }
+}
+
+/* Special pages with no running header or folio: the title page and
+   the colophon. The weathered background is inherited (same recipe
+   declared explicitly here in case Paged.js doesn't inherit it). */
+@page title {
+  background:
+    url('../art/page-frame.svg') center / 100% 100% no-repeat,
+    url('../art/paper-texture.svg') repeat,
+    radial-gradient(
+      ellipse 120% 90% at 50% 40%,
+      #f3e9d2 0%,
+      #ece0c2 62%,
+      #ddcca4 100%
+    );
+  @top-center { content: none; }
+  @bottom-center { content: none; }
+}
+
+@page colophon {
+  background:
+    url('../art/page-frame.svg') center / 100% 100% no-repeat,
+    url('../art/paper-texture.svg') repeat,
+    radial-gradient(
+      ellipse 120% 90% at 50% 40%,
+      #f3e9d2 0%,
+      #ece0c2 62%,
+      #ddcca4 100%
+    );
+  @top-center { content: none; }
+  @bottom-center {
+    content: counter(page);
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 9pt;
+    color: #8a8478;
+  }
+}
+
+/* --- Spread page structure ----------------------------------------- */
+
+/* Each variant spread starts on a fresh page; its verso (left page)
+   always breaks to the recto (right page), so a spread is exactly two
+   pages. The on-screen preview chrome (page shadows) lives in
+   index.html so it is applied directly, not via Paged.js. */
+
+.spread {
+  break-before: page;
+}
+
+.spread__verso {
+  break-after: page;
+}

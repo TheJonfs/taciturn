@@ -1,0 +1,28 @@
+{
+  "name": "taciturn-guide",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The Cadet's Handbook to the Mage War Tradition — companion guide to Taciturn / Mage War.",
+  "scripts": {
+    "dev": "vite",
+    "build:html": "vite build",
+    "build:guide": "vite build && tsx build/render-pdf.ts"
+  },
+  "dependencies": {
+    "@fontsource/caveat": "^5.2.8",
+    "@fontsource/cinzel": "^5.2.8",
+    "@fontsource/cormorant": "^5.2.8",
+    "@fontsource/eb-garamond": "^5.2.7",
+    "@fontsource/spectral": "^5.2.8",
+    "marked": "^14.1.4",
+    "pagedjs": "^0.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "puppeteer": "^23.11.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}

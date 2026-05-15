@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 1100" preserveAspectRatio="none">
+  <!--
+    Page frame — a mild double-rule border with heraldic corner
+    flourishes, in faded sepia ink. Laid as a @page background sized to
+    the full sheet, so it frames the content within the page margins.
+    Kept restrained: the Academy's identity is heraldic, not baroque.
+    Note: preserveAspectRatio="none" lets it stretch to the page; the
+    rules are drawn thin enough that the slight non-uniform scale reads
+    as hand-set rather than wrong.
+  -->
+  <defs>
+    <g id="cnr" fill="#8f7d58" stroke="#8f7d58" stroke-linecap="round">
+      <path d="M34 98 Q34 34 98 34" fill="none" stroke-width="1.5" />
+      <path d="M45 116 Q45 45 116 45" fill="none" stroke-width="0.8" />
+      <path d="M62 54 l8 8 -8 8 -8 -8 z" stroke="none" />
+      <circle cx="34" cy="34" r="2.6" stroke="none" />
+      <path d="M98 34 q16 0 21 9" fill="none" stroke-width="1" />
+      <path d="M34 98 q0 16 9 21" fill="none" stroke-width="1" />
+    </g>
+  </defs>
+
+  <!-- double rule -->
+  <g fill="none" stroke="#8f7d58" opacity="0.72">
+    <rect x="26" y="26" width="798" height="1048" stroke-width="1.6" />
+    <rect x="34" y="34" width="782" height="1032" stroke-width="0.7" />
+  </g>
+
+  <!-- corner flourishes -->
+  <g opacity="0.72">
+    <use href="#cnr" />
+    <use href="#cnr" transform="translate(850,0) scale(-1,1)" />
+    <use href="#cnr" transform="translate(0,1100) scale(1,-1)" />
+    <use href="#cnr" transform="translate(850,1100) scale(-1,-1)" />
+  </g>
+
+  <!-- centred lozenges on the top and bottom rules -->
+  <g fill="#8f7d58" opacity="0.72">
+    <path d="M425 19 l9 11 -9 11 -9 -11 z" />
+    <path d="M425 1081 l9 11 -9 11 -9 -11 z" />
+  </g>
+</svg>

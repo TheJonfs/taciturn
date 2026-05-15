@@ -1,0 +1,255 @@
+/*
+ * Variant B — The Field Brief.
+ *
+ * Magazine register: a dominant portrait hero with the title overlaid
+ * on a steel scrim, a bold horizontal stat band, and a brisk recto of
+ * compact ability rows. Palette: cool paper, House-Beoulve steel-blue,
+ * a warm rust highlight. Type: Spectral text, Cormorant display.
+ */
+
+@page variant-b {
+  background: #f1eee4;
+}
+
+.v-b {
+  page: variant-b;
+  --ink: #22262b;
+  --steel: #3a5a78;
+  --steel-dark: #2c4459;
+  --rust: #b56b35;
+  --paper: #f1eee4;
+  --hairline: #c5c0b2;
+  --muted: #7d7869;
+  font-family: 'Spectral', Georgia, serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+/* The verso is block flow with an explicitly sized hero — a flex:1
+   greedy child holding a full-cover image fragments unreliably under
+   Paged.js. The recto stays a flex column so the callout can sink. */
+.v-b .spread__recto {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Running tag --------------------------------------------------- */
+
+.v-b__runner {
+  string-set: running-header content(text);
+  font-family: 'Spectral', serif;
+  font-weight: 600;
+  font-size: 7pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--steel);
+  margin-bottom: 0.4rem;
+}
+
+/* --- Verso: portrait hero ------------------------------------------ */
+
+.v-b__hero {
+  position: relative;
+  height: 6.95in;
+  overflow: hidden;
+  border: 1px solid var(--steel-dark);
+}
+
+.v-b__portrait {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 12%;
+}
+
+.v-b__masthead {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 2.2rem 1.1rem 0.85rem;
+  background: linear-gradient(
+    to bottom,
+    rgba(26, 35, 45, 0) 0%,
+    rgba(26, 35, 45, 0.82) 34%,
+    rgba(26, 35, 45, 0.95) 70%
+  );
+  color: #f4f1e8;
+}
+
+.v-b__eyebrow {
+  font-weight: 600;
+  font-size: 8pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #e6a06a;
+  margin-bottom: 0.2rem;
+}
+
+.v-b__title {
+  font-family: 'Cormorant', Georgia, serif;
+  font-weight: 700;
+  font-size: 44pt;
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+}
+
+.v-b__tagline {
+  font-style: italic;
+  font-size: 11.5pt;
+  color: #d8d3c4;
+  margin-top: 0.2rem;
+}
+
+/* --- Verso: stat band ---------------------------------------------- */
+
+.v-b__statband {
+  display: flex;
+  align-items: stretch;
+  background: var(--steel);
+  color: #f1ede2;
+  margin-top: 0.45rem;
+  padding: 0.55rem 0.4rem;
+}
+
+.v-b__stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-right: 1px solid rgba(241, 237, 226, 0.22);
+  padding: 0.1rem 0.15rem;
+}
+
+.v-b__stat-num {
+  font-family: 'Cormorant', Georgia, serif;
+  font-weight: 700;
+  font-size: 21pt;
+  line-height: 1;
+}
+
+.v-b__stat-label {
+  font-size: 6.8pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #e6a06a;
+  margin-top: 0.15rem;
+}
+
+.v-b__statseal {
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 0.5rem;
+  color: #e8c9a6;
+}
+
+/* --- Recto: brief -------------------------------------------------- */
+
+.v-b__brief {
+  margin-bottom: 0.85rem;
+}
+
+.v-b__brief p {
+  margin: 0 0 0.55rem;
+}
+
+.v-b__brief p:first-of-type {
+  font-size: 11.5pt;
+}
+
+.v-b__brief p:first-of-type::first-line {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.02em;
+}
+
+/* --- Recto: repertoire --------------------------------------------- */
+
+.v-b__sectionhead {
+  border-top: 3px solid var(--steel);
+  margin-bottom: 0.5rem;
+}
+
+.v-b__sectionhead h2 {
+  font-family: 'Cormorant', Georgia, serif;
+  font-weight: 700;
+  font-size: 19pt;
+  color: var(--steel-dark);
+  padding-top: 0.15rem;
+}
+
+.v-b__grouplabel {
+  font-weight: 600;
+  font-size: 8pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rust);
+  margin: 0.5rem 0 0.35rem;
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 0.12rem;
+}
+
+.v-b__ability {
+  margin-bottom: 0.42rem;
+  break-inside: avoid;
+}
+
+.v-b__ability-line {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.v-b__ability-name {
+  font-family: 'Cormorant', Georgia, serif;
+  font-weight: 700;
+  font-size: 13pt;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.v-b__ability-facts {
+  font-size: 7.8pt;
+  color: var(--steel);
+  letter-spacing: 0.01em;
+}
+
+.v-b__ability-note {
+  margin: 0.02rem 0 0;
+  font-size: 9.5pt;
+  color: #4c4639;
+}
+
+/* --- Recto: pulled callout ----------------------------------------- */
+
+.v-b__callout {
+  margin-top: auto;
+  border-left: 4px solid var(--rust);
+  background: #ebe6d8;
+  padding: 0.6rem 0.85rem 0.45rem;
+}
+
+.v-b__callout-label {
+  font-weight: 600;
+  font-size: 8pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rust);
+  margin-bottom: 0.3rem;
+}
+
+.v-b__callout p {
+  margin: 0 0 0.4rem;
+  font-size: 9.5pt;
+  line-height: 1.45;
+}
+
+.v-b__callout p:last-child {
+  margin-bottom: 0;
+}

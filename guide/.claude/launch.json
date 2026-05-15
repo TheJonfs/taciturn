@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "taciturn-game",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/christopherjones/taciturn && npm run dev -- --port 5180 --strictPort"
+      ],
+      "port": 5180
+    }
+  ]
+}

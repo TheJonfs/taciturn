@@ -1,0 +1,338 @@
+/*
+ * Variant C — The Annotated Plate.
+ *
+ * Heraldic, plate-engraved: a centred portrait plate in an ornate brass
+ * frame, flanked by margin annotations, above an engraved stat panel.
+ * The recto is a refined continuous column. Palette: warm vellum,
+ * antique brass. Type: EB Garamond text, Cormorant display, Cinzel
+ * small-caps labels. Scoped under .v-c.
+ */
+
+@page variant-c {
+  background: #f3ead6;
+}
+
+.v-c {
+  page: variant-c;
+  --ink: #33291c;
+  --brass: #8a6d2f;
+  --brass-light: #b29456;
+  --hairline: #cbb88a;
+  --deep: #4a3a22;
+  --muted: #8a7a5a;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.v-c .spread__verso,
+.v-c .spread__recto {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Running tag --------------------------------------------------- */
+
+.v-c__runner {
+  string-set: running-header content(text);
+  font-family: 'Cinzel', serif;
+  font-size: 7pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--brass-light);
+  margin-bottom: 0.3rem;
+}
+
+/* --- Verso: masthead ----------------------------------------------- */
+
+.v-c__masthead {
+  text-align: center;
+  margin-bottom: 0.7rem;
+}
+
+.v-c__seal {
+  width: 38px;
+  margin: 0 auto 0.25rem;
+  color: var(--brass);
+}
+
+.v-c__title {
+  font-family: 'Cormorant', Georgia, serif;
+  font-weight: 700;
+  font-size: 30pt;
+  line-height: 1;
+  letter-spacing: 0.03em;
+}
+
+.v-c__tagline {
+  font-style: italic;
+  font-size: 11pt;
+  color: var(--deep);
+  margin-top: 0.15rem;
+}
+
+/* A brass hairline beneath the masthead, with a centred lozenge. */
+.v-c__masthead::after {
+  content: '';
+  display: block;
+  width: 60%;
+  height: 1px;
+  background: var(--brass);
+  margin: 0.55rem auto 0;
+}
+
+/* --- Verso: the annotated plate ------------------------------------ */
+
+.v-c__platerow {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.7rem;
+}
+
+.v-c__annotations {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.v-c__note {
+  font-size: 8.6pt;
+}
+
+.v-c__annotations--left .v-c__note {
+  text-align: right;
+  border-right: 1px solid var(--brass);
+  padding-right: 0.5rem;
+}
+
+.v-c__annotations--right .v-c__note {
+  border-left: 1px solid var(--brass);
+  padding-left: 0.5rem;
+}
+
+.v-c__note-label {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 7.5pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-bottom: 0.12rem;
+}
+
+.v-c__note-text {
+  font-style: italic;
+  color: var(--deep);
+  line-height: 1.4;
+}
+
+.v-c__plate {
+  flex: 0 0 auto;
+  width: 2.85in;
+  position: relative;
+  padding: 7px;
+  background: #faf3e0;
+  border: 1px solid var(--hairline);
+  box-shadow:
+    0 0 0 4px #f3ead6,
+    0 0 0 5.5px var(--brass);
+}
+
+.v-c__plate img {
+  width: 100%;
+  display: block;
+  border: 1px solid var(--hairline);
+}
+
+/* Heraldic lozenges, centred top and bottom of the plate frame. */
+.v-c__plate::before,
+.v-c__plate::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  background: var(--brass);
+  transform: translateX(-50%) rotate(45deg);
+}
+.v-c__plate::before {
+  top: -8.5px;
+}
+.v-c__plate::after {
+  bottom: -8.5px;
+}
+
+/* --- Verso: engraved stat panel ------------------------------------ */
+
+.v-c__statpanel {
+  border: 1px solid var(--brass);
+  padding: 0.45rem 0.8rem 0.5rem;
+  background: #efe3c8;
+  margin-bottom: 0.7rem;
+}
+
+.v-c__statcaption {
+  font-family: 'Cinzel', serif;
+  font-size: 7.5pt;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brass);
+  text-align: center;
+  margin-bottom: 0.4rem;
+}
+
+.v-c__statgrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.3rem 0.9rem;
+  margin: 0;
+}
+
+.v-c__statcell {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 0.12rem;
+}
+
+.v-c__statcell--wide {
+  grid-column: 1 / -1;
+  border-bottom: none;
+  justify-content: center;
+  gap: 0.5rem;
+  padding-top: 0.15rem;
+}
+
+.v-c__statcell dt {
+  font-size: 8pt;
+  color: var(--muted);
+}
+
+.v-c__statcell dd {
+  margin: 0;
+  font-family: 'Cormorant', Georgia, serif;
+  font-weight: 700;
+  font-size: 13pt;
+  color: var(--ink);
+}
+
+.v-c__statcell--wide dt,
+.v-c__statcell--wide dd {
+  font-size: 8.5pt;
+  font-family: 'EB Garamond', serif;
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* --- Recto: the discourse ------------------------------------------ */
+
+.v-c__brief {
+  font-size: 10pt;
+}
+
+.v-c__brief p {
+  margin: 0 0 0.4rem;
+  line-height: 1.42;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.v-c__brief p:last-child {
+  margin-bottom: 0;
+}
+
+.v-c__brief p:first-of-type::first-letter {
+  font-family: 'Cormorant', Georgia, serif;
+  font-weight: 700;
+  font-size: 3.4em;
+  float: left;
+  line-height: 0.74;
+  padding: 0.03em 0.1em 0 0;
+  color: var(--brass);
+}
+
+.v-c__rep-head {
+  font-family: 'Cormorant', Georgia, serif;
+  font-weight: 700;
+  font-size: 20pt;
+  color: var(--deep);
+  text-align: center;
+  margin: 0.5rem 0 0.6rem;
+}
+
+.v-c__rep-head::after {
+  content: '';
+  display: block;
+  width: 38%;
+  height: 1px;
+  background: var(--brass);
+  margin: 0.3rem auto 0;
+}
+
+.v-c__entry {
+  margin-bottom: 0.5rem;
+  break-inside: avoid;
+}
+
+.v-c__entry-head {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.v-c__entry-name {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 9.5pt;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.v-c__entry-facts {
+  font-size: 7.8pt;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.v-c__entry-note {
+  margin: 0.06rem 0 0;
+  font-size: 9.4pt;
+  line-height: 1.42;
+  color: var(--deep);
+}
+
+/* --- Recto: counsel ------------------------------------------------ */
+
+.v-c__counsel {
+  margin-top: auto;
+  border-top: 1px solid var(--brass);
+  padding-top: 0.5rem;
+}
+
+.v-c__counsel-head {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 8.5pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brass);
+  text-align: center;
+  margin-bottom: 0.35rem;
+}
+
+.v-c__counsel p {
+  margin: 0 0 0.4rem;
+  font-size: 9.5pt;
+  line-height: 1.44;
+}
+
+.v-c__counsel p:last-child {
+  margin-bottom: 0;
+}

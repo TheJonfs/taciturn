@@ -1,0 +1,327 @@
+/*
+ * Front and back matter — title page, table of contents, colophon.
+ * The chapter pages live in their own stylesheets; this file owns
+ * the structural pages that frame them.
+ */
+
+/* --- Half-title chapter dividers ----------------------------------- */
+
+@page halftitle {
+  background:
+    url('../art/page-frame.svg') center / 100% 100% no-repeat,
+    url('../art/paper-texture.svg') repeat,
+    radial-gradient(
+      ellipse 120% 90% at 50% 40%,
+      #f3e9d2 0%,
+      #ece0c2 62%,
+      #ddcca4 100%
+    );
+  @top-center { content: none; }
+  @bottom-center { content: none; }
+}
+
+.half-title {
+  page: halftitle;
+  font-family: 'EB Garamond', Georgia, serif;
+  color: #2b2620;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  break-before: page;
+}
+
+.half-title__eyebrow {
+  font-family: 'Cinzel', serif;
+  font-size: 9.5pt;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #6e2b2b;
+  margin-bottom: 1.1rem;
+}
+
+.half-title__title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 32pt;
+  letter-spacing: 0.05em;
+  line-height: 1.1;
+}
+
+.half-title__subtitle {
+  font-family: 'Cormorant', Georgia, serif;
+  font-style: italic;
+  font-size: 14pt;
+  color: #4a443a;
+  margin-top: 0.4rem;
+}
+
+.half-title__title::after {
+  content: '';
+  display: block;
+  width: 30%;
+  height: 1px;
+  background: #6e2b2b;
+  margin: 0.7rem auto 0;
+}
+
+.half-title__brief {
+  max-width: 30em;
+  font-style: italic;
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #3c362d;
+  margin-top: 1.6rem;
+}
+
+.half-title__list {
+  list-style: none;
+  padding: 0;
+  margin: 1.4rem 0 0;
+  font-family: 'Cinzel', serif;
+  font-size: 9.5pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #4a443a;
+  line-height: 2;
+}
+
+/* --- Title page ---------------------------------------------------- */
+
+.title-page {
+  page: title;
+  font-family: 'EB Garamond', Georgia, serif;
+  color: #2b2620;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.title-page__institution {
+  font-family: 'Cinzel', serif;
+  font-size: 11pt;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #6e2b2b;
+  margin-bottom: 1.6rem;
+}
+
+.title-page__title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 42pt;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
+}
+
+.title-page__subtitle {
+  font-family: 'Cormorant', Georgia, serif;
+  font-style: italic;
+  font-size: 17pt;
+  color: #4a443a;
+  margin-top: 0.45rem;
+}
+
+.title-page__seal {
+  width: 1.65in;
+  height: 1.65in;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
+  margin: 2.4rem auto;
+  filter: drop-shadow(0 1px 2px rgba(43, 38, 32, 0.4));
+}
+
+.title-page__seal--svg {
+  color: #6e2b2b;
+  border-radius: 0;
+  filter: none;
+}
+
+.title-page__imprint {
+  font-style: italic;
+  font-size: 12pt;
+  color: #4a443a;
+}
+
+.title-page__edition {
+  font-family: 'Cinzel', serif;
+  font-size: 8.5pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8a8478;
+  margin-top: 0.7rem;
+}
+
+/* --- Table of contents --------------------------------------------- */
+
+.toc {
+  font-family: 'EB Garamond', Georgia, serif;
+  color: #2b2620;
+  break-before: page;
+}
+
+.toc__runner {
+  string-set: running-header content(text);
+  font-family: 'Cinzel', serif;
+  font-size: 7pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #a1937a;
+  margin-bottom: 0.5rem;
+  /* shown only via the running-header; hide the in-flow copy */
+  height: 0;
+  overflow: hidden;
+}
+
+.toc__title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 28pt;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  border-bottom: 2.5px solid #2b2620;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.4rem;
+}
+
+.toc__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.toc__group {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 9pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #6e2b2b;
+  margin: 1rem 0 0.4rem;
+}
+
+.toc__entry {
+  font-size: 11.5pt;
+  line-height: 1.6;
+}
+
+.toc__entry--sub {
+  padding-left: 1.4rem;
+  font-size: 10.5pt;
+}
+
+.toc__entry a {
+  display: flex;
+  align-items: baseline;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* dotted leader between the title and the page number */
+.toc__entry a::before {
+  content: '';
+  flex: 1;
+  margin: 0 0.5em;
+  border-bottom: 1px dotted #b8ad95;
+  align-self: flex-end;
+  padding-bottom: 0.18em;
+  order: 1;
+}
+
+.toc__entry a::after {
+  content: target-counter(attr(href), page);
+  font-variant-numeric: tabular-nums;
+  font-family: 'EB Garamond', serif;
+  color: #6e2b2b;
+  order: 2;
+}
+
+/* --- Colophon ------------------------------------------------------ */
+
+.colophon {
+  page: colophon;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #2b2620;
+  break-before: page;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  height: 100%;
+}
+
+.colophon__title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 22pt;
+  letter-spacing: 0.05em;
+  margin-bottom: 1.4rem;
+}
+
+.colophon__title::after {
+  content: '';
+  display: block;
+  width: 30%;
+  height: 1px;
+  background: #6e2b2b;
+  margin: 0.6rem auto 0;
+}
+
+.colophon__body {
+  max-width: 30em;
+}
+
+.colophon__body p {
+  margin: 0 0 0.8rem;
+  font-style: italic;
+  color: #3c362d;
+}
+
+.colophon__body p:last-child {
+  margin-bottom: 0;
+}
+
+/* The acknowledgement paragraph reads as a meta-note, not as the
+   instructor's voice — upright (not italic) and set apart by a
+   hairline rule. */
+.colophon__credit {
+  font-style: normal !important;
+  margin-top: 1.2rem !important;
+  padding-top: 1rem;
+  border-top: 1px solid #c4b48f;
+}
+
+.colophon__credit strong {
+  color: #2b2620;
+}
+
+.colophon__signoff {
+  margin-top: 1rem;
+  font-family: 'Cormorant', Georgia, serif;
+  font-style: italic;
+  font-size: 12pt;
+  color: #6e2b2b;
+}
+
+.colophon__benediction {
+  margin-top: 0.5rem;
+  max-width: 30em;
+  font-style: italic;
+  font-size: 10.5pt;
+  color: #3c362d;
+}
+
+.colophon__seal-line {
+  font-size: 14pt;
+  color: #6e2b2b;
+  margin-top: 1.2rem;
+}

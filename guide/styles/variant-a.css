@@ -1,0 +1,255 @@
+/*
+ * Variant A — The Institutional Manual.
+ *
+ * Restrained and classical: aged paper, deep ink, one oxblood accent.
+ * EB Garamond text, Cinzel display. Verso: masthead, portrait-plate
+ * beside a ruled stat block, then the brief. Recto: the repertoire as
+ * full entries, closing on a ruled counsel box. Scoped under .v-a.
+ */
+
+@page variant-a {
+  background: #f4ede0;
+}
+
+.v-a {
+  page: variant-a;
+  --ink: #2b2620;
+  --accent: #6e2b2b;
+  --hairline: #c9bca3;
+  --muted: #8a7f6c;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.v-a .spread__verso,
+.v-a .spread__recto {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Running tag (feeds the page running-header) ------------------- */
+
+.v-a__runner {
+  string-set: running-header content(text);
+  font-family: 'Cinzel', serif;
+  font-size: 7pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #a99d88;
+  margin-bottom: 0.45rem;
+}
+
+/* --- Verso: masthead ----------------------------------------------- */
+
+.v-a__masthead {
+  border-bottom: 2.5px solid var(--ink);
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+
+.v-a__title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 30pt;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.v-a__tagline {
+  font-style: italic;
+  font-size: 11pt;
+  color: #5a5346;
+  margin-top: 0.35rem;
+}
+
+/* --- Verso: portrait plate beside the stat block ------------------- */
+
+.v-a__plate {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 0.9rem;
+}
+
+.v-a__portrait {
+  flex: 1.55;
+  display: flex;
+  justify-content: center;
+}
+
+.v-a__portrait img {
+  max-width: 100%;
+  max-height: 4.5in;
+  padding: 6px;
+  border: 1px solid var(--ink);
+  background: #fbf6ec;
+  outline: 1px solid var(--hairline);
+  outline-offset: 3px;
+}
+
+.v-a__statwrap {
+  flex: 1.25;
+  display: flex;
+  flex-direction: column;
+}
+
+.v-a__stathead {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 12pt;
+  letter-spacing: 0.04em;
+}
+
+.v-a__statnote {
+  font-size: 8pt;
+  font-style: italic;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+.v-a__stats {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+}
+
+.v-a__stats th,
+.v-a__stats td {
+  text-align: left;
+  padding: 0.24rem 0.1rem;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.v-a__stats tr:first-child th,
+.v-a__stats tr:first-child td {
+  border-top: 1px solid var(--ink);
+}
+
+.v-a__stats th {
+  font-weight: 400;
+  color: #4a443a;
+}
+
+.v-a__stats td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.v-a__seal {
+  margin-top: auto;
+  padding-top: 0.7rem;
+  align-self: center;
+  width: 42px;
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+/* --- Verso: brief -------------------------------------------------- */
+
+.v-a__brief p {
+  margin: 0 0 0.55rem;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.v-a__brief p:last-child {
+  margin-bottom: 0;
+}
+
+.v-a__brief p:first-of-type::first-letter {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 3.1em;
+  float: left;
+  line-height: 0.78;
+  padding: 0.04em 0.09em 0 0;
+  color: var(--accent);
+}
+
+/* --- Recto: repertoire --------------------------------------------- */
+
+.v-a__section {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 13pt;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 0.22rem;
+  margin-bottom: 0.55rem;
+}
+
+.v-a__subsection {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 8.5pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0.55rem 0 0.4rem;
+}
+
+.v-a__ability {
+  margin-bottom: 0.5rem;
+  break-inside: avoid;
+}
+
+.v-a__ability-head {
+  margin: 0;
+}
+
+.v-a__ability-name {
+  font-weight: 700;
+  font-size: 11pt;
+}
+
+.v-a__ability-name::after {
+  content: '  —  ';
+  color: var(--hairline);
+  font-weight: 400;
+}
+
+.v-a__ability-facts {
+  font-size: 7.8pt;
+  color: var(--muted);
+}
+
+.v-a__ability-note {
+  margin: 0.08rem 0 0;
+  font-size: 9.6pt;
+  line-height: 1.44;
+  color: #3c362d;
+}
+
+/* --- Recto: instructor's counsel ----------------------------------- */
+
+.v-a__counsel {
+  margin-top: auto;
+  border: 1px solid var(--accent);
+  border-left-width: 3px;
+  padding: 0.65rem 0.8rem 0.5rem;
+  background: #efe4d1;
+}
+
+.v-a__counsel-head {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 8.5pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.35rem;
+}
+
+.v-a__counsel p {
+  margin: 0 0 0.4rem;
+  font-size: 9.5pt;
+  line-height: 1.44;
+}
+
+.v-a__counsel p:last-child {
+  margin-bottom: 0;
+}
