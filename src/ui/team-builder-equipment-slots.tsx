@@ -78,11 +78,27 @@ export function TeamBuilderEquipmentSlots({
       <div style={slotListStyle}>
         {SLOT_ORDER.map((slot) => {
           const currentItemId = selectedUnit.equipment[slot];
+          // v1 disallows dual-wield: when one hand holds a weapon, the
+          // other hand can only show shields / non-weapon (or empty).
+          // Future content unlocks dual-wield via a dedicated ability;
+          // until then the picker enforces it at the dropdown level so
+          // the player can't reach the invalid state.
+          const otherHand: EquipmentSlotId | null =
+            slot === 'leftHand' ? 'rightHand' :
+            slot === 'rightHand' ? 'leftHand' : null;
+          const otherHandItemId = otherHand !== null ? selectedUnit.equipment[otherHand] : null;
+          const otherHandHasWeapon =
+            otherHandItemId !== null &&
+            catalog.getItem(otherHandItemId).kind === 'weapon';
           const options = AVAILABLE_ITEMS.filter((item) => {
             if (!classCanEquip(classId, slot, item, catalog)) return false;
             // Keep the slot's current item; drop anything used elsewhere.
             if (item.id === currentItemId) return true;
-            return !usedByOthers.has(item.id);
+            if (usedByOthers.has(item.id)) return false;
+            // Dual-wield gate: don't offer a second weapon for the
+            // off-hand slot.
+            if (otherHandHasWeapon && item.kind === 'weapon') return false;
+            return true;
           });
           return (
             <SlotRow

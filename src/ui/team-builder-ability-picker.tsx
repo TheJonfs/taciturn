@@ -60,9 +60,52 @@ export function TeamBuilderAbilityPicker({
 
   const classDef = catalog.getClass(classId);
 
+  // Secondary Command Sets section — surfaced first per S38 follow-up.
+  // The cross-class secondary is the most build-defining ability slot
+  // (Knight + Earth Spells, Earth Mage + Water Spells, etc.) and the
+  // capacity it consumes is the smallest, so the player wants to set
+  // it before sizing R/S/M passives against the remaining budget.
+  const secondaryUsage = draftBucketUsage(
+    selectedUnit,
+    BUCKET_SECONDARY_COMMAND_SETS,
+    catalog,
+    rulesetId,
+  );
+  const secondaryEquipped =
+    selectedUnit.loadout.actionBuckets[BUCKET_SECONDARY_COMMAND_SETS] ?? [];
+
   return (
     <div style={rootStyle}>
       <div style={sectionLabelStyle}>Abilities</div>
+
+      <div style={bucketSectionStyle}>
+        <BucketHeader label="Secondary Command Sets" usage={secondaryUsage} />
+        {commandSets
+          .filter(
+            (cs) =>
+              cs.availability === 'available' &&
+              cs.id !== classDef.firstActionCommandSet,
+          )
+          .map((cs) => {
+            const isEquipped = secondaryEquipped.includes(cs.id);
+            const cost = draftCommandSetCost(cs.id, catalog);
+            const wouldOverflow =
+              !isEquipped && secondaryUsage.used + cost > secondaryUsage.capacity;
+            return (
+              <OptionRow
+                key={String(cs.id)}
+                name={cs.name}
+                isFree={false}
+                isEquipped={isEquipped}
+                cost={cost}
+                disabled={wouldOverflow}
+                onToggle={() =>
+                  toggleSecondaryCommandSet(selectedIndex, cs.id as CommandSetId)
+                }
+              />
+            );
+          })}
+      </div>
 
       {PASSIVE_BUCKETS.map(({ id: bucketId, label }) => {
         const usage = draftBucketUsage(selectedUnit, bucketId, catalog, rulesetId);
@@ -101,52 +144,6 @@ export function TeamBuilderAbilityPicker({
           </div>
         );
       })}
-
-      <div style={bucketSectionStyle}>
-        <BucketHeader
-          label="Secondary Command Sets"
-          usage={draftBucketUsage(
-            selectedUnit,
-            BUCKET_SECONDARY_COMMAND_SETS,
-            catalog,
-            rulesetId,
-          )}
-        />
-        {commandSets
-          .filter(
-            (cs) =>
-              cs.availability === 'available' &&
-              cs.id !== classDef.firstActionCommandSet,
-          )
-          .map((cs) => {
-            const equipped =
-              selectedUnit.loadout.actionBuckets[BUCKET_SECONDARY_COMMAND_SETS] ??
-              [];
-            const isEquipped = equipped.includes(cs.id);
-            const cost = draftCommandSetCost(cs.id, catalog);
-            const usage = draftBucketUsage(
-              selectedUnit,
-              BUCKET_SECONDARY_COMMAND_SETS,
-              catalog,
-              rulesetId,
-            );
-            const wouldOverflow =
-              !isEquipped && usage.used + cost > usage.capacity;
-            return (
-              <OptionRow
-                key={String(cs.id)}
-                name={cs.name}
-                isFree={false}
-                isEquipped={isEquipped}
-                cost={cost}
-                disabled={wouldOverflow}
-                onToggle={() =>
-                  toggleSecondaryCommandSet(selectedIndex, cs.id as CommandSetId)
-                }
-              />
-            );
-          })}
-      </div>
     </div>
   );
 }

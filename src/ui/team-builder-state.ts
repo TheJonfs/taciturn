@@ -588,6 +588,10 @@ export interface UnitValidity {
   readonly invalidEquipmentSlots: ReadonlyArray<EquipmentSlotId>;
   // Buckets whose equipped cost exceeds capacity.
   readonly bucketOverages: ReadonlyArray<BucketOverage>;
+  // True when both hand slots hold a weapon. v1 disallows dual-wield;
+  // a future ability will unlock it (and a separate two-handed grip
+  // bonus). A shield + weapon combination is fine.
+  readonly dualWielding: boolean;
   readonly valid: boolean;
 }
 
@@ -612,6 +616,7 @@ function computeUnitValidity(
       hasClass: false,
       invalidEquipmentSlots: [],
       bucketOverages: [],
+      dualWielding: false,
       valid: false,
     };
   }
@@ -635,12 +640,33 @@ function computeUnitValidity(
     }
   }
 
+  const dualWielding = isDualWielding(unit, catalog);
+
   return {
     hasClass: true,
     invalidEquipmentSlots,
     bucketOverages,
-    valid: invalidEquipmentSlots.length === 0 && bucketOverages.length === 0,
+    dualWielding,
+    valid:
+      invalidEquipmentSlots.length === 0 &&
+      bucketOverages.length === 0 &&
+      !dualWielding,
   };
+}
+
+// Dual-wield detection — true when both hand slots hold a weapon. The
+// v1 ruleset disallows dual-wield (one weapon per unit, one shield in
+// the off-hand if the class permits shields). Future content unlocks
+// dual-wield and a two-handed-grip bonus through dedicated abilities;
+// until then, this is a hard validity rule.
+function isDualWielding(unit: DraftUnit, catalog: Catalog): boolean {
+  const left = unit.equipment.leftHand;
+  const right = unit.equipment.rightHand;
+  if (left === null || right === null) return false;
+  return (
+    catalog.getItem(left).kind === 'weapon' &&
+    catalog.getItem(right).kind === 'weapon'
+  );
 }
 
 // Items appearing on more than one unit — the unique-per-team rule's

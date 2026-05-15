@@ -34,7 +34,7 @@ export const mageVarietyPack: BuiltTeam = {
   name: 'Mage Variety Pack',
   units: [
     {
-      name: 'Ramza',
+      name: 'Maerwynn',
       classId: classId('earth_mage'),
       baseStats: buildBaseStats(classId('earth_mage'), BRAVE, FAITH),
       loadout: VARIETY_EARTH_LOADOUT,
@@ -47,7 +47,7 @@ export const mageVarietyPack: BuiltTeam = {
       },
     },
     {
-      name: 'Penelo',
+      name: 'Mireille',
       classId: classId('water_mage'),
       baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH),
       loadout: WATER_MAGE_LOADOUT,
@@ -60,7 +60,7 @@ export const mageVarietyPack: BuiltTeam = {
       },
     },
     {
-      name: 'Larsa',
+      name: 'Calista',
       classId: classId('fire_mage'),
       baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH),
       loadout: FIRE_MAGE_LOADOUT,
@@ -73,7 +73,7 @@ export const mageVarietyPack: BuiltTeam = {
       },
     },
     {
-      name: 'Ashe',
+      name: 'Liorel',
       classId: classId('lightning_mage'),
       baseStats: buildBaseStats(classId('lightning_mage'), BRAVE, FAITH),
       loadout: LIGHTNING_MAGE_LOADOUT,

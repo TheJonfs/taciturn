@@ -6,68 +6,74 @@
 // coordinates with the guide project's Gariland Academy framing — see
 // `guide/CLAUDE.md`.
 //
+// **Naming policy:** entries preserve the Mediterranean / Old-French
+// phoneme palette Ivalice trades on, but **avoid canonical character
+// names from FFT and the broader Ivalice multiverse** (FFXII, FFTA,
+// FFTA2). The instructor's roster shouldn't surprise players with
+// "wait, Ramza and Cidolfas are on the same team?" Original names with
+// the same phonetic feel land instead. Adding an entry: same palette
+// (V / L / M / R / S / -ia / -as / -el / -in), no canonical overlap.
+//
 // Names are first-name only; the unit-name field is a short single
 // token. Authored values stay under the 24-character cap the team
-// builder enforces. New entries should preserve the Mediterranean /
-// Old-French phoneme set Ivalician trades on (V / L / M / R / S
-// consonants, -ia / -as / -el / -in endings).
+// builder enforces.
 //
 // Public API: `pickName` and `pickTeamNames` from `./pick-name.ts`.
 
 export const ivalicianNames: ReadonlyArray<string> = [
-  // FFT principals
-  'Ramza',
-  'Delita',
-  'Cidolfas',
-  'Agrias',
-  'Mustadio',
-  'Ovelia',
-  'Wiegraf',
-  'Beowulf',
-  'Reis',
-  'Meliadoul',
-  'Rapha',
-  'Marach',
-  'Alma',
-  'Olan',
-  'Tietra',
-  'Argath',
-  // FFXII / FFTA / FFTA2
-  'Larsa',
-  'Ashe',
-  'Basch',
-  'Vaan',
-  'Penelo',
-  'Fran',
-  'Balthier',
-  'Vossler',
-  'Marche',
-  'Ritz',
-  'Adelle',
-  'Luso',
-  'Hurdy',
-  'Reks',
-  // Ivalician-flavored additions, same phoneme palette
-  'Maerwynn',
-  'Caedric',
-  'Ostara',
-  'Joaquim',
-  'Selene',
-  'Auralia',
-  'Morgaine',
-  'Roderic',
-  'Talia',
-  'Yvain',
-  'Fenella',
-  'Gareth',
-  'Dorian',
-  'Liorel',
-  'Cyrille',
+  // Original Ivalician-style names — Mediterranean / Old-French palette
+  // without canonical FFT / FFXII / FFTA / FFTA2 overlap.
+  'Adrien',
   'Alessio',
+  'Aldric',
+  'Aldwin',
+  'Alistair',
+  'Ariane',
+  'Auralia',
   'Brienne',
-  'Tobias',
-  'Marisol',
+  'Caedric',
+  'Calista',
+  'Constanza',
+  'Cyrille',
+  'Dorian',
+  'Eustache',
+  'Fabienne',
+  'Fenella',
+  'Galen',
+  'Gareth',
   'Halric',
+  'Helia',
+  'Joaquim',
+  'Linnea',
+  'Liorel',
+  'Maerwynn',
+  'Marella',
+  'Mariel',
+  'Marisol',
+  'Marius',
+  'Mireille',
+  'Morgaine',
+  'Octavia',
+  'Ostara',
+  'Percival',
+  'Reinhardt',
+  'Renaud',
+  'Roderic',
+  'Rosalind',
+  'Sabela',
+  'Selene',
+  'Severin',
+  'Sylvain',
+  'Talia',
+  'Theron',
+  'Thibault',
+  'Tobias',
+  'Valeria',
+  'Vespasia',
+  'Vionne',
+  'Wymar',
+  'Ysolde',
+  'Yvain',
 ];
 
 export { pickName, pickTeamNames, type Rng } from './pick-name.ts';

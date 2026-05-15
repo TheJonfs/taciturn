@@ -54,7 +54,7 @@ export const defensiveFront: BuiltTeam = {
   name: 'Defensive Front',
   units: [
     {
-      name: 'Beowulf',
+      name: 'Halric',
       classId: classId('knight'),
       baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH),
       loadout: DEFENSIVE_KNIGHT_LOADOUT,
@@ -67,7 +67,7 @@ export const defensiveFront: BuiltTeam = {
       },
     },
     {
-      name: 'Marach',
+      name: 'Talia',
       classId: classId('earth_mage'),
       baseStats: buildBaseStats(classId('earth_mage'), BRAVE, FAITH),
       loadout: EARTH_MAGE_LOADOUT,
@@ -80,7 +80,7 @@ export const defensiveFront: BuiltTeam = {
       },
     },
     {
-      name: 'Reis',
+      name: 'Ysolde',
       classId: classId('water_mage'),
       baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH),
       loadout: DEFENSIVE_WATER_LOADOUT,
@@ -93,7 +93,7 @@ export const defensiveFront: BuiltTeam = {
       },
     },
     {
-      name: 'Rapha',
+      name: 'Auralia',
       classId: classId('fire_mage'),
       baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH),
       loadout: FIRE_MAGE_LOADOUT,

@@ -61,7 +61,15 @@ describe('assignAiTeamNames', () => {
   });
 
   it('excludes names in the excludedNames set', () => {
-    const playerNames = new Set(['Ramza', 'Delita', 'Cidolfas', 'Agrias']);
+    // Use names from the actual pool so the exclusion test is meaningful
+    // (a name that's already excluded from the pool by absence is a
+    // weaker test than a pool name that's deliberately blocked).
+    const playerNames = new Set([
+      ivalicianNames[0]!,
+      ivalicianNames[1]!,
+      ivalicianNames[2]!,
+      ivalicianNames[3]!,
+    ]);
     const result = assignAiTeamNames(
       riverRidgeBattle,
       redTeamId,

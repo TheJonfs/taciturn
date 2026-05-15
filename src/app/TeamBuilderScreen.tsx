@@ -264,6 +264,12 @@ function validationMessages(builder: TeamBuilder, catalog: Catalog): string[] {
           `cannot be used by this class.`,
       );
     }
+    if (unitValidity.dualWielding) {
+      messages.push(
+        `${label}: only one weapon per unit — equip a shield or empty ` +
+          `the off-hand.`,
+      );
+    }
     for (const overage of unitValidity.bucketOverages) {
       messages.push(
         `${label}: ${String(overage.bucketId)} over capacity ` +

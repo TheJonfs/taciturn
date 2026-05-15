@@ -151,13 +151,13 @@ describe('Session 37 — team-build draft preservation', () => {
       'value',
     )?.set;
     act(() => {
-      setter?.call(nameInput, 'Mustadio');
+      setter?.call(nameInput, 'Aldwin');
       nameInput!.dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect(
       (container.querySelector('input[placeholder="Unit name"]') as HTMLInputElement)
         .value,
-    ).toBe('Mustadio');
+    ).toBe('Aldwin');
 
     // Back to Setup, then forward into Team Builder again.
     act(() => {
@@ -171,7 +171,7 @@ describe('Session 37 — team-build draft preservation', () => {
     expect(
       (container.querySelector('input[placeholder="Unit name"]') as HTMLInputElement)
         .value,
-    ).toBe('Mustadio');
+    ).toBe('Aldwin');
 
     act(() => root.unmount());
     container.remove();

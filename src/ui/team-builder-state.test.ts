@@ -173,8 +173,8 @@ describe('team builder state — unit naming (Session 38)', () => {
 
   it('setUnitName trims and stores a non-empty name', () => {
     let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
-    state = setUnitName(state, 0, '  Cidolfas  ');
-    expect(state.units[0]!.name).toBe('Cidolfas');
+    state = setUnitName(state, 0, '  Aldric  ');
+    expect(state.units[0]!.name).toBe('Aldric');
   });
 
   it('setUnitName caps a long name at UNIT_NAME_MAX_LENGTH', () => {
@@ -207,9 +207,9 @@ describe('team builder state — unit naming (Session 38)', () => {
     state = setClass(state, 1, classId('water_mage'), catalog);
     state = setClass(state, 2, classId('fire_mage'), catalog);
     state = setClass(state, 3, classId('lightning_mage'), catalog);
-    state = setUnitName(state, 0, 'Cidolfas');
+    state = setUnitName(state, 0, 'Aldric');
     const built = teamBuilderStateToBuiltTeam(state, catalog);
-    expect(built.units[0]!.name).toBe('Cidolfas');
+    expect(built.units[0]!.name).toBe('Aldric');
     // Auto-picked names propagate through to the BuiltTeam too.
     expect(ivalicianNames).toContain(built.units[1]!.name);
   });
@@ -252,6 +252,25 @@ describe('team builder state — validity', () => {
     const validity = computeTeamValidity(state, catalog, RULESET_ID);
     expect(validity.duplicateClassIds).toContain(classId('fire_mage'));
     expect(validity.valid).toBe(false);
+  });
+
+  it('flags dual-wielding (two weapons across the hand slots)', () => {
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
+    // Long Sword + War Axe — both weapons.
+    state = setEquipment(state, 0, 'rightHand', itemId('long_sword'));
+    state = setEquipment(state, 0, 'leftHand', itemId('war_axe'));
+    const validity = computeTeamValidity(state, catalog, RULESET_ID);
+    expect(validity.units[0]!.dualWielding).toBe(true);
+    expect(validity.units[0]!.valid).toBe(false);
+    expect(validity.valid).toBe(false);
+  });
+
+  it('weapon + shield (one of each) is allowed', () => {
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
+    state = setEquipment(state, 0, 'rightHand', itemId('long_sword'));
+    state = setEquipment(state, 0, 'leftHand', itemId('managuard'));
+    const validity = computeTeamValidity(state, catalog, RULESET_ID);
+    expect(validity.units[0]!.dualWielding).toBe(false);
   });
 
   it('flags an over-capacity bucket', () => {

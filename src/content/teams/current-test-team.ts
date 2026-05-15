@@ -46,7 +46,7 @@ export const currentTestTeam: BuiltTeam = {
   name: 'Aggro Knight Squad',
   units: [
     {
-      name: 'Agrias',
+      name: 'Roderic',
       classId: classId('knight'),
       baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH),
       loadout: KNIGHT_LOADOUT,
@@ -59,7 +59,7 @@ export const currentTestTeam: BuiltTeam = {
       },
     },
     {
-      name: 'Cidolfas',
+      name: 'Caedric',
       classId: classId('lightning_mage'),
       baseStats: buildBaseStats(classId('lightning_mage'), BRAVE, FAITH),
       loadout: AGGRO_LIGHTNING_LOADOUT,
@@ -72,7 +72,7 @@ export const currentTestTeam: BuiltTeam = {
       },
     },
     {
-      name: 'Wiegraf',
+      name: 'Severin',
       classId: classId('fire_mage'),
       baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH),
       loadout: FIRE_MAGE_LOADOUT,
@@ -85,7 +85,7 @@ export const currentTestTeam: BuiltTeam = {
       },
     },
     {
-      name: 'Ovelia',
+      name: 'Marisol',
       classId: classId('water_mage'),
       baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH),
       loadout: WATER_MAGE_LOADOUT,
