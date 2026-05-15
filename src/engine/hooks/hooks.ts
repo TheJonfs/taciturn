@@ -496,6 +496,32 @@ export interface HookSignatures {
     return: OnFinalDamageResult | void;
   };
 
+  // Target-side mirror of `onFinalDamage`, added in Session 37 for the
+  // Spiked Mail reflect substrate. Fires post-finalize against the
+  // *target's* hooks (the one taking the damage), so equipment / passives
+  // on the recipient can read the locked-in `damageDealt` integer and
+  // emit follow-on actions back at the attacker — Spiked Mail's
+  // `physicalReflectPercent` emits a `system_damage { source: 'revenge', ... }`
+  // for the configured fraction of the post-mitigation amount.
+  //
+  // Loop guard: `system_damage` actions (including revenge emissions)
+  // bypass the seven-stage damage pipeline (per ADR-0027), so they never
+  // reach this hook — reflects can't trigger further reflects without an
+  // explicit substrate addition. `absorbed === true` follows the same
+  // convention as `onFinalDamage` (handlers gate themselves; Spiked Mail
+  // skips reflect when the wearer absorbed the hit through resistance >
+  // 100, matching Rasp Pendant's skip-on-absorbed gate).
+  onFinalDamageReceived: {
+    args: {
+      unit: Unit;       // target (the wearer being struck) whose hooks fire
+      attacker: Unit;
+      damageDealt: number;     // post-finalize integer
+      damageTags: ReadonlySet<DamageTag>;
+      absorbed: boolean;
+    };
+    return: OnFinalDamageResult | void;
+  };
+
   // Action filtering: fired pre-resolution against the actor's hooks
   // (statuses, equipped passives, etc.) so they can block (Stop) or
   // replace (Berserk) the in-flight action. The runner short-circuits

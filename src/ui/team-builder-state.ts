@@ -49,14 +49,29 @@ import {
   type BuiltTeam,
   type BuiltUnit,
 } from '@content/teams/index.ts';
+import { pickName } from '@content/names/index.ts';
+
+// Player-facing unit names cap at 24 characters — long enough for
+// "Cidolfas" or "Meliadoul"; short enough to fit the team-builder
+// roster cell and the action-log line.
+export const UNIT_NAME_MAX_LENGTH = 24;
 
 // River Ridge / Mage War v1 team size. Locked at four.
 export const TEAM_SIZE = 4;
 
 // One unit under construction. `classId` is null until the player picks
 // a class; while null, `loadout` is empty and the unit is invalid.
+//
+// `name` is auto-picked from the Ivalician pool on first class
+// assignment (see `setClass`) so an active unit always carries a
+// display name. The player can edit it via `setUnitName`; clearing the
+// input re-rolls. Templates supply their own authored names.
+//
+// Future-extensible per Session 38 decision 13A: `gender?: Gender` and
+// `zodiac?: Zodiac` slot in alongside `name?` without restructure.
 export interface DraftUnit {
   readonly classId: ClassId | null;
+  readonly name?: string;
   readonly brave: number;
   readonly faith: number;
   readonly equipment: UnitEquipment;
@@ -111,11 +126,12 @@ export function createEmptyTeamBuilderState(): TeamBuilderState {
 
 // Load a `BuiltTeam` template into builder state. Brave / Faith are read
 // back off the assembled `baseStats`; everything else copies straight
-// across.
+// across, including the template's authored `name`.
 export function teamBuilderStateFromBuiltTeam(team: BuiltTeam): TeamBuilderState {
   const units = team.units.map(
     (unit): DraftUnit => ({
       classId: unit.classId,
+      name: unit.name,
       brave: unit.baseStats.brave,
       faith: unit.baseStats.faith,
       equipment: unit.equipment,
@@ -144,7 +160,11 @@ export function teamBuilderStateToBuiltTeam(
       );
     }
     return {
-      name: catalog.getClass(unit.classId).name,
+      // `setClass` auto-picks a name on first class assignment, so an
+      // active unit always carries one. The class-name fallback covers
+      // any path that bypassed `setClass` (e.g., a hand-built state in
+      // a test).
+      name: unit.name ?? catalog.getClass(unit.classId).name,
       classId: unit.classId,
       baseStats: buildBaseStats(unit.classId, unit.brave, unit.faith),
       loadout: unit.loadout,
@@ -394,12 +414,32 @@ export function selectUnit(state: TeamBuilderState, index: number): TeamBuilderS
   return { ...state, selectedIndex: index };
 }
 
+// Names already assigned to other units in the team — the exclusion
+// set the picker reads when auto-rolling a new unit's name.
+function siblingNames(
+  state: TeamBuilderState,
+  excludeIndex: number,
+): Set<string> {
+  const names = new Set<string>();
+  state.units.forEach((unit, i) => {
+    if (i === excludeIndex) return;
+    if (unit.name !== undefined) names.add(unit.name);
+  });
+  return names;
+}
+
 // Assign (or reassign) a class to a unit. The loadout resets to that
 // class's default — First Action is class-pinned and the free-ability
 // set differs per class, so a prior loadout cannot carry across. Any
 // equipped item the new class cannot use is cleared, keeping the draft's
 // equipment always class-valid (the same invariant the filtered
 // dropdowns maintain).
+//
+// First class assignment also auto-rolls an Ivalician name, so an
+// active unit always carries a display name. Subsequent class changes
+// leave the existing name alone — Cidolfas is Cidolfas whether they're
+// a Knight or a Mage. The player can re-roll by clearing the name input
+// (see `setUnitName`).
 export function setClass(
   state: TeamBuilderState,
   index: number,
@@ -415,12 +455,37 @@ export function setClass(
       clearedEquipment = { ...clearedEquipment, [slot]: null };
     }
   }
+  const name = unit.name ?? pickName(siblingNames(state, index));
   return withUnit(state, index, {
     ...unit,
     classId,
+    name,
     equipment: clearedEquipment,
     loadout: buildDefaultLoadout(classId, catalog),
   });
+}
+
+// Set a unit's display name. Trims input and caps length at
+// `UNIT_NAME_MAX_LENGTH`. Empty (after trim) re-rolls a fresh
+// Ivalician name excluding sibling names, so the field never holds
+// `undefined` for an active unit — clearing the input is the player's
+// re-roll affordance.
+export function setUnitName(
+  state: TeamBuilderState,
+  index: number,
+  name: string,
+): TeamBuilderState {
+  const unit = state.units[index]!;
+  const trimmed = name.trim();
+  if (trimmed === '') {
+    // Pick excluding sibling names AND the current name (so the re-roll
+    // produces something different).
+    const excluded = siblingNames(state, index);
+    if (unit.name !== undefined) excluded.add(unit.name);
+    return withUnit(state, index, { ...unit, name: pickName(excluded) });
+  }
+  const capped = trimmed.slice(0, UNIT_NAME_MAX_LENGTH);
+  return withUnit(state, index, { ...unit, name: capped });
 }
 
 export function setEquipment(

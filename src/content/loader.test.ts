@@ -71,11 +71,13 @@ describe('loadDefaultCatalog', () => {
     //     abilities; hidden, fired by attackProcs)
     //   - items: 33 → 35 (bolt_hammer + rasp_pendant; existing items
     //     extended in place)
+    //   - items: 35 → 42 (Session 37 batch: travel_garb, lookouts_hood,
+    //     crusaders_helm, light_robe, dark_robe, tricorn, spiked_mail)
     expect(cat.statusTypes()).toHaveLength(24);
     expect(cat.abilities()).toHaveLength(49);
     expect(cat.commandSets()).toHaveLength(7);
     expect(cat.classes()).toHaveLength(5);
-    expect(cat.items()).toHaveLength(35);
+    expect(cat.items()).toHaveLength(42);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

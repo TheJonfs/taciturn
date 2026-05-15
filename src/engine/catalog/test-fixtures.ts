@@ -76,7 +76,9 @@ export const DEFAULT_TEST_DAMAGE_PIPELINE: Readonly<
   variance: ['variance_roll', 'crit_roll'],
   cap: ['clamp_min_max'],
   finalize: ['finalize'],
-  postFinalize: ['fire_on_final_damage'],
+  // Session 37: extended with `fire_on_final_damage_received` mirroring
+  // production. Spiked Mail's revenge emission tests rely on this stage.
+  postFinalize: ['fire_on_final_damage', 'fire_on_final_damage_received'],
 };
 
 export function makeTestRuleset(overrides?: {

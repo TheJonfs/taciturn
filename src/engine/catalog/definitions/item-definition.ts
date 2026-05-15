@@ -223,6 +223,18 @@ interface EquipmentBase {
   // Rasp Pendant authors `10` (Session 31). No v1 item declares this
   // field. The contributor wires it into the new `onFinalDamage` hook.
   readonly damageMpDrainPercent?: number;
+
+  // Session 37: physical-reflect percentage. When the wearer takes a
+  // physical hit that lands (and isn't absorbed), `floor(damageDealt ×
+  // percent / 100)` damage is emitted back at the attacker as a
+  // revenge-sourced `system_damage`. Spiked Mail authors `20`. Magical
+  // damage doesn't trigger reflect (`damageTags.has('physical')` gate);
+  // KO'd wearers don't reflect (the wearer is engagement-inactive);
+  // absorbed hits (resistance > 100 tag-flip per ADR-0057) don't
+  // reflect; the revenge emission itself bypasses the seven-stage
+  // damage pipeline so it can't infinite-loop. The contributor wires
+  // into the new `onFinalDamageReceived` hook.
+  readonly physicalReflectPercent?: number;
 }
 
 export interface WeaponEquipment extends EquipmentBase {

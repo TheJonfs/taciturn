@@ -11,6 +11,7 @@ import {
   fireOnDamageDealt,
   fireOnDamageReceived,
   fireOnFinalDamage,
+  fireOnFinalDamageReceived,
   healingBase,
   magicalMaPower,
   physicalPaWp,
@@ -42,4 +43,7 @@ export const defaultDamageHandlers: DamageHandlerRegistry = new Map<string, Dama
   ['finalize', finalize],
   // postFinalize (ADR-0065): emission-only post-finalize hook fire site.
   ['fire_on_final_damage', fireOnFinalDamage],
+  // Session 37: target-side mirror — Spiked Mail's physical-reflect
+  // contributor fires here against the wearer's hooks.
+  ['fire_on_final_damage_received', fireOnFinalDamageReceived],
 ]);

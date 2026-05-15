@@ -263,7 +263,14 @@ export interface SystemDamageOutcome {
 export type SystemDamageSource =
   | { readonly kind: 'status_tick'; readonly statusTypeId: StatusTypeId; readonly unitId: UnitId }
   | { readonly kind: 'falling'; readonly unitId: UnitId; readonly dropDistance: number }
-  | { readonly kind: 'ability_self_cost'; readonly abilityId: AbilityId; readonly casterId: UnitId };
+  | { readonly kind: 'ability_self_cost'; readonly abilityId: AbilityId; readonly casterId: UnitId }
+  // Session 37: Spiked Mail (and future reflective gear) emits a
+  // `system_damage` back at the attacker, sourced from `onFinalDamageReceived`.
+  // `wearerId` is the equipment wearer (the original target); `itemId`
+  // names the reflective item. The action log renders these as
+  // `[revenge]`-tagged entries to distinguish reflect proc damage from
+  // the wearer's own actions.
+  | { readonly kind: 'revenge'; readonly wearerId: UnitId; readonly itemId: ItemId };
 
 // `system_mp_drain` — engine-emitted MP transfer used by Rasp Pendant
 // (Session 31) and any future damage-to-MP-drain effects. Distinct from

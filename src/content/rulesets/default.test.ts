@@ -85,7 +85,13 @@ describe('defaultRuleset', () => {
     // Session 30 / ADR-0065: `postFinalize` is an emission-only stage
     // after the integer `damageDealt` is locked in. Rasp Pendant's
     // `system_mp_drain` emits here via `fire_on_final_damage`.
-    expect(stages.postFinalize).toEqual(['fire_on_final_damage']);
+    //
+    // Session 37: extended with `fire_on_final_damage_received` — the
+    // target-side mirror that Spiked Mail's revenge emission uses.
+    expect(stages.postFinalize).toEqual([
+      'fire_on_final_damage',
+      'fire_on_final_damage_received',
+    ]);
   });
 
   // Session 32 defensive: `DEFAULT_TEST_DAMAGE_PIPELINE` (test fixture)

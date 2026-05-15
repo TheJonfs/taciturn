@@ -402,7 +402,10 @@ function formatActiveDetail(ability: ActiveAbilityDefinition, catalog: Catalog):
       lines.push(`CT push (on hit): −${dmg.ctPush.factor} × caster MA`);
     }
     if (dmg.knockback !== undefined) {
-      const chanceSeg = dmg.knockback.chance === undefined ? '(always)' : `at ${formatPercent(dmg.knockback.chance)}`;
+      // `knockback.chance` is authored in 0–100 scale (engine reads it as
+      // baseChance against Faith × MA factors), distinct from `proc.chance`
+      // / `formatPercent`'s 0–1 probability convention.
+      const chanceSeg = dmg.knockback.chance === undefined ? '(always)' : `at ${Math.round(dmg.knockback.chance)}%`;
       lines.push(`Knockback: ${dmg.knockback.distance} tiles ${chanceSeg}`);
     }
     if (dmg.chainBonus !== undefined) {

@@ -349,9 +349,24 @@ function formatAction(
 
     case 'system_damage': {
       const applied = action.outcome?.applied ?? action.payload.amount;
+      const source = action.payload.source;
+      // Session 37: revenge attributions get a dedicated tag + attribution
+      // string ("from <wearer>'s <item>") rather than the generic
+      // "(source: revenge)" form, since the wearer + item are the
+      // semantic origin of the damage.
+      if (source.kind === 'revenge') {
+        const itemName = safeItemName(catalog, source.itemId);
+        const segments: LogSegment[] = [
+          unitSeg(state, action.payload.targetId),
+          plain(` took ${applied} dmg from `),
+          unitSeg(state, source.wearerId),
+          plain(`'s ${itemName}`),
+        ];
+        return [row({ tag: '[revenge]', segments, indent: true, tagKind: 'system' })];
+      }
       const segments: LogSegment[] = [
         unitSeg(state, action.payload.targetId),
-        plain(` took ${applied} dmg (${formatDamageSource(action.payload.source)})`),
+        plain(` took ${applied} dmg (${formatDamageSource(source)})`),
       ];
       return [row({ tag: '[tick]', segments, indent: true, tagKind: 'system' })];
     }
@@ -590,5 +605,11 @@ function formatDamageSource(source: import('@engine/index.ts').SystemDamageSourc
       return `fall ${source.dropDistance}`;
     case 'ability_self_cost':
       return `self-cost ${String(source.abilityId)}`;
+    case 'revenge':
+      // Revenge attributions render via the dedicated `[revenge]` branch
+      // in the `system_damage` formatter — this fallback only fires if
+      // a future call site uses `formatDamageSource` without the
+      // dedicated branch.
+      return 'revenge';
   }
 }

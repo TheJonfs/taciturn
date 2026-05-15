@@ -74,7 +74,13 @@ const DEFAULT_DAMAGE_PIPELINE: Readonly<Record<DamageStage, ReadonlyArray<Damage
   // `onFinalDamage` hook against the attacker so equipment / passives can
   // emit follow-on actions (Rasp Pendant's `system_mp_drain`) after the
   // integer `damageDealt` is locked in.
-  postFinalize: ['fire_on_final_damage'],
+  //
+  // Session 37: extended with `fire_on_final_damage_received` — the
+  // target-side mirror that lets equipment / passives on the recipient
+  // emit follow-on actions back at the attacker (Spiked Mail's
+  // revenge `system_damage`). Order is attacker-emission first, target-
+  // emission second; either may emit, neither may mutate the damage.
+  postFinalize: ['fire_on_final_damage', 'fire_on_final_damage_received'],
 };
 
 export const defaultRuleset: RulesetDefinition = {

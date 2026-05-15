@@ -15,6 +15,8 @@ import { magusCrown } from '../content/items/magus-crown.ts';
 import { lightningStrike } from '../content/abilities/lightning-strike.ts';
 import { counter } from '../content/abilities/counter.ts';
 import { movePlus1 } from '../content/abilities/move-plus-1.ts';
+import { tidalWave } from '../content/abilities/tidal-wave.ts';
+import { maelstrom } from '../content/abilities/maelstrom.ts';
 import { burn } from '../content/statuses/burn.ts';
 import { shell } from '../content/statuses/shell.ts';
 import { taggedResistanceShift } from '../content/statuses/tagged-resistance-shift.ts';
@@ -23,7 +25,7 @@ import { formatAbilityDetail, formatItemDetail, formatStatusDetail } from './det
 function makeCat() {
   return createCatalog({
     statusTypes: [],
-    abilities: [lightningStrike, counter, movePlus1],
+    abilities: [lightningStrike, counter, movePlus1, tidalWave, maelstrom],
     commandSets: [],
     classes: [makeKnight()],
     items: [boltHammer, raspPendant, wandOfDepths, sorcerersRobe, magusCrown],
@@ -103,6 +105,24 @@ describe('formatAbilityDetail', () => {
     const cat = makeCat();
     const d = formatAbilityDetail(movePlus1, cat);
     expect(d.lines[0]).toContain('+1 Move Range');
+  });
+
+  // Regression for Session 37: Tidal Wave authors knockback chance in
+  // the 0–100 scale (`chance: 50`), distinct from proc.chance's 0–1
+  // probability scale. Pre-fix, this rendered as "5000%". Pin the
+  // formatter to the correct in-range output.
+  it("renders Tidal Wave's knockback chance within [0, 100]%", () => {
+    const cat = makeCat();
+    const d = formatAbilityDetail(tidalWave, cat);
+    const joined = d.lines.join('\n');
+    expect(joined).toContain('Knockback: 1 tiles at 50%');
+    expect(joined).not.toMatch(/at \d{4,}%/);
+  });
+
+  it("renders Maelstrom's deterministic knockback as (always)", () => {
+    const cat = makeCat();
+    const d = formatAbilityDetail(maelstrom, cat);
+    expect(d.lines.join('\n')).toContain('Knockback: 1 tiles (always)');
   });
 });
 

@@ -5,6 +5,8 @@ import { battleGear } from './battle-gear.ts';
 import { boltHammer } from './bolt-hammer.ts';
 import { bootsOfHaste } from './boots-of-haste.ts';
 import { capacitorRing } from './capacitor-ring.ts';
+import { crusadersHelm } from './crusaders-helm.ts';
+import { darkRobe } from './dark-robe.ts';
 import { diamondBracelet } from './diamond-bracelet.ts';
 import { escutcheon } from './escutcheon.ts';
 import { flametongue } from './flametongue.ts';
@@ -12,8 +14,10 @@ import { focusBand } from './focus-band.ts';
 import { guardCap } from './guard-cap.ts';
 import { ironHelm } from './iron-helm.ts';
 import { ironMail } from './iron-mail.ts';
+import { lightRobe } from './light-robe.ts';
 import { lightfoot } from './lightfoot.ts';
 import { longSword } from './long-sword.ts';
+import { lookoutsHood } from './lookouts-hood.ts';
 import { magusCrown } from './magus-crown.ts';
 import { managuard } from './managuard.ts';
 import { pointyHat } from './pointy-hat.ts';
@@ -22,12 +26,15 @@ import { raspPendant } from './rasp-pendant.ts';
 import { silveredVest } from './silvered-vest.ts';
 import { soldiersLeathers } from './soldiers-leathers.ts';
 import { sorcerersRobe } from './sorcerers-robe.ts';
+import { spikedMail } from './spiked-mail.ts';
 import { staffOfAbundance } from './staff-of-abundance.ts';
 import { staffOfPower } from './staff-of-power.ts';
 import { steelHelm } from './steel-helm.ts';
 import { strengthRing } from './strength-ring.ts';
 import { tacticalMask } from './tactical-mask.ts';
 import { tintinibar } from './tintinibar.ts';
+import { travelGarb } from './travel-garb.ts';
+import { tricorn } from './tricorn.ts';
 import { wandOfDeepwood } from './wand-of-deepwood.ts';
 import { wandOfDepths } from './wand-of-depths.ts';
 import { warAxe } from './war-axe.ts';
@@ -62,6 +69,11 @@ export const items: ReadonlyArray<ItemDefinition> = [
   warPlate,
   wizardsRobe,
   sorcerersRobe,
+  // Session 37 — mage equipment pool expansion + cross-cutting bodies
+  travelGarb,
+  lightRobe,
+  darkRobe,
+  spikedMail,
   // Head armor
   guardCap,
   focusBand,
@@ -69,6 +81,10 @@ export const items: ReadonlyArray<ItemDefinition> = [
   tacticalMask,
   pointyHat,
   magusCrown,
+  // Session 37 — universal speed head, Knight hybrid-caster head, Mage Brave head
+  lookoutsHood,
+  crusadersHelm,
+  tricorn,
   // Accessories
   capacitorRing,
   tintinibar,

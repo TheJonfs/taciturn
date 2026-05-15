@@ -695,6 +695,47 @@ export function runOnFinalDamage(
   return emissions;
 }
 
+// Target-side post-finalize emission. Sibling of `runOnFinalDamage`;
+// fires against the *target's* hooks so equipment / passives on the
+// recipient can react to incoming damage with follow-on actions.
+// Spiked Mail's `physicalReflectPercent` contributor is the first
+// consumer (per Session 37 — emits a revenge-sourced system_damage
+// back at the attacker). See `hooks.ts > onFinalDamageReceived` for
+// the loop-guard rationale (`system_damage` bypasses the damage
+// pipeline, so revenge emissions don't re-trigger this hook).
+export function runOnFinalDamageReceived(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;       // target whose hooks fire
+    attacker: Unit;
+    damageDealt: number;
+    damageTags: ReadonlySet<DamageTag>;
+    absorbed: boolean;
+  },
+): ReadonlyArray<ProposedAction> {
+  const handlers = collectActiveHandlers(
+    state,
+    args.unit.id,
+    catalog,
+    'onFinalDamageReceived',
+  );
+  const emissions: ProposedAction[] = [];
+  for (const h of handlers) {
+    const result = h.invoke({
+      unit: args.unit,
+      attacker: args.attacker,
+      damageDealt: args.damageDealt,
+      damageTags: args.damageTags,
+      absorbed: args.absorbed,
+    });
+    if (result !== undefined && result.emittedActions !== undefined) {
+      for (const a of result.emittedActions) emissions.push(a);
+    }
+  }
+  return emissions;
+}
+
 // onDamageReceived accepts either bare-ctx returns (legacy) or
 // `OnDamageReceivedResult` returns ({ ctx, emittedActions? }). The runner
 // normalizes: bare returns are treated as `{ ctx, emittedActions: undefined }`.

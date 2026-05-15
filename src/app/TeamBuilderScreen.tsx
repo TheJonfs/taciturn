@@ -23,6 +23,7 @@ import {
   BRAVE_FAITH_MAX,
   BRAVE_FAITH_MIN,
 } from '@content/teams/index.ts';
+import { UNIT_NAME_MAX_LENGTH } from '@ui/team-builder-state.ts';
 import type { Catalog } from '@engine/index.ts';
 import {
   TeamBuilderAbilityPicker,
@@ -32,6 +33,7 @@ import {
   TeamBuilderRoster,
   useTeamBuilder,
   type TeamBuilder,
+  type TeamBuilderState,
 } from '@ui/index.ts';
 
 const BACKGROUND = '#0e0f12';
@@ -43,11 +45,20 @@ export interface TeamBuilderScreenProps {
   readonly onContinue: (team: BuiltTeam) => void;
   // Back to battle setup.
   readonly onBack: () => void;
+  // Optional initial draft (S37). When the player navigates back into
+  // this screen, `App` re-hydrates the draft it captured on the last
+  // mutation so the in-progress build isn't lost.
+  readonly initialDraft?: TeamBuilderState | null;
+  // Optional change notifier (S37). The screen forwards every draft
+  // mutation so `App` can keep its preserved copy current.
+  readonly onDraftChange?: (draft: TeamBuilderState) => void;
 }
 
 export function TeamBuilderScreen({
   onContinue,
   onBack,
+  initialDraft,
+  onDraftChange,
 }: TeamBuilderScreenProps): ReactElement {
   // Catalog loaded once, held in a ref for stable identity across Fast
   // Refresh — same discipline as DeploymentScreen / BattleView.
@@ -57,7 +68,12 @@ export function TeamBuilderScreen({
   }
   const catalog = catalogRef.current;
 
-  const builder = useTeamBuilder({ mapTemplate: riverRidgeBattle, catalog });
+  const builder = useTeamBuilder({
+    mapTemplate: riverRidgeBattle,
+    catalog,
+    initialDraft,
+    onDraftChange,
+  });
   const { validity } = builder;
 
   const handleContinue = (): void => {
@@ -96,15 +112,25 @@ function EditPanel({
   builder: TeamBuilder;
   catalog: Catalog;
 }): ReactElement {
-  const { selectedIndex, selectedUnit, setBrave, setFaith } = builder;
+  const { selectedIndex, selectedUnit, setBrave, setFaith, setUnitName } = builder;
+  const className =
+    selectedUnit.classId !== null
+      ? catalog.getClass(selectedUnit.classId).name
+      : null;
 
   return (
     <div style={editPanelStyle}>
       <div style={editHeaderStyle}>
         Editing Unit {selectedIndex + 1}
-        {selectedUnit.classId !== null &&
-          ` — ${catalog.getClass(selectedUnit.classId).name}`}
+        {className !== null && ` — ${className}`}
       </div>
+
+      {selectedUnit.classId !== null && (
+        <NameInput
+          value={selectedUnit.name ?? ''}
+          onChange={(v) => setUnitName(selectedIndex, v)}
+        />
+      )}
 
       <TeamBuilderClassPicker builder={builder} catalog={catalog} />
 
@@ -126,6 +152,28 @@ function EditPanel({
         <TeamBuilderAbilityPicker builder={builder} catalog={catalog} />
       </div>
     </div>
+  );
+}
+
+function NameInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}): ReactElement {
+  return (
+    <label style={nameRowStyle}>
+      <span style={nameLabelStyle}>Name</span>
+      <input
+        type="text"
+        value={value}
+        maxLength={UNIT_NAME_MAX_LENGTH}
+        placeholder="Unit name"
+        onChange={(e) => onChange(e.target.value)}
+        style={nameInputStyle}
+      />
+    </label>
   );
 }
 
@@ -333,6 +381,31 @@ const sliderValueStyle: CSSProperties = {
 
 const sliderInputStyle: CSSProperties = {
   width: '100%',
+};
+
+const nameRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+};
+
+const nameLabelStyle: CSSProperties = {
+  fontSize: 11,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+  opacity: 0.55,
+  flexShrink: 0,
+};
+
+const nameInputStyle: CSSProperties = {
+  flex: 1,
+  padding: '6px 10px',
+  fontSize: 13,
+  background: '#1c1e23',
+  color: '#e7e9ee',
+  border: '1px solid #2c2f36',
+  borderRadius: 4,
+  fontFamily: 'inherit',
 };
 
 const footerStyle: CSSProperties = {

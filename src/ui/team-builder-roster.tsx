@@ -93,7 +93,7 @@ function RosterCard({
       </div>
       <div style={bodyStyle}>
         <div style={nameStyle}>
-          {className ?? `Unit ${index + 1}`}
+          {unit.name ?? className ?? `Unit ${index + 1}`}
         </div>
         <div style={subStyle}>
           {unit.classId === null ? 'No class selected' : `${className}`}

@@ -546,6 +546,67 @@ function* finalDamageDrainContributor(
   }
 }
 
+// onFinalDamageReceived contributor (Session 37): each item's
+// `physicalReflectPercent` declares a percentage (0-100) of incoming
+// physical damage to reflect back at the attacker as a revenge-sourced
+// `system_damage`. Spiked Mail authors `20`.
+//
+// Gates:
+//  - `damageTags.has('physical')` — magical hits don't reflect.
+//  - !absorbed — resistance > 100 tag-flip skips reflect (no damage
+//    actually landed; matches Rasp Pendant's gate).
+//  - `damageDealt > 0` — zero damage produces no reflect.
+//  - `floor(damageDealt × percent / 100) > 0` — rounding produced a
+//    non-zero amount.
+//  - wearer is not KO'd (engagement-inactive — wearer can't reflect
+//    posthumously).
+//  - attacker !== wearer — self-damage doesn't reflect on the wearer.
+//
+// Emission: `system_damage { targetId: attacker.id, amount, tags:
+// ['physical'], source: { kind: 'revenge', wearerId, itemId } }`. The
+// revenge emission bypasses the damage pipeline (per system_damage
+// semantics), so it can't trigger further reflects regardless of the
+// attacker's gear — the loop guard is automatic.
+function* physicalReflectContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'onFinalDamageReceived'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.physicalReflectPercent === undefined) continue;
+    if (item.physicalReflectPercent <= 0) continue;
+    const localIndex = tieBreakIndex++;
+    const localPercent = item.physicalReflectPercent;
+    const localWearerId = unit.id;
+    const localItemId = item.id;
+    yield {
+      tier: 'equipment',
+      priority: DEFAULT_HOOK_PRIORITY,
+      tieBreakIndex: localIndex,
+      invoke: (args) => {
+        if (!args.damageTags.has('physical')) return {};
+        if (args.absorbed) return {};
+        if (args.damageDealt <= 0) return {};
+        if (args.unit.vitals.hp <= 0) return {};
+        if (args.attacker.id === localWearerId) return {};
+        const amount = Math.floor((args.damageDealt * localPercent) / 100);
+        if (amount <= 0) return {};
+        const emission: ProposedAction = {
+          type: 'system_damage',
+          source: 'system',
+          payload: {
+            targetId: args.attacker.id,
+            amount,
+            tags: ['physical'],
+            source: { kind: 'revenge', wearerId: localWearerId, itemId: localItemId },
+          },
+        };
+        return { emittedActions: [emission] };
+      },
+    };
+  }
+}
+
 // Per-hook contributor registry. The dispatch is a single map lookup;
 // hooks with no entry yield no equipment contributors. Adding equipment
 // integration for a new hook is one entry plus the contributor body.
@@ -570,6 +631,8 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   onDamageDealt: attackProcContributor,
   // ADR-0065 (Session 30): damage-to-MP-drain on equipment.
   onFinalDamage: finalDamageDrainContributor,
+  // Session 37: physical-reflect on body armor (Spiked Mail).
+  onFinalDamageReceived: physicalReflectContributor,
 };
 
 export function* equipmentContributionsFor<K extends HookName>(

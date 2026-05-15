@@ -1,18 +1,24 @@
-// "Current Test Team" — the adjusted Blue River Ridge roster as a
-// loadable team builder template.
+// "Aggro Knight Squad" — front-pressure tempo template (Session 38).
 //
-// This is the unique-per-team-compliant Blue team from
-// `river-ridge-battle.ts` (Session 36's loadout adjustment), expressed
-// as a `BuiltTeam`. Loading it into the team builder reproduces the
-// roster the project has been playtesting. The class loadouts are
-// reused verbatim from `demo.ts`; the equipment mirrors
-// `river-ridge-battle.ts`'s `RIVER_RIDGE_EQUIPMENT` for team_a.
+// Per S38 plan-review (Chris): the Aggro Knight Squad replaces the
+// Session 36 / 37 placeholder roster at the same template id
+// (`current-test-team`), so existing test references and state keys
+// continue to resolve. Display name is "Aggro Knight Squad"; file path
+// is retained.
 //
-// `current-test-team.test.ts` asserts this stays in sync with
-// `riverRidgeBattle`'s Blue team — if the battle config's Blue loadouts
-// change, this template must follow.
+// Concept: a Knight wedge with Spiked Mail's revenge tax engaging
+// first, three burst-oriented Mages on the flanks. Drop Earth (control
+// flavor) for Water (Tidal Wave AoE pressure). Showcases:
+//   - Spiked Mail (S37) on the Knight
+//   - Lightning glass cannon with Magus Crown second-command-set + Light
+//     Robe specialist resist + Boots of Haste tempo
+//   - Fire Mage Burn pressure via Flametongue + Tricorn Brave bump
+//   - Water Mage AoE knockback with Sorcerer's Robe generalist defense
+//
+// Authored unit names use Ivalician picks; the team builder's auto-name
+// system respects authored values on template load.
 
-import { classId, itemId } from '@engine/index.ts';
+import { classId, commandSetId, itemId } from '@engine/index.ts';
 import {
   FIRE_MAGE_LOADOUT,
   KNIGHT_LOADOUT,
@@ -21,29 +27,65 @@ import {
 } from '../battles/demo.ts';
 import { buildBaseStats, type BuiltTeam } from './built-team.ts';
 
-// Brave / Faith match the placement default the demo roster uses
-// (`SHARED_STAT_DEFAULTS` in `demo.ts`).
 const BRAVE = 70;
 const FAITH = 70;
 
+// Lightning Mage with Magus Crown's +1 secondary command set capacity
+// uses it for `fire_spells` rather than the (currently picker-hidden)
+// `white_magic` default. Demonstrates the Magus Crown payoff in this
+// template's archetype.
+const AGGRO_LIGHTNING_LOADOUT = {
+  ...LIGHTNING_MAGE_LOADOUT,
+  actionBuckets: {
+    ...LIGHTNING_MAGE_LOADOUT.actionBuckets,
+    secondary_command_sets: [commandSetId('fire_spells')],
+  },
+};
+
 export const currentTestTeam: BuiltTeam = {
-  name: 'Current Test Team',
+  name: 'Aggro Knight Squad',
   units: [
     {
-      name: 'Knight',
+      name: 'Agrias',
       classId: classId('knight'),
       baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH),
       loadout: KNIGHT_LOADOUT,
       equipment: {
         leftHand: itemId('managuard'),
-        rightHand: itemId('bolt_hammer'),
-        headgear: itemId('focus_band'),
-        armor: itemId('silvered_vest'),
-        accessory: itemId('tintinibar'),
+        rightHand: itemId('war_axe'),
+        headgear: itemId('lookouts_hood'),
+        armor: itemId('spiked_mail'),
+        accessory: itemId('diamond_bracelet'),
       },
     },
     {
-      name: 'Water Mage',
+      name: 'Cidolfas',
+      classId: classId('lightning_mage'),
+      baseStats: buildBaseStats(classId('lightning_mage'), BRAVE, FAITH),
+      loadout: AGGRO_LIGHTNING_LOADOUT,
+      equipment: {
+        leftHand: null,
+        rightHand: itemId('staff_of_power'),
+        headgear: itemId('magus_crown'),
+        armor: itemId('light_robe'),
+        accessory: itemId('boots_of_haste'),
+      },
+    },
+    {
+      name: 'Wiegraf',
+      classId: classId('fire_mage'),
+      baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH),
+      loadout: FIRE_MAGE_LOADOUT,
+      equipment: {
+        leftHand: null,
+        rightHand: itemId('flametongue'),
+        headgear: itemId('tricorn'),
+        armor: itemId('wizards_robe'),
+        accessory: itemId('augmentor'),
+      },
+    },
+    {
+      name: 'Ovelia',
       classId: classId('water_mage'),
       baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH),
       loadout: WATER_MAGE_LOADOUT,
@@ -55,31 +97,6 @@ export const currentTestTeam: BuiltTeam = {
         accessory: itemId('lightfoot'),
       },
     },
-    {
-      name: 'Lightning Mage',
-      classId: classId('lightning_mage'),
-      baseStats: buildBaseStats(classId('lightning_mage'), BRAVE, FAITH),
-      loadout: LIGHTNING_MAGE_LOADOUT,
-      equipment: {
-        leftHand: null,
-        rightHand: itemId('flametongue'),
-        headgear: itemId('magus_crown'),
-        armor: itemId('wizards_robe'),
-        accessory: itemId('rasp_pendant'),
-      },
-    },
-    {
-      name: 'Fire Mage',
-      classId: classId('fire_mage'),
-      baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH),
-      loadout: FIRE_MAGE_LOADOUT,
-      equipment: {
-        leftHand: null,
-        rightHand: null,
-        headgear: itemId('guard_cap'),
-        armor: itemId('battle_gear'),
-        accessory: null,
-      },
-    },
   ],
 };
+

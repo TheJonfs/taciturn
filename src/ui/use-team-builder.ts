@@ -5,7 +5,7 @@
 // The state module is pure (decision 2A: flat editable record); this
 // hook is the only stateful layer. No class exports — Fast Refresh safe.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   AbilityId,
   BattleConfig,
@@ -27,6 +27,7 @@ import {
   setClass as setClassMut,
   setEquipment as setEquipmentMut,
   setFaith as setFaithMut,
+  setUnitName as setUnitNameMut,
   teamBuilderStateFromBuiltTeam,
   teamBuilderStateToBuiltTeam,
   togglePassive as togglePassiveMut,
@@ -40,6 +41,13 @@ import {
 export interface UseTeamBuilderArgs {
   readonly mapTemplate: BattleConfig;
   readonly catalog: Catalog;
+  // Optional initial draft (per S37). When provided, the builder hydrates
+  // from this state on mount instead of an empty draft. Used by `App` to
+  // preserve in-progress builds across screen back-navigation.
+  readonly initialDraft?: TeamBuilderState | null;
+  // Optional change notifier (per S37). Fires whenever the draft mutates,
+  // so the parent can preserve the latest state across remounts.
+  readonly onDraftChange?: (draft: TeamBuilderState) => void;
 }
 
 export interface TeamBuilder {
@@ -62,6 +70,7 @@ export interface TeamBuilder {
   ) => void;
   readonly setBrave: (index: number, value: number) => void;
   readonly setFaith: (index: number, value: number) => void;
+  readonly setUnitName: (index: number, name: string) => void;
   readonly togglePassive: (
     index: number,
     bucketId: BucketId,
@@ -80,10 +89,20 @@ export interface TeamBuilder {
 export function useTeamBuilder({
   mapTemplate,
   catalog,
+  initialDraft,
+  onDraftChange,
 }: UseTeamBuilderArgs): TeamBuilder {
-  const [state, setState] = useState<TeamBuilderState>(
-    createEmptyTeamBuilderState,
+  const [state, setState] = useState<TeamBuilderState>(() =>
+    initialDraft ?? createEmptyTeamBuilderState(),
   );
+
+  // Forward every draft mutation to the parent (S37 back-navigation
+  // preservation). The effect fires on initial mount as well — harmless;
+  // the parent simply re-stores the same state it just handed in.
+  useEffect(() => {
+    if (onDraftChange === undefined) return;
+    onDraftChange(state);
+  }, [state, onDraftChange]);
 
   const validity = useMemo(
     () => computeTeamValidity(state, catalog, mapTemplate.rulesetId),
@@ -122,6 +141,10 @@ export function useTeamBuilder({
     setState((s) => setFaithMut(s, index, value));
   }, []);
 
+  const setUnitName = useCallback((index: number, name: string) => {
+    setState((s) => setUnitNameMut(s, index, name));
+  }, []);
+
   const togglePassive = useCallback(
     (index: number, bucketId: BucketId, abilityId: AbilityId) => {
       setState((s) => togglePassiveMut(s, index, bucketId, abilityId));
@@ -157,6 +180,7 @@ export function useTeamBuilder({
     setEquipment,
     setBrave,
     setFaith,
+    setUnitName,
     togglePassive,
     toggleSecondaryCommandSet,
     loadTemplate,

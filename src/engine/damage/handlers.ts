@@ -26,6 +26,7 @@ import {
   runOnDamageDealt,
   runOnDamageReceived,
   runOnFinalDamage,
+  runOnFinalDamageReceived,
 } from '../hooks/runners.ts';
 import type { Catalog } from '../catalog/index.ts';
 import type { GameState } from '../types/index.ts';
@@ -554,6 +555,33 @@ export const fireOnFinalDamage: DamageHandler = (ctx, env) => {
   const emissions = runOnFinalDamage(env.state, env.catalog, {
     unit: attacker,
     target,
+    damageDealt,
+    damageTags: ctx.damageTags,
+    absorbed,
+  });
+  if (emissions.length === 0) return ctx;
+  const accumulated = ctx.emittedActions ? [...ctx.emittedActions, ...emissions] : [...emissions];
+  return { ...ctx, emittedActions: accumulated };
+};
+
+// Target-side mirror of `fireOnFinalDamage` (Session 37). Fires
+// `onFinalDamageReceived` against the *target's* hooks after finalize
+// has written the integer `damageDealt`. Spiked Mail's
+// `physicalReflectContributor` is the first consumer — it emits a
+// `system_damage { source: 'revenge', ... }` against the attacker.
+//
+// Loop guard is automatic: `system_damage` bypasses the seven-stage
+// damage pipeline (per ADR-0027), so a revenge emission never reaches
+// this stage again, regardless of whether the attacker itself wears
+// reflective gear.
+export const fireOnFinalDamageReceived: DamageHandler = (ctx, env) => {
+  const attacker = getUnit(env.state, ctx.attacker.id);
+  const target = getUnit(env.state, ctx.target.id);
+  const damageDealt = ctx.finalDamage ?? 0;
+  const absorbed = ctx.damageTags.has('healing');
+  const emissions = runOnFinalDamageReceived(env.state, env.catalog, {
+    unit: target,
+    attacker,
     damageDealt,
     damageTags: ctx.damageTags,
     absorbed,

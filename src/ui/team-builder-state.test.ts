@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from '@content/index.ts';
 import {
   currentTestTeam,
-  pureMageTeam,
+  defensiveFront,
+  mageVarietyPack,
   buildTeamBattleConfig,
 } from '@content/teams/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
@@ -21,6 +22,7 @@ import {
   teamId,
   ALL_BUCKET_IDS,
 } from '@engine/index.ts';
+import { ivalicianNames } from '@content/names/index.ts';
 import {
   buildDefaultLoadout,
   classCanEquip,
@@ -32,10 +34,12 @@ import {
   setClass,
   setEquipment,
   setFaith,
+  setUnitName,
   teamBuilderStateFromBuiltTeam,
   teamBuilderStateToBuiltTeam,
   togglePassive,
   toggleSecondaryCommandSet,
+  UNIT_NAME_MAX_LENGTH,
 } from './team-builder-state.ts';
 
 const catalog = loadDefaultCatalog();
@@ -137,20 +141,97 @@ describe('team builder state — mutations', () => {
   });
 });
 
+describe('team builder state — unit naming (Session 38)', () => {
+  it('an empty draft has every unit unnamed', () => {
+    const state = createEmptyTeamBuilderState();
+    for (const unit of state.units) {
+      expect(unit.name).toBeUndefined();
+    }
+  });
+
+  it('setClass auto-picks an Ivalician name on first class assignment', () => {
+    const state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
+    expect(state.units[0]!.name).toBeDefined();
+    expect(ivalicianNames).toContain(state.units[0]!.name!);
+  });
+
+  it('setClass preserves the existing name on a reclass', () => {
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
+    const firstName = state.units[0]!.name!;
+    state = setClass(state, 0, classId('water_mage'), catalog);
+    expect(state.units[0]!.name).toBe(firstName);
+  });
+
+  it('setClass auto-picks a name not used by sibling units', () => {
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
+    state = setClass(state, 1, classId('water_mage'), catalog);
+    state = setClass(state, 2, classId('fire_mage'), catalog);
+    state = setClass(state, 3, classId('lightning_mage'), catalog);
+    const names = state.units.map((u) => u.name!);
+    expect(new Set(names).size).toBe(4);
+  });
+
+  it('setUnitName trims and stores a non-empty name', () => {
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
+    state = setUnitName(state, 0, '  Cidolfas  ');
+    expect(state.units[0]!.name).toBe('Cidolfas');
+  });
+
+  it('setUnitName caps a long name at UNIT_NAME_MAX_LENGTH', () => {
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
+    const long = 'A'.repeat(UNIT_NAME_MAX_LENGTH * 2);
+    state = setUnitName(state, 0, long);
+    expect(state.units[0]!.name!.length).toBe(UNIT_NAME_MAX_LENGTH);
+  });
+
+  it('setUnitName re-rolls when the input is empty (after trim)', () => {
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
+    const before = state.units[0]!.name!;
+    state = setUnitName(state, 0, '   ');
+    const after = state.units[0]!.name!;
+    expect(after).toBeDefined();
+    // Re-roll explicitly excludes the prior name, so we get a different one.
+    expect(after).not.toBe(before);
+    expect(ivalicianNames).toContain(after);
+  });
+
+  it('teamBuilderStateFromBuiltTeam carries the template-authored names', () => {
+    const state = teamBuilderStateFromBuiltTeam(currentTestTeam);
+    state.units.forEach((unit, i) => {
+      expect(unit.name).toBe(currentTestTeam.units[i]!.name);
+    });
+  });
+
+  it('teamBuilderStateToBuiltTeam emits the unit name (or class fallback)', () => {
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
+    state = setClass(state, 1, classId('water_mage'), catalog);
+    state = setClass(state, 2, classId('fire_mage'), catalog);
+    state = setClass(state, 3, classId('lightning_mage'), catalog);
+    state = setUnitName(state, 0, 'Cidolfas');
+    const built = teamBuilderStateToBuiltTeam(state, catalog);
+    expect(built.units[0]!.name).toBe('Cidolfas');
+    // Auto-picked names propagate through to the BuiltTeam too.
+    expect(ivalicianNames).toContain(built.units[1]!.name);
+  });
+});
+
 describe('team builder state — validity', () => {
   it('a loaded template is valid', () => {
     const state = teamBuilderStateFromBuiltTeam(currentTestTeam);
     expect(computeTeamValidity(state, catalog, RULESET_ID).valid).toBe(true);
-    const pure = teamBuilderStateFromBuiltTeam(pureMageTeam);
-    expect(computeTeamValidity(pure, catalog, RULESET_ID).valid).toBe(true);
+    const variety = teamBuilderStateFromBuiltTeam(mageVarietyPack);
+    expect(computeTeamValidity(variety, catalog, RULESET_ID).valid).toBe(true);
+    const defensive = teamBuilderStateFromBuiltTeam(defensiveFront);
+    expect(computeTeamValidity(defensive, catalog, RULESET_ID).valid).toBe(true);
   });
 
   it('flags a duplicated equipment item across the team', () => {
     let state = teamBuilderStateFromBuiltTeam(currentTestTeam);
-    // Knight runs Focus Band; force it onto the Water Mage too.
-    state = setEquipment(state, 1, 'headgear', itemId('focus_band'));
+    // Knight (slot 0) wears Diamond Bracelet; force it onto the
+    // Lightning Mage (slot 1) too, replacing Boots of Haste.
+    state = setEquipment(state, 1, 'accessory', itemId('diamond_bracelet'));
     const validity = computeTeamValidity(state, catalog, RULESET_ID);
-    expect(validity.duplicateItemIds).toContain(itemId('focus_band'));
+    expect(validity.duplicateItemIds).toContain(itemId('diamond_bracelet'));
     expect(validity.valid).toBe(false);
   });
 

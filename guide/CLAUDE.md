@@ -168,6 +168,25 @@ To be confirmed during Phase 2 scaffolding:
 - Don't author content that depends on FFT plot canon (Gariland setting reference is fine; named FFT characters and storyline events stay out)
 - Don't reimplement game logic in the build layer if the engine has utilities for it (level-25 stat computation, equipment composition, etc.)
 
+## Cross-pollination — naming conventions (S38)
+
+The main game now ships an Ivalician/FFT-flavored unit name pool at
+`../src/content/names/index.ts` (`ivalicianNames` — currently ~50
+entries). The team builder's auto-name and the AI roster both draw
+from this pool. The convention is intentional: it coordinates with the
+guide's Gariland Magic Academy framing — the cadets a player names
+("Cidolfas," "Maerwynn," "Beowulf") sit naturally inside the Cadet's
+Handbook's voice.
+
+When authoring example cadet names in handbook content (training
+exercises, sidebar examples, illustrative scenarios), prefer drawing
+from the same pool — readers loading a default team in-game will see
+familiar names from the same vocabulary. Add new names to the pool
+when an authoring need warrants; both projects benefit.
+
+The pool is plain TypeScript and can be imported into the guide's
+build pipeline alongside the other `../src/content/` reads.
+
 ## Quick reference
 
 - Project framing: `vision.md`
@@ -177,3 +196,6 @@ To be confirmed during Phase 2 scaffolding:
 - Output: `guide/output/...`
 - Voice: Gariland instructor, formal-warm, no modern idiom, mechanical accuracy non-negotiable
 - Current phase: Phase 8 complete (River Ridge + spread parity); v1 handbook content-complete
+- Shared name pool: `../src/content/names/index.ts` — Ivalician /
+  FFT-flavored names used by the game's team builder and AI; coordinate
+  example-cadet names with this pool
