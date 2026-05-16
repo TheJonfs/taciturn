@@ -36,7 +36,7 @@ export const staticEmbrace: ActiveAbilityDefinition = {
   availability: 'available',
   tags: ['magical', 'lightning'],
   targeting: {
-    kind: 'single_unit',
+    kind: 'unit_or_tile',
     range: { horizontal: 3, vertical: 2 },
     rangeMode: 'arc',
   },

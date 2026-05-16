@@ -31,7 +31,7 @@ export const earthBlessing: ActiveAbilityDefinition = {
   availability: 'available',
   tags: ['magical', 'earth'],
   targeting: {
-    kind: 'single_unit',
+    kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 2 },
     rangeMode: 'arc',
   },
@@ -43,7 +43,7 @@ export const earthBlessing: ActiveAbilityDefinition = {
         typeId: statusTypeId('regen'),
         target: 'primary_target',
         baseChance: 100,
-        duration: 36,
+        duration: 10,
       },
     ],
   },

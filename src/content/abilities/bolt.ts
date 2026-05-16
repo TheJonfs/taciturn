@@ -67,7 +67,7 @@ export const bolt: ActiveAbilityDefinition = {
         typeId: statusTypeId('stop'),
         target: 'primary_target',
         baseChance: 25,
-        duration: 12,
+        duration: 3,
       },
     ],
   },

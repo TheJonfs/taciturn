@@ -243,11 +243,18 @@ function validateUseAbility(
     }
   }
 
-  // Target check. The targeting union has three kinds: `self`,
-  // `single_unit`, and `tile`. Tile-anchored validation lands here in
-  // session 15 alongside the throwaway charged ability that exercises
-  // it. Per-target dispatch within an AoE (session 17) reuses the same
-  // tile validation for the anchor.
+  // Target check. The targeting union has four kinds: `self`,
+  // `single_unit`, `tile`, and `unit_or_tile` (added post-S38 for the
+  // FFT-canonical "pin a unit OR pin a tile" charged-spell pattern).
+  // Tile-anchored validation lands here in session 15 alongside the
+  // throwaway charged ability that exercises it. Per-target dispatch
+  // within an AoE (session 17) reuses the same tile validation for the
+  // anchor.
+  //
+  // For `unit_or_tile`, the payload's discriminator selects which
+  // validation branch runs. The shared range / LoS / arc checks apply
+  // to whichever was picked — there's no separate "unit_or_tile range";
+  // both modes use the ability's declared range/rangeMode.
   const targetingKind = ability.targeting.kind;
   const payloadTargetKind = action.payload.target.kind;
 
@@ -264,7 +271,19 @@ function validateUseAbility(
     return invalid('Source tile does not exist');
   }
 
-  if (targetingKind === 'tile') {
+  // unit_or_tile: dispatch into the matching mode's branch below
+  // based on the payload's discriminator. Reject `self` payloads —
+  // the player must pick something concrete.
+  if (targetingKind === 'unit_or_tile') {
+    if (payloadTargetKind === 'self') {
+      return invalid(
+        `Ability ${JSON.stringify(ability.id)} requires a unit or tile target (not self)`,
+      );
+    }
+    // Fall through to either the tile branch or the unit branch below.
+  }
+
+  if (targetingKind === 'tile' || (targetingKind === 'unit_or_tile' && payloadTargetKind === 'tile')) {
     if (payloadTargetKind !== 'tile') {
       return invalid(`Ability ${JSON.stringify(ability.id)} requires a tile target`);
     }

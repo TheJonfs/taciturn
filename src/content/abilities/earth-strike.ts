@@ -34,7 +34,7 @@ export const earthStrike: ActiveAbilityDefinition = {
   availability: 'available',
   tags: ['magical', 'earth'],
   targeting: {
-    kind: 'single_unit',
+    kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 2 },
     rangeMode: 'arc',
   },
@@ -50,7 +50,7 @@ export const earthStrike: ActiveAbilityDefinition = {
         typeId: statusTypeId('movement_debuff'),
         target: 'primary_target',
         baseChance: 60,
-        duration: 36,
+        duration: 4,
       },
     ],
   },

@@ -60,7 +60,7 @@ export const earthQuake: ActiveAbilityDefinition = {
         typeId: statusTypeId('movement_debuff'),
         target: 'primary_target',
         baseChance: 50,
-        duration: 24,
+        duration: 4,
       },
     ],
   },

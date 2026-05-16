@@ -13,6 +13,7 @@ import { TitleScreen } from './TitleScreen.tsx';
 import { BattleSetupScreen } from './BattleSetupScreen.tsx';
 import { TeamBuilderScreen } from './TeamBuilderScreen.tsx';
 import { DeploymentScreen } from './DeploymentScreen.tsx';
+import { ErrorSurface } from './error-surface.tsx';
 import type { DeploymentResult } from './deployment-config.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import {
@@ -125,6 +126,11 @@ export function App() {
           onExitToTitle={goToTitle}
         />
       )}
+      {/* Global error-capture surface — shows a floating banner when the
+          installed `window.error` / `unhandledrejection` listeners pick
+          up an exception that bypassed the React error boundary. Per the
+          post-S38 white-flash incident debrief. */}
+      <ErrorSurface />
     </div>
   );
 }

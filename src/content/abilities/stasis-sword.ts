@@ -49,7 +49,7 @@ export const stasisSword: ActiveAbilityDefinition = {
         typeId: statusTypeId('stop'),
         target: 'primary_target',
         baseChance: 50,
-        duration: 12,
+        duration: 3,
         factors: { brave: true, ma: true },
       },
     ],

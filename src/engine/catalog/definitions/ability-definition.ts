@@ -84,6 +84,22 @@ export type TargetingSpec =
       readonly kind: 'tile';
       readonly range: AbilityRange;
       readonly rangeMode: RangeMode;
+    }
+  | {
+      // FFT-canonical "pin a unit (spell follows them) OR pin a tile
+      // (spell lands wherever the tile is regardless of occupant at
+      // resolution time)" — added post-S38 playtest at Chris's request.
+      // The player picks the mode at cast time via the UI's tile-mode
+      // toggle. Validation accepts both `{ kind: 'unit' }` and
+      // `{ kind: 'tile' }` payloads and runs the same range / LoS / arc
+      // checks against whichever the payload pinned. Predominantly the
+      // default for charged single-target spells: the player needs the
+      // option to pre-aim at a tile they expect the target to occupy
+      // when the spell lands (or to forecast around a target that may
+      // die before resolution).
+      readonly kind: 'unit_or_tile';
+      readonly range: AbilityRange;
+      readonly rangeMode: RangeMode;
     };
 
 // Per-ability factor selection for the status application formula.

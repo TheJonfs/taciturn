@@ -31,6 +31,14 @@
 // Duration: `conditional` — never time-ticks. The lifecycle is driven
 // entirely by the paired ChargedAction's resolution (or by an
 // interruption that fizzles the ChargedAction).
+//
+// `removeOnSourceKO`: a Charging instance's source is the caster
+// themselves; when the caster KOs, the paired ChargedAction is also
+// pulled from the queue (see `clearChargedActionsForCaster` in
+// reducers.ts). Setting this flag lets the existing source-KO sweep
+// strip the leftover Charging status in the same beat — symmetric
+// cleanup so a future revival path doesn't see a stale Charging on a
+// resurrected unit with no ChargedAction backing it.
 
 import { statusHook, statusTypeId, type StatusEffectType } from '@engine/index.ts';
 
@@ -40,6 +48,7 @@ export const charging: StatusEffectType = {
   tags: ['neutral', 'time'],
   durationMode: 'conditional',
   stackingRule: 'REJECT',
+  removeOnSourceKO: true,
   hooks: [
     statusHook('queryTurnSkipped', () => ({
       reason: 'charging',

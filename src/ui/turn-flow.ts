@@ -85,6 +85,14 @@ export type TurnFlowState =
       // Updated as the hover handler fires; used by the AoE preview.
       // `null` when the pointer is outside the map.
       readonly hoverTarget: Position | null;
+      // For `unit_or_tile` abilities (post-S38, FFT-canonical): `true`
+      // means clicks pin to the tile (spell doesn't follow the unit if
+      // they move); `false` means clicks pin to the unit (FFT-default,
+      // spell follows). Toggled by `toggleTileMode`. Ignored for `self`,
+      // `single_unit`, and `tile` abilities — those have a single
+      // sensible payload shape already. Preserved across await-confirm
+      // cancel so the player doesn't have to re-toggle on each retry.
+      readonly tileMode: boolean;
     }
   | {
       readonly kind: 'await-confirm';
@@ -94,6 +102,9 @@ export type TurnFlowState =
       // The fully-formed action the player picked. The hook submits
       // this to the uiController when the player confirms.
       readonly action: ProposedAction;
+      // Carries the tile-mode toggle state forward so a cancel back to
+      // target-select restores the player's chosen mode.
+      readonly tileMode: boolean;
     }
   // Cardinal-direction facing picker shown when the player clicks
   // "End turn." Per the design doc's WAIT-CONFIRM state: pick a facing,
@@ -140,7 +151,11 @@ export type TurnFlowEvent =
   // From await-confirm.
   | { readonly kind: 'confirmAccept' }
   // Back-out one step.
-  | { readonly kind: 'cancel' };
+  | { readonly kind: 'cancel' }
+  // unit_or_tile mode toggle — flips tileMode while in target-select.
+  // Ignored for non-unit_or_tile abilities (the reducer is unaware of
+  // ability kinds; the UI gates the event emission).
+  | { readonly kind: 'toggleTileMode' };
 
 export const INITIAL_TURN_FLOW: TurnFlowState = { kind: 'idle' };
 
@@ -176,6 +191,7 @@ export function transition(
           commandSetCount: 0,
           abilityId: event.abilityId,
           hoverTarget: null,
+          tileMode: false,
         };
       }
       if (event.kind === 'pickAct') {
@@ -189,6 +205,7 @@ export function transition(
               commandSetCount: 0,
               abilityId: only.abilityId,
               hoverTarget: null,
+              tileMode: false,
             };
           }
           return {
@@ -247,6 +264,7 @@ export function transition(
           commandSetCount: 2,
           abilityId: event.abilityId,
           hoverTarget: null,
+          tileMode: false,
         };
       }
       return state;
@@ -264,6 +282,7 @@ export function transition(
           commandSetCount: state.commandSetCount,
           abilityId: event.abilityId,
           hoverTarget: null,
+          tileMode: false,
         };
       }
       return state;
@@ -290,6 +309,9 @@ export function transition(
       if (event.kind === 'hoverTarget') {
         return { ...state, hoverTarget: event.position };
       }
+      if (event.kind === 'toggleTileMode') {
+        return { ...state, tileMode: !state.tileMode };
+      }
       if (event.kind === 'commitTarget') {
         if (event.confirmStep) {
           return {
@@ -298,6 +320,7 @@ export function transition(
             commandSetCount: state.commandSetCount,
             abilityId: state.abilityId,
             action: event.action,
+            tileMode: state.tileMode,
           };
         }
         return { kind: 'animation' };
@@ -312,6 +335,7 @@ export function transition(
           commandSetCount: state.commandSetCount,
           abilityId: state.abilityId,
           hoverTarget: null,
+          tileMode: state.tileMode,
         } as TurnFlowState;
       }
       if (event.kind === 'confirmAccept') return { kind: 'animation' };

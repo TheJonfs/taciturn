@@ -45,7 +45,7 @@ export const earthResilience: PassiveAbilityDefinition = compileReactionAbility(
         statusTypeId: statusTypeId('movement_self_buff'),
         targetSelector: 'self',
         magnitude: 1,
-        duration: 24,
+        duration: 6,
       },
     ],
   },

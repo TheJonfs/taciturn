@@ -38,6 +38,14 @@ export class BattleErrorBoundary extends Component<
     // Console-log for dev visibility — the boundary swallows the throw,
     // so without this the error would vanish silently.
     console.error('BattleView crashed:', error, info.componentStack);
+    // Forward to the global error surface so the playtest debrief flow
+    // captures React render-tree errors alongside async/Pixi-tick
+    // exceptions. Best-effort: the surface module is dynamically
+    // imported to keep this class component leaf-only re: dependencies
+    // (it lives in its own Fast Refresh boundary; see file header).
+    void import('./error-surface.tsx').then(({ recordReactBoundaryError }) => {
+      recordReactBoundaryError(error, info.componentStack ?? '(no component stack)');
+    });
   }
 
   override render(): ReactNode {

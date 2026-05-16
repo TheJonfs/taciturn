@@ -150,6 +150,7 @@ describe('turn-flow reducer — top-level menu picks', () => {
       commandSetCount: 0,
       abilityId: attack,
       hoverTarget: null,
+      tileMode: false,
     });
   });
 
@@ -174,6 +175,7 @@ describe('turn-flow reducer — top-level menu picks', () => {
       commandSetCount: 2,
       abilityId: attack,
       hoverTarget: null,
+      tileMode: false,
     });
   });
 
@@ -184,6 +186,7 @@ describe('turn-flow reducer — top-level menu picks', () => {
       commandSetCount: 2,
       abilityId: attack,
       hoverTarget: null,
+      tileMode: false,
     };
     expect(transition(s, { kind: 'cancel' })).toEqual({ kind: 'command-set-select' });
   });
@@ -195,6 +198,7 @@ describe('turn-flow reducer — top-level menu picks', () => {
       commandSetCount: 0,
       abilityId: attack,
       hoverTarget: null,
+      tileMode: false,
     };
     expect(transition(s, { kind: 'cancel' })).toEqual({ kind: 'action-menu' });
   });
@@ -237,6 +241,7 @@ describe('turn-flow reducer — submenu picks', () => {
       commandSetCount: 1,
       abilityId: attack,
       hoverTarget: null,
+      tileMode: false,
     });
   });
 
@@ -247,6 +252,7 @@ describe('turn-flow reducer — submenu picks', () => {
       commandSetCount: 1,
       abilityId: attack,
       hoverTarget: null,
+      tileMode: false,
     };
     const next = transition(s, {
       kind: 'hoverTarget',
@@ -271,6 +277,7 @@ describe('turn-flow reducer — commit paths', () => {
       commandSetCount: 1,
       abilityId: attack,
       hoverTarget: null,
+      tileMode: false,
     };
     const next = transition(s, { kind: 'commitTarget', action: attackAction, confirmStep: true });
     expect(next).toEqual({
@@ -279,6 +286,7 @@ describe('turn-flow reducer — commit paths', () => {
       commandSetCount: 1,
       abilityId: attack,
       action: attackAction,
+      tileMode: false,
     });
   });
 
@@ -289,6 +297,7 @@ describe('turn-flow reducer — commit paths', () => {
       commandSetCount: 1,
       abilityId: attack,
       hoverTarget: null,
+      tileMode: false,
     };
     const next = transition(s, { kind: 'commitTarget', action: attackAction, confirmStep: false });
     expect(next).toEqual({ kind: 'animation' });
@@ -301,6 +310,7 @@ describe('turn-flow reducer — commit paths', () => {
       commandSetCount: 1,
       abilityId: attack,
       action: attackAction,
+      tileMode: false,
     };
     expect(transition(s, { kind: 'confirmAccept' })).toEqual({ kind: 'animation' });
   });
@@ -342,6 +352,7 @@ describe('turn-flow reducer — cancel back-paths', () => {
       commandSetCount: 2,
       abilityId: attack,
       hoverTarget: null,
+      tileMode: false,
     };
     expect(transition(s, { kind: 'cancel' })).toEqual({
       kind: 'ability-list',
@@ -357,6 +368,7 @@ describe('turn-flow reducer — cancel back-paths', () => {
       commandSetCount: 1,
       abilityId: attack,
       action: attackAction,
+      tileMode: false,
     };
     expect(transition(s, { kind: 'cancel' })).toEqual({
       kind: 'target-select',
@@ -364,6 +376,7 @@ describe('turn-flow reducer — cancel back-paths', () => {
       commandSetCount: 1,
       abilityId: attack,
       hoverTarget: null,
+      tileMode: false,
     });
   });
 });

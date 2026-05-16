@@ -36,7 +36,7 @@ export const brine: ActiveAbilityDefinition = {
   availability: 'available',
   tags: ['magical', 'water'],
   targeting: {
-    kind: 'single_unit',
+    kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 2 },
     rangeMode: 'arc',
   },

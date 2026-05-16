@@ -102,6 +102,11 @@ export interface TurnFlow {
   submitTargetedAction(action: ProposedAction): void;
   confirmAccept(): void;
   cancel(): void;
+  // Toggle tile-pin mode while target-selecting a `unit_or_tile`
+  // ability. No-op otherwise (the UI gates the button on the ability's
+  // targeting kind, and the reducer ignores `toggleTileMode` outside
+  // target-select).
+  toggleTileMode(): void;
   // Forecast payload — populated during target-select / await-confirm
   // when a hovered tile produces a meaningful preview. `null` outside
   // of those states or when no hover target is set.
@@ -284,7 +289,11 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     if (actsAvailable <= 0) return EMPTY_TARGETS;
     const ability = catalog.getAbility(flowState.abilityId);
     if (ability.kind !== 'active') return EMPTY_TARGETS;
-    return computeLegalTargets(state, catalog, activeUnit, ability);
+    const tileMode =
+      flowState.kind === 'target-select' || flowState.kind === 'await-confirm'
+        ? flowState.tileMode
+        : false;
+    return computeLegalTargets(state, catalog, activeUnit, ability, tileMode);
   }, [flowState, state, activeUnit, actsAvailable, catalog]);
 
   // AoE footprint for the hovered target (target-select only).
@@ -374,7 +383,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       if (flowState.kind === 'target-select') {
         const ability = catalog.getAbility(flowState.abilityId);
         if (ability.kind !== 'active') return;
-        const action = buildAction(activeUnit.id, ability, pos, occupant);
+        const action = buildAction(activeUnit.id, ability, pos, occupant, flowState.tileMode);
         if (action === null) {
           // Bug 1 instrumentation: clicking a single_unit-targeted
           // ability on a tile with no occupant returns null and cancels.
@@ -583,6 +592,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     submitTargetedAction: submitTargetedActionInternal,
     confirmAccept: confirmAcceptInternal,
     cancel: () => dispatch({ kind: 'cancel' }),
+    toggleTileMode: () => dispatch({ kind: 'toggleTileMode' }),
     forecast,
     cursorScreen,
     cursorTile,
@@ -654,14 +664,21 @@ function computeAbilityDisableReason(
   return null;
 }
 
-// Single-unit/tile/self target enumeration. Loops candidate
+// Single-unit/tile/self/unit-or-tile target enumeration. Loops candidate
 // units/tiles in range and probes validateAction; collects the legals
 // for the renderer + a Set for O(1) click-side checking.
+//
+// `tileMode` only affects `unit_or_tile` abilities. When false (the
+// FFT-default), behaves like `single_unit` (only units in range are
+// legal). When true, behaves like `tile` (every reachable tile in range
+// is legal, occupant or not — the player pinned the location, not the
+// resident). `tileMode` is ignored for the other three targeting kinds.
 function computeLegalTargets(
   state: GameState,
   catalog: Catalog,
   actor: Unit,
   ability: ActiveAbilityDefinition,
+  tileMode: boolean,
 ): LegalTargets {
   const positions: Position[] = [];
   const unitIds = new Set<UnitId>();
@@ -674,7 +691,16 @@ function computeLegalTargets(
     return { positions, unitIds, tilePositions: tileKeys };
   }
 
-  if (ability.targeting.kind === 'single_unit') {
+  // unit_or_tile + tileMode === true: behave as tile targeting from here
+  // (enumerate all in-range tiles, occupied or not).
+  const treatAsTile =
+    ability.targeting.kind === 'tile' ||
+    (ability.targeting.kind === 'unit_or_tile' && tileMode);
+  const treatAsUnit =
+    ability.targeting.kind === 'single_unit' ||
+    (ability.targeting.kind === 'unit_or_tile' && !tileMode);
+
+  if (treatAsUnit) {
     for (const candidate of state.units.values()) {
       if (candidate.vitals.hp <= 0) continue;
       const proposed: ProposedAction = {
@@ -712,6 +738,10 @@ function computeLegalTargets(
     }
     return { positions, unitIds, tilePositions: tileKeys };
   }
+
+  // Defensive: if neither branch claimed the ability kind, fall through
+  // to tile enumeration. `unit_or_tile` + tileMode lands here.
+  if (!treatAsTile) return { positions, unitIds, tilePositions: tileKeys };
 
   // tile-targeted. Use effective range (post-`modifyAbilityRange`) so the
   // candidate window the picker scans matches what `validateAction` will
@@ -801,6 +831,7 @@ function buildAction(
   ability: ActiveAbilityDefinition,
   pos: Position,
   occupant: Unit | null,
+  tileMode: boolean,
 ): ProposedAction | null {
   if (ability.targeting.kind === 'self') {
     return {
@@ -811,6 +842,26 @@ function buildAction(
     };
   }
   if (ability.targeting.kind === 'single_unit') {
+    if (occupant === null) return null;
+    return {
+      type: 'use_ability',
+      source: 'player',
+      actorId,
+      payload: { abilityId: ability.id, target: { kind: 'unit', unitId: occupant.id } },
+    };
+  }
+  if (ability.targeting.kind === 'unit_or_tile') {
+    // tileMode forces tile payload regardless of occupant. unit-mode
+    // pins the occupant when present; absent occupant → null (no unit
+    // to pin, and tileMode was off, so the click is a no-op).
+    if (tileMode) {
+      return {
+        type: 'use_ability',
+        source: 'player',
+        actorId,
+        payload: { abilityId: ability.id, target: { kind: 'tile', position: pos } },
+      };
+    }
     if (occupant === null) return null;
     return {
       type: 'use_ability',

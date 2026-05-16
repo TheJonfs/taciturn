@@ -373,12 +373,20 @@ function formatActiveDetail(ability: ActiveAbilityDefinition, catalog: Catalog):
   if (costParts.length > 0) lines.push(`Cost: ${costParts.join(' · ')}`);
 
   // Targeting.
-  if (ability.targeting.kind === 'single_unit' || ability.targeting.kind === 'tile') {
+  if (
+    ability.targeting.kind === 'single_unit' ||
+    ability.targeting.kind === 'tile' ||
+    ability.targeting.kind === 'unit_or_tile'
+  ) {
     const range = ability.targeting.range;
     const mode = ability.targeting.rangeMode;
-    lines.push(
-      `Target: ${ability.targeting.kind === 'tile' ? 'tile' : 'unit'} · ${formatRange(range.horizontal, range.vertical)} (${mode})`,
-    );
+    const label =
+      ability.targeting.kind === 'tile'
+        ? 'tile'
+        : ability.targeting.kind === 'unit_or_tile'
+          ? 'unit or tile'
+          : 'unit';
+    lines.push(`Target: ${label} · ${formatRange(range.horizontal, range.vertical)} (${mode})`);
   } else if (ability.targeting.kind === 'self') {
     lines.push('Target: self');
   }

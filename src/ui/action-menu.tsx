@@ -111,9 +111,24 @@ export function ActionMenu({ turnFlow, catalog, engineState, onOpenUnitDetail }:
     case 'target-select': {
       const ability = catalog.getAbility(state.abilityId);
       const label = ability.kind === 'active' ? ability.name : String(state.abilityId);
+      // unit_or_tile abilities (post-S38) expose a tile-pin toggle so
+      // the player can either follow the unit (default) or pin the
+      // tile. T toggles in keyboard.
+      const isUnitOrTile = ability.kind === 'active' && ability.targeting.kind === 'unit_or_tile';
+      const hint = isUnitOrTile
+        ? state.tileMode
+          ? 'Click a tile to pin the location'
+          : 'Click a unit to target them'
+        : 'Click a highlighted target';
       return (
         <Panel header={`Target — ${label}`}>
-          <StatusLine>Click a highlighted target</StatusLine>
+          <StatusLine>{hint}</StatusLine>
+          {isUnitOrTile ? (
+            <TileModeToggle
+              tileMode={state.tileMode}
+              onToggle={turnFlow.toggleTileMode}
+            />
+          ) : null}
           <CancelButton onClick={turnFlow.cancel} />
         </Panel>
       );
@@ -459,6 +474,38 @@ function StatusLine({ children }: { readonly children: React.ReactNode }): React
 
 function CancelButton({ onClick }: { readonly onClick: () => void }): ReactElement {
   return <Button label="Cancel (ESC)" disabled={false} onClick={onClick} variant="secondary" />;
+}
+
+// Tile-pin toggle button — shown during target-select for `unit_or_tile`
+// abilities. When on, clicks pin to the tile (spell lands at the
+// location regardless of who occupies it at resolution time). When off
+// (default), clicks pin to the unit (FFT-canonical follow). 'T' on
+// keyboard mirrors the click. Per the post-S38 unit_or_tile change.
+function TileModeToggle({
+  tileMode,
+  onToggle,
+}: {
+  readonly tileMode: boolean;
+  readonly onToggle: () => void;
+}): ReactElement {
+  // Keyboard parity: T flips the mode while the toggle is mounted.
+  // Uses `addEventListener` rather than React's onKeyDown so the focus
+  // doesn't have to be on the button — the player can press T at any
+  // point during target-select. ESC cancellation already lives at the
+  // BattleView level; this listener is scoped to the toggle's lifetime.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === 't' || e.key === 'T') {
+        if (e.repeat) return;
+        e.preventDefault();
+        onToggle();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onToggle]);
+  const label = tileMode ? '⛬ Pinned to tile (T)' : '◉ Pinned to unit (T)';
+  return <Button label={label} disabled={false} onClick={onToggle} variant="secondary" />;
 }
 
 function Button(props: {

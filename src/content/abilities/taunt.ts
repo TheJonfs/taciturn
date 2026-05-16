@@ -52,7 +52,7 @@ export const taunt: ActiveAbilityDefinition = {
         typeId: statusTypeId('taunted'),
         target: 'primary_target',
         applyAlways: true,
-        duration: 12,
+        duration: 4,
       },
     ],
   },

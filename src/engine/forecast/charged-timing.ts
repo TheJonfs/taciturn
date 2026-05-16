@@ -185,11 +185,15 @@ function buildSyntheticTargets(args: EstimateChargedTimingArgs): TargetRef[] {
   if (kind === 'self') {
     return [{ kind: 'unit', unitId: args.caster.id }];
   }
-  // `single_unit` and `tile` both produce a one-element list anchored
-  // at the user's chosen position. If the anchor lands on a unit we
-  // emit a unit target; otherwise a tile target.
+  // `single_unit`, `tile`, and `unit_or_tile` all produce a one-element
+  // list anchored at the user's chosen position. If the anchor lands on
+  // a unit AND the targeting kind supports unit-mode, emit a unit
+  // target; otherwise a tile target. `unit_or_tile` (post-S38) defaults
+  // to unit-mode here; the forecast layer doesn't know whether the
+  // player will pick tile-mode at cast time, but the cast-vs-target-turn
+  // ordering is identical either way.
   const occupant = findUnitAt(args.state, args.anchor);
-  if (occupant !== null && kind === 'single_unit') {
+  if (occupant !== null && (kind === 'single_unit' || kind === 'unit_or_tile')) {
     return [{ kind: 'unit', unitId: occupant.id }];
   }
   return [{ kind: 'tile', position: args.anchor }];

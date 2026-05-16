@@ -300,6 +300,16 @@ function canAfford(
   return actor.vitals.mp >= computeMpCost(state, catalog, actor.id, ability.id);
 }
 
+// `unit_or_tile` (post-S38) is the FFT-canonical "pin a unit OR pin a
+// tile" charged-spell pattern. AI v1 always picks the unit-mode payload
+// — the tactical layer doesn't yet model "pin a tile because the target
+// is going to die before resolution." Tile-mode is a player-facing UX
+// affordance for forecasting around mortality; AI behavior is identical
+// to plain `single_unit` for now.
+function targetsUnit(kind: ActiveAbilityDefinition['targeting']['kind']): boolean {
+  return kind === 'single_unit' || kind === 'unit_or_tile';
+}
+
 function isOffensive(ability: ActiveAbilityDefinition, catalog: Catalog): boolean {
   // `targeting.kind: 'self'` with no target payload — no v1 consumer.
   // Caster-anchored cone / line AoEs use `targeting.kind: 'tile'` with
@@ -323,7 +333,7 @@ function isOffensive(ability: ActiveAbilityDefinition, catalog: Catalog): boolea
   if (statusEffects === undefined || statusEffects.length === 0) return false;
   const hasDebuff = statusEffects.some((s) => !isBuffStatus(catalog, s.typeId));
   if (!hasDebuff) return false;
-  return ability.targeting.kind === 'single_unit' || ability.targeting.kind === 'tile';
+  return targetsUnit(ability.targeting.kind) || ability.targeting.kind === 'tile';
 }
 
 // Healing abilities — single_unit, has a 'healing'-tagged damage spec.
@@ -337,7 +347,7 @@ function enumerateHealingAbilities(
 }
 
 function isHealingSingleUnit(ability: ActiveAbilityDefinition): boolean {
-  if (ability.targeting.kind !== 'single_unit') return false;
+  if (!targetsUnit(ability.targeting.kind)) return false;
   const damage = ability.effects.damage;
   if (damage === undefined) return false;
   return damage.tags.includes('healing');
@@ -360,7 +370,7 @@ function enumerateAllyBuffAbilities(
 }
 
 function isAllyBuff(ability: ActiveAbilityDefinition, catalog: Catalog): boolean {
-  if (ability.targeting.kind !== 'single_unit') return false;
+  if (!targetsUnit(ability.targeting.kind)) return false;
   // Has damage → it's offensive or healing, not a pure buff.
   if (ability.effects.damage !== undefined) return false;
   const statusEffects = ability.effects.statusEffects;
@@ -652,7 +662,7 @@ function strongestDamageFollowUp(
     // Project from `source` (the actor's hypothetical position post-Mark)
     // — single-target only here; AoE follow-ups would need cluster-aware
     // projection that's overkill for setup-value estimation.
-    if (a.targeting.kind !== 'single_unit' && a.targeting.kind !== 'tile') continue;
+    if (!targetsUnit(a.targeting.kind) && a.targeting.kind !== 'tile') continue;
     const projected = projectExpectedDamageFromActor(state, catalog, actor, source, target, a);
     if (projected > best) best = projected;
   }
@@ -937,7 +947,7 @@ function bestActFromSource(
           const candidate = { score, action: proposed, key: `${ability.id}|tile|${positionKey(anchor)}` };
           if (best === null || compareScored(candidate, best) > 0) best = candidate;
         }
-      } else if (ability.targeting.kind === 'single_unit') {
+      } else if (targetsUnit(ability.targeting.kind)) {
         for (const enemy of enemies) {
           const score = scoreAoeOffensive(state, catalog, actor, source, enemy.position, ability, enemies, allies);
           if (score <= 0) continue;
@@ -951,7 +961,7 @@ function bestActFromSource(
           if (best === null || compareScored(candidate, best) > 0) best = candidate;
         }
       }
-    } else if (ability.targeting.kind === 'single_unit') {
+    } else if (targetsUnit(ability.targeting.kind)) {
       for (const enemy of enemies) {
         const score = scoreSingleUnitOffensive(state, catalog, actor, source, enemy, ability);
         if (score <= 0) continue;
@@ -1238,13 +1248,13 @@ function bestOffensiveScoreFrom(
           const score = scoreAoeOffensive(state, catalog, actor, from, anchor, ability, enemies, allies);
           if (score > best) best = score;
         }
-      } else if (ability.targeting.kind === 'single_unit') {
+      } else if (targetsUnit(ability.targeting.kind)) {
         for (const enemy of enemies) {
           const score = scoreAoeOffensive(state, catalog, actor, from, enemy.position, ability, enemies, allies);
           if (score > best) best = score;
         }
       }
-    } else if (ability.targeting.kind === 'single_unit') {
+    } else if (targetsUnit(ability.targeting.kind)) {
       for (const enemy of enemies) {
         const score = scoreSingleUnitOffensive(state, catalog, actor, from, enemy, ability);
         if (score > best) best = score;

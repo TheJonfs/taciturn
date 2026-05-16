@@ -220,3 +220,27 @@ shouldn't drift out of memory between sessions.
 - **Signal for adjustment.** Players defaulting to Sorcerer's Robe
   regardless of opponent; or Light/Dark Robe over-performing because
   opponent rosters are too predictable.
+
+### Post-S38 duration rebalance (per_unit_ct statuses)
+
+- **What to watch.** The 2026-05-15 in-between-sessions pass cut
+  `per_unit_ct` status durations to FFT-shaped values: Don't Act / Don't
+  Move 24→3 (Earth Cataclysm), Blind / Silence 24→4 (Earth Curse),
+  movement debuff 24/36→4 (Earth Quake / Earth Strike), Stop 12→3
+  (Bolt / Stasis Sword), Taunted 12→4, regen 36→10 (Earth Blessing),
+  movement self-buff 24→6 (Earth Resilience). These reset the
+  "duration N = N of the **holder's** turn cycles" expectation; the
+  prior 24 meant ~24 wasted Knight-turns and felt like an eternity.
+- **Why it matters.** First-pass FFT-shaped numbers, picked to match
+  hard-disables ≈ 3 turns, soft-disables ≈ 4 turns, buffs 6–10. Play
+  feel could shift in any direction: hard-disables might now feel
+  too short to matter, or soft-disables might land in the "annoying
+  but not decisive" sweet spot, or the math could expose secondary
+  effects (e.g. with shorter Stop, Stasis Sword stops feeling like a
+  Knight-build payoff).
+- **Signal for adjustment.** Hard-disables (DA / DM / Stop) feeling
+  inconsequential — the target shakes them in one or two turns and
+  the spell read as wasted MP. Conversely, AoE hard-disables (Earth
+  Cataclysm) still feeling overpowered because the cluster targeting
+  amplifies the 3-turn impact. Regen at 10 healing for full
+  engagements vs. running out before the Earth Mage's next cast.

@@ -37,7 +37,7 @@ export const fireEmbrace: ActiveAbilityDefinition = {
   availability: 'available',
   tags: ['magical', 'fire'],
   targeting: {
-    kind: 'single_unit',
+    kind: 'unit_or_tile',
     range: { horizontal: 3, vertical: 2 },
     rangeMode: 'arc',
   },

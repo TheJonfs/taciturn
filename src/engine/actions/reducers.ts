@@ -313,6 +313,7 @@ export function reduceUseAbility(
     incomingProposed,
     sourceActionSeq: action.sequenceNumber,
     seed: action.seed,
+    ...(action.isReaction === true ? { isReaction: true } : {}),
   });
 
   // onActionResolved fires once per UseAbility against the actor's
@@ -476,6 +477,13 @@ interface ResolveAbilityEffectArgs {
   readonly ability: ActiveAbilityDefinition;
   readonly attacker: Unit;
   readonly targetUnit: Unit | null;
+  // When `true`, the cast itself is a reaction (e.g. Discharge Strike
+  // emitted by `runOnActionTargeted` against an inbound hit). Reactions
+  // never trigger further reactions — see `docs/design/action-resolution.md`
+  // ("Type-based suppression"). The flag rides through to the
+  // `runOnActionTargeted` call below, which short-circuits when set.
+  // Defaults to `false` for the volitional / charged-resolve paths.
+  readonly isReaction?: boolean;
   // What goes into the AbilityTargetResult.target field. For unit
   // targets this is `{ kind: 'unit', unitId }`; for self this is
   // `{ kind: 'self' }`; for tile-anchored this is the tile or the unit
@@ -578,6 +586,7 @@ function resolveAbilityEffect(
       for (const a of collectSourceKoSweep(workingState, args.targetUnit.id, catalog)) {
         pipelineEmissions.push(a);
       }
+      workingState = clearChargedActionsForCaster(workingState, args.targetUnit.id);
     }
   }
 
@@ -849,8 +858,20 @@ function resolveAbilityEffect(
   // The runner stamps each emission with `reactorId: target.id`; the
   // commit-time cap accounts on that field independent of the emitted
   // action's `actorId` shape.
+  //
+  // Type-based suppression (per `docs/design/action-resolution.md`,
+  // "Chain termination"): when the *incoming* action is itself a
+  // reaction (`args.isReaction === true`), do NOT enumerate further
+  // reactions. This blocks the Discharge → Discharge → Discharge ping-
+  // pong surfaced in S38 playtest: a Lightning Mage's spell hits a
+  // second Lightning Mage, the target's Discharge fires back, and
+  // without this guard the original caster's own Discharge would fire
+  // off the reaction's inbound hit. The per-unit-per-turn reaction cap
+  // (1 by default) coincidentally limits the depth in some cases, but
+  // a chain across two reactors (each with cap 1) still slips through;
+  // this guard catches it at the source.
   const reactions: GeneratedReaction[] = [];
-  if (args.targetUnit !== null && damageContext !== null) {
+  if (args.targetUnit !== null && damageContext !== null && args.isReaction !== true) {
     const postTarget = workingState.units.get(args.targetUnit.id) ?? args.targetUnit;
     const targetedReactions = runOnActionTargeted(workingState, catalog, {
       unit: postTarget,
@@ -923,6 +944,9 @@ interface ResolveAbilityTargetsArgs {
   readonly incomingProposed: ProposedAction;
   readonly sourceActionSeq: number;
   readonly seed: number;
+  // Forwarded to `resolveAbilityEffect` so the reaction-trigger guard
+  // fires when the cast itself is a reaction. See `ResolveAbilityEffectArgs`.
+  readonly isReaction?: boolean;
 }
 
 interface ResolveAbilityTargetsResult {
@@ -1001,6 +1025,7 @@ function resolveSingleTargetDispatch(
     incomingProposed: args.incomingProposed,
     sourceActionSeq: args.sourceActionSeq,
     seed: perTargetSeed(args.seed, 0),
+    ...(args.isReaction === true ? { isReaction: true } : {}),
   });
   return {
     newState: resolved.newState,
@@ -1174,6 +1199,7 @@ function resolveAoeDispatch(
       // ADR-0032: pass the cluster size so chainBonus-scaled power
       // reads uniformly across the cluster.
       targetCount: affected.length,
+      ...(args.isReaction === true ? { isReaction: true } : {}),
     });
     workingState = resolved.newState;
     for (const r of resolved.perTargetResults) allResults.push(r);
@@ -1278,6 +1304,25 @@ function collectSourceKoSweep(
     }
   }
   return emissions;
+}
+
+// On caster KO, drop any in-flight ChargedActions belonging to that
+// caster from the queue. The default semantics (per Chris, post-S38
+// playtest): a dead caster's spell does not resolve. The pre-existing
+// fizzle-at-resolve path in `reduceChargedActionResolve` becomes
+// unreachable in normal flow once this strips the entry; it remains as
+// a defensive backstop for any path that reaches resolve with a KO'd
+// caster (e.g. a future ability that KO's a unit *during* their own
+// charge resolution). Future content can opt out per-ability if a
+// "spell completes from the grave" mechanic is desired.
+//
+// Charging cleanup rides the existing `collectSourceKoSweep`: Charging
+// is self-applied (source.unitId = caster), and `removeOnSourceKO: true`
+// on the type causes the sweep to emit a `status_remove`.
+function clearChargedActionsForCaster(state: GameState, koUnitId: UnitId): GameState {
+  const filtered = state.chargedActions.filter((c) => c.casterId !== koUnitId);
+  if (filtered.length === state.chargedActions.length) return state;
+  return { ...state, chargedActions: filtered };
 }
 
 // Detect whether `unit` transitioned from alive (HP > 0) to KO'd
@@ -1768,7 +1813,7 @@ export function reduceSystemDamage(
     ...target,
     vitals: { ...target.vitals, hp: target.vitals.hp - applied },
   };
-  const newState = withUnit(state, newTarget);
+  let newState = withUnit(state, newTarget);
   // Source-KO sweep (per ADR-0028): system damage that KOs a unit
   // triggers the same auto-removal sweep as ability damage.
   const generatedActions: ProposedAction[] = [];
@@ -1776,6 +1821,7 @@ export function reduceSystemDamage(
     for (const a of collectSourceKoSweep(newState, targetId, catalog)) {
       generatedActions.push(a);
     }
+    newState = clearChargedActionsForCaster(newState, targetId);
   }
   return {
     newState,

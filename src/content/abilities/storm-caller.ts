@@ -46,7 +46,7 @@ export const stormCaller: ActiveAbilityDefinition = {
   availability: 'available',
   tags: ['magical', 'lightning'],
   targeting: {
-    kind: 'single_unit',
+    kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 2 },
     rangeMode: 'arc',
   },
