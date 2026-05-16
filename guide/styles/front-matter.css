@@ -104,17 +104,17 @@
 
 .title-page__institution {
   font-family: 'Cinzel', serif;
-  font-size: 11pt;
+  font-size: 14pt;
   letter-spacing: 0.3em;
   text-transform: uppercase;
   color: #6e2b2b;
-  margin-bottom: 1.6rem;
+  margin-bottom: 2rem;
 }
 
 .title-page__title {
   font-family: 'Cinzel', serif;
   font-weight: 700;
-  font-size: 42pt;
+  font-size: 56pt;
   letter-spacing: 0.04em;
   line-height: 1.05;
 }
@@ -122,18 +122,18 @@
 .title-page__subtitle {
   font-family: 'Cormorant', Georgia, serif;
   font-style: italic;
-  font-size: 17pt;
+  font-size: 24pt;
   color: #4a443a;
-  margin-top: 0.45rem;
+  margin-top: 0.55rem;
 }
 
 .title-page__seal {
-  width: 1.65in;
-  height: 1.65in;
+  width: 2.6in;
+  height: 2.6in;
   object-fit: cover;
   object-position: center;
   border-radius: 50%;
-  margin: 2.4rem auto;
+  margin: 2.8rem auto;
   filter: drop-shadow(0 1px 2px rgba(43, 38, 32, 0.4));
 }
 
@@ -145,22 +145,45 @@
 
 .title-page__imprint {
   font-style: italic;
-  font-size: 12pt;
+  font-size: 16pt;
   color: #4a443a;
 }
 
 .title-page__edition {
   font-family: 'Cinzel', serif;
-  font-size: 8.5pt;
+  font-size: 11pt;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #8a8478;
-  margin-top: 0.7rem;
+  margin-top: 1rem;
 }
 
 /* --- Table of contents --------------------------------------------- */
 
+/* The TOC takes the same weathered, filigree-framed page as the body
+   chapters — it is the cadet's first orientation page and reads as
+   part of the handbook proper, not a bare index. */
+@page toc-default {
+  background:
+    url('../art/page-frame.svg') center / 100% 100% no-repeat,
+    url('../art/paper-texture.svg') repeat,
+    radial-gradient(
+      ellipse 120% 90% at 50% 40%,
+      #f3e9d2 0%,
+      #ece0c2 62%,
+      #ddcca4 100%
+    );
+  @top-center { content: none; }
+  @bottom-center {
+    content: counter(page);
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 9pt;
+    color: #8a8478;
+  }
+}
+
 .toc {
+  page: toc-default;
   font-family: 'EB Garamond', Georgia, serif;
   color: #2b2620;
   break-before: page;
@@ -182,12 +205,12 @@
 .toc__title {
   font-family: 'Cinzel', serif;
   font-weight: 700;
-  font-size: 28pt;
+  font-size: 34pt;
   letter-spacing: 0.05em;
   line-height: 1;
   border-bottom: 2.5px solid #2b2620;
-  padding-bottom: 0.5rem;
-  margin-bottom: 1.4rem;
+  padding-bottom: 0.6rem;
+  margin-bottom: 1.6rem;
 }
 
 .toc__list {
@@ -199,21 +222,21 @@
 .toc__group {
   font-family: 'Cinzel', serif;
   font-weight: 600;
-  font-size: 9pt;
+  font-size: 13pt;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #6e2b2b;
-  margin: 1rem 0 0.4rem;
+  margin: 1.3rem 0 0.55rem;
 }
 
 .toc__entry {
-  font-size: 11.5pt;
+  font-size: 16pt;
   line-height: 1.6;
 }
 
 .toc__entry--sub {
-  padding-left: 1.4rem;
-  font-size: 10.5pt;
+  padding-left: 1.6rem;
+  font-size: 14.5pt;
 }
 
 .toc__entry a {

@@ -56,7 +56,7 @@ small islands break the water — two on the central column and a single
 stepping-stone closer to the bank.
 
 Walking the river is expensive: shallow water doubles the cost of a
-tile, deep water nearly triples it. The deep channel between the
+tile, deep water triples it. The deep channel between the
 inner-column islands is a real barrier — a ground-bound cadet does
 not cross it in a single turn. Under a Water Mage carrying her
 Tidewalker, the same column becomes a private road.`,

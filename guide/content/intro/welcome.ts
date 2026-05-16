@@ -48,5 +48,5 @@ reads as it does. Read for the why. The rest will keep.
 Welcome to Gariland, cadet. The field is waiting — and in time, so
 will you be ready for it.`,
 
-  signature: 'Your instructor, for the Faculty of Gariland Magic Academy',
+  signature: 'Professor Claude, on behalf of the Gariland Magic Academy',
 };

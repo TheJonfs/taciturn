@@ -36,6 +36,6 @@
   <!-- centred lozenges on the top and bottom rules -->
   <g fill="#8f7d58" opacity="0.72">
     <path d="M425 19 l9 11 -9 11 -9 -11 z" />
-    <path d="M425 1081 l9 11 -9 11 -9 -11 z" />
+    <path d="M425 1059 l9 11 -9 11 -9 -11 z" />
   </g>
 </svg>

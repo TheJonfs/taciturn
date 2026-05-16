@@ -13,7 +13,11 @@ import { renderProse, renderInline } from '../build/markdown.ts';
 import { esc, join } from './html.ts';
 
 function activeFactsLine(f: AbilityFacts): string {
-  const parts: string[] = [f.bucketLabel];
+  // The Active Skills section is, by construction, all First Action
+  // abilities; the bucket label would be redundant on every line, so
+  // drop it. Passives still surface their bucket (Reaction / Support /
+  // Movement) since those distinctions matter on the page.
+  const parts: string[] = [];
   if (f.mpCost !== undefined && f.mpCost > 0) parts.push(`${f.mpCost} MP`);
   if (f.range) parts.push(f.range);
   if (f.chargeLabel && f.chargeLabel !== 'Instant') parts.push(f.chargeLabel);

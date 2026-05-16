@@ -25,11 +25,9 @@ never counting blows. She was counting turns.`,
 
   abilityNotes: {
     attack: {
-      full: `The Water Mage's staff is the least of her. Her basic strike
-exists, and on the turn the reserve is dry it is better than nothing —
-but a cadet who finds herself leaning on it has lost the thread of the
-discipline.`,
-      compact: 'A weak melee blow. A sign, for the Water Mage, that something has gone wrong.',
+      full: `A Water Mage doesn't plan to win a fight with weapons, but
+a wand can nonetheless shift resistances to her allies' advantage.`,
+      compact: 'A weak melee blow — but the right wand turns it into a resistance shift for her allies to exploit.',
     },
     water_strike: {
       full: `Honest magical damage at arc range — and, on a hit, the

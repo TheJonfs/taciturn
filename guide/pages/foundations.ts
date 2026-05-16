@@ -34,7 +34,7 @@ function bucketDiagram(): string {
   return `
     <figure class="foundations-fig foundations-fig--buckets">
       <div class="bucket-row">${boxes}</div>
-      <figcaption>The five buckets of a turn, with the room each holds.</figcaption>
+      <figcaption>The five buckets of abilities, with the capacity of each.</figcaption>
     </figure>`;
 }
 

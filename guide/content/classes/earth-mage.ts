@@ -15,7 +15,7 @@ export const earthMageProse: ClassProse = {
   brief: `The Earth Mage is the slowest of the four elemental cadets, and
 the most often underestimated for it. This is an error, and the field
 corrects it quickly. Where her sisters in the discipline reach for tempo
-or for burst, the Earth Mage reaches for *certainty* — she does not race
+or for burst, the Earth Mage reaches for *constraint* — she does not race
 the engagement, she narrows it, tile by tile, until the enemy has
 nowhere left to be.
 
@@ -27,10 +27,10 @@ for foresight. It repays it without fail.`,
 
   abilityNotes: {
     attack: {
-      full: `A mage's staff is not her argument. The Earth Mage's basic
-strike is a poor one — her arm was never the point. Reach for it only
-when the reserve is spent and the turn would otherwise be wasted.`,
-      compact: 'A weak melee blow. For the Earth Mage, a last resort, not a plan.',
+      full: `Although the Earth Mage's basic strike is not her first
+plan, with the right wand, it can nonetheless influence the
+battlefield.`,
+      compact: 'A weak melee blow — but with the right wand, it can still shift the field.',
     },
     earth_strike: {
       full: `The discipline's workhorse: reliable magical damage at arc

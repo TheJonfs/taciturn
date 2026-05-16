@@ -25,7 +25,7 @@ cadet on the field keeps her place in it. That clock is Charge Time —
 CT — and learning to read it is the first thing the Academy teaches,
 because nothing else makes sense until you do.
 
-A cadet does not act when she wishes. She acts when her CT comes round.
+A cadet does not act when she wishes. She acts when her CT comes full.
 Between her turns it rises, tick by tick, at a rate set by her Speed —
 the faster cadet's clock fills sooner, and so she acts the more often.
 When it reaches the threshold the turn is hers: she may move, she may
@@ -42,10 +42,10 @@ field. Speed is not a small stat. Speed is the tempo of the war.`,
   {
     key: 'actions',
     title: 'The Cadet&rsquo;s Options',
-    body: `When a cadet's turn comes round, the Academy grants her a
-fixed set of options — not a free hand, but a structured one. Her turn
-is built from buckets, and each bucket holds a different kind of
-choice.
+    body: `When a cadet's turn comes round, she makes her choices from a
+fixed set of abilities — not a free hand, but a structured one. What she
+may do on each turn is built from five buckets, and each bucket is built
+on a different kind of choice.
 
 The First Action is her command — the discipline she has trained in,
 the spell or strike she leads with. A Secondary set may hold a borrowed
@@ -125,8 +125,9 @@ than the cadet expects, the two are the same reading.`,
 has equipped herself — and the Academy's armory is generous enough that
 the equipping is a real decision, not a formality.
 
-Five slots: a weapon in the right hand, a second hand for a weapon or a
-shield, headgear, armour, and an accessory. Each piece composes onto
+Five slots: a weapon in one hand or the other, a shield or second
+weapon in the off hand of those trained in such, protection for the
+head and for the body, and an accessory. Each piece composes onto
 the cadet's baseline — stats raised, resistances shifted, sometimes a
 standing effect granted or a bucket's capacity widened. Some gear is
 open to any cadet; some is cut for a single discipline and barred to

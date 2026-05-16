@@ -27,11 +27,10 @@ frightening cadet in the Mage War. Read it late and she is gone.`,
 
   abilityNotes: {
     attack: {
-      full: `The Lightning Mage's staff is the frailest argument on the
-field, swung by the frailest arm. The basic strike is here for
-completeness and almost never for use — a Lightning Mage in melee range
-is, as a rule, a Lightning Mage about to be a casualty.`,
-      compact: 'A weak melee blow. For the Lightning Mage, very nearly a confession.',
+      full: `If a Lightning Mage is reduced to swinging away with
+whatever physical object is at hand, the Lightning Mage is about to be
+a casualty.`,
+      compact: 'A weak melee blow. The Lightning Mage in arm’s reach is the Lightning Mage about to fall.',
     },
     lightning_strike: {
       full: `The heaviest single-target stroke in any elemental
@@ -56,9 +55,9 @@ the cadet's reminder that the enemy chose to stand together.`,
     },
     magnetic_mark: {
       full: `Magnetic Mark deals no great wound itself. It leaves a foe
-*Vulnerable* — every blow that follows lands harder for it. The Lightning
+*Vulnerable* — the blow that follows lands harder for it. The Lightning
 Mage marks the cadet she means to remove, and then removes them.`,
-      compact: 'Marks a foe Vulnerable — all damage that follows lands harder. The setup.',
+      compact: 'Marks a foe Vulnerable — the blow that follows lands harder. The setup.',
     },
     storm_caller: {
       full: `The discipline's ultimate, and the truest statement of the

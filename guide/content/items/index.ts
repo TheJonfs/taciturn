@@ -73,7 +73,7 @@ half of that sentence.`,
   staff_of_abundance: {
     flavor: `The deep-reserve staff. The cadet who runs dry in the
 middle of a long engagement was, as a rule, issued the wrong one.`,
-    tactical: 'Multiplies maximum MP outright — and quickens her casts a touch. The staff for the mage who means to outlast.',
+    tactical: 'Multiplies maximum MP outright — though her casts arrive a touch slower for it. The staff for the mage who means to outlast.',
   },
   wand_of_depths: {
     flavor: `A duellist's wand, cut for the Water Mage's hand. Light in
@@ -203,7 +203,7 @@ spoken word, is no small comfort.`,
     flavor: `A trade, worn on the head: a measure of raw art given up
 for a second school of it. Breadth, where the other mage headgear
 offers depth.`,
-    tactical: 'Mages only: room for a second secondary command set — at a cost to Magical Attack. For the mage who wants range over force.',
+    tactical: 'Mages only: room for another command set — at a cost to Magical Attack. For the mage who wants range over force.',
   },
   focus_band: {
     flavor: `A steadying band. Every ill the enemy would lay on the

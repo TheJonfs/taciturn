@@ -70,12 +70,25 @@ function rangeText(active: ActiveAbilityDefinition): string {
 function damageText(active: ActiveAbilityDefinition): string | undefined {
   const dmg = active.effects.damage;
   if (!dmg) return undefined;
-  // The primary descriptor is the first non-'weapon' tag (physical,
-  // magical, fire, …); 'weapon' is a composition marker, not a flavour.
-  const primary = dmg.tags.find((tag) => tag !== 'weapon') ?? dmg.tags[0] ?? 'damage';
+  // Magical-tagged damage reads as Spell Power N (the in-world term for
+  // a spell's coefficient); physical damage keeps the descriptor +
+  // multiplier form so weapon-coefficient strikes ("Physical damage
+  // ×1.5") still surface their scale.
   const coeff = dmg.power_coefficient;
+  if (dmg.tags.includes('magical')) {
+    return `Spell Power ${coeff ?? 1}`;
+  }
+  // 'weapon' is a composition marker, not a flavour — skip it for the
+  // primary descriptor.
+  const primary = dmg.tags.find((tag) => tag !== 'weapon') ?? dmg.tags[0] ?? 'damage';
   const scale = coeff !== undefined && coeff !== 1 ? ` (×${coeff})` : '';
   return `${titleCase(primary)} damage${scale}`;
+}
+
+function joinAnd(items: ReadonlyArray<string>): string {
+  if (items.length <= 1) return items[0] ?? '';
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]!}`;
 }
 
 function activeEffects(active: ActiveAbilityDefinition): string[] {
@@ -84,13 +97,32 @@ function activeEffects(active: ActiveAbilityDefinition): string[] {
   const dmg = damageText(active);
   if (dmg) out.push(dmg);
 
-  for (const status of active.effects.statusEffects ?? []) {
-    const name = catalog().getStatusType(status.typeId).name;
-    let chance = '';
-    if (!status.applyAlways && status.baseChance !== undefined) {
-      chance = ` (${status.baseChance}%)`;
+  // Status applications. Consecutive entries flagged `linkRoll: true`
+  // share the leading entry's roll (Fire Strike's PA Down + MA Down,
+  // Fire Embrace's PA Up + MA Up): they apply or fail together, so
+  // they read as one coalesced "Applies X and Y (N%)" line, not two
+  // independent rolls. Stack quantity > 1 surfaces explicitly (Spark's
+  // 2 stacks of Burn) so the line matches the engine's actual payoff.
+  const statuses = active.effects.statusEffects ?? [];
+  let i = 0;
+  while (i < statuses.length) {
+    const head = statuses[i]!;
+    const linked = [head];
+    while (i + 1 < statuses.length && statuses[i + 1]!.linkRoll) {
+      linked.push(statuses[i + 1]!);
+      i++;
     }
-    out.push(`Applies ${name}${chance}`);
+    const names = linked.map((s) => catalog().getStatusType(s.typeId).name);
+    let chance = '';
+    if (!head.applyAlways && head.baseChance !== undefined) {
+      chance = ` (${head.baseChance}%)`;
+    }
+    if (linked.length === 1 && head.stackQuantity && head.stackQuantity > 1) {
+      out.push(`Applies ${head.stackQuantity} stacks of ${names[0]}${chance}`);
+    } else {
+      out.push(`Applies ${joinAnd(names)}${chance}`);
+    }
+    i++;
   }
 
   if (active.effects.damage?.ctPush) out.push('Pushes target CT');

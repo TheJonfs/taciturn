@@ -113,8 +113,8 @@ export function trainingFieldsHalfTitle(): string {
         on a real piece of ground. The Academy&rsquo;s training fields
         exist for that second teaching: each is shaped for a specific
         lesson, and each rewards the cadet who reads its terrain as
-        carefully as she reads her opponent. Mage War v1 is fought on
-        one of them.
+        carefully as she reads her opponent. Mage War is fought on one
+        of them.
       </p>
     </section>`;
 }

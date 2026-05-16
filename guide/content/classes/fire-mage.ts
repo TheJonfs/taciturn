@@ -12,10 +12,10 @@ export const fireMageProse: ClassProse = {
   tagline: 'Elemental escalation — the mage who sets a thing alight and lets it work.',
 
   brief: `The Fire Mage trades soundness for reach of consequence. She is
-the most fragile cadet the Academy will put on a training field, and she
-is, turn for turn, the one an opponent most wants gone — because the Fire
-Mage's damage does not end when her spell does. She lights a foe, and the
-fire keeps the appointment after she has moved on to the next.
+one of the most fragile cadets the Academy will put on a training ground,
+and yet, the one the opponent most wants gone — because the Fire Mage's
+damage does not end when her spell does. She lights a foe, and the fire
+keeps the appointment after she has moved on to the next.
 
 A cadet drawn to this discipline must make peace, early, with being
 brittle. The Fire Mage does not survive engagements by enduring them. She
