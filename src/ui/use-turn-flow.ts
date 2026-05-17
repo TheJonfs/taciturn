@@ -25,6 +25,7 @@ import {
   computeMpCost,
   getLegalMoves,
   positionKey,
+  runModifyAoeShape,
   tileAt,
   validateAction,
   ACTIVE_BUCKET_IDS,
@@ -782,32 +783,45 @@ function computeAoeFootprint(
     // aiming gets a "this is the locked-in target" highlight.
     return [hoverTarget];
   }
-  const tiles = resolveAoeTiles(state, catalog, actor.position, hoverTarget, ability, aoe);
+  const tiles = resolveAoeTiles(state, catalog, actor, hoverTarget, ability, aoe);
   return tiles.map((t) => ({ x: t.x, y: t.y, layer: t.layer }));
 }
 
 // Mirror of the AI's aoeTilesAffected: caster-anchored cone/line use
 // `cardinalFromTo(source, anchor)`; target-anchored shapes use the
 // anchor tile directly.
+//
+// Post-S38 fix (2026-05-17): apply `runModifyAoeShape` against the
+// caster's hooks so Aether Bloom (and any future shape-modifier
+// passive) grows the target-select overlay to match the actual cast
+// footprint. Previously the overlay rendered the base shape while the
+// engine resolved with the modified shape — the player saw a small
+// diamond for Fire Storm with Aether Bloom equipped.
 function resolveAoeTiles(
   state: GameState,
   catalog: Catalog,
-  source: Position,
+  actor: Unit,
   anchor: Position,
   ability: ActiveAbilityDefinition,
   aoe: AoeSpec,
 ) {
+  const source = actor.position;
   const ruleset = catalog.getRuleset(state.ruleset.id);
   const verticalTolerance = aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
+  const finalShape = runModifyAoeShape(state, catalog, {
+    unit: actor,
+    ability,
+    baseShape: aoe.shape,
+  });
 
-  if (aoe.shape.kind === 'cone' || aoe.shape.kind === 'line') {
+  if (finalShape.kind === 'cone' || finalShape.kind === 'line') {
     if (samePosition(source, anchor)) return [];
     const sourceTile = tileAt(state.map, source.x, source.y, source.layer);
     if (sourceTile === undefined) return [];
     const direction = cardinalFromTo(source, anchor);
     return aoeFootprint({
       map: state.map,
-      shape: aoe.shape,
+      shape: finalShape,
       anchor: { x: source.x, y: source.y, elevation: sourceTile.elevation },
       verticalTolerance,
       direction,
@@ -817,7 +831,7 @@ function resolveAoeTiles(
   if (anchorTile === undefined) return [];
   return aoeFootprint({
     map: state.map,
-    shape: aoe.shape,
+    shape: finalShape,
     anchor: { x: anchor.x, y: anchor.y, elevation: anchorTile.elevation },
     verticalTolerance,
   });

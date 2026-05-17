@@ -7,14 +7,20 @@
 // Mirrors the live `resolveAbilityTargets`' filter rules — exclude caster
 // (when `excludeCaster` is set, the default), exclude friendlies (when
 // ruleset.behaviors.friendlyFire is false), skip KO'd units — so the
-// preview agrees with the actual cast. v1 keeps things simple: no
-// runModifyAoeShape (Fire Mage's "larger AoE" rider lands in Phase B; for
-// now the base shape is the shape).
+// preview agrees with the actual cast. Per the post-S38 fix
+// (2026-05-17): the preview ALSO threads `runModifyAoeShape` so
+// Aether Bloom (and any future shape-modifier passive) grows the
+// previewed footprint to match what the engine will resolve. The
+// prior comment claimed v1 deferred this; in practice that left
+// the player seeing diamond r1 for Fire Storm while the actual
+// cast landed diamond r2 — reported as "Aether Bloom does not
+// appear to be modifying AoE area."
 
 import { aoeFootprint, cardinalFromTo } from '../map/aoe.ts';
 import { tileAt, unitAt } from '../map/accessors.ts';
 import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
 import type { GameState, Position, Unit } from '../types/index.ts';
+import { runModifyAoeShape } from '../hooks/runners.ts';
 
 export interface AoePreviewTile {
   readonly position: Position;
@@ -49,6 +55,18 @@ export function projectAoePreview(
     return [{ position: args.anchor, occupant, affected: occupant !== null && occupant.vitals.hp > 0 }];
   }
 
+  // Apply `modifyAoeShape` (Aether Bloom and any future shape-modifier
+  // passive) so the previewed shape matches what the cast will resolve.
+  // The original base shape still drives the cone/line direction check
+  // because shape kind doesn't change under enlargeAoeShape — only
+  // parameters (radius / length) do — but read it from the modified
+  // shape going forward to keep one source of truth.
+  const finalShape = runModifyAoeShape(args.state, args.catalog, {
+    unit: args.caster,
+    ability: args.ability,
+    baseShape: aoe.shape,
+  });
+
   const anchorMode = aoe.anchorMode ?? 'target';
   const anchorPos =
     anchorMode === 'caster' ? args.caster.position : args.anchor;
@@ -59,14 +77,14 @@ export function projectAoePreview(
   const verticalTolerance = aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
 
   const direction =
-    aoe.shape.kind === 'cone' || aoe.shape.kind === 'line'
+    finalShape.kind === 'cone' || finalShape.kind === 'line'
       ? cardinalFromTo(args.caster.position, args.anchor)
       : undefined;
 
   const tiles = aoeFootprint({
     map: args.state.map,
     anchor: { x: anchorPos.x, y: anchorPos.y, elevation: anchorTile.elevation },
-    shape: aoe.shape,
+    shape: finalShape,
     verticalTolerance,
     ...(direction !== undefined ? { direction } : {}),
   });

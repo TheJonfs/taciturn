@@ -23,6 +23,7 @@ export {
 export {
   runModifyAbilityRange,
   runModifyActionSpeed,
+  runModifyAoeShape,
   runModifyBucketCapacity,
   runModifyCanEnter,
   runModifyEvasion,

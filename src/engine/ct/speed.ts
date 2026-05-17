@@ -20,7 +20,13 @@ export function computeSpeed(state: GameState, unitId: UnitId, catalog: Catalog)
     baseValue: unit.baseStats.spd,
   });
   const ruleset = catalog.getRuleset(state.ruleset.id);
-  return Math.max(ruleset.speedBounds.floor, modified);
+  // Floor to integer so the CT accumulator stays whole. Haste's ×1.5
+  // multiplier against odd base Speed (e.g., 11 → 16.5) would otherwise
+  // produce fractional CT progression — surfaced in S38 playtest with
+  // Boots of Haste (Auto-Haste). FFT canonical reads use integer Speed;
+  // floor matches that. The speed-floor clamp runs after the floor so
+  // the floor doesn't push a positive ruleset.floor (>1) down.
+  return Math.max(ruleset.speedBounds.floor, Math.floor(modified));
 }
 
 // Compute the committed Action Speed for an ability about to be cast.

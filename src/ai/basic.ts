@@ -65,6 +65,7 @@ import {
   horizontalDistance,
   inRange,
   positionKey,
+  runModifyAoeShape,
   tileAt,
   aoeFootprint,
   cardinalFromTo,
@@ -713,7 +714,7 @@ function scoreAoeOffensive(
   const aoe = ability.effects.aoe;
   if (aoe === undefined) return Number.NEGATIVE_INFINITY;
 
-  const tiles = aoeTilesAffected(state, catalog, source, anchor, ability, aoe);
+  const tiles = aoeTilesAffected(state, catalog, actor, source, anchor, ability, aoe);
   if (tiles.length === 0) return 0;
 
   const tileKeys = new Set(tiles.map(positionKey));
@@ -784,18 +785,36 @@ const STATUS_AOE_PER_TARGET_WEIGHT = 15;
 // Returns [] when the anchor tile is missing (defensive against bad
 // input), or when the cone/line target equals the source (no direction
 // can be derived).
+// Post-S38 fix (2026-05-17): thread `runModifyAoeShape` through the AI's
+// footprint estimate so passive shape modifiers (Aether Bloom etc.) are
+// reflected in the AI's targeting math. Without this, the AI scored an
+// Aether-Bloom-equipped Fire Mage's Fire Storm as if it covered diamond
+// r1 (5 tiles) instead of diamond r2 (13 tiles) — undervaluing the
+// cluster pick. Also keeps the AI's AoE scoring in lockstep with the UI's
+// preview overlay and the engine's actual cast.
 function aoeTilesAffected(
   state: GameState,
   catalog: Catalog,
+  actor: Unit,
   source: Position,
   anchor: Position,
   ability: ActiveAbilityDefinition,
   aoe: AoeSpec,
 ): ReadonlyArray<Tile> {
+  // `source` is the AI's *hypothetical* caster position (the joint
+  // planner considers casting from different tiles); `actor` is the
+  // unit identity, used for the shape-modifier hook lookup. The hook
+  // doesn't read position — it looks at the actor's loadout / equipment
+  // / statuses for `modifyAoeShape` handlers.
   const ruleset = catalog.getRuleset(state.ruleset.id);
   const verticalTolerance = aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
+  const finalShape = runModifyAoeShape(state, catalog, {
+    unit: actor,
+    ability,
+    baseShape: aoe.shape,
+  });
 
-  if (aoe.shape.kind === 'cone' || aoe.shape.kind === 'line') {
+  if (finalShape.kind === 'cone' || finalShape.kind === 'line') {
     // Caster-anchored: bloom from `source`, orient toward `anchor`.
     if (samePosition(source, anchor)) return []; // can't derive direction
     const sourceTile = tileAt(state.map, source.x, source.y, source.layer);
@@ -803,7 +822,7 @@ function aoeTilesAffected(
     const direction = cardinalFromTo(source, anchor);
     return aoeFootprint({
       map: state.map,
-      shape: aoe.shape,
+      shape: finalShape,
       anchor: { x: source.x, y: source.y, elevation: sourceTile.elevation },
       verticalTolerance,
       direction,
@@ -814,7 +833,7 @@ function aoeTilesAffected(
   if (anchorTile === undefined) return [];
   return aoeFootprint({
     map: state.map,
-    shape: aoe.shape,
+    shape: finalShape,
     anchor: { x: anchor.x, y: anchor.y, elevation: anchorTile.elevation },
     verticalTolerance,
   });
