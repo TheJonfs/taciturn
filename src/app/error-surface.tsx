@@ -183,6 +183,15 @@ export function installGlobalErrorListeners(): void {
   // fetch 404s, Pixi's Application init throws, the deployment screen
   // renders without a map. One-shot reload picks up the fresh HTML +
   // new chunk URLs.
+  //
+  // When the auto-reload is going to fire, we ALSO clear the captured-
+  // errors list. Without this, the unhandledrejection that may already
+  // have fired (browsers vary on whether preventDefault on
+  // `vite:preloadError` cancels the downstream rejection) sticks in
+  // sessionStorage and the banner reappears every refresh forever.
+  // The auto-reload is a successful self-heal; the trace would be
+  // misleading. If the reload doesn't resolve the import (cooldown
+  // branch below), the next failure is recorded normally.
   window.addEventListener('vite:preloadError', (event: Event) => {
     let lastReload = 0;
     try {
@@ -199,6 +208,7 @@ export function installGlobalErrorListeners(): void {
     event.preventDefault();
     try {
       sessionStorage.setItem(PRELOAD_RELOAD_KEY, String(Date.now()));
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
     } catch {
       /* ignore */
     }
