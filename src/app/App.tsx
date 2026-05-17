@@ -7,7 +7,8 @@
 // If the screen graph grows (deep-linking, settings sub-pages), a router
 // migration is a small, deliberate change later.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { flushSync } from 'react-dom';
 import { BattleView } from './BattleView.tsx';
 import { TitleScreen } from './TitleScreen.tsx';
 import { BattleSetupScreen } from './BattleSetupScreen.tsx';
@@ -40,11 +41,43 @@ export function App() {
   // back-navigation (team builder ↔ setup ↔ deployment). Cleared on
   // return-to-title and on battle start (commit = team committed).
   const [teamDraft, setTeamDraft] = useState<TeamBuilderState | null>(null);
+  // Transition flag — when set, a "Returning to Main Menu…" overlay
+  // is rendered over everything else. Used to mask the ~5s lag when
+  // the battle view unmounts (Pixi destroy + React reconciliation of
+  // a large engine tree). Reported in 2026-05-17 playtest; cleared
+  // by an effect when the title screen mounts. Root-cause profiling
+  // is deferred — this hides the perceived lag without misleading
+  // the player.
+  const [transitioning, setTransitioning] = useState<boolean>(false);
+
+  // When the title screen lands, clear the transition overlay. The
+  // overlay covered the unmount lag; once we're on title the overlay
+  // can come down (the next paint is the title screen itself).
+  useEffect(() => {
+    if (screen === 'title' && transitioning) {
+      setTransitioning(false);
+    }
+  }, [screen, transitioning]);
 
   // Centralized title-return clears the in-flight team draft per S37
   // decision 1's clearing semantics. Use this anywhere a screen routes
   // back to the title.
-  const goToTitle = useCallback(() => {
+  //
+  // When routing from inside an active battle (`fromBattle: true`),
+  // `flushSync` the transition flag first so the overlay paints
+  // *before* the slow `setScreen('title')` triggers BattleView's
+  // unmount + Pixi teardown. Without flushSync, React batches both
+  // state updates into one render and the overlay never gets a paint
+  // cycle before the lag begins.
+  const goToTitle = useCallback((fromBattle?: boolean) => {
+    // `fromBattle === true` check (not truthy) is intentional: this
+    // callback is passed directly as an onClick handler in some places
+    // (BattleSetupScreen onBack), and React would call it with the
+    // synthetic event as the first arg — which would coerce to truthy
+    // and trigger the overlay on a fast Setup→Title transition.
+    if (fromBattle === true) {
+      flushSync(() => setTransitioning(true));
+    }
     setTeamDraft(null);
     setScreen('title');
   }, []);
@@ -123,7 +156,7 @@ export function App() {
           template={teamBattleConfig}
           deploymentResult={deploymentResult}
           onExitToSetup={() => setScreen('setup')}
-          onExitToTitle={goToTitle}
+          onExitToTitle={() => goToTitle(true)}
         />
       )}
       {/* Global error-capture surface — shows a floating banner when the
@@ -131,6 +164,56 @@ export function App() {
           up an exception that bypassed the React error boundary. Per the
           post-S38 white-flash incident debrief. */}
       <ErrorSurface />
+      {/* Transition overlay — covers the ~5s perceived lag between
+          clicking Main Menu in the battle results screen and the title
+          screen actually rendering. Painted before the slow unmount via
+          flushSync in `goToTitle`. */}
+      {transitioning && <TransitionOverlay label="Returning to Main Menu…" />}
     </div>
   );
+}
+
+// Full-screen overlay shown during slow screen transitions (the
+// battle → title route, primarily). Painted via flushSync so it
+// appears on a separate render tick from the slow `setScreen` that
+// triggers BattleView's unmount. Visually a centered label over a
+// dim backdrop; matches the rest of the HUD's font / color tokens.
+function TransitionOverlay({ label }: { readonly label: string }) {
+  return (
+    <div style={transitionOverlayStyle} role="status" aria-live="polite">
+      <div style={transitionLabelStyle}>{label}</div>
+    </div>
+  );
+}
+
+const transitionOverlayStyle: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 10_000,
+  background: 'rgba(14, 15, 18, 0.92)',
+  color: '#e7e9ee',
+  fontFamily: 'system-ui, sans-serif',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: 18,
+  letterSpacing: '0.06em',
+};
+
+const transitionLabelStyle: CSSProperties = {
+  opacity: 0.85,
+  animation: 'taciturn-pulse 1.2s ease-in-out infinite',
+};
+
+// Inject a keyframes rule for the label's gentle pulse. Runs once on
+// module load; idempotent (the if-check prevents duplicates under HMR).
+if (typeof document !== 'undefined') {
+  const STYLE_ID = 'taciturn-transition-keyframes';
+  if (document.getElementById(STYLE_ID) === null) {
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent =
+      '@keyframes taciturn-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }';
+    document.head.appendChild(style);
+  }
 }
