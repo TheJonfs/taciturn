@@ -66,18 +66,40 @@ describe('createUiController', () => {
     expect(ui.hasPending()).toBe(false);
   });
 
-  it('throws if a second decision is submitted before the first drains', () => {
+  it('throws if a second action is submitted before the first drains', () => {
     const ui = createUiController();
     ui.submit(ATTACK_ACTION);
     expect(() => ui.submit(ATTACK_ACTION)).toThrow(/already queued/);
-    expect(() => ui.endTurn()).toThrow(/already queued/);
   });
 
-  it('cancel() unblocks subsequent submits', () => {
+  it('endTurn() after submit() defers until the submit drains, then fires', () => {
+    // Wait + facing-change flow: submitWait calls submit(set_facing) and
+    // then immediately endTurn(). Pre-fix this threw. Now end-turn
+    // defers and surfaces on the controller pump *after* the queued
+    // commit drains. Per the post-S38 playtest debrief.
     const ui = createUiController();
     ui.submit(ATTACK_ACTION);
-    ui.cancel();
     expect(() => ui.endTurn()).not.toThrow();
-    expect(ui.controller(STATE, CATALOG)).toEqual({ kind: 'end-turn' });
+    expect(ui.hasPending()).toBe(true); // both the commit and the deferred end-turn
+
+    const first = ui.controller(STATE, CATALOG);
+    expect(first).toEqual({ kind: 'commit', action: ATTACK_ACTION });
+    expect(ui.hasPending()).toBe(true); // end-turn still pending
+
+    const second = ui.controller(STATE, CATALOG);
+    expect(second).toEqual({ kind: 'end-turn' });
+    expect(ui.hasPending()).toBe(false);
+
+    const third = ui.controller(STATE, CATALOG);
+    expect(third).toEqual({ kind: 'pending' });
+  });
+
+  it('cancel() unblocks subsequent submits and clears the deferred end-turn', () => {
+    const ui = createUiController();
+    ui.submit(ATTACK_ACTION);
+    ui.endTurn(); // defers (would queue if drain happens first)
+    ui.cancel();
+    expect(ui.hasPending()).toBe(false);
+    expect(ui.controller(STATE, CATALOG)).toEqual({ kind: 'pending' });
   });
 });

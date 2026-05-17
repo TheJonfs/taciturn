@@ -35,38 +35,58 @@ export interface UiController {
 
 export function createUiController(): UiController {
   let queued: ControllerDecision | null = null;
+  // Set when `endTurn()` is called while `queued` already holds a
+  // commit decision. The legitimate caller is `submitWait` (wait +
+  // optional facing change in one user gesture): it submits `set_facing`
+  // then immediately calls `endTurn`. Without this flag, `endTurn`
+  // would throw because the previous slot hasn't drained — surfaced as
+  // a recurring `UiController.endTurn: a decision is already queued`
+  // throw in production playtest (post-S38). The flag fires `end-turn`
+  // on the next controller pump *after* the queued commit drains, so
+  // both decisions land in the right order without a sequence queue.
+  let endTurnPending = false;
 
   const controller: Controller = () => {
-    if (queued === null) return { kind: 'pending' };
-    const out = queued;
-    queued = null;
-    return out;
-  };
-
-  function assertEmpty(label: string): void {
     if (queued !== null) {
-      throw new Error(
-        `UiController.${label}: a decision is already queued (kind=${queued.kind}). ` +
-          `Call cancel() first or wait for it to drain.`,
-      );
+      const out = queued;
+      queued = null;
+      return out;
     }
-  }
+    if (endTurnPending) {
+      endTurnPending = false;
+      return { kind: 'end-turn' };
+    }
+    return { kind: 'pending' };
+  };
 
   return {
     controller,
     submit(action) {
-      assertEmpty('submit');
+      if (queued !== null) {
+        throw new Error(
+          `UiController.submit: a decision is already queued (kind=${queued.kind}). ` +
+            `Call cancel() first or wait for it to drain.`,
+        );
+      }
       queued = { kind: 'commit', action };
     },
     endTurn() {
-      assertEmpty('endTurn');
-      queued = { kind: 'end-turn' };
+      // If a commit is already queued (the wait + facing sequence),
+      // defer the end-turn rather than throw. The controller's pump
+      // drains the queued commit first, then surfaces end-turn on the
+      // following step.
+      if (queued !== null) {
+        endTurnPending = true;
+        return;
+      }
+      endTurnPending = true;
     },
     cancel() {
       queued = null;
+      endTurnPending = false;
     },
     hasPending() {
-      return queued !== null;
+      return queued !== null || endTurnPending;
     },
   };
 }

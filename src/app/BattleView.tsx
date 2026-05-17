@@ -25,6 +25,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
 import { BattleErrorBoundary } from './BattleErrorBoundary.tsx';
+import {
+  recordWebglContextLost,
+  recordWebglContextRestored,
+} from './error-surface.tsx';
 import { buildDeployedBattleConfig, type DeploymentResult } from './deployment-config.ts';
 import { loadDefaultCatalog } from '@content/index.ts';
 import {
@@ -207,6 +211,31 @@ function BattleViewInner({
       // null) renderer and throws (S34 HMR root cause).
       const canvas = app.canvas;
 
+      // WebGL context-loss handlers (post-S38 playtest debrief). The
+      // canvas can lose its WebGL context under GPU pressure, browser
+      // throttling, or driver issues. The browser default after a
+      // context-loss event is to *not* attempt restoration — we
+      // `preventDefault()` so the context can be restored. Both events
+      // forward to the global error surface so the player sees a
+      // banner with the same UX as other crashes; reload is the
+      // recommended recovery because partial-restore can leave the
+      // battle map missing terrain bars / overlays (the reported S38
+      // symptom). A future polish pass can save state to sessionStorage
+      // and reinit the renderer in place.
+      const onContextLost = (event: Event): void => {
+        event.preventDefault();
+        recordWebglContextLost('canvas.webglcontextlost fired');
+      };
+      const onContextRestored = (): void => {
+        recordWebglContextRestored();
+      };
+      canvas.addEventListener('webglcontextlost', onContextLost as EventListener, false);
+      canvas.addEventListener(
+        'webglcontextrestored',
+        onContextRestored as EventListener,
+        false,
+      );
+
       const battleRenderer = new BattleRenderer(app);
       battleRenderer.mount(initialState, catalog);
       setLatestState(initialState);
@@ -356,6 +385,16 @@ function BattleViewInner({
         window.removeEventListener('keydown', onKeyDown);
         window.removeEventListener('keyup', onKeyUp);
         canvas.removeEventListener('wheel', onWheel);
+        canvas.removeEventListener(
+          'webglcontextlost',
+          onContextLost as EventListener,
+          false,
+        );
+        canvas.removeEventListener(
+          'webglcontextrestored',
+          onContextRestored as EventListener,
+          false,
+        );
         resizeObserver.disconnect();
         battleRenderer.destroy();
         // `app.destroy(true, …)` (inside `battleRenderer.destroy()`)

@@ -30,7 +30,12 @@ import { useEffect, useState, type CSSProperties, type ReactElement } from 'reac
 
 export interface CapturedError {
   readonly timestamp: number;
-  readonly source: 'window.error' | 'unhandledrejection' | 'react.errorBoundary';
+  readonly source:
+    | 'window.error'
+    | 'unhandledrejection'
+    | 'react.errorBoundary'
+    | 'webgl.contextLost'
+    | 'webgl.contextRestored';
   readonly message: string;
   readonly stack: string;
   readonly url?: string;
@@ -96,6 +101,32 @@ export function recordReactBoundaryError(error: Error, componentStack: string): 
     message: error.message,
     stack: error.stack ?? '(no stack)',
     componentStack,
+  });
+}
+
+// WebGL context-loss / restore capture. Pixi v8 doesn't surface these
+// as React-tree or window-level errors; the canvas dispatches
+// `webglcontextlost` / `webglcontextrestored` directly. BattleView
+// installs listeners and forwards into the surface so the player gets
+// the same banner-and-stack experience as other crashes. Post-S38
+// playtest reported the white-flash + missing-terrain-bar shape that
+// matched a WebGL context loss followed by partial recovery.
+export function recordWebglContextLost(reason: string): void {
+  record({
+    timestamp: Date.now(),
+    source: 'webgl.contextLost',
+    message: `WebGL context lost — ${reason}`,
+    stack: '(no JS stack — browser-emitted)',
+  });
+}
+
+export function recordWebglContextRestored(): void {
+  record({
+    timestamp: Date.now(),
+    source: 'webgl.contextRestored',
+    message:
+      'WebGL context restored — renderer state may be partial. Reload recommended.',
+    stack: '(no JS stack — browser-emitted)',
   });
 }
 
