@@ -11,7 +11,13 @@
 // wrapper — branches return them by reference; they are *not* applied
 // here.
 
-import type { ActiveAbilityDefinition, AoeSpec, Catalog, StatusEffectType } from '../catalog/index.ts';
+import type {
+  ActiveAbilityDefinition,
+  AoeSpec,
+  Catalog,
+  ConsumableDefinition,
+  StatusEffectType,
+} from '../catalog/index.ts';
 import { defaultDamageHandlers } from '../damage/default-handlers.ts';
 import { runDamagePipeline } from '../damage/pipeline.ts';
 import {
@@ -49,6 +55,7 @@ import {
   type Direction,
   type GameState,
   type GeneratedReaction,
+  type ItemId,
   type MoveOutcome,
   type Position,
   type ProposedAction,
@@ -65,12 +72,17 @@ import {
   type SystemDamageOutcome,
   type SystemHealOutcome,
   type SystemMpDrainOutcome,
+  type SystemKoTickOutcome,
+  type SystemMpRestoreOutcome,
+  type SystemUnitRemovedOutcome,
   type TargetRef,
   type TurnEndOutcome,
   type TurnStartOutcome,
   type Unit,
   type UnitId,
   type UseAbilityOutcome,
+  type UseCompoundOutcome,
+  type UseThrowItemOutcome,
   type WaitOutcome,
 } from '../types/index.ts';
 import { expectActiveAbility } from './validate.ts';
@@ -2522,5 +2534,467 @@ function finalizeResolution(
     outcome,
     generatedActions: pipelineEmissions,
     ...(reactions.length > 0 ? { generatedReactions: reactions } : {}),
+  };
+}
+
+// =====================================================================
+// Session 39a — Alchemist substrate
+// =====================================================================
+
+// --- Compound ---
+//
+// Alchemist's stockpile-build action. Spends `item.compoundMpCost` MP
+// and adds 1 of the named item to the unit's stockpile. Self-targeted;
+// 100% accuracy; consumes the unit's Act for the turn (standard, not
+// instant). Items are catalog-defined consumables (see
+// `ConsumableDefinition`). Stockpile is unbounded in v1 per the brief.
+//
+// No reaction surface: Compound is self-only and produces no effect on
+// other units. No `onActionTargeted` fires. Other hooks (Silence on
+// 'voice' for example) don't apply — Compound has no ability tags.
+//
+// The Act-budget decrement runs through the shared `decrementActBudget`
+// helper so the consumed.actsConsumed bookkeeping matches UseAbility.
+
+export function reduceUseCompound(
+  state: GameState,
+  action: Extract<Action, { type: 'use_compound' }>,
+  catalog: Catalog,
+): ReduceResult<UseCompoundOutcome> {
+  if (action.actorId === undefined) {
+    throw new Error('reduceUseCompound: action has no actorId');
+  }
+  if (state.turnState === null) {
+    throw new Error('reduceUseCompound: no turn in progress');
+  }
+  const actor = getUnit(state, action.actorId);
+  const item = catalog.getItem(action.payload.itemId);
+  if (item.kind !== 'consumable') {
+    throw new Error(
+      `reduceUseCompound: item ${JSON.stringify(action.payload.itemId)} is not a consumable`,
+    );
+  }
+  const mpCost = item.compoundMpCost;
+
+  // Deduct MP, bump stockpile count, decrement Act budget. All in one
+  // pass so the returned newState is committed atomically.
+  const have = actor.stockpile.get(item.id) ?? 0;
+  const newStockpile = new Map(actor.stockpile);
+  newStockpile.set(item.id, have + 1);
+  const newMp = actor.vitals.mp - mpCost;
+  const newActor: Unit = {
+    ...actor,
+    vitals: { ...actor.vitals, mp: newMp },
+    stockpile: newStockpile,
+  };
+  const stateAfterUnit = withUnit(state, newActor);
+  const newState = decrementActBudget(stateAfterUnit);
+
+  const outcome: UseCompoundOutcome = {
+    kind: 'use_compound',
+    itemId: item.id,
+    mpSpent: mpCost,
+    mpAfter: newMp,
+    stockpileAfter: have + 1,
+  };
+  return { newState, outcome, generatedActions: [] };
+}
+
+// --- Throw Item ---
+//
+// Alchemist's stockpile-spend action. Consumes 1 of the named item
+// from the unit's stockpile and applies its effects to the target.
+// 100% accuracy; range 3 horizontal × 3 vertical with LoS (per the
+// brief; see `THROW_ITEM_RANGE` in validate.ts). KO'd targets are
+// valid — Phoenix Down revives, non-revival items apply gated zero.
+//
+// Item effects (per `ConsumableEffects`):
+//   - `removeKO`: if target is KO'd, revive (HP=1) and reset turnsKOd.
+//   - `hpRestore`: apply caster.PA × coefficient HP via the existing
+//     system_heal path (capped at maxHp). Applied AFTER revive so a
+//     just-revived unit benefits from the heal.
+//   - `mpRestore`: apply caster.PA × coefficient MP via the new
+//     system_mp_restore path (capped at maxMp). KO-gated.
+//   - `clearStatuses { kind: 'debuff' }`: remove every non-buff status
+//     on the target (equipment-sourced statuses immune per ADR-0028).
+//     KO isn't a status, so this doesn't touch it.
+//
+// No reactions fire on Throw Item — items aren't damage-tagged and
+// don't enter the `onActionTargeted` chain.
+export function reduceUseThrowItem(
+  state: GameState,
+  action: Extract<Action, { type: 'use_throw_item' }>,
+  catalog: Catalog,
+): ReduceResult<UseThrowItemOutcome> {
+  if (action.actorId === undefined) {
+    throw new Error('reduceUseThrowItem: action has no actorId');
+  }
+  if (state.turnState === null) {
+    throw new Error('reduceUseThrowItem: no turn in progress');
+  }
+  const actor = getUnit(state, action.actorId);
+  const item = catalog.getItem(action.payload.itemId);
+  if (item.kind !== 'consumable') {
+    throw new Error(
+      `reduceUseThrowItem: item ${JSON.stringify(action.payload.itemId)} is not a consumable`,
+    );
+  }
+  if (action.payload.target.kind !== 'unit') {
+    throw new Error('reduceUseThrowItem: v1 only supports unit targets');
+  }
+  const targetId = action.payload.target.unitId;
+  const target = getUnit(state, targetId);
+
+  // Decrement stockpile by 1.
+  const have = actor.stockpile.get(item.id) ?? 0;
+  if (have <= 0) {
+    throw new Error(
+      `reduceUseThrowItem: no ${JSON.stringify(item.id)} in stockpile — validation should have caught this`,
+    );
+  }
+  const stockpileAfter = have - 1;
+  const newStockpile = new Map(actor.stockpile);
+  if (stockpileAfter === 0) {
+    newStockpile.delete(item.id);
+  } else {
+    newStockpile.set(item.id, stockpileAfter);
+  }
+  const newActor: Unit = { ...actor, stockpile: newStockpile };
+
+  // Apply effects to the target. Each effect is applied directly to
+  // engine state (not emitted as system actions) so the perTargetResult
+  // can record the final HP/MP atomically. This keeps the action-log
+  // entry single-line and the renderer's settle straightforward.
+  let working = withUnit(state, newActor);
+  const result = applyConsumableEffects(working, target.id, item, actor, catalog);
+  working = result.newState;
+
+  // Decrement Act budget.
+  const newState = decrementActBudget(working);
+
+  const outcome: UseThrowItemOutcome = {
+    kind: 'use_throw_item',
+    itemId: item.id,
+    target: action.payload.target,
+    perTargetResults: [result.targetResult],
+    stockpileAfter,
+  };
+  return { newState, outcome, generatedActions: result.generatedActions };
+}
+
+// Apply a consumable's effects to a single target. Returns the new
+// state, the per-target result (used by the Throw Item outcome), and
+// any generated system actions (none today — effects apply inline; the
+// shape is here for a future item that needs to chain to a system
+// emission).
+interface ApplyConsumableResult {
+  readonly newState: GameState;
+  readonly targetResult: AbilityTargetResult;
+  readonly generatedActions: ReadonlyArray<ProposedAction>;
+}
+
+function applyConsumableEffects(
+  state: GameState,
+  targetId: UnitId,
+  item: ConsumableDefinition,
+  caster: Unit,
+  catalog: Catalog,
+): ApplyConsumableResult {
+  let workingState = state;
+  let target = getUnit(workingState, targetId);
+  let healingTotal = 0;
+  let hpAfter = target.vitals.hp;
+
+  // 1) Revive — must run before hpRestore so the heal can land on a
+  // just-revived unit (HP > 0). On a non-KO'd target, this is a no-op.
+  if (item.effects.removeKO === true && target.vitals.hp <= 0 && !target.removed) {
+    target = {
+      ...target,
+      vitals: { ...target.vitals, hp: 1 },
+      turnsKOd: 0,
+      // CT resets to 0 — the revived unit re-enters the queue at the
+      // bottom rather than instantly re-acting. Per the S39 brief
+      // ("resume from 0") and FFT-canonical behavior.
+      ct: 0,
+    };
+    workingState = withUnit(workingState, target);
+    hpAfter = target.vitals.hp;
+  }
+
+  // 2) HP restore — caster.PA × coefficient, capped at maxHp. Gated to
+  // 0 on KO'd targets (the revive branch above already runs first;
+  // anything still at HP=0 here means removeKO=false on this item).
+  if (item.effects.hpRestore !== undefined) {
+    if (target.vitals.hp <= 0 || target.removed) {
+      // Gated zero; outcome records 0 healing.
+    } else {
+      const pa = runModifyStatQuery(workingState, catalog, {
+        unit: caster,
+        statName: 'pa',
+        baseValue: caster.baseStats.pa,
+      });
+      const requested = pa * item.effects.hpRestore.coefficient;
+      const maxHp = runModifyStatQuery(workingState, catalog, {
+        unit: target,
+        statName: 'maxHp',
+        baseValue: target.baseStats.maxHpBase,
+      });
+      const room = Math.max(0, maxHp - target.vitals.hp);
+      const applied = Math.max(0, Math.min(requested, room));
+      if (applied > 0) {
+        target = {
+          ...target,
+          vitals: { ...target.vitals, hp: target.vitals.hp + applied },
+        };
+        workingState = withUnit(workingState, target);
+      }
+      healingTotal += applied;
+      hpAfter = target.vitals.hp;
+    }
+  }
+
+  // 3) MP restore — caster.PA × coefficient, capped at maxMp. Gated to
+  // 0 on KO'd targets (vitals are gated while KO'd, matching the HP
+  // gate). No `mpAfter` on the perTargetResult shape today — Throw
+  // Item doesn't have a renderer MP-bar consumer yet. Emit as a system
+  // action so future MP-restore consumers reuse the same plumbing.
+  let generatedActions: ProposedAction[] = [];
+  if (item.effects.mpRestore !== undefined) {
+    if (target.vitals.hp > 0 && !target.removed) {
+      const pa = runModifyStatQuery(workingState, catalog, {
+        unit: caster,
+        statName: 'pa',
+        baseValue: caster.baseStats.pa,
+      });
+      const amount = pa * item.effects.mpRestore.coefficient;
+      generatedActions = [
+        ...generatedActions,
+        {
+          type: 'system_mp_restore',
+          source: 'system',
+          payload: {
+            targetId,
+            amount,
+            source: { kind: 'throw_item', itemId: item.id, casterId: caster.id },
+          },
+        },
+      ];
+    }
+  }
+
+  // 4) Status-clear (Remedy). Walk the target's statuses; remove every
+  // instance whose type has polarity !== 'buff' (undefined defaults to
+  // debuff). Equipment-sourced instances are immune per ADR-0028 and
+  // skipped by `removeStatus`. KO isn't a status, so it's untouched.
+  if (item.effects.clearStatuses !== undefined) {
+    if (item.effects.clearStatuses.kind === 'debuff') {
+      // Snapshot unique type ids first — `removeStatus` mutates `working`'s
+      // unit reference, so re-reading mid-loop is unsafe.
+      const typeIdsToClear = new Set<StatusTypeId>();
+      for (const inst of target.statuses) {
+        if (inst.source.kind === 'equipment') continue;
+        const type = catalog.getStatusType(inst.typeId);
+        const polarity = type.aiHints?.polarity ?? 'debuff';
+        if (polarity !== 'buff') typeIdsToClear.add(inst.typeId);
+      }
+      for (const typeId of typeIdsToClear) {
+        workingState = removeStatus(workingState, { targetId, typeId }, catalog).newState;
+      }
+      target = getUnit(workingState, targetId);
+    }
+  }
+
+  // Healing total drives the action-log line ("Beowulf threw Potion at
+  // Marach for 96 HP"). Use `hit: true` (100% accuracy), `hpAfter` set
+  // to the absolute post-application HP for renderer settle (ADR-0074).
+  const targetResult: AbilityTargetResult = {
+    target: { kind: 'unit', unitId: targetId },
+    hit: true,
+    healing: healingTotal,
+    hpAfter,
+  };
+  return { newState: workingState, targetResult, generatedActions };
+}
+
+// --- system_mp_restore ---
+//
+// Engine-emitted MP-write parallel to system_heal. Bypasses Faith/MA/
+// resistance — items are flat-coefficient restores. KO'd targets gate
+// to 0 (vitals frozen while KO'd, matching the HP gate). Capped at
+// maxMp from `runModifyStatQuery`.
+export function reduceSystemMpRestore(
+  state: GameState,
+  action: Extract<Action, { type: 'system_mp_restore' }>,
+  catalog: Catalog,
+): ReduceResult<SystemMpRestoreOutcome> {
+  const { targetId, amount } = action.payload;
+  const target = state.units.get(targetId);
+  if (target === undefined) {
+    return {
+      newState: state,
+      outcome: { kind: 'system_mp_restore', targetId, amount, applied: 0 },
+      generatedActions: [],
+    };
+  }
+  if (target.vitals.hp <= 0 || target.removed) {
+    return {
+      newState: state,
+      outcome: {
+        kind: 'system_mp_restore',
+        targetId,
+        amount,
+        applied: 0,
+        mpAfter: target.vitals.mp,
+      },
+      generatedActions: [],
+    };
+  }
+  const maxMp = runModifyStatQuery(state, catalog, {
+    unit: target,
+    statName: 'maxMp',
+    baseValue: target.baseStats.maxMpBase,
+  });
+  const room = Math.max(0, maxMp - target.vitals.mp);
+  const applied = Math.max(0, Math.min(amount, room));
+  if (applied === 0) {
+    return {
+      newState: state,
+      outcome: {
+        kind: 'system_mp_restore',
+        targetId,
+        amount,
+        applied: 0,
+        mpAfter: target.vitals.mp,
+      },
+      generatedActions: [],
+    };
+  }
+  const newTarget: Unit = {
+    ...target,
+    vitals: { ...target.vitals, mp: target.vitals.mp + applied },
+  };
+  return {
+    newState: withUnit(state, newTarget),
+    outcome: {
+      kind: 'system_mp_restore',
+      targetId,
+      amount,
+      applied,
+      mpAfter: newTarget.vitals.mp,
+    },
+    generatedActions: [],
+  };
+}
+
+// --- system_unit_removed ---
+//
+// Permadeath fire: a KO'd unit accumulated `turnsKOd >= threshold` and
+// is now permanently out. The unit stays in `state.units` (the action
+// log and historical references point into it) but `removed: true`
+// excludes them from target eligibility, AoE selection, tile occupancy
+// queries, and the scheduler's KO virtual-CT accumulator. HP/MP stay
+// at 0/0.
+export function reduceSystemUnitRemoved(
+  state: GameState,
+  action: Extract<Action, { type: 'system_unit_removed' }>,
+): ReduceResult<SystemUnitRemovedOutcome> {
+  const { targetId } = action.payload;
+  const target = state.units.get(targetId);
+  if (target === undefined) {
+    throw new Error(
+      `reduceSystemUnitRemoved: target ${JSON.stringify(targetId)} not in state`,
+    );
+  }
+  if (target.removed) {
+    throw new Error(
+      `reduceSystemUnitRemoved: target ${JSON.stringify(targetId)} is already removed`,
+    );
+  }
+  const turnsKOdAtRemoval = target.turnsKOd;
+  const newTarget: Unit = { ...target, removed: true };
+  return {
+    newState: withUnit(state, newTarget),
+    outcome: { kind: 'system_unit_removed', targetId, turnsKOdAtRemoval },
+    generatedActions: [],
+  };
+}
+
+// Re-export the item-id type for the action.ts ItemId reference (kept
+// implicit otherwise — but the dispatcher signatures need it to type-
+// narrow correctly when reducers.ts is consumed via the barrel).
+export type { ItemId };
+
+// --- system_ko_tick ---
+//
+// Session 39a permadeath tick. A KO'd unit's virtual CT crossed the
+// trigger threshold (the scheduler keeps ticking KO'd units' CT just
+// like any other unit). The reducer:
+//   - Increments `turnsKOd` by 1.
+//   - Resets the unit's CT to 0 (next virtual tick is a fresh cycle).
+//   - If the incremented `turnsKOd` reaches the ruleset threshold,
+//     queues a `system_unit_removed` so the unit is marked out of
+//     battle. The orchestrator commits the queued action next.
+//
+// If the unit is no longer KO'd (revived between the tick fire and
+// the commit), the reducer is a no-op — the CT reset would be wrong
+// for a now-living unit, and the counter is moot. If the unit is
+// already removed, also a no-op (the scheduler shouldn't have ticked
+// them; defensive).
+export function reduceSystemKoTick(
+  state: GameState,
+  action: Extract<Action, { type: 'system_ko_tick' }>,
+  catalog: Catalog,
+): ReduceResult<SystemKoTickOutcome> {
+  const { targetId } = action.payload;
+  const target = state.units.get(targetId);
+  if (target === undefined) {
+    throw new Error(
+      `reduceSystemKoTick: target ${JSON.stringify(targetId)} not in state`,
+    );
+  }
+  if (target.vitals.hp > 0 || target.removed) {
+    // Revived (or already removed) between fire and commit. No-op.
+    return {
+      newState: state,
+      outcome: {
+        kind: 'system_ko_tick',
+        targetId,
+        turnsKOdAfter: target.turnsKOd,
+        removalQueued: false,
+      },
+      generatedActions: [],
+    };
+  }
+
+  const turnsKOdAfter = target.turnsKOd + 1;
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  const threshold = ruleset.permadeath.threshold;
+
+  const newTarget: Unit = {
+    ...target,
+    turnsKOd: turnsKOdAfter,
+    ct: 0,
+  };
+  const newState = withUnit(state, newTarget);
+  const removalQueued = turnsKOdAfter >= threshold;
+  const generatedActions: ProposedAction[] = removalQueued
+    ? [
+        {
+          type: 'system_unit_removed',
+          source: 'system',
+          payload: { targetId },
+        },
+      ]
+    : [];
+
+  return {
+    newState,
+    outcome: {
+      kind: 'system_ko_tick',
+      targetId,
+      turnsKOdAfter,
+      removalQueued,
+    },
+    generatedActions,
   };
 }

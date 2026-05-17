@@ -24,6 +24,7 @@ import {
   type Action,
   type Direction,
   type GameState,
+  type ItemId,
   type Position,
   type ProposedAction,
   type Unit,
@@ -78,6 +79,10 @@ export function validateAction(
       return validateMove(state, action, catalog);
     case 'use_ability':
       return validateUseAbility(state, action, catalog, isReaction);
+    case 'use_compound':
+      return validateUseCompound(state, action, catalog);
+    case 'use_throw_item':
+      return validateUseThrowItem(state, action, catalog);
     case 'wait':
       return validateWait(state, action);
     case 'set_facing':
@@ -88,10 +93,13 @@ export function validateAction(
     case 'charged_action_resolve':
     case 'system_heal':
     case 'system_damage':
+    case 'system_mp_restore':
     case 'system_mp_drain':
     case 'system_apply_status':
     case 'system_ct_push':
     case 'system_set_ct':
+    case 'system_ko_tick':
+    case 'system_unit_removed':
     case 'status_remove':
     case 'status_decrement_stack':
     case 'battle_end':
@@ -384,6 +392,143 @@ function validateSetFacing(
   const actor = getCurrentTurnActor(state, action.actorId);
   if ('valid' in actor) return actor;
   void action;
+  return VALID;
+}
+
+// Session 39a: Throw Item is uniform-range across all consumables —
+// the brief specifies 3 horizontal × 3 vertical with LoS for v1. A
+// per-item override could live on `ConsumableDefinition` later if a
+// new item needs different reach (e.g., a longer-range thrown bomb);
+// for the v1 four-item set the constant is fine.
+export const THROW_ITEM_RANGE = { horizontal: 3, vertical: 3 } as const;
+
+// Session 39a: Compound — Alchemist banks one of the selected item into
+// stockpile. Gated by: actor is active turn, Act budget available,
+// item exists in catalog, item is a consumable, sufficient MP for the
+// item's compoundMpCost. The unit's stockpile size is unbounded in
+// v1 (no stockpile cap per Chris's confirmation).
+function validateUseCompound(
+  state: GameState,
+  action: { readonly actorId?: UnitId; readonly payload: { readonly itemId: ItemId } },
+  catalog: Catalog,
+): ValidationResult {
+  if (action.actorId === undefined) return invalid('Compound action requires an actorId');
+  const actor = getCurrentTurnActor(state, action.actorId);
+  if ('valid' in actor) return actor;
+
+  const turn = state.turnState!;
+  if (turn.budget.actsAvailable <= 0) {
+    return invalid('No Act budget remaining this turn');
+  }
+
+  let item;
+  try {
+    item = catalog.getItem(action.payload.itemId);
+  } catch (err: unknown) {
+    if (err instanceof UnknownDefinitionError) {
+      return invalid(`Unknown item ${JSON.stringify(action.payload.itemId)}`);
+    }
+    throw err;
+  }
+  if (item.kind !== 'consumable') {
+    return invalid(
+      `Item ${JSON.stringify(action.payload.itemId)} is not a consumable — cannot Compound`,
+    );
+  }
+  if (actor.vitals.mp < item.compoundMpCost) {
+    return invalid(
+      `Insufficient MP for Compound (${item.name}): have ${actor.vitals.mp}, need ${item.compoundMpCost}`,
+    );
+  }
+  return VALID;
+}
+
+// Session 39a: Throw Item — Alchemist consumes one of the selected item
+// from stockpile and applies its effects to the target. Range 3h × 3v
+// with LoS. KO'd targets are valid (Phoenix Down revives them); the
+// non-revival items apply gated zero to KO'd targets.
+function validateUseThrowItem(
+  state: GameState,
+  action: {
+    readonly actorId?: UnitId;
+    readonly payload: { readonly itemId: ItemId; readonly target: AbilityTarget };
+  },
+  catalog: Catalog,
+): ValidationResult {
+  if (action.actorId === undefined) return invalid('Throw Item action requires an actorId');
+  const actor = getCurrentTurnActor(state, action.actorId);
+  if ('valid' in actor) return actor;
+
+  const turn = state.turnState!;
+  if (turn.budget.actsAvailable <= 0) {
+    return invalid('No Act budget remaining this turn');
+  }
+
+  let item;
+  try {
+    item = catalog.getItem(action.payload.itemId);
+  } catch (err: unknown) {
+    if (err instanceof UnknownDefinitionError) {
+      return invalid(`Unknown item ${JSON.stringify(action.payload.itemId)}`);
+    }
+    throw err;
+  }
+  if (item.kind !== 'consumable') {
+    return invalid(
+      `Item ${JSON.stringify(action.payload.itemId)} is not a consumable — cannot Throw`,
+    );
+  }
+
+  // Stockpile gate: must have at least one of the item.
+  const have = actor.stockpile.get(item.id) ?? 0;
+  if (have <= 0) {
+    return invalid(`No ${item.name} in stockpile`);
+  }
+
+  // Target must be a unit (Throw Item is single-target in v1).
+  if (action.payload.target.kind !== 'unit') {
+    return invalid('Throw Item requires a unit target');
+  }
+  const targetUnitId = action.payload.target.unitId;
+  let targetUnit;
+  try {
+    targetUnit = getUnit(state, targetUnitId);
+  } catch {
+    return invalid(`Target unit ${JSON.stringify(targetUnitId)} does not exist`);
+  }
+  // Removed units (permadeath, S39a) are not targetable. KO'd units
+  // still are — Phoenix Down revives, other items fizzle.
+  if (targetUnit.removed) {
+    return invalid(`Target unit ${JSON.stringify(targetUnitId)} has been removed from battle`);
+  }
+
+  // Range + LoS against the throw-item constant.
+  const sourceTile = tileAt(state.map, actor.position.x, actor.position.y, actor.position.layer);
+  if (sourceTile === undefined) return invalid('Source tile does not exist');
+  const targetTile = tileAt(
+    state.map,
+    targetUnit.position.x,
+    targetUnit.position.y,
+    targetUnit.position.layer,
+  );
+  if (targetTile === undefined) return invalid('Target tile does not exist');
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  const inRangeOk = inRange({
+    source: endpointFrom(actor.position, sourceTile.elevation),
+    target: endpointFrom(targetUnit.position, targetTile.elevation),
+    params: {
+      horizontalMax: THROW_ITEM_RANGE.horizontal,
+      horizontalMin: ruleset.rangeDefaults.minHorizontal,
+      verticalMax: THROW_ITEM_RANGE.vertical,
+    },
+  });
+  if (!inRangeOk) return invalid('Target is out of throw range');
+  const losOk = hasLineOfSight(
+    state.map,
+    endpointFrom(actor.position, sourceTile.elevation),
+    endpointFrom(targetUnit.position, targetTile.elevation),
+  );
+  if (!losOk) return invalid('Line of sight is blocked');
   return VALID;
 }
 

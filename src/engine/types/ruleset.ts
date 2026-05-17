@@ -230,6 +230,18 @@ export interface RulesetChargedActions {
   readonly pausingStatusTypeIds: ReadonlyArray<StatusTypeId>;
 }
 
+// Session 39a: permadeath policy. A KO'd unit's virtual CT keeps
+// accumulating; each time it crosses `triggerThreshold` (CT 100), the
+// engine increments their `turnsKOd` and resets virtual CT toward
+// zero. When `turnsKOd >= threshold`, the engine emits
+// `system_unit_removed` and the unit is permanently out. Revival
+// (Phoenix Down) resets `turnsKOd` to 0 and brings the unit back at
+// CT 0. Threshold-3 (per the brief) gives the team three virtual turns
+// to mount a revival, scaled to the KO'd unit's own Speed.
+export interface RulesetPermadeath {
+  readonly threshold: number;
+}
+
 export interface RulesetDefinition {
   readonly id: RulesetId;
   readonly name: string;
@@ -247,4 +259,5 @@ export interface RulesetDefinition {
   readonly initialCT: RulesetInitialCT;
   readonly bucketCapacities: RulesetBucketCapacities;
   readonly chargedActions: RulesetChargedActions;
+  readonly permadeath: RulesetPermadeath;
 }

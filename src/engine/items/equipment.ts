@@ -10,7 +10,9 @@
 
 import type { Catalog } from '../catalog/index.ts';
 import type {
+  ConsumableDefinition,
   EquipmentDefinition,
+  ItemDefinition,
   WeaponEquipment,
 } from '../catalog/index.ts';
 import type {
@@ -39,6 +41,19 @@ function readSlotAsWeapon(itemId: ItemId | null, catalog: Catalog): WeaponEquipm
   return null;
 }
 
+// Session 39a: predicates to narrow the widened `ItemDefinition` union
+// (equipment + consumables). Equipment paths use `isEquipment` to filter
+// before reading equipment-only fields like `bucketCapacityMods` or
+// `classRestrictions`. Consumables never appear in equipment slots
+// (rejected at `validateSlotItem`), so `iterateEquippedItems` filters
+// defensively and narrows the yield type back to `EquipmentDefinition`.
+export function isEquipment(item: ItemDefinition): item is EquipmentDefinition {
+  return item.kind !== 'consumable';
+}
+export function isConsumable(item: ItemDefinition): item is ConsumableDefinition {
+  return item.kind === 'consumable';
+}
+
 // Walk every non-empty slot on the unit's equipment, yielding (slotId,
 // itemDefinition) pairs in the canonical slot order. Used by the
 // equipment hook-source contributor to enumerate the unit's items
@@ -50,7 +65,13 @@ export function* iterateEquippedItems(
   for (const slot of EQUIPMENT_SLOT_IDS) {
     const id = unit.equipment[slot];
     if (id === null) continue;
-    yield { slot, item: catalog.getItem(id) };
+    const item = catalog.getItem(id);
+    // Session 39a: ItemDefinition now spans equipment + consumables;
+    // equipment slots only hold equipment (enforced by validateSlotItem)
+    // so this filter is defensive — narrows the yield type while
+    // skipping a consumable id that somehow landed in a slot.
+    if (!isEquipment(item)) continue;
+    yield { slot, item };
   }
 }
 
@@ -66,8 +87,15 @@ export class EquipmentSlotMismatchError extends Error {
 
 export function validateSlotItem(
   slot: EquipmentSlotId,
-  item: EquipmentDefinition,
+  item: ItemDefinition,
 ): void {
+  // Session 39a: consumables never live in equipment slots — reject
+  // explicitly before falling through to the equipment-kind checks.
+  if (item.kind === 'consumable') {
+    throw new EquipmentSlotMismatchError(
+      `Slot ${slot} expects equipment, received a consumable item`,
+    );
+  }
   // Hand slots accept weapons or shields. Other slots require their
   // kind exactly. Per Session 29: shields became a real kind (vs the
   // pre-Session-29 placeholder comment) so Knight-only shield content

@@ -5,6 +5,8 @@ export {
   EQUIPMENT_SLOT_IDS,
   EquipmentSlotMismatchError,
   getEquippedWeapon,
+  isConsumable,
+  isEquipment,
   iterateEquippedItems,
   validateSlotItem,
 } from './equipment.ts';

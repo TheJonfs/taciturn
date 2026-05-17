@@ -46,6 +46,12 @@ export function tileAt(
 //
 // Per core-types.md, `unit.position` is the single source of truth for
 // occupancy; tiles do not store it.
+//
+// Session 39a: permadead (`removed`) units no longer occupy any tile.
+// Their `position` field is preserved for historical-log purposes but
+// occupancy queries skip them — pathfinding sees the tile as empty,
+// AoE selection misses them, and `unitAt` returns the next-best
+// (typically undefined). KO'd-but-not-removed units still occupy.
 export function unitAt(
   state: GameState,
   x: number,
@@ -54,6 +60,7 @@ export function unitAt(
 ): Unit | undefined {
   assertInBounds(state.map, x, y);
   for (const unit of state.units.values()) {
+    if (unit.removed) continue;
     const p = unit.position;
     if (p.x === x && p.y === y && p.layer === layer) return unit;
   }

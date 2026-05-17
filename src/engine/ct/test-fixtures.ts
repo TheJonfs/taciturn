@@ -19,6 +19,7 @@ import {
   type DamageTag,
   type Direction,
   type GameState,
+  type ItemId,
   type Loadout,
   type Position,
   type StatusInstance,
@@ -52,6 +53,9 @@ export function makeUnit(overrides: {
   readonly facing?: Direction;
   readonly loadout?: Loadout;
   readonly equipment?: UnitEquipment;
+  readonly stockpile?: ReadonlyMap<ItemId, number>;
+  readonly turnsKOd?: number;
+  readonly removed?: boolean;
 }): Unit {
   return {
     id: mkUnitId(overrides.id),
@@ -77,6 +81,9 @@ export function makeUnit(overrides: {
     vitals: { hp: overrides.hp ?? 100, mp: overrides.mp ?? 0 },
     resistances: overrides.resistances ?? new Map(),
     statuses: overrides.statuses ?? [],
+    stockpile: overrides.stockpile ?? new Map(),
+    turnsKOd: overrides.turnsKOd ?? 0,
+    removed: overrides.removed ?? false,
   };
 }
 

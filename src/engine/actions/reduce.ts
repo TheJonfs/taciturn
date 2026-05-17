@@ -22,10 +22,15 @@ import {
   reduceSystemSetCt,
   reduceSystemDamage,
   reduceSystemHeal,
+  reduceSystemKoTick,
   reduceSystemMpDrain,
+  reduceSystemMpRestore,
+  reduceSystemUnitRemoved,
   reduceTurnEnd,
   reduceTurnStart,
   reduceUseAbility,
+  reduceUseCompound,
+  reduceUseThrowItem,
   reduceWait,
   type ReduceResult,
 } from './reducers.ts';
@@ -46,6 +51,10 @@ export function reduce(state: GameState, action: Action, catalog: Catalog): Redu
       return reduceMove(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'use_ability':
       return reduceUseAbility(state, action, catalog) as ReduceResult<ActionOutcome>;
+    case 'use_compound':
+      return reduceUseCompound(state, action, catalog) as ReduceResult<ActionOutcome>;
+    case 'use_throw_item':
+      return reduceUseThrowItem(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'wait':
       return reduceWait(state, action) as ReduceResult<ActionOutcome>;
     case 'set_facing':
@@ -62,6 +71,12 @@ export function reduce(state: GameState, action: Action, catalog: Catalog): Redu
       return reduceSystemDamage(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_mp_drain':
       return reduceSystemMpDrain(state, action, catalog) as ReduceResult<ActionOutcome>;
+    case 'system_mp_restore':
+      return reduceSystemMpRestore(state, action, catalog) as ReduceResult<ActionOutcome>;
+    case 'system_ko_tick':
+      return reduceSystemKoTick(state, action, catalog) as ReduceResult<ActionOutcome>;
+    case 'system_unit_removed':
+      return reduceSystemUnitRemoved(state, action) as ReduceResult<ActionOutcome>;
     case 'system_apply_status':
       return reduceSystemApplyStatus(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_ct_push':

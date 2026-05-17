@@ -21,90 +21,89 @@ What does *not* belong here:
 
 ---
 
-## From sessions 2026-05-15 to 2026-05-17 (post-S38 playtest debrief + chain of fixes)
+## From Session 39a (2026-05-17) — Alchemist substrate
 
-Two in-between-sessions days of playtest-driven fixes against the deployed v1. No new session number assigned — this is empirical tuning + crash-class bug response, not roadmap work. **8 commits** today (`0be3d0d` → `289d7a9`). **1152 tests passing across 105 files** (up from 1138/104 at the start; +14 net).
+**1176 tests passing across 106 files** (up from 1152 / 105 at session start; +24 in the new `session-39a-integration.test.ts`). S39a is engine-only — no UI surfaces touch revival / permadeath / stockpiles yet; **S39b lands the Alchemist class, R/S/M abilities, AI heuristics, action-menu submenu, target-selector UI, stockpile display, permadeath badge, and the sample team template**.
+
+### What S39a shipped
+
+**Engine surface (substrate):**
+- **`Unit` state extensions:** `stockpile: ReadonlyMap<ItemId, number>`, `turnsKOd: number`, `removed: boolean`. All required; `makeUnit` factory + `createInitialState` default them.
+- **`ConsumableDefinition`** as a `kind: 'consumable'` variant of `ItemDefinition`. Discrete effect spec (`hpRestore` / `mpRestore` / `removeKO` / `clearStatuses`). Four v1 items registered: Potion / Phoenix Down / Remedy / Ether. ADR-0077.
+- **Two new player action kinds:** `use_compound` (self-targeted, MP-gated, +1 stockpile) and `use_throw_item` (range 3h × 3v with LoS, target-anchored, applies item effects).
+- **KO recovery:** Phoenix Down revives a KO'd target (HP=1 baseline + PA × 4 heal, `turnsKOd` reset, CT reset to 0). Cannot revive a `removed` unit.
+- **Permadeath timer:** scheduler ticks KO'd units' virtual CT alongside everyone else; at trigger threshold, emits `system_ko_tick` → reducer increments `turnsKOd` and resets CT → at ruleset threshold (default 3), queues `system_unit_removed`. Per Chris's S39 D6 call: per-virtual-would-have-been-turn cadence, scaled to the KO'd unit's Speed. ADR-0076.
+- **`system_mp_restore` primitive** parallel to `system_heal`. ADR-0074 absolutes preserved (`mpAfter` on outcome). First v1 consumer is Ether.
+- **`removed` flag propagation:** `unitAt` skips removed units (pathfinding + AoE + tile inspection automatically treat their tile as empty), `validateUseThrowItem` rejects removed targets, `projectUpcoming` skips them from the queue tower.
+- **Ruleset extension:** `permadeath: { threshold: number }`. Default 3; test fixture accepts override.
+
+**ADRs written:**
+- [ADR-0076](docs/decisions/0076-permadeath-timer-and-removed-units.md) — permadeath timer + `removed` unit state.
+- [ADR-0077](docs/decisions/0077-consumable-items-and-mp-restore-primitive.md) — consumable items catalog kind + MP-restore primitive.
 
 ### Engine operational changes the next session should know about
 
-These shift how the engine behaves in ways that future content / mechanics work needs to be aware of:
+- **`reduceUseCompound` / `reduceUseThrowItem` consume the actor's Act** via the shared `decrementActBudget` helper (same as `reduceUseAbility`). No reactions trigger from either action — items aren't damage-tagged and don't enter the `onActionTargeted` chain.
+- **`isEquipment(item: ItemDefinition): item is EquipmentDefinition`** and **`isConsumable`** predicates exported from `src/engine/items/`. Use these to narrow the widened `ItemDefinition` union before reading equipment-only fields (`bucketCapacityMods`, `classRestrictions`, etc.). Equipment paths inside the engine (`iterateEquippedItems`, `readSlotAsWeapon`) filter consumables defensively and narrow their yield type back to `EquipmentDefinition`.
+- **`THROW_ITEM_RANGE`** constant in `src/engine/actions/validate.ts` — hardcoded 3h × 3v for all v1 consumables. A future item with longer/shorter reach would need a per-item field on `ConsumableDefinition`; the constant is the seam.
+- **Scheduler third entity kind: `'ko_unit'`.** KO'd-but-not-removed units accumulate virtual CT via the same `computeSpeed` path as living units; their winner fires `system_ko_tick` instead of `turn_start`. Removed units are filtered out entirely. At exactly-equal CT, the comparator prefers `'unit'` over `'ko_unit'` so a real turn beats a bookkeeping tick.
 
-- **Reactions cannot trigger reactions** (`0be3d0d`). The design-doc intent ([`docs/design/action-resolution.md:157`](docs/design/action-resolution.md) — "Type-based suppression") is now enforced at the engine layer. `isReaction` is threaded `reduceUseAbility` → `resolveAbilityTargets` → `resolveAbilityEffect`; when the cast itself is a reaction, the post-application `runOnActionTargeted` call is skipped. New reaction content authoring doesn't need to think about it — the guard is automatic. The prior `0021` Brave-gated trigger still runs.
+### Suggested scope for S39b
 
-- **Charged actions clear on caster KO** (`0be3d0d`). `state.chargedActions` is filtered at the two KO-detection sites (ability-damage pipeline + `reduceSystemDamage`) via a new `clearChargedActionsForCaster(state, koUnitId)` helper. The existing `reduceChargedActionResolve` caster-KO short-circuit becomes unreachable in normal flow; kept as a defensive backstop. Future "spell completes from the grave" content (none in v1) would opt out per-ability.
+The substrate is testable and tests pass. S39b is the content + UI layer:
 
-- **`Charging` status has `removeOnSourceKO: true`** (`0be3d0d`). The existing `collectSourceKoSweep` cleans up the leftover `Charging` instance when the caster KOs, so a hypothetical future revival path doesn't see a stale `Charging` without a matching `ChargedAction`.
+**Class:**
+- Alchemist class in `src/content/classes/alchemist.ts`. Stats per brief: Level 25 → 126 HP / 36 MP / 8 PA / 5 MA / Move 4 / Jump 3 / Evades 6-4-0. Universal armor/helm/accessory/weapons (D1, D2 per brief).
+- Reaction passive: PA Up on enemy hit (+1 PA, 3 turns, refresh-on-trigger per D4).
+- Movement passive: HP heal = (tiles moved)² at end of intentional movement (per D5).
+- Support passive: Field Kit — battle-start stockpile of `{ potion: 1, phoenix_down: 1, remedy: 1 }`. Cross-class cost 1 (D8).
 
-- **`unit_or_tile` is a new `TargetingSpec.kind`** (`0be3d0d` + `99e8184`). FFT-canonical "pin a unit (spell follows them) OR pin a tile (spell lands on the tile regardless of occupant)" pattern. `validateAction` accepts either `{ kind: 'unit' }` or `{ kind: 'tile' }` payload. Engine's `resolveAoeAnchor` was already polymorphic on target kind, so AoE charged spells inherited the behavior automatically (`unit` payload → AoE re-anchors at unit's current position at resolve; `tile` → AoE blooms from the tile). UI exposes a `T` keyboard toggle in the action menu's target-select panel for the unit_or_tile abilities. **20 charged abilities** now use this kind (13 single-target + 7 AoE).
-  - AI treats `unit_or_tile` like `single_unit` for v1 (always pins the unit). Helper `targetsUnit(kind)` introduced in `src/ai/basic.ts` for the boolean check.
-  - When adding a new charged single-target or AoE ability, **default to `unit_or_tile`** rather than `single_unit` / `tile` unless there's a specific reason to lock the mode.
+**UI:**
+- **Action-menu submenu** — new FSM state for Compound's item-pick step (action button → item selector listing each item with current stockpile count + MP cost). Throw Item also needs a new step (target first, then item picker per planner's recommendation). Genuinely new surface; pattern Calculator will reuse later.
+- **Stockpile display in unit detail panel** — show `{item: count}` for the selected unit.
+- **Permadeath countdown badge** on KO'd unit's roster card / battlefield marker — read `unit.turnsKOd` vs. `ruleset.permadeath.threshold`. Color-shift the badge when imminent (e.g., turnsKOd === threshold - 1).
+- **Action log entries** for `use_compound`, `use_throw_item`, `system_ko_tick`, `system_unit_removed`. The action-log format files in `src/ui/action-log-format.ts` need new branches.
 
-- **`computeSpeed` floors the modifier-chain result** (`237aafc`). Haste's ×1.5 multiplier against odd base Speed used to produce fractional CT accumulation (e.g., Speed 11 + Auto-Haste → 16.5). Now floored to integer before the ruleset-floor clamp. Future content that introduces non-integer Speed modifiers should be aware that the result will be floored.
+**AI:**
+- Minimal v1 per brief: stockpile-aware compound choice (Phoenix Down if any ally KO'd, Potion at <50% HP ally, otherwise stockpile-build). Throw-Item priority: revive KO'd > heal <50% HP ally > cleanse > stockpile.
+- Use the existing `targetsUnit` helper pattern from `src/ai/basic.ts` for the new action kinds.
 
-- **`UiController.endTurn()` defers when a commit is queued** (`39ac3ab`). The single-slot semantics still hold for `submit`, but `endTurn()` can be called immediately after `submit()` — the controller sets an `endTurnPending` flag and surfaces `end-turn` on the controller pump *after* the queued commit drains. The legitimate caller is `submitWait`'s `set_facing` → `endTurn` sequence; the prior assertion threw on every facing-changed Wait commit. `hasPending()` now reports either queue slot or the deferred end-turn.
+**Sample team:**
+- Retrofit Defensive Front (replace the Knight's Earth-Spells secondary stopgap with the Alchemist's Field Kit) OR add a new "Field Hospital" template. Planner recommended the retrofit — it cleanly demonstrates the real healer solving the stopgap.
 
-- **`runModifyAoeShape` now threads through forecast / UI overlay / AI scoring** (`237aafc`). Aether Bloom worked at the live cast site since session 19, but three other surfaces walked the base shape: `projectAoePreview`, `resolveAoeTiles`, `aoeTilesAffected`. All three now call `runModifyAoeShape` against the caster's hooks. The hook is now exported from `engine/hooks/index.ts` for UI consumption. **When adding a new modifyAoeShape consumer** (or any other hook that mutates ability-resolution shape), check that the forecast / UI overlay / AI use the same modifier chain — there are 4 sites total today (the engine's `resolveAoeDispatch`, the forecast preview, the UI overlay, the AI scoring).
+### Things noticed but not acted on (low-priority watchpoints)
 
-### Content changes the next session should know about
-
-- **Status duration rebalance** (`0be3d0d`). 9 abilities cut their `per_unit_ct` duration numbers from the original 24/36/12 (which meant 24-36 of the holder's *turn cycles* — way too long) to FFT-shape: hard-disables 3, soft-disables 4, buffs 6-10. See [`docs/playtest-watch.md`](docs/playtest-watch.md) entry for the full table + tuning signals to watch. **When applying new `per_unit_ct` statuses, calibrate against this rebalance** — duration is in *holder turn cycles*, not game ticks.
-
-### Observability infrastructure
-
-- **Global error surface** (`0be3d0d` + `9f971b6` + `57dab7d`). `src/app/error-surface.tsx` installs `window.error` / `unhandledrejection` / `vite:preloadError` listeners at module load (`main.tsx`). Captured errors persist to `sessionStorage` and surface via a floating banner with expandable stack + component stack. Has saved hours of debugging in this debrief — production stack traces went from "the screen flashed white" to copy-paste-able stacks. **When investigating playtest bug reports, ask the player to expand the banner first** (`Details` button) — it gives the same info devtools would.
-
-- **WebGL context-loss listeners** (`39ac3ab`). `BattleView` mount installs `webglcontextlost` / `webglcontextrestored` on the Pixi canvas, calls `preventDefault()` on lost (so the browser preserves state for restore), and forwards both to the error surface. Banner recommends reload; partial in-place recovery is unreliable. Future polish can sessionStorage the battle state and reinit the renderer in place.
-
-- **Vite preload-error auto-reload** (`9f971b6` + `57dab7d`). After a redeploy, the user's open tab holds stale HTML pointing at chunk URLs the new build no longer ships. `vite:preloadError` fires → handler one-shots `location.reload()` (with 10s cooldown to avoid loops on genuinely-missing chunks) → also clears the captured-errors trail so the banner doesn't persist after the successful self-heal. Should make the redeploy-while-tab-open flow self-healing.
-
-### Build configuration the next session should know about
-
-- **Pixi co-located into a single chunk** (`289d7a9`). `vite.config.ts` has a `manualChunks` rule that puts all `node_modules/pixi.js/**` and `node_modules/@pixi/**` into a single `pixi-*.js` chunk (553 KB gzip 161 KB). Required because Pixi v8's `autoDetectRenderer` does `await import('./gl/WebGLRenderer.mjs')` internally and Vite's default code-split would produce a `WebGLRenderer-*.js` chunk that observed `undefined` on the destructured export in production (Vercel CDN). `main.tsx` also has a static `import { WebGLRenderer } from 'pixi.js'` + `void WebGLRenderer` to anchor the symbol against tree-shaking. **If you split Pixi differently in the future** (e.g., to optimize initial-load for a Pixi-free title screen), retest the deployment-screen mount on the live URL — it's the canary for this class of bug.
-
-### UI polish landed
-
-- **`TransitionOverlay`** (`a326d6e`) — full-screen "Returning to Main Menu…" overlay covers the ~5s battle→title unmount lag. `flushSync` forces it to paint on its own render tick before the slow `setScreen('title')` triggers BattleView's unmount. The lag's root cause hasn't been profiled — overlay just masks it. If the lag becomes a problem on a slower machine or with more action-log entries, this becomes a real perf-investigation task.
-
-### Things noticed but not acted on (next-session candidates, low priority)
-
-- **Main Menu transition lag root cause** — masked by the overlay (`a326d6e`) but not diagnosed. Suspects: Pixi destroy with many sprites, React reconciliation of a long action log, or browser GC pause. Profile when convenient by wrapping the cleanup steps with `performance.mark()` / `performance.measure()` and inspecting in DevTools.
-
-- **Fire Embrace target-rejection mystery** (Chris's S38 playtest report). Engine confirmed correct (STACK_ADDITIVE same-caster + different-caster both merge to magnitude 2 / stacks 2 per `playtest-39-fixes.test.ts`). The user-observed "can't select previously-affected unit as target" is most likely a range check or arc-targetable failure. Dev-mode `[targeting] reject` console.debug in `src/ui/use-turn-flow.ts:691-707` will log the reason next time it fires. Chris will grep the console.
-
-- **TS strict-mode error pile (~200 errors, S34 carry)**. `vercel.json` still bypasses with `vite build` instead of `npm run build`. Cleanup unblocks the typecheck gate. Mostly mechanical (`exactOptionalPropertyTypes` mismatches, a few `Action | undefined` narrowings, the `'water' as DamageTag` literal).
-
-- **Per-target "resolves before / after" forecast for AoE** — `99e8184` fixed the picker to use the hover anchor's occupant, but the forecast only shows ONE per-cast resolves-before line, not one per affected target. Worth considering if AoE timing strategy becomes important.
-
-- **Forecast for AoE in `await-confirm` doesn't follow hover** — by design (the anchor is pinned to the picked target). If you want live-hover-preview while await-confirm is up, that's a different feature.
+- **Speed-scaled permadeath cadence game-feel.** Threshold 3 + per-virtual-turn means a Speed-12 unit (no v1 class hits this, but Boots of Haste on a Speed-10 caster does) effectively dies 1.5× faster than a Speed-8 one. Playtest read: does this feel right for fast classes, or punish them disproportionately? Knob to tune first is the ruleset threshold, not the cadence model. Capture in `docs/playtest-watch.md` once the Alchemist is in play.
+- **Removed unit's position.** A removed unit's `position` field is preserved (action-log historical references), but `unitAt` skips them so their tile is empty. No FFT-style crystal/treasure leftover for v1. Out of scope this session; possible future content add.
+- **No reactions fire on Throw Item.** Items aren't damage-tagged so `onActionTargeted` doesn't engage. If a future item is offensive (acid, debuff bomb), this design needs revisiting — but the v1 four items are all helper/healing so it's correct today.
+- **Consumable detail rendering** (`formatConsumableDetail` in `src/ui/detail-text.ts`) is a minimal stub. When S39b adds the action-menu submenu, the tooltip / detail panel will surface consumable info — the stub is enough for now but should be reviewed alongside the submenu UI.
+- **Compound submenu architectural seam.** Chris's preference was the single-action-with-submenu pattern (S39 plan-review, decision 1). The substrate doesn't lock this in — `use_compound` is one action with an `itemId` payload, so the UI surface can be either "one button + sub-step" or "four buttons each pre-binding itemId" without engine changes. Submenu is the right call (per the brief and the Calculator argument), but the engine isn't in the way of the fallback either.
 
 ### Considered and rejected this session
 
-- **Extending `UiController` to a multi-slot FIFO queue** — would have let `submit(set_facing) + endTurn()` work without the deferred-flag trick. Rejected because the single-slot was intentional backpressure against UI clicks piling up; a FIFO would silently accept double-clicks the player didn't mean. The flag pattern preserves the assertion for `submit` while letting the legitimate `set_facing + endTurn` flow through.
-
-- **Adding `facing?: Direction` to `turn_end` payload** — would have collapsed the `submitWait` two-action sequence into one. Rejected because `set_facing` exists as a standalone action for forward-compat (mid-action facing changes, post-cast turns) and folding it into `turn_end` would tangle two separate concerns.
-
-- **`extensions.add(WebGLRenderer)`** — first attempt at fixing the Pixi destructure crash. Threw "Extension class must have an extension object" because WebGLRenderer is the renderer class, NOT an extension definition. The actual fix is the static reference + `manualChunks` co-location.
-
-- **AI special-casing `unit_or_tile` cone/line abilities to pick tile-mode** — would have preserved the pre-S38 AI behavior of picking a direction tile. Rejected because picking a unit-mode payload for cone/line means the AoE re-derives direction from the unit's position at resolve time (FFT-canonical "lead the target") — arguably better AI tactically, definitely not worse. Test updated to accept either payload shape.
-
-### Suggested scope for the next session
-
-No fixed roadmap entry — like the S38 close, this is empirical tuning. Strong candidates:
-
-- **Drive the live deployment** (now that `289d7a9` is committed, push + redeploy → verify the deployment-screen mount, terrain bar resurfacing, and Aether Bloom AoE preview against production).
-- **Status duration rebalance signals** — watch how the new 3/4/6/10 numbers play. Captured in `docs/playtest-watch.md`.
-- **Continue empirical playtest cycle** — surface more bugs through the now-much-better error surface; respond.
-- **TS strict-mode cleanup** — when there's appetite for mechanical work.
+- **Per-ally-turn-start permadeath cadence.** Planner's initial recommendation: uniform 3-ally-turns revival window regardless of who KO'd. Chris picked per-virtual-would-have-been-turn instead. Rationale: closer FFT-canonical feel, "your fast units die faster" reads right tactically.
+- **Items as `availability: 'hidden'` abilities.** Would have reused the ability pipeline. Rejected — conflates "thing thrown" with "thing castable" and forces every item to carry irrelevant ability fields. ADR-0077.
+- **Damage-pipeline `'mp_restore'` tag** parallel to `'healing'`. Reuses variance/resistance/cap stages. Rejected — items deliberately bypass the pipeline; flat-coefficient is the design. ADR-0077.
+- **Per-item throw range on `ConsumableDefinition`.** All four v1 items share 3h × 3v range. Hardcoded as `THROW_ITEM_RANGE` constant; per-item field can land when a consumer ships.
+- **`system_ko_tick` + `system_unit_removed` as a single combined action.** Splitting them makes the action-log lines clear (tick-counter advancing vs. terminal removal) and matches the action-log readability discipline.
 
 ### Longer-term carry-forward (mostly unchanged from prior handoff)
 
-- TS strict-mode errors (~200) — S34 carry; `vercel.json` works around.
-- Pass-and-play toggle + dual deployment + battle-loop AI gating — dedicated future session.
-- AI deployment logic / random-fill — Red still uses authored placements.
-- Full battle → results → continuity-button loop manual playtest — S34 carry; now also stress-tested by today's playtest debrief but bears repeating.
-- Spiked Mail / Tricorn / Crusader's Helm / Light-Dark Robe playtest reads — S37 items; in `docs/playtest-watch.md`.
-- Bedrock Stride real-knockback playtest, Tidewalker tempo, Purifier×Burn readability, Magus Crown calibration, Tintinibar Regen calibration, Sorcerer's Robe Move +1 — all still in `docs/playtest-watch.md`.
-- A real healer class (White Mage or similar) — Defensive Front's Earth-Spells-on-Knight is still the stopgap.
-- Gender / zodiac field implementation — Decision 13A: state shape extensible; lands when needed.
+- **TS strict-mode errors (~200) — S34 carry.** `vercel.json` works around with `vite build` instead of `npm run build`. S39a's typecheck pass shows 0 new errors introduced (230 total, same as session start).
+- **Pass-and-play toggle + dual deployment + battle-loop AI gating** — dedicated future session.
+- **AI deployment logic / random-fill** — Red still uses authored placements.
+- **Full battle → results → continuity-button loop manual playtest** — S34 carry; bears another pass once Alchemist is in.
+- **Spiked Mail / Tricorn / Crusader's Helm / Light-Dark Robe playtest reads** — S37 items; in `docs/playtest-watch.md`.
+- **Bedrock Stride real-knockback playtest, Tidewalker tempo, Purifier × Burn readability, Magus Crown calibration, Tintinibar Regen calibration, Sorcerer's Robe Move +1** — all still in `docs/playtest-watch.md`.
+- **Status duration rebalance signals** (S38-fixes carry) — watch how 3/4/6/10 numbers play.
+- **Main Menu transition lag root cause** (S38-fixes carry) — masked by `TransitionOverlay`; not diagnosed. Profile when convenient.
+- **Fire Embrace target-rejection mystery** (S38 playtest) — dev-mode `[targeting] reject` console.debug will log next occurrence.
+- **Per-target "resolves before / after" forecast for AoE** (S38-fixes carry) — picker fix landed; only one per-cast line shows. Worth considering if AoE timing strategy becomes important.
+- **Gender / zodiac field implementation** (Decision 13A) — state shape extensible; lands when needed.
+- **Knight-exclusive armor access for Alchemist** (S39 D1 trajectory) — Universal-only for v1.
+- **Additional consumables (Hi-Potion, Holy Water, Elixir)** — out of scope per S39 brief; pure content adds in a future session.
+- **Buff/debuff consumables** — deferred per S39 design notes; would need an `applyStatus` field on `ConsumableEffects`.
+- **Sophisticated Alchemist AI tactics** (banking, prediction, prep timing) — out of scope; v1 reactive heuristics in S39b.
+- **Calculator class** — future expansion; will reuse Compound submenu UX pattern, may reuse stockpile-as-engine-state.
 
 ---

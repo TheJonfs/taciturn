@@ -124,6 +124,10 @@ function envelopeFor(
       return { ...envelope, type: 'move', payload: proposed.payload };
     case 'use_ability':
       return { ...envelope, type: 'use_ability', payload: proposed.payload };
+    case 'use_compound':
+      return { ...envelope, type: 'use_compound', payload: proposed.payload };
+    case 'use_throw_item':
+      return { ...envelope, type: 'use_throw_item', payload: proposed.payload };
     case 'wait':
       return { ...envelope, type: 'wait', payload: proposed.payload };
     case 'set_facing':
@@ -148,6 +152,12 @@ function envelopeFor(
       return { ...envelope, type: 'system_set_ct', payload: proposed.payload };
     case 'system_mp_drain':
       return { ...envelope, type: 'system_mp_drain', payload: proposed.payload };
+    case 'system_mp_restore':
+      return { ...envelope, type: 'system_mp_restore', payload: proposed.payload };
+    case 'system_ko_tick':
+      return { ...envelope, type: 'system_ko_tick', payload: proposed.payload };
+    case 'system_unit_removed':
+      return { ...envelope, type: 'system_unit_removed', payload: proposed.payload };
     case 'status_remove':
       return { ...envelope, type: 'status_remove', payload: proposed.payload };
     case 'status_decrement_stack':

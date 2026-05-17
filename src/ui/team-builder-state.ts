@@ -27,6 +27,7 @@ import {
   ALL_BUCKET_IDS,
   EMPTY_LOADOUT,
   createInitialState,
+  isEquipment,
   runModifyStatQuery,
   type AbilityId,
   type BattleConfig,
@@ -234,6 +235,8 @@ export function classCanEquip(
   item: ItemDefinition,
   catalog: Catalog,
 ): boolean {
+  // Consumables aren't equipment — no slot accepts them.
+  if (!isEquipment(item)) return false;
   if (!slotAcceptsKind(slot, item.kind)) return false;
   const cls = catalog.getClass(classId);
   if (!cls.equipmentSlots[slot]) return false;
@@ -258,7 +261,9 @@ export function draftBucketCapacity(
   for (const slot of EQUIPMENT_SLOT_IDS) {
     const itemId = equipment[slot];
     if (itemId === null) continue;
-    const delta = catalog.getItem(itemId).bucketCapacityMods?.get(bucketId);
+    const item = catalog.getItem(itemId);
+    if (!isEquipment(item)) continue;
+    const delta = item.bucketCapacityMods?.get(bucketId);
     if (delta !== undefined) capacity += delta;
   }
   return Math.max(0, Math.floor(capacity));

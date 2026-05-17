@@ -30,6 +30,19 @@ import {
   type UnitId,
 } from '../types/index.ts';
 
+// Session 39a permadeath: KO'd-but-not-removed units accumulate virtual
+// CT alongside everyone else. When their virtual CT triggers, the
+// scheduler emits a `system_ko_tick` instead of `turn_start`; the
+// reducer bumps `turnsKOd` and either resets CT or queues
+// `system_unit_removed` if the threshold is crossed. Removed units are
+// excluded from the snapshot entirely.
+//
+// The KO virtual-CT machinery uses each unit's natural `computeSpeed`,
+// so a faster KO'd unit dies faster (each virtual-tick cycle takes
+// fewer engine ticks). This matches Chris's S39 D6 confirmation: the
+// permadeath window is "3 virtual turns of the KO'd unit themselves,"
+// scaled to their own Speed.
+
 export interface ScheduledAction {
   readonly newState: GameState;
   readonly proposed: ProposedAction;
@@ -75,10 +88,12 @@ export function advanceToNextEvent(
 
   // Apply the CT advance to state. Charged actions are re-built from
   // the snapshot's CT values; units get their `ct` field updated. Other
-  // fields are untouched.
+  // fields are untouched. KO'd units' virtual CT lives on the same
+  // `ct` field — the field stores both real CT (for living units) and
+  // virtual CT (for KO'd-recoverable units), interpreted by context.
   const newUnits = new Map(state.units);
   for (const e of snapshot) {
-    if (e.entityKind !== 'unit') continue;
+    if (e.entityKind !== 'unit' && e.entityKind !== 'ko_unit') continue;
     const existing = newUnits.get(e.entityId as UnitId);
     if (existing === undefined) continue;
     if (existing.ct === e.ct) continue;
@@ -107,11 +122,17 @@ export function advanceToNextEvent(
           source: 'system',
           payload: { unitId: winner.entityId as UnitId },
         }
-      : {
-          type: 'charged_action_resolve',
-          source: 'system',
-          payload: { chargedActionId: winner.entityId as ChargedActionId },
-        };
+      : winner.entityKind === 'ko_unit'
+        ? {
+            type: 'system_ko_tick',
+            source: 'system',
+            payload: { targetId: winner.entityId as UnitId },
+          }
+        : {
+            type: 'charged_action_resolve',
+            source: 'system',
+            payload: { chargedActionId: winner.entityId as ChargedActionId },
+          };
 
   return { newState, proposed, ticksAdvanced: ticksToNext };
 }
@@ -119,7 +140,7 @@ export function advanceToNextEvent(
 // --- internals (mirrors engine/ct/projection.ts but mutates a snapshot
 // for state advancement) ---
 
-type EntityKind = 'unit' | 'charged_action';
+type EntityKind = 'unit' | 'charged_action' | 'ko_unit';
 
 interface SnapshotEntry {
   readonly entityKind: EntityKind;
@@ -131,7 +152,23 @@ interface SnapshotEntry {
 function buildSnapshot(state: GameState, catalog: Catalog): SnapshotEntry[] {
   const entries: SnapshotEntry[] = [];
   for (const unit of state.units.values()) {
-    if (isKO(unit)) continue;
+    if (unit.removed) continue; // permadead — not in any queue
+    if (isKO(unit)) {
+      // KO'd-but-not-removed: virtual CT cycles for the permadeath
+      // counter. Same Speed computation as a living unit so KO'd
+      // Hasted units (rare but possible) still tick at their Hasted
+      // rate. The 'ko_unit' kind is sorted distinctly so a tie
+      // between a living unit's turn_start and a KO'd unit's ko_tick
+      // always resolves to the living one (matters for animation
+      // priority at exactly-equal CT — rare in practice).
+      entries.push({
+        entityKind: 'ko_unit',
+        entityId: unit.id,
+        ct: unit.ct,
+        speed: computeSpeed(state, unit.id, catalog),
+      });
+      continue;
+    }
     entries.push({
       entityKind: 'unit',
       entityId: unit.id,
@@ -159,7 +196,14 @@ function ticksUntilTrigger(currentCT: number, speed: number): number {
 function compareForTrigger(a: SnapshotEntry, b: SnapshotEntry): number {
   if (a.ct !== b.ct) return b.ct - a.ct;
   if (a.speed !== b.speed) return b.speed - a.speed;
-  if (a.entityKind !== b.entityKind) return a.entityKind < b.entityKind ? -1 : 1;
+  // Session 39a: prefer living units over KO'd ones at exact-equal CT
+  // (KO ticks are bookkeeping; a real turn takes priority). Charged
+  // actions fall between (they get the lex-order treatment below).
+  if (a.entityKind !== b.entityKind) {
+    if (a.entityKind === 'ko_unit') return 1;
+    if (b.entityKind === 'ko_unit') return -1;
+    return a.entityKind < b.entityKind ? -1 : 1;
+  }
   if (a.entityId === b.entityId) return 0;
   return a.entityId < b.entityId ? -1 : 1;
 }

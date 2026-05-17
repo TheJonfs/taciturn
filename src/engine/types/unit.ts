@@ -11,7 +11,7 @@
 
 import type { DamageTag } from './damage.ts';
 import type { UnitEquipment } from './equipment-slot.ts';
-import type { ClassId, TeamId, UnitId } from './ids.ts';
+import type { ClassId, ItemId, TeamId, UnitId } from './ids.ts';
 import type { Loadout } from './loadout.ts';
 import type { Direction, Position } from './spatial.ts';
 import type { BaseStats, Vitals } from './stats.ts';
@@ -51,4 +51,27 @@ export interface Unit {
   readonly resistances: ReadonlyMap<DamageTag, number>;
 
   statuses: ReadonlyArray<StatusInstance>;
+
+  // Per-unit consumable stockpile (Session 39a). The Alchemist's
+  // Compound action increments an entry by 1 (paying MP per item type);
+  // Throw Item decrements by 1 and applies the item's effect.
+  // Conceptually a multiset — missing entries are 0. The map is empty
+  // by default; Field Kit (Alchemist Support, S39b) populates the
+  // starting entries at battle setup. Cross-class equippers also gain
+  // a stockpile when the support equips.
+  readonly stockpile: ReadonlyMap<ItemId, number>;
+
+  // Permadeath counter (Session 39a). Increments each time this unit's
+  // virtual CT would have crossed the trigger threshold while KO'd.
+  // Reset to 0 on revival. At `>= permadeathThreshold` (ruleset, default
+  // 3) the unit is `removed` from battle.
+  readonly turnsKOd: number;
+
+  // Set true when permadeath fires (Session 39a). A removed unit is
+  // filtered from target eligibility, AoE selection, tile occupancy
+  // queries, and the scheduler's KO virtual-CT accumulator. Their
+  // remaining vitals stay at 0/0 — the `defeat_all` outcome check
+  // (which reads `hp > 0`) naturally treats them as defeated. Cannot be
+  // revived; Phoenix Down validates against `removed` and refuses.
+  readonly removed: boolean;
 }

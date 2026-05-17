@@ -194,4 +194,15 @@ export const defaultRuleset: RulesetDefinition = {
     chargingStatusTypeId: statusTypeId('charging'),
     pausingStatusTypeIds: [statusTypeId('stop')],
   },
+
+  // Session 39a permadeath: a KO'd unit's virtual CT continues to tick
+  // (the scheduler advances it like any other unit), and each time it
+  // crosses the trigger threshold, `turnsKOd` is incremented and CT
+  // resets toward zero. At `turnsKOd >= threshold`, the unit is
+  // permanently removed. Threshold-3 (per the brief) scales the
+  // revival window to the KO'd unit's own Speed: a fast unit dies
+  // faster than a slow one (3 of its own would-have-been turns).
+  permadeath: {
+    threshold: 3,
+  },
 };

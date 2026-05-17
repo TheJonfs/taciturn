@@ -67,11 +67,13 @@ function compareForTrigger(
 function buildSnapshot(state: GameState, catalog: Catalog): SimEntry[] {
   const entries: SimEntry[] = [];
   for (const unit of state.units.values()) {
-    // KO'd units don't appear in the projection — they can't trigger turns.
-    // Mirrors the same filter in engine/turn/scheduler.ts so the renderer's
-    // upcoming-queue UI and the actual turn driver agree on who's in the
-    // queue.
+    // KO'd or permadead units don't appear in the projection — they
+    // can't trigger real turns. The scheduler does tick KO'd units'
+    // virtual CT for the permadeath counter (Session 39a), but those
+    // produce `system_ko_tick` events, not unit turns — they don't
+    // belong in the upcoming-queue UI.
     if (unit.vitals.hp <= 0) continue;
+    if (unit.removed) continue;
     entries.push({
       entityKind: 'unit',
       entityId: unit.id,

@@ -242,6 +242,13 @@ function placementToUnit(
     vitals,
     resistances,
     statuses: placement.statuses ?? [],
+    // Session 39a: fresh battle starts with empty stockpile, no
+    // accumulated KO turns, and not yet removed. Field Kit (Alchemist
+    // Support, S39b) populates a stockpile via the existing
+    // statusGrants / battle-setup hook flow.
+    stockpile: new Map(),
+    turnsKOd: 0,
+    removed: false,
   };
 }
 

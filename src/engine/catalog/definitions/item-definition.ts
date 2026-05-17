@@ -290,6 +290,70 @@ export type EquipmentDefinition =
   | HeadgearEquipment
   | AccessoryEquipment;
 
-// `ItemDefinition` is `EquipmentDefinition` for v1. Consumables join
-// the union under `kind: 'consumable'` when they ship.
-export type ItemDefinition = EquipmentDefinition;
+// Per-effect specs for a consumable (Session 39a). Discrete fields per
+// effect kind rather than aliasing `AbilityEffects`: items have no
+// Faith/MA scaling on heals (the coefficient × PA formula is fixed),
+// no reactions, 100% accuracy, no Charging — they aren't abilities.
+// Modeling them with their own spec keeps Compound + Throw Item out of
+// the ability pipeline entirely.
+//
+// HP / MP restore amounts are computed as `caster.PA × coefficient`,
+// capped at maxHp / maxMp at apply time. Heals tagged `'healing'` so
+// future consumers (resistance to healing, e.g.) can hook the
+// system_heal emission path; no current v1 consumer depends on this.
+export interface ConsumableHpRestoreSpec {
+  readonly coefficient: number;
+}
+export interface ConsumableMpRestoreSpec {
+  readonly coefficient: number;
+}
+
+// Status-clear spec for Remedy (Session 39a). v1 supports one filter
+// kind: `'debuff'` — clears every status whose `aiHints.polarity` is
+// not `'buff'` (undefined defaults to debuff per the polarity
+// convention; see `src/ui/status-polarity.ts`). KO isn't a status, so
+// it's naturally untouched by this filter. Future filters can extend
+// the discriminated union (`{ kind: 'by_tag', tag: '...' }` etc.)
+// without breaking the existing item.
+export type ConsumableStatusClearSpec = { readonly kind: 'debuff' };
+
+export interface ConsumableEffects {
+  // Restore HP on the target. Phoenix Down also sets `removeKO: true`,
+  // so the heal applies after the revive (the heal sees the revived
+  // unit's HP, not 0).
+  readonly hpRestore?: ConsumableHpRestoreSpec;
+  // Restore MP on the target. Ether is the v1 consumer.
+  readonly mpRestore?: ConsumableMpRestoreSpec;
+  // When true, revive a KO'd target (HP=0 → HP=1 baseline; `hpRestore`
+  // then layers on top). No-op on non-KO'd targets. Reset turnsKOd to 0.
+  readonly removeKO?: boolean;
+  // Clear statuses from the target by polarity filter. Equipment-sourced
+  // statuses (`source.kind === 'equipment'`) are immune per ADR-0028 and
+  // are filtered out before clearing.
+  readonly clearStatuses?: ConsumableStatusClearSpec;
+}
+
+// Session 39a: consumable items live in stockpiles, produced by
+// Compound (one item per cast, MP-gated) and applied by Throw Item
+// (one item per cast, target-anchored). `compoundMpCost` is the MP
+// charged at the Compound site; consumable application itself is free.
+// Items aren't equipment — they have no slot, no statMods, no
+// statusGrants. The discriminator keeps them inside the existing
+// `ItemDefinition` union so the catalog `ItemId` keyspace is shared
+// (a future `Hi-Potion` lives next to `Potion` in `items()`).
+export interface ConsumableDefinition {
+  readonly id: ItemId;
+  readonly name: string;
+  readonly kind: 'consumable';
+  readonly availability: Availability;
+  // MP charged at the Compound site to produce one of this item.
+  readonly compoundMpCost: number;
+  // What the item does when thrown.
+  readonly effects: ConsumableEffects;
+}
+
+// `ItemDefinition` v2 — the union over equipment and consumables. The
+// discriminator (`kind`) narrows callers; v1 equipment paths still
+// match against the slot-kind tags ('weapon'/'shield'/'armor'/etc.)
+// and naturally exclude consumables.
+export type ItemDefinition = EquipmentDefinition | ConsumableDefinition;

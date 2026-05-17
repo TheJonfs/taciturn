@@ -73,11 +73,13 @@ describe('loadDefaultCatalog', () => {
     //     extended in place)
     //   - items: 35 → 42 (Session 37 batch: travel_garb, lookouts_hood,
     //     crusaders_helm, light_robe, dark_robe, tricorn, spiked_mail)
+    //   - items: 42 → 46 (Session 39a Alchemist consumables: potion,
+    //     phoenix_down, remedy, ether)
     expect(cat.statusTypes()).toHaveLength(24);
     expect(cat.abilities()).toHaveLength(49);
     expect(cat.commandSets()).toHaveLength(7);
     expect(cat.classes()).toHaveLength(5);
-    expect(cat.items()).toHaveLength(42);
+    expect(cat.items()).toHaveLength(46);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

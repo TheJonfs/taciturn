@@ -9,6 +9,7 @@ import { crusadersHelm } from './crusaders-helm.ts';
 import { darkRobe } from './dark-robe.ts';
 import { diamondBracelet } from './diamond-bracelet.ts';
 import { escutcheon } from './escutcheon.ts';
+import { ether } from './ether.ts';
 import { flametongue } from './flametongue.ts';
 import { focusBand } from './focus-band.ts';
 import { guardCap } from './guard-cap.ts';
@@ -20,9 +21,12 @@ import { longSword } from './long-sword.ts';
 import { lookoutsHood } from './lookouts-hood.ts';
 import { magusCrown } from './magus-crown.ts';
 import { managuard } from './managuard.ts';
+import { phoenixDown } from './phoenix-down.ts';
 import { pointyHat } from './pointy-hat.ts';
+import { potion } from './potion.ts';
 import { purifier } from './purifier.ts';
 import { raspPendant } from './rasp-pendant.ts';
+import { remedy } from './remedy.ts';
 import { silveredVest } from './silvered-vest.ts';
 import { soldiersLeathers } from './soldiers-leathers.ts';
 import { sorcerersRobe } from './sorcerers-robe.ts';
@@ -95,4 +99,10 @@ export const items: ReadonlyArray<ItemDefinition> = [
   arcaneLens,
   // Session 31 batch B — new accessory
   raspPendant,
+  // Session 39a — Alchemist consumables (stockpile content for Compound
+  // / Throw Item). Not equippable; appear in stockpile maps only.
+  potion,
+  phoenixDown,
+  remedy,
+  ether,
 ];

@@ -94,6 +94,7 @@ export function makeTestRuleset(overrides?: {
   readonly perUnitPerTurnReactions?: number;
   readonly chargingStatusTypeId?: StatusTypeId;
   readonly pausingStatusTypeIds?: ReadonlyArray<StatusTypeId>;
+  readonly permadeathThreshold?: number;
 }): RulesetDefinition {
   return {
     id: overrides?.id ?? rulesetId('default'),
@@ -155,6 +156,7 @@ export function makeTestRuleset(overrides?: {
       chargingStatusTypeId: overrides?.chargingStatusTypeId ?? statusTypeId('charging'),
       pausingStatusTypeIds: overrides?.pausingStatusTypeIds ?? [statusTypeId('stop')],
     },
+    permadeath: { threshold: overrides?.permadeathThreshold ?? 3 },
   };
 }
 

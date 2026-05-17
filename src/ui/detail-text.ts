@@ -18,6 +18,7 @@ import {
   type AbilityId,
   type ActiveAbilityDefinition,
   type Catalog,
+  type ConsumableDefinition,
   type DamageTag,
   type ItemDefinition,
   type PassiveAbilityDefinition,
@@ -175,6 +176,13 @@ function statShortLabel(key: string): string {
 }
 
 export function formatItemDetail(item: ItemDefinition, catalog: Catalog): DetailContent {
+  // Session 39a: consumables get their own detail render (HP/MP restore
+  // amounts, Compound MP cost). S39b will replace this with a fuller
+  // panel — until then, the catalog never exposes consumables through
+  // any UI surface that calls into here.
+  if (item.kind === 'consumable') {
+    return formatConsumableDetail(item);
+  }
   const lines: string[] = [];
 
   // Weapon block — WP / accuracy / variance / weapon tags.
@@ -351,6 +359,30 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
   return {
     title: item.name,
     subtitle: kindLabel(item),
+    lines,
+  };
+}
+
+function formatConsumableDetail(item: ConsumableDefinition): DetailContent {
+  const lines: string[] = [];
+  lines.push(`Compound: MP ${item.compoundMpCost}`);
+  const fx = item.effects;
+  if (fx.removeKO === true) {
+    lines.push('Revives KO');
+  }
+  if (fx.hpRestore !== undefined) {
+    lines.push(`Restores PA × ${fx.hpRestore.coefficient} HP`);
+  }
+  if (fx.mpRestore !== undefined) {
+    lines.push(`Restores PA × ${fx.mpRestore.coefficient} MP`);
+  }
+  if (fx.clearStatuses !== undefined) {
+    lines.push('Clears negative statuses');
+  }
+  if (lines.length === 1) lines.push('(no on-throw effect declared)');
+  return {
+    title: item.name,
+    subtitle: 'Consumable',
     lines,
   };
 }

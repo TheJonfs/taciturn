@@ -20,6 +20,8 @@ import type { StatusApplicationOutcome } from './status-application-outcome.ts';
 export type ActionType =
   | 'move'
   | 'use_ability'
+  | 'use_compound'
+  | 'use_throw_item'
   | 'wait'
   | 'set_facing'
   | 'turn_start'
@@ -28,10 +30,13 @@ export type ActionType =
   | 'status_tick'
   | 'system_heal'
   | 'system_damage'
+  | 'system_mp_restore'
   | 'system_mp_drain'
   | 'system_apply_status'
   | 'system_ct_push'
   | 'system_set_ct'
+  | 'system_ko_tick'
+  | 'system_unit_removed'
   | 'status_remove'
   | 'status_decrement_stack'
   | 'battle_end';
@@ -136,6 +141,48 @@ export interface WaitPayload {
 }
 export interface WaitOutcome {
   readonly kind: 'wait';
+}
+
+// Session 39a: Compound — Alchemist banks one of the selected item type
+// into their stockpile, paying the item's `compoundMpCost`. Self-
+// targeted; 100% accuracy. The action is the unit's standard action
+// turn (not instant). Validation gates on MP sufficiency.
+export interface UseCompoundPayload {
+  readonly itemId: ItemId;
+}
+export interface UseCompoundOutcome {
+  readonly kind: 'use_compound';
+  readonly itemId: ItemId;
+  readonly mpSpent: number;
+  // ADR-0074 absolute: the caster's MP after the cost committed; lets
+  // the UI / log settle from engine truth rather than re-deriving.
+  readonly mpAfter: number;
+  // Stockpile count for `itemId` after the increment, for action-log
+  // attribution ("Beowulf prepared a Potion (2 on hand)").
+  readonly stockpileAfter: number;
+}
+
+// Session 39a: Throw Item — Alchemist consumes one of the selected item
+// from their stockpile and applies its effects to the target. 100%
+// accuracy; range 3 horizontal × 3 vertical with LoS (per the brief).
+// KO'd targets are valid targets so Phoenix Down can revive; the
+// non-revival items naturally apply their gated zero (heal on KO'd → 0,
+// status clear on KO'd → no-op).
+export interface UseThrowItemPayload {
+  readonly itemId: ItemId;
+  readonly target: AbilityTarget;
+}
+export interface UseThrowItemOutcome {
+  readonly kind: 'use_throw_item';
+  readonly itemId: ItemId;
+  readonly target: AbilityTarget;
+  // Mirror of UseAbilityOutcome.perTargetResults so the action-log and
+  // renderer can reuse the same settle machinery. Throw Item is single-
+  // target in v1 (1-element array); the array shape leaves room for a
+  // future Throw-AoE item without a payload-shape break.
+  readonly perTargetResults: ReadonlyArray<AbilityTargetResult>;
+  // Stockpile count for `itemId` after the decrement.
+  readonly stockpileAfter: number;
 }
 
 export interface SetFacingPayload {
@@ -271,6 +318,28 @@ export type SystemDamageSource =
   // `[revenge]`-tagged entries to distinguish reflect proc damage from
   // the wearer's own actions.
   | { readonly kind: 'revenge'; readonly wearerId: UnitId; readonly itemId: ItemId };
+
+// Session 39a: `system_mp_restore` — engine-emitted MP write used by
+// Ether (and any future MP-restore consumer). Parallel to system_heal
+// (HP). Bypasses Faith / MA / resistance — items are flat-coefficient
+// restores by design. Capped at `runModifyStatQuery(maxMp)` at apply
+// time. KO'd targets short-circuit to applied=0 (vitals are gated
+// while KO'd, matching the HP gate on system_heal).
+export interface SystemMpRestorePayload {
+  readonly targetId: UnitId;
+  readonly amount: number; // requested restore
+  readonly source: SystemMpRestoreSource;
+}
+export interface SystemMpRestoreOutcome {
+  readonly kind: 'system_mp_restore';
+  readonly targetId: UnitId;
+  readonly amount: number;
+  readonly applied: number; // post-cap delta
+  readonly mpAfter?: number; // ADR-0074 absolute (absent if target not in state)
+}
+// Provenance for a system_mp_restore. v1 producer is throw_item (Ether).
+export type SystemMpRestoreSource =
+  | { readonly kind: 'throw_item'; readonly itemId: ItemId; readonly casterId: UnitId };
 
 // `system_mp_drain` — engine-emitted MP transfer used by Rasp Pendant
 // (Session 31) and any future damage-to-MP-drain effects. Distinct from
@@ -443,6 +512,46 @@ export interface StatusDecrementStackOutcome {
   readonly removed: boolean;
 }
 
+// Session 39a: `system_ko_tick` — scheduler-emitted action that bumps
+// a KO'd unit's permadeath counter by 1 and resets their virtual CT
+// to 0. Fired when the scheduler advances a KO'd unit's virtual CT
+// to the trigger threshold (CT 100). If the bump brings `turnsKOd` to
+// the ruleset's `permadeath.threshold`, the reducer also emits a
+// `system_unit_removed` via generatedActions; otherwise the unit
+// stays KO'd-recoverable and the next virtual tick is a fresh cycle.
+export interface SystemKoTickPayload {
+  readonly targetId: UnitId;
+}
+export interface SystemKoTickOutcome {
+  readonly kind: 'system_ko_tick';
+  readonly targetId: UnitId;
+  readonly turnsKOdAfter: number;
+  // True when this tick also queued a `system_unit_removed` for the
+  // same unit. Lets the action log distinguish "tick 1 of 3" from
+  // "tick 3 of 3 — removed."
+  readonly removalQueued: boolean;
+}
+
+// Session 39a: `system_unit_removed` — engine-emitted action that flips
+// a unit's `removed` flag to true. Fired when the permadeath counter
+// (`turnsKOd`) crosses the ruleset threshold during scheduler
+// virtual-CT accumulation. The unit's HP/MP stay at 0/0 and they
+// remain in `state.units` (referenced by historical log entries) but
+// the engine filters them out of target eligibility, AoE membership,
+// tile occupancy, and the scheduler's KO virtual-CT accumulator.
+// Cannot be undone — Phoenix Down on a `removed` unit fizzles with no
+// HP applied. After the action commits, the standard
+// `evaluateBattleOutcome` check (`hp > 0`) treats them as defeated
+// without special-casing the removed flag.
+export interface SystemUnitRemovedPayload {
+  readonly targetId: UnitId;
+}
+export interface SystemUnitRemovedOutcome {
+  readonly kind: 'system_unit_removed';
+  readonly targetId: UnitId;
+  readonly turnsKOdAtRemoval: number; // for action-log attribution
+}
+
 // `battle_end` is the terminal system action that commits when a
 // victory condition fires. Carries the winning team and the index of
 // the satisfied condition (back-pointer into `state.victoryConditions`
@@ -489,6 +598,16 @@ export type Action = ActionEnvelope &
         readonly payload: UseAbilityPayload;
         readonly outcome?: UseAbilityOutcome;
       }
+    | {
+        readonly type: 'use_compound';
+        readonly payload: UseCompoundPayload;
+        readonly outcome?: UseCompoundOutcome;
+      }
+    | {
+        readonly type: 'use_throw_item';
+        readonly payload: UseThrowItemPayload;
+        readonly outcome?: UseThrowItemOutcome;
+      }
     | { readonly type: 'wait'; readonly payload: WaitPayload; readonly outcome?: WaitOutcome }
     | {
         readonly type: 'set_facing';
@@ -526,9 +645,24 @@ export type Action = ActionEnvelope &
         readonly outcome?: SystemDamageOutcome;
       }
     | {
+        readonly type: 'system_mp_restore';
+        readonly payload: SystemMpRestorePayload;
+        readonly outcome?: SystemMpRestoreOutcome;
+      }
+    | {
         readonly type: 'system_mp_drain';
         readonly payload: SystemMpDrainPayload;
         readonly outcome?: SystemMpDrainOutcome;
+      }
+    | {
+        readonly type: 'system_ko_tick';
+        readonly payload: SystemKoTickPayload;
+        readonly outcome?: SystemKoTickOutcome;
+      }
+    | {
+        readonly type: 'system_unit_removed';
+        readonly payload: SystemUnitRemovedPayload;
+        readonly outcome?: SystemUnitRemovedOutcome;
       }
     | {
         readonly type: 'system_apply_status';
@@ -565,6 +699,8 @@ export type Action = ActionEnvelope &
 export type ActionOutcome =
   | MoveOutcome
   | UseAbilityOutcome
+  | UseCompoundOutcome
+  | UseThrowItemOutcome
   | WaitOutcome
   | SetFacingOutcome
   | TurnStartOutcome
@@ -573,10 +709,13 @@ export type ActionOutcome =
   | StatusTickOutcome
   | SystemHealOutcome
   | SystemDamageOutcome
+  | SystemMpRestoreOutcome
   | SystemMpDrainOutcome
   | SystemApplyStatusOutcome
   | SystemCtPushOutcome
   | SystemSetCtOutcome
+  | SystemKoTickOutcome
+  | SystemUnitRemovedOutcome
   | StatusRemoveOutcome
   | StatusDecrementStackOutcome
   | BattleEndOutcome;
@@ -618,6 +757,18 @@ export type ProposedAction =
       readonly source: ActionSource;
       readonly actorId: UnitId;
       readonly payload: UseAbilityPayload;
+    }
+  | {
+      readonly type: 'use_compound';
+      readonly source: ActionSource;
+      readonly actorId: UnitId;
+      readonly payload: UseCompoundPayload;
+    }
+  | {
+      readonly type: 'use_throw_item';
+      readonly source: ActionSource;
+      readonly actorId: UnitId;
+      readonly payload: UseThrowItemPayload;
     }
   | {
       readonly type: 'wait';
@@ -662,9 +813,24 @@ export type ProposedAction =
       readonly payload: SystemDamagePayload;
     }
   | {
+      readonly type: 'system_mp_restore';
+      readonly source: 'system';
+      readonly payload: SystemMpRestorePayload;
+    }
+  | {
       readonly type: 'system_mp_drain';
       readonly source: 'system';
       readonly payload: SystemMpDrainPayload;
+    }
+  | {
+      readonly type: 'system_ko_tick';
+      readonly source: 'system';
+      readonly payload: SystemKoTickPayload;
+    }
+  | {
+      readonly type: 'system_unit_removed';
+      readonly source: 'system';
+      readonly payload: SystemUnitRemovedPayload;
     }
   | {
       readonly type: 'system_apply_status';
