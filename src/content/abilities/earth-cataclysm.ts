@@ -44,7 +44,7 @@ export const earthCataclysm: ActiveAbilityDefinition = {
   availability: 'available',
   tags: ['magical', 'earth'],
   targeting: {
-    kind: 'tile',
+    kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 2 },
     rangeMode: 'arc',
   },

@@ -888,10 +888,23 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     // less efficient.
     const abilityIdChosen = decision.action.payload.abilityId;
     if (abilityIdChosen === abilityId('maelstrom')) {
-      // Direction must be south — target tile y > attacker's y.
+      // Direction must be south — caster→target cardinal points south.
+      // Post-S38 (2026-05-17): Maelstrom is now `unit_or_tile`, so the
+      // AI may pick either a unit or tile payload. Either way the
+      // direction derivation lands on a south-of-attacker position
+      // (unit → unit.position; tile → tile.position).
       const target = decision.action.payload.target;
-      if (target.kind !== 'tile') throw new Error('expected tile target for Maelstrom');
-      expect(target.position.y).toBeGreaterThan(attacker.position.y);
+      let directionY: number;
+      if (target.kind === 'unit') {
+        const u = state.units.get(target.unitId);
+        if (u === undefined) throw new Error('unit target not found');
+        directionY = u.position.y;
+      } else if (target.kind === 'tile') {
+        directionY = target.position.y;
+      } else {
+        throw new Error(`unexpected target kind ${target.kind} for Maelstrom`);
+      }
+      expect(directionY).toBeGreaterThan(attacker.position.y);
     } else {
       // Or another cluster-effective ability — Tidal Wave (diamond r1
       // anchored on a unit) on e2 catches 3 enemies. Both are valid

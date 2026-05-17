@@ -35,7 +35,7 @@ export const fireStorm: ActiveAbilityDefinition = {
   availability: 'available',
   tags: ['magical', 'fire'],
   targeting: {
-    kind: 'tile',
+    kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 2 },
     rangeMode: 'arc',
   },

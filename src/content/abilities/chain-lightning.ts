@@ -38,7 +38,7 @@ export const chainLightning: ActiveAbilityDefinition = {
   availability: 'available',
   tags: ['magical', 'lightning'],
   targeting: {
-    kind: 'tile',
+    kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 2 },
     rangeMode: 'arc',
   },

@@ -479,6 +479,16 @@ describe('unit_or_tile targeting accepts both payload shapes', () => {
       'storm_caller',
       'tide_surge',
       'water_strike',
+      // AoE charged spells joined in the 2026-05-17 follow-up: in unit
+      // mode the AoE anchors at the unit's current position at resolve
+      // time (cone/line interpret it as direction).
+      'chain_lightning',
+      'earth_cataclysm',
+      'earth_quake',
+      'fire_storm',
+      'flame_lance',
+      'maelstrom',
+      'tidal_wave',
     ];
     for (const name of expected) {
       const a = catalog.getAbility(abilityId(name));

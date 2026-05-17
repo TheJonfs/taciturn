@@ -237,15 +237,30 @@ function computeUnitHp(
 }
 
 // Thin caller into the engine's `estimateChargedTiming` (item #3,
-// session 26.5). Picks the "concerned target" from the AoE preview —
-// the first affected unit, which drives the ✓/✗ vs-target-next-turn
-// line. Returns `null` when the engine can't project (caster paused,
-// horizon too short).
+// session 26.5). Picks the "concerned target" from the AoE preview to
+// drive the ✓/✗ vs-target-next-turn line. Post-S38 (2026-05-17): the
+// previous "first affected" heuristic pinned the comparison to the
+// alphabetically-first unit ID in the footprint, so hovering different
+// units inside an AoE didn't refresh the check. The new heuristic
+// prefers the unit AT the hover anchor (the one the cursor is actually
+// over), falling back to the first affected unit when the anchor tile
+// is empty (e.g. tile-mode cast on bare ground that still catches
+// nearby units in the footprint). Returns `null` when the engine
+// can't project (caster paused, horizon too short).
 function estimateChargedTiming(
   args: ComposeForecastArgs,
   tiles: ReadonlyArray<AoePreviewTile>,
 ): ChargedTiming | null {
-  const affectedTarget = tiles.find((t) => t.affected)?.occupant ?? null;
+  const anchorTile = tiles.find(
+    (t) =>
+      t.position.x === args.anchor.x &&
+      t.position.y === args.anchor.y &&
+      t.position.layer === args.anchor.layer,
+  );
+  const affectedTarget =
+    (anchorTile?.affected ? anchorTile.occupant : null) ??
+    tiles.find((t) => t.affected)?.occupant ??
+    null;
   const result = engineEstimateChargedTiming({
     state: args.state,
     catalog: args.catalog,
