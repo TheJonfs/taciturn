@@ -21,111 +21,90 @@ What does *not* belong here:
 
 ---
 
-## From session 2026-05-15 (Session 38 — Phase E close: templates + naming + Vercel + scenarios)
+## From sessions 2026-05-15 to 2026-05-17 (post-S38 playtest debrief + chain of fixes)
 
-Phase E close. **Tests: 1138 passing across 104 files, 0 failing** (up from S37's 1105/100 — +33 tests, +4 files). No new ADR. One new doc folder (`src/content/names/`). Two new persistent docs (`docs/playtest-scenarios.md`, `docs/deployment.md`). Vercel deployment config (`vercel.json`) shipped; production build verified locally via `vite build`. No 38a/38b split needed.
+Two in-between-sessions days of playtest-driven fixes against the deployed v1. No new session number assigned — this is empirical tuning + crash-class bug response, not roadmap work. **8 commits** today (`0be3d0d` → `289d7a9`). **1152 tests passing across 105 files** (up from 1138/104 at the start; +14 net).
 
-### Scope completed
+### Engine operational changes the next session should know about
 
-- **Three sample team templates** in the Load Default picker:
-  - **Aggro Knight Squad** (file path retained at `current-test-team.ts`, display label updated): Knight + Lightning / Fire / Water Mages with Spiked Mail, Lookout's Hood + Magus Crown + Light Robe + Boots of Haste, Flametongue + Tricorn, Sorcerer's Robe + Lightfoot. Authored unit names: Agrias / Cidolfas / Wiegraf / Ovelia.
-  - **Mage Variety Pack** (new file `mage-variety-pack.ts`, replaces `pure-mage-team.ts`): Earth + Water + Fire + Lightning Mages with element-coordinated equipment (Sorcerer's / Dark Robe / Wizard's / Light Robe). Authored names: Ramza / Penelo / Larsa / Ashe. Earth Mage carries Water Spells secondary via Magus Crown.
-  - **Defensive Front** (new file `defensive-front.ts`): Knight in Crusader's Helm + War Plate + Tintinibar + Earth Spells secondary (Earth's Blessing as Regen substitute for healing) + Mage trio with elemental specialist robes. Authored names: Beowulf / Marach / Reis / Rapha. Water Mage also carries Earth Spells via Magus Crown for second Regen source.
-  - Shared structural-compliance helper at `src/content/teams/template-compliance.ts`.
+These shift how the engine behaves in ways that future content / mechanics work needs to be aware of:
 
-- **Per-unit naming UI**. New `name?: string` field on `DraftUnit` (with `gender?` / `zodiac?` slot-in path documented in the type comment per S38 decision 13A). `setUnitName` mutator: trims input, caps at 24 chars; empty re-rolls a fresh Ivalician name excluding sibling + prior-name. `setClass` auto-rolls a name on first class assignment; subsequent reclasses leave the name alone (Cidolfas is Cidolfas whether they're a Knight or a Mage). Text input added to the EditPanel above the class picker. Roster card now displays the unit's name (with class as the subtitle) instead of the class name in the headline. State preservation across back-nav extends S37's `teamDraft` lift unchanged — `name` rides the existing draft pipeline.
+- **Reactions cannot trigger reactions** (`0be3d0d`). The design-doc intent ([`docs/design/action-resolution.md:157`](docs/design/action-resolution.md) — "Type-based suppression") is now enforced at the engine layer. `isReaction` is threaded `reduceUseAbility` → `resolveAbilityTargets` → `resolveAbilityEffect`; when the cast itself is a reaction, the post-application `runOnActionTargeted` call is skipped. New reaction content authoring doesn't need to think about it — the guard is automatic. The prior `0021` Brave-gated trigger still runs.
 
-- **Names table** at `src/content/names/`. Single shared Ivalician/FFT-flavored pool (~50 entries) per Chris's call (decision 1 reversed in plan-review from the brief's class-pooled recommendation). `pickName(usedNames, rng?)` and `pickTeamNames(count, usedNames, rng?)` helpers; default RNG is `Math.random`, tests inject a deterministic seeded RNG.
+- **Charged actions clear on caster KO** (`0be3d0d`). `state.chargedActions` is filtered at the two KO-detection sites (ability-damage pipeline + `reduceSystemDamage`) via a new `clearChargedActionsForCaster(state, koUnitId)` helper. The existing `reduceChargedActionResolve` caster-KO short-circuit becomes unreachable in normal flow; kept as a defensive backstop. Future "spell completes from the grave" content (none in v1) would opt out per-ability.
 
-- **AI name rewriting**. New `assignAiTeamNames(config, aiTeamId, excludedNames, rng?)` helper at `src/content/teams/assign-ai-team-names.ts`. App.tsx applies it inside the `teamBattleConfig` useMemo, so AI names refresh per team commit and stay stable through deployment + battle. Cross-team uniqueness verified end-to-end in browser (Defensive Front player team got Beowulf/Marach/Reis/Rapha; AI got Mustadio/Joaquim/Yvain/Fran).
+- **`Charging` status has `removeOnSourceKO: true`** (`0be3d0d`). The existing `collectSourceKoSweep` cleans up the leftover `Charging` instance when the caster KOs, so a hypothetical future revival path doesn't see a stale `Charging` without a matching `ChargedAction`.
 
-- **Vercel deployment**. `vercel.json` at project root: `buildCommand: vite build` (bypassing the failing `tsc -b` gate from S34's strict-mode error pile), `outputDirectory: dist`, SPA rewrite for forward-compatibility. `docs/deployment.md` walks Chris through the project creation. Local production build verified via `npx vite build && npm run preview`.
+- **`unit_or_tile` is a new `TargetingSpec.kind`** (`0be3d0d` + `99e8184`). FFT-canonical "pin a unit (spell follows them) OR pin a tile (spell lands on the tile regardless of occupant)" pattern. `validateAction` accepts either `{ kind: 'unit' }` or `{ kind: 'tile' }` payload. Engine's `resolveAoeAnchor` was already polymorphic on target kind, so AoE charged spells inherited the behavior automatically (`unit` payload → AoE re-anchors at unit's current position at resolve; `tile` → AoE blooms from the tile). UI exposes a `T` keyboard toggle in the action menu's target-select panel for the unit_or_tile abilities. **20 charged abilities** now use this kind (13 single-target + 7 AoE).
+  - AI treats `unit_or_tile` like `single_unit` for v1 (always pins the unit). Helper `targetsUnit(kind)` introduced in `src/ai/basic.ts` for the boolean check.
+  - When adding a new charged single-target or AoE ability, **default to `unit_or_tile`** rather than `single_unit` / `tile` unless there's a specific reason to lock the mode.
 
-- **Playtest scenarios doc** at `docs/playtest-scenarios.md`. 17 initial entries across 7 sections (damage / defense / tempo extremes; status chains; element specialization; equipment interaction; AI behavior). Each entry uses Setup / Test / Signal-for-adjustment shape. Discipline + relationship to `playtest-watch.md` documented in-file.
+- **`computeSpeed` floors the modifier-chain result** (`237aafc`). Haste's ×1.5 multiplier against odd base Speed used to produce fractional CT accumulation (e.g., Speed 11 + Auto-Haste → 16.5). Now floored to integer before the ruleset-floor clamp. Future content that introduces non-integer Speed modifiers should be aware that the result will be floored.
 
-- **Viewport polish** at 1366×768 / 1920×1080 / 1280×800. Title screen + team builder both read cleanly; no crowding. The screenshot tool downscales heavily so JPEG output is misleading at 1920+ — DOM measurements and snapshot inspections confirm the layout fills the viewport correctly.
+- **`UiController.endTurn()` defers when a commit is queued** (`39ac3ab`). The single-slot semantics still hold for `submit`, but `endTurn()` can be called immediately after `submit()` — the controller sets an `endTurnPending` flag and surfaces `end-turn` on the controller pump *after* the queued commit drains. The legitimate caller is `submitWait`'s `set_facing` → `endTurn` sequence; the prior assertion threw on every facing-changed Wait commit. `hasPending()` now reports either queue slot or the deferred end-turn.
 
-- **Guide cross-pollination note** appended to `guide/CLAUDE.md` — the Ivalician name pool's location + intent, with the convention that handbook example cadets should draw from the same vocabulary.
+- **`runModifyAoeShape` now threads through forecast / UI overlay / AI scoring** (`237aafc`). Aether Bloom worked at the live cast site since session 19, but three other surfaces walked the base shape: `projectAoePreview`, `resolveAoeTiles`, `aoeTilesAffected`. All three now call `runModifyAoeShape` against the caster's hooks. The hook is now exported from `engine/hooks/index.ts` for UI consumption. **When adding a new modifyAoeShape consumer** (or any other hook that mutates ability-resolution shape), check that the forecast / UI overlay / AI use the same modifier chain — there are 4 sites total today (the engine's `resolveAoeDispatch`, the forecast preview, the UI overlay, the AI scoring).
 
-- **Renamed `current-test-team`** keeps its file path + template id for state-key continuity (per Chris's call); display label is "Aggro Knight Squad". The dropdown surface auto-enumerates `defaultTeamTemplates`, so adding the third entry surfaces it without UI changes.
+### Content changes the next session should know about
 
-### Browser verification (Phase E end-to-end)
+- **Status duration rebalance** (`0be3d0d`). 9 abilities cut their `per_unit_ct` duration numbers from the original 24/36/12 (which meant 24-36 of the holder's *turn cycles* — way too long) to FFT-shape: hard-disables 3, soft-disables 4, buffs 6-10. See [`docs/playtest-watch.md`](docs/playtest-watch.md) entry for the full table + tuning signals to watch. **When applying new `per_unit_ct` statuses, calibrate against this rebalance** — duration is in *holder turn cycles*, not game ticks.
 
-Vite preview drove through: Title → Setup → Team Builder. Loaded each of the three templates; verified all four unit names render in the roster cards (Aggro: Agrias/Cidolfas/Wiegraf/Ovelia; Variety: Ramza/Penelo/Larsa/Ashe; Defensive: Beowulf/Marach/Reis/Rapha). Edited unit name input on slot 0 → persisted across back-nav to Setup → Team Builder remount. Loaded Defensive Front and clicked Continue to Deployment; React fiber inspection of `DeploymentScreen.props.template.units` confirmed team_a names (Beowulf/Marach/Reis/Rapha) and team_b auto-renamed to Mustadio/Joaquim/Yvain/Fran — eight distinct Ivalician names, no collisions. Console clean throughout. Viewport eyeballs at 1366×768 / 1920×1080 / 1280×800 — layout reads.
+### Observability infrastructure
 
-### Limitations + watch-fors
+- **Global error surface** (`0be3d0d` + `9f971b6` + `57dab7d`). `src/app/error-surface.tsx` installs `window.error` / `unhandledrejection` / `vite:preloadError` listeners at module load (`main.tsx`). Captured errors persist to `sessionStorage` and surface via a floating banner with expandable stack + component stack. Has saved hours of debugging in this debrief — production stack traces went from "the screen flashed white" to copy-paste-able stacks. **When investigating playtest bug reports, ask the player to expand the banner first** (`Details` button) — it gives the same info devtools would.
 
-- **`tsc -b` pre-existing strict-mode error pile (S34 carry, ~200 errors).** `npm run build` fails on the tsc step. `vite build` works (esbuild strips types without typechecking) and produces a working bundle. `vercel.json` runs `vite build` directly. When the S34 errors get cleaned up in a Phase F session, the vercel.json `buildCommand` should flip back to `npm run build` to restore the typecheck gate.
+- **WebGL context-loss listeners** (`39ac3ab`). `BattleView` mount installs `webglcontextlost` / `webglcontextrestored` on the Pixi canvas, calls `preventDefault()` on lost (so the browser preserves state for restore), and forwards both to the error surface. Banner recommends reload; partial in-place recovery is unreliable. Future polish can sessionStorage the battle state and reinit the renderer in place.
 
-- **Cross-class secondary command set picker UX not exercised in the team builder.** Defensive Front's Knight (Earth Spells secondary) and Water Mage (Earth Spells secondary) load correctly via the template path. Whether a player can manually pick a non-class command set in `team-builder-ability-picker.tsx` after the fact wasn't audited; if the picker only surfaces native sets, manual cross-class secondary picking is a UI-only follow-up. Templates work either way.
+- **Vite preload-error auto-reload** (`9f971b6` + `57dab7d`). After a redeploy, the user's open tab holds stale HTML pointing at chunk URLs the new build no longer ships. `vite:preloadError` fires → handler one-shots `location.reload()` (with 10s cooldown to avoid loops on genuinely-missing chunks) → also clears the captured-errors trail so the banner doesn't persist after the successful self-heal. Should make the redeploy-while-tab-open flow self-healing.
 
-- **Lightning Mage default loadout's `secondary_command_sets` is `[white_magic]`** (currently a hidden command set in the picker per S25). Aggro Knight Squad overrides this to `[fire_spells]` template-locally. The default itself isn't broken — `white_magic` is simply not visible in the UI — but a future session could clean up the demo defaults.
+### Build configuration the next session should know about
 
-- **Vercel deployment is configured but not yet driven.** Chris drives the project creation per `docs/deployment.md`; the live URL surfaces after that. The wiring is in place.
+- **Pixi co-located into a single chunk** (`289d7a9`). `vite.config.ts` has a `manualChunks` rule that puts all `node_modules/pixi.js/**` and `node_modules/@pixi/**` into a single `pixi-*.js` chunk (553 KB gzip 161 KB). Required because Pixi v8's `autoDetectRenderer` does `await import('./gl/WebGLRenderer.mjs')` internally and Vite's default code-split would produce a `WebGLRenderer-*.js` chunk that observed `undefined` on the destructured export in production (Vercel CDN). `main.tsx` also has a static `import { WebGLRenderer } from 'pixi.js'` + `void WebGLRenderer` to anchor the symbol against tree-shaking. **If you split Pixi differently in the future** (e.g., to optimize initial-load for a Pixi-free title screen), retest the deployment-screen mount on the live URL — it's the canary for this class of bug.
 
-- **Title screen at 1280×800 — screenshot tool downscaling artifact.** The screenshot output looks like the title is confined to a small region in the top-left. DOM inspection (`document.querySelector('#root > div').getBoundingClientRect()` returns 1280×864) and `New Battle` button positioning (centered, y=630 within 800px viewport) confirm the layout actually fills the viewport. The screenshot's heavy downscaling + the gradient overlay's `0.85` alpha at the bottom of the box together produce the misleading image.
+### UI polish landed
+
+- **`TransitionOverlay`** (`a326d6e`) — full-screen "Returning to Main Menu…" overlay covers the ~5s battle→title unmount lag. `flushSync` forces it to paint on its own render tick before the slow `setScreen('title')` triggers BattleView's unmount. The lag's root cause hasn't been profiled — overlay just masks it. If the lag becomes a problem on a slower machine or with more action-log entries, this becomes a real perf-investigation task.
+
+### Things noticed but not acted on (next-session candidates, low priority)
+
+- **Main Menu transition lag root cause** — masked by the overlay (`a326d6e`) but not diagnosed. Suspects: Pixi destroy with many sprites, React reconciliation of a long action log, or browser GC pause. Profile when convenient by wrapping the cleanup steps with `performance.mark()` / `performance.measure()` and inspecting in DevTools.
+
+- **Fire Embrace target-rejection mystery** (Chris's S38 playtest report). Engine confirmed correct (STACK_ADDITIVE same-caster + different-caster both merge to magnitude 2 / stacks 2 per `playtest-39-fixes.test.ts`). The user-observed "can't select previously-affected unit as target" is most likely a range check or arc-targetable failure. Dev-mode `[targeting] reject` console.debug in `src/ui/use-turn-flow.ts:691-707` will log the reason next time it fires. Chris will grep the console.
+
+- **TS strict-mode error pile (~200 errors, S34 carry)**. `vercel.json` still bypasses with `vite build` instead of `npm run build`. Cleanup unblocks the typecheck gate. Mostly mechanical (`exactOptionalPropertyTypes` mismatches, a few `Action | undefined` narrowings, the `'water' as DamageTag` literal).
+
+- **Per-target "resolves before / after" forecast for AoE** — `99e8184` fixed the picker to use the hover anchor's occupant, but the forecast only shows ONE per-cast resolves-before line, not one per affected target. Worth considering if AoE timing strategy becomes important.
+
+- **Forecast for AoE in `await-confirm` doesn't follow hover** — by design (the anchor is pinned to the picked target). If you want live-hover-preview while await-confirm is up, that's a different feature.
 
 ### Considered and rejected this session
 
-- **Class-pooled names with shared fallback** (the brief's decision 1B recommendation). Rejected per Chris in plan-review: "I'm okay with letting there be a general pool of names as there was in FFT, so a given name could belong to a Knight or a Mage." Single Ivalician pool with cross-team uniqueness landed instead.
+- **Extending `UiController` to a multi-slot FIFO queue** — would have let `submit(set_facing) + endTurn()` work without the deferred-flag trick. Rejected because the single-slot was intentional backpressure against UI clicks piling up; a FIFO would silently accept double-clicks the player didn't mean. The flag pattern preserves the assertion for `submit` while letting the legitimate `set_facing + endTurn` flow through.
 
-- **Renaming `current-test-team` template id** (alongside the display-label rename). Rejected per Chris: keep the id stable for test-key + state-key continuity; only the display label changes. The user-facing label is decoupled from the id (the dropdown reads `template.team.name`).
+- **Adding `facing?: Direction` to `turn_end` payload** — would have collapsed the `submitWait` two-action sequence into one. Rejected because `set_facing` exists as a standalone action for forward-compat (mid-action facing changes, post-cast turns) and folding it into `turn_end` would tangle two separate concerns.
 
-- **Per-template test files for the three templates as fully bespoke files.** Rejected: extracted a shared `template-compliance.ts` helper that all three test files call, keeping the per-template files thin.
+- **`extensions.add(WebGLRenderer)`** — first attempt at fixing the Pixi destructure crash. Threw "Extension class must have an extension object" because WebGLRenderer is the renderer class, NOT an extension definition. The actual fix is the static reference + `manualChunks` co-location.
 
-- **Brand-new test-fixture battle config for AI naming tests.** Rejected: `riverRidgeBattle` is the canonical battle config used elsewhere; importing it in the AI-naming tests is consistent with the existing pattern.
+- **AI special-casing `unit_or_tile` cone/line abilities to pick tile-mode** — would have preserved the pre-S38 AI behavior of picking a direction tile. Rejected because picking a unit-mode payload for cone/line means the AoE re-derives direction from the unit's position at resolve time (FFT-canonical "lead the target") — arguably better AI tactically, definitely not worse. Test updated to accept either payload shape.
 
-- **Auto-name re-roll on every `setClass` call** (re-roll on reclass too). Rejected: the unit's identity is the player-edited name, not a class-derived label. Subsequent reclasses leave the existing name alone; the player can clear the input to re-roll explicitly.
+### Suggested scope for the next session
 
-- **`name: string` (required) on DraftUnit.** Rejected: optional with `setClass` auto-pick on first assignment is cleaner — empty drafts have no name to display, and the field is always populated once a class is set.
+No fixed roadmap entry — like the S38 close, this is empirical tuning. Strong candidates:
 
-- **Adding `width / base` configuration in `vite.config.ts` for Vercel.** Rejected per audit: defaults work for root-deploy; no Pixi.js asset path issues. Less config = less to maintain.
+- **Drive the live deployment** (now that `289d7a9` is committed, push + redeploy → verify the deployment-screen mount, terrain bar resurfacing, and Aether Bloom AoE preview against production).
+- **Status duration rebalance signals** — watch how the new 3/4/6/10 numbers play. Captured in `docs/playtest-watch.md`.
+- **Continue empirical playtest cycle** — surface more bugs through the now-much-better error surface; respond.
+- **TS strict-mode cleanup** — when there's appetite for mechanical work.
 
-- **Bundling Vercel deployment + scenarios doc into 38b.** Rejected: scope was manageable monolithically. Split allowance reserved per Chris's call.
+### Longer-term carry-forward (mostly unchanged from prior handoff)
 
-### Suggested scope for Session 39
-
-Phase F open. Per the roadmap, no fixed Session 39 plan — empirical tuning + post-MVP work as Chris drives.
-
-Strong candidates from this session's surfaced items:
-
-- **TS strict-mode error cleanup (S34 carry, ~200 errors).** Resolving these restores `npm run build` as the canonical gate (and `vercel.json` flips back). Mostly mechanical: `exactOptionalPropertyTypes` mismatches in component prop spreads, a few `Action | undefined` narrowings, a `'water' as DamageTag` literal. Dedicated session would close the carry.
-
-- **Vercel deployment driven**. Once Chris creates the project, end-to-end manual verification on the live URL. Any URL-path-related issues surface here (e.g., if Vercel's preview-deployment subdomains require a `base` adjustment).
-
-- **River Ridge balance reads from the new templates**. Three distinct archetypes are now selectable; engagements between them (Aggro vs Defensive, Variety vs Aggro, etc.) will surface tuning signals. Captured in `docs/playtest-watch.md`.
-
-- **Pass-and-play toggle + dual deployment + battle-loop AI gating** — dedicated future session per the roadmap.
-
-- **A White Mage class** (or Earth's Blessing replacement on a healing-flavored class). Defensive Front's Earth-Spells-on-Knight pattern is a stopgap for healing; a real healer is high-priority per Chris's note in plan-review.
-
-### Longer-term carry-forward (S37 items unchanged unless noted)
-
-- **TS strict-mode test errors (~200)** — S34 carry; `vercel.json` works around by running `vite build` directly.
-- **Pass-and-play toggle + dual deployment + battle-loop AI gating** — dedicated future session.
-- **AI deployment logic / AI team random-fill** — Red uses authored placements; future tactics-layer pass.
-- **Title screen + team builder layout eyeball at narrow viewports** — eyeball pass landed this session at 1366/1920/1280; phone form factor explicitly out of scope.
-- **Full battle → results → continuity-button loop manual playtest** — S34 carry; deployment edge browser-verified through deployment in S37; battle-to-results human pass still pending.
-- **River Ridge balance tuning post-S37 + S38 templates** — new templates will shift balance reads. Captured in `docs/playtest-watch.md`.
-- **Pacing + cliff-thickness playtest read** — S33.5 carry. In `docs/playtest-watch.md`.
-- **Charged-action tooltip browser verification beyond Tidal Wave** — S33.5 / S37 carry.
-- **Burn × Purifier playtest** — exercisable via Aggro Knight Squad's Lightning Mage. In `docs/playtest-watch.md`. Now also a `docs/playtest-scenarios.md` entry.
-- **Walk-on-Water passive** — future content.
-- **Opponent (Red) sprite flip during deployment** — S35 carry; cosmetic.
-- **Procced Lightning Strike action-log attribution / Rasp Pendant drain attribution** — S30 carries.
-- **AI active absorption exploitation** — S27 carry. **AI projection forecast extension via `computeOutgoingHitChance`** — S30 carry.
-- **`isWaterTile` predicate keys on elevation, not registry** — S33 carry; no v1 case.
-- **`buildBattle` test-fixture extraction** — triggers at fourth duplication.
-- **Procced spell uses caster's MA / Magus Crown calibration / Tintinibar Regen / Sorcerer's Robe Move +1** — ongoing playtest reads. In `docs/playtest-watch.md`.
-- **Suppress pre-battle init entries in release builds** — longer-term polish.
-- **`map-and-battlefield.md` open questions** — elevation hit-chance/cover, AoE multi-layer, LoS tie-breaking.
-- **`mapAllTerrainCosts` vs. `defaultStepCost`** — no v1 case.
-- **Centralized `canApplyHeal` helper** — explicitly rejected (ADR-0074); revisit at a third heal-application site.
-- **Surrender flow / MVP-unit algorithm / permadeath timer / settings expansion / reactions in projection column** — Phase E/F.
-- **Spiked Mail / Crusader's Helm / Tricorn / Light-Dark Robe playtest reads** — S37 items; in `docs/playtest-watch.md`. Defensive Front + Aggro Knight Squad templates exercise them concretely.
-- **Cross-class command set picker UX** — manual non-class-secondary picking in the team builder UI not audited; templates land cross-class secondaries directly.
-- **Lightning Mage default loadout's hidden `[white_magic]` secondary** — cosmetic carry; demo defaults reference a hidden command set.
-- **Gender / zodiac field implementation** — Decision 13A: state shape extensible; field added when a session needs them.
-- **A White Mage class (real healer)** — flagged by Chris in plan-review; high priority for the next big content expansion.
+- TS strict-mode errors (~200) — S34 carry; `vercel.json` works around.
+- Pass-and-play toggle + dual deployment + battle-loop AI gating — dedicated future session.
+- AI deployment logic / random-fill — Red still uses authored placements.
+- Full battle → results → continuity-button loop manual playtest — S34 carry; now also stress-tested by today's playtest debrief but bears repeating.
+- Spiked Mail / Tricorn / Crusader's Helm / Light-Dark Robe playtest reads — S37 items; in `docs/playtest-watch.md`.
+- Bedrock Stride real-knockback playtest, Tidewalker tempo, Purifier×Burn readability, Magus Crown calibration, Tintinibar Regen calibration, Sorcerer's Robe Move +1 — all still in `docs/playtest-watch.md`.
+- A real healer class (White Mage or similar) — Defensive Front's Earth-Spells-on-Knight is still the stopgap.
+- Gender / zodiac field implementation — Decision 13A: state shape extensible; lands when needed.
 
 ---
