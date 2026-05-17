@@ -14,6 +14,28 @@ export default defineConfig({
       '@content': fileURLToPath(new URL('./src/content', import.meta.url)),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Co-locate all of pixi.js into a single `pixi` chunk so that
+        // Pixi's internal `await import('./gl/WebGLRenderer.mjs')` in
+        // `autoDetectRenderer` resolves to the same chunk that the
+        // static import in `main.tsx` already loaded. Without this,
+        // Rollup splits Pixi's renderer modules into separate code-
+        // split chunks; production playtest on Vercel's CDN reported
+        // the split-chunk variant resolving to `undefined` for the
+        // destructured `WebGLRenderer` export. Per 2026-05-17 incident.
+        // A future polish pass can revisit if the resulting chunk size
+        // hurts initial load.
+        manualChunks(id) {
+          if (id.includes('node_modules/pixi.js') || id.includes('node_modules/@pixi/')) {
+            return 'pixi';
+          }
+          return undefined;
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',
