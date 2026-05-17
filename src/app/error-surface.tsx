@@ -142,6 +142,16 @@ export function clearCapturedErrors(): void {
 
 let installed = false;
 
+// Auto-reload guard for Vite's `vite:preloadError`: when a dynamic
+// import (Pixi's WebGLRenderer chunk is the canonical v1 case) fails
+// because the server has a newer deployment with different chunk
+// hashes, the user's stale HTML references chunk URLs that 404. A
+// one-shot reload picks up the new HTML and resolves the mismatch.
+// Guarded by sessionStorage timestamp so a *genuinely* missing chunk
+// (rebuild bug, deployment incomplete) doesn't loop the page.
+const PRELOAD_RELOAD_KEY = 'taciturn.preloadReloadAt';
+const PRELOAD_RELOAD_COOLDOWN_MS = 10_000;
+
 export function installGlobalErrorListeners(): void {
   if (installed) return;
   installed = true;
@@ -166,6 +176,33 @@ export function installGlobalErrorListeners(): void {
       message,
       stack,
     });
+  });
+  // Vite emits `vite:preloadError` (cancelable) whenever a `__vitePreload`
+  // dynamic import fails. Surfaced post-S38: a redeploy invalidates old
+  // chunk URLs, the user's open tab tries to load a Pixi chunk, the
+  // fetch 404s, Pixi's Application init throws, the deployment screen
+  // renders without a map. One-shot reload picks up the fresh HTML +
+  // new chunk URLs.
+  window.addEventListener('vite:preloadError', (event: Event) => {
+    let lastReload = 0;
+    try {
+      lastReload = Number(sessionStorage.getItem(PRELOAD_RELOAD_KEY) ?? 0);
+    } catch {
+      /* sessionStorage may be unavailable in privacy modes */
+    }
+    if (Date.now() - lastReload < PRELOAD_RELOAD_COOLDOWN_MS) {
+      // Reload was attempted recently and didn't resolve the import.
+      // Fall through so the unhandledrejection handler records it and
+      // the banner surfaces the failure to the player.
+      return;
+    }
+    event.preventDefault();
+    try {
+      sessionStorage.setItem(PRELOAD_RELOAD_KEY, String(Date.now()));
+    } catch {
+      /* ignore */
+    }
+    window.location.reload();
   });
 }
 
@@ -199,18 +236,22 @@ export function ErrorSurface(): ReactElement | null {
     <div style={bannerStyle} role="alert">
       <div style={rowStyle}>
         <span style={badgeStyle}>⚠ {count}</span>
-        <span style={messageStyle}>{latest.message.slice(0, 80)}</span>
-        <button type="button" style={chevronStyle} onClick={() => setExpanded((v) => !v)}>
-          {expanded ? 'Hide' : 'Details'}
-        </button>
-        <button
-          type="button"
-          style={chevronStyle}
-          onClick={() => setDismissedAt(Date.now())}
-          title="Dismiss until next error"
-        >
-          ✕
-        </button>
+        <span style={messageStyle} title={latest.message}>
+          {latest.message}
+        </span>
+        <div style={buttonGroupStyle}>
+          <button type="button" style={chevronStyle} onClick={() => setExpanded((v) => !v)}>
+            {expanded ? 'Hide' : 'Details'}
+          </button>
+          <button
+            type="button"
+            style={chevronStyle}
+            onClick={() => setDismissedAt(Date.now())}
+            title="Dismiss until next error"
+          >
+            ✕
+          </button>
+        </div>
       </div>
       {expanded ? (
         <pre style={detailsStyle}>
@@ -261,9 +302,17 @@ const badgeStyle: CSSProperties = {
 
 const messageStyle: CSSProperties = {
   flex: 1,
+  minWidth: 0, // critical: without this, flex's default `min-width: auto`
+  // lets the long URL push the buttons off-screen instead of ellipsizing
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+};
+
+const buttonGroupStyle: CSSProperties = {
+  display: 'flex',
+  gap: 4,
+  flexShrink: 0,
 };
 
 const chevronStyle: CSSProperties = {
@@ -274,6 +323,7 @@ const chevronStyle: CSSProperties = {
   padding: '2px 6px',
   cursor: 'pointer',
   fontSize: 11,
+  whiteSpace: 'nowrap',
 };
 
 const detailsStyle: CSSProperties = {
