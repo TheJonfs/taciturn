@@ -58,7 +58,7 @@ stepping-stone closer to the bank.
 Walking the river is expensive: shallow water doubles the cost of a
 tile, deep water triples it. The deep channel between the
 inner-column islands is a real barrier — a ground-bound cadet does
-not cross it in a single turn. Under a Water Mage carrying her
+not cross it in a single turn. Under a Hydrologist carrying her
 Tidewalker, the same column becomes a private road.`,
     },
     {
@@ -92,7 +92,7 @@ from it.`,
     },
     {
       title: 'The Water Lane',
-      body: `The river column is class-tied territory. A Water Mage
+      body: `The river column is class-tied territory. A Hydrologist
 with Tidewalker treats it as a private flank; without that ability,
 no other discipline can match the cost she pays to walk it. A cadet
 who means to neutralise the lane should plan to do so by knockback,
@@ -117,7 +117,7 @@ the central pivot: the moment the engagement opens, the question of
 who arrives at the ridge's middle terrace first is most of the
 question of who wins. Move with that in mind.
 
-*Second*, the river. If your team carries a Water Mage with
+*Second*, the river. If your team carries a Hydrologist with
 Tidewalker, the western lane is yours and the engagement is, in
 effect, three rows narrower than it looks. If it does not, treat the
 lane as something only the enemy can use against you, and watch for

@@ -16,6 +16,7 @@ import { classProse } from '../content/classes/index.ts';
 import type { ClassProse } from '../content/prose.ts';
 import academySealSvg from '../art/academy-seal.svg?raw';
 import knightPortraitUrl from '../art/knight_1.png';
+import alchemistPortraitUrl from '../art/alchemist_1.png';
 import earthMagePortraitUrl from '../art/earth_mage_1.png';
 import waterMagePortraitUrl from '../art/water_mage_1.png';
 import fireMagePortraitUrl from '../art/fire_mage_1.png';
@@ -31,7 +32,13 @@ const sealPngMatches = import.meta.glob('../art/seal.png', {
 const sealPngUrl = Object.values(sealPngMatches)[0] as string | undefined;
 
 /** Element identity — drives the per-element accent palette. */
-export type ElementId = 'knight' | 'earth' | 'water' | 'fire' | 'lightning';
+export type ElementId =
+  | 'knight'
+  | 'alchemist'
+  | 'earth'
+  | 'water'
+  | 'fire'
+  | 'lightning';
 
 interface ClassMeta {
   readonly element: ElementId;
@@ -40,8 +47,11 @@ interface ClassMeta {
 
 // Per-class build metadata: which accent palette, which portrait. The
 // Knight's "element" is its institutional self — oxblood, steel band.
+// The Alchemist's is amber / copper — apothecary brass, distinct from
+// both the Knight's steel and the elemental wheel's four hues.
 const CLASS_META: Record<string, ClassMeta> = {
   knight: { element: 'knight', portraitUrl: knightPortraitUrl },
+  alchemist: { element: 'alchemist', portraitUrl: alchemistPortraitUrl },
   earth_mage: { element: 'earth', portraitUrl: earthMagePortraitUrl },
   water_mage: { element: 'water', portraitUrl: waterMagePortraitUrl },
   fire_mage: { element: 'fire', portraitUrl: fireMagePortraitUrl },
@@ -97,9 +107,15 @@ export function spreadContextFor(id: ClassId): SpreadContext {
   };
 }
 
-/** The five classes, in handbook order: Knight, then the elemental wheel. */
+/**
+ * The six classes, in handbook order: the two physical-leaning
+ * disciplines (Knight, then the Alchemist who shares much of the
+ * Knight's gear and stands as a fellow non-caster), then the elemental
+ * wheel.
+ */
 export const SPREAD_ORDER: ReadonlyArray<ClassId> = [
   classId('knight'),
+  classId('alchemist'),
   classId('earth_mage'),
   classId('water_mage'),
   classId('fire_mage'),

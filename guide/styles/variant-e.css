@@ -57,7 +57,14 @@
 
 /* Per-element accent palettes. `--accent` tints the drop cap,
    subsection labels, counsel, and the red scribbles; `--band` /
-   `--band-label` colour the stat band. */
+   `--band-label` colour the stat band. The Alchemist's palette is
+   apothecary brass — amber accent + deeper copper stat band, distinct
+   from both the Knight's steel and from the four elemental hues. */
+.v-e--alchemist {
+  --accent: #8a5a1e;
+  --band: #6b4416;
+  --band-label: #e8cf9e;
+}
 .v-e--earth {
   --accent: #516b30;
   --band: #3d5226;

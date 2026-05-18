@@ -76,14 +76,39 @@ middle of a long engagement was, as a rule, issued the wrong one.`,
     tactical: 'Multiplies maximum MP outright — though her casts arrive a touch slower for it. The staff for the mage who means to outlast.',
   },
   wand_of_depths: {
-    flavor: `A duellist's wand, cut for the Water Mage's hand. Light in
-the swing, long in the reach — where the water runs, so does she.`,
-    tactical: 'Extends the range of her water-tagged spells, and shifts a struck foe’s resistances. A Water Mage’s wand, and few others’.',
+    flavor: `A duellist's wand, cut for the Hydrologist's hand. Light
+in the swing, long in the reach — where the water runs, so does she.`,
+    tactical: 'Extends the range of her water-tagged spells, and shifts a struck foe’s resistances. A Hydrologist’s wand, and few others’.',
   },
   wand_of_deepwood: {
-    flavor: `The Earth Mage's wand — patient wood for a patient
+    flavor: `The Geosage's wand — patient wood for a patient
 discipline. It does not hurry her, but it hurries her earth.`,
-    tactical: 'Quickens her earth-tagged casts and shifts a struck foe’s resistances. The Earth Mage’s answer to her own slow tempo.',
+    tactical: 'Quickens her earth-tagged casts and shifts a struck foe’s resistances. The Geosage’s answer to her own slow tempo.',
+  },
+
+  // --- Knives -------------------------------------------------------
+  // A small, quick, accurate weapon class, requisitionable by any cadet
+  // — the Armorer keeps them on the same rack as the swords, but speaks
+  // of them differently, because the knife rewards the cadet who is
+  // already quick rather than the cadet who is already strong.
+  chefs_knife: {
+    flavor: `An honest implement borrowed from another sort of practice.
+The cadet who first carried one onto the training field was, by all
+accounts, an Alchemist who had grown tired of being underestimated.`,
+    tactical: 'A light, accurate blade with a touch of Physical Attack — the Alchemist’s natural sidearm, since her Potions, Phoenix Downs, and Ethers all scale with PA. Open to any cadet who wants a fast knife with a small lift to her arm.',
+  },
+  sai: {
+    flavor: `Twin-pronged and shorter than a sword, the Sai is the
+quickest hand in the racks. The Armorer keeps a careful eye on which
+cadets requisition it, and which cadets requisition it twice.`,
+    tactical: 'A light knife that feeds its own +1 Speed back into the knife class’s Speed-derived variance — a slower cadet wielding it lands closer to a clean average, and a faster one accelerates further. Open to any class.',
+  },
+  magebane: {
+    flavor: `The duellist's answer to a robe and a staff. The Armorer
+issues the Magebane with a brief, formal warning about which cadets it
+is *not* meant for — and a longer, more private remark about which
+cadets it absolutely is.`,
+    tactical: 'The heaviest of the knives, with a real chance each blow that lands gags the target — a serious threat to a caster. Open to any class; punishing on a Knight or an Alchemist who can close on the mage line.',
   },
 
   // --- Shields ------------------------------------------------------

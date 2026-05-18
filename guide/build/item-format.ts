@@ -50,7 +50,7 @@ const MULT_STAT_LABELS: Record<string, string> = {
   spd: 'Speed',
 };
 
-const WEAPON_FAMILIES = new Set(['sword', 'axe', 'staff', 'wand', 'bow', 'spear']);
+const WEAPON_FAMILIES = new Set(['sword', 'axe', 'knife', 'staff', 'wand', 'bow', 'spear']);
 const MAGE_CLASS_IDS = new Set(['earth_mage', 'water_mage', 'fire_mage', 'lightning_mage']);
 
 function signed(n: number): string {
@@ -214,10 +214,20 @@ function hookEffects(item: ItemDefinition): string[] {
     }
   }
 
+  // Physical variance — Session 40 reshaped this into a discriminated
+  // union. Static bands ({kind:'static', min, max}) print their range
+  // directly (War Axe, Bolt Hammer). Speed-derived bands
+  // ({kind:'attacker_speed', spread}) depend on the wielder, so the
+  // armory entry communicates the principle, not a fixed range.
   if (item.kind === 'weapon' && item.physicalVariance) {
-    out.push(
-      `Variance ${item.physicalVariance.min}–${item.physicalVariance.max}`,
-    );
+    const v = item.physicalVariance;
+    if (v.kind === 'static') {
+      out.push(`Variance ${v.min}–${v.max}`);
+    } else {
+      // attacker_speed: centred at (Speed/10) with the spread on each side.
+      const pct = Math.round(v.spread * 100);
+      out.push(`Variance scales with Speed (±${pct}%)`);
+    }
   }
 
   return out;
