@@ -21,12 +21,13 @@ export const alchemistProse: ClassProse = {
   tagline: 'Field support — the cadet who carries the team’s reserve in her satchel.',
 
   brief: `The Alchemist is the Academy's sixth specialization, and the
-one cadets misread most often on first introduction. She wears no robe
-and casts no spell, and a cadet drawn to swords or to thunderbolts will
-glance at her satchel and conclude there is nothing here for her. This
-is a mistake. The Alchemist's discipline is the *engagement's
-arithmetic*: she banks the turns her team would otherwise waste and
-spends them, later, on the turns her team cannot afford to lose.
+one cadets misread most often on first introduction. She wears no
+robe and casts no spell, and a cadet drawn to swords or to
+thunderbolts will glance at her satchel and conclude there is nothing
+here for her. This is a mistake: the Alchemist's discipline is the
+*engagement's arithmetic*, and she banks the turns her team would
+otherwise waste so she may spend them, later, on the turns her team
+cannot afford to lose.
 
 She stands physically — solid health, an honest blade, a Move that
 carries her where she needs to be — and she works *consumably*. Her
@@ -34,15 +35,9 @@ First Action set holds two instructions: *Compound*, which spends a
 measure of her reserve to add a vial to her stockpile; and *Throw
 Item*, which sends one of those vials a short distance to the cadet
 who needs it. Healing, reviving, lifting a curse — none of it is a
-spell, in the strict sense, and none of it is gated by the elemental
-wheel. It is mended by hand, in the moment, at the cost of the reserve
-the Alchemist took the trouble to lay in beforehand.
-
-A cadet drawn to this discipline must be a cadet who enjoys *planning
-ahead of the engagement*. The Alchemist who arrives empty-handed in a
-crisis has misunderstood her own art; the Alchemist who has spent her
-quiet turns Compounding, and her loud turns Throwing, is, frequently,
-the cadet who keeps the rest of her team upright long enough to win.`,
+spell, none of it is gated by the elemental wheel, and all of it is
+done by hand at the cost of the reserve the Alchemist took the
+trouble to lay in beforehand.`,
 
   abilityNotes: {
     attack: {

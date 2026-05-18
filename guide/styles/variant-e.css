@@ -65,6 +65,15 @@
   --band: #6b4416;
   --band-label: #e8cf9e;
 }
+
+/* Per-class portrait override: the Alchemist's source art is 848×1264
+   — a slightly more vertical aspect than the other class portraits
+   (1792×2400). Crop the box a touch shorter so the brief fits on the
+   verso instead of overflowing onto a third page (which would push
+   every following spread off its verso/recto facing-pair parity). */
+.v-e--alchemist .v-e__portrait img {
+  max-height: 4.1in;
+}
 .v-e--earth {
   --accent: #516b30;
   --band: #3d5226;
