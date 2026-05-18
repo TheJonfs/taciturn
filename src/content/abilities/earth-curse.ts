@@ -26,7 +26,8 @@ import {
 
 export const earthCurse: ActiveAbilityDefinition = {
   id: abilityId('earth_curse'),
-  name: 'Earth Curse',
+  // S40 name-update pass: display name 'Gaian Hex'; id preserved.
+  name: 'Gaian Hex',
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,

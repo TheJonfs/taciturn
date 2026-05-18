@@ -25,7 +25,8 @@ const EARTH_COMMUNION_FACTOR = 1.25;
 
 export const earthCommunion: PassiveAbilityDefinition = {
   id: abilityId('earth_communion'),
-  name: 'Earth Communion',
+  // S40 name-update pass: display name 'Biomastery'; id preserved.
+  name: 'Biomastery',
   kind: 'passive',
   bucket: bucketId('support'),
   baseCost: 1,

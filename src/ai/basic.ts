@@ -165,6 +165,33 @@ const SELF_COST_DAMPING_FACTOR = 0.25;
 // as damage options.
 const BUFF_SCORE_DAMPING_FACTOR = 0.3;
 
+// Session 40 (D7): minimal weapon-proc-target awareness. When the
+// actor's equipped weapon has an `attackProcs` rider that applies a
+// status the target is particularly vulnerable to, multiply the
+// target's offensive score by this factor. Tuned to give the AI a
+// gentle preference rather than a forcing function — Magebane-wielding
+// Knights should *lean toward* the opposing Mage line but still pick
+// a low-HP non-mage when one is in reach.
+//
+// v1 scope: only Silence-via-knife vs mage classes is modeled. Future
+// proc/status combinations extend the `procTargetSynergyMultiplier`
+// helper; sophisticated proc-TTK modeling is a future tactics pass.
+const PROC_TARGET_BONUS = 1.5;
+
+// Status types whose application against a class type benefits the
+// attacker. Read at scoring time; entries are (procced_status_id,
+// vulnerable_class_id_predicate, reason) tuples. Keyed by status type
+// id for fast lookup of "does any proc on the wielder's weapon hit
+// the target's vulnerability?" Generic enough that adding e.g.
+// Berserk-vs-low-Brave or Slow-vs-high-Speed only extends this map.
+const SILENCE_TYPE_ID: StatusTypeId = statusTypeId('silence');
+const MAGE_CLASS_IDS: ReadonlyArray<ReturnType<typeof classId>> = [
+  classId('fire_mage'),
+  classId('earth_mage'),
+  classId('water_mage'),
+  classId('lightning_mage'),
+];
+
 export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecision {
   if (state.turnState === null) return END_TURN;
   const actor = state.units.get(state.turnState.unitId);
@@ -748,6 +775,68 @@ function killValue(target: Unit): number {
   return 1 / Math.max(0.05, target.vitals.hp / maxHp);
 }
 
+// Session 40 (D7): does the actor's equipped weapon have an attackProc
+// that applies a status the target is particularly vulnerable to? Returns
+// a score multiplier. v1 scope is intentionally narrow — Silence-via-knife
+// vs a mage class is the only synergy modeled. The function is generic in
+// shape so future combinations (Berserk vs low-Brave, Slow vs high-Speed,
+// etc.) extend the inner predicate without touching the call site.
+//
+// Why a fixed bonus rather than per-procced-status TTK math: a precise
+// model would project damage with and without the status applied, weight
+// by proc probability, and difference. That's a future tactics-pass shape.
+// v1 wants the AI to *lean* toward mage targets when wielding Magebane —
+// 1.5× is enough to break ties on roughly-equal HP targets while still
+// letting kill-value dominate when a non-mage is genuinely closer to death.
+function procTargetSynergyMultiplier(
+  actor: Unit,
+  target: Unit,
+  ability: ActiveAbilityDefinition,
+  catalog: Catalog,
+): number {
+  // Only physical attacks compose with weapon procs. A Knight casting a
+  // spell shouldn't get the proc bonus for "wielding Magebane while
+  // attacking a mage" — the proc fires from weapon hits.
+  if (!ability.effects.damage?.tags.includes('physical')) return 1.0;
+
+  let multiplier = 1.0;
+  for (const slot of ['rightHand', 'leftHand'] as const) {
+    const itemRef = actor.equipment[slot];
+    if (itemRef === null) continue;
+    if (!catalog.hasItem(itemRef)) continue;
+    const item = catalog.getItem(itemRef);
+    if (item.kind !== 'weapon') continue;
+    if (item.attackProcs === undefined) continue;
+    for (const proc of item.attackProcs) {
+      if (procVsTargetIsHighValue(proc.abilityId, target, catalog)) {
+        multiplier *= PROC_TARGET_BONUS;
+      }
+    }
+  }
+  return multiplier;
+}
+
+// Predicate for "this procced ability applied to this target is
+// particularly valuable." Inspects the procced ability's status effects
+// and matches against the target's profile. v1: Silence vs mage class.
+function procVsTargetIsHighValue(
+  proccedAbilityId: AbilityId,
+  target: Unit,
+  catalog: Catalog,
+): boolean {
+  if (!catalog.hasAbility(proccedAbilityId)) return false;
+  const procced = catalog.getAbility(proccedAbilityId);
+  if (procced.kind !== 'active') return false;
+  const statusEffects = procced.effects.statusEffects;
+  if (statusEffects === undefined) return false;
+  for (const effect of statusEffects) {
+    if (effect.typeId === SILENCE_TYPE_ID) {
+      if (MAGE_CLASS_IDS.includes(target.classState.currentClass)) return true;
+    }
+  }
+  return false;
+}
+
 // =====================
 // Targeting helpers
 // =====================
@@ -855,6 +944,7 @@ function scoreSingleUnitOffensive(
     const projected = projectExpectedDamageFromActor(state, catalog, actor, source, target, ability);
     let score = projected * killValue(target);
     score *= 1 - reactionPenalty(target, ability, catalog);
+    score *= procTargetSynergyMultiplier(actor, target, ability, catalog);
     if (ability.selfDamage !== undefined && ability.selfDamage.fraction > 0) {
       score *= SELF_COST_DAMPING_FACTOR;
     }

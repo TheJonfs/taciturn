@@ -24,7 +24,9 @@ import {
 
 export const earthMage: ClassDefinition = {
   id: classId('earth_mage'),
-  name: 'Earth Mage',
+  // S40 name-update pass: display name updated to 'Geosage';
+  // underlying classId preserved for save-state continuity.
+  name: 'Geosage',
   movement: {
     moveRange: 3,
     jump: 3,

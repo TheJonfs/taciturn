@@ -33,7 +33,9 @@ import {
 
 export const fireMage: ClassDefinition = {
   id: classId('fire_mage'),
-  name: 'Fire Mage',
+  // S40 name-update pass: display name updated to 'Pyromancer';
+  // underlying classId preserved for save-state continuity.
+  name: 'Pyromancer',
   movement: {
     moveRange: 3,
     jump: 3,

@@ -244,3 +244,120 @@ shouldn't drift out of memory between sessions.
   Cataclysm) still feeling overpowered because the cluster targeting
   amplifies the 3-turn impact. Regen at 10 healing for full
   engagements vs. running out before the Earth Mage's next cast.
+
+### Magebane Silence base rate (S40)
+
+- **What to watch.** Magebane's weapon-side proc rate is a flat 50% on
+  every connecting physical hit (matches the apply_burn_proc convention
+  per ADR-0064 — decoupled from wielder casting stats). Apply_silence_
+  proc then short-circuits the BMG formula via `applyAlways: true`, so
+  the only modifiers between the 50% gate and Silence landing are the
+  target-side `modifyIncomingStatusApplicationChance` chain (Pointy Hat
+  × 0.5, Focus Band × 0.75). Effective rate against a Pointy-Hat mage
+  is 25%; against a bare mage, 50%.
+- **Why it matters.** 50% is higher than FFT-canon weapon procs
+  (typically 19–25%). The brief flagged this as tunable in playtest.
+  Mages make up 4/5 of the v1 class roster — Magebane on a Knight or
+  cross-class Alchemist is a real anti-mage pressure tool, especially
+  paired with Remedy.
+- **Signal for adjustment.** Mages feel forced to wear Pointy Hat
+  defensively, distorting the equipment economy. Conversely, mages
+  shrug off the Silence (because Remedy clears it fast enough that
+  the proc never feels decisive). Anti-mage teams dominate mage-heavy
+  compositions in head-to-head engagements.
+
+### Knife dynamic variance — Speed-class spread
+
+- **What to watch.** Knives use `attacker_speed` variance: the band is
+  `[Speed/10 - 0.05, Speed/10 + 0.05]`. A Knight (Speed 9) at `[0.85,
+  0.95]` shaves ~10% off the raw PA × WP; an Aethurge (Speed 11) at
+  `[1.05, 1.15]` adds ~10%; Sai-equipped wielders read at `[0.95,
+  1.05]` (neutral). Magebane's WP 5 + Knight PA 12 + variance 0.9
+  yields ~54 base; with Sai instead, WP 4 + Speed-10 variance 1.0
+  yields ~48. The damage spread between class wielders is real but
+  not enormous.
+- **Why it matters.** First content using a dynamic variance source.
+  The spread (±0.05) is intentionally tight per Chris's design call —
+  preserves "every weapon has *some* variance" without breaking the
+  Speed-deterministic character. If the spread feels flat in play
+  (no swingy moments on a knife hit) we can widen; if it feels noisy
+  we narrow.
+- **Signal for adjustment.** Damage on knife hits feels uniformly
+  predictable / boring to land (too tight). Conversely, knife hits
+  feel inconsistent enough that players avoid them in tight spots
+  (too wide). Mage-class knife wielders (the 1.05–1.15 band) feeling
+  exploitable — a Mage wielding a Magebane / Chef's Knife is an
+  off-character tactical option, watch whether it lands as
+  intentional flavor or as "this should be class-restricted."
+
+### Chef's Knife + Alchemist healing scaling
+
+- **What to watch.** Chef's Knife adds +1 PA to the wielder. On the
+  Alchemist, PA scales every consumable's heal: Potion (PA × 12 → +12
+  HP per throw), Phoenix Down (PA × 4 → +4 HP), Ether (PA × 4 → +4
+  MP). Verified at the team builder: Alchemist PA 8 → 9 with the
+  knife equipped; Potion heal reads 108 HP instead of 96.
+- **Why it matters.** The Alchemist's healing role gets a small
+  reliable amplifier through equipment. The brief expected this as
+  "meaningful but not transformative." Whether it actually reads that
+  way in play — does the Alchemist suddenly feel like a strict-better
+  healer in Chef's Knife, or does the small headline scaling still
+  read as marginal?
+- **Signal for adjustment.** Every Alchemist build defaults to Chef's
+  Knife because the PA scaling dominates the tactical decision —
+  suggests the +1 PA is too valuable on this class specifically.
+  Conversely, Alchemist players reach for Magebane or Sai because
+  the Chef's Knife buff feels too small to matter.
+
+### Sai + Healthy Stride interaction (no amplification)
+
+- **What to watch.** Sai grants +1 Speed, NOT +1 Move. Healthy Stride
+  scales with tiles moved (Move stat). Sai therefore does NOT amplify
+  Healthy Stride's heal — only Move-boosting gear (Boots of Haste,
+  Sorcerer's Robe) does.
+- **Why it matters.** Player expectation: "this knife makes me faster,
+  maybe my movement heal scales too." It doesn't. The +1 Speed
+  contributes to (a) the knife's own variance band lifting a slow
+  class toward neutrality, (b) CT accumulation toward the next turn.
+  Both are intentional but neither feeds Healthy Stride.
+- **Signal for adjustment.** Players consistently ask "why doesn't Sai
+  buff my Healthy Stride?" — suggests tooltip / detail-text should
+  surface the distinction more explicitly. Alternatively, the
+  Alchemist build economy stays clear enough that the question
+  doesn't surface and no change is needed.
+
+### Universal-access knives — soft filter only
+
+- **What to watch.** Knives ship with no `classRestrictions`. All
+  classes (Knight, Alchemist, four mages) can equip them. The brief's
+  D5 originally recommended Knight + Alchemist only; Chris's response
+  in plan-review aligned the implementation to keep weapons
+  class-agnostic, with "other factors (e.g. Mages usually don't want
+  to be attacking) as the soft filter."
+- **Why it matters.** Mage knife builds become a real (if niche)
+  option. A Pyromancer or Geosage on a defensive footing could wield
+  a Magebane and use physical hits as a Silence-application vector
+  instead of casting their own debuffs. Whether this plays as a
+  flavor option or as a meta-distorting strategy is the watch item.
+- **Signal for adjustment.** Mage-knife builds dominate competitive
+  loadouts (suggests the soft filter is too soft). Conversely, mage
+  knife wielders never read as worth the action-economy tradeoff (the
+  expected outcome — confirms the soft filter holds).
+
+### AI weapon-proc target preference (minimal v1)
+
+- **What to watch.** Per D7 / ADR-0078, the AI's scoring multiplies
+  target appeal × 1.5 when (a) the actor wields a weapon with an
+  attackProc, (b) the procced ability applies Silence, (c) the
+  target is a mage class. v1 only models Silence-vs-mage; the helper
+  shape is generic so future combinations extend cleanly.
+- **Why it matters.** Magebane-equipped enemies should preferentially
+  target the player's mage line. The bonus is a soft preference
+  (1.5×) rather than a forcing function — kill value still
+  dominates when a non-mage is much closer to death. Whether this
+  reads in playtest as "the AI feels smarter against my mages"
+  or as "the AI is doing nothing different" is the open question.
+- **Signal for adjustment.** Magebane AI feels indistinguishable from
+  Long Sword AI (suggests the 1.5× is too gentle); conversely, AI
+  obviously favors the mage so consistently that other targets are
+  ignored when they should be picked (suggests too strong).

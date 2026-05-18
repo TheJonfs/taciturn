@@ -25,7 +25,8 @@ import {
 
 export const lightningStrike: ActiveAbilityDefinition = {
   id: abilityId('lightning_strike'),
-  name: 'Lightning Strike',
+  // S40 name-update pass: display name 'Lightning Bolt'; id preserved.
+  name: 'Lightning Bolt',
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,

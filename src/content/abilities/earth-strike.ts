@@ -27,7 +27,8 @@ import {
 
 export const earthStrike: ActiveAbilityDefinition = {
   id: abilityId('earth_strike'),
-  name: 'Earth Strike',
+  // S40 name-update pass: display name 'Rock Toss'; id preserved.
+  name: 'Rock Toss',
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,

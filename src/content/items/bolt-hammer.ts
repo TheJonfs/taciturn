@@ -33,6 +33,8 @@ export const boltHammer: WeaponEquipment = {
   wp: 10,
   accuracy: 75,
   tags: ['axe'],
-  physicalVariance: { min: 0.9, max: 1.3 },
+  // Session 40: migrated to the discriminated-union shape; behavior
+  // unchanged — fixed axe-family band.
+  physicalVariance: { kind: 'static', min: 0.9, max: 1.3 },
   attackProcs: [{ chance: 0.25, abilityId: abilityId('lightning_strike') }],
 };

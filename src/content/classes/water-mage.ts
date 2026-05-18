@@ -27,7 +27,9 @@ import {
 
 export const waterMage: ClassDefinition = {
   id: classId('water_mage'),
-  name: 'Water Mage',
+  // S40 name-update pass: display name updated to 'Hydrologist';
+  // underlying classId preserved for save-state continuity.
+  name: 'Hydrologist',
   movement: {
     moveRange: 4,
     jump: 3,

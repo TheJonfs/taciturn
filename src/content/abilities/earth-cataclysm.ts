@@ -37,7 +37,8 @@ import {
 
 export const earthCataclysm: ActiveAbilityDefinition = {
   id: abilityId('earth_cataclysm'),
-  name: 'Earth Cataclysm',
+  // S40 name-update pass: display name 'Cataclysm'; id preserved.
+  name: 'Cataclysm',
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,

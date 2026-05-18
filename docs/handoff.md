@@ -21,113 +21,108 @@ What does *not* belong here:
 
 ---
 
-## From Session 39 close (2026-05-17) — Alchemist class shipped end-to-end
+## From Session 40 close (2026-05-17) — knife class + dynamic variance + name-update pass
 
-S39 was split into 39a (substrate) and 39b (content + UI). Both shipped this session, with a follow-up polish commit after Chris's first playtest. **1183 tests passing across 107 files** (up from 1152 / 105 at session start; +31 net). Three commits: `b249907` (S39a substrate), `78eee5c` (S39b content + UI + AI), `0336818` (post-playtest polish: portrait, animator softlock, throw arc range, Speed, R/S/M names).
+S40 shipped end-to-end in one session: knife weapon class with Speed-based dynamic variance substrate, three knives (Chef's Knife / Magebane / Sai), apply_silence_proc rider ability, AI proc-target heuristic, and a 19-string name-update pass on the four mage classes plus 15 of their abilities. **1200 tests passing across 108 files** (up from 1183 / 107; +17 net). One ADR landed: ADR-0078 (dynamic variance discriminated union).
 
-### ⚠️ Process note for future sessions — adding a new ActionType
+### What shipped
 
-A new `ActionType` discriminant has to be wired through **five** sites in lockstep, or it bites at runtime in non-obvious places. S39b shipped without animator cases and Throw Item softlocked Chris's first playtest with `Animator.buildAnim: unhandled action type "use_throw_item"` after the engine and log already accepted the action. The exhaustive switches do *not* fully catch the gap — the animator's `assertNever` only fires when the unhandled-action branch is *reached at runtime*, which doesn't happen during tests that don't actually exercise the action.
+**Substrate (modest extension, not a new pipeline):**
 
-**Checklist when adding a new ActionType:**
+- `WeaponEquipment.physicalVariance` migrated from `{ min, max }` to a discriminated union: `{ kind: 'static', min, max } | { kind: 'attacker_speed', spread }`. Static arm preserves all existing weapons (War Axe, Bolt Hammer continue to declare `kind: 'static'` with `[0.9, 1.3]`). The `attacker_speed` arm reads attacker Speed through `runModifyStatQuery` and produces `[Speed/10 - spread, Speed/10 + spread]` at action resolution.
+- `'knife'` added to `DamageTag` for weapon-class identification (knife-tagged weapons gate the dynamic variance arm by convention; future anti-knife content composes against the tag).
+- No new ADR for status-via-proc (already supported per ADR-0064: Flametongue's `apply_burn_proc` is the precedent) and no new ADR for Brave-based status formula (already supported per ADR-0028: Stasis Sword is the precedent — and not needed for Magebane, see Q1 resolution below).
 
-1. **`src/engine/actions/validate.ts`** — add a `case` (typically a pass-through for system actions, or a real validator for player actions). The `default` is `never`-typed so TS catches the miss at compile time.
-2. **`src/engine/actions/reduce.ts`** — dispatcher. Same `never` exhaustiveness check.
-3. **`src/engine/actions/commit.ts`** → `envelopeFor` — builds the envelope by narrowing on `type`. Also `never`-typed.
-4. **`src/ui/action-log-format.ts`** — formatter case (return `[]` if the action shouldn't surface in the log). `never`-typed default.
-5. **`src/renderer/animator.ts`** → `buildAnim` — **this is the one that crashes the live game if missed.** The `assertNever` guards compile-time but failing tests don't exercise it unless they specifically run the animator through the new action. The S39b miss happened because test coverage was at the engine level (reducers + outcomes); the animator wasn't exercised.
+**Content:**
 
-When in doubt: search for an existing action that shares the same animation shape and add a parallel case (e.g., `use_throw_item` mirrors `use_ability`'s `buildFlashFromTargets` shape). S39b's polish commit added five cases at once (use_compound, use_throw_item, system_mp_restore, system_ko_tick, system_unit_removed) — none of them required new animation primitives, just dispatch wiring.
+- **Chef's Knife** — WP 4, Acc 95, +1 PA, knife variance. Alchemist's natural sidearm — PA scales Potion / Phoenix Down / Ether outputs.
+- **Magebane** — WP 5, Acc 95, knife variance, 50% on-hit Silence proc via the existing attackProc substrate. The procced `apply_silence_proc` ability uses `applyAlways: true` (matches the `apply_burn_proc` convention — flat weapon-side chance, no caster-stat gating). Silence duration 4 turns (matches Earth Curse / Gaian Hex's Silence).
+- **Sai** — WP 4, Acc 95, +1 Speed, knife variance. The +1 Speed flows through `modifyStatQuery` into the wielder's own variance computation — a Knight (Speed 9) + Sai computes the band at Speed 10, lifting `[0.85, 0.95]` to `[0.95, 1.05]`.
 
-A future test pass could add a "smoke test" that drives every `ActionType` through the animator with mock state to catch these at CI time. Out of scope for S39 but flagged here.
+**AI (D7 minimal):**
 
-### What's playable now
+- `procTargetSynergyMultiplier` in `src/ai/basic.ts` multiplies a target's score × 1.5 when the actor wields a weapon with an attackProc that applies Silence and the target is a mage class. Generic in shape — adding e.g. Berserk-vs-low-Brave or Slow-vs-high-Speed is one entry in the predicate. Per-status-TTK projection is a future tactics pass.
 
-- **Alchemist class** selectable in the team builder. Stats (post-polish): L25 baseline 126 HP / 36 MP / 8 PA / 5 MA / Move 4 / Jump 3 / Speed 10 / Evades 6-4-0. (Original brief omitted Speed; Chris set it to 10 in the polish pass — ties Water Mage as fastest base.)
-- **Compound + Throw Item** action economy via the new `alchemy` command set. Player flow: Act → Alchemy → Compound (item picker, MP-gated) OR Throw Item (target picker → item picker, range 3h × 3v with arc-style reach — not straight-line).
-- **Four items**: Potion (PA × 12 HP), Phoenix Down (revive + PA × 4 HP), Remedy (clear debuffs), Ether (PA × 4 MP).
-- **R/S/M passives** (display names per the polish pass; ability ids unchanged for save-state compatibility):
-  - **Combat Focus** (Reaction; id `combat_focus`) — "When hit by an enemy, has a chance to raise PA by 1." +1 PA for 3 turns, REFRESH.
-  - **Healthy Stride** (Movement; id `field_recovery`) — "Restores HP equal to the square of the number of spaces moved."
-  - **Travel Preparations** (Support; id `field_kit`) — "Begin the fight with a Potion, Phoenix Down, and Remedy already stocked." Free on Alchemist primary, cost 1 cross-class.
-- **KO recovery** (Phoenix Down): HP=1 + heal layer + reset turnsKOd + reset CT to 0.
-- **Permadeath timer**: KO'd unit's virtual CT ticks; at threshold (default 3) the unit is `removed`.
-- **Defensive Front team retrofitted** — Halric (Knight) + Beorn (Alchemist) + Ysolde (Water Mage) + Auralia (Fire Mage). Replaces the S38 Earth-Spells stopgap with a real healer.
+**Name-update pass:** 4 class display names + 15 ability display names changed. Ids preserved per the S39 precedent — save-state compatible. Renames:
+- Fire Mage → Pyromancer, Water Mage → Hydrologist, Lightning Mage → Aethurge, Earth Mage → Geosage
+- Earth Strike → Rock Toss; Earth's Blessing → Life from the Loam; Earth Curse → Gaian Hex; Earth Quake → Earthquake; Earth Cataclysm → Cataclysm; Earth Resilience → Landwalker; Earth Communion → Biomastery
+- Water Strike → Water Lash; Tide Surge → Rapids Rush
+- Fire Strike → Scorch; Fire Embrace → Inner Warmth; Fire Storm → Fireball; Spark → Slow Burn
+- Lightning Strike → Lightning Bolt; Storm Caller → Megavolt
 
-### Engine substrate additions (S39a + S39b)
+### Plan-review resolutions (in-session)
 
-| Component | S39a | S39b |
-|---|---|---|
-| `Unit` state fields | `stockpile`, `turnsKOd`, `removed` | — |
-| Catalog kinds | `ConsumableDefinition` | — |
-| Action kinds | `use_compound`, `use_throw_item`, `system_mp_restore`, `system_ko_tick`, `system_unit_removed` | — |
-| Hooks | — | `onMoveCompleted` |
-| Passive fields | — | `stockpileGrants` on `PassiveAbilityDefinition` |
-| Ruleset fields | `permadeath: { threshold }` | — |
-| System heal source | — | `'movement_passive'` discriminator |
-| Scheduler | `ko_unit` entity kind for virtual-CT accumulation | — |
+**Q1 — Magebane formula.** Considered: Brave-based gating (per the brief's wording) vs flat-percentage (per the Flametongue / Bolt Hammer convention). Chris's call: keep convention — flat 50% trigger, `applyAlways: true` on the ability. Tunable in playtest if the rate plays as too punishing or too mild.
+
+**Q2 — Class restrictions on knives.** The brief's D5 ("Mages not equippable") assumed weapons were already class-restricted; the audit showed no v1 weapons are. Chris's call: keep weapons class-agnostic. Soft filter is whether non-melee classes want to be attacking at all. Mage-knife builds become a real (if niche) option — watched in `playtest-watch.md`.
+
+**Q3 — Variance band.** Small shift (Speed/10 ± 0.05) confirmed.
+
+**Q4 — Magebane Silence duration.** 4 turns confirmed (matches Earth Curse / Gaian Hex's existing Silence duration).
+
+**Q5 — Variance source representation.** Discriminated union with explicit `kind` arms confirmed — for future ease of adding more variance formulas.
+
+**Q6 — Name-update pass.** Specific list provided in-session; applied via display-name swap with id preservation per the S39 precedent. See list above.
+
+### ADRs from S40
+
+- [ADR-0078](docs/decisions/0078-dynamic-variance-source-discriminated-union.md) — `WeaponPhysicalVariance` discriminated union with `kind: 'static' | 'attacker_speed'`.
+
+(No ADR for status-via-proc or Brave-formula — both already shipped in prior sessions; Magebane composes with the existing substrate. No ADR for name-update pass — it's display-string content, not a design decision, and the precedent already exists from S39.)
+
+### Browser verification
+
+- Game loads cleanly with no console errors.
+- All three knives appear in the Right Hand / Left Hand pickers for Knight, Alchemist, and the four mages (mages can equip per Q2 — universal access).
+- Stat composition verified: Knight + Magebane PA 11 / SPD 9 (no statMods); Knight + Sai SPD 9 → 10; Knight + Chef's Knife PA 11 → 12; Alchemist + Chef's Knife PA 8 → 9 (Potion heal 96 → 108).
+- Class display names render correctly in the team builder: Pyromancer / Hydrologist / Aethurge / Geosage / Knight / Alchemist.
+- Renamed cross-class passives (Landwalker, Biomastery) render correctly in the ability picker. Active-spell renames (inside command-set submenus, only visible in-battle) are catalog reads — verified indirectly via the passing detail-text test on "Lightning Bolt".
+- **Manual playtest still pending.** No live deployment-to-battle exercising the knives + Silence proc + AI Magebane preference loop in S40 — Chris's first knife playtest will surface any rendering / animation / forecast-panel gaps.
 
 ### Engine operational changes the next session should know about
 
-- **Compound and Throw Item bypass the ability/reaction pipeline entirely.** No `onActionAttempted`, no `onActionTargeted`, no Counter / Reflect / Discharge / Combat Focus triggering. The brief flagged this as a watch-for: if a future content item is offensive (acid, debuff bomb), this design needs revisiting. The v1 four items are all helper/healing, so it's correct today.
-- **`onMoveCompleted` fires once per committed Move action** against the mover's hooks, with `tilesMoved` count. Forced movement (knockback / pull) bypasses by virtue of not going through `reduceMove` — Healthy Stride's "intentional only" gate is structural. First v1 consumer is Healthy Stride (Alchemist Movement; ability id `field_recovery`); future move-trigger content reuses the hook.
-- **`stockpileGrants` on `PassiveAbilityDefinition`** populates `unit.stockpile` at `createInitialState` time. Cross-class equippers receive the grant; no class gate. Items referenced must be consumables — non-consumable ids in the field cause silent skip at runtime (caught at runtime via the catalog lookup; no compile-time enforcement).
-- **`compound` and `throw_item` are detected by ability id** in the UI router (`src/ui/use-turn-flow.ts → abilityRoute`). Their `ActiveAbilityDefinition` shells exist mostly for Command-Set membership; their targeting / mpCost / actionSpeed fields are placeholders the UI ignores. The actual action emission is `use_compound` / `use_throw_item`, not `use_ability`.
-- **The action-menu FSM gained two states**: `compound-item-select` and `throw-item-item-select`. Both reach `animation` directly via `pickItem` (no `await-confirm` — the item picker IS the confirm surface). The `throw-item-item-select` state caches the picked target id; cancel returns to `target-select` for re-pick.
-- **Permadeath countdown UI lives on the unit-detail panel** rather than as a battlefield overlay. Players see the counter when they click a KO'd unit. If playtest reads "I need it visible without clicking," a renderer-side badge is a small follow-on.
-
-### ADRs from S39a
-
-- [ADR-0076](docs/decisions/0076-permadeath-timer-and-removed-units.md) — permadeath timer + `removed` state.
-- [ADR-0077](docs/decisions/0077-consumable-items-and-mp-restore-primitive.md) — consumable items catalog kind + MP-restore primitive.
-
-(No new ADR for S39b — the brief flagged it as "ADR if Compound submenu lands as new engine surface." It did, but it's UI-layer (FSM state additions), not engine. The compound/throw_item action kinds were ADR-0077 territory.)
-
-### Browser verification (post-polish)
-
-- Game loads cleanly with no console errors.
-- Alchemist class shows in the team-builder picker with the 512×512 portrait rendering correctly.
-- Defensive Front template loads with Beorn the Alchemist, stats compute correctly post-equipment (256 HP / 36 MP / 10 PA / 6 MA / 11 SPD with Battle Gear + Lookout's Hood + Diamond Bracelet + War Axe — Lookout's Hood +1 over base 10).
-- Combat Focus / Healthy Stride / Travel Preparations all render with the new names in the unit detail panel.
-- **First in-game playtest by Chris (post-S39b) caught**: Throw Item softlock (animator miss — fixed `0336818`), arc-vs-straight-line throw range (fixed), missing portrait registration (fixed). All three on the substrate-meets-rendering seam.
-- **Manual playtest still pending:** full deployment → battle loop exercising Compound → Throw → KO → Phoenix revival → permadeath threshold reached on the live deployment.
+- **Dynamic variance is now a thing.** `resolveVarianceBand` in `engine/damage/handlers.ts` is the single resolution site. Adding a third arm to the discriminated union (e.g. `{ kind: 'remaining_hp_fraction', ... }`) is one switch branch plus a type entry. Future variance-formula content slides in here.
+- **The Speed read in dynamic variance threads through `modifyStatQuery`.** Anything that modifies Speed (Sai +1, Boots of Haste, Slow status with negative Speed, future Speed buffs) automatically affects knife variance without per-content wiring.
+- **`procTargetSynergyMultiplier` is a generic shape, not Magebane-specific.** The helper inspects every attackProc on every weapon slot. Adding the next "proc-X vs target-Y" entry is extending the inner predicate `procVsTargetIsHighValue` with one branch (status-type check + target predicate). Don't fork it into a Magebane-specific path; extend the generic helper.
+- **`apply_silence_proc` follows the apply_burn_proc convention exactly.** Future status-applying proc abilities should follow the same shape: `availability: 'hidden'`, `actionSpeed: 0`, `mpCost: 0`, ability tag empty (the wielder's physical hit carries 'physical' / 'weapon' / weapon-class tag; the rider runs outside the damage pipeline and only declares its own effect), `effects.statusEffects: [{ typeId, applyAlways: true, duration }]`.
 
 ### Things noticed but not acted on (next-session candidates)
 
-- **Throw Item's "is this useful?" gating is in the picker, not in the click handler.** The throw-target click validates range + LoS + removed-target, but doesn't check "does the picked target have a debuff that Remedy could clear?" The item picker disables items that aren't useful (Phoenix Down on a non-KO'd target is gated), but the picker only shows after the target click. If players misclick a target, they pay an extra click to cancel out. Worth observing in playtest — may be fine, may want pre-target gating.
-- **Stockpile cap absent (per S39 out-of-scope).** Players can Compound the same item arbitrarily many times. Probably fine for a 4v4 battle that lasts 20-30 actions, but worth flagging if a long-battle scenario emerges.
-- **Permadeath badge is panel-only.** Player must click the KO'd unit to see the counter. A renderer-side number overlay is the natural follow-on if playtest shows the panel-only model is too easy to miss.
-- **Ether MP cost vs. restore math** (S39 watch-for) — 10 MP to Compound, 32 MP restored at PA 8 = net +22 MP per self-cycle. Not exploitable (action turn cost), but worth observing whether players cycle Alchemist Ether → Alchemist's own MP → Compound Ether repeat. Probably fine; flag if it surfaces in playtest.
-- **`UnitPlacement` could carry `initialStockpile`** for hand-authored scenarios that want a unit to enter battle with a non-Field-Kit stockpile (e.g., a hard-mode enemy Alchemist starts with 3 Potions + 1 Phoenix Down). Out of scope for S39; small extension when a consumer ships.
-- **Compound's MP gate could compose with a "double-MP cost" debuff** (none in v1). The cost is read directly from `item.compoundMpCost` without the `modifyMpCost` hook chain — that chain is ability-specific. If a future status wants to penalize Compound, the substrate needs to plumb compound MP through the chain.
-- **Cross-class Alchemy availability.** Compound and Throw Item are members of the `alchemy` command set, which can be equipped cross-class as a secondary. A Knight equipping Alchemy gets Compound + Throw Item; with Travel Preparations (cost 1) they also get the starting stockpile. The brief implies this is intended ("Cross-class equippers also receive the grant"); worth confirming the play experience reads OK once it's tested.
-- **Movement HP heal × Move-boosting equipment** (S39 watch-for) — square scaling makes Boots of Haste / Sorcerer's Robe Move +1 dramatically more valuable on the Alchemist. Boots of Haste-equipped Alchemist with Move 5 heals 25 HP per move turn (vs. 16 baseline). Flag for `playtest-watch.md` once playtest data accumulates.
+- **Detail-text knife variance label** reads `Var Speed/10 ±0.05` for `attacker_speed` arms. Functional but could be more reader-friendly. A "preview the variance band for the currently-edited unit" surface (showing the actual computed `[min, max]` band given the unit's post-equipment Speed) is a UX polish item if playtest wants it.
+- **Sai + Healthy Stride confusion risk.** Sai grants +1 Speed, not +1 Move. Healthy Stride scales with tiles moved (Move stat). The tooltip / detail-text could clarify "+1 Speed (CT only, not Move)" to head off the expected player question.
+- **AI proc-target preference is gentle (1.5× multiplier).** First playtest will tell whether it reads as visibly smarter against mages or as indistinguishable from non-Magebane behavior. Tuning the multiplier (or layering in proc-TTK projection) is a future tactics pass if needed.
+- **Command-set display names** were NOT renamed in S40 — Fire Spells / Water Spells / Lightning Spells / Earth Spells stayed. They could be renamed to align with the new class flavor (Pyromantics? Hydromancy? etc.) if Chris wants — flagged here for a future small renames pass.
+- **Pre-Sai variance band character.** A Knight's natural knife variance `[0.85, 0.95]` (mean 0.9) shaves ~10% off raw damage. Whether the Sai variant's `[0.95, 1.05]` (neutral) feels meaningfully better than the bare-knife variant in play is a playtest read; if Sai feels mandatory, the bare-knife band may need a small lift.
+- **Knight's first Magebane playtest probably catches something.** S39b's first playtest caught the Throw Item animator gap + the Lookout's Hood Speed register + the throw arc range bug. S40 introduces a new substrate (dynamic variance) + a new proc consumer + an AI behavior shift — there are likely two or three "didn't think of that" rough edges waiting for live exercise.
 
 ### Considered and rejected this session
 
-- **Per-ally-turn-start permadeath cadence.** S39a — Chris picked per-virtual-turn instead. (See ADR-0076.)
-- **Items as `'hidden'` abilities.** S39a — would have reused the ability pipeline but conflated semantics. (See ADR-0077.)
-- **Dedicated `compound` and `throw_item` `TargetingSpec` kinds.** Considered for engine purity (ability shells would declare their UI behavior). Rejected — UI detection by ability id is leaner and doesn't pollute the engine's targeting types with UI concerns. The ability shells stay as `targeting: 'self'` / `targeting: 'single_unit'` placeholders.
-- **`await-confirm` after the item pick.** Rejected — the item picker IS the confirm surface. The player explicitly chose this item with MP cost / stockpile count / target all visible; an additional Confirm row is redundant. Existing target-select abilities still flow through await-confirm per the user's settings preference.
-- **Renderer-side permadeath badge on KO'd unit sprites.** Deferred — panel-only badge is a smaller scope and gets the information surfaced. Renderer overlay is a polish session if playtest demands it.
+- **Brave-gated Magebane formula** (per the original brief wording). Rejected by Chris in plan-review — keep the Flametongue / Bolt Hammer convention (flat weapon-side chance). Magebane composes cleanly with the existing `applyAlways: true` substrate; no new gating math needed.
+- **Class-restricted knives** (Knight + Alchemist only). Rejected by Chris in plan-review — v1 weapons are class-agnostic. The brief's D5 was based on a misread of the current weapon-restriction state.
+- **Schema-level dispatch on the `'knife'` tag for dynamic variance.** Considered for the variance substrate. Rejected (ADR-0078): couples taxonomy to mechanics. Future Speed-scaling weapons that aren't knife-tagged would need either tag pollution or a second dispatch path. The discriminated-union arm on `physicalVariance` is data-explicit and composes cleanly.
+- **Closure-valued `physicalVariance`** (`(speed) => ({ min, max })`). Rejected — closures don't serialize, are harder to validate at catalog construction, and don't compose with ADR-replay surfaces as cleanly as a data shape.
+- **Per-status-TTK projection in the AI proc-target heuristic** (ADR-0078 / D7). Considered for a more precise AI scoring shape. Deferred — v1 wants the AI to *lean* toward mage targets when wielding Magebane; a flat 1.5× multiplier achieves that without a full proc-TTK simulation. Sophisticated proc-aware tactics are a future tactics pass.
 
 ### Longer-term carry-forward (mostly unchanged)
 
-- **TS strict-mode errors (~230) — S34 carry.** `vercel.json` works around. S39's typecheck pass shows ~0 new errors introduced (counts hold steady).
+- **TS strict-mode errors (~230) — S34 carry.** `vercel.json` works around. No change in S40 — count holds.
 - **Pass-and-play toggle + dual deployment + battle-loop AI gating** — dedicated future session.
 - **AI deployment logic / random-fill** — Red still uses authored placements.
-- **Full battle → results → continuity-button loop manual playtest** — S34 carry; should be re-run with Alchemist in the mix.
+- **Full battle → results → continuity-button loop manual playtest** — S34 carry; should be re-run with knives + Magebane in the mix.
 - **Knight-exclusive armor access for Alchemist** (S39 D1 trajectory) — Universal-only for v1.
 - **Additional consumables (Hi-Potion, Holy Water, Elixir)** — pure content adds in a future session.
 - **Buff/debuff consumables** — deferred; would need an `applyStatus` field on `ConsumableEffects`.
 - **Sophisticated Alchemist AI tactics** (banking, prediction, prep timing) — out of scope; v1 reactive heuristics shipped.
-- **Calculator class** — future expansion; will reuse Compound submenu UX pattern. The substrate (per-unit stockpile, item-picker FSM states) generalizes if Calculator's spells are modeled similarly.
+- **Calculator class** — future expansion; will reuse Compound submenu UX pattern.
 - **Spiked Mail / Tricorn / Crusader's Helm / Light-Dark Robe playtest reads** (S37 carry) — in `docs/playtest-watch.md`.
 - **Bedrock Stride / Tidewalker / Purifier / Magus Crown / Tintinibar / Sorcerer's Robe calibration** (S37 carry) — all in `docs/playtest-watch.md`.
 - **Status duration rebalance signals** (S38-fixes carry) — watch how 3/4/6/10 numbers play.
 - **Main Menu transition lag root cause** (S38-fixes carry) — masked by `TransitionOverlay`; not diagnosed.
-- **Fire Embrace target-rejection mystery** (S38 carry) — dev-mode log will catch next occurrence.
+- **Fire Embrace target-rejection mystery** (S38 carry) — dev-mode log will catch next occurrence. **Note:** ability is now "Inner Warmth" per S40 rename; the mystery still belongs to ability id `fire_embrace`.
 - **Per-target "resolves before / after" forecast for AoE** (S38 carry).
 - **Gender / zodiac field implementation** (Decision 13A) — state shape extensible; lands when needed.
+- **ActionType-wiring checklist** (S39 carry — promote to a durable doc). S40 didn't add new ActionTypes (knives compose with existing physical-attack path; Magebane Silence proc rides the existing attackProc substrate; no new system_* actions). The S39 carry stands; the checklist hasn't been needed in S40 but should still be promoted before the next session that adds an ActionType.
+- **Renderer-side permadeath badge** (S39 watch) — panel-only model intact in S40; revisit if playtest demands.
+- **Manual deployment-to-permadeath playtest loop** (S39 carry) — should also include a knife-using Knight or Alchemist now.
 
 ---

@@ -28,7 +28,8 @@ import {
 
 export const tideSurge: ActiveAbilityDefinition = {
   id: abilityId('tide_surge'),
-  name: 'Tide Surge',
+  // S40 name-update pass: display name 'Rapids Rush'; id preserved.
+  name: 'Rapids Rush',
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,

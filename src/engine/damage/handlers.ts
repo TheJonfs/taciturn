@@ -358,12 +358,16 @@ export const fireOnDamageReceived: DamageHandler = (ctx, env) => {
 // a multiplier. Uses a hash of the per-action seed plus a small
 // sub-index — matches the design's "stream-within-action" model.
 //
-// Per Session 31 (ADR-0067): the band fork. Physical hits whose
-// wielder weapon declares `physicalVariance` use the weapon's band
-// instead of the ability's `ctx.variance`. War Axe (`[0.9, 1.3]`,
-// asymmetric, mean 1.1) and Bolt Hammer ride this path; sword / wand /
-// staff wielders without a declared band fall through to the ability's
-// `ctx.variance` (default `{ 1, 1 }` → no-op short-circuit).
+// Per Session 31 (ADR-0067) + Session 40: the band fork. Physical hits
+// whose wielder weapon declares `physicalVariance` resolve the band off
+// the weapon instead of the ability's `ctx.variance`. War Axe (static
+// `[0.9, 1.3]`, asymmetric, mean 1.1) and Bolt Hammer ride the static
+// arm; knives ride the `attacker_speed` arm with a small ±0.05 spread,
+// computing the band from the wielder's post-equipment Speed at action
+// resolution time. Sword / wand / staff wielders without a declared
+// band fall through to the ability's `ctx.variance` (default `{ 1, 1 }`
+// → no-op short-circuit).
+//
 // Magical-only damage always reads `ctx.variance` regardless of
 // equipped weapon — the weapon-side band gates on the 'physical' tag
 // so a Wand-wielding Mage casting a spell still gets the ability's
@@ -383,18 +387,44 @@ export const varianceRoll: DamageHandler = (ctx, env) => {
   };
 };
 
-// Per Session 31 (ADR-0067). Physical hits with a wielder weapon that
-// declares `physicalVariance` use the weapon's band; everything else
-// uses the ability's `ctx.variance`. The function is small and inline
-// here so the variance stage stays single-file.
+// Per Session 31 (ADR-0067) + Session 40. Physical hits with a wielder
+// weapon that declares `physicalVariance` resolve the band off the
+// weapon; everything else uses the ability's `ctx.variance`. The
+// function is small and inline here so the variance stage stays
+// single-file.
+//
+// `kind: 'static'` returns the literal `{ min, max }` band.
+//
+// `kind: 'attacker_speed'` (Session 40, knife class) computes the band
+// from the wielder's effective Speed at action time, threading the
+// stat through `modifyStatQuery` so Sai's +1 Speed and any future
+// Speed-modifying contributors compose. Band:
+//   center = Speed / 10
+//   { min: center - spread, max: center + spread }
+// Clamped to a non-negative minimum (Speed 0 is impossible per the
+// stat caps; the clamp is belt-and-suspenders for the spread term).
 function resolveVarianceBand(
   ctx: DamageContext,
   env: PipelineEnv,
 ): { readonly min: number; readonly max: number } {
   if (!ctx.damageTags.has('physical')) return ctx.variance;
   const weapon = getEquippedWeapon(ctx.attacker, env.catalog);
-  if (weapon?.physicalVariance !== undefined) return weapon.physicalVariance;
-  return ctx.variance;
+  const source = weapon?.physicalVariance;
+  if (source === undefined) return ctx.variance;
+  if (source.kind === 'static') {
+    return { min: source.min, max: source.max };
+  }
+  // source.kind === 'attacker_speed'
+  const speed = runModifyStatQuery(env.state, env.catalog, {
+    unit: ctx.attacker,
+    statName: 'spd',
+    baseValue: ctx.attacker.baseStats.spd,
+  });
+  const center = speed / 10;
+  return {
+    min: Math.max(0, center - source.spread),
+    max: Math.max(0, center + source.spread),
+  };
 }
 
 // Shared crit_chance read site (per ADR-0034 / ADR-0042). Reads

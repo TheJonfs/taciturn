@@ -194,7 +194,16 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
     const w = item as WeaponEquipment;
     const bits: string[] = [`WP ${w.wp}`, `Acc ${w.accuracy}`];
     if (w.physicalVariance !== undefined) {
-      bits.push(`Var ${formatVarianceBand(w.physicalVariance.min, w.physicalVariance.max)}`);
+      if (w.physicalVariance.kind === 'static') {
+        bits.push(`Var ${formatVarianceBand(w.physicalVariance.min, w.physicalVariance.max)}`);
+      } else {
+        // Speed-based: render the dynamic source so the player sees why
+        // the band shifts with the wielder. The actual numerical band
+        // (Speed/10 ± spread) lives on the forecast panel for the
+        // currently-equipped unit; this surface is the item itself,
+        // shown without a wielder context.
+        bits.push(`Var Speed/10 ±${w.physicalVariance.spread.toFixed(2)}`);
+      }
     }
     lines.push(bits.join(' · '));
     if (w.tags !== undefined && w.tags.length > 0) {

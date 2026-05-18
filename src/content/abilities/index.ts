@@ -1,6 +1,7 @@
 import type { AbilityDefinition } from '@engine/index.ts';
 import { aetherBloom } from './aether-bloom.ts';
 import { applyBurnProc } from './apply-burn-proc.ts';
+import { applySilenceProc } from './apply-silence-proc.ts';
 import { attack } from './attack.ts';
 import { bedrockStride } from './bedrock-stride.ts';
 import { bolt } from './bolt.ts';
@@ -57,6 +58,7 @@ import { waterStrike } from './water-strike.ts';
 export const abilities: ReadonlyArray<AbilityDefinition> = [
   aetherBloom,
   applyBurnProc,
+  applySilenceProc,
   attack,
   bedrockStride,
   bolt,

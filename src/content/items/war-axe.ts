@@ -8,6 +8,11 @@
 // `physicalVariance` (ADR-0067). Effective WP across the band's mean
 // 1.1 is 12 × 0.75 (hit rate) × 1.1 (variance mean) = 9.9 — matches
 // the equipment doc's expected effective WP for War Axe.
+//
+// Session 40: `physicalVariance` migrated to the discriminated-union
+// shape (`kind: 'static'` for fixed bands, `kind: 'attacker_speed'` for
+// the new knife-class dynamic variance). War Axe stays on the static
+// band — no behavior change.
 
 import { itemId, type WeaponEquipment } from '@engine/index.ts';
 
@@ -19,5 +24,5 @@ export const warAxe: WeaponEquipment = {
   wp: 12,
   accuracy: 75,
   tags: ['axe'],
-  physicalVariance: { min: 0.9, max: 1.3 },
+  physicalVariance: { kind: 'static', min: 0.9, max: 1.3 },
 };

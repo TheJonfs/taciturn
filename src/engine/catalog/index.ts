@@ -37,6 +37,7 @@ export {
   type StatusEffectType,
   type TargetingSpec,
   type WeaponEquipment,
+  type WeaponPhysicalVariance,
 } from './definitions/index.ts';
 export {
   DuplicateDefinitionError,

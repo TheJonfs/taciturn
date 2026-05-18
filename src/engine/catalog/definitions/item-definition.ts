@@ -237,6 +237,26 @@ interface EquipmentBase {
   readonly physicalReflectPercent?: number;
 }
 
+// Weapon-sourced variance source (per ADR-0067 + Session 40 extension).
+// Discriminated union so future variance formulae (e.g., "scales with
+// remaining HP," "scales with stack count of a status") can land as
+// additional `kind` arms without growing a parallel field. Resolution
+// lives in `engine/damage/handlers.ts → resolveVarianceBand`.
+//
+//  - `kind: 'static'` — fixed [min, max] band per the original ADR-0067
+//    shape. War Axe and Bolt Hammer use this (asymmetric [0.9, 1.3]).
+//  - `kind: 'attacker_speed'` — dynamic band computed from the wielder's
+//    post-equipment Speed (read through `modifyStatQuery` so Sai's +1
+//    Speed and any future Speed-modifying contributors compose). Band
+//    spans `[Speed/10 - spread, Speed/10 + spread]`. The knife weapon
+//    class uses this with `spread: 0.05` so a Knight (Speed 9) wielding
+//    a knife rolls in `[0.85, 0.95]`, a Lightning Mage (Speed 11) rolls
+//    in `[1.05, 1.15]`, and a Sai-wielding Knight (Speed 10) rolls in
+//    `[0.95, 1.05]`.
+export type WeaponPhysicalVariance =
+  | { readonly kind: 'static'; readonly min: number; readonly max: number }
+  | { readonly kind: 'attacker_speed'; readonly spread: number };
+
 export interface WeaponEquipment extends EquipmentBase {
   readonly kind: 'weapon';
   // Weapon power — fed into the physical base stage formula
@@ -249,15 +269,13 @@ export interface WeaponEquipment extends EquipmentBase {
   // accuracy is the override path. Default for unarmed is 100 per the
   // Battle Mechanics Guide.
   readonly accuracy: number;
-  // Session 31: weapon-sourced asymmetric variance band, optional.
-  // When set, physical damage from this wielder uses this band on
-  // sub-stream 0 in place of the ability's `damageSpec.variance`.
-  // Axe-family identity ([0.9, 1.3] asymmetric, mean 1.1). The pipeline
-  // variance stage forks: `'physical'` damage tag + wielder weapon
-  // declares `physicalVariance` → use this band; otherwise the ability's
-  // band (default `{ min: 1, max: 1 }`) applies. The fork preserves
-  // determinism per (state, action, seed).
-  readonly physicalVariance?: { readonly min: number; readonly max: number };
+  // Session 31 (ADR-0067) + Session 40: weapon-sourced variance, optional.
+  // When set, physical damage from this wielder uses the resolved band
+  // on sub-stream 0 in place of the ability's `damageSpec.variance`. The
+  // pipeline variance stage forks on the 'physical' damage tag; magical-
+  // only damage from the same wielder always reads the ability's band.
+  // See `WeaponPhysicalVariance` above for the discriminator semantics.
+  readonly physicalVariance?: WeaponPhysicalVariance;
 }
 
 // Session 29: shields occupy the left-hand slot but aren't weapons —

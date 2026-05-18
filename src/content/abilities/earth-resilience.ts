@@ -24,7 +24,8 @@ import {
 export const earthResilience: PassiveAbilityDefinition = compileReactionAbility(
   {
     id: abilityId('earth_resilience'),
-    name: 'Earth Resilience',
+    // S40 name-update pass: display name 'Landwalker'; id preserved.
+    name: 'Landwalker',
     bucket: bucketId('reaction'),
     baseCost: 1,
     availability: 'available',

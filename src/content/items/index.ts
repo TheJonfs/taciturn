@@ -5,6 +5,7 @@ import { battleGear } from './battle-gear.ts';
 import { boltHammer } from './bolt-hammer.ts';
 import { bootsOfHaste } from './boots-of-haste.ts';
 import { capacitorRing } from './capacitor-ring.ts';
+import { chefsKnife } from './chefs-knife.ts';
 import { crusadersHelm } from './crusaders-helm.ts';
 import { darkRobe } from './dark-robe.ts';
 import { diamondBracelet } from './diamond-bracelet.ts';
@@ -19,6 +20,7 @@ import { lightRobe } from './light-robe.ts';
 import { lightfoot } from './lightfoot.ts';
 import { longSword } from './long-sword.ts';
 import { lookoutsHood } from './lookouts-hood.ts';
+import { magebane } from './magebane.ts';
 import { magusCrown } from './magus-crown.ts';
 import { managuard } from './managuard.ts';
 import { phoenixDown } from './phoenix-down.ts';
@@ -27,6 +29,7 @@ import { potion } from './potion.ts';
 import { purifier } from './purifier.ts';
 import { raspPendant } from './rasp-pendant.ts';
 import { remedy } from './remedy.ts';
+import { sai } from './sai.ts';
 import { silveredVest } from './silvered-vest.ts';
 import { soldiersLeathers } from './soldiers-leathers.ts';
 import { sorcerersRobe } from './sorcerers-robe.ts';
@@ -62,6 +65,13 @@ export const items: ReadonlyArray<ItemDefinition> = [
   staffOfAbundance,
   // Session 31 batch B — new weapon
   boltHammer,
+  // Session 40 — knife weapon class. Speed-based dynamic variance per
+  // the discriminated-union `physicalVariance` substrate. Class-agnostic
+  // by design (no `classRestrictions`); soft filter is whether non-melee
+  // classes want to be attacking at all.
+  chefsKnife,
+  magebane,
+  sai,
   // Shields (Knight-only)
   escutcheon,
   warriorsAegis,

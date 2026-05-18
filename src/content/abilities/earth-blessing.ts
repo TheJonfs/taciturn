@@ -24,7 +24,8 @@ import {
 
 export const earthBlessing: ActiveAbilityDefinition = {
   id: abilityId('earth_blessing'),
-  name: "Earth's Blessing",
+  // S40 name-update pass: display name 'Life from the Loam'; id preserved.
+  name: 'Life from the Loam',
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,

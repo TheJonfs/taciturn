@@ -294,7 +294,7 @@ describe('Session 31 physicalVariance — weapon-sourced variance fork', () => {
     const ax = makeWeaponWithVariance({
       id: 'war_axe_test',
       wp: 12,
-      physicalVariance: { min: 0.9, max: 1.3 },
+      physicalVariance: { kind: 'static', min: 0.9, max: 1.3 },
     });
     const attack = physicalAttack(1);
     const ruleset = rulesetForPipeline();
@@ -394,7 +394,7 @@ describe('Session 31 physicalVariance — weapon-sourced variance fork', () => {
     const wandWithVariance = makeWeaponWithVariance({
       id: 'wand_with_variance_test',
       wp: 2,
-      physicalVariance: { min: 0.9, max: 1.3 },
+      physicalVariance: { kind: 'static', min: 0.9, max: 1.3 },
     });
     const cast: ActiveAbilityDefinition = {
       ...magicalCast(12),
@@ -446,7 +446,7 @@ describe('Session 31 physicalVariance — weapon-sourced variance fork', () => {
     const ax = makeWeaponWithVariance({
       id: 'war_axe_test_b',
       wp: 12,
-      physicalVariance: { min: 0.9, max: 1.3 },
+      physicalVariance: { kind: 'static', min: 0.9, max: 1.3 },
     });
     const attack = physicalAttack(1);
     const ruleset = rulesetForPipeline();
@@ -492,14 +492,14 @@ describe('Session 31 Bolt Hammer — content shape', () => {
     expect(boltHammer.wp).toBe(10);
     expect(boltHammer.accuracy).toBe(75);
     expect(boltHammer.tags).toContain('axe');
-    expect(boltHammer.physicalVariance).toEqual({ min: 0.9, max: 1.3 });
+    expect(boltHammer.physicalVariance).toEqual({ kind: 'static', min: 0.9, max: 1.3 });
     expect(boltHammer.attackProcs?.length).toBe(1);
     expect(boltHammer.attackProcs?.[0]?.chance).toBe(0.25);
     expect(boltHammer.attackProcs?.[0]?.abilityId).toBe(abilityId('lightning_strike'));
   });
 
   it('War Axe retrofit declares the same [0.9, 1.3] band and no proc', () => {
-    expect(warAxe.physicalVariance).toEqual({ min: 0.9, max: 1.3 });
+    expect(warAxe.physicalVariance).toEqual({ kind: 'static', min: 0.9, max: 1.3 });
     expect(warAxe.attackProcs).toBeUndefined();
   });
 

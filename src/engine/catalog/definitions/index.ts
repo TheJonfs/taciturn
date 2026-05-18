@@ -33,6 +33,7 @@ export type {
   ItemDefinition,
   ShieldEquipment,
   WeaponEquipment,
+  WeaponPhysicalVariance,
 } from './item-definition.ts';
 export type { RulesetDefinition } from './ruleset-definition.ts';
 export type {

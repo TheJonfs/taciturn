@@ -34,7 +34,8 @@ import {
 
 export const earthQuake: ActiveAbilityDefinition = {
   id: abilityId('earth_quake'),
-  name: 'Earth Quake',
+  // S40 name-update pass: display name 'Earthquake' (one word); id preserved.
+  name: 'Earthquake',
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,

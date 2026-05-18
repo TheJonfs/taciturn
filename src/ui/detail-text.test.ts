@@ -43,7 +43,8 @@ describe('formatItemDetail', () => {
     expect(joined).toContain('WP 10');
     expect(joined).toContain('Acc 75');
     expect(joined).toContain('Var [0.90, 1.30]');
-    expect(joined).toContain('25% chance to trigger Lightning Strike');
+    // S40 name-update: Lightning Strike → Lightning Bolt (display only).
+    expect(joined).toContain('25% chance to trigger Lightning Bolt');
   });
 
   it('summarizes an accessory with damageMpDrainPercent', () => {
@@ -85,7 +86,9 @@ describe('formatAbilityDetail', () => {
   it('summarizes an active spell with damage spec + cost + targeting', () => {
     const cat = makeCat();
     const d = formatAbilityDetail(lightningStrike, cat);
-    expect(d.title).toBe('Lightning Strike');
+    // S40 name-update: Lightning Strike's display name is now 'Lightning Bolt';
+    // the ability id (lightning_strike) is preserved for save-state continuity.
+    expect(d.title).toBe('Lightning Bolt');
     const joined = d.lines.join('\n');
     expect(joined).toContain('MP 10');
     expect(joined).toContain('Charge 30');

@@ -28,7 +28,8 @@ import {
 
 export const fireStorm: ActiveAbilityDefinition = {
   id: abilityId('fire_storm'),
-  name: 'Fire Storm',
+  // S40 name-update pass: display name 'Fireball'; id preserved.
+  name: 'Fireball',
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,

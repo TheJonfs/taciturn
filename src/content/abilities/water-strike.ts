@@ -25,7 +25,8 @@ import {
 
 export const waterStrike: ActiveAbilityDefinition = {
   id: abilityId('water_strike'),
-  name: 'Water Strike',
+  // S40 name-update pass: display name 'Water Lash'; id preserved.
+  name: 'Water Lash',
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,

@@ -32,7 +32,8 @@ import {
 
 export const spark: ActiveAbilityDefinition = {
   id: abilityId('spark'),
-  name: 'Spark',
+  // S40 name-update pass: display name 'Slow Burn'; id preserved.
+  name: 'Slow Burn',
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,

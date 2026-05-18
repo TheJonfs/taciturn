@@ -33,7 +33,9 @@ import {
 
 export const lightningMage: ClassDefinition = {
   id: classId('lightning_mage'),
-  name: 'Lightning Mage',
+  // S40 name-update pass: display name updated to 'Aethurge';
+  // underlying classId preserved for save-state continuity.
+  name: 'Aethurge',
   movement: {
     moveRange: 4,
     jump: 3,

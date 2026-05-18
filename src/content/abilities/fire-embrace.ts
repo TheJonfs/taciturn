@@ -30,7 +30,8 @@ import {
 
 export const fireEmbrace: ActiveAbilityDefinition = {
   id: abilityId('fire_embrace'),
-  name: 'Fire Embrace',
+  // S40 name-update pass: display name 'Inner Warmth'; id preserved.
+  name: 'Inner Warmth',
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,

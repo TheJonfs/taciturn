@@ -39,7 +39,8 @@ import {
 
 export const stormCaller: ActiveAbilityDefinition = {
   id: abilityId('storm_caller'),
-  name: 'Storm Caller',
+  // S40 name-update pass: display name 'Megavolt'; id preserved.
+  name: 'Megavolt',
   kind: 'active',
   bucket: bucketId('first_action'),
   baseCost: 1,

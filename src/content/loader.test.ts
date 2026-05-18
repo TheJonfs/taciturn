@@ -80,11 +80,15 @@ describe('loadDefaultCatalog', () => {
     //     shells; combat_focus, field_recovery, field_kit passives)
     //   - commandSets: 7 → 8 (Session 39b alchemy)
     //   - classes: 5 → 6 (Session 39b alchemist)
+    //   - abilities: 54 → 55 (Session 40 apply_silence_proc; hidden,
+    //     fired by Magebane's attackProcs)
+    //   - items: 46 → 49 (Session 40 knife weapon class: chefs_knife,
+    //     magebane, sai — Speed-based dynamic variance)
     expect(cat.statusTypes()).toHaveLength(25);
-    expect(cat.abilities()).toHaveLength(54);
+    expect(cat.abilities()).toHaveLength(55);
     expect(cat.commandSets()).toHaveLength(8);
     expect(cat.classes()).toHaveLength(6);
-    expect(cat.items()).toHaveLength(46);
+    expect(cat.items()).toHaveLength(49);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });
