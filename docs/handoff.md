@@ -23,17 +23,33 @@ What does *not* belong here:
 
 ## From Session 39 close (2026-05-17) — Alchemist class shipped end-to-end
 
-S39 was split into 39a (substrate) and 39b (content + UI). Both shipped in this session. **1183 tests passing across 107 files** (up from 1152 / 105 at session start; +31 net). Two commits: `b249907` (S39a substrate) and S39b (this commit).
+S39 was split into 39a (substrate) and 39b (content + UI). Both shipped this session, with a follow-up polish commit after Chris's first playtest. **1183 tests passing across 107 files** (up from 1152 / 105 at session start; +31 net). Three commits: `b249907` (S39a substrate), `78eee5c` (S39b content + UI + AI), `0336818` (post-playtest polish: portrait, animator softlock, throw arc range, Speed, R/S/M names).
+
+### ⚠️ Process note for future sessions — adding a new ActionType
+
+A new `ActionType` discriminant has to be wired through **five** sites in lockstep, or it bites at runtime in non-obvious places. S39b shipped without animator cases and Throw Item softlocked Chris's first playtest with `Animator.buildAnim: unhandled action type "use_throw_item"` after the engine and log already accepted the action. The exhaustive switches do *not* fully catch the gap — the animator's `assertNever` only fires when the unhandled-action branch is *reached at runtime*, which doesn't happen during tests that don't actually exercise the action.
+
+**Checklist when adding a new ActionType:**
+
+1. **`src/engine/actions/validate.ts`** — add a `case` (typically a pass-through for system actions, or a real validator for player actions). The `default` is `never`-typed so TS catches the miss at compile time.
+2. **`src/engine/actions/reduce.ts`** — dispatcher. Same `never` exhaustiveness check.
+3. **`src/engine/actions/commit.ts`** → `envelopeFor` — builds the envelope by narrowing on `type`. Also `never`-typed.
+4. **`src/ui/action-log-format.ts`** — formatter case (return `[]` if the action shouldn't surface in the log). `never`-typed default.
+5. **`src/renderer/animator.ts`** → `buildAnim` — **this is the one that crashes the live game if missed.** The `assertNever` guards compile-time but failing tests don't exercise it unless they specifically run the animator through the new action. The S39b miss happened because test coverage was at the engine level (reducers + outcomes); the animator wasn't exercised.
+
+When in doubt: search for an existing action that shares the same animation shape and add a parallel case (e.g., `use_throw_item` mirrors `use_ability`'s `buildFlashFromTargets` shape). S39b's polish commit added five cases at once (use_compound, use_throw_item, system_mp_restore, system_ko_tick, system_unit_removed) — none of them required new animation primitives, just dispatch wiring.
+
+A future test pass could add a "smoke test" that drives every `ActionType` through the animator with mock state to catch these at CI time. Out of scope for S39 but flagged here.
 
 ### What's playable now
 
-- **Alchemist class** selectable in the team builder. Stats per brief (L25 baseline 126 HP / 36 MP / 8 PA / 5 MA / Move 4 / Jump 3 / Evades 6-4-0).
-- **Compound + Throw Item** action economy via the new `alchemy` command set. Player flow: Act → Alchemy → Compound (item picker, MP-gated) OR Throw Item (target picker → item picker, range 3h × 3v).
+- **Alchemist class** selectable in the team builder. Stats (post-polish): L25 baseline 126 HP / 36 MP / 8 PA / 5 MA / Move 4 / Jump 3 / Speed 10 / Evades 6-4-0. (Original brief omitted Speed; Chris set it to 10 in the polish pass — ties Water Mage as fastest base.)
+- **Compound + Throw Item** action economy via the new `alchemy` command set. Player flow: Act → Alchemy → Compound (item picker, MP-gated) OR Throw Item (target picker → item picker, range 3h × 3v with arc-style reach — not straight-line).
 - **Four items**: Potion (PA × 12 HP), Phoenix Down (revive + PA × 4 HP), Remedy (clear debuffs), Ether (PA × 4 MP).
-- **R/S/M passives**:
-  - Combat Focus (Reaction) — +1 PA for 3 turns on enemy hit (REFRESH).
-  - Field Recovery (Movement) — heal tiles² HP at end of intentional Move.
-  - Field Kit (Support) — battle-start stockpile of `{ potion: 1, phoenix_down: 1, remedy: 1 }`. Free on Alchemist primary, cost 1 cross-class.
+- **R/S/M passives** (display names per the polish pass; ability ids unchanged for save-state compatibility):
+  - **Combat Focus** (Reaction; id `combat_focus`) — "When hit by an enemy, has a chance to raise PA by 1." +1 PA for 3 turns, REFRESH.
+  - **Healthy Stride** (Movement; id `field_recovery`) — "Restores HP equal to the square of the number of spaces moved."
+  - **Travel Preparations** (Support; id `field_kit`) — "Begin the fight with a Potion, Phoenix Down, and Remedy already stocked." Free on Alchemist primary, cost 1 cross-class.
 - **KO recovery** (Phoenix Down): HP=1 + heal layer + reset turnsKOd + reset CT to 0.
 - **Permadeath timer**: KO'd unit's virtual CT ticks; at threshold (default 3) the unit is `removed`.
 - **Defensive Front team retrofitted** — Halric (Knight) + Beorn (Alchemist) + Ysolde (Water Mage) + Auralia (Fire Mage). Replaces the S38 Earth-Spells stopgap with a real healer.
@@ -54,7 +70,7 @@ S39 was split into 39a (substrate) and 39b (content + UI). Both shipped in this 
 ### Engine operational changes the next session should know about
 
 - **Compound and Throw Item bypass the ability/reaction pipeline entirely.** No `onActionAttempted`, no `onActionTargeted`, no Counter / Reflect / Discharge / Combat Focus triggering. The brief flagged this as a watch-for: if a future content item is offensive (acid, debuff bomb), this design needs revisiting. The v1 four items are all helper/healing, so it's correct today.
-- **`onMoveCompleted` fires once per committed Move action** against the mover's hooks, with `tilesMoved` count. Forced movement (knockback / pull) bypasses by virtue of not going through `reduceMove` — Field Recovery's "intentional only" gate is structural. First v1 consumer is Field Recovery (Alchemist Movement); future move-trigger content reuses the hook.
+- **`onMoveCompleted` fires once per committed Move action** against the mover's hooks, with `tilesMoved` count. Forced movement (knockback / pull) bypasses by virtue of not going through `reduceMove` — Healthy Stride's "intentional only" gate is structural. First v1 consumer is Healthy Stride (Alchemist Movement; ability id `field_recovery`); future move-trigger content reuses the hook.
 - **`stockpileGrants` on `PassiveAbilityDefinition`** populates `unit.stockpile` at `createInitialState` time. Cross-class equippers receive the grant; no class gate. Items referenced must be consumables — non-consumable ids in the field cause silent skip at runtime (caught at runtime via the catalog lookup; no compile-time enforcement).
 - **`compound` and `throw_item` are detected by ability id** in the UI router (`src/ui/use-turn-flow.ts → abilityRoute`). Their `ActiveAbilityDefinition` shells exist mostly for Command-Set membership; their targeting / mpCost / actionSpeed fields are placeholders the UI ignores. The actual action emission is `use_compound` / `use_throw_item`, not `use_ability`.
 - **The action-menu FSM gained two states**: `compound-item-select` and `throw-item-item-select`. Both reach `animation` directly via `pickItem` (no `await-confirm` — the item picker IS the confirm surface). The `throw-item-item-select` state caches the picked target id; cancel returns to `target-select` for re-pick.
@@ -67,13 +83,14 @@ S39 was split into 39a (substrate) and 39b (content + UI). Both shipped in this 
 
 (No new ADR for S39b — the brief flagged it as "ADR if Compound submenu lands as new engine surface." It did, but it's UI-layer (FSM state additions), not engine. The compound/throw_item action kinds were ADR-0077 territory.)
 
-### Browser verification (S39b)
+### Browser verification (post-polish)
 
 - Game loads cleanly with no console errors.
-- Alchemist class shows in the team-builder picker.
-- Defensive Front template loads with Beorn the Alchemist, stats compute correctly post-equipment (256 HP / 36 MP / 10 PA / 6 MA / 9 SPD with Battle Gear + Lookout's Hood + Diamond Bracelet + War Axe).
-- The HMR loop is clean (no module-graph errors after the S39b additions).
-- **Manual playtest item — not automated:** canvas-deployment click-through, then in-battle exercise of Compound → Throw Item → KO an ally → Phoenix Down revival → permadeath threshold reached. The flows are exhaustively unit-tested (the substrate covers each step independently); a full click-through is the next playtest's job.
+- Alchemist class shows in the team-builder picker with the 512×512 portrait rendering correctly.
+- Defensive Front template loads with Beorn the Alchemist, stats compute correctly post-equipment (256 HP / 36 MP / 10 PA / 6 MA / 11 SPD with Battle Gear + Lookout's Hood + Diamond Bracelet + War Axe — Lookout's Hood +1 over base 10).
+- Combat Focus / Healthy Stride / Travel Preparations all render with the new names in the unit detail panel.
+- **First in-game playtest by Chris (post-S39b) caught**: Throw Item softlock (animator miss — fixed `0336818`), arc-vs-straight-line throw range (fixed), missing portrait registration (fixed). All three on the substrate-meets-rendering seam.
+- **Manual playtest still pending:** full deployment → battle loop exercising Compound → Throw → KO → Phoenix revival → permadeath threshold reached on the live deployment.
 
 ### Things noticed but not acted on (next-session candidates)
 
@@ -83,7 +100,7 @@ S39 was split into 39a (substrate) and 39b (content + UI). Both shipped in this 
 - **Ether MP cost vs. restore math** (S39 watch-for) — 10 MP to Compound, 32 MP restored at PA 8 = net +22 MP per self-cycle. Not exploitable (action turn cost), but worth observing whether players cycle Alchemist Ether → Alchemist's own MP → Compound Ether repeat. Probably fine; flag if it surfaces in playtest.
 - **`UnitPlacement` could carry `initialStockpile`** for hand-authored scenarios that want a unit to enter battle with a non-Field-Kit stockpile (e.g., a hard-mode enemy Alchemist starts with 3 Potions + 1 Phoenix Down). Out of scope for S39; small extension when a consumer ships.
 - **Compound's MP gate could compose with a "double-MP cost" debuff** (none in v1). The cost is read directly from `item.compoundMpCost` without the `modifyMpCost` hook chain — that chain is ability-specific. If a future status wants to penalize Compound, the substrate needs to plumb compound MP through the chain.
-- **Cross-class Alchemy availability.** Compound and Throw Item are members of the `alchemy` command set, which can be equipped cross-class as a secondary. A Knight equipping Alchemy gets Compound + Throw Item; with Field Kit (cost 1) they also get the starting stockpile. The brief implies this is intended ("Cross-class equippers also receive the grant"); worth confirming the play experience reads OK once it's tested.
+- **Cross-class Alchemy availability.** Compound and Throw Item are members of the `alchemy` command set, which can be equipped cross-class as a secondary. A Knight equipping Alchemy gets Compound + Throw Item; with Travel Preparations (cost 1) they also get the starting stockpile. The brief implies this is intended ("Cross-class equippers also receive the grant"); worth confirming the play experience reads OK once it's tested.
 - **Movement HP heal × Move-boosting equipment** (S39 watch-for) — square scaling makes Boots of Haste / Sorcerer's Robe Move +1 dramatically more valuable on the Alchemist. Boots of Haste-equipped Alchemist with Move 5 heals 25 HP per move turn (vs. 16 baseline). Flag for `playtest-watch.md` once playtest data accumulates.
 
 ### Considered and rejected this session
