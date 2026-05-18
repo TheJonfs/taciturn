@@ -42,6 +42,7 @@ export {
   runOnActionTargeted,
   runOnDamageDealt,
   runOnDamageReceived,
+  runOnMoveCompleted,
   runOnTurnEnd,
   runQueryTurnSkipped,
 } from './runners.ts';

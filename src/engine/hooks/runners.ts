@@ -736,6 +736,27 @@ export function runOnFinalDamageReceived(
   return emissions;
 }
 
+// Session 39b: post-move emission. Fires once at the end of a committed
+// Move action against the mover's hooks, with the tiles-moved count.
+// Emission-only; the runner collects ProposedActions and returns the
+// flat list. Field Recovery (Alchemist Movement) emits a system_heal
+// for `tilesMoved²` HP via this hook.
+export function runOnMoveCompleted(
+  state: GameState,
+  catalog: Catalog,
+  args: { unit: Unit; tilesMoved: number },
+): ReadonlyArray<ProposedAction> {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onMoveCompleted');
+  const emissions: ProposedAction[] = [];
+  for (const h of handlers) {
+    const result = h.invoke({ unit: args.unit, tilesMoved: args.tilesMoved });
+    if (result !== undefined) {
+      for (const a of result) emissions.push(a);
+    }
+  }
+  return emissions;
+}
+
 // onDamageReceived accepts either bare-ctx returns (legacy) or
 // `OnDamageReceivedResult` returns ({ ctx, emittedActions? }). The runner
 // normalizes: bare returns are treated as `{ ctx, emittedActions: undefined }`.

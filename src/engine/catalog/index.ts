@@ -31,6 +31,7 @@ export {
   type RangeMode,
   type RulesetDefinition,
   type ShieldEquipment,
+  type StockpileGrantEntry,
   type StatusAiHints,
   type StatusEffectSpec,
   type StatusEffectType,

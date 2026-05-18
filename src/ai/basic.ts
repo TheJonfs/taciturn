@@ -58,19 +58,25 @@
 
 import {
   canCommitAction,
+  classId,
+  commandSetId,
   computeAbilityRange,
   computeMpCost,
   endpointFrom,
   getLegalMoves,
+  hasLineOfSight,
   horizontalDistance,
   inRange,
+  itemId,
   positionKey,
   runModifyAoeShape,
   tileAt,
   aoeFootprint,
   cardinalFromTo,
+  validateAction,
   type Catalog,
   type GameState,
+  type ItemId,
   type Position,
   type ProposedAction,
   type Tile,
@@ -176,6 +182,18 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
   const healing = enumerateHealingAbilities(state, actor, catalog);
   const allyBuffs = enumerateAllyBuffAbilities(state, actor, catalog);
 
+  // Session 39b — Phase 0a: Alchemist's Compound + Throw Item. Runs
+  // before Cure-style heals because Phoenix Down revival is binary-
+  // value (lost unit comes back) and Potion stockpile heals are an
+  // efficient use of an Act on a wounded ally without paying MP at
+  // the throw site. Falls through to standard phases if the actor
+  // isn't an Alchemist (no `alchemy` command set / Compound + Throw
+  // Item available).
+  if (state.turnState.budget.actsAvailable > 0 && isAlchemistActor(actor, catalog)) {
+    const alch = pickAlchemistAction(state, catalog, actor, allies);
+    if (alch !== null) return { kind: 'commit', action: alch };
+  }
+
   // Phase 0: heal if an ally is wounded and in range.
   if (state.turnState.budget.actsAvailable > 0 && healing.length > 0) {
     const heal = pickBestHeal(state, catalog, actor, allies, healing);
@@ -229,6 +247,227 @@ function livingAllies(state: GameState, actor: Unit): Unit[] {
     out.push(u);
   }
   return out;
+}
+
+// =====================
+// Session 39b — Alchemist
+// =====================
+
+const ALCHEMY_COMMAND_SET = commandSetId('alchemy');
+const ALCHEMIST_CLASS = classId('alchemist');
+const POTION = itemId('potion');
+const PHOENIX_DOWN = itemId('phoenix_down');
+const REMEDY = itemId('remedy');
+const ETHER = itemId('ether');
+const THROW_HORIZONTAL = 3;
+const THROW_VERTICAL = 3;
+const WOUNDED_HP_FRACTION = 0.5;
+
+function isAlchemistActor(actor: Unit, catalog: Catalog): boolean {
+  if (actor.classState.currentClass === ALCHEMIST_CLASS) return true;
+  // Also detect cross-class equippers via the loadout (Alchemy secondary
+  // command set). Iterates without allocating for the common no-match.
+  for (const entries of Object.values(actor.loadout.actionBuckets)) {
+    if ((entries ?? []).includes(ALCHEMY_COMMAND_SET)) return true;
+  }
+  return false;
+}
+
+interface ThrowCandidate {
+  readonly action: ProposedAction;
+  readonly priority: number;
+}
+
+function pickAlchemistAction(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  livingAlliesList: ReadonlyArray<Unit>,
+): ProposedAction | null {
+  // 1) Throw priorities: Phoenix Down on KO'd ally > Potion on wounded
+  //    ally > Remedy on debuffed ally > Ether on low-MP ally. Higher
+  //    `priority` wins (numeric for stable tie-break).
+  const candidates: ThrowCandidate[] = [];
+
+  // Phoenix Down — KO'd ally in range. Highest priority by design.
+  const havePhoenixDown = (actor.stockpile.get(PHOENIX_DOWN) ?? 0) > 0;
+  if (havePhoenixDown) {
+    for (const ally of koAlliesInRange(state, actor)) {
+      candidates.push({
+        action: throwAction(actor, PHOENIX_DOWN, ally.id),
+        priority: 100,
+      });
+    }
+  }
+
+  // Potion — most-wounded living ally in range below the wounded
+  // threshold. Score by missing HP so the lowest-HP ally is picked.
+  const havePotion = (actor.stockpile.get(POTION) ?? 0) > 0;
+  if (havePotion) {
+    for (const ally of livingAlliesList) {
+      if (!isInThrowRange(state, catalog, actor, ally)) continue;
+      const maxHp = readMaxHpProxy(ally);
+      const hpRatio = ally.vitals.hp / maxHp;
+      if (hpRatio >= WOUNDED_HP_FRACTION) continue;
+      // priority 50 + missing-HP bias so most-wounded wins ties.
+      const missing = Math.max(0, maxHp - ally.vitals.hp);
+      candidates.push({
+        action: throwAction(actor, POTION, ally.id),
+        priority: 50 + missing / Math.max(1, maxHp),
+      });
+    }
+  }
+
+  // Remedy — any living ally with a debuff-polarity status in range.
+  const haveRemedy = (actor.stockpile.get(REMEDY) ?? 0) > 0;
+  if (haveRemedy) {
+    for (const ally of livingAlliesList) {
+      if (!isInThrowRange(state, catalog, actor, ally)) continue;
+      if (!hasDebuffStatus(ally, catalog)) continue;
+      candidates.push({
+        action: throwAction(actor, REMEDY, ally.id),
+        priority: 30,
+      });
+    }
+  }
+
+  // Ether — ally with low MP in range. Heuristic: ally has < 50% MP and
+  // their class baseline MP > 20 (skip Knight-style low-MP units where
+  // a free Ether is overkill).
+  const haveEther = (actor.stockpile.get(ETHER) ?? 0) > 0;
+  if (haveEther) {
+    for (const ally of livingAlliesList) {
+      if (!isInThrowRange(state, catalog, actor, ally)) continue;
+      if (ally.baseStats.maxMpBase <= 20) continue;
+      const mpRatio = ally.vitals.mp / Math.max(1, ally.baseStats.maxMpBase);
+      if (mpRatio >= 0.5) continue;
+      candidates.push({
+        action: throwAction(actor, ETHER, ally.id),
+        priority: 20,
+      });
+    }
+  }
+
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => b.priority - a.priority);
+    const best = candidates[0]!;
+    if (canCommitAction(state, catalog, actor, best.action)) {
+      return best.action;
+    }
+  }
+
+  // 2) Nothing urgent to throw → Compound the most-needed item. Skip
+  // when the actor's MP can't afford any consumable's Compound cost.
+  const compoundChoice = pickCompoundItem(state, actor, livingAlliesList, catalog);
+  if (compoundChoice !== null) {
+    const action: ProposedAction = {
+      type: 'use_compound',
+      source: 'player',
+      actorId: actor.id,
+      payload: { itemId: compoundChoice },
+    };
+    if (canCommitAction(state, catalog, actor, action)) return action;
+  }
+  return null;
+}
+
+function koAlliesInRange(state: GameState, actor: Unit): Unit[] {
+  const out: Unit[] = [];
+  for (const u of state.units.values()) {
+    if (u.team !== actor.team) continue;
+    if (u.removed) continue;
+    if (u.vitals.hp > 0) continue;
+    if (!isInThrowRange(state, undefined, actor, u)) continue;
+    out.push(u);
+  }
+  return out;
+}
+
+function isInThrowRange(
+  state: GameState,
+  _catalog: Catalog | undefined,
+  actor: Unit,
+  target: Unit,
+): boolean {
+  const sourceTile = tileAt(state.map, actor.position.x, actor.position.y, actor.position.layer);
+  const targetTile = tileAt(state.map, target.position.x, target.position.y, target.position.layer);
+  if (sourceTile === undefined || targetTile === undefined) return false;
+  const ok = inRange({
+    source: endpointFrom(actor.position, sourceTile.elevation),
+    target: endpointFrom(target.position, targetTile.elevation),
+    params: { horizontalMax: THROW_HORIZONTAL, horizontalMin: 0, verticalMax: THROW_VERTICAL },
+  });
+  if (!ok) return false;
+  return hasLineOfSight(
+    state.map,
+    endpointFrom(actor.position, sourceTile.elevation),
+    endpointFrom(target.position, targetTile.elevation),
+  );
+}
+
+function hasDebuffStatus(unit: Unit, catalog: Catalog): boolean {
+  for (const inst of unit.statuses) {
+    if (inst.source.kind === 'equipment') continue;
+    if (!catalog.hasStatusType(inst.typeId)) continue;
+    const type = catalog.getStatusType(inst.typeId);
+    const polarity = type.aiHints?.polarity ?? 'debuff';
+    if (polarity !== 'buff') return true;
+  }
+  return false;
+}
+
+function throwAction(actor: Unit, item: ItemId, targetId: import('@engine/index.ts').UnitId): ProposedAction {
+  return {
+    type: 'use_throw_item',
+    source: 'player',
+    actorId: actor.id,
+    payload: { itemId: item, target: { kind: 'unit', unitId: targetId } },
+  };
+}
+
+// HP-cap proxy: use the unit's baseStats maxHpBase as an approximation.
+// Equipment + status maxHp mods aren't read here — sufficient for the
+// wounded-fraction heuristic; a tighter read would route through
+// runModifyStatQuery but adds AI cost for marginal accuracy gain.
+function readMaxHpProxy(unit: Unit): number {
+  return Math.max(1, unit.baseStats.maxHpBase);
+}
+
+// Compound priority: missing Phoenix Down when allies are at risk >
+// missing Potion when allies are wounded > missing Remedy > Potion as
+// default fallback for stockpile-building. Returns null when no
+// affordable Compound improves the stockpile.
+function pickCompoundItem(
+  state: GameState,
+  actor: Unit,
+  allies: ReadonlyArray<Unit>,
+  catalog: Catalog,
+): ItemId | null {
+  void state;
+  void catalog;
+  const have = (id: ItemId): number => actor.stockpile.get(id) ?? 0;
+  const mpFor = (id: ItemId): number => {
+    if (!catalog.hasItem(id)) return Infinity;
+    const item = catalog.getItem(id);
+    return item.kind === 'consumable' ? item.compoundMpCost : Infinity;
+  };
+  const canAfford = (id: ItemId): boolean => actor.vitals.mp >= mpFor(id);
+
+  // Look at adjacent risk: any ally KO'd or wounded?
+  const anyKO = allies.length < state.units.size
+    ? Array.from(state.units.values()).some((u) => u.team === actor.team && !u.removed && u.vitals.hp <= 0)
+    : false;
+  const anyWounded = allies.some(
+    (a) => a.vitals.hp / readMaxHpProxy(a) < WOUNDED_HP_FRACTION,
+  );
+
+  // Priority cascade.
+  if (anyKO && have(PHOENIX_DOWN) === 0 && canAfford(PHOENIX_DOWN)) return PHOENIX_DOWN;
+  if (anyWounded && have(POTION) === 0 && canAfford(POTION)) return POTION;
+  if (have(REMEDY) === 0 && canAfford(REMEDY)) return REMEDY;
+  if (have(POTION) < 2 && canAfford(POTION)) return POTION; // bank a second Potion
+  if (have(ETHER) === 0 && canAfford(ETHER)) return ETHER;
+  return null;
 }
 
 // =====================

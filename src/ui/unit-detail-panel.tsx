@@ -145,6 +145,17 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
     facing: 'back',
   });
 
+  // Session 39b: permadeath countdown for KO'd units. Shown above the
+  // Stats section so it's the first thing a player notices when
+  // inspecting a downed ally / enemy. Color shifts to a warning red
+  // when only one virtual tick remains before removal.
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  const permadeathThreshold = ruleset.permadeath.threshold;
+  const isKO = unit.vitals.hp <= 0 && !unit.removed;
+  const isRemoved = unit.removed;
+  const ticksRemaining = Math.max(0, permadeathThreshold - unit.turnsKOd);
+  const permadeathImminent = isKO && ticksRemaining <= 1;
+
   return (
     <>
       <div style={backdropStyle} onClick={onClose} />
@@ -161,6 +172,44 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
           </div>
           <button type="button" style={closeButtonStyle} onClick={onClose}>×</button>
         </header>
+
+        {isRemoved && (
+          <div
+            style={{
+              padding: '6px 8px',
+              margin: '4px 8px',
+              background: 'rgba(120, 60, 60, 0.35)',
+              border: '1px solid rgba(180, 80, 80, 0.7)',
+              borderRadius: 4,
+              fontSize: 12,
+              fontWeight: 600,
+              color: '#e8a8a8',
+            }}
+          >
+            Removed from battle (permadeath)
+          </div>
+        )}
+        {isKO && (
+          <div
+            style={{
+              padding: '6px 8px',
+              margin: '4px 8px',
+              background: permadeathImminent
+                ? 'rgba(180, 80, 80, 0.3)'
+                : 'rgba(120, 100, 60, 0.3)',
+              border: permadeathImminent
+                ? '1px solid rgba(220, 100, 100, 0.7)'
+                : '1px solid rgba(180, 160, 80, 0.6)',
+              borderRadius: 4,
+              fontSize: 12,
+              fontWeight: 500,
+              color: permadeathImminent ? '#ffb4b4' : '#e8d8a8',
+            }}
+          >
+            KO — {unit.turnsKOd} / {permadeathThreshold} virtual turns elapsed
+            {permadeathImminent && ' · revive now or permadeath'}
+          </div>
+        )}
 
         <Section title="Stats">
           <StatGrid>
@@ -345,6 +394,36 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
             );
           })}
         </Section>
+
+        {/* Session 39b: stockpile entries for the Alchemist's
+            Compound / Throw Item economy. The section renders only
+            when the unit has at least one item in stockpile. Hover
+            on an item name surfaces the same consumable detail (HP
+            heal / MP heal / revive / clear) as the action-menu
+            picker tooltip. */}
+        {unit.stockpile.size > 0 && (
+          <Section title="Stockpile">
+            {[...unit.stockpile].map(([itemId, count]) => {
+              if (count <= 0) return null;
+              const item = catalog.hasItem(itemId) ? catalog.getItem(itemId) : null;
+              const content = item !== null ? formatItemDetail(item, catalog) : null;
+              return (
+                <div key={String(itemId)} style={resRowStyle}>
+                  <span style={statusNameStyle}>
+                    {item !== null && content !== null ? (
+                      <DetailHover content={content} style={hoverInlineStyle}>
+                        {item.name}
+                      </DetailHover>
+                    ) : (
+                      String(itemId)
+                    )}
+                  </span>
+                  <span style={statusDurStyle}>× {count}</span>
+                </div>
+              );
+            })}
+          </Section>
+        )}
       </aside>
     </>
   );

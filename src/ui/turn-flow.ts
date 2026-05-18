@@ -31,7 +31,7 @@
 // side effects on top (legal-target memos, highlight repaints, tile-
 // click wiring, uiController submissions).
 
-import type { AbilityId, CommandSetId, Direction, Position, ProposedAction } from '@engine/index.ts';
+import type { AbilityId, CommandSetId, Direction, Position, ProposedAction, UnitId } from '@engine/index.ts';
 
 // One entry in the Act picker — either a class-granted free ability
 // (Attack today; future classless utility actions) or a command set.
@@ -110,6 +110,31 @@ export type TurnFlowState =
   // "End turn." Per the design doc's WAIT-CONFIRM state: pick a facing,
   // then commit Wait + facing → TURN_END.
   | { readonly kind: 'wait-confirm' }
+  // Session 39b: Compound's item picker. Entered when the player picks
+  // the Compound ability — instead of target-select (Compound is
+  // self-targeted, mechanically), the UI shows the stockpile items as
+  // a sub-menu, each gated by `actor.vitals.mp >= item.compoundMpCost`.
+  // The carried `commandSetId` / `commandSetCount` lets cancel return
+  // to the right parent (ability-list, command-set-select, or
+  // action-menu) using the same backstack logic as target-select.
+  | {
+      readonly kind: 'compound-item-select';
+      readonly commandSetId: CommandSetId | null;
+      readonly commandSetCount: number;
+    }
+  // Session 39b: Throw Item's item picker. Entered when the player
+  // picks a target during a Throw Item action — the FSM caches the
+  // chosen `targetUnitId` and presents the stockpile items, each
+  // gated by `stockpile.get(itemId) > 0`. Cancel returns to
+  // target-select with the same commandSetId / commandSetCount so the
+  // player can re-pick the target.
+  | {
+      readonly kind: 'throw-item-item-select';
+      readonly commandSetId: CommandSetId | null;
+      readonly commandSetCount: number;
+      readonly abilityId: AbilityId;
+      readonly targetUnitId: UnitId;
+    }
   | { readonly kind: 'animation' };
 
 export type TurnFlowEvent =
@@ -124,11 +149,28 @@ export type TurnFlowEvent =
   | { readonly kind: 'pickAct'; readonly entries: ReadonlyArray<ActEntry> }
   // Direct free-ability invocation (universal Attack, etc.). Skips
   // command-set-select and ability-list; goes straight to target-select.
-  | { readonly kind: 'pickFreeAbility'; readonly abilityId: AbilityId }
+  // Session 39b: `route` optionally redirects the destination:
+  //   - 'compound'   → compound-item-select (Compound ability)
+  //   - 'throw_item' → target-select (Throw Item; the item picker
+  //                     follows the target pick via `pickThrowTarget`)
+  //   - undefined    → target-select (standard ability flow)
+  | { readonly kind: 'pickFreeAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' }
   | { readonly kind: 'pickWait' }
   // Sub-picks.
   | { readonly kind: 'pickCommandSet'; readonly commandSetId: CommandSetId }
-  | { readonly kind: 'pickAbility'; readonly abilityId: AbilityId }
+  | { readonly kind: 'pickAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' }
+  // Session 39b: Throw Item target selection. Distinct from
+  // `commitTarget` because the action isn't built yet (item is
+  // picked next).
+  | { readonly kind: 'pickThrowTarget'; readonly targetUnitId: UnitId }
+  // Session 39b: item picked from either item-select state. The
+  // caller (`use-turn-flow.ts`) has already built the full
+  // ProposedAction (`use_compound` or `use_throw_item`) — the FSM
+  // carries it forward to animation. The item picker itself is the
+  // confirmation surface (the player explicitly chose this item with
+  // the cost / count shown), so confirmStep is intentionally skipped
+  // for these flows.
+  | { readonly kind: 'pickItem'; readonly action: ProposedAction }
   // Hover during target-select — updates the AoE preview surface.
   | { readonly kind: 'hoverTarget'; readonly position: Position | null }
   // Hover during move-select — updates the single-tile hover overlay so
@@ -185,6 +227,16 @@ export function transition(
       if (event.kind === 'pickMove') return { kind: 'move-select', hoverTarget: null };
       if (event.kind === 'pickWait') return { kind: 'wait-confirm' };
       if (event.kind === 'pickFreeAbility') {
+        // Session 39b: route to the Alchemist submenus when requested.
+        if (event.route === 'compound') {
+          return {
+            kind: 'compound-item-select',
+            commandSetId: null,
+            commandSetCount: 0,
+          };
+        }
+        // 'throw_item' falls through to target-select (the item picker
+        // follows the target pick via `pickThrowTarget`).
         return {
           kind: 'target-select',
           commandSetId: null,
@@ -258,6 +310,10 @@ export function transition(
         // Attack appears as a peer of command sets). Cancel from
         // target-select returns to the picker because we came from
         // a multi-entry picker — encoded by `commandSetCount: 2`.
+        // Session 39b: route to compound-item-select when applicable.
+        if (event.route === 'compound') {
+          return { kind: 'compound-item-select', commandSetId: null, commandSetCount: 2 };
+        }
         return {
           kind: 'target-select',
           commandSetId: null,
@@ -276,6 +332,15 @@ export function transition(
           : { kind: 'action-menu' };
       }
       if (event.kind === 'pickAbility') {
+        // Session 39b: route to compound-item-select for Compound,
+        // and to target-select (item picker follows) for Throw Item.
+        if (event.route === 'compound') {
+          return {
+            kind: 'compound-item-select',
+            commandSetId: state.commandSetId,
+            commandSetCount: state.commandSetCount,
+          };
+        }
         return {
           kind: 'target-select',
           commandSetId: state.commandSetId,
@@ -323,6 +388,59 @@ export function transition(
             tileMode: state.tileMode,
           };
         }
+        return { kind: 'animation' };
+      }
+      // Session 39b: Throw Item target picked. The action isn't built
+      // yet (item is picked next); transition to the item-select
+      // state carrying the chosen target. Cancel from there returns
+      // to target-select for re-pick.
+      if (event.kind === 'pickThrowTarget') {
+        return {
+          kind: 'throw-item-item-select',
+          commandSetId: state.commandSetId,
+          commandSetCount: state.commandSetCount,
+          abilityId: state.abilityId,
+          targetUnitId: event.targetUnitId,
+        };
+      }
+      return state;
+
+    case 'compound-item-select':
+      // Session 39b. Cancel routes the same way ability-list does:
+      // up to command-set-select if we came from a multi-entry picker,
+      // else back to action-menu.
+      if (event.kind === 'cancel') {
+        if (state.commandSetId !== null) {
+          return {
+            kind: 'ability-list',
+            commandSetId: state.commandSetId,
+            commandSetCount: state.commandSetCount,
+          };
+        }
+        return state.commandSetCount > 1
+          ? { kind: 'command-set-select' }
+          : { kind: 'action-menu' };
+      }
+      if (event.kind === 'pickItem') {
+        // Item picker is the implicit confirm surface — no await-confirm.
+        return { kind: 'animation' };
+      }
+      return state;
+
+    case 'throw-item-item-select':
+      // Session 39b. Cancel returns to target-select so the player
+      // can re-pick the target without re-entering the ability list.
+      if (event.kind === 'cancel') {
+        return {
+          kind: 'target-select',
+          commandSetId: state.commandSetId,
+          commandSetCount: state.commandSetCount,
+          abilityId: state.abilityId,
+          hoverTarget: null,
+          tileMode: false,
+        };
+      }
+      if (event.kind === 'pickItem') {
         return { kind: 'animation' };
       }
       return state;

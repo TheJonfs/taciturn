@@ -7,6 +7,8 @@ import { bolt } from './bolt.ts';
 import { brine } from './brine.ts';
 import { bulwarkStance } from './bulwark-stance.ts';
 import { chainLightning } from './chain-lightning.ts';
+import { combatFocusReaction } from './combat-focus.ts';
+import { compound } from './compound.ts';
 import { conductor } from './conductor.ts';
 import { counter } from './counter.ts';
 import { cure } from './cure.ts';
@@ -20,6 +22,8 @@ import { earthCurse } from './earth-curse.ts';
 import { earthQuake } from './earth-quake.ts';
 import { earthResilience } from './earth-resilience.ts';
 import { earthStrike } from './earth-strike.ts';
+import { fieldKit } from './field-kit.ts';
+import { fieldRecovery } from './field-recovery.ts';
 import { fireEmbrace } from './fire-embrace.ts';
 import { fireStorm } from './fire-storm.ts';
 import { fireStrike } from './fire-strike.ts';
@@ -41,6 +45,7 @@ import { stasisSword } from './stasis-sword.ts';
 import { staticEmbrace } from './static-embrace.ts';
 import { stormCaller } from './storm-caller.ts';
 import { taunt } from './taunt.ts';
+import { throwItem } from './throw-item.ts';
 import { tidalPull } from './tidal-pull.ts';
 import { tidalWave } from './tidal-wave.ts';
 import { tideSurge } from './tide-surge.ts';
@@ -58,6 +63,8 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   brine,
   bulwarkStance,
   chainLightning,
+  combatFocusReaction,
+  compound,
   conductor,
   counter,
   cure,
@@ -71,6 +78,8 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   earthQuake,
   earthResilience,
   earthStrike,
+  fieldKit,
+  fieldRecovery,
   fireEmbrace,
   fireStorm,
   fireStrike,
@@ -92,6 +101,7 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   staticEmbrace,
   stormCaller,
   taunt,
+  throwItem,
   tidalPull,
   tidalWave,
   tideSurge,

@@ -271,8 +271,13 @@ export interface SystemHealOutcome {
 // log (and a future debug overlay) trace "this 4 HP came from Regen,
 // not from a Cure ability." StatusType-anchored emissions name the
 // type id; future broader sources add new variants.
+//
+// Session 39b: `movement_passive` covers heals emitted from
+// `onMoveCompleted` (Field Recovery's tiles²). Action-log attribution
+// reads the abilityId for "Field Recovery healed Beowulf for 16 HP."
 export type SystemHealSource =
-  | { readonly kind: 'status_tick'; readonly statusTypeId: StatusTypeId; readonly unitId: UnitId };
+  | { readonly kind: 'status_tick'; readonly statusTypeId: StatusTypeId; readonly unitId: UnitId }
+  | { readonly kind: 'movement_passive'; readonly abilityId: AbilityId; readonly unitId: UnitId };
 
 // `system_damage` — engine-emitted damage-the-target action used by
 // onTick handlers (Poison) and ADR-0026 falling damage. Symmetric to

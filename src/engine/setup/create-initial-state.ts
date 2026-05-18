@@ -22,6 +22,7 @@ import {
   EMPTY_UNIT_EQUIPMENT,
   type BattleConfig,
   type GameState,
+  type ItemId,
   type ProposedAction,
   type Unit,
   type UnitEquipment,
@@ -228,6 +229,27 @@ function placementToUnit(
     }
   }
 
+  // Session 39b: passive abilities can grant starting stockpile entries
+  // via the `stockpileGrants` field (Field Kit is the v1 consumer).
+  // Walk the unit's equipped passives (any bucket) and merge their
+  // grants into the starting stockpile. Done at construction time so
+  // the substrate has the stockpile populated before the pre-battle
+  // phase emits action-log entries — no action-log entry for the grant
+  // itself (it's part of unit setup, not a turn event).
+  const stockpile = new Map<ItemId, number>();
+  for (const passiveIds of Object.values(placement.loadout.passiveBuckets)) {
+    for (const abilityId of passiveIds ?? []) {
+      if (!catalog.hasAbility(abilityId)) continue;
+      const ability = catalog.getAbility(abilityId);
+      if (ability.kind !== 'passive') continue;
+      if (ability.stockpileGrants === undefined) continue;
+      for (const grant of ability.stockpileGrants) {
+        const have = stockpile.get(grant.itemId) ?? 0;
+        stockpile.set(grant.itemId, have + grant.count);
+      }
+    }
+  }
+
   return {
     id: placement.id,
     team: placement.team,
@@ -242,11 +264,10 @@ function placementToUnit(
     vitals,
     resistances,
     statuses: placement.statuses ?? [],
-    // Session 39a: fresh battle starts with empty stockpile, no
-    // accumulated KO turns, and not yet removed. Field Kit (Alchemist
-    // Support, S39b) populates a stockpile via the existing
-    // statusGrants / battle-setup hook flow.
-    stockpile: new Map(),
+    // Session 39a: fresh battle starts with no accumulated KO turns
+    // and not yet removed. S39b: stockpile is populated from equipped
+    // passives' `stockpileGrants` (Field Kit), computed just above.
+    stockpile,
     turnsKOd: 0,
     removed: false,
   };

@@ -19,6 +19,7 @@ import type {
   AoeShape,
   BucketId,
   DamageTag,
+  ItemId,
   StatusTypeId,
 } from '../../types/index.ts';
 import type { PassiveHookRegistration } from '../../abilities/hooks.ts';
@@ -385,9 +386,30 @@ export interface ActiveAbilityDefinition extends AbilityCommon {
   readonly selfDamage?: { readonly fraction: number };
 }
 
+// Session 39b: passive abilities can grant starting stockpile entries
+// to the equipping unit. Read by `createInitialState` after the unit
+// is constructed — for each passive equipped in any bucket, the
+// counts in `stockpileGrants` are added to `unit.stockpile` (merge by
+// id; later passives' counts add to earlier ones'). v1 consumer is
+// Field Kit (Alchemist Support: { potion: 1, phoenix_down: 1,
+// remedy: 1 }). Cross-class equippers also receive the grant — the
+// engine doesn't gate on class.
+//
+// Items referenced here must be consumables in the catalog; non-
+// consumable ids are rejected at catalog construction time so the
+// authoring error fails loud rather than producing a stockpile with
+// an invalid id at battle start.
+export interface StockpileGrantEntry {
+  readonly itemId: ItemId;
+  readonly count: number;
+}
+
 export interface PassiveAbilityDefinition extends AbilityCommon {
   readonly kind: 'passive';
   readonly hooks: ReadonlyArray<PassiveHookRegistration>;
+  // Session 39b: stockpile entries granted to the equipping unit at
+  // battle start. Omit on passives that don't grant items.
+  readonly stockpileGrants?: ReadonlyArray<StockpileGrantEntry>;
   // Decorative metadata for reaction passives. Populated by
   // `compileReactionAbility` (which bundles `compileReaction` with this
   // decoration), this field exposes the reaction's declarative source

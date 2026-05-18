@@ -8,6 +8,7 @@ export type {
   PassiveAbilityDefinition,
   RangeMode,
   StatusEffectSpec,
+  StockpileGrantEntry,
   TargetingSpec,
 } from './ability-definition.ts';
 export type {

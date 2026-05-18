@@ -2,6 +2,7 @@ import type { StatusEffectType } from '@engine/index.ts';
 import { blind } from './blind.ts';
 import { burn } from './burn.ts';
 import { charging } from './charging.ts';
+import { combatFocus } from './combat-focus.ts';
 import { critModifier } from './crit-modifier.ts';
 import { dontAct } from './dont-act.ts';
 import { dontMove } from './dont-move.ts';
@@ -28,6 +29,7 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   blind,
   burn,
   charging,
+  combatFocus,
   critModifier,
   dontAct,
   dontMove,

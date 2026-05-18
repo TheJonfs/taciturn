@@ -287,6 +287,52 @@ function formatAction(
     case 'use_ability':
       return formatUseAbility(action, state, catalog, row);
 
+    case 'use_compound': {
+      // Session 39b. "Beowulf prepared a Potion (2 on hand)".
+      const itemName = safeItemName(catalog, action.payload.itemId);
+      const stock = action.outcome?.stockpileAfter ?? 0;
+      const mpSpent = action.outcome?.mpSpent ?? 0;
+      const segments: LogSegment[] = [];
+      if (action.actorId !== undefined) {
+        segments.push(unitSeg(state, action.actorId));
+        segments.push(plain(` prepared a ${itemName}`));
+      } else {
+        segments.push(plain(`Prepared a ${itemName}`));
+      }
+      segments.push(plain(` · ${mpSpent} MP · ${stock} on hand`));
+      return [row({ tag: formatT(currentTNumber), segments, indent: false, tagKind: 'turn' })];
+    }
+
+    case 'use_throw_item': {
+      // Session 39b. "Beowulf threw a Potion at Marach for 96 HP" /
+      // "Beowulf threw a Phoenix Down at Marach (revived)" /
+      // "Beowulf threw a Remedy at Marach". The per-target result's
+      // `healing` populates the HP-restore amount; revival isn't
+      // surfaced in healing alone (the revive baseline +1 is excluded
+      // from `healing`), so we annotate explicitly when the unit was
+      // KO'd before the throw and is alive after.
+      const itemName = safeItemName(catalog, action.payload.itemId);
+      const segments: LogSegment[] = [];
+      if (action.actorId !== undefined) {
+        segments.push(unitSeg(state, action.actorId));
+        segments.push(plain(` threw a ${itemName} at `));
+      } else {
+        segments.push(plain(`${itemName} thrown at `));
+      }
+      const target = action.payload.target;
+      if (target.kind === 'unit') {
+        segments.push(unitSeg(state, target.unitId));
+      } else if (target.kind === 'tile') {
+        segments.push(plain(`(${target.position.x}, ${target.position.y})`));
+      }
+      const r = action.outcome?.perTargetResults[0];
+      if (r !== undefined) {
+        const heal = r.healing ?? 0;
+        if (heal > 0) segments.push(plain(` for ${heal} HP`));
+      }
+      return [row({ tag: formatT(currentTNumber), segments, indent: false, tagKind: 'turn' })];
+    }
+
     case 'wait':
       return [row({ tag: null, segments: [plain('→ Waited')], indent: true, tagKind: null })];
 
@@ -424,6 +470,41 @@ function formatAction(
         plain(` enters battle at CT ${ct}`),
       ];
       return [row({ tag: '[init]', segments, indent: false, tagKind: 'system' })];
+    }
+
+    case 'system_mp_restore': {
+      // Session 39b. Ether's restore lands here as a child of the
+      // parent use_throw_item entry. Skip when applied is 0 (KO'd
+      // target or maxed-out MP — noise).
+      const applied = action.outcome?.applied ?? action.payload.amount;
+      if (applied === 0) return [];
+      const segments: LogSegment[] = [
+        unitSeg(state, action.payload.targetId),
+        plain(` recovered ${applied} MP`),
+      ];
+      return [row({ tag: '[tick]', segments, indent: true, tagKind: 'system' })];
+    }
+
+    case 'system_ko_tick': {
+      // Session 39b. "Marach (KO, 1/3)" / "Marach (KO, 2/3)" / last
+      // tick before removal is recorded as "(KO, 3/3 — fading)" with
+      // the queued system_unit_removed following.
+      const after = action.outcome?.turnsKOdAfter ?? 0;
+      const removalQueued = action.outcome?.removalQueued ?? false;
+      const segments: LogSegment[] = [
+        unitSeg(state, action.payload.targetId),
+        plain(removalQueued ? ` (KO, ${after} — fading)` : ` (KO, ${after})`),
+      ];
+      return [row({ tag: '[tick]', segments, indent: true, tagKind: 'system' })];
+    }
+
+    case 'system_unit_removed': {
+      // Session 39b. Terminal — "Marach removed from battle."
+      const segments: LogSegment[] = [
+        unitSeg(state, action.payload.targetId),
+        plain(' removed from battle'),
+      ];
+      return [row({ tag: '[end]', segments, indent: false, tagKind: 'system' })];
     }
 
     case 'system_mp_drain': {

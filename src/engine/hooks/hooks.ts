@@ -598,6 +598,22 @@ export interface HookSignatures {
     return: unknown;
   };
 
+  // Post-move emission hook (Session 39b). Fires once at the end of a
+  // committed Move action against the mover's hooks, with the
+  // tiles-moved count (path length minus 1 — the number of step
+  // transitions taken). Handlers can emit follow-on actions (Field
+  // Recovery emits `system_heal` of `tilesMoved²`). Bypassed by forced
+  // movement (knockback / pull) since those don't go through reduceMove
+  // — the brief's "intentional movement only" gate is satisfied
+  // structurally rather than by an explicit flag.
+  //
+  // First v1 consumer is Field Recovery (Alchemist Movement). Emission-
+  // only; handlers may return an array of ProposedActions.
+  onMoveCompleted: {
+    args: { unit: Unit; tilesMoved: number };
+    return: ReadonlyArray<ProposedAction>;
+  };
+
   // Turn-skip query: fired once at turn_start to decide whether the
   // unit can act this turn at all. Stop / Sleep / Petrify return a
   // `{ reason }` directive; default-acting statuses return `null`.

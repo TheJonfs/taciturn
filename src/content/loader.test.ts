@@ -75,10 +75,15 @@ describe('loadDefaultCatalog', () => {
     //     crusaders_helm, light_robe, dark_robe, tricorn, spiked_mail)
     //   - items: 42 → 46 (Session 39a Alchemist consumables: potion,
     //     phoenix_down, remedy, ether)
-    expect(cat.statusTypes()).toHaveLength(24);
-    expect(cat.abilities()).toHaveLength(49);
-    expect(cat.commandSets()).toHaveLength(7);
-    expect(cat.classes()).toHaveLength(5);
+    //   - statuses: 24 → 25 (Session 39b combat_focus)
+    //   - abilities: 49 → 54 (Session 39b: compound, throw_item ability
+    //     shells; combat_focus, field_recovery, field_kit passives)
+    //   - commandSets: 7 → 8 (Session 39b alchemy)
+    //   - classes: 5 → 6 (Session 39b alchemist)
+    expect(cat.statusTypes()).toHaveLength(25);
+    expect(cat.abilities()).toHaveLength(54);
+    expect(cat.commandSets()).toHaveLength(8);
+    expect(cat.classes()).toHaveLength(6);
     expect(cat.items()).toHaveLength(46);
     expect(cat.rulesets()).toHaveLength(1);
   });

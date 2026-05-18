@@ -43,6 +43,23 @@ import {
 } from '@engine/index.ts';
 
 const UNIVERSAL_ATTACK_ID = abilityId('attack');
+
+// Session 39b: Alchemist's two action-menu abilities route through
+// dedicated FSM submenus rather than the standard target-select →
+// commitTarget flow. Detected by ability id at dispatch sites
+// (ActionMenu) and at the renderer's target-click handler (so a click
+// on a target during Throw Item dispatches `pickThrowTarget` instead
+// of `commitTarget`).
+const COMPOUND_ABILITY_ID = abilityId('compound');
+const THROW_ITEM_ABILITY_ID = abilityId('throw_item');
+
+export function abilityRoute(
+  abilityIdValue: AbilityId,
+): 'compound' | 'throw_item' | undefined {
+  if (abilityIdValue === COMPOUND_ABILITY_ID) return 'compound';
+  if (abilityIdValue === THROW_ITEM_ABILITY_ID) return 'throw_item';
+  return undefined;
+}
 import type { BattleRenderer } from '@renderer/index.ts';
 import type { UiController } from '@app/controllers/index.ts';
 import {
@@ -101,6 +118,13 @@ export interface TurnFlow {
   // then `endTurn`. Per design doc WAIT-CONFIRM.
   submitWait(facing: import('@engine/index.ts').Direction): void;
   submitTargetedAction(action: ProposedAction): void;
+  // Session 39b: submit a stockpile item pick from either
+  // `compound-item-select` or `throw-item-item-select`. The caller
+  // (ActionMenu) already built the `use_compound` / `use_throw_item`
+  // action shape; this helper drives the FSM transition to animation
+  // and submits to the controller. No await-confirm — the item
+  // picker is the implicit confirm surface.
+  submitItemPick(action: ProposedAction): void;
   confirmAccept(): void;
   cancel(): void;
   // Toggle tile-pin mode while target-selecting a `unit_or_tile`
@@ -384,6 +408,54 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       if (flowState.kind === 'target-select') {
         const ability = catalog.getAbility(flowState.abilityId);
         if (ability.kind !== 'active') return;
+        // Session 39b: Throw Item's target click goes to the item-
+        // picker instead of building a full use_ability action. The
+        // target must be an actual unit at the click position; reject
+        // empty tiles.
+        if (flowState.abilityId === THROW_ITEM_ABILITY_ID) {
+          if (occupant === null) {
+            dispatch({ kind: 'cancel' });
+            return;
+          }
+          // Confirm the target is in legal range / LoS via the engine.
+          const probeAction: ProposedAction = {
+            type: 'use_throw_item',
+            source: 'player',
+            actorId: activeUnit.id,
+            payload: {
+              // The item is a placeholder for the range/LoS check; the
+              // engine will reject if no stockpile entry exists for it.
+              // For the click-validity gate we want the range + LoS +
+              // removed-target check, which doesn't depend on item.
+              // Pick the first item we know exists in the stockpile if
+              // any; otherwise use any item id and let validation pass
+              // through the non-stockpile gates first.
+              itemId: pickAnyStockpileItem(activeUnit) ?? COMPOUND_ABILITY_ID as unknown as import('@engine/index.ts').ItemId,
+              target: { kind: 'unit', unitId: occupant.id },
+            },
+          };
+          const v = validateAction(state, probeAction, catalog);
+          // If the failure is range / LoS / removed, treat as invalid
+          // click and cancel. Stockpile-missing is fine (the player
+          // will see the item picker reject it explicitly).
+          if (!v.valid && v.reason !== undefined && !/stockpile/i.test(v.reason)) {
+            if (import.meta.env.DEV) {
+              // eslint-disable-next-line no-console
+              console.debug(
+                '[targeting] throw_item click cancel',
+                `(${pos.x},${pos.y},${pos.layer})`,
+                'target=',
+                occupant.id,
+                '— validate:',
+                v.reason,
+              );
+            }
+            dispatch({ kind: 'cancel' });
+            return;
+          }
+          dispatch({ kind: 'pickThrowTarget', targetUnitId: occupant.id });
+          return;
+        }
         const action = buildAction(activeUnit.id, ability, pos, occupant, flowState.tileMode);
         if (action === null) {
           // Bug 1 instrumentation: clicking a single_unit-targeted
@@ -556,6 +628,16 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     dispatch({ kind: 'commitTarget', action, confirmStep: false });
   }
 
+  // Session 39b: item pick from compound-item-select /
+  // throw-item-item-select. No await-confirm path — the item picker
+  // is the confirm surface (the player explicitly clicked the item
+  // with cost + count visible).
+  function submitItemPickInternal(action: ProposedAction): void {
+    if (uiController.hasPending()) return;
+    uiController.submit(action);
+    dispatch({ kind: 'pickItem', action });
+  }
+
   function confirmAcceptInternal(): void {
     if (uiController.hasPending()) return;
     if (flowState.kind === 'await-confirm') {
@@ -591,6 +673,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     submitMove: submitMoveInternal,
     submitWait: submitWaitInternal,
     submitTargetedAction: submitTargetedActionInternal,
+    submitItemPick: submitItemPickInternal,
     confirmAccept: confirmAcceptInternal,
     cancel: () => dispatch({ kind: 'cancel' }),
     toggleTileMode: () => dispatch({ kind: 'toggleTileMode' }),
@@ -637,6 +720,18 @@ const EMPTY_TARGETS: LegalTargets = {
 
 function samePosition(a: Position, b: Position): boolean {
   return a.x === b.x && a.y === b.y && a.layer === b.layer;
+}
+
+// Session 39b: returns any item id present in the unit's stockpile
+// with count > 0, or null when the stockpile is empty. Used by the
+// throw-item click handler to construct a probe action for the
+// range / LoS / removed-target validity check — the actual item
+// will be picked next in the item-select state.
+function pickAnyStockpileItem(unit: Unit): import('@engine/index.ts').ItemId | null {
+  for (const [id, count] of unit.stockpile) {
+    if (count > 0) return id;
+  }
+  return null;
 }
 
 function isHealingAbility(ability: ActiveAbilityDefinition | { kind: string }): boolean {

@@ -21,8 +21,8 @@
 // directly; the hook owns all validation.
 
 import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
-import { projectTurnEndCt, statusTypeId, type ActiveAbilityDefinition, type Catalog, type Direction, type GameState, type Unit } from '@engine/index.ts';
-import type { TurnFlow } from './use-turn-flow.ts';
+import { projectTurnEndCt, statusTypeId, type ActiveAbilityDefinition, type Catalog, type ConsumableDefinition, type Direction, type GameState, type ItemId, type ProposedAction, type Unit, type UnitId } from '@engine/index.ts';
+import { abilityRoute, type TurnFlow } from './use-turn-flow.ts';
 import { DetailHover } from './detail-hover.tsx';
 import { formatAbilityDetail } from './detail-text.ts';
 
@@ -136,6 +136,18 @@ export function ActionMenu({ turnFlow, catalog, engineState, onOpenUnitDetail }:
 
     case 'await-confirm':
       return <ConfirmRow turnFlow={turnFlow} catalog={catalog} />;
+
+    case 'compound-item-select':
+      return <CompoundItemPicker turnFlow={turnFlow} catalog={catalog} />;
+
+    case 'throw-item-item-select':
+      return (
+        <ThrowItemItemPicker
+          turnFlow={turnFlow}
+          catalog={catalog}
+          targetUnitId={state.targetUnitId}
+        />
+      );
 
     case 'wait-confirm':
       return <WaitConfirm turnFlow={turnFlow} />;
@@ -344,7 +356,14 @@ function CommandSetPicker({ turnFlow, catalog }: { readonly turnFlow: TurnFlow; 
               key={`free:${String(entry.abilityId)}`}
               label={label}
               disabled={false}
-              onClick={() => turnFlow.dispatch({ kind: 'pickFreeAbility', abilityId: entry.abilityId })}
+              onClick={() => {
+                const route = abilityRoute(entry.abilityId);
+                turnFlow.dispatch({
+                  kind: 'pickFreeAbility',
+                  abilityId: entry.abilityId,
+                  ...(route !== undefined ? { route } : {}),
+                });
+              }}
             />
           );
         }
@@ -385,7 +404,14 @@ function AbilityListPicker(props: {
           actionSpeed={entry.effectiveActionSpeed}
           disabled={entry.disabled}
           reason={entry.disableReason}
-          onClick={() => turnFlow.dispatch({ kind: 'pickAbility', abilityId: entry.ability.id })}
+          onClick={() => {
+            const route = abilityRoute(entry.ability.id);
+            turnFlow.dispatch({
+              kind: 'pickAbility',
+              abilityId: entry.ability.id,
+              ...(route !== undefined ? { route } : {}),
+            });
+          }}
         />
       ))}
       <CancelButton onClick={turnFlow.cancel} />
@@ -584,3 +610,156 @@ const statusLineStyle: CSSProperties = {
   opacity: 0.75,
   fontStyle: 'italic',
 };
+
+// ============================================================
+// Session 39b — Alchemist submenus
+// ============================================================
+
+// Compound's item picker. Lists every consumable in the catalog with:
+//   - item name
+//   - compound MP cost
+//   - current stockpile count on the actor
+//   - disabled when actor's MP < compoundMpCost
+// Picking an item builds a `use_compound` action and submits via
+// `submitItemPick` (no await-confirm — the picker itself is the
+// confirmation surface).
+function CompoundItemPicker({
+  turnFlow,
+  catalog,
+}: {
+  readonly turnFlow: TurnFlow;
+  readonly catalog: Catalog;
+}): ReactElement {
+  const actor = turnFlow.activeUnit;
+  const consumables = collectConsumables(catalog);
+  return (
+    <Panel header="Compound — pick item">
+      {consumables.length === 0 && <StatusLine>(no consumable items in catalog)</StatusLine>}
+      {actor !== null && consumables.map((item) => {
+        const have = actor.stockpile.get(item.id) ?? 0;
+        const affordable = actor.vitals.mp >= item.compoundMpCost;
+        const disabled = !affordable;
+        const reason = affordable ? null : `Need ${item.compoundMpCost} MP (have ${actor.vitals.mp})`;
+        return (
+          <ItemPickerButton
+            key={String(item.id)}
+            label={item.name}
+            sublineParts={[
+              `MP ${item.compoundMpCost}`,
+              `Have ${have}`,
+            ]}
+            disabled={disabled}
+            reason={reason}
+            onClick={() => {
+              const action: ProposedAction = {
+                type: 'use_compound',
+                source: 'player',
+                actorId: actor.id,
+                payload: { itemId: item.id },
+              };
+              turnFlow.submitItemPick(action);
+            }}
+          />
+        );
+      })}
+      <CancelButton onClick={turnFlow.cancel} />
+    </Panel>
+  );
+}
+
+// Throw Item's item picker. Lists every consumable the actor has at
+// least one of (stockpile count > 0), gated by what each item can do
+// to the target:
+//   - Phoenix Down: only enabled when target is KO'd.
+//   - Other items: only enabled when target is alive.
+// (Engine accepts any item on any alive/KO'd target with a gated zero
+// outcome; the UI gates pre-cast to avoid the wasted-turn footgun.)
+function ThrowItemItemPicker({
+  turnFlow,
+  catalog,
+  targetUnitId,
+}: {
+  readonly turnFlow: TurnFlow;
+  readonly catalog: Catalog;
+  readonly targetUnitId: UnitId;
+}): ReactElement {
+  const actor = turnFlow.activeUnit;
+  if (actor === null) return <Panel header="Throw Item" />;
+  const consumables = collectConsumables(catalog).filter((item) => {
+    const have = actor.stockpile.get(item.id) ?? 0;
+    return have > 0;
+  });
+  return (
+    <Panel header="Throw Item — pick item">
+      {consumables.length === 0 && (
+        <StatusLine>(no items in stockpile — Compound first)</StatusLine>
+      )}
+      {consumables.map((item) => {
+        const have = actor.stockpile.get(item.id) ?? 0;
+        return (
+          <ItemPickerButton
+            key={String(item.id)}
+            label={item.name}
+            sublineParts={[`Have ${have - 1} after throw`]}
+            disabled={false}
+            reason={null}
+            onClick={() => {
+              const action: ProposedAction = {
+                type: 'use_throw_item',
+                source: 'player',
+                actorId: actor.id,
+                payload: {
+                  itemId: item.id,
+                  target: { kind: 'unit', unitId: targetUnitId },
+                },
+              };
+              turnFlow.submitItemPick(action);
+            }}
+          />
+        );
+      })}
+      <CancelButton onClick={turnFlow.cancel} />
+    </Panel>
+  );
+}
+
+function ItemPickerButton(props: {
+  readonly label: string;
+  readonly sublineParts: ReadonlyArray<string>;
+  readonly disabled: boolean;
+  readonly reason: string | null;
+  readonly onClick: () => void;
+}): ReactElement {
+  const { label, sublineParts, disabled, reason, onClick } = props;
+  return (
+    <button
+      type="button"
+      style={{
+        ...buttonBaseStyle,
+        ...buttonPrimaryStyle,
+        ...(disabled ? buttonDisabledStyle : null),
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        gap: 2,
+        width: '100%',
+      }}
+      onClick={disabled ? noop : onClick}
+      disabled={disabled}
+      title={reason ?? undefined}
+    >
+      <span style={{ fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 11, opacity: 0.7 }}>{sublineParts.join(' · ')}</span>
+      {disabled && reason !== null && (
+        <span style={{ fontSize: 10, opacity: 0.6, fontStyle: 'italic' }}>{reason}</span>
+      )}
+    </button>
+  );
+}
+
+function collectConsumables(catalog: Catalog): ReadonlyArray<ConsumableDefinition> {
+  const out: ConsumableDefinition[] = [];
+  for (const item of catalog.items()) {
+    if (item.kind === 'consumable') out.push(item);
+  }
+  return out;
+}

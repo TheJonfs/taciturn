@@ -266,6 +266,23 @@ export const LIGHTNING_MAGE_LOADOUT: UnitPlacement['loadout'] = {
   },
 };
 
+// Alchemist default loadout (Session 39b): Alchemy on First Action
+// (class-pinned), no secondary; Combat Focus in Reaction (PA Up on
+// enemy hit), Field Kit in Support (free; starting stockpile of one
+// Potion / Phoenix Down / Remedy), Field Recovery in Movement (HP
+// heal = tiles² at end of intentional movement).
+export const ALCHEMIST_LOADOUT: UnitPlacement['loadout'] = {
+  actionBuckets: {
+    [bucketId('first_action')]: [commandSetId('alchemy')],
+    [bucketId('secondary_command_sets')]: [],
+  },
+  passiveBuckets: {
+    [bucketId('reaction')]: [abilityId('combat_focus')],
+    [bucketId('support')]: [abilityId('field_kit')],
+    [bucketId('movement')]: [abilityId('field_recovery')],
+  },
+};
+
 // Post-reconciliation tuning (mage-war-content-spec, captured 2026-05-09).
 //
 // The class-differentiated numeric stats (HP/MP/PA/MA/Speed at the L25

@@ -1,26 +1,27 @@
-// "Defensive Front" — attrition / sustain template (Session 38).
+// "Defensive Front" — attrition / sustain template (Session 38; retrofit
+// for Session 39b).
 //
-// Knight wall in front with cross-class Earth Magic (Earth's Blessing
-// applies Regen) — the placeholder for healing until White Mage lands
-// in a future content session. Mages behind with defensive equipment
-// bias: Sorcerer's Robe generalist on Earth, Dark Robe specialist on
-// Water (Earth + Water resist), Light Robe specialist on Fire
-// (Fire + Lightning resist).
+// Pre-S39b version used Earth's Blessing's Regen as a stopgap for
+// healing (cross-class Earth Spells on the Knight + Water Mage). Now
+// that the Alchemist ships with Compound + Throw Item + Phoenix Down,
+// the team trades the Earth-Spells stopgap for a real Alchemist:
+//   - Halric (Knight) — front-line wall, drops the Earth Spells
+//     secondary (open slot for future content).
+//   - Beorn (Alchemist) — replaces the second Earth Mage's Regen role
+//     with Potion / Phoenix Down sustain. Position mid-line so Throw
+//     Item's 3h × 3v range reaches both front and back.
+//   - Ysolde (Water Mage) — same defensive identity; drops the second
+//     Earth Spells command set (Alchemist handles healing now).
+//   - Auralia (Fire Mage) — unchanged from the S38 build.
 //
-// Knight + Earth Spells + Crusader's Helm Faith bump exercises the
-// hybrid-caster Knight design discussed in S37 (Crusader's Helm
-// rationale). The Water Mage carries Earth Spells as a second Regen
-// source via Magus Crown's +1 secondary command set capacity.
-//
-// **Caveat per S38 plan-review (Chris):** Earth's Blessing applies
-// Regen, the closest substitute for healing in v1 since White Magic
-// is suppressed in the picker. A real White-Mage class is high
-// priority for the next big content expansion; this template is the
-// best the current ruleset allows for a defensive theme.
+// Knight + Crusader's Helm still exercises the Faith-bump hybrid
+// reading from S37; the Alchemist's heal-throw economy doesn't
+// interact with the Knight's Faith (Throw Item's Potion HP scales
+// off the Alchemist's PA, not the recipient's Faith).
 
-import { classId, commandSetId, itemId } from '@engine/index.ts';
+import { classId, itemId } from '@engine/index.ts';
 import {
-  EARTH_MAGE_LOADOUT,
+  ALCHEMIST_LOADOUT,
   FIRE_MAGE_LOADOUT,
   KNIGHT_LOADOUT,
   WATER_MAGE_LOADOUT,
@@ -30,26 +31,6 @@ import { buildBaseStats, type BuiltTeam } from './built-team.ts';
 const BRAVE = 70;
 const FAITH = 70;
 
-// Knight default secondary command set capacity is 1 (ruleset baseline);
-// Earth Spells fits in the slot without any capacity-bumping equipment.
-const DEFENSIVE_KNIGHT_LOADOUT = {
-  ...KNIGHT_LOADOUT,
-  actionBuckets: {
-    ...KNIGHT_LOADOUT.actionBuckets,
-    secondary_command_sets: [commandSetId('earth_spells')],
-  },
-};
-
-// Water Mage uses Magus Crown's +1 capacity to add `earth_spells` as
-// a second Regen source.
-const DEFENSIVE_WATER_LOADOUT = {
-  ...WATER_MAGE_LOADOUT,
-  actionBuckets: {
-    ...WATER_MAGE_LOADOUT.actionBuckets,
-    secondary_command_sets: [commandSetId('earth_spells')],
-  },
-};
-
 export const defensiveFront: BuiltTeam = {
   name: 'Defensive Front',
   units: [
@@ -57,7 +38,7 @@ export const defensiveFront: BuiltTeam = {
       name: 'Halric',
       classId: classId('knight'),
       baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH),
-      loadout: DEFENSIVE_KNIGHT_LOADOUT,
+      loadout: KNIGHT_LOADOUT,
       equipment: {
         leftHand: itemId('warriors_aegis'),
         rightHand: itemId('long_sword'),
@@ -67,15 +48,22 @@ export const defensiveFront: BuiltTeam = {
       },
     },
     {
-      name: 'Talia',
-      classId: classId('earth_mage'),
-      baseStats: buildBaseStats(classId('earth_mage'), BRAVE, FAITH),
-      loadout: EARTH_MAGE_LOADOUT,
+      name: 'Beorn',
+      classId: classId('alchemist'),
+      baseStats: buildBaseStats(classId('alchemist'), BRAVE, FAITH),
+      loadout: ALCHEMIST_LOADOUT,
       equipment: {
         leftHand: null,
-        rightHand: itemId('wand_of_deepwood'),
-        headgear: itemId('pointy_hat'),
-        armor: itemId('sorcerers_robe'),
+        // Universal weapon (per S39 D2). War Axe's asymmetric variance
+        // pairs with Beorn's PA-second role — he'll take the
+        // occasional swing between Compounds.
+        rightHand: itemId('war_axe'),
+        // Lookout's Hood: Universal +1 Speed head (S37) — useful for
+        // the support role to act more often.
+        headgear: itemId('lookouts_hood'),
+        // Battle Gear: Universal body armor.
+        armor: itemId('battle_gear'),
+        // Diamond Bracelet: Universal accessory.
         accessory: itemId('diamond_bracelet'),
       },
     },
@@ -83,7 +71,7 @@ export const defensiveFront: BuiltTeam = {
       name: 'Ysolde',
       classId: classId('water_mage'),
       baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH),
-      loadout: DEFENSIVE_WATER_LOADOUT,
+      loadout: WATER_MAGE_LOADOUT,
       equipment: {
         leftHand: null,
         rightHand: itemId('wand_of_depths'),

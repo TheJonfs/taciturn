@@ -28,6 +28,7 @@ import {
   runOnActionAttempted,
   runOnActionResolved,
   runOnActionTargeted,
+  runOnMoveCompleted,
   runOnTick,
   runOnTurnEnd,
   runQueryTurnSkipped,
@@ -186,13 +187,23 @@ export function reduceMove(
     turnState: newTurn,
   };
 
+  // Session 39b: onMoveCompleted fires against the mover's hooks with
+  // the tiles-moved count (path entries minus the starting position).
+  // Field Recovery (Alchemist Movement) emits a `system_heal` of
+  // `tilesMoved²` HP via this hook. Forced movement (knockback / pull)
+  // doesn't go through reduceMove, so the brief's "intentional only"
+  // gate is structural — no need for an explicit flag.
+  const tilesMoved = Math.max(0, path.path.length - 1);
+  const moveEmissions =
+    tilesMoved > 0 ? runOnMoveCompleted(newState, catalog, { unit: newActor, tilesMoved }) : [];
+
   const outcome: MoveOutcome = {
     kind: 'move',
     pathTaken: path.path,
     finalPosition: dest,
     facingAfter,
   };
-  return { newState, outcome, generatedActions: [] };
+  return { newState, outcome, generatedActions: moveEmissions };
 }
 
 // --- Wait ---
