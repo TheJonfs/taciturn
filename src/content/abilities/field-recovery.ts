@@ -1,8 +1,8 @@
-// Field Recovery — Alchemist Movement (Session 39b).
+// Healthy Stride — Alchemist Movement (Session 39b).
 //
 // Restore (tiles moved)² HP at the end of intentional movement. The
 // `onMoveCompleted` hook (S39b engine addition) fires once after a
-// Move action commits with the tilesMoved count. Field Recovery
+// Move action commits with the tilesMoved count. Healthy Stride
 // emits a `system_heal` of `tilesMoved²` HP against the mover.
 //
 // Square scaling means Move-boosting equipment (Boots of Haste,
@@ -18,6 +18,10 @@
 // Per-turn ordering: a unit that moves then acts gets the heal before
 // the act; a unit that acts then moves gets the heal after the act.
 // HP cap is enforced by `reduceSystemHeal` (no overheal).
+//
+// Note: the ability id stays `'field_recovery'` (history / save-state
+// compatibility); only the display name changed in the S39b polish
+// pass per Chris's call.
 
 import {
   abilityId,
@@ -30,7 +34,7 @@ const FIELD_RECOVERY_ABILITY_ID = abilityId('field_recovery');
 
 export const fieldRecovery: PassiveAbilityDefinition = {
   id: FIELD_RECOVERY_ABILITY_ID,
-  name: 'Field Recovery',
+  name: 'Healthy Stride',
   kind: 'passive',
   bucket: bucketId('movement'),
   baseCost: 1,

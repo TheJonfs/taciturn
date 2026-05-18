@@ -385,6 +385,80 @@ export class Animator {
         };
       }
 
+      case 'use_compound': {
+        // Session 39b. Compound is self-targeted (the Alchemist
+        // prepares a consumable). Settle the actor's MP bar from the
+        // engine-reported absolute via a short flash on the actor,
+        // mirroring how use_ability settles MP on cast. No HP delta
+        // and no per-target effect to flash on anyone else.
+        const outcome = action.outcome;
+        if (outcome === undefined || action.actorId === undefined) return null;
+        const actorSnap = this.snapshots.get(action.actorId);
+        if (actorSnap === undefined) return null;
+        return {
+          kind: 'flash',
+          targets: [{
+            unitId: action.actorId,
+            hpAfter: actorSnap.hp,
+            koAfter: actorSnap.ko,
+            mpAfter: outcome.mpAfter,
+          }],
+          totalMs: ATTACK_FLASH_DURATION_MS / 2,
+          elapsed: 0,
+        };
+      }
+
+      case 'use_throw_item': {
+        // Session 39b. Throw Item lands the item's effect on the
+        // target (HP heal from Potion / Phoenix Down; status clear
+        // from Remedy; MP-restore for Ether arrives separately via a
+        // system_mp_restore emission). Settle from outcome's
+        // perTargetResults like use_ability does. No actor MP change
+        // (items don't cost MP at throw time — Compound paid that),
+        // so omit the actorMpAfter hint.
+        const outcome = action.outcome;
+        if (outcome === undefined) return null;
+        return this.buildFlashFromTargets(
+          outcome.perTargetResults,
+          ATTACK_FLASH_DURATION_MS,
+        );
+      }
+
+      case 'system_mp_restore': {
+        // Session 39b. Ether's MP refill arrives here from a
+        // use_throw_item's generatedActions. Mirror system_mp_drain's
+        // shape but as a single-target restore on the recipient.
+        const outcome = action.outcome;
+        const applied = outcome?.applied ?? action.payload.amount;
+        if (applied <= 0) return null;
+        const snap = this.snapshots.get(action.payload.targetId);
+        if (snap === undefined) return null;
+        return {
+          kind: 'flash',
+          targets: [{
+            unitId: action.payload.targetId,
+            hpAfter: snap.hp,
+            koAfter: snap.ko,
+            mpAfter: outcome?.mpAfter ?? snap.mp + applied,
+          }],
+          totalMs: ATTACK_FLASH_DURATION_MS / 2,
+          elapsed: 0,
+        };
+      }
+
+      case 'system_ko_tick':
+        // Session 39b. Scheduler bookkeeping — the unit's permadeath
+        // counter advanced. No on-canvas visual; the count is shown
+        // in the unit-detail panel and the action log.
+        return null;
+
+      case 'system_unit_removed':
+        // Session 39b. Terminal — the unit is permanently out of
+        // battle. A short pause lets the previous beat read; the
+        // unit's snapshot becomes inert (the scheduler stops
+        // including it and `unitAt` filters its tile).
+        return { kind: 'pause', totalMs: TURN_END_PAUSE_MS, elapsed: 0 };
+
       case 'wait':
       case 'status_tick':
       case 'system_apply_status':

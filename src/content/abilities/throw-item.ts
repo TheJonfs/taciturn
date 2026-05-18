@@ -28,7 +28,11 @@ export const throwItem: ActiveAbilityDefinition = {
   targeting: {
     kind: 'single_unit',
     range: { horizontal: 3, vertical: 3 },
-    rangeMode: 'straight_line',
+    // 'arc' matches spell-style reach: any tile within 3 horizontal /
+    // 3 vertical that has arc visibility (uncovered source + target).
+    // Straight-line would have restricted throws to a single row /
+    // column, which isn't the intent — see Chris's S39b bug report.
+    rangeMode: 'arc',
   },
   actionSpeed: 0,
   mpCost: 0,

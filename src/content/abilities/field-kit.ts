@@ -1,4 +1,4 @@
-// Field Kit — Alchemist Support (Session 39b).
+// Travel Preparations — Alchemist Support (Session 39b).
 //
 // Unit begins battle with a stockpile of one each: Potion, Phoenix
 // Down, Remedy. Per the S39 brief: free on Alchemist primary; cost 1
@@ -13,9 +13,13 @@
 // class.
 //
 // Ether is intentionally NOT in the starting kit — the player has to
-// Compound it on demand. Keeps Alchemist's opening turn meaningful
-// (Compound Ether for a teammate vs. throw the kit) rather than
-// front-loading every resource.
+// Compound it on demand. Keeps the Alchemist's opening turn
+// meaningful (Compound Ether for a teammate vs. throw the kit)
+// rather than front-loading every resource.
+//
+// Note: the ability id stays `'field_kit'` (history / save-state
+// compatibility); only the display name changed in the S39b polish
+// pass per Chris's call.
 
 import {
   abilityId,
@@ -26,7 +30,7 @@ import {
 
 export const fieldKit: PassiveAbilityDefinition = {
   id: abilityId('field_kit'),
-  name: 'Field Kit',
+  name: 'Travel Preparations',
   kind: 'passive',
   bucket: bucketId('support'),
   baseCost: 1,

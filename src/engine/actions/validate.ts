@@ -502,7 +502,11 @@ function validateUseThrowItem(
     return invalid(`Target unit ${JSON.stringify(targetUnitId)} has been removed from battle`);
   }
 
-  // Range + LoS against the throw-item constant.
+  // Range + arc-targetability against the throw-item constant. Per
+  // Chris's S39b bug report: throws use arc-style reach (any tile
+  // within 3h × 3v with uncovered source + target), not straight-line.
+  // Matches the spell-targeting convention so a Throw at (+2, +1) is
+  // legal, not just orthogonal rows / columns.
   const sourceTile = tileAt(state.map, actor.position.x, actor.position.y, actor.position.layer);
   if (sourceTile === undefined) return invalid('Source tile does not exist');
   const targetTile = tileAt(
@@ -523,12 +527,8 @@ function validateUseThrowItem(
     },
   });
   if (!inRangeOk) return invalid('Target is out of throw range');
-  const losOk = hasLineOfSight(
-    state.map,
-    endpointFrom(actor.position, sourceTile.elevation),
-    endpointFrom(targetUnit.position, targetTile.elevation),
-  );
-  if (!losOk) return invalid('Line of sight is blocked');
+  const arcOk = arcTargetable(state.map, actor.position, targetUnit.position);
+  if (!arcOk) return invalid('Arc target is covered');
   return VALID;
 }
 

@@ -29,11 +29,12 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   [classId('water_mage'),     { maxHpBase: 102, maxMpBase: 60, pa: 4,  ma: 12, spd: 10 }],
   [classId('fire_mage'),      { maxHpBase: 97,  maxMpBase: 60, pa: 4,  ma: 13, spd: 9  }],
   [classId('lightning_mage'), { maxHpBase: 87,  maxMpBase: 60, pa: 4,  ma: 14, spd: 9  }],
-  // Session 39b. Per the S39 brief L25 reference: 126 HP / 36 MP / 8 PA
-  // / 5 MA / spd 8. HP between Knight (144) and Earth Mage (112);
-  // MP between Knight (20) and Mages (60) — enough to Compound a few
+  // Session 39b. HP between Knight (144) and Earth Mage (112); MP
+  // between Knight (20) and Mages (60) — enough to Compound a few
   // items per battle without being unlimited; PA second-highest of v1
   // classes (Knight 11 > Alchemist 8 > Mages 4) so Throw Item HP/MP
-  // coefficients land meaningfully.
-  [classId('alchemist'),      { maxHpBase: 126, maxMpBase: 36, pa: 8,  ma: 5,  spd: 8  }],
+  // coefficients land meaningfully. Speed 10 ties Water Mage (the
+  // fastest base) — the Alchemist needs to act often enough to keep
+  // the team supplied; lower Speed left them too slow in playtest.
+  [classId('alchemist'),      { maxHpBase: 126, maxMpBase: 36, pa: 8,  ma: 5,  spd: 10 }],
 ]);

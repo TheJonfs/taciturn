@@ -10,6 +10,7 @@
 // Falls back to the existing colored-circle render when a class id has
 // no entry. Missing-asset case is a renderer concern, not handled here.
 
+import alchemistUrl from './alchemist.png';
 import earthMageUrl from './earth-mage.png';
 import fireMageUrl from './fire-mage.png';
 import knightUrl from './knight.png';
@@ -18,6 +19,7 @@ import waterMageUrl from './water-mage.png';
 import { classId, type ClassId } from '@engine/index.ts';
 
 export const PORTRAIT_URLS: ReadonlyMap<ClassId, string> = new Map([
+  [classId('alchemist'), alchemistUrl],
   [classId('earth_mage'), earthMageUrl],
   [classId('fire_mage'), fireMageUrl],
   [classId('knight'), knightUrl],

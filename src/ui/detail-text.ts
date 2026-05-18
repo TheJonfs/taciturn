@@ -90,6 +90,10 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('damage_reduction'), 'Reduce incoming non-healing damage by a flat amount.'],
   [abilityId('static_embrace'), '+20 Crit Modifier (passive — drives crit damage when the wielder lands one).'],
   [abilityId('magnetic_mark'), 'Apply Vulnerable to a target on hit — next damage taken is amplified.'],
+  // Session 39b — Alchemist R/S/M.
+  [abilityId('combat_focus'), 'When hit by an enemy, has a chance to raise PA by 1.'],
+  [abilityId('field_kit'), 'Begin the fight with a Potion, Phoenix Down, and Remedy already stocked.'],
+  [abilityId('field_recovery'), 'Restores HP equal to the square of the number of spaces moved.'],
 ]);
 
 // Tiny formatting helpers — kept inline rather than a regex zoo so the
