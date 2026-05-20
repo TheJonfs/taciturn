@@ -37,4 +37,11 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   // fastest base) — the Alchemist needs to act often enough to keep
   // the team supplied; lower Speed left them too slow in playtest.
   [classId('alchemist'),      { maxHpBase: 126, maxMpBase: 36, pa: 8,  ma: 5,  spd: 10 }],
+  // Session 42. Glass-cannon skirmisher: lowest HP (96) and a low PA (6,
+  // halved again to effective ~4 by Two Weapons) — its damage comes from
+  // two swings and tempo, not raw stats. MP 24 gates the Command Set
+  // (~2–3 castings). Speed 14 is the highest base in v1 (next: Water
+  // Mage / Alchemist 10) — the Assassin acts most often, the core of its
+  // action-economy identity. MA 3 (lowest) — not a caster.
+  [classId('assassin'),       { maxHpBase: 96,  maxMpBase: 24, pa: 6,  ma: 3,  spd: 14 }],
 ]);

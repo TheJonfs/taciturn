@@ -233,6 +233,39 @@ export interface HookSignatures {
     return: MovementProfile['specialMovement'];
   };
 
+  // Dual-wield capability query (Session 42). Boolean OR-chain: the
+  // engine asks "may this unit attack with its off-hand weapon in
+  // addition to its primary?" with a base of `false`; the Two Weapons
+  // Support returns `true`. The attack swing-list computation
+  // (`attackingWeaponSlots`) consults this to decide whether to include
+  // the off-hand weapon slot as a second swing. Two Weapons doesn't
+  // touch the damage pipeline itself — it just unlocks the second slot,
+  // which the per-swing dispatch then iterates. The future "attack twice
+  // with each weapon" accessory (S43) is a separate axis (swings *per*
+  // weapon) and would land as its own count-returning hook; see the
+  // unified-attack-pipeline ADR. Composition is OR: any handler
+  // returning true enables it.
+  modifyDualWield: {
+    args: { unit: Unit; baseValue: boolean };
+    return: boolean;
+  };
+
+  // Swings-per-weapon query (the second multi-swing axis anticipated by
+  // ADR-0080). Multiplicative chain over how many times each eligible
+  // weapon swings on a basic Attack; base `1`. The Offering accessory
+  // returns `baseValue × 2` (each weapon swings twice). Orthogonal to
+  // `modifyDualWield` (which adds the off-hand *slot*): the swing-list
+  // computation multiplies the eligible-slot list by this count, so
+  // dual-wield × The Offering = four swings. The call site
+  // (`attackingWeaponSlots`) applies it ONLY to the basic Attack command
+  // and only when the action is not a reaction — Counter and the Battle
+  // Skills don't benefit. The hook itself is a pure capability; the
+  // ability/reaction gating lives at the call site.
+  modifySwingsPerWeapon: {
+    args: { unit: Unit; baseValue: number };
+    return: number;
+  };
+
   // AoE shape modifier — fires against the *caster's* hooks just before
   // `resolveAbilityTargets` computes the affected footprint. Each handler
   // receives the running shape and returns a new one; the chain runs in

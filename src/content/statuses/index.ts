@@ -1,11 +1,13 @@
 import type { StatusEffectType } from '@engine/index.ts';
 import { blind } from './blind.ts';
+import { braveDown } from './brave-down.ts';
 import { burn } from './burn.ts';
 import { charging } from './charging.ts';
 import { combatFocus } from './combat-focus.ts';
 import { critModifier } from './crit-modifier.ts';
 import { dontAct } from './dont-act.ts';
 import { dontMove } from './dont-move.ts';
+import { faithDown } from './faith-down.ts';
 import { haste } from './haste.ts';
 import { maDown } from './ma-down.ts';
 import { maUp } from './ma-up.ts';
@@ -20,6 +22,7 @@ import { regenAuto } from './regen-auto.ts';
 import { shell } from './shell.ts';
 import { silence } from './silence.ts';
 import { speedDown } from './speed-down.ts';
+import { speedSave } from './speed-save.ts';
 import { stop } from './stop.ts';
 import { taggedResistanceShift } from './tagged-resistance-shift.ts';
 import { taunted } from './taunted.ts';
@@ -27,12 +30,14 @@ import { vulnerable } from './vulnerable.ts';
 
 export const statusTypes: ReadonlyArray<StatusEffectType> = [
   blind,
+  braveDown,
   burn,
   charging,
   combatFocus,
   critModifier,
   dontAct,
   dontMove,
+  faithDown,
   haste,
   maDown,
   maUp,
@@ -47,6 +52,7 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   shell,
   silence,
   speedDown,
+  speedSave,
   stop,
   taggedResistanceShift,
   taunted,

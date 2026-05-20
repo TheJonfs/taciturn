@@ -454,7 +454,7 @@ function* attackProcContributor(
 ): Generator<SourceContribution<'onDamageDealt'>> {
   let tieBreakIndex = 0;
   let procIndex = 0;
-  for (const { item } of iterateEquippedItems(unit, catalog)) {
+  for (const { slot, item } of iterateEquippedItems(unit, catalog)) {
     if (item.attackProcs === undefined) continue;
     for (const proc of item.attackProcs) {
       const localIndex = tieBreakIndex++;
@@ -463,6 +463,7 @@ function* attackProcContributor(
       const localAbilityId = proc.abilityId;
       const localItemId = item.id;
       const localAttackerId = unit.id;
+      const localSlot = slot;
       yield {
         tier: 'equipment',
         priority: DEFAULT_HOOK_PRIORITY,
@@ -472,6 +473,14 @@ function* attackProcContributor(
           if (!ctx.hit) return ctx;
           if (!ctx.damageTags.has('physical')) return ctx;
           if (ctx.actionSeed === undefined) return ctx;
+          // Per-swing weapon scope (Session 42): a multi-swing attack
+          // sets `attackingWeaponSlot`; only the swinging slot's procs
+          // roll on that swing (a Magebane in the off-hand procs Silence
+          // on the off-hand swing only). Undefined → no scoping (every
+          // single-weapon / pre-S42 attack fires all equipped procs).
+          if (ctx.attackingWeaponSlot !== undefined && ctx.attackingWeaponSlot !== localSlot) {
+            return ctx;
+          }
           const subSeed = (ctx.actionSeed ^ ((PROC_ROLL_SUB_STREAM + localProcIndex) >>> 0)) >>> 0;
           const roll = unitFloatFromSeed(subSeed);
           if (roll >= localChance) return ctx;
@@ -607,6 +616,30 @@ function* physicalReflectContributor(
   }
 }
 
+// ADR-0080 (Session 42): swings-per-weapon multiplier from equipment.
+// The Offering authors `attackSwingMultiplier: 2`. Yields a
+// `modifySwingsPerWeapon` handler that multiplies the running count.
+// The basic-Attack / non-reaction gating lives at the call site
+// (`attackingWeaponSlots`); this contributor is a pure capability.
+function* swingsPerWeaponContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'modifySwingsPerWeapon'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.attackSwingMultiplier === undefined) continue;
+    if (item.attackSwingMultiplier <= 1) continue;
+    const localIndex = tieBreakIndex++;
+    const localMultiplier = item.attackSwingMultiplier;
+    yield {
+      tier: 'equipment',
+      priority: DEFAULT_HOOK_PRIORITY,
+      tieBreakIndex: localIndex,
+      invoke: (args) => args.baseValue * localMultiplier,
+    };
+  }
+}
+
 // Per-hook contributor registry. The dispatch is a single map lookup;
 // hooks with no entry yield no equipment contributors. Adding equipment
 // integration for a new hook is one entry plus the contributor body.
@@ -627,6 +660,8 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   modifyAbilityRange: abilityRangeContributor,
   modifyOutgoingHitChance: outgoingHitChanceContributor,
   modifyEvasion: evasionContributor,
+  // ADR-0080 (Session 42): The Offering's swings-per-weapon multiplier.
+  modifySwingsPerWeapon: swingsPerWeaponContributor,
   // ADR-0064 (Session 30): weapon spell-cast riders.
   onDamageDealt: attackProcContributor,
   // ADR-0065 (Session 30): damage-to-MP-drain on equipment.

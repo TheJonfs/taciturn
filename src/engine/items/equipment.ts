@@ -41,6 +41,20 @@ function readSlotAsWeapon(itemId: ItemId | null, catalog: Catalog): WeaponEquipm
   return null;
 }
 
+// Resolve the weapon in a specific hand slot (Session 42, multi-swing).
+// The damage pipeline passes the swinging slot so each swing reads its
+// own weapon's WP / tags. Returns null when the slot is empty or holds
+// a non-weapon (e.g. a shield). Only hand slots can hold weapons; a
+// non-hand slot always returns null.
+export function getWeaponInSlot(
+  unit: Unit,
+  slot: EquipmentSlotId,
+  catalog: Catalog,
+): WeaponEquipment | null {
+  if (slot !== 'leftHand' && slot !== 'rightHand') return null;
+  return readSlotAsWeapon(unit.equipment[slot], catalog);
+}
+
 // Session 39a: predicates to narrow the widened `ItemDefinition` union
 // (equipment + consumables). Equipment paths use `isEquipment` to filter
 // before reading equipment-only fields like `bucketCapacityMods` or

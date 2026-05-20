@@ -39,6 +39,7 @@ import { staffOfPower } from './staff-of-power.ts';
 import { steelHelm } from './steel-helm.ts';
 import { strengthRing } from './strength-ring.ts';
 import { tacticalMask } from './tactical-mask.ts';
+import { theOffering } from './the-offering.ts';
 import { tintinibar } from './tintinibar.ts';
 import { travelGarb } from './travel-garb.ts';
 import { tricorn } from './tricorn.ts';
@@ -109,6 +110,8 @@ export const items: ReadonlyArray<ItemDefinition> = [
   arcaneLens,
   // Session 31 batch B — new accessory
   raspPendant,
+  // Session 42 — swings-per-weapon accessory (ADR-0080)
+  theOffering,
   // Session 39a — Alchemist consumables (stockpile content for Compound
   // / Throw Item). Not equippable; appear in stockpile maps only.
   potion,

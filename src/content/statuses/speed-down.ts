@@ -25,6 +25,8 @@ export const speedDown: StatusEffectType = {
   durationMode: 'permanent',
   stackingRule: 'STACK_INDEPENDENT',
   defaultMagnitude: 1,
+  // Stat-reduction debuff — not Remedy-clearable (Session 42 convention).
+  remedyImmune: true,
   resistanceTag: 'water',
   hooks: [
     statusHook('modifyStatQuery', (args, ctx) => {

@@ -211,6 +211,17 @@ export const KO_X_COLOR = 0xe67865;
 export const KO_X_WIDTH = 3;
 export const KO_X_ALPHA = 0.9;
 
+// Session 41 permadeath countdown badge (rendered on the KO'd unit
+// sprite while turnsKOd < permadeath.threshold). Numeric "N" reads as
+// "this many virtual turns remain before the unit is permanently
+// removed from battle." Amber at countdown 2/3; red at imminent (≤ 1).
+export const PERMADEATH_BADGE_BG = 0x2d2d2d;
+export const PERMADEATH_BADGE_BG_IMMINENT = 0x5a1a1a;
+export const PERMADEATH_BADGE_BORDER = 0xe5b86b;
+export const PERMADEATH_BADGE_BORDER_IMMINENT = 0xff5050;
+export const PERMADEATH_BADGE_TEXT = 0xffe6a8;
+export const PERMADEATH_BADGE_TEXT_IMMINENT = 0xffb4b4;
+
 // Active-unit highlight ring color.
 export const ACTIVE_HIGHLIGHT_COLOR = 0xf6e5a8;
 

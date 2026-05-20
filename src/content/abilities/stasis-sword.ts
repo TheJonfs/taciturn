@@ -5,16 +5,19 @@
 // default Faith-and-MA (Knights are higher Brave than Faith, so Brave
 // best fits a hybrid martial build).
 //
-// Numbers per session 17c plaintext review:
+// Numbers per session 17c plaintext review, mpCost bump from S41
+// (Battle Skill scaled up to gate uses more meaningfully):
 //   - power_coefficient 1.0: same damage as basic Attack — the
 //     ability's value is the rider, not the damage.
-//   - mpCost 6: gates use vs. basic Attack.
-//   - Stop baseChance 50, factors `{ brave: true, ma: true }` — at
-//     Brave 100 / MA 4 (Knight default), the effective rate is
-//     0.5 × 1.0 × (0.9 + 4/10) = 0.5 × 1.3 = 0.65, i.e., ~65% before
-//     Earth Communion modifiers and target resistance. Earth Mage
-//     teammates running Earth Communion (× 1.25) push it to ~81%.
-//   - Stop duration 12 ticks — short but tactical.
+//   - mpCost 8 (S41 +2 from 6): Knight at base 20 MP can Stasis Sword
+//     twice. Tighter gating on a high-tempo control rider.
+//   - Stop baseChance 50, factors `{ brave: true, ma: true }`. At the
+//     v1 placement default Brave 70 / MA 4 (Knight baseline), the rate
+//     is roughly 0.5 × 1.0 × (0.7 + 4/10) = 0.5 × 1.1 = 0.55. A Knight
+//     running Bravestrider (Brave +10 → 80) pushes the rate to
+//     0.5 × 1.2 = 0.60. Earth Mage teammates running Biomastery
+//     (× 1.25) amplify from there.
+//   - Stop duration: short but tactical.
 
 import {
   abilityId,
@@ -36,7 +39,7 @@ export const stasisSword: ActiveAbilityDefinition = {
     rangeMode: 'melee',
   },
   actionSpeed: 0,
-  mpCost: 6,
+  mpCost: 8,
   hitRoll: {},
   effects: {
     damage: {

@@ -840,7 +840,7 @@ describe('Knight ability commits — smoke', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const post = result.newState.units.get(unitId('blue_knight'))!;
-    expect(post.vitals.mp).toBe(6); // 10 − 4
+    expect(post.vitals.mp).toBe(4); // 10 − 6 (S41 Power Attack MP bump: 4 → 6)
   });
 
   it('Taunt commits and applies the Taunted status with applyAlways', () => {

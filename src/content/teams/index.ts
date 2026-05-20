@@ -17,10 +17,12 @@ import type { BuiltTeam } from './built-team.ts';
 import { currentTestTeam } from './current-test-team.ts';
 import { defensiveFront } from './defensive-front.ts';
 import { mageVarietyPack } from './mage-variety-pack.ts';
+import { shadowAndSteel } from './shadow-and-steel.ts';
 
 export { currentTestTeam } from './current-test-team.ts';
 export { defensiveFront } from './defensive-front.ts';
 export { mageVarietyPack } from './mage-variety-pack.ts';
+export { shadowAndSteel } from './shadow-and-steel.ts';
 
 // A loadable template: a stable id (for React keys / selection state)
 // paired with its `BuiltTeam`. The display label is the team's `name`.
@@ -39,4 +41,5 @@ export const defaultTeamTemplates: ReadonlyArray<TeamTemplate> = [
   { id: 'current-test-team', team: currentTestTeam },
   { id: 'mage-variety-pack', team: mageVarietyPack },
   { id: 'defensive-front', team: defensiveFront },
+  { id: 'shadow-and-steel', team: shadowAndSteel },
 ];

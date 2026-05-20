@@ -84,11 +84,24 @@ describe('loadDefaultCatalog', () => {
     //     fired by Magebane's attackProcs)
     //   - items: 46 → 49 (Session 40 knife weapon class: chefs_knife,
     //     magebane, sai — Speed-based dynamic variance)
-    expect(cat.statusTypes()).toHaveLength(25);
-    expect(cat.abilities()).toHaveLength(55);
-    expect(cat.commandSets()).toHaveLength(8);
-    expect(cat.classes()).toHaveLength(6);
-    expect(cat.items()).toHaveLength(49);
+    //   - abilities: 55 → 57 (Session 41 Knight R/S/M review: martial_expertise,
+    //     bravestrider; replace move_plus_1+damage_reduction in Knight free kit
+    //     — both retained as cross-class options)
+    //
+    // Session 42 Assassin + Two Weapons substrate + Lightning Stab swap:
+    //   - statuses: 25 → 28 (brave_down, faith_down, speed_save)
+    //   - abilities: 57 → 65 (two_weapons, speed_save, fleet_of_foot,
+    //     shadow_stitch, blowdart, undermine, sow_doubt, lightning_stab;
+    //     Lightning Stab replaces Stasis Sword in Battle Skill but Stasis
+    //     Sword stays registered as a cross-class option, so net +8)
+    //   - commandSets: 8 → 9 (Session 42 shadow_arts)
+    //   - classes: 6 → 7 (Session 42 assassin)
+    //   - items: 49 → 50 (Session 42 the_offering — swings-per-weapon accessory)
+    expect(cat.statusTypes()).toHaveLength(28);
+    expect(cat.abilities()).toHaveLength(65);
+    expect(cat.commandSets()).toHaveLength(9);
+    expect(cat.classes()).toHaveLength(7);
+    expect(cat.items()).toHaveLength(50);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

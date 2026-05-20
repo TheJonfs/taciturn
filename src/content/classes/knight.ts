@@ -1,14 +1,10 @@
-// Knight — placeholder stub used to verify the catalog loader end-to-end
-// and to seed the movement / ability-slot subsystems with a class that
-// has real baselines.
-// Real class content (additional command sets, R/S/M grants beyond the
-// session-5 demo, level/equipment baselines) arrives with the
-// ability-slots and class-catalog expansion sessions.
+// Knight — heavy-armor melee frontline. Battle Skill command set (Power
+// Attack / Stasis Sword / Taunt); class-free R/S/M passives are Counter
+// (Reaction), Martial Expertise (Support, PA × 1.25), Bravestrider
+// (Movement, +1 moveRange + 10 brave).
 //
-// Movement values (moveRange 3, jump 2, ground-only) match FFT's iconic
-// Knight. First Action is pinned to `battle_skill`. `freeAbilities`
-// includes Move +1 to demonstrate the cost-0 modulation path; players
-// can still spend Movement-bucket capacity on Float / Fly etc. on top.
+// Movement values (moveRange 3, jump 2, ground + water with cost gate)
+// match FFT's iconic Knight.
 
 import {
   abilityId,
@@ -30,11 +26,10 @@ export const knight: ClassDefinition = {
     // cost or leap over it via jump-over-water pathfinding.
     canEnter: new Set(['ground', 'water_shallow', 'water_deep']),
   },
-  // Heavy class baseline per docs/battle-mechanics-guide.md "Evasion and
-  // accuracy" (most classes 5-15 front, 3-8 side, 0 back). Values stay
-  // at 0 until session 14's evasion_check handler ships and tuning takes
-  // a real pass — see ADR-0019.
-  evasion: { front: 0, side: 0, back: 0 },
+  // S41 review: heavy-armor class identity. Best front evade in v1 —
+  // beats Water Mage (10) clearly; middling side; uniform back-zero
+  // matches every class.
+  evasion: { front: 12, side: 7, back: 0 },
   // Knight equips into all five slots (per ADR-0028). v1 demo Knights
   // start with a Long Sword in the right hand; armor / headgear /
   // accessory slots stay open for tuning passes.
@@ -46,10 +41,15 @@ export const knight: ClassDefinition = {
     accessory: true,
   },
   firstActionCommandSet: commandSetId('battle_skill'),
+  // S41 R/S/M review: Counter retained as-is. Damage Reduction →
+  // Martial Expertise (PA × 1.25, Conductor parallel). Move +1 →
+  // Bravestrider (+1 moveRange + 10 brave; Hotfoot-tier dual-effect at
+  // cost 2). Damage Reduction and Move +1 remain in the catalog as
+  // cross-class options; they're just no longer the Knight's free kit.
   freeAbilities: new Set([
     abilityId('attack'),
-    abilityId('move_plus_1'),
     abilityId('counter'),
-    abilityId('damage_reduction'),
+    abilityId('martial_expertise'),
+    abilityId('bravestrider'),
   ]),
 };

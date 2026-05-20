@@ -659,19 +659,37 @@ function computeUnitValidity(
   };
 }
 
-// Dual-wield detection — true when both hand slots hold a weapon. The
-// v1 ruleset disallows dual-wield (one weapon per unit, one shield in
-// the off-hand if the class permits shields). Future content unlocks
-// dual-wield and a two-handed-grip bonus through dedicated abilities;
-// until then, this is a hard validity rule.
+// Illegal-dual-wield detection — true when both hand slots hold a weapon
+// AND the unit lacks a dual-wield-granting passive. One weapon + one
+// shield is always fine. Session 42: Two Weapons (any passive with a
+// `modifyDualWield` hook) lifts the restriction, so a unit carrying it
+// may legally hold a weapon in each hand. Detected content-agnostically
+// (no hard-coded ability id); `passiveBuckets` already folds in the
+// class's free abilities, so the native Assassin and a cross-class equip
+// both resolve here.
 function isDualWielding(unit: DraftUnit, catalog: Catalog): boolean {
   const left = unit.equipment.leftHand;
   const right = unit.equipment.rightHand;
   if (left === null || right === null) return false;
-  return (
+  const bothWeapons =
     catalog.getItem(left).kind === 'weapon' &&
-    catalog.getItem(right).kind === 'weapon'
-  );
+    catalog.getItem(right).kind === 'weapon';
+  if (!bothWeapons) return false;
+  return !unitGrantsDualWield(unit, catalog);
+}
+
+// True when any equipped passive registers a `modifyDualWield` hook
+// (Two Weapons). Mirrors the equipment picker's gate.
+function unitGrantsDualWield(unit: DraftUnit, catalog: Catalog): boolean {
+  for (const abilityIds of Object.values(unit.loadout.passiveBuckets)) {
+    for (const aid of abilityIds) {
+      const ability = catalog.getAbility(aid);
+      if (ability.kind === 'passive' && ability.hooks.some((h) => h.name === 'modifyDualWield')) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 // Items appearing on more than one unit — the unique-per-team rule's

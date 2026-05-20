@@ -2,9 +2,12 @@
 // expanded the v1 set from `attack` to include Power Attack, Stasis
 // Sword, and Taunt — all First Action members on the same set, so a
 // player whose Knight has Battle Skill equipped can pick any of them
-// from the action menu when their First Action fires. The broader
-// sword-tech repertoire (Hero Sword, Break, etc.) lands with later
-// Knight content passes.
+// from the action menu when their First Action fires. Session 42 swapped
+// Stasis Sword (Stop rider) for Lightning Stab (Silence rider) — the
+// Stop rider moved to the Assassin's Shadow Stitch, so the Knight trades
+// it for caster disruption. Stasis Sword stays registered in the catalog
+// as a cross-class option. The broader sword-tech repertoire (Hero
+// Sword, Break, etc.) lands with later Knight content passes.
 //
 // Session 25 (Attack-in-Act refit): the universal `attack` ability
 // is surfaced via the class's `freeAbilities` and renders as a peer
@@ -24,7 +27,7 @@ export const battleSkill: CommandSetDefinition = {
   name: 'Battle Skill',
   members: [
     abilityId('power_attack'),
-    abilityId('stasis_sword'),
+    abilityId('lightning_stab'),
     abilityId('taunt'),
   ],
   baseCost: 1,

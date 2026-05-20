@@ -95,6 +95,15 @@ export interface StatusEffectType {
   // existing statuses' lifecycles. v1 consumer: Taunted (per
   // ADR-0028).
   readonly removeOnSourceKO?: boolean;
+  // When `true`, Remedy (and any future debuff-cleanse consumer) will
+  // NOT clear this status, even though its polarity is non-buff. Per
+  // Chris's convention (Session 42): flat stat-reduction debuffs (PA /
+  // MA / Speed / Brave / Faith Down) are not Remedy-clearable — they
+  // express a committed, lasting weakening rather than a curable
+  // ailment. Remedy still cures the classic ailments (Poison, Blind,
+  // Silence, Sleep, Stop). Default `false` — every existing ailment
+  // stays clearable. See ADR for the formula/Remedy changes.
+  readonly remedyImmune?: boolean;
   // Required when `durationMode === 'custom'` (ADR-0030). The kind
   // names which engine event drives the trigger; the engine routes
   // the firing through the corresponding existing hook. v1 supports

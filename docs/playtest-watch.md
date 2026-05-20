@@ -361,3 +361,42 @@ shouldn't drift out of memory between sessions.
   Long Sword AI (suggests the 1.5× is too gentle); conversely, AI
   obviously favors the mage so consistently that other targets are
   ignored when they should be picked (suggests too strong).
+
+---
+
+## Session 42 — Assassin + Two Weapons + Lightning Stab
+
+### Knight + Bravestrider + Lightning Stab apply rate
+
+- **What to watch.** Lightning Stab's Silence rider uses `{ brave: true, ma: true }` at baseChance 50 (held at Stasis Sword's prior calibration per D3). Bravestrider's +10 Brave (Knight 70 → 80) lifts the rate above the old Stasis-Sword baseline.
+- **Why it matters.** A Bravestrider Knight Silencing a caster ~52% per hit may read as too sticky — Silence is a hard caster-disable.
+- **Signal for adjustment.** If Silence lands so reliably it neuters enemy mages from turn one, shave Lightning Stab's baseChance (50 → 40) or revisit Bravestrider's Brave magnitude.
+
+### Speed Save accumulator snowball
+
+- **What to watch.** The Assassin gains +1 Speed per enemy hit (permanent, accumulating, persists through KO). Early hits → faster Assassin → harder to catch.
+- **Why it matters.** Snowball potential, likely checked by HP 96 + 0 back-evade making early hits often lethal — but watch.
+- **Note (D5 nuance / known limitation).** The flat `perUnitPerTurnReactions: 1` cap throttles Speed Save to **once per enemy turn**, even when a Two-Weapons enemy lands both swings (D5 wanted up to 2 procs). Honoring per-swing would need a per-ability reaction-cap override — deferred. Watch whether once-per-turn feels too slow to ramp.
+
+### Multi-swing × Counter / Power Attack
+
+- **What to watch.** A Two-Weapons attacker triggers the target's Counter per swing (capped at 1/turn), and Knight + Two Weapons + Power Attack + Battle Gear is a burst spike.
+- **Why it matters.** Whether multi-weapon use feels discouraged against Counter targets (good) or Counter feels oppressive (bad); and whether dual-wield Power Attack overshadows other builds.
+- **Signal for adjustment.** Earlier math: Knight + Two Weapons + dual axes ≈ 1634 dmg / 9 turns vs Martial Expertise single-weapon ≈ 1404. Watch whether the shield-loss trade keeps Martial Expertise a real choice.
+
+### Permadebuff stickiness (Undermine / Sow Doubt)
+
+- **What to watch.** Brave Down / Faith Down now persist all battle (permanent, through KO, Remedy-immune per ADR-0081). Existing PA/MA/Speed Down also became Remedy-immune this session — a balance change to Fire/Earth Strike / Brine / Earth Quake.
+- **Why it matters.** Early debuff applications are "locked in." Strong identity; watch for whether it reads as decisive or as feel-bad / un-counterable.
+- **Signal for adjustment.** If un-cleanseable stat debuffs feel oppressive, reconsider a cleanse path or per-status `remedyImmune` scoping. Undermine's self-cancellation tension (lower Brave → lower Brave-and-Speed re-apply chance) and Sow Doubt's double-edged Faith (also softens your own mages vs that target) are designed textures — confirm they read as interesting, not frustrating.
+
+### Assassin AI
+
+- **What to watch.** No Assassin-specific AI heuristics were added; the Command Set works through the existing data-driven "non-buff status applier = offensive" classification.
+- **Signal for adjustment.** If the Assassin idles, spams one ability, or applies debuffs to poor targets, add Assassin-aware scoring (priority-target weighting for Shadow Stitch / Undermine; sustained-pressure value for Blowdart).
+
+### The Offering — four-swing burst ceiling
+
+- **What to watch.** The Offering (accessory) doubles basic-Attack swings per weapon; with Two Weapons that's **four swings** in one Attack, each rolling its own damage/variance/weapon-procs and each able to trigger the target's Counter / Speed Save. Balancing is a flat −2 PA + the accessory slot.
+- **Why it matters.** Four-swing basic attacks are a large raw-output lever. On Knight + dual axes + Battle Gear especially, watch whether it overshadows other builds. Deliberately gated to the *basic Attack* (not Power Attack / Lightning Stab / Counter), which caps the ceiling.
+- **Signal for adjustment.** If four-swing Attack output dominates, increase the −2 PA tax, make `attackSwingMultiplier` not multiply with dual-wield (cap total swings at 2), or raise the accessory's opportunity cost. Conversely, if −2 PA makes it never worth equipping, soften the tax.

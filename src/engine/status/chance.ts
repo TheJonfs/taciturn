@@ -9,6 +9,7 @@
 //   - Faith_factor = (Faith_user/100) × (Faith_target/100)
 //   - Brave_factor = (Brave_user/100) × (Brave_target/100)
 //   - MA_factor    = 0.9 + MA_caster / 10
+//   - Speed_factor = 0.9 + Speed_caster / 20  (caster-only; Session 42)
 //   - PA_factor    = (deferred — first PA-using consumer ships the formula)
 //
 // Resistance and `modifyStatusApplicationChance` modifiers compose
@@ -30,7 +31,7 @@ import {
 } from '../hooks/runners.ts';
 import type { GameState, Unit } from '../types/index.ts';
 import type { StatusFormulaFactors } from '../catalog/definitions/ability-definition.ts';
-import { computeBraveFactor, computeFaithFactor } from '../damage/handlers.ts';
+import { computeBraveFactor, computeFaithFactor, computeSpeedFactor } from '../damage/handlers.ts';
 
 // Sub-stream constant for the status-chance roll. Distinct from
 // variance (0), evasion (1), and the brave reaction roll (2). Keeps
@@ -58,6 +59,7 @@ const DEFAULT_FACTORS: Readonly<Required<StatusFormulaFactors>> = {
   brave: false,
   ma: true,
   pa: false,
+  speed: false,
 };
 
 export interface StatusChanceArgs {
@@ -126,6 +128,7 @@ export function computeStatusChance(
           brave: args.factors.brave === true,
           ma: args.factors.ma === true,
           pa: args.factors.pa === true,
+          speed: args.factors.speed === true,
         };
 
   let preModifier: number;
@@ -159,6 +162,13 @@ export function computeStatusChance(
         baseValue: args.caster.baseStats.ma,
       });
       factorProduct *= 0.9 + ma / 10;
+    }
+    if (factors.speed) {
+      factorProduct *= computeSpeedFactor({
+        state: args.state,
+        catalog: args.catalog,
+        caster: args.caster,
+      });
     }
     if (factors.pa) {
       // Deferred per ADR-0028 — first PA-using consumer ships the
@@ -279,6 +289,7 @@ export function rollAbilityChance(args: AbilityChanceArgs): AbilityChanceResult 
           brave: args.factors.brave === true,
           ma: args.factors.ma === true,
           pa: args.factors.pa === true,
+          speed: args.factors.speed === true,
         };
 
   const baseFraction = Math.max(0, args.baseChance / 100);
@@ -306,6 +317,13 @@ export function rollAbilityChance(args: AbilityChanceArgs): AbilityChanceResult 
       baseValue: args.caster.baseStats.ma,
     });
     factorProduct *= 0.9 + ma / 10;
+  }
+  if (factors.speed) {
+    factorProduct *= computeSpeedFactor({
+      state: args.state,
+      catalog: args.catalog,
+      caster: args.caster,
+    });
   }
   if (factors.pa) {
     throw new NotYetImplementedError(

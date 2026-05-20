@@ -39,6 +39,14 @@ const REGEN_COEFFICIENT = 0.10;
 // the two share lifecycle/duration semantics but not the heal formula,
 // so the formula lives in one place.
 export const regenOnTick: StatusHookRegistration = statusHook('onTick', (args) => {
+  // Per ADR-0079: KO'd targets don't tick. Cast Regen (`per_unit_ct`)
+  // clears at KO via the KO-clear sweep, so under normal flow this gate
+  // is only load-bearing for `regen_auto` (`permanent_per_unit_ct`,
+  // persists through KO). The scheduler already routes KO'd units to
+  // `system_ko_tick` instead of `turn_start`, but the gate is
+  // belt-and-suspenders for replay / edge paths. Mirrors Burn's gate.
+  const target = args.state.units.get(args.unit.id);
+  if (target === undefined || target.vitals.hp <= 0) return {};
   const faith = runModifyStatQuery(args.state, args.catalog, {
     unit: args.unit,
     statName: 'faith',

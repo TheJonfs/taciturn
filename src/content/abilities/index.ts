@@ -4,7 +4,9 @@ import { applyBurnProc } from './apply-burn-proc.ts';
 import { applySilenceProc } from './apply-silence-proc.ts';
 import { attack } from './attack.ts';
 import { bedrockStride } from './bedrock-stride.ts';
+import { blowdart } from './blowdart.ts';
 import { bolt } from './bolt.ts';
+import { bravestrider } from './bravestrider.ts';
 import { brine } from './brine.ts';
 import { bulwarkStance } from './bulwark-stance.ts';
 import { chainLightning } from './chain-lightning.ts';
@@ -29,19 +31,25 @@ import { fireEmbrace } from './fire-embrace.ts';
 import { fireStorm } from './fire-storm.ts';
 import { fireStrike } from './fire-strike.ts';
 import { flameLance } from './flame-lance.ts';
+import { fleetOfFoot } from './fleet-of-foot.ts';
 import { float } from './float.ts';
 import { flowState } from './flow-state.ts';
 import { fly } from './fly.ts';
 import { hotfoot } from './hotfoot.ts';
 import { ignition } from './ignition.ts';
+import { lightningStab } from './lightning-stab.ts';
 import { lightningStrike } from './lightning-strike.ts';
 import { magneticMark } from './magnetic-mark.ts';
 import { maelstrom } from './maelstrom.ts';
+import { martialExpertise } from './martial-expertise.ts';
 import { movePlus1 } from './move-plus-1.ts';
 import { powerAttack } from './power-attack.ts';
 import { quickstep } from './quickstep.ts';
+import { shadowStitch } from './shadow-stitch.ts';
 import { smolder } from './smolder.ts';
+import { sowDoubt } from './sow-doubt.ts';
 import { spark } from './spark.ts';
+import { speedSaveReaction } from './speed-save.ts';
 import { stasisSword } from './stasis-sword.ts';
 import { staticEmbrace } from './static-embrace.ts';
 import { stormCaller } from './storm-caller.ts';
@@ -51,6 +59,8 @@ import { tidalPull } from './tidal-pull.ts';
 import { tidalWave } from './tidal-wave.ts';
 import { tideSurge } from './tide-surge.ts';
 import { tidewalker } from './tidewalker.ts';
+import { twoWeapons } from './two-weapons.ts';
+import { undermine } from './undermine.ts';
 import { wandOfDeepwoodApplyShift } from './wand-of-deepwood-apply-shift.ts';
 import { wandOfDepthsApplyShift } from './wand-of-depths-apply-shift.ts';
 import { waterStrike } from './water-strike.ts';
@@ -61,7 +71,9 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   applySilenceProc,
   attack,
   bedrockStride,
+  blowdart,
   bolt,
+  bravestrider,
   brine,
   bulwarkStance,
   chainLightning,
@@ -86,19 +98,25 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   fireStorm,
   fireStrike,
   flameLance,
+  fleetOfFoot,
   float,
   flowState,
   fly,
   hotfoot,
   ignition,
+  lightningStab,
   lightningStrike,
   magneticMark,
   maelstrom,
+  martialExpertise,
   movePlus1,
   powerAttack,
   quickstep,
+  shadowStitch,
   smolder,
+  sowDoubt,
   spark,
+  speedSaveReaction,
   stasisSword,
   staticEmbrace,
   stormCaller,
@@ -108,6 +126,8 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   tidalWave,
   tideSurge,
   tidewalker,
+  twoWeapons,
+  undermine,
   wandOfDeepwoodApplyShift,
   wandOfDepthsApplyShift,
   waterStrike,

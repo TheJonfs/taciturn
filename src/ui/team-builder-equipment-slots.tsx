@@ -13,8 +13,25 @@ import {
   type ItemId,
 } from '@engine/index.ts';
 import { items } from '@content/index.ts';
-import { classCanEquip } from './team-builder-state.ts';
+import { classCanEquip, type DraftUnit } from './team-builder-state.ts';
 import type { TeamBuilder } from './use-team-builder.ts';
+
+// True when the unit has a passive granting dual-wield — detected by a
+// `modifyDualWield` hook on any equipped passive (Two Weapons). Content-
+// agnostic: no hard-coded ability id. `passiveBuckets` already folds in
+// the class's free abilities, so the Assassin's native Two Weapons and a
+// cross-class equip both resolve here.
+function unitHasDualWield(unit: DraftUnit, catalog: Catalog): boolean {
+  for (const abilityIds of Object.values(unit.loadout.passiveBuckets)) {
+    for (const aid of abilityIds) {
+      const ability = catalog.getAbility(aid);
+      if (ability.kind === 'passive' && ability.hooks.some((h) => h.name === 'modifyDualWield')) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 const SLOT_LABELS: ReadonlyMap<EquipmentSlotId, string> = new Map([
   ['rightHand', 'Right Hand'],
@@ -58,6 +75,14 @@ export function TeamBuilderEquipmentSlots({
     );
   }
 
+  // Dual-wield capability (Session 42): the off-hand weapon slot opens
+  // only when the unit has a passive granting dual-wield (Two Weapons).
+  // Detected content-agnostically by scanning the unit's equipped
+  // passives for a `modifyDualWield` hook — `passiveBuckets` already
+  // includes the class's free abilities (merged at class assignment), so
+  // the native-Assassin and cross-class-equipped cases both resolve here.
+  const dualWieldEnabled = unitHasDualWield(selectedUnit, catalog);
+
   // Items used anywhere on the team — the unique-per-team pool. An item
   // equipped by another unit (or in another slot of this unit) is
   // excluded from a slot's options; the slot's own current item is
@@ -78,11 +103,10 @@ export function TeamBuilderEquipmentSlots({
       <div style={slotListStyle}>
         {SLOT_ORDER.map((slot) => {
           const currentItemId = selectedUnit.equipment[slot];
-          // v1 disallows dual-wield: when one hand holds a weapon, the
-          // other hand can only show shields / non-weapon (or empty).
-          // Future content unlocks dual-wield via a dedicated ability;
-          // until then the picker enforces it at the dropdown level so
-          // the player can't reach the invalid state.
+          // Without dual-wield (the default), when one hand holds a weapon
+          // the other hand can only show shields / non-weapon (or empty),
+          // enforced at the dropdown level. Two Weapons (`dualWieldEnabled`)
+          // lifts the gate so the off-hand can hold a second weapon.
           const otherHand: EquipmentSlotId | null =
             slot === 'leftHand' ? 'rightHand' :
             slot === 'rightHand' ? 'leftHand' : null;
@@ -96,8 +120,8 @@ export function TeamBuilderEquipmentSlots({
             if (item.id === currentItemId) return true;
             if (usedByOthers.has(item.id)) return false;
             // Dual-wield gate: don't offer a second weapon for the
-            // off-hand slot.
-            if (otherHandHasWeapon && item.kind === 'weapon') return false;
+            // off-hand slot unless the unit has Two Weapons.
+            if (otherHandHasWeapon && item.kind === 'weapon' && !dualWieldEnabled) return false;
             return true;
           });
           return (
@@ -177,6 +201,9 @@ function itemSummary(item: ItemDefinition): string {
     parts.push(
       `grants ${item.statusGrants.map((id) => String(id)).join(', ')}`,
     );
+  }
+  if (item.attackSwingMultiplier !== undefined && item.attackSwingMultiplier > 1) {
+    parts.push(`Attack swings ×${item.attackSwingMultiplier}`);
   }
   return parts.length > 0 ? parts.join(' · ') : '—';
 }

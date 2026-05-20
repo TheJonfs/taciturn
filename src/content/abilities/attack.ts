@@ -41,6 +41,17 @@ export const attack: ActiveAbilityDefinition = {
   actionSpeed: 0,
   mpCost: 0,
   hitRoll: {},
+  // Multi-weapon eligible (Session 42): a dual-wielder (Two Weapons)
+  // holding a weapon in each hand swings both on a basic Attack. Counter
+  // re-emits `attack`, so a dual-wielding Counter reactor also swings
+  // both — by design (D1b). Units without dual-wield collapse to one
+  // swing, so this is inert for every existing class.
+  multiWeapon: true,
+  // This is the basic Attack command — the only ability eligible for
+  // The Offering's swings-per-weapon doubling (and any future Attack-
+  // command-only modifier). Power Attack / Lightning Stab don't set it,
+  // so they never double; the reaction exclusion is handled separately.
+  basicAttack: true,
   effects: {
     damage: {
       tags: ['physical', 'weapon'],

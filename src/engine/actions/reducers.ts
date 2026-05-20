@@ -22,7 +22,9 @@ import { defaultDamageHandlers } from '../damage/default-handlers.ts';
 import { runDamagePipeline } from '../damage/pipeline.ts';
 import {
   runModifyAoeShape,
+  runModifyDualWield,
   runModifyStatQuery,
+  runModifySwingsPerWeapon,
   runModifyStatusTickAmount,
   runModifySystemDamage,
   runOnActionAttempted,
@@ -40,6 +42,7 @@ import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
 import { applyStatus } from '../status/apply.ts';
 import { rollAbilityChance, rollStatusChance } from '../status/chance.ts';
 import { removeStatus } from '../status/remove.ts';
+import { isInfiniteDuration } from '../status/duration.ts';
 import { TRIGGER_THRESHOLD } from '../ct/constants.ts';
 import { perTargetSeed } from './seed.ts';
 import {
@@ -54,6 +57,7 @@ import {
   type ChargedActionResolveOutcome,
   type DamageContext,
   type Direction,
+  type EquipmentSlotId,
   type GameState,
   type GeneratedReaction,
   type ItemId,
@@ -89,6 +93,7 @@ import {
 import { expectActiveAbility } from './validate.ts';
 import { isRiderCast } from './payload-helpers.ts';
 import { computeMpCost } from '../abilities/cost.ts';
+import { getWeaponInSlot } from '../items/equipment.ts';
 import { computeBaseActionSpeed } from '../ct/speed.ts';
 
 export interface ReduceResult<O> {
@@ -536,6 +541,11 @@ interface ResolveAbilityEffectArgs {
   // pass `affected.length` so every target sees the same scaled
   // power_coefficient via `damage.chainBonus`.
   readonly targetCount?: number;
+  // Per-swing weapon scope (Session 42, multi-swing). Set by the
+  // multi-swing dispatch so the damage pipeline reads this slot's
+  // weapon and fires only this slot's procs. Omitted on the single-
+  // swing fast path (dominant-weapon resolution, bit-identical pre-S42).
+  readonly attackingWeaponSlot?: EquipmentSlotId;
 }
 
 interface ResolveAbilityEffectResult {
@@ -580,6 +590,9 @@ function resolveAbilityEffect(
       seed: args.seed,
       registry: defaultDamageHandlers,
       ...(args.targetCount !== undefined ? { targetCount: args.targetCount } : {}),
+      ...(args.attackingWeaponSlot !== undefined
+        ? { attackingWeaponSlot: args.attackingWeaponSlot }
+        : {}),
     });
     workingState = applyDamageToTarget(workingState, damageContext);
     if (damageContext.damageTags.has('healing')) {
@@ -607,6 +620,9 @@ function resolveAbilityEffect(
     const targetAfter = workingState.units.get(args.targetUnit.id);
     if (detectKO(targetBefore, targetAfter)) {
       for (const a of collectSourceKoSweep(workingState, args.targetUnit.id, catalog)) {
+        pipelineEmissions.push(a);
+      }
+      for (const a of collectKoStatusClearSweep(workingState, args.targetUnit.id)) {
         pipelineEmissions.push(a);
       }
       workingState = clearChargedActionsForCaster(workingState, args.targetUnit.id);
@@ -1029,9 +1045,63 @@ function resolveAbilityTargets(
   return result;
 }
 
-// Single-target dispatch: resolves the payload target to a Unit | null
-// and calls `resolveAbilityEffect` with `perTargetSeed(seed, 0)` (which
-// returns the action seed unchanged at index 0 — see seed.ts).
+// Compute the per-swing weapon-slot list for an attack (Session 42,
+// multi-swing). Each entry is the equipment slot whose weapon swings on
+// that swing; `undefined` means "default dominant-weapon resolution"
+// (`getEquippedWeapon`), used on the single-swing fast path.
+//
+// Two orthogonal axes (ADR-0080):
+//  1. **Eligible slots** — `[undefined]` (one default swing, bit-identical
+//     to pre-S42) unless the ability is `multiWeapon`, the unit can
+//     dual-wield (`modifyDualWield`, e.g. Two Weapons), and weapons sit
+//     in *both* hands → `['rightHand', 'leftHand']` (dominant first,
+//     mirroring `getEquippedWeapon`).
+//  2. **Swings per weapon** — for the basic Attack command only, and only
+//     when not a reaction, `modifySwingsPerWeapon` (The Offering → 2)
+//     multiplies each eligible slot. So dual-wield × The Offering yields
+//     `['rightHand','rightHand','leftHand','leftHand']` — four swings.
+//     Counter (a reaction re-emitting `attack`) and Battle Skills are
+//     excluded by the `basicAttack` + `isReaction` gate.
+function attackingWeaponSlots(
+  state: GameState,
+  catalog: Catalog,
+  attacker: Unit,
+  ability: ActiveAbilityDefinition,
+  isReaction: boolean,
+): ReadonlyArray<EquipmentSlotId | undefined> {
+  // Axis 1: eligible slots.
+  let slots: ReadonlyArray<EquipmentSlotId | undefined> = [undefined];
+  if (ability.multiWeapon === true && runModifyDualWield(state, catalog, { unit: attacker })) {
+    const right = getWeaponInSlot(attacker, 'rightHand', catalog);
+    const left = getWeaponInSlot(attacker, 'leftHand', catalog);
+    if (right !== null && left !== null) slots = ['rightHand', 'leftHand'];
+  }
+
+  // Axis 2: swings per weapon — basic Attack command, non-reaction only.
+  let perWeapon = 1;
+  if (ability.basicAttack === true && !isReaction) {
+    perWeapon = Math.max(1, Math.floor(runModifySwingsPerWeapon(state, catalog, { unit: attacker })));
+  }
+  if (perWeapon <= 1) return slots;
+
+  const expanded: (EquipmentSlotId | undefined)[] = [];
+  for (const slot of slots) {
+    for (let k = 0; k < perWeapon; k++) expanded.push(slot);
+  }
+  return expanded;
+}
+
+// Single-target dispatch. For ordinary attacks this resolves the payload
+// target and calls `resolveAbilityEffect` once with `perTargetSeed(seed,
+// 0)` (the action seed unchanged) — bit-identical to pre-AoE behavior.
+//
+// For a multi-swing attack (`attackingWeaponSlots` returns >1 slot), it
+// runs `resolveAbilityEffect` once per swing against the *same* target,
+// each with its own weapon slot and a branched seed (`perTargetSeed(seed,
+// swingIndex)`) so each swing's variance / evasion / proc / reaction
+// rolls are independent. Each swing fully resolves (damage → procs →
+// reactions) before the next; results, reactions, and emissions are
+// concatenated. Swings stop early if a prior swing KO'd the target.
 function resolveSingleTargetDispatch(
   state: GameState,
   catalog: Catalog,
@@ -1039,23 +1109,73 @@ function resolveSingleTargetDispatch(
 ): ResolveAbilityTargetsResult {
   const targetUnit = resolveSingleTargetUnit(state, args.payloadTarget, args.attacker);
   const effectAnchorPosition = resolveAoeAnchor(state, args.payloadTarget, args.attacker);
-  const resolved = resolveAbilityEffect(state, catalog, {
-    ability: args.ability,
-    attacker: args.attacker,
-    targetUnit,
-    payloadTargetForResult: args.payloadTarget,
-    effectAnchorPosition,
-    incomingProposed: args.incomingProposed,
-    sourceActionSeq: args.sourceActionSeq,
-    seed: perTargetSeed(args.seed, 0),
-    ...(args.isReaction === true ? { isReaction: true } : {}),
-  });
-  return {
-    newState: resolved.newState,
-    perTargetResults: resolved.perTargetResults,
-    generatedReactions: resolved.generatedReactions,
-    generatedActions: resolved.generatedActions,
-  };
+  const swings = attackingWeaponSlots(
+    state,
+    catalog,
+    args.attacker,
+    args.ability,
+    args.isReaction === true,
+  );
+
+  // Fast path — single default swing, identical to pre-S42 single-target.
+  if (swings.length === 1 && swings[0] === undefined) {
+    const resolved = resolveAbilityEffect(state, catalog, {
+      ability: args.ability,
+      attacker: args.attacker,
+      targetUnit,
+      payloadTargetForResult: args.payloadTarget,
+      effectAnchorPosition,
+      incomingProposed: args.incomingProposed,
+      sourceActionSeq: args.sourceActionSeq,
+      seed: perTargetSeed(args.seed, 0),
+      ...(args.isReaction === true ? { isReaction: true } : {}),
+    });
+    return {
+      newState: resolved.newState,
+      perTargetResults: resolved.perTargetResults,
+      generatedReactions: resolved.generatedReactions,
+      generatedActions: resolved.generatedActions,
+    };
+  }
+
+  // Multi-swing path.
+  let workingState = state;
+  const perTargetResults: AbilityTargetResult[] = [];
+  const generatedReactions: GeneratedReaction[] = [];
+  const generatedActions: ProposedAction[] = [];
+  for (let i = 0; i < swings.length; i++) {
+    // Stop swinging if a prior swing KO'd the target — a dead target's
+    // damage/reactions are meaningless.
+    if (targetUnit !== null) {
+      const current = workingState.units.get(targetUnit.id);
+      if (current === undefined || current.vitals.hp <= 0) break;
+    }
+    const swingTarget =
+      targetUnit !== null ? workingState.units.get(targetUnit.id) ?? targetUnit : null;
+    const swingAttacker = workingState.units.get(args.attacker.id) ?? args.attacker;
+    const slot = swings[i];
+    const resolved = resolveAbilityEffect(workingState, catalog, {
+      ability: args.ability,
+      attacker: swingAttacker,
+      targetUnit: swingTarget,
+      payloadTargetForResult: args.payloadTarget,
+      effectAnchorPosition,
+      incomingProposed: args.incomingProposed,
+      sourceActionSeq: args.sourceActionSeq,
+      seed: perTargetSeed(args.seed, i),
+      // Caster-target status/CT effects (if any) fire once, on the first
+      // swing — defensive against a future multiWeapon ability that
+      // carries a caster-side rider (v1 attacks have none).
+      applyCasterEffects: i === 0,
+      ...(slot !== undefined ? { attackingWeaponSlot: slot } : {}),
+      ...(args.isReaction === true ? { isReaction: true } : {}),
+    });
+    workingState = resolved.newState;
+    for (const r of resolved.perTargetResults) perTargetResults.push(r);
+    for (const r of resolved.generatedReactions) generatedReactions.push(r);
+    for (const a of resolved.generatedActions) generatedActions.push(a);
+  }
+  return { newState: workingState, perTargetResults, generatedReactions, generatedActions };
 }
 
 // Resolve the payload target to a Unit for the damage/onActionTargeted
@@ -1325,6 +1445,45 @@ function collectSourceKoSweep(
         payload: { targetId: unit.id, statusTypeId: inst.typeId },
       });
     }
+  }
+  return emissions;
+}
+
+// KO-clear sweep (per ADR-0079): when `koUnitId` just dropped to 0 HP,
+// scan the KO'd unit's own statuses and emit `status_remove` for every
+// finite-duration instance. The predicate is single-source-of-truth:
+// `isInfiniteDuration(s)` ⇔ `s.remainingDuration === null`, which holds
+// for the four no-decay durationModes (`permanent`, `conditional`,
+// `permanent_per_unit_ct`, `custom`) and equipment-sourced grants (all
+// stored with null duration). The three counted modes (`global_ticks`,
+// `per_unit_ct`, `turn_based`) get cleared.
+//
+// De-duplicates by typeId per the same convention as
+// `collectSourceKoSweep` — `removeStatus` strips all matching instances
+// at once, so one emission per (target, type) suffices.
+//
+// Read-only: returns emissions; mutation happens when commitAction
+// enqueues and reduces the status_remove actions.
+//
+// Charging is `durationMode: 'conditional'` (null duration), so this
+// sweep skips it — but Charging still clears via the existing
+// `collectSourceKoSweep` because it's self-applied with
+// `removeOnSourceKO: true`. Both sweeps run at every detectKO site;
+// they cover orthogonal cases without overlap on the cleared set.
+function collectKoStatusClearSweep(state: GameState, koUnitId: UnitId): ProposedAction[] {
+  const unit = state.units.get(koUnitId);
+  if (unit === undefined) return [];
+  const emissions: ProposedAction[] = [];
+  const seenTypes = new Set<StatusTypeId>();
+  for (const inst of unit.statuses) {
+    if (isInfiniteDuration(inst)) continue;
+    if (seenTypes.has(inst.typeId)) continue;
+    seenTypes.add(inst.typeId);
+    emissions.push({
+      type: 'status_remove',
+      source: 'system',
+      payload: { targetId: koUnitId, statusTypeId: inst.typeId },
+    });
   }
   return emissions;
 }
@@ -1842,6 +2001,9 @@ export function reduceSystemDamage(
   const generatedActions: ProposedAction[] = [];
   if (detectKO(target, newTarget)) {
     for (const a of collectSourceKoSweep(newState, targetId, catalog)) {
+      generatedActions.push(a);
+    }
+    for (const a of collectKoStatusClearSweep(newState, targetId)) {
       generatedActions.push(a);
     }
     newState = clearChargedActionsForCaster(newState, targetId);
@@ -2805,6 +2967,9 @@ function applyConsumableEffects(
       for (const inst of target.statuses) {
         if (inst.source.kind === 'equipment') continue;
         const type = catalog.getStatusType(inst.typeId);
+        // Stat-reduction debuffs opt out via `remedyImmune` (Session 42):
+        // they're committed weakenings, not curable ailments.
+        if (type.remedyImmune === true) continue;
         const polarity = type.aiHints?.polarity ?? 'debuff';
         if (polarity !== 'buff') typeIdsToClear.add(inst.typeId);
       }

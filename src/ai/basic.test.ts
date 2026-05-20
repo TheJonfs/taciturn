@@ -768,9 +768,12 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
       },
       equipment: { leftHand: null, rightHand: longSword.id, headgear: null, armor: null, accessory: null },
     });
+    // Face both targets so the attacker (at (2,2)) approaches from their
+    // back — neutralizes the S41 Knight class evasion (12/7/0) as a
+    // confounder so the AI's choice turns purely on the Counter penalty.
     const tgtCounter = makeUnit({
       id: 'tgt_counter', team: 'team_b', spd: 10, hp: 30, classId: 'knight',
-      position: { x: 3, y: 2, layer: 0 },
+      position: { x: 3, y: 2, layer: 0 }, facing: 'E',
       loadout: {
         actionBuckets: { [bucketId('first_action')]: [commandSetId('battle_skill')] },
         passiveBuckets: { [bucketId('reaction')]: [abilityId('counter')] },
@@ -778,7 +781,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     });
     const tgtPlain = makeUnit({
       id: 'tgt_plain', team: 'team_b', spd: 10, hp: 30, classId: 'knight',
-      position: { x: 2, y: 3, layer: 0 },
+      position: { x: 2, y: 3, layer: 0 }, facing: 'S',
       loadout: {
         actionBuckets: { [bucketId('first_action')]: [commandSetId('battle_skill')] },
         passiveBuckets: {},

@@ -45,6 +45,13 @@ export const poison: StatusEffectType = {
   stackingRule: 'REFRESH',
   hooks: [
     statusHook('onTick', (args) => {
+      // Per ADR-0079: KO'd targets don't tick. Poison
+      // (`permanent_per_unit_ct`) persists through KO under the rule, so
+      // belt-and-suspenders gating here matters even though the
+      // scheduler routes KO'd units around turn_start. Mirrors Burn's
+      // gate.
+      const target = args.state.units.get(args.unit.id);
+      if (target === undefined || target.vitals.hp <= 0) return {};
       const maxHp = runModifyStatQuery(args.state, args.catalog, {
         unit: args.unit,
         statName: 'maxHp',

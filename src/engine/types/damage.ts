@@ -20,6 +20,7 @@
 import type { AbilityId, UnitId } from './ids.ts';
 import type { ProposedAction } from './action.ts';
 import type { Unit } from './unit.ts';
+import type { EquipmentSlotId } from './equipment-slot.ts';
 
 // Damage / healing tags used by stage handlers and resistance checks.
 // The set is closed today; new tags arrive with the content that needs
@@ -119,6 +120,15 @@ export interface DamageContext {
   // tests that don't need a seed; handlers that read it gate accordingly.
   // Per ADR-0064 (Session 30).
   readonly actionSeed?: number;
+
+  // Per-swing weapon scope (Session 42, multi-swing). When set, this
+  // attack is one swing of a specific equipped weapon slot: the base
+  // handler (`physicalPaWp`) reads that slot's weapon for WP/tags, and
+  // the equipment proc contributor (`attackProcContributor`) fires only
+  // that slot's procs. When undefined (every pre-S42 caller and every
+  // single-weapon attack), behavior is unchanged — `getEquippedWeapon`
+  // resolves the dominant weapon and procs fire from all equipped items.
+  readonly attackingWeaponSlot?: EquipmentSlotId;
 }
 
 // Resolved outcome of a single pipeline run. The orchestrator returns

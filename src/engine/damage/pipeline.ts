@@ -20,6 +20,7 @@ import type {
   DamageContext,
   DamageStage,
   DamageTag,
+  EquipmentSlotId,
   GameState,
   RulesetDefinition,
   Unit,
@@ -56,6 +57,10 @@ export interface RunDamagePipelineArgs {
   // AoE cluster size for chain-damage scaling (ADR-0032). Single-target
   // callers omit (defaults to 1); AoE callers pass `affected.length`.
   readonly targetCount?: number;
+  // Per-swing weapon scope (Session 42, multi-swing). Threaded onto the
+  // DamageContext so the base handler and proc contributor scope to one
+  // weapon slot. Omitted for single-weapon / pre-S42 callers.
+  readonly attackingWeaponSlot?: EquipmentSlotId;
 }
 
 export function runDamagePipeline(args: RunDamagePipelineArgs): DamageContext {
@@ -86,6 +91,9 @@ export function runDamagePipeline(args: RunDamagePipelineArgs): DamageContext {
     // `attackProcContributor`) can roll deterministically off the same
     // stream as pipeline-stage handlers. Per ADR-0064.
     actionSeed: args.seed,
+    ...(args.attackingWeaponSlot !== undefined
+      ? { attackingWeaponSlot: args.attackingWeaponSlot }
+      : {}),
   };
 
   for (const stage of STAGE_ORDER) {

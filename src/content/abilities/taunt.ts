@@ -6,15 +6,15 @@
 // Knights have no MA spec to depress applications anyway; deterministic
 // keeps the ability's tactical value clear.
 //
-// Numbers per session 17c plaintext review:
+// Numbers per session 17c plaintext review, mpCost bump from S41
+// (Battle Skill scaled up to gate uses more meaningfully):
 //   - range 4 horizontal / 2 vertical, line_of_sight: a tactical
 //     range that lets the Knight pull aggro on an isolated enemy
 //     without committing to melee.
-//   - mpCost 4: gates use; Knight default 10 MP allows two Taunts
+//   - mpCost 6 (S41 +2 from 4): Knight at base 20 MP can Taunt 3 times
 //     before MP is dry.
-//   - Duration 12 ticks: a meaningful window for the Knight to act
-//     against the target, but short enough that Taunt isn't a hard
-//     pin.
+//   - Duration: a meaningful window for the Knight to act against the
+//     target, but short enough that Taunt isn't a hard pin.
 //   - applyAlways: true — Taunt's value *is* the status; rolling for
 //     it would dilute the ability.
 //
@@ -45,7 +45,7 @@ export const taunt: ActiveAbilityDefinition = {
     rangeMode: 'straight_line',
   },
   actionSpeed: 0,
-  mpCost: 4,
+  mpCost: 6,
   effects: {
     statusEffects: [
       {

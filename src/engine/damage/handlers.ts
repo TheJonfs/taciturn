@@ -30,7 +30,7 @@ import {
 } from '../hooks/runners.ts';
 import type { Catalog } from '../catalog/index.ts';
 import type { GameState } from '../types/index.ts';
-import { getEquippedWeapon } from '../items/equipment.ts';
+import { getEquippedWeapon, getWeaponInSlot } from '../items/equipment.ts';
 import {
   getUnit,
   type DamageContext,
@@ -106,6 +106,29 @@ export function computeBraveFactor(args: {
   return (userBrave / 100) * (targetBrave / 100);
 }
 
+// Speed_factor for the Assassin's instant status-application Command Set
+// (Shadow Stitch, Blowdart, Undermine, Sow Doubt — per the Session 42
+// brief). Unlike Faith/Brave (symmetric caster×target), Speed is
+// caster-only: a fast Assassin lands debuffs more reliably regardless of
+// the target's Speed. Formula `0.9 + caster_speed/20` mirrors the MA
+// factor's `0.9 + ma/10` shape but with a /20 divisor (Speed values run
+// higher than MA, so a gentler slope keeps the factor in a sane band).
+// Read through `modifyStatQuery` so Haste / Speed Save / Speed Down
+// compose. At Assassin baseline Speed 14 → 0.9 + 0.7 = 1.6; at Speed 10
+// → 1.4; at Speed 20 → 1.9.
+export function computeSpeedFactor(args: {
+  readonly state: import('../types/index.ts').GameState;
+  readonly catalog: import('../catalog/index.ts').Catalog;
+  readonly caster: Unit;
+}): number {
+  const speed = runModifyStatQuery(args.state, args.catalog, {
+    unit: args.caster,
+    statName: 'spd',
+    baseValue: args.caster.baseStats.spd,
+  });
+  return 0.9 + speed / 20;
+}
+
 // Default weapon-accuracy when a hitRoll spec doesn't override it. Per
 // the Battle Mechanics Guide: "Default for 'no weapon / unarmed' is
 // 100." Equipment integration in session 17 (per ADR-0014) will replace
@@ -140,7 +163,14 @@ export const physicalPaWp: DamageHandler = (ctx, env) => {
     statName: 'pa',
     baseValue: ctx.attacker.baseStats.pa,
   });
-  const weapon = getEquippedWeapon(ctx.attacker, env.catalog);
+  // Per-swing weapon scope (Session 42): when this is one swing of a
+  // multi-swing attack, read the designated slot's weapon. Otherwise
+  // resolve the dominant weapon as before (bit-identical for every
+  // single-weapon / pre-S42 caller).
+  const weapon =
+    ctx.attackingWeaponSlot !== undefined
+      ? getWeaponInSlot(ctx.attacker, ctx.attackingWeaponSlot, env.catalog)
+      : getEquippedWeapon(ctx.attacker, env.catalog);
   const wp = weapon?.wp ?? 1;
   const baseDamage = pa * wp * power_coefficient;
 

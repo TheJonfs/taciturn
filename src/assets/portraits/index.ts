@@ -11,6 +11,7 @@
 // no entry. Missing-asset case is a renderer concern, not handled here.
 
 import alchemistUrl from './alchemist.png';
+import assassinUrl from './assassin.png';
 import earthMageUrl from './earth-mage.png';
 import fireMageUrl from './fire-mage.png';
 import knightUrl from './knight.png';
@@ -20,6 +21,7 @@ import { classId, type ClassId } from '@engine/index.ts';
 
 export const PORTRAIT_URLS: ReadonlyMap<ClassId, string> = new Map([
   [classId('alchemist'), alchemistUrl],
+  [classId('assassin'), assassinUrl],
   [classId('earth_mage'), earthMageUrl],
   [classId('fire_mage'), fireMageUrl],
   [classId('knight'), knightUrl],

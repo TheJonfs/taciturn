@@ -290,6 +290,40 @@ export function runModifySpecialMovement(
   return value;
 }
 
+// Boolean OR-chain over dual-wield capability (Session 42). Base `false`;
+// any handler returning `true` flips it on (Two Weapons Support). Once
+// true it stays true — a later handler can't revoke it. Consumed by
+// `attackingWeaponSlots` to decide whether the off-hand weapon swings.
+export function runModifyDualWield(
+  state: GameState,
+  catalog: Catalog,
+  args: { unit: Unit },
+): boolean {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyDualWield');
+  let value = false;
+  for (const h of handlers) {
+    value = h.invoke({ unit: args.unit, baseValue: value }) || value;
+  }
+  return value;
+}
+
+// Multiplicative chain over swings-per-weapon (the second multi-swing
+// axis, ADR-0080). Base `1`; The Offering accessory returns
+// `baseValue × 2`. Consumed by `attackingWeaponSlots`, which then floors
+// and applies it only to the basic Attack command (non-reaction).
+export function runModifySwingsPerWeapon(
+  state: GameState,
+  catalog: Catalog,
+  args: { unit: Unit },
+): number {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifySwingsPerWeapon');
+  let value = 1;
+  for (const h of handlers) {
+    value = h.invoke({ unit: args.unit, baseValue: value });
+  }
+  return value;
+}
+
 // AoE shape modifier — fires against the caster's hooks just before
 // `resolveAbilityTargets` computes the affected footprint. Each handler
 // transforms the running shape; the chain composes in source-tier and

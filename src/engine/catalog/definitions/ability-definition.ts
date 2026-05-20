@@ -119,6 +119,12 @@ export interface StatusFormulaFactors {
   readonly brave?: boolean;
   readonly ma?: boolean;
   readonly pa?: boolean;
+  // Speed factor (per Session 42): caster-only `0.9 + caster_speed/20`.
+  // Combines with `brave` for the Assassin's Brave-and-Speed variant
+  // (Shadow Stitch, Blowdart, Undermine) and with `faith` for the
+  // Faith-and-Speed variant (Sow Doubt). Unlike brave/faith it reads
+  // only the caster's Speed — see `computeSpeedFactor`.
+  readonly speed?: boolean;
 }
 
 // Status-application sub-effect — what status is applied, to whom, with
@@ -368,6 +374,25 @@ export interface ActiveAbilityDefinition extends AbilityCommon {
   // attacks", read by the evasion_check pipeline handler. Magical-only
   // abilities skip the roll regardless. See ADR-0019.
   readonly hitRoll?: HitRollSpec;
+  // Multi-weapon eligibility (Session 42). When `true`, a unit that can
+  // dual-wield (Two Weapons Support → `modifyDualWield`) and holds a
+  // weapon in its off-hand swings *both* weapons in one action — each
+  // swing an independent damage/accuracy/variance/proc/reaction
+  // resolution. Absent / `false` → primary weapon only (single swing).
+  // Set on basic Attack (and therefore Counter, which re-emits Attack)
+  // and Power Attack; status-rider attacks (Lightning Stab, Stasis
+  // Sword) opt out so their rider rolls once. Has no effect for units
+  // without dual-wield or without an off-hand weapon — the swing list
+  // collapses to one. See the unified-attack-pipeline ADR.
+  readonly multiWeapon?: boolean;
+  // Marks the unit's basic Attack command (Session 42). True only on
+  // `attack`. Gates Attack-command-only modifiers — currently The
+  // Offering's swings-per-weapon doubling (`modifySwingsPerWeapon`),
+  // which must NOT apply to Battle Skills (Power Attack, Lightning Stab)
+  // or to Counter (a reaction re-emitting `attack`). The reaction
+  // exclusion is handled separately via the `isReaction` flag; this flag
+  // handles the "other skills" exclusion.
+  readonly basicAttack?: boolean;
   readonly effects: AbilityEffects;
   // Per-cast self-damage cost (per ADR-0032). When set, the dispatcher
   // emits a `system_damage` against the caster after the per-target

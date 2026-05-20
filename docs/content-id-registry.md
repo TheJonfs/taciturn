@@ -22,12 +22,16 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `water_mage` | Water Mage | `src/content/classes/water-mage.ts` |
 | `fire_mage` | Fire Mage | `src/content/classes/fire-mage.ts` |
 | `lightning_mage` | Lightning Mage | `src/content/classes/lightning-mage.ts` |
+| `alchemist` | Alchemist | `src/content/classes/alchemist.ts` |
+| `assassin` | Assassin | `src/content/classes/assassin.ts` |
 
 ## Command sets
 
 | ID | Name | Members | File |
 |---|---|---|---|
-| `battle_skill` | Battle Skill | `attack`, `power_attack`, `stasis_sword`, `taunt` | `src/content/command-sets/battle-skill.ts` |
+| `battle_skill` | Battle Skill | `power_attack`, `lightning_stab`, `taunt` (S42: Stasis Sword → Lightning Stab; `attack` surfaced via class freeAbilities) | `src/content/command-sets/battle-skill.ts` |
+| `shadow_arts` | Shadow Arts | `shadow_stitch`, `blowdart`, `undermine`, `sow_doubt` | `src/content/command-sets/shadow-arts.ts` |
+| `alchemy` | Alchemy | `compound`, `throw_item` | `src/content/command-sets/alchemy.ts` |
 | `white_magic` | White Magic | `cure` | `src/content/command-sets/white-magic.ts` |
 | `arcane_skill` | Arcane Skill | `bolt` | `src/content/command-sets/arcane-skill.ts` |
 | `earth_spells` | Earth Spells | `earth_strike`, `earth_blessing`, `earth_curse`, `earth_quake`, `earth_cataclysm` | `src/content/command-sets/earth-spells.ts` |

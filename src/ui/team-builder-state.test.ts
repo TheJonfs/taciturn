@@ -273,6 +273,17 @@ describe('team builder state — validity', () => {
     expect(validity.units[0]!.dualWielding).toBe(false);
   });
 
+  it('Two Weapons (Assassin) makes two-weapon dual-wield legal (Session 42)', () => {
+    // Assassin has native Two Weapons (modifyDualWield), so a weapon in
+    // each hand is valid rather than flagged.
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('assassin'), catalog);
+    state = setEquipment(state, 0, 'rightHand', itemId('sai'));
+    state = setEquipment(state, 0, 'leftHand', itemId('chefs_knife'));
+    const validity = computeTeamValidity(state, catalog, RULESET_ID);
+    expect(validity.units[0]!.dualWielding).toBe(false);
+    expect(validity.units[0]!.valid).toBe(true);
+  });
+
   it('flags an over-capacity bucket', () => {
     // Knight reaction capacity is 3; Counter is free (cost 0). Pile on
     // four cost-1 cross-class reactions → used 4 > capacity 3.

@@ -215,6 +215,16 @@ interface EquipmentBase {
   // field; Session 31 ships Bolt Hammer + Flametongue Burn proc.
   readonly attackProcs?: ReadonlyArray<AttackProcDef>;
 
+  // ADR-0080 (Session 42): swings-per-weapon multiplier for the basic
+  // Attack command. When the wearer issues a basic Attack (not a reaction
+  // or a Battle Skill), each eligible weapon swings this many times. The
+  // Offering authors `2` (each weapon swings twice). Wired into the
+  // `modifySwingsPerWeapon` hook via `swingsPerWeaponContributor`;
+  // multiplies the eligible-weapon-slot list in `attackingWeaponSlots`.
+  // Composes with Two Weapons (dual-wield adds the off-hand slot; this
+  // doubles each slot) — both equipped → four swings.
+  readonly attackSwingMultiplier?: number;
+
   // ADR-0065 (Session 30): damage-to-MP-drain percentage. When a
   // physical hit from this item's wearer lands (and isn't absorbed), the
   // wearer drains `floor(damageDealt × percent / 100)` MP from the

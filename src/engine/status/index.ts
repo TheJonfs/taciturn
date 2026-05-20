@@ -18,6 +18,7 @@ export {
 } from './stacking.ts';
 export { applyStatus, type ApplyStatusArgs, type ApplyStatusReturn } from './apply.ts';
 export { removeStatus, type RemoveStatusArgs, type RemoveStatusReturn } from './remove.ts';
+export { isInfiniteDuration } from './duration.ts';
 export type { StatusApplicationResult } from './result.ts';
 export {
   computeStatusChance,

@@ -19,6 +19,8 @@ export const maDown: StatusEffectType = {
   durationMode: 'permanent',
   stackingRule: 'STACK_ADDITIVE',
   defaultMagnitude: 1,
+  // Stat-reduction debuff — not Remedy-clearable (Session 42 convention).
+  remedyImmune: true,
   resistanceTag: 'fire',
   hooks: [
     statusHook('modifyStatQuery', (args, ctx) => {
