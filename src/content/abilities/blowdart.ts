@@ -1,5 +1,6 @@
-// Blowdart — Assassin Command Set (Session 42). Instant, ranged (4h × 3v
-// with line of sight), no damage: applies Poison for sustained pressure.
+// Blowdart — Assassin Command Set (Session 42). Instant, ranged (4h × 3v,
+// arc targeting — uncovered source + target), no damage: applies Poison
+// for sustained pressure.
 //
 // Shares the existing `poison` status with the Geosage (per S42 brief
 // D8) — same DoT mechanics, tick cadence, and infinite (null) duration
@@ -28,7 +29,7 @@ export const blowdart: ActiveAbilityDefinition = {
   targeting: {
     kind: 'single_unit',
     range: { horizontal: 4, vertical: 3 },
-    rangeMode: 'straight_line',
+    rangeMode: 'arc',
   },
   actionSpeed: 0,
   mpCost: 8,

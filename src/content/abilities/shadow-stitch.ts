@@ -1,5 +1,6 @@
 // Shadow Stitch — Assassin Command Set (Session 42). Instant, ranged
-// (4h × 3v with line of sight), no damage: pins the target with Stop.
+// (4h × 3v, arc targeting — uncovered source + target), no damage: pins
+// the target with Stop.
 //
 // Brave-and-Speed formula (per S42 brief): the application chance is
 //   baseFraction × (caster_brave/100) × (target_brave/100)
@@ -12,8 +13,9 @@
 //
 // No `hitRoll` and no `damage`: there is no hit-or-miss roll and no
 // damage delivery, so the status formula alone decides the outcome and
-// no damage-triggered Reactions (Counter, Speed Save) fire. mpCost 8 —
-// three castings at the Assassin's base MP 24.
+// no damage-triggered Reactions (Counter, Speed Save) fire. mpCost 10 —
+// the priciest Command Set member (Stop is the strongest single-target
+// lockout); two castings at the Assassin's base MP 24.
 
 import {
   abilityId,
@@ -32,10 +34,10 @@ export const shadowStitch: ActiveAbilityDefinition = {
   targeting: {
     kind: 'single_unit',
     range: { horizontal: 4, vertical: 3 },
-    rangeMode: 'straight_line',
+    rangeMode: 'arc',
   },
   actionSpeed: 0,
-  mpCost: 8,
+  mpCost: 10,
   effects: {
     statusEffects: [
       {

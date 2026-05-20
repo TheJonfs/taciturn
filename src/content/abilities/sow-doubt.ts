@@ -1,6 +1,6 @@
 // Sow Doubt — Assassin Command Set (Session 42). Instant, ranged (4h ×
-// 3v with line of sight), no damage: permanently saps the target's Faith
-// by 20.
+// 3v, arc targeting — uncovered source + target), no damage: permanently
+// saps the target's Faith by 20.
 //
 // Applies `faith_down` (magnitude 20) — a permadebuff that persists
 // through KO (ADR-0079) and survives Remedy (`remedyImmune`). Strong
@@ -12,7 +12,7 @@
 // Double-edged (a designed watch-for): Faith is symmetric on magical
 // effects, so lowering the target's Faith also reduces the Assassin's
 // allied mages' damage into that target — net value is team-comp
-// dependent. mpCost 10.
+// dependent. mpCost 6 — a cheap opener (four castings at base MP 24).
 
 import {
   abilityId,
@@ -31,10 +31,10 @@ export const sowDoubt: ActiveAbilityDefinition = {
   targeting: {
     kind: 'single_unit',
     range: { horizontal: 4, vertical: 3 },
-    rangeMode: 'straight_line',
+    rangeMode: 'arc',
   },
   actionSpeed: 0,
-  mpCost: 10,
+  mpCost: 6,
   effects: {
     statusEffects: [
       {

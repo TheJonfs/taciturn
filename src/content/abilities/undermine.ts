@@ -1,6 +1,6 @@
 // Undermine — Assassin Command Set (Session 42). Instant, ranged (4h ×
-// 3v with line of sight), no damage: permanently saps the target's
-// Brave by 20.
+// 3v, arc targeting — uncovered source + target), no damage: permanently
+// saps the target's Brave by 20.
 //
 // Applies `brave_down` (magnitude 20) — a permadebuff that persists
 // through KO (ADR-0079) and survives Remedy (`remedyImmune`). Best as an
@@ -12,7 +12,8 @@
 // Note the self-cancellation tension (a designed watch-for): once Brave
 // Down lands, the target's lowered Brave makes *subsequent* Brave-gated
 // Assassin moves (Shadow Stitch, Blowdart, a second Undermine) less
-// likely on that same target. mpCost 10 — two castings at base MP 24.
+// likely on that same target. mpCost 6 — a cheap opener (four castings
+// at base MP 24).
 
 import {
   abilityId,
@@ -31,10 +32,10 @@ export const undermine: ActiveAbilityDefinition = {
   targeting: {
     kind: 'single_unit',
     range: { horizontal: 4, vertical: 3 },
-    rangeMode: 'straight_line',
+    rangeMode: 'arc',
   },
   actionSpeed: 0,
-  mpCost: 10,
+  mpCost: 6,
   effects: {
     statusEffects: [
       {

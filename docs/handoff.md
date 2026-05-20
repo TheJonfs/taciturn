@@ -20,6 +20,16 @@ Two issues surfaced in Chris's first playtest run and were fixed immediately aft
 
 Both fixes are covered by tests (the +1 over 1263 is the knife-forecast regression; the Brave/Faith fix rides existing `knight-kit` coverage of the hook). Watch in playtest: confirm the panel now reads 80 for Bravestrider units and that knife forecasts match the hits.
 
+### Post-close tuning + tooltip pass (same session, Chris's call)
+
+A small content/UI follow-up after more playtest:
+
+- **Assassin Command Set MP retune.** Shadow Stitch 8 → **10 MP** (priciest member — Stop is the strongest single-target lockout; ~2 casts at base MP 24); Undermine and Sow Doubt 10 → **6 MP** (cheap openers, ~4 casts each); Blowdart stays 8. So MP now ranks by impact: Shadow Stitch (10) > Blowdart (8) > Undermine/Sow Doubt (6). Settles the S42-brief D7 MP costs differently than the brief's first guess; no test pinned the old values.
+- **Command Set targeting `straight_line` → `arc`** for all four (Shadow Stitch / Blowdart / Undermine / Sow Doubt). Arc (uncovered source + uncovered target) reads better for thrown/blown ranged debuffs than strict line-of-sight; range stays 4h × 3v.
+- **The Offering tooltip.** The item-detail tooltip (`detail-text.ts`) rendered stat mods / procs / drain etc. but never `attackSwingMultiplier`, so The Offering's hover showed only "−2 PA". Added a line: "Basic Attack: each equipped weapon swings 2× (stacks with Two Weapons; not reactions or Battle Skills)". (The equipment-picker's one-line summary already surfaced "Attack swings ×2" from the main S42 commit; this covers the fuller hover.)
+
+Tests hold at 1264 (these are value/text changes; no behavior tests pinned the old MP/rangeMode).
+
 ### Plan-review decisions (settled with Chris)
 
 - **Monolith**, not 42a/42b — audit showed consolidation cost was small.

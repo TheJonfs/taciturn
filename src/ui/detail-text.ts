@@ -346,6 +346,14 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
     lines.push(`On hit: drain ${item.damageMpDrainPercent}% of final damage as MP from target`);
   }
 
+  // attackSwingMultiplier (The Offering — swings-per-weapon on basic Attack).
+  if (item.attackSwingMultiplier !== undefined && item.attackSwingMultiplier > 1) {
+    lines.push(
+      `Basic Attack: each equipped weapon swings ${item.attackSwingMultiplier}× ` +
+        `(stacks with Two Weapons; not reactions or Battle Skills)`,
+    );
+  }
+
   // Status grants (Auto-Haste, Auto-Shell, Auto-Regen).
   if (item.statusGrants !== undefined && item.statusGrants.length > 0) {
     const names = item.statusGrants.map((id) =>
