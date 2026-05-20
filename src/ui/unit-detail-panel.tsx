@@ -102,6 +102,21 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
     statName: 'ma',
     baseValue: unit.baseStats.ma,
   });
+  // Brave / Faith pass through the modifyStatQuery chain so passives
+  // (Bravestrider's +10 Brave) and Brave/Faith-shifting statuses
+  // (Undermine, Sow Doubt) show their composed value. Otherwise the
+  // panel shows the class baseline while the engine actually rolls
+  // reactions and status applications off the modified value.
+  const brave = runModifyStatQuery(state, catalog, {
+    unit,
+    statName: 'brave',
+    baseValue: unit.baseStats.brave,
+  });
+  const faith = runModifyStatQuery(state, catalog, {
+    unit,
+    statName: 'faith',
+    baseValue: unit.baseStats.faith,
+  });
   // Move/Jump pass through the modifyStatQuery chain so equipped passives
   // (e.g., the `move_plus_1` ability) and movement-flavored statuses
   // contribute their bonus to the displayed value. Otherwise the panel
@@ -219,8 +234,8 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
             <StatPair label="MA" value={String(ma)} />
             <StatPair label="Speed" value={String(speed)} />
             <StatPair label="CT" value={String(unit.ct)} />
-            <StatPair label="Brave" value={String(unit.baseStats.brave)} />
-            <StatPair label="Faith" value={String(unit.baseStats.faith)} />
+            <StatPair label="Brave" value={String(brave)} />
+            <StatPair label="Faith" value={String(faith)} />
             <StatPair label="Move" value={String(moveRange)} />
             <StatPair label="Jump" value={String(jump)} />
           </StatGrid>

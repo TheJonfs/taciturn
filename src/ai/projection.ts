@@ -53,11 +53,13 @@
 import {
   defaultDamageHandlers,
   readCritChance,
+  resolvePhysicalVarianceBand,
   runDamagePipeline,
   type DamageContext,
   type DamageHandler,
   type DamageHandlerRegistry,
 } from '@engine/damage/index.ts';
+import { expectActiveAbility } from '@engine/actions/index.ts';
 import { getEquippedWeapon } from '@engine/items/index.ts';
 import {
   runModifyEvasion,
@@ -72,12 +74,30 @@ import type {
   Unit,
 } from '@engine/types/index.ts';
 
-// Variance projection: append the midpoint factor as a multiplier.
-// Mirrors `varianceRoll`'s skip-when-flat behavior so an ability with
-// `variance: { min: 1, max: 1 }` (the v1 default) contributes nothing.
-const projectionVarianceRoll: DamageHandler = (ctx) => {
-  if (ctx.variance.min === 1 && ctx.variance.max === 1) return ctx;
-  const factor = (ctx.variance.min + ctx.variance.max) / 2;
+// Variance projection: append the expected (midpoint) factor as a
+// multiplier. Resolves the *effective* band via the shared
+// `resolvePhysicalVarianceBand` so weapon-driven variance (knives'
+// Speed-based `attacker_speed` band) is reflected — before Session 42
+// this read only the ability's static band, badly under-projecting knife
+// damage (a Speed-16 knife rolls ~1.6×, not ~1.0×).
+//
+// Pinned-factor escape hatch: when the incoming `ctx.variance` band is
+// degenerate (`min === max`), the caller has pinned a specific factor
+// (the forecast's `damage-range` collapses the band to an endpoint to
+// read min/max bounds). Honor it directly rather than re-resolving — so
+// the range bounds stay controllable while the expected midpoint
+// auto-resolves the weapon band. v1 abilities all declare non-degenerate
+// bands, so live AI scoring always takes the auto-resolve path.
+const projectionVarianceRoll: DamageHandler = (ctx, env) => {
+  if (ctx.variance.min === ctx.variance.max) {
+    const pinned = ctx.variance.min;
+    if (pinned === 1) return ctx;
+    return { ...ctx, multipliers: [...ctx.multipliers, { source: 'variance', factor: pinned }] };
+  }
+  const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
+  const band = resolvePhysicalVarianceBand(env.state, env.catalog, ctx.attacker, ability);
+  if (band.min === 1 && band.max === 1) return ctx;
+  const factor = (band.min + band.max) / 2;
   return {
     ...ctx,
     multipliers: [...ctx.multipliers, { source: 'variance', factor }],

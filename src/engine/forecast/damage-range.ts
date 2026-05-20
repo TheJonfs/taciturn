@@ -9,6 +9,7 @@
 // Used by the UI's forecast hover panel (see `src/ui/forecast-panel.tsx`).
 
 import { projectDamageContext, projectExpectedDamage } from '../../ai/projection.ts';
+import { resolvePhysicalVarianceBand } from '../damage/handlers.ts';
 import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
 import type { GameState, Unit } from '../types/index.ts';
 
@@ -44,11 +45,25 @@ export function projectDamageRange(args: ProjectDamageRangeArgs): DamageRange {
   if (damage === undefined) {
     return { min: 0, expected: 0, max: 0, regime: 'damage' };
   }
-  const variance = damage.variance ?? { min: 1, max: 1 };
+  // Resolve the EFFECTIVE variance band — the weapon's band overrides the
+  // ability's static one (knives use a Speed-based `attacker_speed` band,
+  // per ADR-0067 / Session 40). Before Session 42 this read the ability's
+  // static `damage.variance` directly, so knife forecasts ignored the
+  // Speed-driven spread and badly under-projected (a Speed-16 knife rolls
+  // ~1.6×, not ~1.0×). Now the same resolver the live pipeline uses backs
+  // the forecast, so they agree.
+  const variance = resolvePhysicalVarianceBand(
+    args.state,
+    args.catalog,
+    args.attacker,
+    args.ability,
+  );
   // Build min/max ability variants — pure structural copies with the
-  // variance band collapsed to a single point. The projection's variance
-  // handler returns the midpoint, so a min-band ability passes its `min`
-  // value as the midpoint of a degenerate [min, min] band.
+  // variance band collapsed to a single point at the effective band's
+  // endpoints. The projection's variance handler honors a degenerate
+  // (`min === max`) band directly (the "pinned-factor" path), so min uses
+  // `variance.min` and max uses `variance.max`; the unmodified ability's
+  // expected midpoint auto-resolves the same effective band.
   const minAbility: ActiveAbilityDefinition = {
     ...args.ability,
     effects: {

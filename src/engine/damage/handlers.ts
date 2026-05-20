@@ -28,7 +28,7 @@ import {
   runOnFinalDamage,
   runOnFinalDamageReceived,
 } from '../hooks/runners.ts';
-import type { Catalog } from '../catalog/index.ts';
+import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
 import type { GameState } from '../types/index.ts';
 import { getEquippedWeapon, getWeaponInSlot } from '../items/equipment.ts';
 import {
@@ -437,18 +437,45 @@ function resolveVarianceBand(
   ctx: DamageContext,
   env: PipelineEnv,
 ): { readonly min: number; readonly max: number } {
-  if (!ctx.damageTags.has('physical')) return ctx.variance;
-  const weapon = getEquippedWeapon(ctx.attacker, env.catalog);
+  const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
+  return resolvePhysicalVarianceBand(env.state, env.catalog, ctx.attacker, ability);
+}
+
+// Shared physical-variance-band resolver (per ADR-0067 + Session 40).
+// Single source of truth for "what variance band does this physical
+// attack roll within," used by the live `varianceRoll` handler, the AI /
+// forecast projection (`src/ai/projection.ts`), and the UI damage-range
+// forecast (`src/engine/forecast/damage-range.ts`) — the same sharing
+// discipline as `readCritChance`. Before Session 42 the projection and
+// forecast read only the ability's static `variance`, so knife
+// (`attacker_speed`) damage was badly under-forecast (a Speed-16 knife
+// rolls ~1.6×, not ~1.0×).
+//
+// Non-physical abilities and physical abilities whose wielder has no
+// `physicalVariance` weapon fall back to the ability's declared band.
+// `static` returns the literal band; `attacker_speed` computes
+// `center = Speed/10` (Speed read through `modifyStatQuery` so equipment
+// / status Speed modifiers compose) and returns `[center ± spread]`.
+export function resolvePhysicalVarianceBand(
+  state: GameState,
+  catalog: Catalog,
+  attacker: Unit,
+  ability: ActiveAbilityDefinition,
+): { readonly min: number; readonly max: number } {
+  const damage = ability.effects.damage;
+  const fallback = damage?.variance ?? { min: 1, max: 1 };
+  if (damage === undefined || !damage.tags.includes('physical')) return fallback;
+  const weapon = getEquippedWeapon(attacker, catalog);
   const source = weapon?.physicalVariance;
-  if (source === undefined) return ctx.variance;
+  if (source === undefined) return fallback;
   if (source.kind === 'static') {
     return { min: source.min, max: source.max };
   }
   // source.kind === 'attacker_speed'
-  const speed = runModifyStatQuery(env.state, env.catalog, {
-    unit: ctx.attacker,
+  const speed = runModifyStatQuery(state, catalog, {
+    unit: attacker,
     statName: 'spd',
-    baseValue: ctx.attacker.baseStats.spd,
+    baseValue: attacker.baseStats.spd,
   });
   const center = speed / 10;
   return {

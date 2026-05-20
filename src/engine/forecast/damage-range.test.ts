@@ -7,9 +7,11 @@ import {
   classId,
   commandSetId,
   createCatalog,
+  itemId,
   type ActiveAbilityDefinition,
   type ClassDefinition,
 } from '../index.ts';
+import { loadDefaultCatalog } from '../../content/index.ts';
 import {
   DEFAULT_TEST_DAMAGE_PIPELINE,
   makeTestRuleset,
@@ -88,6 +90,37 @@ describe('projectDamageRange', () => {
     expect(r.min).toBe(10);
     expect(r.expected).toBe(20);
     expect(r.max).toBe(30);
+  });
+
+  it('reflects a weapon Speed-based variance band, not the ability static band (S42 fix)', () => {
+    // Knives use `attacker_speed` variance: band center = Speed/10. The
+    // forecast must resolve THAT band, not the attack ability's static
+    // [0.9, 1.1] — otherwise a fast knife wielder's damage is badly
+    // under-projected (the playtest report: forecast ~17-21, hits ~30s).
+    const cat = loadDefaultCatalog();
+    const sai = { leftHand: null, rightHand: itemId('sai'), headgear: null, armor: null, accessory: null };
+    const attack = cat.getAbility(abilityId('attack')) as ActiveAbilityDefinition;
+    const mk = (spd: number) =>
+      makeUnit({ id: 'a', spd, pa: 5, classId: 'assassin', position: { x: 0, y: 0, layer: 0 }, equipment: sai });
+    // Target faces away (front = east) so the west attacker lands a 0-evasion
+    // back hit — keeps the hit-chance multiplier constant across Speeds.
+    const target = makeUnit({ id: 'b', spd: 8, hp: 400, maxHpBase: 400, classId: 'assassin', facing: 'E', position: { x: 1, y: 0, layer: 0 } });
+    const mp = (spd: number) => {
+      const attacker = mk(spd);
+      return projectDamageRange({ state: makeGameState({ units: [attacker, target] }), catalog: cat, attacker, target, ability: attack });
+    };
+    const r16 = mp(16);
+    const r10 = mp(10);
+    // Expected scales with the Speed-band center (16/10 = 1.6), not pinned
+    // to the ability's ~1.0 midpoint. Ratio is hit-chance / PA / WP
+    // independent, so it isolates the band.
+    expect(r16.expected / r10.expected).toBeGreaterThan(1.45);
+    expect(r16.expected / r10.expected).toBeLessThan(1.75);
+    // The Speed-16 band [1.55, 1.65] is a tight spread → min/max bracket
+    // expected closely (and well above the old static-band projection).
+    expect(r16.min).toBeLessThan(r16.expected);
+    expect(r16.max).toBeGreaterThan(r16.expected);
+    expect(r16.max / r16.min).toBeLessThan(1.2);
   });
 
   it('returns zero range for an ability without a damage spec', () => {

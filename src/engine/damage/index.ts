@@ -14,6 +14,7 @@ export {
   physicalPaWp,
   readCritChance,
   resistanceCheck,
+  resolvePhysicalVarianceBand,
   varianceRoll,
 } from './handlers.ts';
 export { defaultDamageHandlers } from './default-handlers.ts';
