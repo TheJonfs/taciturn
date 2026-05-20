@@ -66,6 +66,16 @@
   --band-label: #e8cf9e;
 }
 
+/* The Assassin's palette is moonlit steel — a cool gunmetal accent over
+   a near-black charcoal stat band. Reads as blade-and-shadow, distinct
+   from the Knight's oxblood, the Alchemist's brass, and the four
+   elemental hues (and from the Aethurge's brighter purple). */
+.v-e--assassin {
+  --accent: #3d4452;
+  --band: #23272e;
+  --band-label: #aab2bf;
+}
+
 /* Per-class portrait override: the Alchemist's source art is 848×1264
    — a slightly more vertical aspect than the other class portraits
    (1792×2400). Crop the box a touch shorter so the brief fits on the

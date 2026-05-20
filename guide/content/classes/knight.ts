@@ -4,8 +4,12 @@
 // file holds only the voice.
 //
 // Ability-note keys must match the ability ids the catalog resolves for
-// the Knight: attack, power_attack, stasis_sword, taunt (actives);
-// counter, damage_reduction, move_plus_1 (passives).
+// the Knight: attack, power_attack, lightning_stab, taunt (actives);
+// counter, martial_expertise, bravestrider (passives). (S42 swapped
+// Stasis Sword's Stop rider for Lightning Stab's Silence rider — the
+// Stop tool moved to the Assassin's Shadow Stitch. S41 swapped the
+// Knight's free Support/Movement: Damage Reduction → Martial Expertise
+// (PA ×1.25) and Move +1 → Bravestrider (+1 Move, +10 Brave).)
 
 import type { ClassProse } from '../prose.ts';
 
@@ -41,12 +45,14 @@ wounded foe, an exposed flank — and not before. The reserve is finite; the
 opening is not always.`,
       compact: 'Heavier strike for a measure of MP. Spend it on a real opening, not a hopeful one.',
     },
-    stasis_sword: {
+    lightning_stab: {
       full: `Here the Knight's hybrid character shows itself: a true physical
 strike that may, on a roll weighted by the cadet's own resolve, leave the
-target Stopped — lifted clean out of the turn order for a span. It is the
-Academy's plainest proof that the Knight is not merely a wall.`,
-      compact: 'Physical strike with a chance to Stop the target. The Knight’s tempo tool.',
+target *Silenced* — its art sealed, its spells stopped in its throat for a
+span. It is the Knight's answer to an enemy caster, and the Academy's
+plainest proof that she is not merely a wall. A Bravestrider Knight lands
+the seal the more reliably for her lifted Brave.`,
+      compact: 'Physical strike with a chance to Silence the target. The Knight’s answer to a caster.',
     },
     taunt: {
       full: `Taunt fixes a foe's attention upon the Knight whether that foe
@@ -62,19 +68,21 @@ Reaction slot, once, and is repaid every engagement thereafter. It is, in
 this instructor's view, the most economical thing in her repertoire.`,
       compact: 'Answers physical blows automatically. One slot spent; repaid all engagement long.',
     },
-    damage_reduction: {
-      full: `A quiet passive that pares a measure from every physical blow the
-Knight suffers. It does nothing one can point to in a given moment, and
-everything across a long engagement. The cadets who undervalue it are, as a
-rule, the cadets who do not last.`,
-      compact: 'Pares incoming physical damage. Invisible in the moment, decisive over time.',
+    martial_expertise: {
+      full: `The Knight's quiet engine: Martial Expertise lifts her Physical
+Attack by a quarter, outright. It does nothing one can point to in a single
+moment and everything across an engagement — every strike she throws, every
+Counter she answers with, lands the heavier for it. The cadet who gives her
+Support slot to this has multiplied the whole of her offence at a stroke.`,
+      compact: 'Support: Physical Attack ×1.25. A flat lift to everything her arm does — strikes and Counters alike.',
     },
-    move_plus_1: {
-      full: `One further tile of Move Range. It sounds a small thing, and on
-the practice yard it is. On uneven ground, against a foe who would rather
-keep his distance, that single tile is frequently the difference between a
-Knight in the engagement and a Knight watching it.`,
-      compact: '+1 Move Range. Small on flat ground; often decisive on real terrain.',
+    bravestrider: {
+      full: `One further tile of Move Range, and ten points of Brave besides.
+The Move keeps the Knight in the engagement on uneven ground; the Brave is
+the quieter gift — it steadies the reactions Brave governs and lends weight
+to the Brave-scaled strokes of her Battle Skill, Lightning Stab's Silence
+chief among them. Mobility and resolve, carried in a single bearing.`,
+      compact: '+1 Move Range and +10 Brave. Keeps her in the fight, and firms the reactions and rolls Brave governs.',
     },
   },
 

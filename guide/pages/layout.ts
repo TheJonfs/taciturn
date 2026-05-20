@@ -68,11 +68,22 @@ export function tableOfContents(): string {
     </section>`;
 }
 
+// Spell out small counts so the half-title subtitle reads as prose, not
+// as a digit. Derived from SPREAD_ORDER.length so it never goes stale as
+// the roster grows.
+const NUMBER_WORDS = [
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six',
+  'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+];
+function numberWord(n: number): string {
+  return NUMBER_WORDS[n] ?? String(n);
+}
+
 /**
  * Half-title for the Specializations chapter. Sits as a single page
- * before the five spreads — frames the chapter and, by adding one
- * page in front of the spreads, aligns each spread to a verso/recto
- * (left/right) facing pair in two-page view.
+ * before the spreads — frames the chapter and, by adding one page in
+ * front of the spreads, aligns each spread to a verso/recto (left/right)
+ * facing pair in two-page view.
  */
 export function specializationsHalfTitle(): string {
   const spreadList = SPREAD_ORDER.map((id) => {
@@ -80,19 +91,23 @@ export function specializationsHalfTitle(): string {
     return `<li>${esc(cls.name)}</li>`;
   }).join('\n');
 
+  const count = numberWord(SPREAD_ORDER.length);
+
   return `
     <section class="half-title half-title--specializations" id="ch-specializations">
       <p class="half-title__eyebrow">Part Three</p>
       <h1 class="half-title__title">The Specializations</h1>
-      <p class="half-title__subtitle">five disciplines, five spreads</p>
+      <p class="half-title__subtitle">${count} disciplines, ${count} spreads</p>
       <p class="half-title__brief">
         What follows is the Academy&rsquo;s standing course catalogue:
-        the Knight, who answers the field with her body, and the four
-        elemental Mages, who answer it with their art. Each spread is
-        the same — stats imported from the Academy&rsquo;s records, the
-        full repertoire annotated, the instructor&rsquo;s counsel at the
-        close. Read in the order they are placed; or open at the
-        discipline you mean to take, and read it whole.
+        the disciplines that answer the field with the body — the Knight
+        at the line, the Alchemist with her satchel, the Assassin out of
+        the shadow — and the four elemental Mages, who answer it with
+        their art. Each spread is the same — stats imported from the
+        Academy&rsquo;s records, the full repertoire annotated, the
+        instructor&rsquo;s counsel at the close. Read in the order they
+        are placed; or open at the discipline you mean to take, and read
+        it whole.
       </p>
       <ul class="half-title__list">${spreadList}</ul>
     </section>`;

@@ -18,8 +18,8 @@ one, and this instructor would ask you to receive it as such.
 Gariland Magic Academy has trained the disciplined for longer than its
 oldest records reliably say. Cadets come to this institution as you
 have come — uncertain of their footing, certain only that they mean to
-learn — and they leave it knowing one of the five specializations as
-well as a body can know a craft. The Mage War is how the Academy makes
+learn — and they leave it knowing one of its specializations as well as
+a body can know a craft. The Mage War is how the Academy makes
 certain of that knowing: a tradition of sanctioned engagements, cadets
 of chosen disciplines set against one another on prepared ground,
 under rules the Academy has refined across many years and many honest
@@ -32,7 +32,7 @@ onto the training field already knowing what the field will ask of
 her. The chapters ahead lay out the foundations every engagement runs
 on — the rhythm of charge time, the structure of a turn, the closed
 cycle of the four elements, the reading of terrain. After them come the
-five specializations, each given its own brief; and after those, the
+specializations, each given its own brief; and after those, the
 armory, catalogued and annotated. The mechanical particulars are drawn
 from the Academy's own records and kept current with them. The
 judgments — which tool for which moment, which mistake cadets make and

@@ -200,6 +200,13 @@ function hookEffects(item: ItemDefinition): string[] {
     out.push(`Reflects ${item.physicalReflectPercent}% of physical damage taken`);
   }
 
+  // Swings-per-weapon multiplier (The Offering): the basic Attack swings
+  // this many times per equipped weapon. Composes with Two Weapons —
+  // dual-wield × the multiplier — so the line reads per-weapon, not total.
+  if (item.attackSwingMultiplier !== undefined && item.attackSwingMultiplier > 1) {
+    out.push(`Attack swings ×${item.attackSwingMultiplier} per weapon`);
+  }
+
   for (const proc of item.attackProcs ?? []) {
     const abilityName = catalog().getAbility(proc.abilityId).name;
     const when = proc.chance >= 1 ? 'On every hit' : `${Math.round(proc.chance * 100)}% on hit`;

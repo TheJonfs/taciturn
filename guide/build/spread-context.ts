@@ -17,6 +17,7 @@ import type { ClassProse } from '../content/prose.ts';
 import academySealSvg from '../art/academy-seal.svg?raw';
 import knightPortraitUrl from '../art/knight_1.png';
 import alchemistPortraitUrl from '../art/alchemist_1.png';
+import assassinPortraitUrl from '../art/assassin_1.png';
 import earthMagePortraitUrl from '../art/earth_mage_1.png';
 import waterMagePortraitUrl from '../art/water_mage_1.png';
 import fireMagePortraitUrl from '../art/fire_mage_1.png';
@@ -35,6 +36,7 @@ const sealPngUrl = Object.values(sealPngMatches)[0] as string | undefined;
 export type ElementId =
   | 'knight'
   | 'alchemist'
+  | 'assassin'
   | 'earth'
   | 'water'
   | 'fire'
@@ -47,11 +49,13 @@ interface ClassMeta {
 
 // Per-class build metadata: which accent palette, which portrait. The
 // Knight's "element" is its institutional self — oxblood, steel band.
-// The Alchemist's is amber / copper — apothecary brass, distinct from
-// both the Knight's steel and the elemental wheel's four hues.
+// The Alchemist's is amber / copper — apothecary brass; the Assassin's
+// is gunmetal / charcoal — moonlit steel, distinct from both the
+// Knight's oxblood and the elemental wheel's four hues.
 const CLASS_META: Record<string, ClassMeta> = {
   knight: { element: 'knight', portraitUrl: knightPortraitUrl },
   alchemist: { element: 'alchemist', portraitUrl: alchemistPortraitUrl },
+  assassin: { element: 'assassin', portraitUrl: assassinPortraitUrl },
   earth_mage: { element: 'earth', portraitUrl: earthMagePortraitUrl },
   water_mage: { element: 'water', portraitUrl: waterMagePortraitUrl },
   fire_mage: { element: 'fire', portraitUrl: fireMagePortraitUrl },
@@ -108,14 +112,16 @@ export function spreadContextFor(id: ClassId): SpreadContext {
 }
 
 /**
- * The six classes, in handbook order: the two physical-leaning
- * disciplines (Knight, then the Alchemist who shares much of the
- * Knight's gear and stands as a fellow non-caster), then the elemental
- * wheel.
+ * The seven classes, in handbook order: the three non-caster
+ * disciplines first — the Knight (the armoured anchor), the Alchemist
+ * (field support, sharing much of the Knight's gear), and the Assassin
+ * (the Speed-defined skirmisher) — then the elemental wheel of four
+ * Mages.
  */
 export const SPREAD_ORDER: ReadonlyArray<ClassId> = [
   classId('knight'),
   classId('alchemist'),
+  classId('assassin'),
   classId('earth_mage'),
   classId('water_mage'),
   classId('fire_mage'),

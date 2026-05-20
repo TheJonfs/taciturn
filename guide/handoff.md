@@ -1,170 +1,115 @@
 # Handoff
 
-*Outgoing notes from the S40-catchup session — added the Alchemist
-spread, swept the S40 rename pass through the guide's prose,
-catalogued the new knife weapons, and patched the item formatter for
-S40's dynamic-variance substrate.*
+*Outgoing notes from the S42-catchup session — added the Assassin
+spread, added The Offering accessory, swapped the Knight's Stasis Sword
+for Lightning Stab, and cleaned up two pieces of older drift the render
+exposed (Knight S41 passive renames, stale class-count prose).*
 *Overwritten each session — read every item, then act / promote / drop.*
 
 ## What landed
 
-The guide is now in sync with main as of S40. **29 pages**; verso/recto
-parity preserved across all six spreads (Knight 8, Alchemist 10,
-Geosage 12, Hydrologist 14, Pyromancer 16, Aethurge 18 — every spread
-verso falls on an even page).
+The guide is in sync with main as of S42. **31 pages**; verso/recto
+parity preserved across all seven spreads (Knight 8, Alchemist 10,
+Assassin 12, Geosage 14, Hydrologist 16, Pyromancer 18, Aethurge 20 —
+every spread verso falls on an even page).
 
-### Alchemist spread (new)
+### Assassin spread (new — the seventh class, third non-caster)
 
-- `content/classes/alchemist.ts` — full prose authored: brief,
-  ability notes for the six surfaceable abilities (attack, compound,
-  throw_item, combat_focus, field_recovery as *Healthy Stride*,
-  field_kit as *Travel Preparations*), strategy, and four marginalia.
-  Strategy is intentionally compact — the recto runs an Instructor's
-  Counsel box and the page won't take a longer one without overflowing
-  into a third page and breaking the verso/recto parity of every
-  spread that follows. Held the Knight as the volumetric reference.
-- `content/classes/index.ts` — `alchemistProse` registered.
-- `build/spread-context.ts` — Alchemist portrait imported,
-  `'alchemist'` added to `ElementId`, entry added to `CLASS_META`,
-  inserted into `SPREAD_ORDER` *second* (right after the Knight, before
-  the four elemental Mages — physical-leaning disciplines grouped, then
-  the elemental wheel).
-- `styles/variant-e.css` — `.v-e--alchemist` palette added: apothecary
-  brass (amber accent `#8a5a1e` / copper stat band `#6b4416` / parchment
-  label `#e8cf9e`). Distinct from the Knight's steel and from the four
-  elemental hues.
-- `art/alchemist_1.png` — copied from `../src/assets/portraits/`. **The
-  Alchemist portrait is 512×512** vs. the other class portraits at
-  1792×2400 — visually it crops and prints fine, but if you ever
-  commission a higher-resolution Alchemist art piece, drop it in at
-  `guide/art/alchemist_1.png` and the spread picks it up unchanged.
+- `content/classes/assassin.ts` — full prose: brief, eight ability
+  notes (attack + the four Shadow Arts: shadow_stitch, blowdart,
+  undermine, sow_doubt; plus speed_save, two_weapons, fleet_of_foot),
+  strategy, four marginalia. **The recto is volume-constrained** — the
+  Assassin has five active skills (the most of any class), so the brief
+  *and* the strategy were authored tight. A longer counsel overflows
+  page 13 onto a near-blank 14 and breaks parity for every spread that
+  follows; if you expand the counsel, trim ability notes (Shadow Stitch
+  / Speed Save / Two Weapons are the longest) to compensate.
+- `content/classes/index.ts` — `assassinProse` registered.
+- `build/spread-context.ts` — portrait imported, `'assassin'` added to
+  `ElementId`, `CLASS_META` entry, inserted into `SPREAD_ORDER` **third**
+  (after Knight + Alchemist, before the four Mages — the three
+  non-casters grouped, then the elemental wheel). The SPREAD_ORDER doc
+  comment was rewritten for the seven-class roster.
+- `styles/variant-e.css` — `.v-e--assassin` palette: moonlit steel
+  (gunmetal accent `#3d4452` / charcoal stat band `#23272e` / cool
+  steel-grey label `#aab2bf`). Distinct from the Knight's oxblood, the
+  Alchemist's brass, and the Aethurge's purple.
+- `art/assassin_1.png` — **cropped this session.** Chris supplied a
+  landscape 2752×1536 portrait, which rendered as a short wide strip in
+  the tall portrait frame. Cropped symmetrically around the figure's
+  alpha bbox (she occupied x=879–1771) to **1120×1536** (~0.73 portrait
+  aspect, matching the other six), keeping both daggers. The uncropped
+  original is at `/tmp/assassin_1_original.png` for this machine only —
+  if a re-crop is ever wanted, re-export from Chris's source.
 
-### S40 rename pass — prose updated to match the display names
+### The Offering (new accessory)
 
-ClassIds and ability ids are preserved in the catalog, so the
-content/ key structure didn't move — only the prose strings did.
+- `build/item-format.ts` — new branch surfaces `attackSwingMultiplier`
+  (it was previously dropped silently). Renders as
+  "Attack swings ×N per weapon".
+- `content/items/index.ts` — `the_offering` note added to the accessory
+  cases: doubles every weapon's swings on a basic Attack at −2 PA; with
+  Two Weapons that is four light strikes — the Assassin's volume-damage
+  keystone.
 
-- **Classes**: Earth Mage → **Geosage**, Fire Mage → **Pyromancer**,
-  Water Mage → **Hydrologist**, Lightning Mage → **Aethurge**. Mage
-  prose files all rewritten to use the new names throughout (briefs,
-  ability notes, strategy, marginalia). Wand notes in
-  `content/items/index.ts` updated for the Geosage / Hydrologist
-  ownership lines. River Ridge "Water Mage" → "Hydrologist" in all
-  three mentions.
-- **Earth Mage abilities**: Earth Strike → **Rock Toss**, Earth's
-  Blessing → **Life from the Loam**, Earth Curse → **Gaian Hex**, Earth
-  Quake → **Earthquake** (one word), Earth Cataclysm → **Cataclysm**,
-  Earth Communion → **Biomastery**, Earth Resilience → **Landwalker**.
-  Bedrock Stride unchanged.
-- **Water Mage abilities**: Water Strike → **Water Lash**, Tide Surge
-  → **Rapids Rush**. Rest unchanged.
-- **Fire Mage abilities**: Fire Strike → **Scorch**, Fire Embrace →
-  **Inner Warmth**, Fire Storm → **Fireball**, Spark → **Slow Burn**.
-  Rest unchanged.
-- **Lightning Mage abilities**: Lightning Strike → **Lightning Bolt**,
-  Storm Caller → **Megavolt**. Rest unchanged.
+### Knight — Lightning Stab replaces Stasis Sword (S42)
 
-### Knives (S40 weapon class) — added to the Armory
+- `content/classes/knight.ts` — ability note rekeyed
+  `stasis_sword` → `lightning_stab`, rewritten for the Silence rider
+  (and the Bravestrider Brave-synergy: Silence scales on Brave×MA).
+  Stasis Sword stays in the catalog as a cross-class option; the
+  Knight's Battle Skill set no longer surfaces it.
 
-Three new weapons land in the Weapon Racks (catalog order):
+## Drift the render exposed and I fixed (not in the brief)
 
-- **Chef's Knife** — WP 4, +1 PA. The Alchemist's natural sidearm.
-- **Magebane** — WP 5, 50% on-hit Silence. The anti-caster knife.
-- **Sai** — WP 4, +1 Speed. Self-compensating Speed feedback into the
-  knife class's Speed-derived variance.
-
-Flavor + tactical lines authored for each in
-`content/items/index.ts`. The catalog auto-renders them; only the
-notes were the manual piece.
-
-### Item formatter fixes — `build/item-format.ts`
-
-Two regressions surfaced when the knives appeared. Both patched:
-
-- **Weapon family** — `'knife'` added to `WEAPON_FAMILIES`. Without
-  it, the formatter dropped `Knife-imbued` into the effects line.
-  Knives now show `WP 4 · 95% accuracy · knife` on the headline like
-  swords and axes do.
-- **`physicalVariance` discriminated union** (S40) — was reading
-  `.min` / `.max` directly, which produced `Variance undefined–undefined`
-  for the new `{ kind: 'attacker_speed', spread }` shape. Now branches
-  on `kind`: static prints the band; attacker-speed prints
-  `Variance scales with Speed (±N%)` (the absolute range depends on the
-  wielder so a fixed range would be misleading).
-
-## What I deliberately did NOT pull in
-
-- **Consumables** (Potion, Phoenix Down, Remedy, Ether) — these are
-  `kind: 'consumable'` items in the catalog, not Armory-requisitionable
-  gear; they live inside the Alchemist's stockpile economy. The
-  Armory's sections filter to `weapon/shield/armor/headgear/accessory`,
-  so consumables are invisible to it. They're named and explained in
-  the Alchemist's `field_kit` (*Travel Preparations*) and `throw_item`
-  notes — that's where they belong for v1. If a future pass wants a
-  dedicated "The Stockpile" subsection in the Armory or a sidebar on
-  the Alchemist's recto, both are easy: add a section to
-  `pages/armory.ts` with `kinds: ['consumable']` and author a
-  consumable formatter (the existing `item-format.ts` doesn't yet
-  surface `compoundMpCost` / `effects.hpRestore` / etc.).
-- **Targeting `unit_or_tile` reads** — many spells had their targeting
-  kind migrated to `unit_or_tile` in S40. The formatter doesn't render
-  the kind, so no prose change was needed; the mechanical lines look
-  identical to before.
-- **Status durations** — many statuses had their `duration` values
-  rebalanced in S40 (e.g. Regen 36→10, Don't Act 24→3, Movement
-  Debuff 24→4). The formatter doesn't surface duration, and the prose
-  doesn't quote it; nothing to do.
+- **Knight S41 passive renames.** The Knight's free Support/Movement
+  passives became **Martial Expertise** (PA ×1.25) and **Bravestrider**
+  (+1 Move, +10 Brave) back in S41 — the S40 catch-up missed it, so the
+  spread was rendering those two abilities with *blank* notes (the old
+  `damage_reduction` / `move_plus_1` keys no longer resolved). Both
+  notes rewritten and rekeyed. Damage Reduction / Move +1 remain in the
+  catalog as cross-class options.
+- **Stale class counts.** Welcome letter said "five specializations"
+  (×2); the Specializations half-title said "five disciplines, five
+  spreads" with a brief naming only "the Knight and the four elemental
+  Mages." All pre-Alchemist text. Fixes: welcome letter made numberless;
+  half-title subtitle is now **data-driven** off `SPREAD_ORDER.length`
+  via a small `numberWord()` helper in `pages/layout.ts` ("seven
+  disciplines, seven spreads" today, self-updating as the roster grows);
+  half-title brief rewritten to name all three non-casters and the four
+  Mages. The spread list under it was already data-driven.
 
 ## Watch-for / flag to Chris
 
-- **Alchemist portrait resolution**. The 512×512 source from
-  `src/assets/portraits/alchemist.png` is the highest-fidelity art
-  available. Crops fine into the 3.4″ portrait box, but is visibly
-  softer than the 1792×2400 class portraits beside it. A higher-res
-  commission is the publication-quality upgrade.
-- **Alchemist strategy is volume-constrained**. The text was tightened
-  because a longer counsel overflowed page 11 onto a near-blank page
-  12 and pushed every following spread by one, breaking parity. If you
-  want to expand the counsel, you'll need to either also trim ability
-  notes (Compound and Healthy Stride are the longest) or accept the
-  parity break and find a different fix (an extra half-title, a deliberate
-  blank, etc.).
-- **Dev server still doesn't load styles** (Vite serves CSS as JS
-  modules in dev — flagged last session). Continued to verify via
-  `npm run build:guide` and inspecting `output/guide.pdf` directly.
-- **PDF still ~45 MB** — art downsample remains the publication
-  pre-pass.
+- **`numberWord()` covers 0–12.** Past twelve classes the subtitle falls
+  back to digits. Not a concern at seven; noted for completeness.
+- **Alchemist brief still says "the Academy's sixth specialization"** and
+  the Assassin's file comment says "seventh discipline." These are
+  chronological-introduction order (correct), but the Alchemist reads
+  *second* in the book — a reader could find "sixth" momentarily odd.
+  Left as-is (it predates this session and isn't wrong); flag for the
+  write-through if the phrasing grates.
+- **Dev server still doesn't load styles** (Vite serves CSS as JS in
+  dev — flagged two sessions ago). Verified throughout via
+  `npm run build:guide` + inspecting `output/guide.pdf`.
+- **PDF ~49 MB** — the art downsample remains the publication pre-pass,
+  now more pressing with two large new portraits (Alchemist, Assassin).
 
 ## Considered and rejected
 
-- **Authoring a fourth Armory section for consumables.** Cleaner in
-  principle, but would require a new formatter branch for consumables
-  (`compoundMpCost`, `effects.hpRestore`, `effects.mpRestore`,
-  `effects.removeKO`, `effects.clearStatuses`) and four new item-note
-  entries. Out of scope for "catch the guide up to S40"; the
-  Alchemist's spread covers the consumables in prose. Easy follow-up.
-- **Renaming the wand names** (Wand of Depths, Wand of Deepwood). S40
-  did *not* rename the wands — the wand names are unchanged at the
-  catalog level. Only the *owner* names ("Hydrologist's wand",
-  "Geosage's wand") needed updating in the flavor / tactical notes.
-- **Putting the Alchemist last in the spread order.** Putting them
-  second instead reads better — physical-leaning disciplines (Knight,
-  Alchemist) front; then the elemental wheel as a self-contained
-  block. The shared-gear note Chris flagged also implies adjacency.
+- **Blind 30%/30% crop of the Assassin portrait** (as first suggested).
+  Her daggers reach to ~28% and ~71% of the width, so a strict 30%
+  trim from each side would have clipped both blade tips. Cropped to
+  the figure's measured alpha bbox instead — same visual goal, blades
+  intact.
+- **A per-Assassin CSS portrait treatment** (letterbox / shorter frame)
+  to accommodate the landscape source. The crop is the right fix — it
+  makes the Assassin a true peer of the other spreads rather than a
+  special case. No CSS portrait override needed (the Alchemist's 4.1in
+  override still stands for its own reason).
 
 ## Suggested next scope
 
-- **Write-through pass on the Alchemist's prose** — first draft;
-  Chris's read-through is the calibration step.
-- **Consumables as their own subsection** — either as the fourth
-  Armory section ("The Stockpile") or as a callout on the Alchemist
-  spread. The fact that Ether is the only Compound-only item (not in
-  the starting kit) is worth flagging more prominently than the
-  current note allows.
-- **Higher-res Alchemist portrait** when one exists.
-- **Art downsample** for publication-size PDF.
-- **Future training fields** when the game ships them.
-
-The handbook now ships every class and ability in the S40 catalog
-under their current display names, and the new knife substrate prints
-correctly in the Armory.
+Roadmap is unchanged: the write-through pass, the art downsample (now
+overdue at ~49 MB), and future content as the game ships it. The guide
+reads end to end as the seven-discipline Cadet's Handbook.

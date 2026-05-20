@@ -308,4 +308,11 @@ this in answer.`,
 frequently the piece that decides a build.`,
     tactical: 'An extra Support slot. Whatever the cadet most wished she could also equip — now she can.',
   },
+  the_offering: {
+    flavor: `An old altar-piece worn at the belt, and the Armorer parts
+with it wearing a raised eyebrow. It asks its price in raw power and
+returns it in *frequency*: the blade falls twice where once it fell
+but once.`,
+    tactical: 'Doubles every weapon’s swings on a basic Attack, at a flat −2 PA. Paired with Two Weapons, that is four light strikes in a turn — the Assassin’s volume-damage keystone. Wasted on a single heavy blow; it rewards many small ones.',
+  },
 };
