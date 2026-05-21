@@ -29,19 +29,28 @@ import {
 
 export interface PauseOverlayProps {
   readonly onResume: () => void;
+  // Exit the battle to the title screen. The overlay gates this behind a
+  // confirmation step so a single stray click can't abandon the battle.
+  readonly onMainMenu: () => void;
 }
 
-export function PauseOverlay({ onResume }: PauseOverlayProps): ReactElement {
-  const [view, setView] = useState<'menu' | 'settings'>('menu');
+export function PauseOverlay({ onResume, onMainMenu }: PauseOverlayProps): ReactElement {
+  const [view, setView] = useState<'menu' | 'settings' | 'confirm-exit'>('menu');
 
   return (
     <div style={backdropStyle} role="dialog" aria-label="Paused">
       <div style={modalStyle}>
         <div style={titleStyle}>Paused</div>
-        {view === 'menu' ? (
-          <MenuButtons onResume={onResume} onOpenSettings={() => setView('settings')} />
-        ) : (
-          <SettingsBody onBack={() => setView('menu')} />
+        {view === 'menu' && (
+          <MenuButtons
+            onResume={onResume}
+            onOpenSettings={() => setView('settings')}
+            onMainMenu={() => setView('confirm-exit')}
+          />
+        )}
+        {view === 'settings' && <SettingsBody onBack={() => setView('menu')} />}
+        {view === 'confirm-exit' && (
+          <ConfirmExit onConfirm={onMainMenu} onCancel={() => setView('menu')} />
         )}
       </div>
     </div>
@@ -51,17 +60,29 @@ export function PauseOverlay({ onResume }: PauseOverlayProps): ReactElement {
 function MenuButtons(props: {
   readonly onResume: () => void;
   readonly onOpenSettings: () => void;
+  readonly onMainMenu: () => void;
 }): ReactElement {
   return (
     <div style={buttonColStyle}>
       <BigButton label="Resume" onClick={props.onResume} />
       <BigButton label="Settings" onClick={props.onOpenSettings} />
-      <BigButton
-        label="Main Menu"
-        onClick={noop}
-        disabled
-        title="Available after Session 34's title screen"
-      />
+      <BigButton label="Main Menu" onClick={props.onMainMenu} />
+    </div>
+  );
+}
+
+function ConfirmExit(props: {
+  readonly onConfirm: () => void;
+  readonly onCancel: () => void;
+}): ReactElement {
+  return (
+    <div style={buttonColStyle}>
+      <div style={confirmTextStyle}>
+        Leave this battle and return to the main menu? Battle progress is not
+        saved.
+      </div>
+      <BigButton label="Leave battle" onClick={props.onConfirm} />
+      <BigButton label="Keep playing" onClick={props.onCancel} />
     </div>
   );
 }
@@ -112,6 +133,9 @@ function SettingsBody({ onBack }: { readonly onBack: () => void }): ReactElement
       </Row>
       <Row label="Turn alert">
         <OnOff value={api.settings.turnTransitionAlert} onChange={api.setTurnTransitionAlert} />
+      </Row>
+      <Row label="Handoff prompt">
+        <OnOff value={api.settings.passAndPlayHandoff} onChange={api.setPassAndPlayHandoff} />
       </Row>
       <div style={settingsHintStyle}>
         Settings reset on reload; persistence is a future feature.
@@ -251,6 +275,13 @@ const buttonColStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 8,
+};
+
+const confirmTextStyle: CSSProperties = {
+  fontSize: 13,
+  lineHeight: 1.5,
+  color: '#c7cad2',
+  marginBottom: 4,
 };
 
 const settingsStyle: CSSProperties = {

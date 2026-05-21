@@ -106,7 +106,7 @@ describe('App — unified team flow (S43)', () => {
     container.remove();
   });
 
-  it('shows a pass-and-play handoff between team builders when both teams are human', () => {
+  it('goes straight to Team B in pass-and-play with the handoff prompt off (default)', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -123,13 +123,32 @@ describe('App — unified team flow (S43)', () => {
     loadDefaultTemplate(container);
     act(() => findButton(container, 'Continue to Team B').click());
 
-    // Handoff prompt interposes before Team B's builder.
-    expect(container.textContent).toContain('your turn');
-    const proceed = findButton(container, 'Build team');
-    act(() => proceed.click());
-
-    // Now on the Team B builder.
+    // The handoff prompt defaults OFF (it's an opt-in pause-menu setting),
+    // so even both-human flows straight to the Team B builder with no
+    // interstitial "pass the device" screen.
+    expect(container.textContent).not.toContain('your turn');
     expect(container.textContent).toContain('Build Team B (Red)');
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('steps back from the Team B builder to the Team A builder', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => root.render(<App />));
+
+    act(() => findButton(container, 'New Battle').click());
+    act(() => findButton(container, 'Start River Ridge').click());
+    loadDefaultTemplate(container);
+    act(() => findButton(container, 'Continue to Team B').click());
+    expect(container.textContent).toContain('Build Team B (Red)');
+
+    // Back from Team B returns to the Team A builder (not all the way to
+    // setup).
+    act(() => findButton(container, 'Back to Team A (Blue)').click());
+    expect(container.textContent).toContain('Build Team A (Blue)');
 
     act(() => root.unmount());
     container.remove();

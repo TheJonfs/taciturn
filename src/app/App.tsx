@@ -28,7 +28,7 @@ import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import { buildTeamBattleConfig, type BuiltTeam } from '@content/teams/index.ts';
 import type { BattleConfig, Catalog, TeamControl, TeamId } from '@engine/index.ts';
 import { TEAM_PALETTE, TEAM_PALETTE_FALLBACK_CSS } from '@renderer/index.ts';
-import type { TeamBuilderState } from '@ui/index.ts';
+import { SettingsProvider, useSettings, type TeamBuilderState } from '@ui/index.ts';
 
 type Screen = 'title' | 'setup' | 'teamBuilder' | 'deployment' | 'battle';
 type Slot = 0 | 1;
@@ -53,8 +53,21 @@ interface Handoff {
   readonly accent: string;
 }
 
+// App owns the session-scoped settings provider so settings persist
+// across every screen (the pause-menu toggles, the pass-and-play handoff
+// flag, the active-team signal toggles) and the pre-battle phases read
+// the same flags the in-battle pause menu writes.
 export function App() {
+  return (
+    <SettingsProvider>
+      <AppInner />
+    </SettingsProvider>
+  );
+}
+
+function AppInner() {
   const [screen, setScreen] = useState<Screen>('title');
+  const { settings } = useSettings();
 
   // Catalog held in a ref one-shot (stable identity across Fast Refresh,
   // same discipline as the battle screens). Used to compute AI teams'
@@ -189,10 +202,13 @@ export function App() {
           setScreen('teamBuilder');
         };
         // A handoff before building Team B only makes sense when a
-        // *different* human is about to build it (pass-and-play). When
-        // the same person configures both sides (human-vs-AI, AI-vs-AI),
-        // skip straight through.
-        if (controls[0] === 'human' && controls[1] === 'human') {
+        // *different* human is about to build it (pass-and-play) *and*
+        // the player has opted into the handoff prompt (off by default).
+        if (
+          settings.passAndPlayHandoff &&
+          controls[0] === 'human' &&
+          controls[1] === 'human'
+        ) {
           showHandoff(
             {
               title: `${TEAM_NAMES[1]} — your turn`,
@@ -210,7 +226,7 @@ export function App() {
       // Slot 1 done — both teams built.
       beginDeployment(builtTeamsRef.current[0]!, team);
     },
-    [builderSlot, controls, showHandoff, beginDeployment],
+    [builderSlot, controls, showHandoff, beginDeployment, settings.passAndPlayHandoff],
   );
 
   const handleDeploymentCommit = useCallback(
@@ -222,6 +238,14 @@ export function App() {
         return;
       }
       const nextTeam = deployQueue[nextIndex]!;
+      const proceed = (): void => {
+        setDeployIndex(nextIndex);
+        setScreen('deployment');
+      };
+      if (!settings.passAndPlayHandoff) {
+        proceed();
+        return;
+      }
       const nextName = TEAM_NAMES[TEAM_IDS.indexOf(nextTeam) as 0 | 1];
       showHandoff(
         {
@@ -230,13 +254,10 @@ export function App() {
           cta: 'Deploy',
           accent: teamCss(nextTeam),
         },
-        () => {
-          setDeployIndex(nextIndex);
-          setScreen('deployment');
-        },
+        proceed,
       );
     },
-    [deployIndex, deployQueue, showHandoff],
+    [deployIndex, deployQueue, showHandoff, settings.passAndPlayHandoff],
   );
 
   const setDraftForSlot = useCallback(
@@ -277,10 +298,16 @@ export function App() {
           teamLabel={`Team ${builderSlot === 0 ? 'A' : 'B'} (${TEAM_NAMES[builderSlot]})`}
           control={controls[builderSlot]!}
           continueLabel={builderSlot === 0 ? 'Continue to Team B' : 'Continue to Deployment'}
+          backLabel={builderSlot === 1 ? `Back to Team A (${TEAM_NAMES[0]})` : 'Back to Setup'}
           initialDraft={drafts[builderSlot]}
           onDraftChange={setDraftForSlot}
           onContinue={handleBuilderContinue}
-          onBack={() => setScreen('setup')}
+          onBack={() => {
+            // From Team B, step back to Team A's builder (draft preserved)
+            // rather than all the way to setup; from Team A, exit to setup.
+            if (builderSlot === 1) setBuilderSlot(0);
+            else setScreen('setup');
+          }}
         />
       )}
 

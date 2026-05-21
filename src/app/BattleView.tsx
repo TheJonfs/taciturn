@@ -22,7 +22,7 @@
 // fixture (consumed by `orchestrator.test.ts` and
 // `ai-controller.integration.test.ts`).
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Application } from 'pixi.js';
 import { BattleErrorBoundary } from './BattleErrorBoundary.tsx';
 import {
@@ -53,7 +53,6 @@ import {
   ForecastTooltip,
   PauseOverlay,
   ResultsScreen,
-  SettingsProvider,
   TurnTransitionAlert,
   UnitDetailPanel,
   useSettings,
@@ -94,11 +93,12 @@ export interface BattleViewProps {
 }
 
 export function BattleView(props: BattleViewProps) {
+  // Settings come from the app-root `SettingsProvider` (main.tsx) so the
+  // pause-menu toggles persist across screens and the pre-battle phases
+  // (App's pass-and-play handoffs) read the same flags.
   return (
     <BattleErrorBoundary>
-      <SettingsProvider>
-        <BattleViewInner {...props} />
-      </SettingsProvider>
+      <BattleViewInner {...props} />
     </BattleErrorBoundary>
   );
 }
@@ -523,13 +523,18 @@ function BattleViewInner({
     if (activeTeam === null || !humanTeams.has(activeTeam)) return;
     const prev = lastHumanTeamRef.current;
     lastHumanTeamRef.current = activeTeam;
-    if (humanTeams.size > 1 && prev !== null && prev !== activeTeam) {
+    if (
+      settingsApi.settings.passAndPlayHandoff &&
+      humanTeams.size > 1 &&
+      prev !== null &&
+      prev !== activeTeam
+    ) {
       setBattleHandoff({
         name: activeTeamName ?? 'Next player',
         color: activeTeamColor ?? TEAM_PALETTE_FALLBACK_CSS,
       });
     }
-  }, [activeTeam, humanTeams, activeTeamName, activeTeamColor]);
+  }, [activeTeam, humanTeams, activeTeamName, activeTeamColor, settingsApi.settings.passAndPlayHandoff]);
 
   // Hover-counterpart forwarder — flows from the HUD's hover handlers
   // through to the renderer's sprite-pulse channel.
@@ -566,6 +571,21 @@ function BattleViewInner({
           color={activeTeamColor ?? TEAM_PALETTE_FALLBACK_CSS}
         />
       )}
+      {/* On-screen pause control — discoverable without knowing the ESC
+          shortcut, and the only way to pause/inspect during an AI-vs-AI
+          battle (no action menu to fall back on). Hidden while paused or
+          on the results screen. */}
+      {!paused && !showResults && (
+        <button
+          type="button"
+          style={pauseButtonStyle}
+          onClick={() => setPaused(true)}
+          aria-label="Pause battle"
+          title="Pause (Esc)"
+        >
+          ‖ Pause
+        </button>
+      )}
       <ForecastTooltip
         forecast={turnFlow.forecast}
         catalog={catalog}
@@ -588,7 +608,9 @@ function BattleViewInner({
           onClose={() => setChargedDetailId(null)}
         />
       )}
-      {paused && <PauseOverlay onResume={() => setPaused(false)} />}
+      {paused && (
+        <PauseOverlay onResume={() => setPaused(false)} onMainMenu={onExitToTitle} />
+      )}
       {showResults && latestState !== null && outcome !== undefined && (
         <ResultsScreen
           state={latestState}
@@ -617,3 +639,21 @@ function BattleViewInner({
     </div>
   );
 }
+
+const pauseButtonStyle: CSSProperties = {
+  position: 'absolute',
+  top: 3,
+  right: 12,
+  zIndex: 50,
+  padding: '6px 12px',
+  fontSize: 13,
+  fontFamily: 'system-ui, sans-serif',
+  background: 'rgba(28, 30, 35, 0.9)',
+  color: '#e7e9ee',
+  borderWidth: 1,
+  borderStyle: 'solid',
+  borderColor: '#3a4150',
+  borderRadius: 6,
+  cursor: 'pointer',
+  pointerEvents: 'auto',
+};

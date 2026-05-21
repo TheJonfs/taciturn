@@ -38,6 +38,12 @@ export interface Settings {
   readonly activeTeamBanner: boolean;
   readonly activeTeamMenuHighlight: boolean;
   readonly turnTransitionAlert: boolean;
+  // Full-screen "pass the device" prompt between pass-and-play phases
+  // (team builders, deployments, and mid-battle human→human turn
+  // changes). Click-through, blocks input until confirmed. Default OFF —
+  // the active-team signals already make the turn owner clear without an
+  // interruption; kept as an opt-in for groups who want the explicit beat.
+  readonly passAndPlayHandoff: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -47,6 +53,7 @@ export const DEFAULT_SETTINGS: Settings = {
   activeTeamBanner: true,
   activeTeamMenuHighlight: true,
   turnTransitionAlert: true,
+  passAndPlayHandoff: false,
 };
 
 export interface SettingsApi {
@@ -57,6 +64,7 @@ export interface SettingsApi {
   setActiveTeamBanner(value: boolean): void;
   setActiveTeamMenuHighlight(value: boolean): void;
   setTurnTransitionAlert(value: boolean): void;
+  setPassAndPlayHandoff(value: boolean): void;
 }
 
 const SettingsContext = createContext<SettingsApi | null>(null);
@@ -74,6 +82,8 @@ export function SettingsProvider({ children }: { readonly children: ReactNode })
         setSettings((s) => ({ ...s, activeTeamMenuHighlight: value })),
       setTurnTransitionAlert: (value) =>
         setSettings((s) => ({ ...s, turnTransitionAlert: value })),
+      setPassAndPlayHandoff: (value) =>
+        setSettings((s) => ({ ...s, passAndPlayHandoff: value })),
     }),
     [settings],
   );

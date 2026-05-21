@@ -8,7 +8,7 @@ This is a transient note from one session to the next.
 
 ## From Session 43 close (2026-05-21) — Unified team architecture + KO'd-unit pathing + AI deployment heuristic
 
-S43 shipped as a **monolith** (no 43a/43b split — the audit found the engine already team-agnostic, so the unified-team work was additive, which let the stretch goal land too). **1284 tests passing across 115 files** (up from 1264 / 114; +20). One ADR: **ADR-0082** (unified team architecture — control flag, sequential builder, heuristic deployment, pass-and-play UX).
+S43 shipped as a **monolith** (no 43a/43b split — the audit found the engine already team-agnostic, so the unified-team work was additive, which let the stretch goal land too). **1285 tests passing across 115 files** (up from 1264 / 114; +21). One ADR: **ADR-0082** (unified team architecture — control flag, sequential builder, heuristic deployment, pass-and-play UX). A post-implementation refinement round followed (see below).
 
 ### What shipped
 
@@ -24,7 +24,15 @@ S43 shipped as a **monolith** (no 43a/43b split — the audit found the engine a
 - `BattleSetupScreen` now picks per-team control up front (Human/AI segmented toggles + a mode hint). **Deviation from brief D7** (which put the toggle in the builder): control must be known before building to branch deployment + handoffs — documented in ADR-0082. The builder shows control read-only.
 - `App` runs the team builder once per team (A → B), then a manual deployment phase per *human* team in turn order; AI teams auto-deploy via the heuristic; both folded into the battle config before `BattleView`.
 - `BattleView` builds the `ControllerMap` from each team's `control` (shared UI controller for human, fresh AI controller per AI team). `useTurnFlow`'s `uiTeam: TeamId` → `humanTeams: ReadonlySet<TeamId>`.
-- Pass-and-play: minimal `HandoffScreen` between builders, between deployments, and mid-battle on human→different-human turn change. Three active-team signals, each toggleable in pause→Settings (default on): (a) team-color banner below terrain bar, (b) team-color glow on the action menu, (c) fading "<Team>'s turn" alert.
+- Pass-and-play: minimal `HandoffScreen` between builders, between deployments, and mid-battle on human→different-human turn change — **gated behind `passAndPlayHandoff`, default OFF** (opt-in; see refinement round). Three active-team signals, each toggleable in pause→Settings (default on): (a) team-color banner below terrain bar, (b) team-color glow on the action menu, (c) fading "<Team>'s turn" alert.
+
+### Post-implementation refinement round (same session, Chris's notes)
+
+- **`SettingsProvider` lifted to the app root.** `App` now wraps `AppInner` in the provider (was battle-scoped in BattleView) so the pre-battle phases and the in-battle pause menu share one settings source. BattleView's own provider was removed.
+- **Pass-and-play handoff defaults OFF.** New `passAndPlayHandoff` setting (default false), toggle in pause→Settings ("Handoff prompt"). All three handoff sites (builder/deployment in App, mid-battle in BattleView) gate on it. The active-team signals already convey turn ownership; the click-through prompt is opt-in.
+- **Builder back-navigation.** Team B's builder steps back to Team A's builder (draft preserved) via "Back to Team A (Blue)", not to setup. `TeamBuilderScreen` gained a `backLabel` prop.
+- **On-screen Pause button** in BattleView (top-right) — discoverable without ESC, and the only pause affordance during AI-vs-AI.
+- **Main Menu enabled in the pause overlay** with a "Leave battle / Keep playing" confirmation (`PauseOverlay` gained an `onMainMenu` prop + a `confirm-exit` view).
 
 ### Browser verification (what was / wasn't covered)
 

@@ -55,6 +55,10 @@ export interface TeamBuilderScreenProps {
   // Footer button label. "Continue to Team B", "Continue to Deployment",
   // etc., depending on what comes next — `App` decides.
   readonly continueLabel: string;
+  // Header back-button label. "Back to Setup" for Team A, "Back to Team
+  // A" for Team B (the builder runs in sequence). Defaults to "Back to
+  // Setup" when omitted.
+  readonly backLabel?: string;
   // Optional initial draft (S37). When the player navigates back into
   // this screen, `App` re-hydrates the draft it captured on the last
   // mutation so the in-progress build isn't lost.
@@ -70,6 +74,7 @@ export function TeamBuilderScreen({
   teamLabel,
   control,
   continueLabel,
+  backLabel = 'Back to Setup',
   initialDraft,
   onDraftChange,
 }: TeamBuilderScreenProps): ReactElement {
@@ -104,7 +109,7 @@ export function TeamBuilderScreen({
         <div style={headerActionsStyle}>
           <TeamBuilderDefaultLoader builder={builder} />
           <button type="button" style={secondaryButtonStyle} onClick={onBack}>
-            Back to Setup
+            {backLabel}
           </button>
         </div>
       </div>

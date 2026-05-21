@@ -44,9 +44,17 @@ For an AI team: compute the opposing zone's centroid, find the own-zone tile nea
 
 ### 7. Pass-and-play UX
 
-A minimal `HandoffScreen` (title + body + one button, accented in the incoming team's color) interposes between two different human controllers' phases: between team builders, between deployments, and mid-battle when the active team changes to a different human team. No secret-mode — Taciturn has no hidden information.
+A minimal `HandoffScreen` (title + body + one button, accented in the incoming team's color) can interpose between two different human controllers' phases: between team builders, between deployments, and mid-battle when the active team changes to a different human team. No secret-mode — Taciturn has no hidden information. Gated behind the `passAndPlayHandoff` setting, which **defaults off** (post-implementation playtest call): the active-team signals already make turn ownership clear without a click-through interruption, so the full-screen prompt is opt-in for groups who want the explicit "device changes hands" beat.
 
 All three active-team signals ship, each independently toggleable in settings (default on): (a) a persistent team-color banner below the terrain bar, (b) a team-color glow on the active-unit action menu, (c) a fading "<Team>'s turn" alert on each turn change.
+
+The session-scoped `SettingsProvider` was lifted to the app root (`App` wraps `AppInner`) so the pre-battle phases read the same flags the in-battle pause menu writes — one source of truth for `passAndPlayHandoff` and the signal toggles.
+
+### 8. Battle controls follow-ups
+
+- **Builder back-navigation:** Team B's builder steps back to Team A's builder (draft preserved), not all the way to setup.
+- **On-screen Pause button:** discoverable without the ESC shortcut, and the only pause affordance during AI-vs-AI (no action menu). Halts the existing pump.
+- **Main Menu from pause:** enabled with a "Leave battle / Keep playing" confirmation so a single stray click can't abandon the battle.
 
 ## Consequences
 
