@@ -393,10 +393,27 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
   useEffect(() => {
     if (renderer === null) return;
     const handler = (pos: Position, occupant: Unit | null): void => {
-      // Only react when the state machine expects input. Outside of
-      // picking states, clicks are inspection-only (Session 24's unit
-      // detail panel will hook here).
-      if (state === null || activeUnit === null) return;
+      if (state === null) return;
+
+      // Inspection (open the unit detail panel) is allowed regardless of
+      // whose turn it is — and even when *no* turn is active. The latter
+      // matters when an AI-vs-AI battle is halted between turns: the
+      // scheduler's mid-turn gap leaves `activeUnit` null, but the player
+      // still wants to click a unit and inspect it. Checked before the
+      // active-unit guard below (which the move/target branches require)
+      // so a unit click in idle / action-menu always opens the panel.
+      // (S43 pause-inspect fix.)
+      if (
+        occupant !== null &&
+        onInspectUnit !== undefined &&
+        (flowState.kind === 'action-menu' || flowState.kind === 'idle')
+      ) {
+        onInspectUnit(occupant.id);
+        return;
+      }
+
+      // Move / target picking need an active unit to act with.
+      if (activeUnit === null) return;
 
       if (flowState.kind === 'move-select') {
         const isLegal = legalMoveDestinations.some((d) => samePosition(d, pos));
@@ -505,19 +522,6 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
           return;
         }
         submitTargetedActionInternal(action);
-        return;
-      }
-
-      // Inspection mode: in action-menu / idle, clicking a unit on the
-      // canvas opens their detail panel. The forecast panel and other
-      // surfaces gain access to any unit's stats this way, matching the
-      // design doc's three-routes-converge pattern.
-      if (
-        occupant !== null &&
-        onInspectUnit !== undefined &&
-        (flowState.kind === 'action-menu' || flowState.kind === 'idle')
-      ) {
-        onInspectUnit(occupant.id);
         return;
       }
     };
