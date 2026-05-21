@@ -24,7 +24,7 @@ import {
   BRAVE_FAITH_MIN,
 } from '@content/teams/index.ts';
 import { UNIT_NAME_MAX_LENGTH } from '@ui/team-builder-state.ts';
-import type { Catalog } from '@engine/index.ts';
+import type { Catalog, TeamControl } from '@engine/index.ts';
 import {
   TeamBuilderAbilityPicker,
   TeamBuilderClassPicker,
@@ -39,12 +39,22 @@ import {
 const BACKGROUND = '#0e0f12';
 
 export interface TeamBuilderScreenProps {
-  // Continue: the player built a valid team and clicked "Continue to
-  // Deployment". The `BuiltTeam` is threaded by `App` into the
-  // deployment phase.
+  // Continue: the player built a valid team and clicked the continue
+  // button. The `BuiltTeam` is threaded by `App` to the next phase.
   readonly onContinue: (team: BuiltTeam) => void;
   // Back to battle setup.
   readonly onBack: () => void;
+  // Which team this builder instance is assembling (S43). Drives the
+  // header title; `App` runs the builder once per team in sequence.
+  readonly teamLabel: string;
+  // The team's chosen controller (set on the setup screen). Displayed
+  // read-only here — it doesn't change what you can build (an AI team
+  // gets the same full builder as a human one, per S43), only who drives
+  // it in battle.
+  readonly control: TeamControl;
+  // Footer button label. "Continue to Team B", "Continue to Deployment",
+  // etc., depending on what comes next — `App` decides.
+  readonly continueLabel: string;
   // Optional initial draft (S37). When the player navigates back into
   // this screen, `App` re-hydrates the draft it captured on the last
   // mutation so the in-progress build isn't lost.
@@ -57,6 +67,9 @@ export interface TeamBuilderScreenProps {
 export function TeamBuilderScreen({
   onContinue,
   onBack,
+  teamLabel,
+  control,
+  continueLabel,
   initialDraft,
   onDraftChange,
 }: TeamBuilderScreenProps): ReactElement {
@@ -84,7 +97,10 @@ export function TeamBuilderScreen({
   return (
     <div style={rootStyle}>
       <div style={headerStyle}>
-        <div style={titleStyle}>Build Your Team</div>
+        <div style={titleGroupStyle}>
+          <div style={titleStyle}>Build {teamLabel}</div>
+          <span style={controlBadgeStyle}>{control === 'human' ? 'Human' : 'AI'}</span>
+        </div>
         <div style={headerActionsStyle}>
           <TeamBuilderDefaultLoader builder={builder} />
           <button type="button" style={secondaryButtonStyle} onClick={onBack}>
@@ -98,7 +114,12 @@ export function TeamBuilderScreen({
         <EditPanel builder={builder} catalog={catalog} />
       </div>
 
-      <FooterBar builder={builder} onContinue={handleContinue} catalog={catalog} />
+      <FooterBar
+        builder={builder}
+        onContinue={handleContinue}
+        catalog={catalog}
+        continueLabel={continueLabel}
+      />
     </div>
   );
 }
@@ -210,10 +231,12 @@ function FooterBar({
   builder,
   onContinue,
   catalog,
+  continueLabel,
 }: {
   builder: TeamBuilder;
   onContinue: () => void;
   catalog: Catalog;
+  continueLabel: string;
 }): ReactElement {
   const messages = validationMessages(builder, catalog);
   const valid = builder.validity.valid;
@@ -222,7 +245,7 @@ function FooterBar({
     <div style={footerStyle}>
       <div style={validationAreaStyle}>
         {valid ? (
-          <span style={validOkStyle}>Team is valid — ready to deploy.</span>
+          <span style={validOkStyle}>Team is valid — ready to continue.</span>
         ) : (
           messages.map((message, i) => (
             <span key={i} style={validationMsgStyle}>
@@ -240,7 +263,7 @@ function FooterBar({
         onClick={onContinue}
         disabled={!valid}
       >
-        Continue to Deployment
+        {continueLabel}
       </button>
     </div>
   );
@@ -315,10 +338,28 @@ const headerStyle: CSSProperties = {
   flexShrink: 0,
 };
 
+const titleGroupStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+};
+
 const titleStyle: CSSProperties = {
   fontSize: 20,
   fontWeight: 700,
   color: '#f6e5a8',
+};
+
+const controlBadgeStyle: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase',
+  padding: '3px 8px',
+  borderRadius: 4,
+  background: '#2a3140',
+  color: '#cfd2da',
+  border: '1px solid #3a4150',
 };
 
 const headerActionsStyle: CSSProperties = {

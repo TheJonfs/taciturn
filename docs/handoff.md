@@ -6,92 +6,62 @@ This is a transient note from one session to the next.
 
 ---
 
-## From Session 42 close (2026-05-20) — Assassin + Two Weapons substrate + Lightning Stab swap
+## From Session 43 close (2026-05-21) — Unified team architecture + KO'd-unit pathing + AI deployment heuristic
 
-S42 shipped as a **monolith** (no 42a/42b split — the audit found the attack pipeline already consolidated, so the substrate was additive, not invasive). Four pieces: the Two Weapons multi-swing substrate, the full Assassin class, the Knight's Stasis Sword → Lightning Stab swap, and **The Offering** (the swings-per-weapon accessory originally slated for S43 — pulled forward at Chris's request once the substrate proved it was a small add). **1264 tests passing across 114 files** (up from 1224 / 111; +40). Two ADRs: ADR-0080 (unified attack pipeline + multi-swing, with The Offering addendum), ADR-0081 (Brave/Faith-and-Speed formulas + Remedy-immune stat debuffs).
-
-### Post-close playtest fixes (same session, two display/projection bugs)
-
-Two issues surfaced in Chris's first playtest run and were fixed immediately after the main S42 commit (`adf5d0f`):
-
-1. **Detail panel showed raw base Brave/Faith.** The in-battle `unit-detail-panel.tsx` read `unit.baseStats.brave` / `.faith` directly, while every other stat (PA/MA/Speed/Move/Jump) went through `runModifyStatQuery`. So Bravestrider's +10 (and Undermine/Sow Doubt's −20) never showed — a Bravestrider unit read 70, not 80. **The hook was always applying** (Counter trigger + status formulas used the modified value; `knight-kit.test.ts` confirms 80); only the *display* was wrong. Fix: panel now computes Brave/Faith via `runModifyStatQuery` like the other stats. (The team-builder Brave/Faith *sliders* still show base by design — that's the editable base you set.)
-
-2. **Damage forecast (and AI projection) ignored weapon Speed-variance.** Knives use the `attacker_speed` variance band (ADR-0067/S40): at Speed 16 that's ~[1.55, 1.65], so live hits ~1.6×, but `damage-range.ts` and `ai/projection.ts`'s `projectionVarianceRoll` read only the ability's static `[0.9,1.1]` → forecast ~1.0×. Playtest symptom: forecast 17–21, hits low 30s. Fix mirrors the `readCritChance` sharing pattern: extracted one `resolvePhysicalVarianceBand(state, catalog, attacker, ability)` (exported from `engine/damage/handlers.ts`), now used by the **live** `varianceRoll`, the **AI/forecast projection**, and the **UI damage-range**. The projection's variance handler resolves the effective (weapon) band for its expected value, with a "pinned-factor" escape hatch (`ctx.variance.min === max`) so `damage-range` can still collapse to band endpoints for min/max bounds. **Bonus:** the AI now correctly values knife damage (it was under-rating all knife attacks, its own and threat assessment). Backward-compatible — non-knife weapons resolve to the ability band exactly as before.
-
-Both fixes are covered by tests (the +1 over 1263 is the knife-forecast regression; the Brave/Faith fix rides existing `knight-kit` coverage of the hook). Watch in playtest: confirm the panel now reads 80 for Bravestrider units and that knife forecasts match the hits.
-
-### Post-close tuning + tooltip pass (same session, Chris's call)
-
-A small content/UI follow-up after more playtest:
-
-- **Assassin Command Set MP retune.** Shadow Stitch 8 → **10 MP** (priciest member — Stop is the strongest single-target lockout; ~2 casts at base MP 24); Undermine and Sow Doubt 10 → **6 MP** (cheap openers, ~4 casts each); Blowdart stays 8. So MP now ranks by impact: Shadow Stitch (10) > Blowdart (8) > Undermine/Sow Doubt (6). Settles the S42-brief D7 MP costs differently than the brief's first guess; no test pinned the old values.
-- **Command Set targeting `straight_line` → `arc`** for all four (Shadow Stitch / Blowdart / Undermine / Sow Doubt). Arc (uncovered source + uncovered target) reads better for thrown/blown ranged debuffs than strict line-of-sight; range stays 4h × 3v.
-- **The Offering tooltip.** The item-detail tooltip (`detail-text.ts`) rendered stat mods / procs / drain etc. but never `attackSwingMultiplier`, so The Offering's hover showed only "−2 PA". Added a line: "Basic Attack: each equipped weapon swings 2× (stacks with Two Weapons; not reactions or Battle Skills)". (The equipment-picker's one-line summary already surfaced "Attack swings ×2" from the main S42 commit; this covers the fuller hover.)
-
-Tests hold at 1264 (these are value/text changes; no behavior tests pinned the old MP/rangeMode).
-
-### Plan-review decisions (settled with Chris)
-
-- **Monolith**, not 42a/42b — audit showed consolidation cost was small.
-- **D2 Remedy: stat debuffs non-clearable.** Audit surfaced that the brief's premise was *wrong* — `pa_down`/`ma_down`/`speed_down` had no polarity, defaulted to `'debuff'`, and *were* Remedy-cleared. Chris's call: make stat-reduction debuffs Remedy-immune (data-driven flag). **This changed existing Fire/Earth Strike / Brine / Earth Quake calibration** — those debuffs are now permanent-until-battle-end (see playtest-watch).
-- **D9: "Lightning Stab"** (not "Hallowed Bolt").
-- **Team: Assassin + Knight + Alchemist + Mage** → "Shadow and Steel" template.
+S43 shipped as a **monolith** (no 43a/43b split — the audit found the engine already team-agnostic, so the unified-team work was additive, which let the stretch goal land too). **1284 tests passing across 115 files** (up from 1264 / 114; +20). One ADR: **ADR-0082** (unified team architecture — control flag, sequential builder, heuristic deployment, pass-and-play UX).
 
 ### What shipped
 
-**Substrate (engine):**
+**Engine:**
+- `Team.control: 'human' | 'ai'` (required `TeamControl` field). The pure engine never reads it — it's battle-setup data the app consumes. All `Team` construction sites updated (production `demo.ts` → Blue human / Red ai; River Ridge inherits; ~10 test fixtures).
+- **KO'd-unit pathing fix.** Canonical `isKO(unit)` exported from `engine/map/accessors.ts` (scheduler's private copy replaced). `canStep`/`canLeapTo` now treat KO'd occupants (any team) as passable for *traversal*; the post-Dijkstra settlement filter still rejects ending on them. `removed` units are free on both counts. (5 new pathfinding tests.)
 
-- **`modifyDualWield` hook** (new closed-surface boolean OR-query; `hooks.ts` + `runModifyDualWield` runner + `hooks/index.ts` export). Two Weapons returns true. Engine asks "may this unit attack off-hand?" content-agnostically.
-- **`multiWeapon?: boolean`** on `ActiveAbilityDefinition` — true on `attack` (→ Counter) and `power_attack`; absent on `lightning_stab` / `stasis_sword` / magic (D1b defaults: damage attacks multi-swing, status-rider attacks opt out).
-- **`attackingWeaponSlot?: EquipmentSlotId`** threaded through `RunDamagePipelineArgs` → `DamageContext`. When set, `physicalPaWp` reads that slot's weapon (`getWeaponInSlot`) and `attackProcContributor` scopes procs to that slot. **Undefined = bit-identical pre-S42 behavior** (dominant-weapon + all-item procs) — this is what kept the 1224 pre-existing tests unchanged.
-- **Swing loop** in `resolveSingleTargetDispatch` (`attackingWeaponSlots` helper). Fast path (`[undefined]`) identical to before; multi-swing loops `resolveAbilityEffect` per slot with `perTargetSeed(seed, swingIndex)`. Each swing fully resolves (damage → procs → reactions) before the next; stops early on target KO; caster effects fire only on swing 0. AoE path is single-swing (no v1 AoE weapon attack).
-- **`speed` factor** in `StatusFormulaFactors` → `0.9 + caster_speed/20` (caster-only, `computeSpeedFactor`). Wired into `computeStatusChance` + `rollAbilityChance` (+forecast shares `computeStatusChance`). Brave-and-Speed / Faith-and-Speed variants.
-- **`remedyImmune?: boolean`** on `StatusEffectType`. Remedy predicate (`applyConsumableEffects`) skips it. Set on `pa_down`/`ma_down`/`speed_down`/`brave_down`/`faith_down`.
+**AI:**
+- `src/ai/deployment.ts` — pure `planAiDeployment({ map, team, units })`: opposing-zone centroid → front-center tile → sort by descending maxHP (tie-break class id) → nearest-to-front assignment, facing opposing centroid. Returns `{ placements, unplaced }`. (8 tests.)
+- `computeAiDeploymentResult` (app `deployment-config.ts`) bridges it into a `DeploymentResult`, reading maxHP from a fresh initial state; warns (console) on `unplaced`. (3 tests.)
 
-**Content:**
-
-- **Assassin class** (`assassin.ts`, baseline HP 96 / MP 24 / PA 6 / MA 3 / SPD 14, evade 8/4/0). Native free: Two Weapons (S), Speed Save (R), Fleet of Foot (M). First-action set: **Shadow Arts** (`shadow_stitch`, `blowdart`, `undermine`, `sow_doubt`).
-- **Abilities:** `two_weapons` (modifyDualWield + PA×0.75, cross-class cost 3), `speed_save` (reaction → +1 Speed accumulator), `fleet_of_foot` (move+1/jump+1, cost 1), the four Command Set abilities, `lightning_stab` (Silence rider, baseChance 50 `{brave,ma}`, single-swing, 8 MP).
-- **Statuses:** `speed_save` (buff, STACK_ADDITIVE accumulator, persists KO), `brave_down` / `faith_down` (permanent, remedyImmune, STACK_ADDITIVE, magnitude 20).
-- **Knight swap:** `battle_skill` command set members `stasis_sword` → `lightning_stab`. Stasis Sword stays registered (cross-class option).
-- **The Offering** (`the_offering.ts`, accessory): each equipped weapon swings twice on the **basic Attack only** (`attackSwingMultiplier: 2` → new `modifySwingsPerWeapon` hook; new `basicAttack` ability flag gates it to `attack`, `isReaction` excludes Counter). `statMods: { pa: -2 }` balancing tax. Stacks with Two Weapons → 4 swings. The second multi-swing axis ADR-0080 anticipated.
-- **Team:** `shadow-and-steel.ts` (Lysha/Aldric/Corvin/Senna).
-
-**UI:**
-
-- Assassin tagline "Swift debilitating skirmisher".
-- **Two dual-wield gates fixed** (both found in browser verification): (1) equipment-picker dropdown (`team-builder-equipment-slots.tsx`) now offers an off-hand weapon when `modifyDualWield` is present; (2) team-builder *validation* (`team-builder-state.ts` `isDualWielding`) no longer flags a two-weapon Assassin as invalid. Both detect capability via a `modifyDualWield` hook scan (content-agnostic).
-- Action menu / unit-detail panel are data-driven — Shadow Arts members, the Speed Save status badge, and the passives surface automatically (verified to load without error; not driven through the PixiJS battle canvas).
+**App / UI:**
+- `BattleSetupScreen` now picks per-team control up front (Human/AI segmented toggles + a mode hint). **Deviation from brief D7** (which put the toggle in the builder): control must be known before building to branch deployment + handoffs — documented in ADR-0082. The builder shows control read-only.
+- `App` runs the team builder once per team (A → B), then a manual deployment phase per *human* team in turn order; AI teams auto-deploy via the heuristic; both folded into the battle config before `BattleView`.
+- `BattleView` builds the `ControllerMap` from each team's `control` (shared UI controller for human, fresh AI controller per AI team). `useTurnFlow`'s `uiTeam: TeamId` → `humanTeams: ReadonlySet<TeamId>`.
+- Pass-and-play: minimal `HandoffScreen` between builders, between deployments, and mid-battle on human→different-human turn change. Three active-team signals, each toggleable in pause→Settings (default on): (a) team-color banner below terrain bar, (b) team-color glow on the action menu, (c) fading "<Team>'s turn" alert.
 
 ### Browser verification (what was / wasn't covered)
 
-Verified in-browser, no console errors anywhere: Assassin selectable + tagline; stats correct with **Two Weapons PA × 0.75 composing live** (PA 4–5 depending on gear); **both knives equippable** (picker gate); team-builder validation accepts the dual-wield Assassin (deployment button enables); Shadow and Steel loads; deployment screen renders.
+Verified in-browser, no real console errors (see watch-for below):
+- **Human-vs-AI (classic):** full flow builder A (human) → builder B (AI, no handoff) → Blue manual deployment → battle. Human action menu activates on Blue's turn; "Blue's turn" banner + Blue menu glow render; Red AI deployed by heuristic. **No regression.**
+- **AI-vs-AI:** both teams built + AI, heuristic deployment for both, battle runs (turns advance: Caedric cast Inner Warmth + moved, etc.); "Red's turn" banner shows; no human menu.
+- Setup control toggles + mode hints; builder sequence + AI badges; A→B handoff correctly skipped when not both-human.
+- Preview Pixi ticker is throttled when the tab isn't foregrounded — use `window.__taciturnDebug.pump(n)` to advance a battle, and `window.__taciturnDeployDebug` (selectTile/pickUnit/pickFacing) to drive deployment.
 
-**NOT browser-verified (PixiJS canvas — not DOM-scriptable):** in-battle multi-swing animation/log, the in-battle action menu, and the Lightning Stab/Speed Save in-combat behavior. These are covered by deterministic tests (`session-42-multiswing-integration.test.ts`, `assassin-commandset.test.ts`). **First manual playtest should drive an actual battle** to confirm: two damage flashes on a dual-wield attack, Shadow Arts targeting/forecast, Speed Save badge incrementing, Lightning Stab Silence.
+**NOT browser-verified:** full pass-and-play with two human teams deploying both sides via canvas (canvas clicks aren't scriptable; the builder→builder handoff and mid-battle handoff *logic* are unit-tested, and deployment is exercised via the deploy-debug surface). First manual pass-and-play playtest should confirm the mid-battle handoff feels right and the signaling combination is sufficient.
 
-### Watch-fors / things noticed (next-session candidates)
+### Watch-fors (all logged in `docs/playtest-watch.md`)
 
-- **Speed Save vs the reaction cap (D5 deviation).** The flat `perUnitPerTurnReactions: 1` throttles Speed Save to once per enemy *turn*, even on a 2-swing enemy hit (D5 wanted up to 2 procs). Honoring per-swing needs a per-ability reaction-cap override — deferred. Flagged in playtest-watch.
-- **Existing stat debuffs are now Remedy-immune.** A real balance change to Fire Strike / Earth Strike / Brine / Earth Quake (their PA/MA/Speed Down now stick all battle). Watch whether this over-tunes those abilities; lever is per-status `remedyImmune` scoping.
-- **`movement-debuff` left Remedy-clearable** (finite, ability-tied) while flat stat debuffs are immune — a deliberate scoping call (ADR-0081). Revisit if inconsistent in playtest.
-- **Assassin AI is purely the existing data-driven offensive classification** — no Assassin-specific heuristics. Verify in playtest the Assassin doesn't idle / spam one ability / pick poor debuff targets; add scoring if it does.
-- **`content-id-registry.md` is stale** (was already missing the Alchemist's abilities/statuses pre-S42). I added the class + command-set rows and the Lightning Stab swap, but the active-abilities / passives / statuses tables are incomplete (pre-S39b). Warrants a reconciliation pass.
-- **No Assassin portrait asset** — the class card shows no image (other classes have portraits). Cosmetic; add when art is available.
-- **Lightning Stab + Bravestrider Silence rate** — see playtest-watch; may read "too sticky."
-- **Knight + Two Weapons (cross-class) damage king** — earlier math had it out-damaging Martial Expertise; watch whether the shield-loss trade keeps Martial Expertise a real choice.
-- **The Offering burst ceiling.** Two Weapons + The Offering = four basic-Attack swings (plus per-swing weapon procs and four chances to trigger the target's Counter/Speed Save). The −2 PA + accessory-slot cost is the only brake. Watch whether four-swing basic attacks over-tune raw output, especially on Knight + dual axes + Battle Gear; lever is the −2 PA magnitude or `attackSwingMultiplier` not stacking with dual-wield. (Note: it's basic-Attack-only, so it does NOT amplify Power Attack — a deliberate ceiling.)
+- **AI-vs-AI balance / loop conditions** — new mode may surface AI stalls or non-terminating battles.
+- **AI deployment positioning quality** — heuristic sorts by maxHP, not role; a tanky support lands forward. Lever is the sort key (→ role-aware).
+- **Pass-and-play handoff ergonomics + which signal combo to keep** — Chris plans to playtest then disable redundant signals (all three on by default).
+- **KO'd-unit traversal secondary interactions** — watch LoS / AoE / other occupancy-sensitive subsystems now that downed bodies are pathable.
+- **Pre-existing border/borderColor React dev warnings** during battle — confirmed NOT from S43 (new signaling components use separate border props); a battle component mixes `border` shorthand with dynamic `borderColor`. Cosmetic; fix when located.
+
+### Notes for next session
+
+- **Schema change is live:** `Team.control` is required. Any new battle config / fixture must set it.
+- The brief's v1 "AI must be template-loaded" constraint was **dropped entirely** (not built-then-relaxed) since the heuristic landed — AI teams get the full builder. (ADR-0082 §5.)
+- **TS strict-mode pile** unchanged by S43 (verified: my new files add zero type errors; the ~279 remaining are the pre-existing carry).
+- `assignAiTeamNames` (content/teams) is now unused by `App` (both teams are builder-named) but still exported + tested — left in place, not deleted.
 
 ### Carry-forward (longer-term, unchanged)
 
+- Equipment expansion (Hi-Potion / Holy Water / Elixir + weapons/accessories) — S44 candidate.
+- Second map design — S45 per roadmap.
+- 5v5 unlock — later in roadmap.
 - Charm/Seduction (team-override substrate, dedicated session).
 - Knight base-PA recalibration (playtest-driven).
-- Pyromancer R/S/M consolidation (4 free passives — future R/S/M review).
-- AI deployment / random-fill (Red still authored placements).
-- TS strict-mode pile (~230, S34 carry).
-- Pass-and-play toggle + dual deployment + battle-loop AI gating (dedicated session).
-- Calculator class.
-- Additional consumables (Hi-Potion, Holy Water, Elixir); buff/debuff consumables (`applyStatus` on ConsumableEffects).
-- Renderer-side multi-swing animation polish (basic reuse of existing flash; polish deferred).
+- Pyromancer R/S/M consolidation (future R/S/M review).
+- Speed Save per-swing reaction cap (S42 D5 deviation).
+- Renderer-side multi-swing animation polish (S42 carry).
 - Permadeath badge first-playtest visual read (S41 carry).
-- Command-set display-name renames (Fire Spells / etc. — S40 carry).
-- ActionType-wiring smoke test (future CI; no new ActionTypes added this session).
+- `content-id-registry.md` reconciliation (stale since pre-S39b).
+- TS strict-mode pile (~279, S34 carry).
+- ActionType-wiring smoke test (future CI; no new ActionTypes this session).

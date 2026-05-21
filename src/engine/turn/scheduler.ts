@@ -21,12 +21,12 @@
 import type { Catalog } from '../catalog/index.ts';
 import { TRIGGER_THRESHOLD } from '../ct/constants.ts';
 import { computeActionSpeed, computeSpeed } from '../ct/speed.ts';
+import { isKO } from '../map/accessors.ts';
 import {
   type ChargedAction,
   type ChargedActionId,
   type GameState,
   type ProposedAction,
-  type Unit,
   type UnitId,
 } from '../types/index.ts';
 
@@ -208,6 +208,3 @@ function compareForTrigger(a: SnapshotEntry, b: SnapshotEntry): number {
   return a.entityId < b.entityId ? -1 : 1;
 }
 
-function isKO(unit: Unit): boolean {
-  return unit.vitals.hp <= 0;
-}

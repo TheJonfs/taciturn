@@ -400,3 +400,33 @@ shouldn't drift out of memory between sessions.
 - **What to watch.** The Offering (accessory) doubles basic-Attack swings per weapon; with Two Weapons that's **four swings** in one Attack, each rolling its own damage/variance/weapon-procs and each able to trigger the target's Counter / Speed Save. Balancing is a flat −2 PA + the accessory slot.
 - **Why it matters.** Four-swing basic attacks are a large raw-output lever. On Knight + dual axes + Battle Gear especially, watch whether it overshadows other builds. Deliberately gated to the *basic Attack* (not Power Attack / Lightning Stab / Counter), which caps the ceiling.
 - **Signal for adjustment.** If four-swing Attack output dominates, increase the −2 PA tax, make `attackSwingMultiplier` not multiply with dual-wield (cap total swings at 2), or raise the accessory's opportunity cost. Conversely, if −2 PA makes it never worth equipping, soften the tax.
+
+### S43 — AI vs. AI balance & loop conditions
+
+- **What to watch.** AI-vs-AI (both teams `control: 'ai'`) is a new mode that puts the AI in charge of both sides. It exercises edge cases human-vs-AI never reaches.
+- **Why it matters.** Watch for: AI loop/stall conditions, both-sides-questionable decisions, battles running excessively long (no decisive play), or the existing offensive-classification AI mirror-matching into stalemate.
+- **Signal for adjustment.** If AI-vs-AI battles routinely fail to terminate or visibly thrash, add tie-break / aggression heuristics to the basic AI. (A step bound already guards the AI-vs-AI integration test.)
+
+### S43 — AI deployment heuristic positioning quality
+
+- **What to watch.** AI teams auto-deploy via `planAiDeployment`: high-`maxHP` units forward (nearest the front center), low-HP back, all facing the opposing centroid. It is deterministic but not role-aware.
+- **Why it matters.** maxHP is a rough proxy for "should be in front." A high-HP support (e.g. a tanky Hydrologist) lands forward; a squishy-but-frontline class lands back. Real play will reveal where "HP forward" reads wrong.
+- **Signal for adjustment.** If placements feel consistently off, move to role-aware sorting (tank > damage > support) or an AI scoring-based placement pass. The geometry (front-center assignment, facing) is sound; the *sort key* is the lever.
+
+### S43 — Pass-and-play handoff ergonomics & active-team signaling
+
+- **What to watch.** First two-human playtest. Does the `HandoffScreen` beat between turns feel smooth or naggy? Is it clear whose turn it is in active play? All three signals ship on by default — (a) banner, (b) menu glow, (c) fading alert — each toggleable in pause → Settings.
+- **Why it matters.** No information-hiding is needed (everything is visible); the only risk is forgetting whose turn it is. The open question is which *combination* of the three signals is sufficient vs. redundant.
+- **Signal for adjustment.** After playtest, turn off whichever signals feel redundant (Chris's stated plan). If the mid-battle handoff prompt feels like too much friction on every human→human turn, consider gating it (e.g. only on team change after N turns, or a "skip handoffs" setting).
+
+### S43 — KO'd-unit traversal secondary interactions
+
+- **What to watch.** Movement now lets a unit path *through* a KO'd unit's tile (any team) but not stop on it (`removed`/permadead units are fully free). Watch for unexpected interactions with charged-spell line-of-sight, AoE targeting, or other tile-occupancy-sensitive subsystems now that downed bodies are pathable.
+- **Why it matters.** The fix is scoped to pathfinding traversal only, but tile-occupancy is consulted in several places; a downed unit being "passable for movement but still an occupant for settling/targeting" is a subtle split.
+- **Signal for adjustment.** If a downed unit blocks/allows something inconsistently (e.g. an AoE that should hit the tile misses, or LoS behaves oddly across a body), reconcile that subsystem's occupancy predicate with `isKO`.
+
+### S43 — Pre-existing border/borderColor style warnings (minor)
+
+- **What to watch.** Two React dev warnings ("Removing a style property during rerender (borderColor) when a conflicting property is set (border)") fire during battle. Confirmed *not* introduced by S43 (the new signaling components use only separate `borderWidth/Style/Color`); a battle component mixes the `border` shorthand with a dynamic `borderColor`.
+- **Why it matters.** Cosmetic dev-console noise only; no functional impact. Worth tracking down so it doesn't mask a real warning.
+- **Signal for adjustment.** Trivial fix when located — replace the offending `border: '…'` shorthand with separate border properties. Fold into any future UI-polish pass.

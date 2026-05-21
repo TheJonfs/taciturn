@@ -22,6 +22,15 @@ describe('River Ridge battle config', () => {
     expect(riverRidgeBattle.map).toBe(riverRidge);
   });
 
+  it('defaults Team A to human control and Team B to AI (S43)', () => {
+    // The classic single-player default: Blue (team_a) is the player,
+    // Red (team_b) is the AI. The unified-team flow (S43) lets the setup
+    // screen override these per battle, but the authored config carries
+    // the backward-compatible defaults.
+    expect(riverRidgeBattle.teams[0]!.control).toBe('human');
+    expect(riverRidgeBattle.teams[1]!.control).toBe('ai');
+  });
+
   it('extends the demo roster to 4v4 (all demo units + Blue Fire / Red Water Mage)', () => {
     // Session 35: River Ridge is the 4v4 deployment-phase demo. It
     // carries all six `demoBattle` units (unchanged teams / classes)

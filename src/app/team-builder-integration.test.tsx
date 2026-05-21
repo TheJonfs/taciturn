@@ -46,7 +46,13 @@ describe('TeamBuilderScreen — load default and continue', () => {
 
     act(() => {
       root.render(
-        <TeamBuilderScreen onContinue={onContinue} onBack={vi.fn()} />,
+        <TeamBuilderScreen
+          onContinue={onContinue}
+          onBack={vi.fn()}
+          teamLabel="Team A (Blue)"
+          control="human"
+          continueLabel="Continue to Deployment"
+        />,
       );
     });
 

@@ -18,7 +18,11 @@ import {
 import { riverRidge } from '@content/maps/river-ridge.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import type { DeploymentPlacement } from '@ui/index.ts';
-import { buildDeployedBattleConfig, type DeploymentResult } from './deployment-config.ts';
+import {
+  buildDeployedBattleConfig,
+  computeAiDeploymentResult,
+  type DeploymentResult,
+} from './deployment-config.ts';
 
 const BLUE: TeamId = teamId('team_a');
 const RED: TeamId = teamId('team_b');
@@ -81,6 +85,42 @@ describe('buildDeployedBattleConfig', () => {
     expect(() => buildDeployedBattleConfig(riverRidgeBattle, incomplete)).toThrow(
       /has no placement/,
     );
+  });
+});
+
+describe('computeAiDeploymentResult (S43 AI deployment bridge)', () => {
+  const catalog = loadDefaultCatalog();
+
+  it('places every unit of the AI team inside its deployment zone', () => {
+    const result = computeAiDeploymentResult(riverRidgeBattle, catalog, RED);
+    const redUnits = riverRidgeBattle.units.filter((u) => u.team === RED);
+    expect(result.team).toBe(RED);
+    expect(result.placements.size).toBe(redUnits.length);
+    // Every placement lands on a Red deployment-zone tile.
+    for (const placement of result.placements.values()) {
+      const tile = riverRidge.tiles.find(
+        (t) =>
+          t.x === placement.position.x &&
+          t.y === placement.position.y &&
+          t.layer === placement.position.layer,
+      );
+      expect(tile?.deploymentZone).toBe(RED);
+    }
+  });
+
+  it('produces a result that folds cleanly through buildDeployedBattleConfig', () => {
+    const result = computeAiDeploymentResult(riverRidgeBattle, catalog, RED);
+    const config = buildDeployedBattleConfig(riverRidgeBattle, result);
+    // No throw (every Red unit has a placement) and the engine consumes it.
+    const initial = createInitialState(config, catalog);
+    expect(initial.units.size).toBe(8);
+  });
+
+  it('faces the deployed AI team toward the opponent (Red faces north)', () => {
+    const result = computeAiDeploymentResult(riverRidgeBattle, catalog, RED);
+    for (const placement of result.placements.values()) {
+      expect(placement.facing).toBe('N');
+    }
   });
 });
 

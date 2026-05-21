@@ -20,7 +20,8 @@
 // by calling `buildDeployedBattleConfig` again on the already-folded
 // config — no special-casing needed.
 
-import type { BattleConfig, UnitId } from '@engine/index.ts';
+import { createInitialState, type BattleConfig, type Catalog, type TeamId, type UnitId } from '@engine/index.ts';
+import { planAiDeployment } from '@ai/index.ts';
 import type { DeploymentPlacement } from '@ui/index.ts';
 
 export interface DeploymentResult {
@@ -59,4 +60,39 @@ export function buildDeployedBattleConfig(
   });
 
   return { ...template, units };
+}
+
+// Compute an AI-controlled team's deployment via the heuristic (S43),
+// shaped as a `DeploymentResult` so it folds through the same
+// `buildDeployedBattleConfig` path human deployments use. Reads each
+// unit's maxHP from a fresh initial state (at battle start `vitals.hp`
+// equals the computed effective max) — the heuristic's sort key.
+//
+// A `unplaced` non-empty result means the map's zone is smaller than the
+// team; this is a content-authoring problem, surfaced as a console
+// warning here (the boundary where I/O is acceptable — `planAiDeployment`
+// itself stays pure).
+export function computeAiDeploymentResult(
+  config: BattleConfig,
+  catalog: Catalog,
+  team: TeamId,
+): DeploymentResult {
+  const state = createInitialState(config, catalog);
+  const units = [...state.units.values()]
+    .filter((u) => u.team === team)
+    .map((u) => ({
+      id: u.id,
+      maxHP: u.vitals.hp,
+      classId: u.classState.currentClass,
+    }));
+  const { placements, unplaced } = planAiDeployment({ map: config.map, team, units });
+  if (unplaced.length > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `computeAiDeploymentResult: ${unplaced.length} unit(s) on team ` +
+        `${JSON.stringify(team)} could not be placed — deployment zone is ` +
+        `smaller than the team. Unplaced: ${unplaced.map(String).join(', ')}`,
+    );
+  }
+  return { team, placements };
 }

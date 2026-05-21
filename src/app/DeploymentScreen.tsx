@@ -58,11 +58,15 @@ const ROSTER_PANEL_WIDTH = 264;
 const WHEEL_ZOOM_STEP = 0.0015;
 
 export interface DeploymentScreenProps {
-  // The battle config to deploy onto — River Ridge with the team
-  // builder's assembled team folded into team_a (Session 36). The
-  // deploying team's units come from here; their positions are
-  // placeholders the player overwrites.
+  // The battle config to deploy onto — River Ridge with both teams'
+  // assembled units folded in, plus any already-committed deployments
+  // (S43: when both teams are human, Team A deploys first and its
+  // placements are folded before Team B's deployment screen mounts).
   readonly template: BattleConfig;
+  // Which team is placing units this pass (S43). Earlier sessions
+  // hardcoded `teams[0]`; the unified flow deploys each human team in
+  // turn order, so the caller names the team.
+  readonly deployingTeam: TeamId;
   // Commit: the player placed every unit and clicked "Start Battle".
   readonly onCommit: (result: DeploymentResult) => void;
   // Escape hatch: "Back to Setup" / Escape from idle / validation
@@ -80,6 +84,7 @@ export function DeploymentScreen(props: DeploymentScreenProps): ReactElement {
 
 function DeploymentScreenInner({
   template,
+  deployingTeam,
   onCommit,
   onBack,
 }: DeploymentScreenProps): ReactElement {
@@ -92,9 +97,7 @@ function DeploymentScreenInner({
   }
   const catalog = catalogRef.current;
 
-  // The `template` is the team builder's output: River Ridge with the
-  // player's team built into team_a. Blue (team_a) deploys, vs-AI.
-  const currentTeam: TeamId = template.teams[0]!.id;
+  const currentTeam: TeamId = deployingTeam;
 
   // Validate the map's deployment zones against the per-team roster
   // sizes (S33's `validateMap`). Pure + cheap → `useMemo`. A failure

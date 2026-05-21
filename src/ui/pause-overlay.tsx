@@ -100,6 +100,19 @@ function SettingsBody({ onBack }: { readonly onBack: () => void }): ReactElement
           onChange={api.setStatusIconDensity}
         />
       </Row>
+      <div style={settingsSectionLabelStyle}>Active-team signals</div>
+      <Row label="Team banner">
+        <OnOff value={api.settings.activeTeamBanner} onChange={api.setActiveTeamBanner} />
+      </Row>
+      <Row label="Menu highlight">
+        <OnOff
+          value={api.settings.activeTeamMenuHighlight}
+          onChange={api.setActiveTeamMenuHighlight}
+        />
+      </Row>
+      <Row label="Turn alert">
+        <OnOff value={api.settings.turnTransitionAlert} onChange={api.setTurnTransitionAlert} />
+      </Row>
       <div style={settingsHintStyle}>
         Settings reset on reload; persistence is a future feature.
       </div>
@@ -153,6 +166,22 @@ function Choice<T extends string>(props: {
         );
       })}
     </div>
+  );
+}
+
+function OnOff(props: {
+  readonly value: boolean;
+  readonly onChange: (value: boolean) => void;
+}): ReactElement {
+  return (
+    <Choice<'on' | 'off'>
+      value={props.value ? 'on' : 'off'}
+      options={[
+        { value: 'on', label: 'On' },
+        { value: 'off', label: 'Off' },
+      ]}
+      onChange={(v) => props.onChange(v === 'on')}
+    />
   );
 }
 
@@ -251,6 +280,16 @@ const settingsHintStyle: CSSProperties = {
   fontSize: 11,
   opacity: 0.55,
   fontStyle: 'italic',
+};
+
+const settingsSectionLabelStyle: CSSProperties = {
+  fontSize: 11,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  opacity: 0.5,
+  marginTop: 4,
+  borderTop: '1px solid #2c2f36',
+  paddingTop: 10,
 };
 
 const choiceButtonStyle: CSSProperties = {

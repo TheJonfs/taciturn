@@ -385,8 +385,8 @@ describe('charged action resolve — happy path', () => {
       map: flatMap(5, 5),
       turnState: turnFor('caster'),
       teams: [
-        { id: teamId('team_a'), name: 'A' },
-        { id: teamId('team_b'), name: 'B' },
+        { id: teamId('team_a'), name: 'A', control: 'human' },
+        { id: teamId('team_b'), name: 'B', control: 'ai' },
       ],
       victoryConditions: [
         { kind: 'defeat_all', side: teamId('team_b'), description: 'defeat enemies' },

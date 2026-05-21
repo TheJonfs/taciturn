@@ -288,6 +288,133 @@ describe('getLegalMoves — occupancy', () => {
   });
 });
 
+// S43: FFT-faithful KO'd-unit pathing — a unit may path *through* a
+// downed unit (ally or enemy) but cannot *stop on* its tile. A `removed`
+// (permadead, ADR-0076) unit occupies nothing, so its tile is both
+// traversable and settle-able.
+describe('getLegalMoves — KO\'d / removed occupancy (S43)', () => {
+  it('routes through a KO\'d enemy to reach the tile beyond', () => {
+    // friendlyPassThrough off so a *living* enemy would block fully —
+    // isolates the KO'd-passability behavior from the friendly rule.
+    const cat = knightCatalog({ moveRange: 3, friendlyPassThrough: false });
+    const mover = makeUnit({
+      id: 'mover',
+      spd: 10,
+      team: 'team_a',
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const koEnemy = makeUnit({
+      id: 'ko_enemy',
+      spd: 10,
+      team: 'team_b',
+      hp: 0,
+      position: { x: 1, y: 0, layer: 0 },
+    });
+    const state = makeGameState({ units: [mover, koEnemy], map: flatMap(3, 1) });
+    const { reachable } = getLegalMoves(state, mover.id, cat);
+    // The tile beyond the downed enemy is reachable...
+    expect(reachable.has(positionKey({ x: 2, y: 0, layer: 0 }))).toBe(true);
+    // ...but the downed enemy's own tile cannot be settled on.
+    expect(reachable.has(positionKey({ x: 1, y: 0, layer: 0 }))).toBe(false);
+  });
+
+  it('routes through a KO\'d ally just like a living one, but cannot settle on it', () => {
+    const cat = knightCatalog({ moveRange: 3, friendlyPassThrough: false });
+    const mover = makeUnit({
+      id: 'mover',
+      spd: 10,
+      team: 'team_a',
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const koAlly = makeUnit({
+      id: 'ko_ally',
+      spd: 10,
+      team: 'team_a',
+      hp: 0,
+      position: { x: 1, y: 0, layer: 0 },
+    });
+    const state = makeGameState({ units: [mover, koAlly], map: flatMap(3, 1) });
+    const { reachable } = getLegalMoves(state, mover.id, cat);
+    expect(reachable.has(positionKey({ x: 2, y: 0, layer: 0 }))).toBe(true);
+    expect(reachable.has(positionKey({ x: 1, y: 0, layer: 0 }))).toBe(false);
+  });
+
+  it('a removed (permadead) unit occupies nothing — its tile is traversable and settle-able', () => {
+    const cat = knightCatalog({ moveRange: 3, friendlyPassThrough: false });
+    const mover = makeUnit({
+      id: 'mover',
+      spd: 10,
+      team: 'team_a',
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const removedEnemy = makeUnit({
+      id: 'removed_enemy',
+      spd: 10,
+      team: 'team_b',
+      hp: 0,
+      removed: true,
+      position: { x: 1, y: 0, layer: 0 },
+    });
+    const state = makeGameState({ units: [mover, removedEnemy], map: flatMap(3, 1) });
+    const { reachable } = getLegalMoves(state, mover.id, cat);
+    expect(reachable.has(positionKey({ x: 1, y: 0, layer: 0 }))).toBe(true);
+    expect(reachable.has(positionKey({ x: 2, y: 0, layer: 0 }))).toBe(true);
+  });
+
+  it('a living enemy still blocks (regression — the fix is scoped to KO\'d only)', () => {
+    const cat = knightCatalog({ moveRange: 3, friendlyPassThrough: false });
+    const mover = makeUnit({
+      id: 'mover',
+      spd: 10,
+      team: 'team_a',
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const liveEnemy = makeUnit({
+      id: 'live_enemy',
+      spd: 10,
+      team: 'team_b',
+      hp: 50,
+      position: { x: 1, y: 0, layer: 0 },
+    });
+    const state = makeGameState({ units: [mover, liveEnemy], map: flatMap(3, 1) });
+    const { reachable } = getLegalMoves(state, mover.id, cat);
+    expect(reachable.has(positionKey({ x: 1, y: 0, layer: 0 }))).toBe(false);
+    expect(reachable.has(positionKey({ x: 2, y: 0, layer: 0 }))).toBe(false);
+  });
+
+  it('leaps over a KO\'d unit on the landing tile, but cannot settle there', () => {
+    // L s L with a KO'd enemy on the far land tile (2,0). The leap
+    // traverses onto it; the settlement filter rejects it as a stop.
+    const LEAP_LEGEND = {
+      L: { terrain: 'ground', elevation: 2 },
+      s: { terrain: 'water', elevation: 1 },
+    };
+    const cat = knightCatalog({ moveRange: 4, jump: 1, canEnter: ['ground'] });
+    const mover = makeUnit({
+      id: 'mover',
+      spd: 10,
+      team: 'team_a',
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const koEnemy = makeUnit({
+      id: 'ko_enemy',
+      spd: 10,
+      team: 'team_b',
+      hp: 0,
+      position: { x: 2, y: 0, layer: 0 },
+    });
+    const state = makeGameState({
+      units: [mover, koEnemy],
+      map: mapFrom(['LsLL'], LEAP_LEGEND),
+    });
+    const { reachable } = getLegalMoves(state, mover.id, cat);
+    // The landing tile holds a downed unit — not settle-able...
+    expect(reachable.has(positionKey({ x: 2, y: 0, layer: 0 }))).toBe(false);
+    // ...but the leap is traversable, so the land tile beyond is reachable.
+    expect(reachable.has(positionKey({ x: 3, y: 0, layer: 0 }))).toBe(true);
+  });
+});
+
 describe('getLegalMoves — paths', () => {
   it('reconstructs a single shortest path from start to destination', () => {
     const cat = knightCatalog({ moveRange: 4 });

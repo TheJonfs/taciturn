@@ -75,8 +75,8 @@ function configOf(args: {
     rulesetId: rulesetId('default'),
     map: flatMap(3, 3),
     teams: [
-      { id: teamId('team_a'), name: 'A' },
-      { id: teamId('team_b'), name: 'B' },
+      { id: teamId('team_a'), name: 'A', control: 'human' },
+      { id: teamId('team_b'), name: 'B', control: 'ai' },
     ],
     units: args.units,
     victoryConditions: [

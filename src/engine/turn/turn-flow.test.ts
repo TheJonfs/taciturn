@@ -91,8 +91,8 @@ function battleSkill(): CommandSetDefinition {
 }
 
 const teamsAB = [
-  { id: teamId('team_a'), name: 'A' },
-  { id: teamId('team_b'), name: 'B' },
+  { id: teamId('team_a'), name: 'A', control: 'human' },
+  { id: teamId('team_b'), name: 'B', control: 'ai' },
 ];
 
 const defeatB: VictoryCondition = {

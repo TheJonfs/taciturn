@@ -12,6 +12,7 @@
 // through the turn-flow state machine; team_b is basic AI.
 
 export { BattleHud, type BattleHudProps } from './battle-hud.tsx';
+export { ActiveTeamBanner, TurnTransitionAlert } from './active-team-signals.tsx';
 export { QueueTower, type QueueTowerProps } from './queue-tower.tsx';
 export { ActionMenu, type ActionMenuProps } from './action-menu.tsx';
 export { ActionLogPanel, type ActionLogPanelProps } from './action-log-panel.tsx';

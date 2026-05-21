@@ -67,8 +67,8 @@ describe('S39b — Field Kit stockpile grant', () => {
         terrain: 'ground' as const,
       })) },
       teams: [
-        { id: teamId('a'), name: 'A' },
-        { id: teamId('b'), name: 'B' },
+        { id: teamId('a'), name: 'A', control: 'human' },
+        { id: teamId('b'), name: 'B', control: 'ai' },
       ],
       units: [
         {

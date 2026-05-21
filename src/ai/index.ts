@@ -12,3 +12,8 @@ export {
   projectDamageContext,
   type ProjectExpectedDamageArgs,
 } from './projection.ts';
+export {
+  planAiDeployment,
+  type DeployableUnit,
+  type AiDeploymentResult,
+} from './deployment.ts';

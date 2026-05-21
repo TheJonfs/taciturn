@@ -55,7 +55,11 @@ function configOf(overrides: {
     battleId: 'test-battle',
     rulesetId: rulesetId(overrides.rulesetId ?? 'default'),
     map: flatMap(5, 5),
-    teams: (overrides.teams ?? ['team_a']).map((id) => ({ id: teamId(id), name: id })),
+    teams: (overrides.teams ?? ['team_a']).map((id) => ({
+      id: teamId(id),
+      name: id,
+      control: 'human' as const,
+    })),
     units: overrides.units ?? [placementOf({ id: 'u1' })],
     victoryConditions: [
       { kind: 'defeat_all', side: teamId('team_b'), description: 'defeat enemies' },

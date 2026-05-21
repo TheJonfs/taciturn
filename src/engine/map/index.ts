@@ -1,7 +1,7 @@
 // Public API of src/engine/map.
 // See docs/design/map-and-battlefield.md and ADR-0006.
 
-export { tileAt, tilesAt, unitAt } from './accessors.ts';
+export { tileAt, tilesAt, unitAt, isKO } from './accessors.ts';
 export { computeMovementProfile } from './movement-profile.ts';
 export {
   getLegalMoves,

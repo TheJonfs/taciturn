@@ -22,7 +22,7 @@
 // fixture (consumed by `orchestrator.test.ts` and
 // `ai-controller.integration.test.ts`).
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
 import { BattleErrorBoundary } from './BattleErrorBoundary.tsx';
 import {
@@ -38,9 +38,15 @@ import {
   type Catalog,
   type ChargedActionId,
   type GameState,
+  type TeamId,
   type UnitId,
 } from '@engine/index.ts';
-import { BattleRenderer, type PanInput } from '@renderer/index.ts';
+import {
+  BattleRenderer,
+  TEAM_PALETTE,
+  TEAM_PALETTE_FALLBACK_CSS,
+  type PanInput,
+} from '@renderer/index.ts';
 import {
   BattleHud,
   ChargedActionDetailPanel,
@@ -48,10 +54,12 @@ import {
   PauseOverlay,
   ResultsScreen,
   SettingsProvider,
+  TurnTransitionAlert,
   UnitDetailPanel,
   useSettings,
   useTurnFlow,
 } from '@ui/index.ts';
+import { HandoffScreen } from './HandoffScreen.tsx';
 import {
   createBasicAiController,
   createUiController,
@@ -127,6 +135,15 @@ function BattleViewInner({
   // `latestState.outcome` so the player can close + re-open via... well,
   // they can't re-open in v1; "closed" is final until next battle.
   const [resultsDismissed, setResultsDismissed] = useState<boolean>(false);
+  // Pass-and-play mid-battle handoff (S43). Non-null while the device is
+  // changing hands between two human teams; the overlay blocks input
+  // until the incoming player confirms. `lastHumanTeamRef` remembers the
+  // previous human team so we only prompt on an actual human→human swap.
+  const [battleHandoff, setBattleHandoff] = useState<{
+    readonly name: string;
+    readonly color: string;
+  } | null>(null);
+  const lastHumanTeamRef = useRef<TeamId | null>(null);
 
   // The UiController persists across renders — it's the orchestrator's
   // single-slot queue, not React state.
@@ -137,7 +154,15 @@ function BattleViewInner({
   const uiController = uiControllerRef.current;
 
   const settingsApi = useSettings();
-  const uiTeam = template.teams[0]!.id;
+  // The teams a human at the keyboard drives. Defaults to whatever the
+  // battle config marks `control: 'human'` — Team A in the classic
+  // single-player flow, both teams in pass-and-play, neither in AI vs.
+  // AI (in which case the action menu never activates and the AI
+  // controllers run both sides).
+  const humanTeams = useMemo(
+    () => new Set(template.teams.filter((t) => t.control === 'human').map((t) => t.id)),
+    [template],
+  );
 
   // Turn-flow hook owns the player's per-turn state machine. It wires
   // the renderer's highlights / click / hover to the menu's choices
@@ -147,7 +172,7 @@ function BattleViewInner({
     catalog,
     renderer,
     uiController,
-    uiTeam,
+    humanTeams,
     confirmStep: settingsApi.settings.confirmStep,
     onInspectUnit: (id) => setDetailUnitId(id),
   });
@@ -241,11 +266,16 @@ function BattleViewInner({
       setLatestState(initialState);
       setRenderer(battleRenderer);
 
-      // Team A is player-driven; Team B is the basic AI.
-      const controllers: ControllerMap = new Map([
-        [battleConfig.teams[0]!.id, uiController.controller],
-        [battleConfig.teams[1]!.id, createBasicAiController()],
-      ]);
+      // Per-team dispatch (S43): each team routes to the UI controller
+      // (shared — only one human acts at a time, even in pass-and-play)
+      // or a fresh AI controller, per its `control` flag. Human-vs-AI,
+      // pass-and-play, and AI-vs-AI all fall out of this one wiring.
+      const controllers: ControllerMap = new Map(
+        battleConfig.teams.map((team) => [
+          team.id,
+          team.control === 'human' ? uiController.controller : createBasicAiController(),
+        ]),
+      );
       const orchestrator = new DemoOrchestrator(
         initialState,
         catalog,
@@ -473,6 +503,34 @@ function BattleViewInner({
     : null;
   const showResults = outcome !== undefined && !paused && !resultsDismissed;
 
+  // Active-team signaling inputs (S43): whose turn it is, and that team's
+  // display name + canonical color. Drives the banner, the menu glow, and
+  // the turn-transition alert.
+  const activeTeam: TeamId | null = turnFlow.activeUnit?.team ?? null;
+  const activeTeamName =
+    activeTeam !== null && latestState !== null
+      ? latestState.teams.find((t) => t.id === activeTeam)?.name ?? null
+      : null;
+  const activeTeamColor =
+    activeTeam !== null
+      ? TEAM_PALETTE.get(activeTeam)?.css ?? TEAM_PALETTE_FALLBACK_CSS
+      : null;
+
+  // Pass-and-play handoff trigger: when the active team changes from one
+  // human team to a *different* human team. Only relevant with more than
+  // one human team (true pass-and-play); AI turns don't move the marker.
+  useEffect(() => {
+    if (activeTeam === null || !humanTeams.has(activeTeam)) return;
+    const prev = lastHumanTeamRef.current;
+    lastHumanTeamRef.current = activeTeam;
+    if (humanTeams.size > 1 && prev !== null && prev !== activeTeam) {
+      setBattleHandoff({
+        name: activeTeamName ?? 'Next player',
+        color: activeTeamColor ?? TEAM_PALETTE_FALLBACK_CSS,
+      });
+    }
+  }, [activeTeam, humanTeams, activeTeamName, activeTeamColor]);
+
   // Hover-counterpart forwarder — flows from the HUD's hover handlers
   // through to the renderer's sprite-pulse channel.
   const handleHoverParticipants = (ids: ReadonlyArray<UnitId>): void => {
@@ -496,7 +554,18 @@ function BattleViewInner({
         onHoverParticipants={handleHoverParticipants}
         onOpenUnitDetail={(id) => setDetailUnitId(id)}
         onOpenChargedActionDetail={(id) => setChargedDetailId(id)}
+        activeTeamName={activeTeamName}
+        activeTeamColor={activeTeamColor}
+        showActiveTeamBanner={settingsApi.settings.activeTeamBanner}
+        highlightActiveMenu={settingsApi.settings.activeTeamMenuHighlight}
       />
+      {settingsApi.settings.turnTransitionAlert && (
+        <TurnTransitionAlert
+          activeTeam={activeTeam}
+          teamName={activeTeamName}
+          color={activeTeamColor ?? TEAM_PALETTE_FALLBACK_CSS}
+        />
+      )}
       <ForecastTooltip
         forecast={turnFlow.forecast}
         catalog={catalog}
@@ -529,6 +598,21 @@ function BattleViewInner({
           onNewBattle={onExitToSetup}
           onMainMenu={onExitToTitle}
         />
+      )}
+      {/* Pass-and-play turn handoff — covers the board until the incoming
+          player confirms, so they don't act on the previous player's
+          screen. The orchestrator is already idling on the human
+          controller's turn, so no pump pause is needed. */}
+      {battleHandoff !== null && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 200 }}>
+          <HandoffScreen
+            title={`${battleHandoff.name} — your turn`}
+            body={`Pass the device to the ${battleHandoff.name} player.`}
+            cta="Take turn"
+            accent={battleHandoff.color}
+            onConfirm={() => setBattleHandoff(null)}
+          />
+        </div>
       )}
     </div>
   );

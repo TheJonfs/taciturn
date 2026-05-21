@@ -17,6 +17,7 @@ import { ActionMenu } from './action-menu.tsx';
 import { ActionLogPanel } from './action-log-panel.tsx';
 import { ForecastPanel } from './forecast-panel.tsx';
 import { TileInfoPanel } from './tile-info-panel.tsx';
+import { ActiveTeamBanner } from './active-team-signals.tsx';
 import type { TurnFlow } from './use-turn-flow.ts';
 
 export interface BattleHudProps {
@@ -26,6 +27,14 @@ export interface BattleHudProps {
   readonly onHoverParticipants?: (ids: ReadonlyArray<UnitId>) => void;
   readonly onOpenUnitDetail?: (unitId: UnitId) => void;
   readonly onOpenChargedActionDetail?: (chargedActionId: ChargedActionId) => void;
+  // Active-team signaling (S43). `activeTeamName` / `activeTeamColor`
+  // describe whose turn it is; the two booleans gate signal (a) the
+  // persistent banner and (b) the team-color glow on the action menu.
+  // All optional so non-pass-and-play callers can omit them.
+  readonly activeTeamName?: string | null;
+  readonly activeTeamColor?: string | null;
+  readonly showActiveTeamBanner?: boolean;
+  readonly highlightActiveMenu?: boolean;
 }
 
 export function BattleHud({
@@ -35,10 +44,24 @@ export function BattleHud({
   onHoverParticipants,
   onOpenUnitDetail,
   onOpenChargedActionDetail,
+  activeTeamName,
+  activeTeamColor,
+  showActiveTeamBanner,
+  highlightActiveMenu,
 }: BattleHudProps): ReactElement {
+  // The action-menu glow draws attention to the active player's controls
+  // during selection — only meaningful while it's a human team's turn
+  // (the menu is interactive) and the cue is enabled.
+  const menuAccent =
+    highlightActiveMenu === true && turnFlow.isOurTurn && activeTeamColor != null
+      ? activeTeamColor
+      : null;
   return (
     <div style={hudOverlayStyle}>
       <TileInfoPanel state={state} catalog={catalog} cursorTile={turnFlow.cursorTile} />
+      {showActiveTeamBanner === true && activeTeamName != null && activeTeamColor != null && (
+        <ActiveTeamBanner teamName={activeTeamName} color={activeTeamColor} />
+      )}
       <div style={leftPanelStyle}>
         <QueueTower
           state={state}
@@ -56,7 +79,18 @@ export function BattleHud({
         />
       </div>
       <div style={bottomBarStyle}>
-        <div style={actionMenuSlotStyle} aria-label="Action menu">
+        <div
+          style={
+            menuAccent !== null
+              ? {
+                  ...actionMenuSlotStyle,
+                  borderColor: menuAccent,
+                  boxShadow: `0 0 0 2px ${menuAccent}, 0 0 16px ${menuAccent}`,
+                }
+              : actionMenuSlotStyle
+          }
+          aria-label="Action menu"
+        >
           <ActionMenu
             turnFlow={turnFlow}
             catalog={catalog}

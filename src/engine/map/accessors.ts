@@ -66,3 +66,14 @@ export function unitAt(
   }
   return undefined;
 }
+
+// A unit is KO'd when its current HP has hit zero (and it has not yet
+// crossed the permadeath threshold into `removed`). Canonical predicate
+// for the KO invariant per ADR-0074 — occupancy and turn-scheduling both
+// key off it. A KO'd unit still *occupies* its tile (`unitAt` returns
+// it) but does not *block* movement traversal (FFT canon: you may path
+// through a downed unit, just not stop on it). `removed` units occupy
+// nothing and so don't reach this predicate via `unitAt`.
+export function isKO(unit: Unit): boolean {
+  return unit.vitals.hp <= 0;
+}

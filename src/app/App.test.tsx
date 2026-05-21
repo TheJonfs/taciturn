@@ -22,6 +22,27 @@ function findButton(container: HTMLElement, text: string): HTMLButtonElement {
   return btn;
 }
 
+function findButtons(container: HTMLElement, text: string): HTMLButtonElement[] {
+  return Array.from(container.querySelectorAll('button')).filter(
+    (b) => b.textContent === text,
+  );
+}
+
+// Load a default template into the team builder so the team validates
+// and the continue button enables. Mirrors the draft-preservation tests.
+function loadDefaultTemplate(container: HTMLElement): void {
+  const select = container.querySelector('select');
+  if (select === null) throw new Error('no <select> on team builder screen');
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLSelectElement.prototype,
+    'value',
+  )?.set;
+  act(() => {
+    setter?.call(select, 'current-test-team');
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
 describe('App routing', () => {
   it('boots into the title screen', () => {
     const container = document.createElement('div');
@@ -56,6 +77,59 @@ describe('App routing', () => {
     // Back on the title screen.
     expect(findButton(container, 'New Battle')).toBeTruthy();
     expect(container.textContent).not.toContain('Start River Ridge');
+
+    act(() => root.unmount());
+    container.remove();
+  });
+});
+
+describe('App — unified team flow (S43)', () => {
+  it('runs the builder for Team A then Team B, with no handoff in single-player', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => root.render(<App />));
+
+    act(() => findButton(container, 'New Battle').click());
+    // Default controls: Team A human, Team B AI → single-player.
+    act(() => findButton(container, 'Start River Ridge').click());
+    expect(container.textContent).toContain('Build Team A (Blue)');
+
+    loadDefaultTemplate(container);
+    act(() => findButton(container, 'Continue to Team B').click());
+
+    // No handoff (not both human) — straight to the Team B builder.
+    expect(container.textContent).toContain('Build Team B (Red)');
+    expect(container.textContent).not.toContain('your turn');
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('shows a pass-and-play handoff between team builders when both teams are human', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => root.render(<App />));
+
+    act(() => findButton(container, 'New Battle').click());
+    // Switch Team B to Human → pass-and-play. Second "Human" segment is
+    // Team B's.
+    const humanButtons = findButtons(container, 'Human');
+    act(() => humanButtons[1]!.click());
+    expect(container.textContent).toContain('Pass-and-play');
+
+    act(() => findButton(container, 'Start River Ridge').click());
+    loadDefaultTemplate(container);
+    act(() => findButton(container, 'Continue to Team B').click());
+
+    // Handoff prompt interposes before Team B's builder.
+    expect(container.textContent).toContain('your turn');
+    const proceed = findButton(container, 'Build team');
+    act(() => proceed.click());
+
+    // Now on the Team B builder.
+    expect(container.textContent).toContain('Build Team B (Red)');
 
     act(() => root.unmount());
     container.remove();

@@ -334,8 +334,8 @@ export const demoBattle: BattleConfig = {
   rulesetId: rulesetId('default'),
   map: buildFlatGround(),
   teams: [
-    { id: TEAM_A, name: 'Blue' },
-    { id: TEAM_B, name: 'Red' },
+    { id: TEAM_A, name: 'Blue', control: 'human' },
+    { id: TEAM_B, name: 'Red', control: 'ai' },
   ],
   // Session 19: Asymmetric loadouts so each side keeps a different
   // non-Fire class. Team A keeps Knight + Water Mage and adds Fire

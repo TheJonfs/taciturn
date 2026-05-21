@@ -146,7 +146,14 @@ export interface UseTurnFlowArgs {
   readonly catalog: Catalog;
   readonly renderer: BattleRenderer | null;
   readonly uiController: UiController;
-  readonly uiTeam: TeamId;
+  // The set of teams a human at the keyboard controls. A unit's turn is
+  // "ours" (drives the action menu) iff its team is in this set. A set
+  // rather than a single id so pass-and-play (both teams human) flows
+  // through the same hook: when the active unit's team flips from one
+  // human team to the other, `isOurTurn` stays true and the menu rebuilds
+  // against the new active unit. AI-controlled teams are absent, so their
+  // turns leave the flow idle while the AI controller drives them.
+  readonly humanTeams: ReadonlySet<TeamId>;
   readonly confirmStep: ConfirmStepPreference;
   // Optional callback fired when the player clicks a unit on the canvas
   // while in IDLE / action-menu state. Routes to the unit detail panel.
@@ -154,7 +161,7 @@ export interface UseTurnFlowArgs {
 }
 
 export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
-  const { state, catalog, renderer, uiController, uiTeam, confirmStep, onInspectUnit } = args;
+  const { state, catalog, renderer, uiController, humanTeams, confirmStep, onInspectUnit } = args;
   const [flowState, dispatch] = useReducer(transition, INITIAL_TURN_FLOW);
 
   // Engine-side derived values.
@@ -163,7 +170,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     return state.units.get(state.turnState.unitId) ?? null;
   }, [state]);
 
-  const isOurTurn = activeUnit !== null && activeUnit.team === uiTeam;
+  const isOurTurn = activeUnit !== null && humanTeams.has(activeUnit.team);
 
   const movesAvailable = state?.turnState?.budget.movesAvailable ?? 0;
   const actsAvailable = state?.turnState?.budget.actsAvailable ?? 0;

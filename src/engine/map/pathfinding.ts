@@ -34,7 +34,7 @@
 // docs/twentyOneDesign/river-ridge.md ("Jump-Over-Water Rule").
 
 import { computeMovementProfile } from './movement-profile.ts';
-import { tileAt, tilesAt, unitAt } from './accessors.ts';
+import { tileAt, tilesAt, unitAt, isKO } from './accessors.ts';
 import {
   getUnit,
   type GameState,
@@ -123,11 +123,14 @@ function popLowest(frontier: FrontierEntry[]): FrontierEntry | undefined {
 // Step legality between two adjacent tiles. The destination tile is
 // guaranteed in-bounds by the caller; this checks the per-step rules:
 //   1. Destination terrain is in canEnter.
-//   2. Occupant rule: another unit on the tile blocks the step *unless*
-//      `friendlyPassThrough` is on and the occupant is on the same team
-//      as the moving unit. Path-routing through allies is allowed in
-//      that case; settling on an ally tile is filtered separately by
-//      `getLegalMoves` after Dijkstra completes.
+//   2. Occupant rule: a *living* unit on the tile blocks the step
+//      *unless* `friendlyPassThrough` is on and the occupant is on the
+//      same team as the moving unit. A KO'd occupant (any team) never
+//      blocks traversal — FFT canon lets a unit path through a downed
+//      body, just not stop on it. Settling on an occupied tile (living
+//      *or* KO'd) is filtered separately by `getLegalMoves` after
+//      Dijkstra completes. `removed` units occupy nothing (`unitAt`
+//      skips them) and so don't reach this check.
 //   3. Elevation differential ≤ jump — *unless* the unit is flying,
 //      in which case the jump check is dropped (per design doc:
 //      "Fly — moves over tiles ignoring elevation differentials").
@@ -147,7 +150,7 @@ function canStep(
     return false;
   }
   const occupant = unitAt(state, toTile.x, toTile.y, toTile.layer);
-  if (occupant !== undefined && occupant.id !== movingUnit.id) {
+  if (occupant !== undefined && occupant.id !== movingUnit.id && !isKO(occupant)) {
     if (!friendlyPassThrough) return false;
     if (occupant.team !== movingUnit.team) return false;
   }
@@ -180,7 +183,7 @@ function canLeapTo(
     return false;
   }
   const occupant = unitAt(state, destTile.x, destTile.y, destTile.layer);
-  if (occupant !== undefined && occupant.id !== movingUnit.id) {
+  if (occupant !== undefined && occupant.id !== movingUnit.id && !isKO(occupant)) {
     if (!friendlyPassThrough) return false;
     if (occupant.team !== movingUnit.team) return false;
   }

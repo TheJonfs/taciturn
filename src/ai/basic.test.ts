@@ -147,8 +147,8 @@ function buildBattle(opts: BuildOpts): { state: GameState; catalog: Catalog } {
     rulesetId: rulesetId('default'),
     map: { width, height, tiles: flatGround(width, height) },
     teams: [
-      { id: TEAM_A, name: 'A' },
-      { id: TEAM_B, name: 'B' },
+      { id: TEAM_A, name: 'A', control: 'human' },
+      { id: TEAM_B, name: 'B', control: 'ai' },
     ],
     units: opts.placements.map((p) => ({
       id: unitId(p.id),
@@ -536,7 +536,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     let state = makeGameState({
       units: [attacker, tgtVuln, tgtPlain],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     state = applyStatus(state, {
@@ -579,7 +579,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const state = makeGameState({
       units: [attacker, tgt],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     const decision = decideBasicAi(state, cat);
@@ -607,7 +607,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const state = makeGameState({
       units: [attacker, tgt],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     const decision = decideBasicAi(state, cat);
@@ -631,7 +631,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const state = makeGameState({
       units: [attacker, tgt],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     const decision = decideBasicAi(state, cat);
@@ -666,7 +666,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const state = makeGameState({
       units: [attacker, knight, mage],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     const decision = decideBasicAi(state, cat);
@@ -696,7 +696,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const state = makeGameState({
       units: [attacker, e1, e2, e3],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     const decision = decideBasicAi(state, cat);
@@ -725,7 +725,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const state = makeGameState({
       units: [attacker, enemy, ally],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     const decision = decideBasicAi(state, cat);
@@ -790,7 +790,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const state = makeGameState({
       units: [attacker, tgtCounter, tgtPlain],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     const decision = decideBasicAi(state, cat);
@@ -855,7 +855,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const state = makeGameState({
       units: [attacker, tgtMage, tgtKnight],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     const decision = decideBasicAi(state, cat);
@@ -919,7 +919,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const state = makeGameState({
       units: [attacker, tgtMage, tgtKnight],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     const decision = decideBasicAi(state, cat);
@@ -954,7 +954,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const state = makeGameState({
       units: [attacker, enemy],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     const decision = decideBasicAi(state, cat);
@@ -981,7 +981,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const state = makeGameState({
       units: [attacker, enemy],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     const decision = decideBasicAi(state, cat);
@@ -1009,7 +1009,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const state = makeGameState({
       units: [attacker, e1, e2, e3],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     const decision = decideBasicAi(state, cat);
@@ -1072,7 +1072,7 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     const state = makeGameState({
       units: [attacker, tgtCounter, tgtPlain],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
-      teams: [{ id: TEAM_A, name: 'A' }, { id: TEAM_B, name: 'B' }],
+      teams: [{ id: TEAM_A, name: 'A', control: 'human' }, { id: TEAM_B, name: 'B', control: 'ai' }],
       turnState: activeTurnFor(attacker.id),
     });
     const decision = decideBasicAi(state, cat);

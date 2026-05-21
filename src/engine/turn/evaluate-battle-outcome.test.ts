@@ -10,8 +10,8 @@ import { evaluateBattleOutcome } from './evaluate-battle-outcome.ts';
 const A = teamId('team_a');
 const B = teamId('team_b');
 const teamsAB = [
-  { id: A, name: 'A' },
-  { id: B, name: 'B' },
+  { id: A, name: 'A', control: 'human' },
+  { id: B, name: 'B', control: 'ai' },
 ];
 
 const defeatBSide: VictoryCondition = {

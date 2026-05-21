@@ -117,8 +117,8 @@ function buildBattle(args: {
     rulesetId: rulesetId('default'),
     map: flatBattleMap(),
     teams: [
-      { id: TEAM_A, name: 'A' },
-      { id: TEAM_B, name: 'B' },
+      { id: TEAM_A, name: 'A', control: 'human' },
+      { id: TEAM_B, name: 'B', control: 'ai' },
     ],
     units: [
       {
@@ -716,8 +716,8 @@ describe('source-KO status sweep — Taunted', () => {
       rulesetId: rulesetId('default'),
       map: flatMap(8, 8),
       teams: [
-        { id: TEAM_A, name: 'A' },
-        { id: TEAM_B, name: 'B' },
+        { id: TEAM_A, name: 'A', control: 'human' },
+        { id: TEAM_B, name: 'B', control: 'ai' },
       ],
       units: [
         {

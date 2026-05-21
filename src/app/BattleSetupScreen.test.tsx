@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BattleSetupScreen } from './BattleSetupScreen.tsx';
+import type { TeamControl } from '@engine/index.ts';
 
 function findButton(container: HTMLElement, text: string): HTMLButtonElement {
   const btn = Array.from(container.querySelectorAll('button')).find(
@@ -15,13 +16,22 @@ function findButton(container: HTMLElement, text: string): HTMLButtonElement {
   return btn;
 }
 
+const DEFAULT_CONTROLS: readonly [TeamControl, TeamControl] = ['human', 'ai'];
+
 describe('BattleSetupScreen', () => {
   it('renders the River Ridge card without throwing', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
     act(() => {
-      root.render(<BattleSetupScreen onStart={() => {}} onBack={() => {}} />);
+      root.render(
+        <BattleSetupScreen
+          controls={DEFAULT_CONTROLS}
+          onControlsChange={() => {}}
+          onStart={() => {}}
+          onBack={() => {}}
+        />,
+      );
     });
     expect(container.textContent).toContain('River Ridge');
     expect(findButton(container, 'Start River Ridge')).toBeTruthy();
@@ -36,7 +46,14 @@ describe('BattleSetupScreen', () => {
     const root = createRoot(container);
     const onStart = vi.fn();
     act(() => {
-      root.render(<BattleSetupScreen onStart={onStart} onBack={() => {}} />);
+      root.render(
+        <BattleSetupScreen
+          controls={DEFAULT_CONTROLS}
+          onControlsChange={() => {}}
+          onStart={onStart}
+          onBack={() => {}}
+        />,
+      );
     });
     act(() => {
       findButton(container, 'Start River Ridge').click();
@@ -52,12 +69,46 @@ describe('BattleSetupScreen', () => {
     const root = createRoot(container);
     const onBack = vi.fn();
     act(() => {
-      root.render(<BattleSetupScreen onStart={() => {}} onBack={onBack} />);
+      root.render(
+        <BattleSetupScreen
+          controls={DEFAULT_CONTROLS}
+          onControlsChange={() => {}}
+          onStart={() => {}}
+          onBack={onBack}
+        />,
+      );
     });
     act(() => {
       findButton(container, 'Back').click();
     });
     expect(onBack).toHaveBeenCalledTimes(1);
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('emits a control change when a team is toggled to AI', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onControlsChange = vi.fn();
+    act(() => {
+      root.render(
+        <BattleSetupScreen
+          controls={DEFAULT_CONTROLS}
+          onControlsChange={onControlsChange}
+          onStart={() => {}}
+          onBack={() => {}}
+        />,
+      );
+    });
+    // Toggle Team A to AI — the first "AI" segment button.
+    const aiButtons = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent === 'AI',
+    );
+    act(() => {
+      aiButtons[0]!.click();
+    });
+    expect(onControlsChange).toHaveBeenCalledWith(['ai', 'ai']);
     act(() => root.unmount());
     container.remove();
   });
