@@ -53,7 +53,7 @@ The session-scoped `SettingsProvider` was lifted to the app root (`App` wraps `A
 ### 8. Battle controls follow-ups
 
 - **Builder back-navigation:** Team B's builder steps back to Team A's builder (draft preserved), not all the way to setup.
-- **On-screen Pause button:** discoverable without the ESC shortcut, and the only pause affordance during AI-vs-AI (no action menu). Halts the existing pump.
+- **On-screen Pause/Play toggle:** a lightweight `halted` state distinct from the ESC modal pause (`paused`). It freezes the orchestrator pump *and* the animator with **no overlay**, so the player can inspect units, the log, and tile details while play is stopped — the only such control in AI-vs-AI (which has no action menu). Either `paused` or `halted` gates the pump; Play resumes.
 - **Main Menu from pause:** enabled with a "Leave battle / Keep playing" confirmation so a single stray click can't abandon the battle.
 
 ## Consequences

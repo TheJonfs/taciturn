@@ -31,7 +31,7 @@ S43 shipped as a **monolith** (no 43a/43b split — the audit found the engine a
 - **`SettingsProvider` lifted to the app root.** `App` now wraps `AppInner` in the provider (was battle-scoped in BattleView) so the pre-battle phases and the in-battle pause menu share one settings source. BattleView's own provider was removed.
 - **Pass-and-play handoff defaults OFF.** New `passAndPlayHandoff` setting (default false), toggle in pause→Settings ("Handoff prompt"). All three handoff sites (builder/deployment in App, mid-battle in BattleView) gate on it. The active-team signals already convey turn ownership; the click-through prompt is opt-in.
 - **Builder back-navigation.** Team B's builder steps back to Team A's builder (draft preserved) via "Back to Team A (Blue)", not to setup. `TeamBuilderScreen` gained a `backLabel` prop.
-- **On-screen Pause button** in BattleView (top-right) — discoverable without ESC, and the only pause affordance during AI-vs-AI.
+- **On-screen Pause/Play toggle** in BattleView (top-right). A `halted` state separate from the ESC modal (`paused`): it freezes the pump + animator with **no overlay**, leaving the HUD/log/details fully interactive for inspection (the only pause affordance in AI-vs-AI). Both `paused` and `halted` gate the pump.
 - **Main Menu enabled in the pause overlay** with a "Leave battle / Keep playing" confirmation (`PauseOverlay` gained an `onMainMenu` prop + a `confirm-exit` view).
 
 ### Browser verification (what was / wasn't covered)

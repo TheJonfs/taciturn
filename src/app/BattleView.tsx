@@ -127,7 +127,13 @@ function BattleViewInner({
   // each commit. Renderer's visual state is independent.
   const [latestState, setLatestState] = useState<GameState | null>(null);
   const [renderer, setRenderer] = useState<BattleRenderer | null>(null);
+  // `paused` is the modal ESC pause (opens the overlay menu). `halted` is
+  // the lightweight on-screen Pause/Play toggle: it freezes the
+  // orchestrator pump + animator without any overlay, so the player can
+  // freely inspect units, the log, and tile details while play is stopped
+  // (especially useful in AI-vs-AI). Either one halts the pump.
   const [paused, setPaused] = useState<boolean>(false);
+  const [halted, setHalted] = useState<boolean>(false);
   const [detailUnitId, setDetailUnitId] = useState<UnitId | null>(null);
   const [chargedDetailId, setChargedDetailId] = useState<ChargedActionId | null>(null);
   // When the results screen has been dismissed by the user, we don't
@@ -177,10 +183,11 @@ function BattleViewInner({
     onInspectUnit: (id) => setDetailUnitId(id),
   });
 
-  // Mirror the paused flag into the renderer so the animator halts.
+  // Mirror the paused/halted flags into the renderer so the animator
+  // freezes for either the modal pause or the on-screen Pause toggle.
   useEffect(() => {
-    renderer?.setPaused(paused);
-  }, [renderer, paused]);
+    renderer?.setPaused(paused || halted);
+  }, [renderer, paused, halted]);
 
   // Mount the renderer + orchestrator on first render.
   useEffect(() => {
@@ -361,7 +368,7 @@ function BattleViewInner({
       let finished = false;
       const pump = () => {
         if (finished) return;
-        if (pausedRef.current) return;
+        if (pausedRef.current || haltedRef.current) return;
         if (!battleRenderer.isIdle()) return;
         const step = orchestrator.step();
         if (step.committed.length > 0) {
@@ -460,12 +467,17 @@ function BattleViewInner({
     // reintroduce the S34 mount-effect churn.
   }, [catalog, uiController, template, deploymentResult]);
 
-  // Mirror the paused state into a ref so the pump closure (captured
-  // once on mount) can read the latest value without re-registering.
+  // Mirror the paused/halted state into refs so the pump closure
+  // (captured once on mount) can read the latest values without
+  // re-registering.
   const pausedRef = useRef<boolean>(false);
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
+  const haltedRef = useRef<boolean>(false);
+  useEffect(() => {
+    haltedRef.current = halted;
+  }, [halted]);
 
   // ESC handler: cancel out of a picking sub-state if we're in one;
   // otherwise open / close the pause overlay. While the overlay is
@@ -571,19 +583,21 @@ function BattleViewInner({
           color={activeTeamColor ?? TEAM_PALETTE_FALLBACK_CSS}
         />
       )}
-      {/* On-screen pause control — discoverable without knowing the ESC
-          shortcut, and the only way to pause/inspect during an AI-vs-AI
-          battle (no action menu to fall back on). Hidden while paused or
-          on the results screen. */}
+      {/* On-screen Pause/Play toggle — freezes the AI/turn pump and the
+          animator *without* an overlay, so the player can inspect units,
+          the log, and tile details while stopped (the only such control
+          in AI-vs-AI, which has no action menu). Distinct from the ESC
+          modal pause. Hidden behind the modal pause and on the results
+          screen. */}
       {!paused && !showResults && (
         <button
           type="button"
           style={pauseButtonStyle}
-          onClick={() => setPaused(true)}
-          aria-label="Pause battle"
-          title="Pause (Esc)"
+          onClick={() => setHalted((h) => !h)}
+          aria-label={halted ? 'Resume battle' : 'Pause battle'}
+          title={halted ? 'Resume' : 'Pause'}
         >
-          ‖ Pause
+          {halted ? '▶ Play' : '‖ Pause'}
         </button>
       )}
       <ForecastTooltip
