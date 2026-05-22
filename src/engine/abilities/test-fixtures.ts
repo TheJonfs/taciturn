@@ -103,6 +103,13 @@ export function makeKnight(args?: {
     evasion: { front: 0, side: 0, back: 0 },
     firstActionCommandSet: commandSetId(args?.firstActionCommandSet ?? 'battle_skill'),
     freeAbilities: new Set((args?.freeAbilities ?? []).map(abilityId)),
+    equipmentSlots: {
+      leftHand: true,
+      rightHand: true,
+      headgear: true,
+      armor: true,
+      accessory: true,
+    },
   };
 }
 

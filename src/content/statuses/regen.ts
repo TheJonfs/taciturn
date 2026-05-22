@@ -28,6 +28,7 @@ import {
   runModifyStatQuery,
   statusHook,
   statusTypeId,
+  type OnTickResult,
   type StatusEffectType,
   type StatusHookRegistration,
 } from '@engine/index.ts';
@@ -38,7 +39,7 @@ const REGEN_COEFFICIENT = 0.10;
 // `regen_auto` (battle-long Auto-Regen via Tintinibar). Per Session 31:
 // the two share lifecycle/duration semantics but not the heal formula,
 // so the formula lives in one place.
-export const regenOnTick: StatusHookRegistration = statusHook('onTick', (args) => {
+export const regenOnTick: StatusHookRegistration = statusHook('onTick', (args): OnTickResult => {
   // Per ADR-0079: KO'd targets don't tick. Cast Regen (`per_unit_ct`)
   // clears at KO via the KO-clear sweep, so under normal flow this gate
   // is only load-bearing for `regen_auto` (`permanent_per_unit_ct`,

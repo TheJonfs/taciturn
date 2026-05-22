@@ -10,7 +10,7 @@
 export type TerrainType = string;
 export type TileProperty = string;
 
-import type { TeamId } from './team.ts';
+import type { TeamId } from './ids.ts';
 
 export interface Tile {
   readonly x: number;

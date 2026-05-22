@@ -6,63 +6,40 @@ This is a transient note from one session to the next.
 
 ---
 
-## From Session 43 close (2026-05-21) — Unified team architecture + KO'd-unit pathing + AI deployment heuristic
+## From Session 44 close (2026-05-22) — TS strict-mode pile cleanup + build-gate restore
 
-S43 shipped as a **monolith** (no 43a/43b split — the audit found the engine already team-agnostic, so the unified-team work was additive, which let the stretch goal land too). **1285 tests passing across 115 files** (up from 1264 / 114; +21). One ADR: **ADR-0082** (unified team architecture — control flag, sequential builder, heuristic deployment, pass-and-play UX). A post-implementation refinement round followed (see below).
+S44 was the maintenance session that closed the long-running TS strict-mode pile (S34 carry). **Drove `tsc -b` from 279 errors to 0** and flipped `vercel.json` `buildCommand` from `vite build` back to `npm run build`, restoring the typecheck gate. **1285 tests still pass (115 files); no new tests** — the cleanup was annotation/fixture work, and the latent-bug fixes were verified by the existing suite. `npm run build` succeeds end-to-end locally; app boots + navigates setup cleanly in-browser with zero console errors. No ADR (no fix warranted a documented design call beyond the DamageTag additions, which followed existing precedent).
 
-### What shipped
+### What changed (by category)
 
-**Engine:**
-- `Team.control: 'human' | 'ai'` (required `TeamControl` field). The pure engine never reads it — it's battle-setup data the app consumes. All `Team` construction sites updated (production `demo.ts` → Blue human / Red ai; River Ridge inherits; ~10 test fixtures).
-- **KO'd-unit pathing fix.** Canonical `isKO(unit)` exported from `engine/map/accessors.ts` (scheduler's private copy replaced). `canStep`/`canLeapTo` now treat KO'd occupants (any team) as passable for *traversal*; the post-Dijkstra settlement filter still rejects ending on them. `removed` units are free on both counts. (5 new pathfinding tests.)
+- **`DamageTag` union broadened** (`src/engine/types/damage.ts`): added `water`, `axe`, `staff`, `wand`, and `dot` — all tags content already emitted but the union never gained (same maintenance gap as the documented `earth`/`sword`/`knife` additions). Chris approved the four; `dot` surfaced afterward (a damage-over-time source marker on Burn's tick, parallel to `poison`) once the widening was removed and added on the same rationale. Resolved ~30 errors at the root.
+- **Stale barrel imports repointed** (~23): catalog-definition types (`ActiveAbilityDefinition`, equipment types, `ClassDefinition`, `StatusEffectType`) were imported from `../types/index.ts` but live in `../catalog/index.ts`; `TeamId`/`teamId` moved to `types/ids.ts`; `Controller` is app-level not engine. Added barrel re-exports for `AoeSpec` (catalog), `DamageContext` (damage), and `OnTickResult`/`OnActionResolvedResult` (hooks) where genuinely missing.
+- **`ItemDefinition`/`EquipmentDefinition` narrowing**: equipment-only props (`statMods`, `classRestrictions`, etc.) read off the bare union now go through the existing `isEquipment` guard.
+- **Content hook-handler return widening** (9 files): object-literal returns widened string discriminants to `string`; fixed with explicit return-type annotations on the handler arrows (contextual typing doesn't propagate through `passiveHook<K>`'s indexed-access return).
+- **`exactOptionalPropertyTypes`** UI prop drift: added `| undefined` to optional callback props (queue-tower, action-menu, action-log-panel, battle-hud, use-team-builder).
+- **Test-fixture drift** (~121 errors, the bulk): `CommitResult` is now a `CommitSuccess | CommitFailure` union — tests narrow with `if (!r.ok) return;` before reading `.newState`; `ClassDefinition` fixtures gained `equipmentSlots`; `ActionEnvelope`/`StatusInstance`/`SystemDamageSource` fixture shapes updated to current types; removed dead `.__brand` plumbing and stale fields (`appliedAtTick`, `source: 'controller'`).
 
-**AI:**
-- `src/ai/deployment.ts` — pure `planAiDeployment({ map, team, units })`: opposing-zone centroid → front-center tile → sort by descending maxHP (tie-break class id) → nearest-to-front assignment, facing opposing centroid. Returns `{ placements, unplaced }`. (8 tests.)
-- `computeAiDeploymentResult` (app `deployment-config.ts`) bridges it into a `DeploymentResult`, reading maxHP from a fresh initial state; warns (console) on `unplaced`. (3 tests.)
+### Latent bugs the typecheck caught (all fixed; flagging for awareness)
 
-**App / UI:**
-- `BattleSetupScreen` now picks per-team control up front (Human/AI segmented toggles + a mode hint). **Deviation from brief D7** (which put the toggle in the builder): control must be known before building to branch deployment + handoffs — documented in ADR-0082. The builder shows control read-only.
-- `App` runs the team builder once per team (A → B), then a manual deployment phase per *human* team in turn order; AI teams auto-deploy via the heuristic; both folded into the battle config before `BattleView`.
-- `BattleView` builds the `ControllerMap` from each team's `control` (shared UI controller for human, fresh AI controller per AI team). `useTurnFlow`'s `uiTeam: TeamId` → `humanTeams: ReadonlySet<TeamId>`.
-- Pass-and-play: minimal `HandoffScreen` between builders, between deployments, and mid-battle on human→different-human turn change — **gated behind `passAndPlayHandoff`, default OFF** (opt-in; see refinement round). Three active-team signals, each toggleable in pause→Settings (default on): (a) team-color banner below terrain bar, (b) team-color glow on the action menu, (c) fading "<Team>'s turn" alert.
+1. **`src/ai/basic.ts` `scorePriority`** referenced an undefined `VULNERABLE_DAMAGE_MULTIPLIER` (should be `VULNERABLE_MULTIPLIER`). At runtime this made `s *= undefined` → **`NaN`** for every vulnerable target, silently corrupting the AI's priority-target tiebreak. Real behavior bug, now fixed. **Watch:** AI target selection against Vulnerable units may differ from pre-S44 (it was broken before).
+2. **`src/ui/action-log-panel.tsx`** read `s.statusTypeId`/`s.applied` off `StatusApplicationOutcome`, which has neither — the debug log rendered `"undefined ✗"` for every applied status. Now reads the `kind`-discriminated union properly (shows the status type id + ✓/✗).
+3. **`src/engine/actions/reduce.ts`** — `ReducerOutput.generatedReactions` was typed `ProposedAction[]` but every producer emits `GeneratedReaction` (`{action, reactorId}`) and `commit.ts` reads `.action`/`.reactorId`. Pure annotation drift; corrected to `GeneratedReaction[]`, no behavior change.
 
-### Post-implementation refinement round (same session, Chris's notes)
+Also fixed an `Array.isArray` + `ReadonlyArray` narrowing miss in `src/renderer/animator.ts` (multi-anim queue path) by normalizing to an array — behavior-equivalent.
 
-- **`SettingsProvider` lifted to the app root.** `App` now wraps `AppInner` in the provider (was battle-scoped in BattleView) so the pre-battle phases and the in-battle pause menu share one settings source. BattleView's own provider was removed.
-- **Pass-and-play handoff defaults OFF.** New `passAndPlayHandoff` setting (default false), toggle in pause→Settings ("Handoff prompt"). All three handoff sites (builder/deployment in App, mid-battle in BattleView) gate on it. The active-team signals already convey turn ownership; the click-through prompt is opt-in.
-- **Builder back-navigation.** Team B's builder steps back to Team A's builder (draft preserved) via "Back to Team A (Blue)", not to setup. `TeamBuilderScreen` gained a `backLabel` prop.
-- **On-screen Pause/Play toggle** in BattleView (top-right). A `halted` state separate from the ESC modal (`paused`): it freezes the pump + animator with **no overlay**, leaving the HUD/log/details fully interactive for inspection (the only pause affordance in AI-vs-AI). Both `paused` and `halted` gate the pump.
-- **Main Menu enabled in the pause overlay** with a "Leave battle / Keep playing" confirmation (`PauseOverlay` gained an `onMainMenu` prop + a `confirm-exit` view).
+### Post-commit / next-session
 
-### Browser verification (what was / wasn't covered)
-
-Verified in-browser, no real console errors (see watch-for below):
-- **Human-vs-AI (classic):** full flow builder A (human) → builder B (AI, no handoff) → Blue manual deployment → battle. Human action menu activates on Blue's turn; "Blue's turn" banner + Blue menu glow render; Red AI deployed by heuristic. **No regression.**
-- **AI-vs-AI:** both teams built + AI, heuristic deployment for both, battle runs (turns advance: Caedric cast Inner Warmth + moved, etc.); "Red's turn" banner shows; no human menu.
-- Setup control toggles + mode hints; builder sequence + AI badges; A→B handoff correctly skipped when not both-human.
-- Preview Pixi ticker is throttled when the tab isn't foregrounded — use `window.__taciturnDebug.pump(n)` to advance a battle, and `window.__taciturnDeployDebug` (selectTile/pickUnit/pickFacing) to drive deployment.
-
-**NOT browser-verified:** full pass-and-play with two human teams deploying both sides via canvas (canvas clicks aren't scriptable; the builder→builder handoff and mid-battle handoff *logic* are unit-tested, and deployment is exercised via the deploy-debug surface). First manual pass-and-play playtest should confirm the mid-battle handoff feels right and the signaling combination is sufficient.
-
-### Watch-fors (all logged in `docs/playtest-watch.md`)
-
-- **AI-vs-AI balance / loop conditions** — new mode may surface AI stalls or non-terminating battles.
-- **AI deployment positioning quality** — heuristic sorts by maxHP, not role; a tanky support lands forward. Lever is the sort key (→ role-aware).
-- **Pass-and-play handoff ergonomics + which signal combo to keep** — Chris plans to playtest then disable redundant signals (all three on by default).
-- **KO'd-unit traversal secondary interactions** — watch LoS / AoE / other occupancy-sensitive subsystems now that downed bodies are pathable.
-- **Pre-existing border/borderColor React dev warnings** during battle — confirmed NOT from S43 (new signaling components use separate border props); a battle component mixes `border` shorthand with dynamic `borderColor`. Cosmetic; fix when located.
-
-### Notes for next session
-
-- **Schema change is live:** `Team.control` is required. Any new battle config / fixture must set it.
-- The brief's v1 "AI must be template-loaded" constraint was **dropped entirely** (not built-then-relaxed) since the heuristic landed — AI teams get the full builder. (ADR-0082 §5.)
-- **TS strict-mode pile** unchanged by S43 (verified: my new files add zero type errors; the ~279 remaining are the pre-existing carry).
-- `assignAiTeamNames` (content/teams) is now unused by `App` (both teams are builder-named) but still exported + tested — left in place, not deleted.
+- **Verify the Vercel deployment** succeeds under the restored `npm run build` gate (check the build log shows `tsc` completing). This is the one acceptance item that can't be verified locally.
+- **Emergent maintenance items NOT folded in** (deferred to keep the cleanup a coherent unit; all still carry):
+  - `docs/content-id-registry.md` reconciliation (stale since pre-S39b; Alchemist abilities/passives/statuses missing, Knight Lightning Stab swap, Assassin Shadow Arts, Mage rename pass).
+  - Border/borderColor React dev warnings during battle (cosmetic console noise; a battle component mixes `border` shorthand with dynamic `borderColor`).
+  - `assignAiTeamNames` removal (D3 — confirmed dead post-S43; still exported + tested. `src/content/teams/assign-ai-team-names.ts`).
+  - ActionType-wiring smoke test (future CI item).
 
 ### Carry-forward (longer-term, unchanged)
 
-- Equipment expansion (Hi-Potion / Holy Water / Elixir + weapons/accessories) — S44 candidate.
-- Second map design — S45 per roadmap.
+- Equipment expansion (Hi-Potion / Holy Water / Elixir + weapons/accessories) — S45 candidate.
+- Second map design — S46 candidate.
 - 5v5 unlock — later in roadmap.
 - Charm/Seduction (team-override substrate, dedicated session).
 - Knight base-PA recalibration (playtest-driven).
@@ -70,6 +47,7 @@ Verified in-browser, no real console errors (see watch-for below):
 - Speed Save per-swing reaction cap (S42 D5 deviation).
 - Renderer-side multi-swing animation polish (S42 carry).
 - Permadeath badge first-playtest visual read (S41 carry).
-- `content-id-registry.md` reconciliation (stale since pre-S39b).
-- TS strict-mode pile (~279, S34 carry).
-- ActionType-wiring smoke test (future CI; no new ActionTypes this session).
+- AI deployment role-aware sorting (playtest-driven).
+- Pass-and-play handoff ergonomics / which active-team signal combo to keep (S43, playtest-driven).
+- AI-vs-AI balance / loop-condition watch (S43).
+- KO'd-unit traversal secondary interactions (LoS / AoE / occupancy) (S43 watch).

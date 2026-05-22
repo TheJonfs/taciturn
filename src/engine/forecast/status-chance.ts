@@ -47,7 +47,7 @@ export function projectStatusChances(
       target: args.target,
       statusType,
       ability: args.ability,
-      baseChance: spec.baseChance,
+      baseChance: spec.baseChance ?? 100,
       ...(spec.factors !== undefined ? { factors: spec.factors } : {}),
       ...(spec.applyAlways !== undefined ? { applyAlways: spec.applyAlways } : {}),
     });

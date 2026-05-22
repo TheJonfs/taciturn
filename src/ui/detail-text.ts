@@ -20,6 +20,7 @@ import {
   type Catalog,
   type ConsumableDefinition,
   type DamageTag,
+  type EquipmentDefinition,
   type ItemDefinition,
   type PassiveAbilityDefinition,
   type StatusEffectType,
@@ -112,7 +113,7 @@ function formatVarianceBand(min: number, max: number): string {
 }
 
 // Equipment kind label for the tooltip subtitle.
-function kindLabel(item: ItemDefinition): string {
+function kindLabel(item: EquipmentDefinition): string {
   switch (item.kind) {
     case 'weapon': {
       const w = item as WeaponEquipment;
@@ -132,8 +133,8 @@ function kindLabel(item: ItemDefinition): string {
 
 // Stat-mod entries → "+2 PA · +30 MP · ×1.5 MaxMP" etc.
 function formatStatMods(
-  add: ItemDefinition['statMods'],
-  mul: ItemDefinition['statModsMultiplicative'],
+  add: EquipmentDefinition['statMods'],
+  mul: EquipmentDefinition['statModsMultiplicative'],
 ): string[] {
   const parts: string[] = [];
   if (add !== undefined) {

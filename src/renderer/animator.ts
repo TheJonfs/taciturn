@@ -198,12 +198,9 @@ export class Animator {
       const action = this.queue.shift()!;
       const built = this.buildAnim(action);
       if (built === null) continue;
-      if (Array.isArray(built)) {
-        this.current = built[0] ?? null;
-        for (let i = 1; i < built.length; i++) this.pendingAnims.push(built[i]!);
-      } else {
-        this.current = built;
-      }
+      const anims: ReadonlyArray<Anim> = Array.isArray(built) ? built : [built];
+      this.current = anims[0] ?? null;
+      for (let i = 1; i < anims.length; i++) this.pendingAnims.push(anims[i]!);
     }
   }
 

@@ -31,7 +31,7 @@ import {
   ACTIVE_BUCKET_IDS,
   PASSIVE_BUCKET_IDS,
 } from '../abilities/constants.ts';
-import { activeTurnFor, makeGameState, makeUnit } from '../ct/test-fixtures.ts';
+import { activeTurnFor } from '../ct/test-fixtures.ts';
 import { flatMap } from '../map/test-fixtures.ts';
 import { getEquippedWeapon, validateSlotItem } from '../items/equipment.ts';
 import { runModifyEvasion, runModifyStatQuery } from '../hooks/runners.ts';
@@ -52,7 +52,6 @@ import {
   unitId,
   type AbilityId,
   type BattleConfig,
-  type BucketId,
   type CommandSetId,
   type Loadout,
   type ProposedAction,
@@ -244,6 +243,7 @@ describe('equipment — slot validation', () => {
       kind: 'weapon',
       wp: 1,
       accuracy: 100,
+      availability: 'hidden',
     };
     expect(() => validateSlotItem('leftHand', longSword)).not.toThrow();
     expect(() => validateSlotItem('rightHand', longSword)).not.toThrow();
@@ -775,7 +775,7 @@ describe('source-KO status sweep — Taunted', () => {
     };
     const action: ProposedAction = {
       type: 'use_ability',
-      source: 'controller',
+      source: 'player',
       actorId: unitId('red_knight'),
       payload: {
         abilityId: abilityId('attack'),
@@ -829,7 +829,7 @@ describe('Knight ability commits — smoke', () => {
     };
     const action: ProposedAction = {
       type: 'use_ability',
-      source: 'controller',
+      source: 'player',
       actorId: unitId('blue_knight'),
       payload: {
         abilityId: abilityId('power_attack'),
@@ -856,7 +856,7 @@ describe('Knight ability commits — smoke', () => {
     };
     const action: ProposedAction = {
       type: 'use_ability',
-      source: 'controller',
+      source: 'player',
       actorId: unitId('blue_knight'),
       payload: {
         abilityId: abilityId('taunt'),

@@ -52,7 +52,7 @@ function boltSpell(args: { actionSpeed?: number; mpCost?: number } = {}): Active
     bucket: bucketId('first_action'),
     baseCost: 1,
     availability: 'hidden',
-    targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 } },
+    targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
     actionSpeed: args.actionSpeed ?? 0,
     mpCost: args.mpCost ?? 0,
     effects: {

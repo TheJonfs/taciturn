@@ -28,3 +28,4 @@ export {
   type DamageHandlerRegistry,
   type PipelineEnv,
 } from './registry.ts';
+export type { DamageContext } from '../types/damage.ts';

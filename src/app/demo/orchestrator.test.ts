@@ -15,10 +15,10 @@ import {
   createInitialState,
   enumeratePreBattleActions,
   statusTypeId,
-  type Controller,
   type ProposedAction,
 } from '@engine/index.ts';
 import { DemoOrchestrator, greedyMeleeController } from './index.ts';
+import type { Controller } from './orchestrator.ts';
 
 const MAX_STEPS = 500;
 

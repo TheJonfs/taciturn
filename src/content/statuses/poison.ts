@@ -32,6 +32,7 @@ import {
   runModifyStatQuery,
   statusHook,
   statusTypeId,
+  type OnTickResult,
   type StatusEffectType,
 } from '@engine/index.ts';
 
@@ -44,7 +45,7 @@ export const poison: StatusEffectType = {
   durationMode: 'permanent_per_unit_ct',
   stackingRule: 'REFRESH',
   hooks: [
-    statusHook('onTick', (args) => {
+    statusHook('onTick', (args): OnTickResult => {
       // Per ADR-0079: KO'd targets don't tick. Poison
       // (`permanent_per_unit_ct`) persists through KO under the rule, so
       // belt-and-suspenders gating here matters even though the

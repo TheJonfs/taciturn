@@ -45,6 +45,7 @@ import {
   statusTypeId,
   type AbilityId,
   type ActiveAbilityDefinition,
+  type AoeShape,
   type ClassDefinition,
   type CommandSetDefinition,
   type Loadout,
@@ -52,7 +53,6 @@ import {
   type ProposedAction,
   type StatusEffectType,
 } from '@engine/index.ts';
-import { statusHook } from '../status/hooks.ts';
 import { commitAction } from './commit.ts';
 
 // --- Fixture builders ---
@@ -227,7 +227,7 @@ function shapeRewriterPassive(): PassiveAbilityDefinition {
     baseCost: 1,
     availability: 'hidden',
     hooks:[
-      passiveHook('modifyAoeShape', (args) => {
+      passiveHook('modifyAoeShape', (args): AoeShape => {
         if (args.baseShape.kind === 'tile') {
           return { kind: 'cross', radius: 1 };
         }
@@ -292,8 +292,10 @@ function loadoutWith(args: {
 function makeRuleset(args: { friendlyFire?: boolean; perUnitPerTurnReactions?: number } = {}) {
   return makeTestRuleset({
     damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE,
-    friendlyFire: args.friendlyFire,
-    perUnitPerTurnReactions: args.perUnitPerTurnReactions,
+    ...(args.friendlyFire !== undefined ? { friendlyFire: args.friendlyFire } : {}),
+    ...(args.perUnitPerTurnReactions !== undefined
+      ? { perUnitPerTurnReactions: args.perUnitPerTurnReactions }
+      : {}),
   });
 }
 

@@ -49,13 +49,13 @@ export interface QueueTowerProps {
   // Hover-counterpart callback — when the player hovers a mini-card,
   // the corresponding unit (or charged action's caster) is reported so
   // the canvas can pulse it.
-  readonly onHoverParticipants?: (ids: ReadonlyArray<UnitId>) => void;
+  readonly onHoverParticipants?: ((ids: ReadonlyArray<UnitId>) => void) | undefined;
   // Click-through to the unit detail panel (unit mini-cards) or the
   // charged-action detail panel (charged mini-cards). Wired up via two
   // callbacks so the panel choice is dispatched at click time without
   // discriminator plumbing.
-  readonly onOpenUnitDetail?: (unitId: UnitId) => void;
-  readonly onOpenChargedActionDetail?: (chargedActionId: ChargedActionId) => void;
+  readonly onOpenUnitDetail?: ((unitId: UnitId) => void) | undefined;
+  readonly onOpenChargedActionDetail?: ((chargedActionId: ChargedActionId) => void) | undefined;
 }
 
 export function QueueTower({
@@ -135,9 +135,9 @@ function MiniCard(props: {
   readonly position: number;
   readonly state: GameState;
   readonly catalog: Catalog;
-  readonly onHoverParticipants?: (ids: ReadonlyArray<UnitId>) => void;
-  readonly onOpenUnitDetail?: (unitId: UnitId) => void;
-  readonly onOpenChargedActionDetail?: (chargedActionId: ChargedActionId) => void;
+  readonly onHoverParticipants?: ((ids: ReadonlyArray<UnitId>) => void) | undefined;
+  readonly onOpenUnitDetail?: ((unitId: UnitId) => void) | undefined;
+  readonly onOpenChargedActionDetail?: ((chargedActionId: ChargedActionId) => void) | undefined;
 }): ReactElement {
   const {
     event,
@@ -202,7 +202,7 @@ function ActiveUnitAnchor(props: {
   readonly unit: Unit | null;
   readonly state: GameState | null;
   readonly catalog: Catalog;
-  readonly onOpenUnitDetail?: (unitId: UnitId) => void;
+  readonly onOpenUnitDetail?: ((unitId: UnitId) => void) | undefined;
 }): ReactElement {
   const { unit, state, catalog, onOpenUnitDetail } = props;
 

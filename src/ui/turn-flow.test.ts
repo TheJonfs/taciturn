@@ -9,12 +9,6 @@ import { INITIAL_TURN_FLOW, transition, type TurnFlowState } from './turn-flow.t
 const setA = commandSetId('battle_skill');
 const setB = commandSetId('water_magic');
 const attack = abilityId('attack');
-const wait: ProposedAction = {
-  type: 'wait',
-  source: 'player',
-  actorId: 'u1' as never,
-  payload: {},
-};
 const attackAction: ProposedAction = {
   type: 'use_ability',
   source: 'player',

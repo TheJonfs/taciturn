@@ -21,7 +21,7 @@
 // directly; the hook owns all validation.
 
 import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
-import { projectTurnEndCt, statusTypeId, type ActiveAbilityDefinition, type Catalog, type ConsumableDefinition, type Direction, type GameState, type ItemId, type ProposedAction, type Unit, type UnitId } from '@engine/index.ts';
+import { projectTurnEndCt, statusTypeId, type ActiveAbilityDefinition, type Catalog, type ConsumableDefinition, type Direction, type GameState, type ProposedAction, type Unit, type UnitId } from '@engine/index.ts';
 import { abilityRoute, type TurnFlow } from './use-turn-flow.ts';
 import { DetailHover } from './detail-hover.tsx';
 import { formatAbilityDetail } from './detail-text.ts';
@@ -51,7 +51,7 @@ export interface ActionMenuProps {
   // forecast helpers stay one-call-from-the-menu.
   readonly engineState: GameState | null;
   // Open the unit-detail panel for a given unit. Wired in by BattleView.
-  readonly onOpenUnitDetail?: (unitId: import('@engine/index.ts').UnitId) => void;
+  readonly onOpenUnitDetail?: ((unitId: import('@engine/index.ts').UnitId) => void) | undefined;
 }
 
 export function ActionMenu({ turnFlow, catalog, engineState, onOpenUnitDetail }: ActionMenuProps): ReactElement {
@@ -244,7 +244,7 @@ function TopLevel(props: {
   readonly turnFlow: TurnFlow;
   readonly catalog: Catalog;
   readonly engineState: GameState | null;
-  readonly onOpenUnitDetail?: (unitId: import('@engine/index.ts').UnitId) => void;
+  readonly onOpenUnitDetail?: ((unitId: import('@engine/index.ts').UnitId) => void) | undefined;
 }): ReactElement {
   const { turnFlow, catalog, engineState, onOpenUnitDetail } = props;
   const { movesAvailable, actsAvailable, waitDisabled, activeUnit } = turnFlow;

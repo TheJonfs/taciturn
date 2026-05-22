@@ -8,9 +8,9 @@ import {
   commandSetId,
   createCatalog,
   type ActiveAbilityDefinition,
-  type AoeSpec,
   type ClassDefinition,
 } from '../index.ts';
+import type { AoeSpec } from '@engine/index.ts';
 import { DEFAULT_TEST_DAMAGE_PIPELINE, makeTestRuleset } from '../catalog/test-fixtures.ts';
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { projectAoePreview } from './aoe-preview.ts';

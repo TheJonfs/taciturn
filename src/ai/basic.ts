@@ -73,7 +73,6 @@ import {
   tileAt,
   aoeFootprint,
   cardinalFromTo,
-  validateAction,
   type Catalog,
   type GameState,
   type ItemId,
@@ -290,7 +289,7 @@ const THROW_HORIZONTAL = 3;
 const THROW_VERTICAL = 3;
 const WOUNDED_HP_FRACTION = 0.5;
 
-function isAlchemistActor(actor: Unit, catalog: Catalog): boolean {
+function isAlchemistActor(actor: Unit, _catalog: Catalog): boolean {
   if (actor.classState.currentClass === ALCHEMIST_CLASS) return true;
   // Also detect cross-class equippers via the loadout (Alchemy secondary
   // command set). Iterates without allocating for the common no-match.
@@ -1534,7 +1533,7 @@ function pickBestMove(
 // value × Vulnerable bonus. Among equals, lex-id.
 function pickPriorityTarget(
   enemies: ReadonlyArray<Unit>,
-  catalog: Catalog,
+  _catalog: Catalog,
 ): Unit {
   let best: Unit = enemies[0]!;
   let bestScore = scorePriority(best);
@@ -1551,7 +1550,7 @@ function pickPriorityTarget(
 
 function scorePriority(u: Unit): number {
   let s = killValue(u);
-  if (isVulnerable(u)) s *= VULNERABLE_DAMAGE_MULTIPLIER;
+  if (isVulnerable(u)) s *= VULNERABLE_MULTIPLIER;
   return s;
 }
 

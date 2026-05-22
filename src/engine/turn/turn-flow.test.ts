@@ -38,6 +38,7 @@ import {
   type AbilityId,
   type Loadout,
   type ProposedAction,
+  type Team,
   type VictoryCondition,
 } from '../types/index.ts';
 import { evaluateBattleOutcome } from './evaluate-battle-outcome.ts';
@@ -93,7 +94,7 @@ function battleSkill(): CommandSetDefinition {
 const teamsAB = [
   { id: teamId('team_a'), name: 'A', control: 'human' },
   { id: teamId('team_b'), name: 'B', control: 'ai' },
-];
+] satisfies readonly Team[];
 
 const defeatB: VictoryCondition = {
   kind: 'defeat_all',

@@ -66,7 +66,7 @@ describe('charged action lifecycle on caster KO', () => {
 
     // Apply enough damage to KO the dying caster via the system_damage
     // path (which is one of the two KO-detection sites we patched).
-    const sysDmg: Action = {
+    const sysDmg: Extract<Action, { type: 'system_damage' }> = {
       type: 'system_damage',
       sequenceNumber: 0,
       source: 'system',
@@ -78,7 +78,7 @@ describe('charged action lifecycle on caster KO', () => {
         targetId: dyingCaster.id,
         amount: 5,
         tags: [],
-        source: { kind: 'falling' },
+        source: { kind: 'falling', unitId: dyingCaster.id, dropDistance: 2 },
       },
     };
     const reduced = reduceSystemDamage(state, sysDmg, catalog);
@@ -112,7 +112,7 @@ describe('charged action lifecycle on caster KO', () => {
     ).toBe(true);
 
     // KO the caster via system_damage so the sweep emits.
-    const sysDmg: Action = {
+    const sysDmg: Extract<Action, { type: 'system_damage' }> = {
       type: 'system_damage',
       sequenceNumber: 0,
       source: 'system',
@@ -124,7 +124,7 @@ describe('charged action lifecycle on caster KO', () => {
         targetId: caster.id,
         amount: 5,
         tags: [],
-        source: { kind: 'falling' },
+        source: { kind: 'falling', unitId: caster.id, dropDistance: 2 },
       },
     };
     const reduced = reduceSystemDamage(state, sysDmg, catalog);
@@ -201,7 +201,7 @@ describe('reaction-triggers-reaction guard', () => {
       team: 'team_b',
       loadout: {
         ...EMPTY_LOADOUT,
-        passiveBuckets: new Map([[bucketId('reaction'), [abilityId('discharge')]]]),
+        passiveBuckets: { [bucketId('reaction')]: [abilityId('discharge')] },
       },
     });
     const state = makeGameState({

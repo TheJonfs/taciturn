@@ -26,11 +26,11 @@ import { reduceSystemDamage } from './reducers.ts';
 import { spikedMail } from '../../content/items/spiked-mail.ts';
 import {
   itemId,
-  type ArmorEquipment,
   type DamageTag,
   type ItemId,
   type UnitEquipment,
 } from '../types/index.ts';
+import type { ArmorEquipment } from '../catalog/index.ts';
 
 function makeReflectBody(args: {
   readonly id: string;
@@ -239,6 +239,11 @@ describe('Session 37 — reduceSystemDamage applies revenge damage and respects 
       {
         type: 'system_damage',
         source: 'system',
+        sequenceNumber: 0,
+        timestamp: { tick: 0, ct: 0 },
+        seed: 0,
+        chainDepth: 0,
+        isReaction: false,
         payload: {
           targetId: attacker.id,
           amount: 20,
@@ -273,6 +278,11 @@ describe('Session 37 — reduceSystemDamage applies revenge damage and respects 
       {
         type: 'system_damage',
         source: 'system',
+        sequenceNumber: 0,
+        timestamp: { tick: 0, ct: 0 },
+        seed: 0,
+        chainDepth: 0,
+        isReaction: false,
         payload: {
           targetId: attacker.id,
           amount: 20,

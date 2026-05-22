@@ -10,9 +10,9 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from '../../content/index.ts';
-import { reduceMove, reduceUseAbility } from './reducers.ts';
+import { reduceMove } from './reducers.ts';
 import { activeTurnFor, makeGameState, makeUnit } from '../ct/test-fixtures.ts';
-import { runModifyStatQuery, runOnActionTargeted } from '../hooks/runners.ts';
+import { runModifyStatQuery } from '../hooks/runners.ts';
 import { applyStatus } from '../status/apply.ts';
 import {
   abilityId,
@@ -21,13 +21,11 @@ import {
   commandSetId,
   itemId,
   statusTypeId,
-  EMPTY_LOADOUT,
   EMPTY_UNIT_EQUIPMENT,
   createInitialState,
   teamId,
   type Action,
   type BattleConfig,
-  type ProposedAction,
 } from '@engine/index.ts';
 
 const catalog = loadDefaultCatalog();
@@ -57,6 +55,7 @@ describe('S39b — Alchemist class registration', () => {
 describe('S39b — Field Kit stockpile grant', () => {
   it('populates the unit\'s starting stockpile when Field Kit is equipped', () => {
     const config: BattleConfig = {
+      battleId: 'session_39b_field_kit_test',
       rulesetId: catalog.getRuleset(catalog.rulesets()[0]!.id).id,
       masterSeed: 0,
       map: { width: 5, height: 5, tiles: Array.from({ length: 25 }, (_, i) => ({
@@ -65,6 +64,7 @@ describe('S39b — Field Kit stockpile grant', () => {
         layer: 0,
         elevation: 2,
         terrain: 'ground' as const,
+        properties: [],
       })) },
       teams: [
         { id: teamId('a'), name: 'A', control: 'human' },
@@ -138,6 +138,7 @@ describe('S39b — Combat Focus reaction', () => {
           layer: 0,
           elevation: 2,
           terrain: 'ground' as const,
+          properties: [],
         })),
       },
     });
@@ -180,6 +181,7 @@ describe('S39b — Field Recovery (onMoveCompleted)', () => {
         layer: 0,
         elevation: 2,
         terrain: 'ground' as const,
+        properties: [],
       })),
     };
     const alch = makeUnit({
@@ -219,17 +221,6 @@ describe('S39b — Field Recovery (onMoveCompleted)', () => {
   });
 
   it('emits no heal when the unit does NOT move (zero tiles)', () => {
-    const map = {
-      width: 3,
-      height: 1,
-      tiles: Array.from({ length: 3 }, (_, x) => ({
-        x,
-        y: 0,
-        layer: 0,
-        elevation: 2,
-        terrain: 'ground' as const,
-      })),
-    };
     const alch = makeUnit({
       id: 'alch',
       spd: 8,
@@ -238,11 +229,6 @@ describe('S39b — Field Recovery (onMoveCompleted)', () => {
         actionBuckets: { [bucketId('first_action')]: [commandSetId('alchemy')] },
         passiveBuckets: { [bucketId('movement')]: [abilityId('field_recovery')] },
       },
-    });
-    const state = makeGameState({
-      units: [alch],
-      map,
-      turnState: activeTurnFor(alch.id),
     });
     const action: Extract<Action, { type: 'move' }> = {
       type: 'move',
@@ -273,6 +259,7 @@ describe('S39b — Field Recovery (onMoveCompleted)', () => {
         layer: 0,
         elevation: 2,
         terrain: 'ground' as const,
+        properties: [],
       })),
     };
     const noFieldRecovery = makeUnit({

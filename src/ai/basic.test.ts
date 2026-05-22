@@ -106,6 +106,7 @@ const knight: ClassDefinition = {
   evasion: { front: 0, side: 0, back: 0 },
   firstActionCommandSet: BATTLE_SKILL,
   freeAbilities: new Set(),
+  equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
 };
 
 function buildCatalog(): Catalog {
@@ -488,33 +489,6 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
   // initial state, mutating only the units it cares about. Using the
   // demo battle gives us all five class definitions, all abilities,
   // all statuses already wired up, with realistic stat profiles.
-
-  // Helper: build a battle from a custom unit set on a 6x6 ground map.
-  // The unit list is complete (no other units exist), simplifying
-  // assertions. Statuses can be pre-seeded via the `statuses` field.
-  interface Tier15Placement {
-    readonly id: string;
-    readonly team: string;
-    readonly classId: string;
-    readonly x: number;
-    readonly y: number;
-    readonly hp?: number;
-    readonly mp?: number;
-    readonly statuses?: ReadonlyArray<{ readonly typeId: string; readonly remainingDuration?: number | null }>;
-    readonly loadout?: {
-      readonly first?: string;  // command set id
-      readonly second?: string;
-      readonly reaction?: ReadonlyArray<string>;
-      readonly support?: ReadonlyArray<string>;
-      readonly movement?: ReadonlyArray<string>;
-    };
-  }
-  // We use the DEFAULT demo content so Lightning ability ids resolve.
-  const buildLightningBattle = async (placements: ReadonlyArray<Tier15Placement>) => {
-    const { loadDefaultCatalog } = await import('../content/index.ts');
-    const cat = loadDefaultCatalog();
-    return { catalog: cat, placements };
-  };
 
   it('prefers a Vulnerable target over a same-HP non-Vulnerable target', async () => {
     // Two enemies at equal HP, far apart so AoE can't catch both. One

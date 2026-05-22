@@ -22,7 +22,6 @@ import {
 } from '@engine/index.ts';
 import {
   DEFAULT_TEST_DAMAGE_PIPELINE,
-  defaultTestRulesets,
   makeTestRuleset,
 } from '@engine/catalog/test-fixtures.ts';
 import { makeGameState, makeUnit } from '@engine/ct/test-fixtures.ts';

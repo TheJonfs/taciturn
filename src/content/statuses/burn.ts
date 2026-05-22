@@ -28,6 +28,7 @@ import {
   runModifyStatusTickAmount,
   statusHook,
   statusTypeId,
+  type OnTickResult,
   type StatusEffectType,
 } from '@engine/index.ts';
 
@@ -106,7 +107,7 @@ export const burn: StatusEffectType = {
     // 7 → 28, 14) collapses in half the ticks. Net less total damage,
     // which matches Purifier's design intent (counter-pick for the
     // wearer against status-spread strategies).
-    statusHook('onTick', (args) => {
+    statusHook('onTick', (args): OnTickResult => {
       const target = args.state.units.get(args.unit.id);
       if (target === undefined || target.vitals.hp <= 0) {
         // KO'd targets don't tick (BMG: "DoT statuses do not tick while

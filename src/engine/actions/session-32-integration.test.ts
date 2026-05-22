@@ -20,10 +20,10 @@ import { activeTurnFor, makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { reduceUseAbility } from './reducers.ts';
 import {
   abilityId,
-  type ActiveAbilityDefinition,
   type BattleMap,
   type DamageTag,
 } from '../types/index.ts';
+import type { ActiveAbilityDefinition } from '../catalog/index.ts';
 
 // ===========================================================================
 // Item 16 — Knockback-into-water (ridge elev 7 → shallow water elev 1)

@@ -22,6 +22,7 @@
 import {
   statusHook,
   statusTypeId,
+  type ActionAttemptResult,
   type StatusEffectType,
 } from '@engine/index.ts';
 
@@ -34,7 +35,7 @@ export const silence: StatusEffectType = {
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
   hooks: [
-    statusHook('onActionAttempted', (args) => {
+    statusHook('onActionAttempted', (args): ActionAttemptResult => {
       if (args.action.type !== 'use_ability') return { kind: 'allowed' };
       for (const tag of SILENCED_TAGS) {
         if (args.abilityTags.has(tag)) {

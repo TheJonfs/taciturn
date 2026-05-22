@@ -28,6 +28,7 @@ import {
   bucketId,
   passiveHook,
   type PassiveAbilityDefinition,
+  type ProposedAction,
 } from '@engine/index.ts';
 
 const FIELD_RECOVERY_ABILITY_ID = abilityId('field_recovery');
@@ -40,7 +41,7 @@ export const fieldRecovery: PassiveAbilityDefinition = {
   baseCost: 1,
   availability: 'available',
   hooks: [
-    passiveHook('onMoveCompleted', (args) => {
+    passiveHook('onMoveCompleted', (args): readonly ProposedAction[] => {
       const amount = args.tilesMoved * args.tilesMoved;
       if (amount <= 0) return [];
       return [

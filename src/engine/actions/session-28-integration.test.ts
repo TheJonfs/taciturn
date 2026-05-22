@@ -30,8 +30,11 @@ import { applyStatus } from '../status/apply.ts';
 import {
   bucketId,
   itemId,
+  statusTypeId,
+  unitId,
   type ItemId,
   type StatusTag,
+  type StatusTypeId,
   type UnitEquipment,
 } from '../types/index.ts';
 import type {
@@ -52,7 +55,7 @@ function makeAccessory(args: {
   readonly bucketCapacityMods?: ReadonlyMap<ReturnType<typeof bucketId>, number>;
   readonly statusTickAmountMultipliers?: ReadonlyArray<{
     readonly factor: number;
-    readonly statusTypeId?: string;
+    readonly statusTypeId?: StatusTypeId;
     readonly statusTag?: StatusTag;
   }>;
 }): AccessoryEquipment {
@@ -303,7 +306,7 @@ describe('getCapacity (modifyBucketCapacity chain)', () => {
       equipment: equipHead(steelHelm.id),
     });
     const state = makeGameState({ units: [u] });
-    const baselineReaction = getCapacity(makeGameState({ units: [makeUnit({ id: 'u', spd: 10, loadout: knightLoadout() })] }), 'u' as ReturnType<typeof itemId>['__brand'] extends never ? string : never as unknown as ReturnType<typeof makeUnit>['id'], bucketId('reaction'), makeAbilitiesCatalog({}));
+    const baselineReaction = getCapacity(makeGameState({ units: [makeUnit({ id: 'u', spd: 10, loadout: knightLoadout() })] }), unitId('u'), bucketId('reaction'), makeAbilitiesCatalog({}));
     void baselineReaction;
     expect(getCapacity(state, u.id, bucketId('reaction'), cat)).toBe(4);
   });
@@ -484,7 +487,7 @@ describe('runModifyStatusTickAmount — composition', () => {
     expect(
       runModifyStatusTickAmount(state, cat, {
         unit: u,
-        statusTypeId: 'poison' as ReturnType<typeof burn['id']['toString']>['__brand'] extends never ? string : never as unknown as typeof burn.id,
+        statusTypeId: statusTypeId('poison'),
         statusTags: ['negative'],
         baseAmount: 1,
       }),
@@ -538,7 +541,7 @@ describe('reduceStatusTick — modifyStatusTickAmount integration (duration mode
       statusTickAmountMultipliers: [{ factor: 2, statusTag: 'negative' }],
     });
     const stunType = {
-      id: 'stun' as ReturnType<typeof burn['id']['toString']>['__brand'] extends never ? string : never as unknown as typeof burn.id,
+      id: statusTypeId('stun'),
       name: 'Stun',
       tags: ['negative' as StatusTag],
       durationMode: 'per_unit_ct' as const,
@@ -560,11 +563,10 @@ describe('reduceStatusTick — modifyStatusTickAmount integration (duration mode
       statuses: [
         {
           typeId: stunType.id,
-          appliedAtTick: 0,
           remainingDuration: 4,
           stacks: 1,
           magnitude: 1,
-          source: { kind: 'system' },
+          source: { unitId: null, actionSeq: null },
         },
       ],
     });
@@ -573,13 +575,11 @@ describe('reduceStatusTick — modifyStatusTickAmount integration (duration mode
       state,
       {
         type: 'status_tick',
-        seq: 1,
+        sequenceNumber: 1,
         source: 'system',
+        timestamp: { tick: 0, ct: 0 },
         seed: 0,
-        tick: 0,
-        ct: 0,
-        parentSeq: null,
-        depth: 0,
+        chainDepth: 0,
         isReaction: false,
         payload: { unitId: u.id, statusTypeId: stunType.id },
       },
@@ -592,7 +592,7 @@ describe('reduceStatusTick — modifyStatusTickAmount integration (duration mode
 
   it('Without Purifier, the same status decrements by 1', () => {
     const stunType = {
-      id: 'stun' as ReturnType<typeof burn['id']['toString']>['__brand'] extends never ? string : never as unknown as typeof burn.id,
+      id: statusTypeId('stun'),
       name: 'Stun',
       tags: ['negative' as StatusTag],
       durationMode: 'per_unit_ct' as const,
@@ -613,11 +613,10 @@ describe('reduceStatusTick — modifyStatusTickAmount integration (duration mode
       statuses: [
         {
           typeId: stunType.id,
-          appliedAtTick: 0,
           remainingDuration: 4,
           stacks: 1,
           magnitude: 1,
-          source: { kind: 'system' },
+          source: { unitId: null, actionSeq: null },
         },
       ],
     });
@@ -626,13 +625,11 @@ describe('reduceStatusTick — modifyStatusTickAmount integration (duration mode
       state,
       {
         type: 'status_tick',
-        seq: 1,
+        sequenceNumber: 1,
         source: 'system',
+        timestamp: { tick: 0, ct: 0 },
         seed: 0,
-        tick: 0,
-        ct: 0,
-        parentSeq: null,
-        depth: 0,
+        chainDepth: 0,
         isReaction: false,
         payload: { unitId: u.id, statusTypeId: stunType.id },
       },
@@ -669,8 +666,6 @@ describe('Burn × Purifier — front-loaded stack consumption', () => {
         typeId: burn.id,
         sourceUnitId: fireMage.id,
         sourceActionSeq: null,
-        sourceKind: 'ability',
-        sourceEquipmentId: null,
         stackQuantity: 4,
       },
       cat,
@@ -680,13 +675,11 @@ describe('Burn × Purifier — front-loaded stack consumption', () => {
       state,
       {
         type: 'status_tick',
-        seq: 1,
+        sequenceNumber: 1,
         source: 'system',
+        timestamp: { tick: 0, ct: 0 },
         seed: 0,
-        tick: 0,
-        ct: 0,
-        parentSeq: null,
-        depth: 0,
+        chainDepth: 0,
         isReaction: false,
         payload: { unitId: target.id, statusTypeId: burn.id },
       },
@@ -733,8 +726,6 @@ describe('Burn × Purifier — front-loaded stack consumption', () => {
         typeId: burn.id,
         sourceUnitId: fireMage.id,
         sourceActionSeq: null,
-        sourceKind: 'ability',
-        sourceEquipmentId: null,
         stackQuantity: 4,
       },
       cat,
@@ -744,13 +735,11 @@ describe('Burn × Purifier — front-loaded stack consumption', () => {
       state,
       {
         type: 'status_tick',
-        seq: 1,
+        sequenceNumber: 1,
         source: 'system',
+        timestamp: { tick: 0, ct: 0 },
         seed: 0,
-        tick: 0,
-        ct: 0,
-        parentSeq: null,
-        depth: 0,
+        chainDepth: 0,
         isReaction: false,
         payload: { unitId: target.id, statusTypeId: burn.id },
       },
@@ -800,8 +789,6 @@ describe('Burn × Purifier — front-loaded stack consumption', () => {
         typeId: burn.id,
         sourceUnitId: fireMage.id,
         sourceActionSeq: null,
-        sourceKind: 'ability',
-        sourceEquipmentId: null,
         stackQuantity: 2,
       },
       cat,
@@ -811,13 +798,11 @@ describe('Burn × Purifier — front-loaded stack consumption', () => {
       state,
       {
         type: 'status_tick',
-        seq: 1,
+        sequenceNumber: 1,
         source: 'system',
+        timestamp: { tick: 0, ct: 0 },
         seed: 0,
-        tick: 0,
-        ct: 0,
-        parentSeq: null,
-        depth: 0,
+        chainDepth: 0,
         isReaction: false,
         payload: { unitId: target.id, statusTypeId: burn.id },
       },

@@ -18,7 +18,6 @@ import {
   makeKnight,
   makePassive,
 } from '../abilities/test-fixtures.ts';
-import { passiveHook } from '../abilities/hooks.ts';
 import { computeMpCost } from '../abilities/cost.ts';
 import { computeBaseActionSpeed } from '../ct/speed.ts';
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
@@ -38,11 +37,10 @@ import {
   makeTestRuleset,
 } from '../catalog/test-fixtures.ts';
 import {
-  abilityId,
   bucketId,
-  type ActiveAbilityDefinition,
   type DamageTag,
 } from '../types/index.ts';
+import type { ActiveAbilityDefinition } from '../catalog/index.ts';
 
 // ---------------------------------------------------------------------------
 // modifyMpCost / computeMpCost

@@ -162,7 +162,7 @@ describe('deriveKoEvents', () => {
           targetId: victim.id,
           amount: 999,
           tags: [],
-          source: { kind: 'falling', dropDistance: 9 },
+          source: { kind: 'falling', unitId: victim.id, dropDistance: 9 },
         },
         outcome: {
           kind: 'system_damage',
@@ -170,7 +170,6 @@ describe('deriveKoEvents', () => {
           amount: 999,
           applied: 100,
           hpAfter: 0,
-          source: { kind: 'falling', dropDistance: 9 },
         },
       },
     ];

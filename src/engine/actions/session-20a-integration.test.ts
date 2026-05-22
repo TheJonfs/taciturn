@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from '../../content/index.ts';
 import { reduceTurnStart } from './reducers.ts';
 import { applyStatus } from '../status/apply.ts';
-import { activeTurnFor, makeGameState, makeUnit } from '../ct/test-fixtures.ts';
+import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { statusTypeId, unitId } from '@engine/index.ts';
 
 const catalog = loadDefaultCatalog();

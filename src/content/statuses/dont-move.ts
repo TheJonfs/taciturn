@@ -22,6 +22,7 @@
 import {
   statusHook,
   statusTypeId,
+  type ActionAttemptResult,
   type StatusEffectType,
 } from '@engine/index.ts';
 
@@ -32,7 +33,7 @@ export const dontMove: StatusEffectType = {
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
   hooks: [
-    statusHook('onActionAttempted', (args) => {
+    statusHook('onActionAttempted', (args): ActionAttemptResult => {
       if (args.action.type !== 'move') return { kind: 'allowed' };
       return { kind: 'blocked', reason: "can't move" };
     }),

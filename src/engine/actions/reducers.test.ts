@@ -19,7 +19,6 @@ import {
   statusTypeId,
   unitId,
   type Action,
-  type ChargedAction,
 } from '../types/index.ts';
 import { reduce } from './reduce.ts';
 import { reduceMove, reduceSetFacing, reduceStatusTick, reduceTurnEnd, reduceTurnStart, reduceUseAbility, reduceWait } from './reducers.ts';
@@ -245,7 +244,7 @@ describe('reduceUseAbility — instant + status-application', () => {
     const casterStatuses = newState.units.get(u.id)!.statuses;
     expect(casterStatuses).toHaveLength(1);
     expect(casterStatuses[0]!.typeId).toBe(statusTypeId('charging'));
-    expect(casterStatuses[0]!.customState?.chargedActionId).toBe(ca.id);
+    expect(casterStatuses[0]!.customState?.['chargedActionId']).toBe(ca.id);
     // Outcome carries the ChargedAction's id and empty per-target results.
     expect(outcome.chargedActionId).toBe(ca.id);
     expect(outcome.perTargetResults).toHaveLength(0);

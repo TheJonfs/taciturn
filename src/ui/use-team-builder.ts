@@ -44,10 +44,10 @@ export interface UseTeamBuilderArgs {
   // Optional initial draft (per S37). When provided, the builder hydrates
   // from this state on mount instead of an empty draft. Used by `App` to
   // preserve in-progress builds across screen back-navigation.
-  readonly initialDraft?: TeamBuilderState | null;
+  readonly initialDraft?: TeamBuilderState | null | undefined;
   // Optional change notifier (per S37). Fires whenever the draft mutates,
   // so the parent can preserve the latest state across remounts.
-  readonly onDraftChange?: (draft: TeamBuilderState) => void;
+  readonly onDraftChange?: ((draft: TeamBuilderState) => void) | undefined;
 }
 
 export interface TeamBuilder {

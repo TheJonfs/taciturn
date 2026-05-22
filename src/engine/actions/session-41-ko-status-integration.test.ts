@@ -43,6 +43,7 @@ function gameStateWith(units: ReadonlyArray<Unit>): ReturnType<typeof makeGameSt
         layer: 0,
         elevation: 2,
         terrain: 'ground' as const,
+        properties: [],
       })),
     },
     turnState: activeTurnFor(units[0]!.id),
@@ -108,7 +109,7 @@ function koActionFor(targetId: ReturnType<typeof unitId>): Extract<Action, { typ
       targetId,
       amount: 999,
       tags: [],
-      source: { kind: 'falling' },
+      source: { kind: 'falling', unitId: targetId, dropDistance: 1 },
     },
   };
 }

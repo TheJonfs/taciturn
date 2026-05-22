@@ -3,7 +3,7 @@
 // Knight + Water Mage replaced by a real Alchemist).
 
 import { describe, expect, it } from 'vitest';
-import { abilityId, BUCKET_REACTION, BUCKET_SUPPORT, BUCKET_MOVEMENT, classId, commandSetId } from '@engine/index.ts';
+import { abilityId, BUCKET_FIRST_ACTION, BUCKET_REACTION, BUCKET_SUPPORT, BUCKET_MOVEMENT, classId, commandSetId } from '@engine/index.ts';
 import { defensiveFront } from './defensive-front.ts';
 import { assertTemplateCompliance } from './template-compliance.ts';
 
@@ -22,7 +22,7 @@ describe('Defensive Front template', () => {
     expect(alchemist!.name).toBe('Beorn');
     // Alchemy is on first-action via class default — first_action bucket
     // entry should include it.
-    const firstAction = alchemist!.loadout.actionBuckets['first_action'] ?? [];
+    const firstAction = alchemist!.loadout.actionBuckets[BUCKET_FIRST_ACTION] ?? [];
     expect(firstAction).toContain(commandSetId('alchemy'));
     // R/S/M passives all equipped (Field Kit grants the starting
     // Potion + Phoenix Down + Remedy stockpile, exercised end-to-end

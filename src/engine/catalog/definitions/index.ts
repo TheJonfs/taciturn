@@ -4,6 +4,7 @@ export type {
   AbilityEffects,
   AbilityRange,
   ActiveAbilityDefinition,
+  AoeSpec,
   DamageSpec,
   PassiveAbilityDefinition,
   RangeMode,

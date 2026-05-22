@@ -201,8 +201,10 @@ describe('Session 33 — River Ridge pathfinding', () => {
     const state = initialRiverRidgeState();
     const knightId = unitId('blue_knight_n');
     const knight = state.units.get(knightId)!;
-    const repositioned: typeof state.units = new Map(state.units);
-    repositioned.set(knightId, { ...knight, position: { x: 3, y: 4, layer: 0 } });
+    const repositioned: typeof state.units = new Map([
+      ...state.units,
+      [knightId, { ...knight, position: { x: 3, y: 4, layer: 0 } }],
+    ]);
     const newState: GameState = { ...state, units: repositioned };
     const moves = getLegalMoves(newState, knightId, catalog);
     expect(moves.reachable.has(positionKey({ x: 1, y: 4, layer: 0 }))).toBe(true);
@@ -222,8 +224,10 @@ describe('Session 33 — River Ridge pathfinding', () => {
     const state = initialRiverRidgeState();
     const knightId = unitId('blue_knight_n');
     const knight = state.units.get(knightId)!;
-    const repositioned: typeof state.units = new Map(state.units);
-    repositioned.set(knightId, { ...knight, position: { x: 3, y: 4, layer: 0 } });
+    const repositioned: typeof state.units = new Map([
+      ...state.units,
+      [knightId, { ...knight, position: { x: 3, y: 4, layer: 0 } }],
+    ]);
     const newState: GameState = { ...state, units: repositioned };
     const moves = getLegalMoves(newState, knightId, catalog);
     // Wading to (2, 4) shallow water costs exactly 2.

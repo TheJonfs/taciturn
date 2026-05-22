@@ -7,7 +7,7 @@ import { loadDefaultCatalog } from '../../content/index.ts';
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { computeMovementProfile } from '../map/movement-profile.ts';
 import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
-import { flatMap, mapFrom, mapWith } from '../map/test-fixtures.ts';
+import { flatMap, mapWith } from '../map/test-fixtures.ts';
 import { abilityId } from '../types/index.ts';
 import { BUCKET_MOVEMENT } from './constants.ts';
 import { loadoutOf } from './test-fixtures.ts';

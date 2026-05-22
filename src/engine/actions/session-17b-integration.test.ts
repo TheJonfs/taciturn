@@ -36,16 +36,18 @@ import {
   classId,
   commandSetId,
   statusTypeId,
-  unitId,
   type AbilityId,
   type ActiveAbilityDefinition,
+  type ActionAttemptResult,
   type ClassDefinition,
   type CommandSetDefinition,
+  type DamageContext,
   type Loadout,
+  type OnTickResult,
   type PassiveAbilityDefinition,
-  type ProposedAction,
   type StatusEffectType,
 } from '@engine/index.ts';
+import type { OnDamageReceivedResult } from '../hooks/hooks.ts';
 import { statusHook } from '../status/hooks.ts';
 import { commitAction } from './commit.ts';
 
@@ -98,7 +100,7 @@ function poisonStatus(): StatusEffectType {
     durationMode: 'permanent_per_unit_ct',
     stackingRule: 'REFRESH',
     hooks: [
-      statusHook('onTick', (args) => {
+      statusHook('onTick', (args): OnTickResult => {
         const maxHp = args.unit.baseStats.maxHpBase;
         const amount = Math.floor(maxHp * 0.10);
         if (amount <= 0) return {};
@@ -129,7 +131,7 @@ function dontActStatus(): StatusEffectType {
     durationMode: 'per_unit_ct',
     stackingRule: 'REFRESH',
     hooks: [
-      statusHook('onActionAttempted', (args) => {
+      statusHook('onActionAttempted', (args): ActionAttemptResult => {
         if (args.action.type !== 'use_ability') return { kind: 'allowed' };
         if (args.isReaction) return { kind: 'allowed' };
         return { kind: 'blocked', reason: "can't act" };
@@ -146,7 +148,7 @@ function dontMoveStatus(): StatusEffectType {
     durationMode: 'per_unit_ct',
     stackingRule: 'REFRESH',
     hooks: [
-      statusHook('onActionAttempted', (args) => {
+      statusHook('onActionAttempted', (args): ActionAttemptResult => {
         if (args.action.type !== 'move') return { kind: 'allowed' };
         return { kind: 'blocked', reason: "can't move" };
       }),
@@ -170,7 +172,7 @@ function sleepStatus(): StatusEffectType {
     durationMode: 'per_unit_ct',
     stackingRule: 'REFRESH',
     hooks: [
-      statusHook('onDamageReceived', (args) => {
+      statusHook('onDamageReceived', (args): DamageContext | OnDamageReceivedResult => {
         if (!args.ctx.hit) return args.ctx;
         return {
           ctx: args.ctx,
@@ -249,7 +251,7 @@ describe('session 17b — system_damage reducer', () => {
       items: [],
       rulesets: [ruleset],
     });
-    const u = makeUnit({ id: 'u', hp: 50, maxHpBase: 60, loadout: loadoutWith() });
+    const u = makeUnit({ id: 'u', spd: 10, hp: 50, maxHpBase: 60, loadout: loadoutWith() });
     const state = makeGameState({ units: [u], map: flatMap(3, 3) });
     const r = commitAction(
       state,
@@ -286,7 +288,7 @@ describe('session 17b — system_damage reducer', () => {
       items: [],
       rulesets: [ruleset],
     });
-    const u = makeUnit({ id: 'u', hp: 5, maxHpBase: 60, loadout: loadoutWith() });
+    const u = makeUnit({ id: 'u', spd: 10, hp: 5, maxHpBase: 60, loadout: loadoutWith() });
     const state = makeGameState({ units: [u], map: flatMap(3, 3) });
     const r = commitAction(
       state,
@@ -322,7 +324,7 @@ describe('session 17b — system_damage reducer', () => {
       items: [],
       rulesets: [ruleset],
     });
-    const u = makeUnit({ id: 'u', hp: 0, maxHpBase: 60, loadout: loadoutWith() });
+    const u = makeUnit({ id: 'u', spd: 10, hp: 0, maxHpBase: 60, loadout: loadoutWith() });
     const state = makeGameState({ units: [u], map: flatMap(3, 3) });
     const r = commitAction(
       state,

@@ -7,6 +7,7 @@
 import type { CSSProperties, ReactElement } from 'react';
 import {
   EQUIPMENT_SLOT_IDS,
+  isEquipment,
   type Catalog,
   type EquipmentSlotId,
   type ItemDefinition,
@@ -185,6 +186,7 @@ function itemSummary(item: ItemDefinition): string {
   if (item.kind === 'weapon') {
     parts.push(`WP ${item.wp}`, `Acc ${item.accuracy}`);
   }
+  if (!isEquipment(item)) return parts.length > 0 ? parts.join(' · ') : '—';
   if (item.statMods !== undefined) {
     for (const [stat, value] of Object.entries(item.statMods)) {
       if (typeof value === 'number' && value !== 0) {

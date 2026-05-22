@@ -34,7 +34,7 @@ export interface ActionLogPanelProps {
   // Called whenever the hovered row changes. Receives the row's actor
   // and target IDs (empty array when no row is hovered). Consumer
   // typically forwards to a renderer's `setCounterpartUnits`.
-  readonly onHoverParticipants?: (ids: ReadonlyArray<UnitId>) => void;
+  readonly onHoverParticipants?: ((ids: ReadonlyArray<UnitId>) => void) | undefined;
 }
 
 export function ActionLogPanel({ state, catalog, onHoverParticipants }: ActionLogPanelProps): ReactElement {
@@ -138,7 +138,7 @@ function RowView(props: {
   readonly onToggle: () => void;
   readonly onHoverEnter: () => void;
   readonly onHoverLeave: () => void;
-  readonly detail?: Action;
+  readonly detail?: Action | undefined;
   readonly state: GameState | null;
 }): ReactElement {
   const { row, isExpandable, isExpanded, onToggle, onHoverEnter, onHoverLeave, detail, state } = props;
@@ -203,7 +203,13 @@ function ExpandedDetail({ action, state }: { readonly action: Action; readonly s
       if (r.healing !== undefined && r.healing > 0) parts.push(`+${r.healing} HP`);
       if (r.statusesApplied !== undefined) {
         for (const s of r.statusesApplied) {
-          parts.push(`${String(s.statusTypeId)} ${s.applied ? '✓' : '✗'}`);
+          const applied =
+            s.kind === 'applied' ||
+            s.kind === 'refreshed' ||
+            s.kind === 'replaced' ||
+            s.kind === 'stacked';
+          const label = applied ? String(s.instance.typeId) : s.kind;
+          parts.push(`${label} ${applied ? '✓' : '✗'}`);
         }
       }
       lines.push(`  ${targetLabel}: ${parts.join(', ') || 'hit'}`);

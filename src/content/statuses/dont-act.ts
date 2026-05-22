@@ -21,6 +21,7 @@
 import {
   statusHook,
   statusTypeId,
+  type ActionAttemptResult,
   type StatusEffectType,
 } from '@engine/index.ts';
 
@@ -31,7 +32,7 @@ export const dontAct: StatusEffectType = {
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
   hooks: [
-    statusHook('onActionAttempted', (args) => {
+    statusHook('onActionAttempted', (args): ActionAttemptResult => {
       if (args.action.type !== 'use_ability') return { kind: 'allowed' };
       // Reactions still fire — reflex vs. volition. Per ADR-0027.
       if (args.isReaction) return { kind: 'allowed' };

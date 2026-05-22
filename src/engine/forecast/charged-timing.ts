@@ -27,14 +27,13 @@
 // can't be projected (zero/negative speed, caster missing, horizon too
 // short to see the resolution).
 
-import type { Catalog } from '../catalog/index.ts';
+import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
+import type { ProjectedEvent } from '../ct/index.ts';
 import {
   chargedActionId as mkChargedActionId,
-  type ActiveAbilityDefinition,
   type ChargedAction,
   type GameState,
   type Position,
-  type ProjectedEvent,
   type TargetRef,
   type Unit,
   type UnitId,

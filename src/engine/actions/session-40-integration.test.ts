@@ -41,12 +41,12 @@ import {
   bucketId,
   itemId,
   statusTypeId,
-  type ActiveAbilityDefinition,
   type DamageContext,
   type DamageTag,
   type Unit,
   type UnitEquipment,
 } from '../types/index.ts';
+import type { ActiveAbilityDefinition } from '../catalog/index.ts';
 import type { WeaponEquipment } from '../catalog/index.ts';
 
 // ===========================================================================

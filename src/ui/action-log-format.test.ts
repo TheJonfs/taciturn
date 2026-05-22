@@ -4,9 +4,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   abilityId,
-  classId,
-  commandSetId,
-  rulesetId,
   statusTypeId,
   teamId,
   unitId,
@@ -263,7 +260,7 @@ describe('formatActionLog', () => {
       {
         ...env({ sequenceNumber: 1, source: 'system' }),
         type: 'system_apply_status',
-        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('burn') },
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('burn'), sourceUnitId: null },
         outcome: {
           kind: 'system_apply_status',
           targetId: unitId('u1'),
@@ -297,7 +294,7 @@ describe('formatActionLog', () => {
       {
         ...env({ sequenceNumber: 1, source: 'system' }),
         type: 'system_apply_status',
-        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('haste') },
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('haste'), sourceUnitId: null },
         outcome: {
           kind: 'system_apply_status',
           targetId: unitId('u1'),
@@ -308,7 +305,7 @@ describe('formatActionLog', () => {
       {
         ...env({ sequenceNumber: 2, source: 'system' }),
         type: 'system_apply_status',
-        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('haste') },
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('haste'), sourceUnitId: null },
         outcome: {
           kind: 'system_apply_status',
           targetId: unitId('u1'),
@@ -319,7 +316,7 @@ describe('formatActionLog', () => {
       {
         ...env({ sequenceNumber: 3, source: 'system' }),
         type: 'system_apply_status',
-        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('haste') },
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('haste'), sourceUnitId: null },
         outcome: {
           kind: 'system_apply_status',
           targetId: unitId('u1'),
@@ -340,7 +337,7 @@ describe('formatActionLog', () => {
       {
         ...env({ sequenceNumber: 1, source: 'system' }),
         type: 'system_apply_status',
-        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('poison') },
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('poison'), sourceUnitId: null },
         outcome: {
           kind: 'system_apply_status',
           targetId: unitId('u1'),
@@ -351,7 +348,7 @@ describe('formatActionLog', () => {
       {
         ...env({ sequenceNumber: 2, source: 'system' }),
         type: 'system_apply_status',
-        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('poison') },
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('poison'), sourceUnitId: null },
         outcome: {
           kind: 'system_apply_status',
           targetId: unitId('u1'),
@@ -362,7 +359,7 @@ describe('formatActionLog', () => {
       {
         ...env({ sequenceNumber: 3, source: 'system' }),
         type: 'system_apply_status',
-        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('poison') },
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('poison'), sourceUnitId: null },
         outcome: {
           kind: 'system_apply_status',
           targetId: unitId('u1'),

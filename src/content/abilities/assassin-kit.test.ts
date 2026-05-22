@@ -157,7 +157,7 @@ describe('Stat-reduction debuffs are Remedy-immune (Session 42)', () => {
 });
 
 describe('Brave-and-Speed / Faith-and-Speed formula variants', () => {
-  function chance(factors: { brave?: boolean; faith?: boolean; speed?: boolean }, casterSpd: number) {
+  function chance(factors: { brave?: boolean; faith?: boolean; speed?: boolean; ma?: boolean }, casterSpd: number) {
     const caster = makeUnit({ id: 'c', spd: casterSpd, brave: 70, faith: 70 });
     const target = makeUnit({ id: 't', spd: 10, brave: 80, faith: 80, position: { x: 1, y: 0, layer: 0 } });
     const state = makeGameState({ units: [caster, target], map: flatMap(3, 3) });

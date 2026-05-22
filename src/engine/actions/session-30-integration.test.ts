@@ -30,19 +30,20 @@ import {
   abilityId,
   bucketId,
   itemId,
-  unitId as mkUnitId,
   type ActionEnvelope,
-  type ActiveAbilityDefinition,
   type DamageContext,
   type DamageTag,
   type ItemId,
   type ProposedAction,
   type Unit,
   type UnitEquipment,
-  type WeaponEquipment,
-  type AccessoryEquipment,
 } from '../types/index.ts';
-import { teamId } from '../types/team.ts';
+import { teamId } from '../types/ids.ts';
+import type {
+  AccessoryEquipment,
+  ActiveAbilityDefinition,
+  WeaponEquipment,
+} from '../catalog/index.ts';
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -93,7 +94,7 @@ function makeProcAbility(args: { readonly id: string }): ActiveAbilityDefinition
     baseCost: 1,
     availability: 'hidden',
     targeting: {
-      kind: 'unit',
+      kind: 'single_unit',
       range: { horizontal: 99, vertical: 99 },
       rangeMode: 'arc',
     },
@@ -114,13 +115,14 @@ function makeBaseAbility(args: { readonly id: string }): ActiveAbilityDefinition
     baseCost: 1,
     availability: 'hidden',
     targeting: {
-      kind: 'unit',
+      kind: 'single_unit',
       range: { horizontal: 99, vertical: 99 },
       rangeMode: 'arc',
     },
     actionSpeed: 0,
     mpCost: 0,
-    effects: { damage: { tags: ['physical', 'weapon'], power_coefficient: 1 }, hitRoll: {} },
+    hitRoll: {},
+    effects: { damage: { tags: ['physical', 'weapon'], power_coefficient: 1 } },
   };
 }
 

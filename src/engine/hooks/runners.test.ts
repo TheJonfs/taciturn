@@ -22,6 +22,7 @@ import {
   type ClassDefinition,
   type CommandSetDefinition,
   type Loadout,
+  type OnTickResult,
   type PassiveAbilityDefinition,
   type ProposedAction,
 } from '@engine/index.ts';
@@ -162,8 +163,9 @@ describe('runModifyStatQuery', () => {
       id: 'haste',
       hooks: [
         statusHook('modifyStatQuery', (args) => args.baseValue * 1.5),
-        statusHook('onTick', () => {
+        statusHook('onTick', (): OnTickResult => {
           onTickCalled = true;
+          return {};
         }),
       ],
     });

@@ -163,8 +163,8 @@ export function applyStatus(
 }
 
 interface CandidateOverrides {
-  readonly customState?: Readonly<Record<string, unknown>>;
-  readonly stacks?: number;
+  readonly customState?: Readonly<Record<string, unknown>> | undefined;
+  readonly stacks?: number | undefined;
 }
 
 function buildCandidate(

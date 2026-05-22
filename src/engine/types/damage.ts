@@ -43,9 +43,14 @@ export type DamageTag =
   | 'ice'
   | 'lightning'
   | 'earth'    // Added 13.7 ahead of Earth Mage (session 16).
+  | 'water'    // Added S44 to close the union gap — element tag for Mage War water content (Water Strike, Tidal Wave, Maelstrom, Wand of Depths).
   | 'poison'   // Added 17b alongside Poison status (system_damage source).
+  | 'dot'      // Added S44 — damage-over-time source marker on tick damage (Burn), parallel to 'poison'.
   | 'sword'    // Added 17c with Long Sword equipment (per ADR-0028) — weapon-category tag for future anti-sword content.
   | 'knife'    // Added S40 with the knife weapon class — weapon-category tag; gates the Speed-based dynamic variance source on knife-tagged weapons.
+  | 'axe'      // Added S44 — weapon-category tag (War Axe, Bolt Hammer) mirroring 'sword'/'knife'.
+  | 'staff'    // Added S44 — weapon-category tag (Staff of Power, Staff of Abundance).
+  | 'wand'     // Added S44 — weapon-category tag (Wand of Deepwood, Wand of Depths).
   | 'healing';
 
 // Per-source labelled multiplier applied at finalize. The product of

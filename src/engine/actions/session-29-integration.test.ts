@@ -49,7 +49,7 @@ import {
   commandSetId,
   itemId,
   statusTypeId,
-  type ActiveAbilityDefinition,
+  unitId,
   type DamageTag,
   type ItemId,
   type ProposedAction,
@@ -57,10 +57,9 @@ import {
 } from '../types/index.ts';
 import type {
   AccessoryEquipment,
-  ArmorEquipment,
+  ActiveAbilityDefinition,
   HeadgearEquipment,
   ItemDefinition,
-  ShieldEquipment,
   WeaponEquipment,
 } from '../catalog/index.ts';
 import { BUCKET_SECONDARY_COMMAND_SETS } from '../abilities/constants.ts';
@@ -147,19 +146,6 @@ function makeAcc(args: {
     kind: 'accessory',
     ...(args.statusGrants !== undefined ? { statusGrants: args.statusGrants } : {}),
     ...(args.movementMods !== undefined ? { movementMods: args.movementMods } : {}),
-  };
-}
-
-function makeShield(args: {
-  readonly id: string;
-  readonly classRestrictions?: ShieldEquipment['classRestrictions'];
-}): ShieldEquipment {
-  return {
-    id: itemId(args.id),
-    name: args.id,
-    availability: 'available',
-    kind: 'shield',
-    ...(args.classRestrictions !== undefined ? { classRestrictions: args.classRestrictions } : {}),
   };
 }
 
@@ -426,7 +412,7 @@ describe('Session 29 same-team reaction skip', () => {
     return {
       type: 'use_ability',
       source: 'player',
-      actorId: { __brand: 'UnitId', value: actorId } as unknown as ReturnType<typeof itemId>,
+      actorId: unitId(actorId),
       payload: { abilityId: abilityId('whatever'), target: { kind: 'self' } },
     } as ProposedAction;
   }
@@ -499,6 +485,7 @@ describe('Session 29 modifyAbilityRange', () => {
     const u = makeUnit({ id: 'u', spd: 10 });
     const state = makeGameState({ units: [u] });
     const ability = makeTaggedAbility({ id: 'water_spell', tags: ['water'], horizontal: 4, vertical: 3 });
+    if (ability.targeting.kind === 'self') throw new Error('expected ranged targeting');
     const out = runModifyAbilityRange(state, cat, {
       unit: u,
       ability,
@@ -687,7 +674,6 @@ describe('Session 29 real content — sample integrations', () => {
     const staffOfPower = session29Items.find((i) => i.id === itemId('staff_of_power'));
     expect(staffOfPower).toBeDefined();
     if (staffOfPower === undefined) return;
-    const cat = catalogWithItemsAndClasses({ items: [staffOfPower] });
     const ability: ActiveAbilityDefinition = {
       id: abilityId('test_spell'),
       name: 'Test',

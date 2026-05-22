@@ -4,7 +4,12 @@
 // (`turn-flow.test.ts`).
 
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
-import { teamId, unitId, type VictoryCondition } from '../types/index.ts';
+import {
+  teamId,
+  unitId,
+  type Team,
+  type VictoryCondition,
+} from '../types/index.ts';
 import { evaluateBattleOutcome } from './evaluate-battle-outcome.ts';
 
 const A = teamId('team_a');
@@ -12,7 +17,7 @@ const B = teamId('team_b');
 const teamsAB = [
   { id: A, name: 'A', control: 'human' },
   { id: B, name: 'B', control: 'ai' },
-];
+] satisfies readonly Team[];
 
 const defeatBSide: VictoryCondition = {
   kind: 'defeat_all',

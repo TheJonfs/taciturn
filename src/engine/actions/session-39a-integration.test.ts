@@ -72,6 +72,7 @@ function gameStateWith(units: ReadonlyArray<Unit>): ReturnType<typeof makeGameSt
         layer: 0,
         elevation: 2,
         terrain: 'ground' as const,
+        properties: [],
       })),
     },
     turnState: activeTurnFor(units[0]!.id),
@@ -651,7 +652,7 @@ describe('S39a — Permadeath timer (scheduler + reducer integration)', () => {
       seed: 0,
       chainDepth: 0,
       isReaction: false,
-      payload: { targetId: dying.id, amount: 10, tags: [], source: { kind: 'falling' } },
+      payload: { targetId: dying.id, amount: 10, tags: [], source: { kind: 'falling', unitId: dying.id, dropDistance: 1 } },
     };
     state = reduceSystemDamage(state, dmg, catalog).newState;
     expect(state.units.get(dying.id)!.vitals.hp).toBe(0);
@@ -718,6 +719,7 @@ describe('S39a — Permadeath timer (scheduler + reducer integration)', () => {
           layer: 0,
           elevation: 2,
           terrain: 'ground' as const,
+          properties: [],
         })),
       },
     };

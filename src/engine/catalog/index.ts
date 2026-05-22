@@ -10,6 +10,7 @@ export {
   type AbilityRangeModifier,
   type AccessoryEquipment,
   type ActiveAbilityDefinition,
+  type AoeSpec,
   type ArmorEquipment,
   type Availability,
   type ClassDefinition,

@@ -11,11 +11,10 @@ import {
   classId,
   commandSetId,
   statusTypeId,
-  type ClassDefinition,
   type ProposedAction,
-  type StatusEffectType,
 } from '../types/index.ts';
-import { createCatalog } from '../catalog/index.ts';
+import { createCatalog, type ClassDefinition, type StatusEffectType } from '../catalog/index.ts';
+import type { ActionAttemptResult } from '../hooks/index.ts';
 import { statusHook } from '../status/hooks.ts';
 import { activeTurnFor, makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { flatMap } from '../map/test-fixtures.ts';
@@ -31,7 +30,7 @@ function dontMoveStatus(): StatusEffectType {
     durationMode: 'per_unit_ct',
     stackingRule: 'REFRESH',
     hooks: [
-      statusHook('onActionAttempted', (args) => {
+      statusHook('onActionAttempted', (args): ActionAttemptResult => {
         if (args.action.type !== 'move') return { kind: 'allowed' };
         return { kind: 'blocked', reason: "can't move" };
       }),

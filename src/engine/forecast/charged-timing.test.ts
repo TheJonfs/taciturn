@@ -18,6 +18,7 @@ import {
 } from '../ct/test-fixtures.ts';
 import {
   abilityId,
+  bucketId,
   unitId,
   type ActiveAbilityDefinition,
 } from '../index.ts';
@@ -31,7 +32,7 @@ function chargedAbility(actionSpeed: number): ActiveAbilityDefinition {
     id: abilityId('test_spell'),
     name: 'Test Spell',
     kind: 'active',
-    bucket: { kind: 'secondary_command_sets' } as never,
+    bucket: bucketId('first_action'),
     baseCost: 1,
     availability: 'hidden',
     mpCost: 0,
@@ -39,9 +40,10 @@ function chargedAbility(actionSpeed: number): ActiveAbilityDefinition {
     targeting: {
       kind: 'tile',
       range: { horizontal: 5, vertical: 1 },
+      rangeMode: 'arc',
     },
     effects: {},
-  } as ActiveAbilityDefinition;
+  };
 }
 
 describe('estimateChargedTiming', () => {

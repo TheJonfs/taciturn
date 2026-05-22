@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { assertMapValid, MapValidationError_Throw, validateMap } from './map-validator.ts';
-import { mapFrom, mapWith } from './test-fixtures.ts';
+import { mapFrom, mapWith, type TileSpec } from './test-fixtures.ts';
 import type { TerrainRegistry } from './terrain-registry.ts';
 import { teamId, type BattleMap, type TeamId } from '../types/index.ts';
 
@@ -19,7 +19,7 @@ function requireZones(perTeam: ReadonlyArray<[TeamId, number]>): ReadonlyMap<Tea
 
 function mapWithZones(): BattleMap {
   // 4×4 ground map with two zone tiles per team.
-  const tiles = [];
+  const tiles: TileSpec[] = [];
   for (let y = 0; y < 4; y++) {
     for (let x = 0; x < 4; x++) {
       const zone =
@@ -28,7 +28,11 @@ function mapWithZones(): BattleMap {
           : y === 3 && (x === 2 || x === 3)
             ? TEAM_B
             : undefined;
-      tiles.push({ x, y, terrain: 'ground', elevation: 2, deploymentZone: zone });
+      tiles.push(
+        zone === undefined
+          ? { x, y, terrain: 'ground', elevation: 2 }
+          : { x, y, terrain: 'ground', elevation: 2, deploymentZone: zone },
+      );
     }
   }
   return mapWith({ width: 4, height: 4, tiles });

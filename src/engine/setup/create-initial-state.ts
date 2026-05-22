@@ -30,7 +30,7 @@ import {
   type UnitPlacement,
 } from '../types/index.ts';
 import { validateLoadout } from '../abilities/validate.ts';
-import { iterateEquippedItems, validateSlotItem } from '../items/equipment.ts';
+import { isEquipment, iterateEquippedItems, validateSlotItem } from '../items/equipment.ts';
 import { runModifyStatQuery } from '../hooks/runners.ts';
 import { commitAction } from '../actions/commit.ts';
 import { resolveInitialCT } from './initial-ct.ts';
@@ -303,7 +303,7 @@ function validateEquipmentPlacement(
     }
     // Session 29: per-item class allowlist. Fails loud per CLAUDE.md
     // "don't catch errors silently."
-    if (item.classRestrictions !== undefined && !item.classRestrictions.includes(placement.classId)) {
+    if (isEquipment(item) && item.classRestrictions !== undefined && !item.classRestrictions.includes(placement.classId)) {
       throw new BattleConfigError(
         `Unit ${JSON.stringify(placement.id)}: class ${JSON.stringify(placement.classId)} ` +
           `cannot equip ${JSON.stringify(id)} (restricted to ${JSON.stringify([...item.classRestrictions])})`,

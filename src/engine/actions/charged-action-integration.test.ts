@@ -35,15 +35,24 @@ import {
   type AbilityId,
   type ActiveAbilityDefinition,
   type ClassDefinition,
-  type CommandSetDefinition,
   type Loadout,
   type PassiveAbilityDefinition,
   type ProposedAction,
 } from '@engine/index.ts';
 import { commitAction } from './commit.ts';
+import type { CommitResult } from './commit.ts';
+import type { GameState } from '../types/index.ts';
 import { validateAction } from './validate.ts';
 
 // --- Fixtures ---
+
+// Narrows a CommitResult to its success arm, failing loudly otherwise,
+// and returns the resulting state. Avoids `!`/`as` on the union.
+function committedState(r: CommitResult): GameState {
+  expect(r.ok).toBe(true);
+  if (!r.ok) throw new Error(`commit failed: ${r.reason}`);
+  return r.newState;
+}
 
 function knightClass(): ClassDefinition {
   return {
@@ -53,6 +62,7 @@ function knightClass(): ClassDefinition {
     evasion: { front: 0, side: 0, back: 0 },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
+    equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
   };
 }
 
@@ -124,7 +134,7 @@ function lethalCounter(): PassiveAbilityDefinition {
     baseCost: 1,
     availability: 'hidden',
     hooks: [
-      passiveHook('onActionTargeted', (args) => {
+      passiveHook('onActionTargeted', (args): readonly ProposedAction[] => {
         if (!args.damageTags?.has('physical')) return [];
         if (args.damageTags.has('healing')) return [];
         const incoming = args.incomingAction;
@@ -248,7 +258,7 @@ describe('charged action commit', () => {
     const statuses = r.newState.units.get(caster.id)!.statuses;
     expect(statuses).toHaveLength(1);
     expect(statuses[0]!.typeId).toBe(statusTypeId('charging'));
-    expect(statuses[0]!.customState?.chargedActionId).toBe(ca.id);
+    expect(statuses[0]!.customState?.['chargedActionId']).toBe(ca.id);
   });
 });
 
@@ -506,7 +516,9 @@ describe('charged action resolve — happy path', () => {
       }),
     };
     // End caster's turn and run the scheduler until the charge resolves.
-    s = commitAction(s, { type: 'turn_end', source: 'system', payload: { unitId: caster.id } }, cat).newState!;
+    s = committedState(
+      commitAction(s, { type: 'turn_end', source: 'system', payload: { unitId: caster.id } }, cat),
+    );
     let resolveProposed: ProposedAction | null = null;
     for (let i = 0; i < 40; i++) {
       const sched = advanceToNextEvent(s, cat);
@@ -516,7 +528,7 @@ describe('charged action resolve — happy path', () => {
         resolveProposed = sched.proposed;
         break;
       }
-      s = commitAction(s, sched.proposed, cat).newState!;
+      s = committedState(commitAction(s, sched.proposed, cat));
     }
     expect(resolveProposed).not.toBeNull();
     const r3 = commitAction(s, resolveProposed!, cat);
@@ -580,13 +592,15 @@ describe('charged action interruption — caster KO', () => {
       },
       cat,
     );
-    s = r1.newState!;
+    s = committedState(r1);
     // End the caster's turn so the scheduler can advance.
-    s = commitAction(
-      s,
-      { type: 'turn_end', source: 'system', payload: { unitId: caster.id } },
-      cat,
-    ).newState!;
+    s = committedState(
+      commitAction(
+        s,
+        { type: 'turn_end', source: 'system', payload: { unitId: caster.id } },
+        cat,
+      ),
+    );
     // KO the caster mid-charge (between turns).
     s = {
       ...s,
@@ -605,7 +619,7 @@ describe('charged action interruption — caster KO', () => {
         resolveProposed = sched.proposed;
         break;
       }
-      s = commitAction(s, sched.proposed, cat).newState!;
+      s = committedState(commitAction(s, sched.proposed, cat));
     }
     expect(resolveProposed).not.toBeNull();
     const r3 = commitAction(s, resolveProposed!, cat);
@@ -655,19 +669,21 @@ describe('charged action interruption — Stop pauses charge', () => {
       map: flatMap(5, 5),
       turnState: turnFor('caster'),
     });
-    s = commitAction(
-      s,
-      {
-        type: 'use_ability',
-        source: 'player',
-        actorId: caster.id,
-        payload: {
-          abilityId: abilityId('bolt_test'),
-          target: { kind: 'tile', position: { x: 2, y: 0, layer: 0 } },
+    s = committedState(
+      commitAction(
+        s,
+        {
+          type: 'use_ability',
+          source: 'player',
+          actorId: caster.id,
+          payload: {
+            abilityId: abilityId('bolt_test'),
+            target: { kind: 'tile', position: { x: 2, y: 0, layer: 0 } },
+          },
         },
-      },
-      cat,
-    ).newState!;
+        cat,
+      ),
+    );
     // Stamp Stop on the caster manually (simulating an enemy Stop spell
     // landing). Real flow would route through applyStatus; this is the
     // engine-test shortcut.
@@ -685,11 +701,13 @@ describe('charged action interruption — Stop pauses charge', () => {
         ],
       }),
     };
-    s = commitAction(
-      s,
-      { type: 'turn_end', source: 'system', payload: { unitId: caster.id } },
-      cat,
-    ).newState!;
+    s = committedState(
+      commitAction(
+        s,
+        { type: 'turn_end', source: 'system', payload: { unitId: caster.id } },
+        cat,
+      ),
+    );
     // Try to advance; the ChargedAction should never trigger as long as
     // Stop is active. The target may take their turn first.
     let chargeResolved = false;
@@ -701,7 +719,7 @@ describe('charged action interruption — Stop pauses charge', () => {
         chargeResolved = true;
         break;
       }
-      s = commitAction(s, sched.proposed, cat).newState!;
+      s = committedState(commitAction(s, sched.proposed, cat));
     }
     expect(chargeResolved).toBe(false);
     // Charge is still in flight (paused).
@@ -737,24 +755,28 @@ describe('Charging skips the casters own turns', () => {
       map: flatMap(5, 5),
       turnState: turnFor('caster'),
     });
-    s = commitAction(
-      s,
-      {
-        type: 'use_ability',
-        source: 'player',
-        actorId: caster.id,
-        payload: {
-          abilityId: abilityId('bolt_test'),
-          target: { kind: 'tile', position: { x: 2, y: 0, layer: 0 } },
+    s = committedState(
+      commitAction(
+        s,
+        {
+          type: 'use_ability',
+          source: 'player',
+          actorId: caster.id,
+          payload: {
+            abilityId: abilityId('bolt_test'),
+            target: { kind: 'tile', position: { x: 2, y: 0, layer: 0 } },
+          },
         },
-      },
-      cat,
-    ).newState!;
-    s = commitAction(
-      s,
-      { type: 'turn_end', source: 'system', payload: { unitId: caster.id } },
-      cat,
-    ).newState!;
+        cat,
+      ),
+    );
+    s = committedState(
+      commitAction(
+        s,
+        { type: 'turn_end', source: 'system', payload: { unitId: caster.id } },
+        cat,
+      ),
+    );
     // The caster's CT will reach 100 before the charge does (Speed 30 vs
     // ActionSpeed 25). Their next turn should skip via Charging.
     const sched1 = advanceToNextEvent(s, cat);

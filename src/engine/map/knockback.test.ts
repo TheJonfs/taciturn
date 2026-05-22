@@ -43,7 +43,7 @@ function dropMap(): BattleMap {
 describe('applyKnockback', () => {
   it('moves the unit one tile east on a flat map with distance 1', () => {
     const map = flatMap(5, 3);
-    const u = makeUnit({ id: 'u', position: { x: 1, y: 1, layer: 0 } });
+    const u = makeUnit({ id: 'u', spd: 10, position: { x: 1, y: 1, layer: 0 } });
     const state = makeGameState({ units: [u], map });
     const result = applyKnockback({ state, unit: u, direction: 'E', distance: 1 });
     expect(result.finalPosition).toEqual({ x: 2, y: 1, layer: 0 });
@@ -55,7 +55,7 @@ describe('applyKnockback', () => {
 
   it('cancels at the map edge', () => {
     const map = flatMap(5, 3);
-    const u = makeUnit({ id: 'u', position: { x: 4, y: 1, layer: 0 } });
+    const u = makeUnit({ id: 'u', spd: 10, position: { x: 4, y: 1, layer: 0 } });
     const state = makeGameState({ units: [u], map });
     const result = applyKnockback({ state, unit: u, direction: 'E', distance: 2 });
     expect(result.finalPosition).toEqual({ x: 4, y: 1, layer: 0 });
@@ -65,8 +65,8 @@ describe('applyKnockback', () => {
 
   it('cancels when a unit blocks the destination', () => {
     const map = flatMap(5, 3);
-    const u = makeUnit({ id: 'u', position: { x: 1, y: 1, layer: 0 } });
-    const blocker = makeUnit({ id: 'b', team: 'team_b', position: { x: 2, y: 1, layer: 0 } });
+    const u = makeUnit({ id: 'u', spd: 10, position: { x: 1, y: 1, layer: 0 } });
+    const blocker = makeUnit({ id: 'b', spd: 10, team: 'team_b', position: { x: 2, y: 1, layer: 0 } });
     const state = makeGameState({ units: [u, blocker], map });
     const result = applyKnockback({ state, unit: u, direction: 'E', distance: 2 });
     expect(result.finalPosition).toEqual({ x: 1, y: 1, layer: 0 });
@@ -75,7 +75,7 @@ describe('applyKnockback', () => {
 
   it("cancels on an upward step ≥ 1", () => {
     const map = multiElevationMap(); // x=3 is elevation 2; everywhere else 0
-    const u = makeUnit({ id: 'u', position: { x: 1, y: 1, layer: 0 } });
+    const u = makeUnit({ id: 'u', spd: 10, position: { x: 1, y: 1, layer: 0 } });
     const state = makeGameState({ units: [u], map });
     const result = applyKnockback({ state, unit: u, direction: 'E', distance: 5 });
     // Should advance 1 step (to x=2), then cancel at x=3 (elevation 2 ≥ 0+1).
@@ -91,7 +91,7 @@ describe('applyKnockback', () => {
     // total drop 2 from start, but per-step the drops are within tolerance.
     // The final dropDistance is start - end = 5 - 3 = 2; > 1, so falling
     // damage of 10 × 2 = 20 is emitted.
-    const u = makeUnit({ id: 'u', position: { x: 0, y: 0, layer: 0 } });
+    const u = makeUnit({ id: 'u', spd: 10, position: { x: 0, y: 0, layer: 0 } });
     const state = makeGameState({ units: [u], map });
     const result = applyKnockback({ state, unit: u, direction: 'E', distance: 2 });
     expect(result.finalPosition).toEqual({ x: 2, y: 0, layer: 0 });
@@ -110,7 +110,7 @@ describe('applyKnockback', () => {
   it('does not emit falling damage when drop distance is 1 or less', () => {
     const map = dropMap();
     // Unit at x=0 (elevation 5), one step E to x=1 (elevation 4). Drop = 1.
-    const u = makeUnit({ id: 'u', position: { x: 0, y: 0, layer: 0 } });
+    const u = makeUnit({ id: 'u', spd: 10, position: { x: 0, y: 0, layer: 0 } });
     const state = makeGameState({ units: [u], map });
     const result = applyKnockback({ state, unit: u, direction: 'E', distance: 1 });
     expect(result.dropDistance).toBe(1);
@@ -119,7 +119,7 @@ describe('applyKnockback', () => {
 
   it('takes all available steps until the requested distance', () => {
     const map = flatMap(10, 3);
-    const u = makeUnit({ id: 'u', position: { x: 1, y: 1, layer: 0 } });
+    const u = makeUnit({ id: 'u', spd: 10, position: { x: 1, y: 1, layer: 0 } });
     const state = makeGameState({ units: [u], map });
     const result = applyKnockback({ state, unit: u, direction: 'E', distance: 3 });
     expect(result.finalPosition).toEqual({ x: 4, y: 1, layer: 0 });
@@ -129,7 +129,7 @@ describe('applyKnockback', () => {
 
   it('handles distance 0 as a no-op', () => {
     const map = flatMap(5, 3);
-    const u = makeUnit({ id: 'u', position: { x: 1, y: 1, layer: 0 } });
+    const u = makeUnit({ id: 'u', spd: 10, position: { x: 1, y: 1, layer: 0 } });
     const state = makeGameState({ units: [u], map });
     const result = applyKnockback({ state, unit: u, direction: 'E', distance: 0 });
     expect(result.finalPosition).toEqual({ x: 1, y: 1, layer: 0 });
@@ -154,7 +154,7 @@ describe('applyKnockback', () => {
         { x: 1, y: 0, layer: 0, elevation: 1, terrain: 'water', properties: [] },
       ],
     };
-    const u = makeUnit({ id: 'u', position: { x: 0, y: 0, layer: 0 } });
+    const u = makeUnit({ id: 'u', spd: 10, position: { x: 0, y: 0, layer: 0 } });
     const state = makeGameState({ units: [u], map });
     const result = applyKnockback({ state, unit: u, direction: 'E', distance: 1 });
     expect(result.finalPosition).toEqual({ x: 1, y: 0, layer: 0 });

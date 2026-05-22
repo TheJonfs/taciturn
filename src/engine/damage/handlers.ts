@@ -35,8 +35,6 @@ import {
   getUnit,
   type DamageContext,
   type DamageTag,
-  type Direction,
-  type Position,
   type Unit,
 } from '../types/index.ts';
 import type { DamageHandler, PipelineEnv } from './registry.ts';

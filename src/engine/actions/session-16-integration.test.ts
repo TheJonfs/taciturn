@@ -39,10 +39,12 @@ import {
   statusTypeId,
   unitId,
   type AbilityId,
+  type ActionAttemptResult,
   type ActiveAbilityDefinition,
   type ClassDefinition,
   type CommandSetDefinition,
   type Loadout,
+  type OnTickResult,
   type PassiveAbilityDefinition,
   type ProposedAction,
   type StatusEffectType,
@@ -128,31 +130,6 @@ function magicalDebuffAbility(args: {
   };
 }
 
-function earthCurseAbility(): ActiveAbilityDefinition {
-  return {
-    id: abilityId('earth_curse'),
-    name: 'Earth Curse',
-    kind: 'active',
-    bucket: bucketId('first_action'),
-    baseCost: 1,
-    availability: 'hidden',
-    tags: ['magical', 'earth'],
-    targeting: {
-      kind: 'single_unit',
-      range: { horizontal: 4, vertical: 2 },
-      rangeMode: 'arc',
-    },
-    actionSpeed: 0,
-    mpCost: 8,
-    effects: {
-      statusEffects: [
-        { typeId: statusTypeId('blind'), target: 'primary_target', baseChance: 50, duration: 24 },
-        { typeId: statusTypeId('silence'), target: 'primary_target', baseChance: 50, duration: 24 },
-      ],
-    },
-  };
-}
-
 function silencedAbility(): ActiveAbilityDefinition {
   return {
     id: abilityId('cure'),
@@ -188,7 +165,7 @@ function silenceStatus(): StatusEffectType {
     durationMode: 'per_unit_ct',
     stackingRule: 'REFRESH',
     hooks: [
-      statusHook('onActionAttempted', (args) => {
+      statusHook('onActionAttempted', (args): ActionAttemptResult => {
         if (args.action.type !== 'use_ability') return { kind: 'allowed' };
         if (args.abilityTags.has('magical') || args.abilityTags.has('voice')) {
           return { kind: 'blocked', reason: 'silenced' };
@@ -207,7 +184,7 @@ function regenStatus(): StatusEffectType {
     durationMode: 'per_unit_ct',
     stackingRule: 'REFRESH',
     hooks: [
-      statusHook('onTick', (args) => ({
+      statusHook('onTick', (args): OnTickResult => ({
         emittedActions: [
           {
             type: 'system_heal',

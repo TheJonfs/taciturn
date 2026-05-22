@@ -22,6 +22,7 @@ import {
   abilityId,
   bucketId,
   passiveHook,
+  type OnActionResolvedResult,
   type PassiveAbilityDefinition,
 } from '@engine/index.ts';
 
@@ -36,7 +37,7 @@ export const flowState: PassiveAbilityDefinition = {
   availability: 'available',
   tags: ['magical', 'water'],
   hooks: [
-    passiveHook('onActionResolved', (args, ctx) => {
+    passiveHook('onActionResolved', (args, ctx): OnActionResolvedResult => {
       // Gate on the ability's `'magical'` tag. Non-magical actions
       // (Knight attacks, Move, Wait, etc.) don't refund.
       if (args.ability === null) return {};

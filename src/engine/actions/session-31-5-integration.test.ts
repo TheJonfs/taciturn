@@ -28,14 +28,17 @@ import { reduceSystemMpDrain, reduceUseAbility } from './reducers.ts';
 import {
   abilityId,
   itemId,
-  type AccessoryEquipment,
-  type ActiveAbilityDefinition,
+  type Action,
   type DamageTag,
   type UnitEquipment,
-  type WeaponEquipment,
   type ActionEnvelope,
 } from '../types/index.ts';
-import { teamId } from '../types/team.ts';
+import { teamId } from '../types/ids.ts';
+import type {
+  AccessoryEquipment,
+  ActiveAbilityDefinition,
+  WeaponEquipment,
+} from '../catalog/index.ts';
 
 function emptyEquip(): UnitEquipment {
   return { leftHand: null, rightHand: null, headgear: null, armor: null, accessory: null };
@@ -342,7 +345,7 @@ describe('Session 31.5 — knockback displacement on per-target result', () => {
     });
     // Synthesize a use_ability action against a tile that includes the
     // target's position so the AoE dispatcher routes the per-target damage.
-    const action = {
+    const action: Extract<Action, { type: 'use_ability' }> = {
       sequenceNumber: 1,
       source: 'player',
       timestamp: { tick: 0, ct: 0 },
@@ -433,7 +436,7 @@ describe("Session 31.5 — absorption tag-flip cannot revive a KO'd target", () 
     // gate lives in applyDamageToTarget.
     expect(ctx.damageTags.has('healing')).toBe(true);
     // Now run reduceUseAbility end-to-end so the gate kicks in.
-    const action = {
+    const action: Extract<Action, { type: 'use_ability' }> = {
       sequenceNumber: 1,
       source: 'player',
       timestamp: { tick: 0, ct: 0 },

@@ -47,6 +47,7 @@
 import {
   statusHook,
   statusTypeId,
+  type ActionAttemptResult,
   type StatusEffectType,
 } from '@engine/index.ts';
 
@@ -58,7 +59,7 @@ export const taunted: StatusEffectType = {
   stackingRule: 'REFRESH',
   removeOnSourceKO: true,
   hooks: [
-    statusHook('onActionAttempted', (args, ctx) => {
+    statusHook('onActionAttempted', (args, ctx): ActionAttemptResult => {
       // Only act on use_ability actions that target a unit other than
       // the Taunt source. Other action shapes pass through unchanged.
       if (args.action.type !== 'use_ability') return { kind: 'allowed' };

@@ -13,6 +13,8 @@ export {
   type HookName,
   type HookSignatures,
   type HookSourceTier,
+  type OnActionResolvedResult,
+  type OnTickResult,
   type TurnSkipResult,
 } from './hooks.ts';
 export {

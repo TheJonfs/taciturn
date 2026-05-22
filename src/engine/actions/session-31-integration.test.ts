@@ -44,10 +44,9 @@ import {
   bucketId,
   itemId,
   statusTypeId,
-  type ActiveAbilityDefinition,
   type UnitEquipment,
 } from '../types/index.ts';
-import type { WeaponEquipment } from '../catalog/index.ts';
+import type { ActiveAbilityDefinition, WeaponEquipment } from '../catalog/index.ts';
 
 // ===========================================================================
 // 1. tagged_resistance_shift — additive composition

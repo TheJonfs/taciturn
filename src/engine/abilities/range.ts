@@ -9,11 +9,10 @@
 // handler. `minHorizontal` carries through unchanged (no v1 hook
 // modifies the minimum-range floor).
 
-import type { Catalog } from '../catalog/index.ts';
+import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
 import { runModifyAbilityRange } from '../hooks/index.ts';
 import {
   getUnit,
-  type ActiveAbilityDefinition,
   type GameState,
   type UnitId,
 } from '../types/index.ts';
@@ -31,15 +30,19 @@ export function computeAbilityRange(
   ability: ActiveAbilityDefinition,
 ): AbilityRangeView {
   const unit = getUnit(state, unitId);
+  const targeting = ability.targeting;
+  if (targeting.kind === 'self') {
+    return { horizontal: 0, vertical: 0, minHorizontal: undefined };
+  }
   const composed = runModifyAbilityRange(state, catalog, {
     unit,
     ability,
-    baseHorizontal: ability.targeting.range.horizontal,
-    baseVertical: ability.targeting.range.vertical,
+    baseHorizontal: targeting.range.horizontal,
+    baseVertical: targeting.range.vertical,
   });
   return {
     horizontal: composed.horizontal,
     vertical: composed.vertical,
-    minHorizontal: ability.targeting.range.minHorizontal,
+    minHorizontal: targeting.range.minHorizontal,
   };
 }

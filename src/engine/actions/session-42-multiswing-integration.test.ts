@@ -55,6 +55,7 @@ function gameStateWith(units: ReadonlyArray<Unit>): GameState {
         layer: 0,
         elevation: 2,
         terrain: 'ground' as const,
+        properties: [],
       })),
     },
     turnState: activeTurnFor(units[0]!.id),
