@@ -14,6 +14,7 @@ import alchemistUrl from './alchemist.png';
 import assassinUrl from './assassin.png';
 import earthMageUrl from './earth-mage.png';
 import fireMageUrl from './fire-mage.png';
+import hunterUrl from './hunter.png';
 import knightUrl from './knight.png';
 import lightningMageUrl from './lightning-mage.png';
 import waterMageUrl from './water-mage.png';
@@ -24,6 +25,7 @@ export const PORTRAIT_URLS: ReadonlyMap<ClassId, string> = new Map([
   [classId('assassin'), assassinUrl],
   [classId('earth_mage'), earthMageUrl],
   [classId('fire_mage'), fireMageUrl],
+  [classId('hunter'), hunterUrl],
   [classId('knight'), knightUrl],
   [classId('lightning_mage'), lightningMageUrl],
   [classId('water_mage'), waterMageUrl],

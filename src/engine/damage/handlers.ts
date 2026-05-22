@@ -31,6 +31,7 @@ import {
 import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
 import type { GameState } from '../types/index.ts';
 import { getEquippedWeapon, getWeaponInSlot } from '../items/equipment.ts';
+import { tileAt } from '../map/accessors.ts';
 import {
   getUnit,
   type DamageContext,
@@ -436,7 +437,7 @@ function resolveVarianceBand(
   env: PipelineEnv,
 ): { readonly min: number; readonly max: number } {
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
-  return resolvePhysicalVarianceBand(env.state, env.catalog, ctx.attacker, ability);
+  return resolvePhysicalVarianceBand(env.state, env.catalog, ctx.attacker, ctx.target, ability);
 }
 
 // Shared physical-variance-band resolver (per ADR-0067 + Session 40).
@@ -454,10 +455,14 @@ function resolveVarianceBand(
 // `static` returns the literal band; `attacker_speed` computes
 // `center = Speed/10` (Speed read through `modifyStatQuery` so equipment
 // / status Speed modifiers compose) and returns `[center ± spread]`.
+// `height_delta` (Session 45, bows) reads the target's tile elevation
+// relative to the attacker's and collapses to a single deterministic
+// point — the only arm that consults the target.
 export function resolvePhysicalVarianceBand(
   state: GameState,
   catalog: Catalog,
   attacker: Unit,
+  target: Unit,
   ability: ActiveAbilityDefinition,
 ): { readonly min: number; readonly max: number } {
   const damage = ability.effects.damage;
@@ -468,6 +473,14 @@ export function resolvePhysicalVarianceBand(
   if (source === undefined) return fallback;
   if (source.kind === 'static') {
     return { min: source.min, max: source.max };
+  }
+  if (source.kind === 'height_delta') {
+    const aTile = tileAt(state.map, attacker.position.x, attacker.position.y, attacker.position.layer);
+    const tTile = tileAt(state.map, target.position.x, target.position.y, target.position.layer);
+    const aElev = aTile?.elevation ?? 0;
+    const tElev = tTile?.elevation ?? 0;
+    const factor = Math.max(0, 1 - source.falloffPerHeight * (tElev - aElev));
+    return { min: factor, max: factor };
   }
   // source.kind === 'attacker_speed'
   const speed = runModifyStatQuery(state, catalog, {

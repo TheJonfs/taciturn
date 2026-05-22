@@ -430,3 +430,51 @@ shouldn't drift out of memory between sessions.
 - **What to watch.** Two React dev warnings ("Removing a style property during rerender (borderColor) when a conflicting property is set (border)") fire during battle. Confirmed *not* introduced by S43 (the new signaling components use only separate `borderWidth/Style/Color`); a battle component mixes the `border` shorthand with a dynamic `borderColor`.
 - **Why it matters.** Cosmetic dev-console noise only; no functional impact. Worth tracking down so it doesn't mask a real warning.
 - **Signal for adjustment.** Trivial fix when located — replace the offending `border: '…'` shorthand with separate border properties. Fold into any future UI-polish pass.
+
+### S45 — Bow accuracy calibration (Eagle Eye on 33% base)
+
+- **What to watch.** Bare bows hit at 33% accuracy; Eagle Eye (native Hunter Support) doubles it to ~66% net. Whether a Hunter without Eagle Eye feels uselessly unreliable, and whether one *with* it dominates.
+- **Why it matters.** 66% is the design center for a high-WP ranged attacker. Real play may show it's too low (Hunter whiffs too much to matter) or too high (free ranged pressure outclasses melee).
+- **Signal for adjustment.** Levers, in order of bluntness: bow base accuracy (33), the Eagle Eye multiplier (×2), or both. The Longbow's WP 7 assumes ~66% effective; re-tune WP if accuracy moves.
+
+### S45 — Longbow elevation safe zones (the 5-cap)
+
+- **What to watch.** Height-delta variance clamps to 0 when the target sits ≥5 tiles above the shooter — a target on a tall cliff is bow-immune from below. Conversely, shooting *down* multiplies damage (×2.0 at 5 below). River Ridge's west high ground likely creates such zones.
+- **Why it matters.** This is intended positional texture (high ground matters), but on a map with a dominant cliff it could create one-sided archer duels or unkillable perches.
+- **Signal for adjustment.** If a map produces a degenerate safe perch, the lever is `falloffPerHeight` (currently 0.2 → 5-tile cap) or map elevation design, not the mechanism.
+
+### S45 — Pin Down EV in real play
+
+- **What to watch.** Pin Down lands Slow at ~33% net (base 50% × Brave 0.49 × Speed-factor 1.35 at the reference 70-Brave / Speed-9 matchup). Whether that feels worth an action against the value of a 4-turn Slow.
+- **Why it matters.** Below break-even and nobody uses it; too reliable and Slow-locking trivializes fights. It's calibrated to sit alongside Shadow Stitch / Magebane Silence as an action-cost-only applier.
+- **Signal for adjustment.** Levers: base rate (50), duration (4 turns), or the Slow magnitude (×0.5 Speed).
+
+### S45 — Riptide Bow CT-push tuning
+
+- **What to watch.** 30% on-hit proc pushes the target's CT back ~18 (PA-scaled, factor −3 × Hunter PA 6 ≈ 2 ticks). Whether it's a noticeable tempo tool or negligible/oppressive.
+- **Why it matters.** The Riptide trades WP (5 vs Longbow 7) for tempo control; if the push is too small the trade is dead, too big and it chains targets into permanent CT-lock.
+- **Signal for adjustment.** Levers: proc chance (0.30), `undertow`'s factor (−3), or the WP gap vs the Longbow.
+
+### S45 — Charged Attack Action Speed (escape window)
+
+- **What to watch.** Charged Attack charges at `actionSpeed 25` (Brine/Earth-Quake tier, ~1 enemy turn for a Speed-9 Hunter). Whether slow targets can't escape the pinned tile but fast targets can — the intended "aim" dynamic.
+- **Why it matters.** Too fast and it's a no-downside nuke; too slow and the target always walks off the tile (wasted action).
+- **Signal for adjustment.** The `actionSpeed` value is the single lever; calibrate against the Speed band of common targets (9–14).
+
+### S45 — Scramble use frequency
+
+- **What to watch.** Whether Hunter players ever use Scramble (the 1-tile, jump-5 reposition) or always just Move before firing. Constant panic-leaping out of melee would suggest the bow's 2-tile min-range is too punishing; never using it suggests a dead slot.
+- **Why it matters.** Scramble exists to answer the bow's min-range dead zone and to reach high ground; if it's redundant with normal Move, the Marksmanship slot is wasted.
+- **Signal for adjustment.** Tune the bow min-range (2) and/or Hunter Move (4) / base Jump (3); or reconsider Scramble's reach/leap.
+
+### S45 — The Offering + bow, and Knight + bow + Lightning Stab
+
+- **What to watch.** Two cross-build interactions the substrate enables: The Offering on a bow (two ~66% shots/turn at range with elevation bonuses) and a Knight wielding a bow with Lightning Stab (a ranged status applier). Both are intended-but-untested power combos.
+- **Why it matters.** The Offering's −2 PA tax + accessory cost should balance the double shot; Lightning Stab inheriting bow range is a deliberate design choice. Either could over/under-perform.
+- **Signal for adjustment.** If The Offering + bow dominates, revisit the swings-per-weapon gate or the PA tax. If Knight + bow + Lightning Stab is oppressive, the lever is Lightning Stab's rider rate or whether weapon-tagged Battle Skills inherit weapon range.
+
+### S45 — AI Hunter deployment placement
+
+- **What to watch.** The HP-only AI deployment heuristic (S43) places the Hunter (HP 116) mid-pack. A bow archer wants high ground or the back line, not the middle.
+- **Why it matters.** Same root as the S43 role-aware-sorting watch: maxHP is a poor proxy for a ranged class's ideal position.
+- **Signal for adjustment.** Reinforces the case for role-aware deployment sorting (tank > damage > ranged/support).

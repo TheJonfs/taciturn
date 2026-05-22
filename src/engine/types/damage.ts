@@ -48,6 +48,7 @@ export type DamageTag =
   | 'dot'      // Added S44 — damage-over-time source marker on tick damage (Burn), parallel to 'poison'.
   | 'sword'    // Added 17c with Long Sword equipment (per ADR-0028) — weapon-category tag for future anti-sword content.
   | 'knife'    // Added S40 with the knife weapon class — weapon-category tag; gates the Speed-based dynamic variance source on knife-tagged weapons.
+  | 'bow'      // Added S45 with the bow weapon class (Longbow, Riptide Bow) — weapon-category tag mirroring 'sword'/'knife'/'axe'.
   | 'axe'      // Added S44 — weapon-category tag (War Axe, Bolt Hammer) mirroring 'sword'/'knife'.
   | 'staff'    // Added S44 — weapon-category tag (Staff of Power, Staff of Abundance).
   | 'wand'     // Added S44 — weapon-category tag (Wand of Deepwood, Wand of Depths).

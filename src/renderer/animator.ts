@@ -226,6 +226,21 @@ export class Animator {
       case 'use_ability': {
         const outcome = action.outcome;
         if (outcome === undefined) return null;
+        // Session 45: a caster-reposition (Scramble) plays as a move —
+        // the actor walks/hops to the destination tile. No damage flash;
+        // the move anim's finalize settles the sprite + facing.
+        if (outcome.casterMove !== undefined && action.actorId !== undefined) {
+          const path = outcome.casterMove.path;
+          const stepCount = Math.max(1, path.length - 1);
+          return {
+            kind: 'move',
+            unitId: action.actorId,
+            path,
+            facingAfter: outcome.casterMove.facingAfter,
+            totalMs: stepCount * MOVE_STEP_DURATION_MS,
+            elapsed: 0,
+          };
+        }
         // Polish #5 / ADR-0074 amendment: thread the actor's post-cast MP
         // into the flash so a cast's MP cost settles in sync with the
         // beat, not ahead of it. The flash's finalize writes `mpAfter`

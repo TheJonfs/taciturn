@@ -24,6 +24,7 @@ import type {
 import { getUnit } from '../types/index.ts';
 import type { StatusApplicationResult } from './result.ts';
 import { fireOnApply, fireOnRemove } from './runners.ts';
+import { runModifyStatusApplicationStackCount } from '../hooks/runners.ts';
 import { applyStackingRule } from './stacking.ts';
 
 export interface ApplyStatusArgs {
@@ -55,6 +56,12 @@ export interface ApplyStatusArgs {
   // `requestedStackQuantity`. For STACK_COUNT_ADDITIVE statuses with
   // no composer, this becomes the candidate's `stacks` field.
   readonly stackQuantity?: number;
+  // Session 45 follow-up (ADR-0084): the tags of the ability that drove
+  // this application (`AbilityCommon.tags`). Threaded so the source's
+  // equipment can gate stack-count modifiers on flavor (Wand of Lumen
+  // only bumps `fire`-tagged abilities' Burn applications). Defaults to
+  // an empty array on system / non-ability paths.
+  readonly sourceAbilityTags?: ReadonlyArray<string>;
 }
 
 export interface ApplyStatusReturn {
@@ -90,15 +97,29 @@ export function applyStatus(
     else otherTypes.push(s);
   }
 
+  // Session 45 follow-up (ADR-0084): source-side stack-count modifier
+  // hook fires here so a +N delta (Wand of Lumen on Burn) is folded into
+  // `requestedStackQuantity` before the type's composer reads it — Burn
+  // builds N+1 stack damages from one application, no re-entry into the
+  // apply path. Skipped for system / source-less applies (returns base).
+  const caster = args.sourceUnitId !== null ? state.units.get(args.sourceUnitId) ?? null : null;
+  const baseStackQuantity = args.stackQuantity ?? 1;
+  const requestedStackQuantity = runModifyStatusApplicationStackCount(state, catalog, {
+    target: targetUnit,
+    source: caster,
+    statusTypeId: type.id,
+    statusTags: type.tags,
+    sourceAbilityTags: args.sourceAbilityTags ?? [],
+    baseCount: baseStackQuantity,
+  });
+
   // Per ADR-0030: composer runs before buildCandidate. When defined, it
   // computes the resulting customState (post-merge with existing) and
   // optionally the resulting stacks count. Burn snapshots the caster's
   // MA into per-stack damage values here.
-  const requestedStackQuantity = args.stackQuantity ?? 1;
   let composedCustomState: Readonly<Record<string, unknown>> | undefined = args.customState;
   let composedStacks: number | undefined;
   if (type.composeApplyState !== undefined) {
-    const caster = args.sourceUnitId !== null ? state.units.get(args.sourceUnitId) ?? null : null;
     const composed = type.composeApplyState({
       state,
       catalog,

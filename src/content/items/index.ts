@@ -18,7 +18,12 @@ import { ironHelm } from './iron-helm.ts';
 import { ironMail } from './iron-mail.ts';
 import { lightRobe } from './light-robe.ts';
 import { lightfoot } from './lightfoot.ts';
+import { ironfoot } from './ironfoot.ts';
 import { longSword } from './long-sword.ts';
+import { longbow } from './longbow.ts';
+import { mantleOfProtection } from './mantle-of-protection.ts';
+import { riptideBow } from './riptide-bow.ts';
+import { wandOfLumen } from './wand-of-lumen.ts';
 import { lookoutsHood } from './lookouts-hood.ts';
 import { magebane } from './magebane.ts';
 import { magusCrown } from './magus-crown.ts';
@@ -112,6 +117,13 @@ export const items: ReadonlyArray<ItemDefinition> = [
   raspPendant,
   // Session 42 — swings-per-weapon accessory (ADR-0080)
   theOffering,
+  // Session 45 — bow weapon class (two-handed, ranged, height-delta variance)
+  longbow,
+  riptideBow,
+  // Session 45 follow-up — defensive / tradeoff / fire wand
+  mantleOfProtection,
+  ironfoot,
+  wandOfLumen,
   // Session 39a — Alchemist consumables (stockpile content for Compound
   // / Throw Item). Not equippable; appear in stockpile maps only.
   potion,

@@ -134,6 +134,16 @@ export interface UseAbilityOutcome {
   // and applies the Charging status; the actual effect resolution
   // happens later via `charged_action_resolve`.
   readonly chargedActionId?: ChargedActionId;
+  // Session 45: when the ability is a caster-reposition (`effects.selfMove`,
+  // the Hunter's Scramble), the caster's `[from, to]` hop path and the
+  // facing it settles into. The renderer plays this as a `move`-kind
+  // animation so the sprite walks to the destination rather than jumping
+  // there (the same gap `displacedTo` closed for knockback). Absent on
+  // every non-selfMove cast.
+  readonly casterMove?: {
+    readonly path: ReadonlyArray<Position>;
+    readonly facingAfter: Direction;
+  };
 }
 
 export interface WaitPayload {

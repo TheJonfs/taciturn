@@ -79,6 +79,20 @@ export interface StatusTickAmountMultiplier {
   readonly statusTag?: StatusTag;
 }
 
+// Session 45 follow-up (ADR-0084). Additive stack-count modifier for
+// status applications driven by the wearer. Wand of Lumen authors
+// `[{ delta: 1, statusTypeId: 'burn', sourceAbilityTagAll: ['fire'] }]`
+// → every Burn application from a fire-tagged ability cast by a Lumen
+// wielder lands with one extra stack. All declared gates must match
+// (logical AND); omitted gates are wildcards. Composed by the source-
+// side `modifyStatusApplicationStackCount` chain.
+export interface StatusApplicationStackCountModifier {
+  readonly delta: number;
+  readonly statusTypeId?: StatusTypeId;
+  readonly statusTag?: StatusTag;
+  readonly sourceAbilityTagAll?: ReadonlyArray<string>;
+}
+
 // Per ADR-0064 (Session 30): weapon spell-cast rider. Each entry declares
 // a probability and the ability to fire when the proc lands. Procs fire
 // from `onDamageDealt` against the attacker's hooks, gated to physical-
@@ -175,6 +189,14 @@ interface EquipmentBase {
   // match the gate; no-op otherwise.
   readonly statusTickAmountMultipliers?: ReadonlyArray<StatusTickAmountMultiplier>;
 
+  // Session 45 follow-up (ADR-0084). Source-side additive stack-count
+  // modifiers for status applications. Wand of Lumen: +1 stack on Burn
+  // applied by fire-tagged abilities (per-application, single-shot — no
+  // recursion). Composed via the `modifyStatusApplicationStackCount`
+  // chain inside `applyStatus` before the type's composer reads the
+  // stack count.
+  readonly statusApplicationStackCountModifiers?: ReadonlyArray<StatusApplicationStackCountModifier>;
+
   // Session 29: optional class allowlist. When present, only units of
   // a listed class may equip the item — Knight-only shields, Mage-only
   // robes, etc. Validated at `createInitialState` time alongside the
@@ -263,9 +285,17 @@ interface EquipmentBase {
 //    a knife rolls in `[0.85, 0.95]`, a Lightning Mage (Speed 11) rolls
 //    in `[1.05, 1.15]`, and a Sai-wielding Knight (Speed 10) rolls in
 //    `[0.95, 1.05]`.
+//  - `kind: 'height_delta'` — target-context variance (Session 45, bow
+//    weapon class). Deterministic given positions: the band collapses to
+//    a single point `Max(0, 1 - falloffPerHeight × (targetHeight -
+//    attackerHeight))`. Shooting up reduces damage; shooting down boosts
+//    it. The Longbow uses `falloffPerHeight: 0.2` → same height = 1.0,
+//    4 above = 0.2, 5+ above = 0 (clamped), 5 below = 2.0. The only
+//    variance arm that reads the target, not just the attacker.
 export type WeaponPhysicalVariance =
   | { readonly kind: 'static'; readonly min: number; readonly max: number }
-  | { readonly kind: 'attacker_speed'; readonly spread: number };
+  | { readonly kind: 'attacker_speed'; readonly spread: number }
+  | { readonly kind: 'height_delta'; readonly falloffPerHeight: number };
 
 export interface WeaponEquipment extends EquipmentBase {
   readonly kind: 'weapon';
@@ -286,6 +316,29 @@ export interface WeaponEquipment extends EquipmentBase {
   // only damage from the same wielder always reads the ability's band.
   // See `WeaponPhysicalVariance` above for the discriminator semantics.
   readonly physicalVariance?: WeaponPhysicalVariance;
+  // Session 45: two-handed weapons (the bow class) occupy both hands.
+  // When `true`, equipment slotting rejects any item in the off-hand
+  // (the other hand slot) — no shield, no second weapon — so a
+  // dual-wielder (Two Weapons) collapses to a single swing because the
+  // off-hand is necessarily empty. Absent → one-handed (existing
+  // behavior).
+  readonly twoHanded?: boolean;
+  // Session 45: weapon-sourced attack range (the bow class). Bows are
+  // the first ranged weapon; every prior weapon is melee and the
+  // universal `attack` ability hardcodes `range.horizontal: 1`. When a
+  // weapon declares `range`, `computeAbilityRange` forks to it for
+  // weapon-tagged physical attacks (parallel to the `physicalVariance`
+  // fork), so the universal Attack — and weapon-tagged Battle Skills
+  // like Lightning Stab — inherit the weapon's reach. `min` is the
+  // can't-fire-too-close floor (default 1 when omitted); `vertical`
+  // overrides the ability's vertical band (bows shoot across elevation,
+  // so a large value reads as "infinite"). Absent → ability-declared
+  // range (existing melee behavior).
+  readonly range?: {
+    readonly min?: number;
+    readonly max: number;
+    readonly vertical?: number;
+  };
 }
 
 // Session 29: shields occupy the left-hand slot but aren't weapons —

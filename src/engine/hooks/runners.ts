@@ -456,6 +456,41 @@ export function runModifyStatusTickAmount(
   return value;
 }
 
+// Status-application stack-count modifier (Session 45 follow-up,
+// ADR-0084). Fires inside `applyStatus` against the SOURCE unit's
+// hook registrations (Wand of Lumen +1 stack on fire-tagged ability +
+// burn statusType, registered on its wielder). Chain composes
+// additively; each handler receives the running count and returns the
+// next. Floored and clamped to `>= 0` so a handler can't drop the
+// count negative. Skipped when source is null (system-side applies).
+export function runModifyStatusApplicationStackCount(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    target: Unit;
+    source: Unit | null;
+    statusTypeId: StatusTypeId;
+    statusTags: ReadonlyArray<StatusTag>;
+    sourceAbilityTags: ReadonlyArray<string>;
+    baseCount: number;
+  },
+): number {
+  if (args.source === null) return args.baseCount;
+  const handlers = collectActiveHandlers(state, args.source.id, catalog, 'modifyStatusApplicationStackCount');
+  let value = args.baseCount;
+  for (const h of handlers) {
+    value = h.invoke({
+      target: args.target,
+      source: args.source,
+      statusTypeId: args.statusTypeId,
+      statusTags: args.statusTags,
+      sourceAbilityTags: args.sourceAbilityTags,
+      baseCount: value,
+    });
+  }
+  return Math.max(0, Math.floor(value));
+}
+
 // System-damage amount modifier — fires inside `reduceSystemDamage`
 // against the target's hooks before the HP delta is applied. Each
 // handler returns a new running amount; the chain composes in source-tier

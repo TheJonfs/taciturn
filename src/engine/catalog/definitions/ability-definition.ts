@@ -292,6 +292,13 @@ export interface CtEffectSpec {
   readonly factor: number;
   readonly baseChance?: number;
   readonly factors?: StatusFormulaFactors;
+  // Session 45: which stat scales the magnitude — `delta = floor(factor ×
+  // stat)`. Defaults to `'ma'` (the Water Mage's CT spells). The Riptide
+  // Bow's on-hit CT-push proc uses `'pa'` so the magnitude tracks the
+  // wielder's Physical Attack (bows are PA weapons; a low-MA archer would
+  // otherwise push a trivial amount). Read through `modifyStatQuery` so
+  // equipment / status modifiers compose.
+  readonly stat?: 'pa' | 'ma';
 }
 
 // Area-of-effect spec — when set, `resolveAbilityTargets` expands the
@@ -355,6 +362,15 @@ export interface AbilityEffects {
   // a no-op and rejected by the dispatcher (a future use case might
   // be a pure-knockback AoE; that surface lands when the consumer ships).
   readonly aoe?: AoeSpec;
+  // Session 45: caster-reposition marker (the Hunter's Scramble). When
+  // set, resolving this (tile-targeted) ability relocates the *caster* to
+  // the target tile — the same in-reduce position update knockback uses
+  // for the target (ADR-0026), recorded on the outcome's `casterMove` for
+  // the renderer to settle. The reach and the relaxed leap are expressed
+  // entirely in `targeting.range` (e.g. horizontal 1, vertical 5 for a
+  // 1-tile, jump-delta-5 hop) — no parallel pathfinding. Validation adds
+  // a terrain-enterable + unoccupied check on the destination.
+  readonly selfMove?: boolean;
 }
 
 export interface ActiveAbilityDefinition extends AbilityCommon {

@@ -128,9 +128,9 @@ export function useTeamBuilder({
 
   const setEquipment = useCallback(
     (index: number, slot: EquipmentSlotId, itemId: ItemId | null) => {
-      setState((s) => setEquipmentMut(s, index, slot, itemId));
+      setState((s) => setEquipmentMut(s, index, slot, itemId, catalog));
     },
-    [],
+    [catalog],
   );
 
   const setBrave = useCallback((index: number, value: number) => {

@@ -380,6 +380,29 @@ export interface HookSignatures {
     return: number;
   };
 
+  // Status-application stack-count modifier (Session 45 follow-up,
+  // ADR-0084). Fires inside `applyStatus`, before the type's
+  // composeApplyState reads `requestedStackQuantity`, so a +N modifier
+  // propagates into Burn's stack-damage construction without re-entering
+  // the apply path (recursion-free by construction — the chain mutates
+  // a number, it does not re-trigger an application). Collected on the
+  // *source* (caster), since the modifier lives on the attacker's
+  // equipment (parallel to `modifyOutgoingHitChance`). Equipment
+  // contributors (Wand of Lumen `+1` on `fire`-tagged ability + `burn`
+  // statusType) gate on the args and return the adjusted count. Result
+  // is floored and clamped to `≥ 0`.
+  modifyStatusApplicationStackCount: {
+    args: {
+      target: Unit;
+      source: Unit | null;
+      statusTypeId: StatusTypeId;
+      statusTags: ReadonlyArray<StatusTag>;
+      sourceAbilityTags: ReadonlyArray<string>;
+      baseCount: number;
+    };
+    return: number;
+  };
+
   // Ability-range modifier — caster-side, additive. Fires from
   // `computeAbilityRange` to thread per-axis deltas. Equipment contributors
   // (Wand of Depths +1 horizontal/+1 vertical on Water-tagged spells) and

@@ -97,11 +97,24 @@ describe('loadDefaultCatalog', () => {
     //   - commandSets: 8 → 9 (Session 42 shadow_arts)
     //   - classes: 6 → 7 (Session 42 assassin)
     //   - items: 49 → 50 (Session 42 the_offering — swings-per-weapon accessory)
-    expect(cat.statusTypes()).toHaveLength(28);
-    expect(cat.abilities()).toHaveLength(65);
-    expect(cat.commandSets()).toHaveLength(9);
-    expect(cat.classes()).toHaveLength(7);
-    expect(cat.items()).toHaveLength(50);
+    //
+    // Session 45 Hunter + bow weapon class:
+    //   - statuses: 28 → 30 (slow, updraft)
+    //   - abilities: 65 → 72 (pin_down, charged_attack, scramble, eagle_eye,
+    //     high_jump, updraft reaction, undertow [hidden Riptide proc])
+    //   - commandSets: 9 → 10 (marksmanship)
+    //   - classes: 7 → 8 (hunter)
+    //   - items: 50 → 52 (longbow, riptide_bow)
+    //
+    // Session 45 follow-up — Mantle of Protection, Wand of Lumen,
+    // Ironfoot (+ wand_of_lumen_apply_shift hidden proc):
+    //   - abilities: 72 → 73
+    //   - items: 52 → 55
+    expect(cat.statusTypes()).toHaveLength(30);
+    expect(cat.abilities()).toHaveLength(73);
+    expect(cat.commandSets()).toHaveLength(10);
+    expect(cat.classes()).toHaveLength(8);
+    expect(cat.items()).toHaveLength(55);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

@@ -15,8 +15,9 @@
 // after this function returns valid; both layers are gates.
 
 import type { ActiveAbilityDefinition, Catalog, RangeMode } from '../catalog/index.ts';
-import { tileAt } from '../map/accessors.ts';
+import { tileAt, unitAt } from '../map/accessors.ts';
 import { endpointFrom, inRange } from '../map/index.ts';
+import { computeMovementProfile } from '../map/movement-profile.ts';
 import {
   getUnit,
   type AbilityId,
@@ -323,6 +324,21 @@ function validateUseAbility(
     } else if (tileRangeMode === 'arc') {
       const arcOk = arcTargetable(state.map, actor.position, tilePos);
       if (!arcOk) return invalid('Arc target is covered');
+    }
+    // Session 45: a caster-reposition (Scramble) additionally requires the
+    // destination to be enterable terrain for the actor's class and free
+    // of any other unit. The relaxed leap (jump delta) is already enforced
+    // by the ability's vertical range above; this only adds the
+    // land-on-it constraints the generic tile path doesn't impose.
+    if (ability.effects.selfMove === true) {
+      const profile = computeMovementProfile(state, actor.id, catalog);
+      if (!profile.canEnter.has(destTile.terrain)) {
+        return invalid('Cannot move onto that terrain');
+      }
+      const occupant = unitAt(state, tilePos.x, tilePos.y, tilePos.layer);
+      if (occupant !== undefined && occupant.id !== actor.id) {
+        return invalid('Cannot move onto an occupied tile');
+      }
     }
     return VALID;
   }

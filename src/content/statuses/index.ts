@@ -21,9 +21,11 @@ import { regen } from './regen.ts';
 import { regenAuto } from './regen-auto.ts';
 import { shell } from './shell.ts';
 import { silence } from './silence.ts';
+import { slow } from './slow.ts';
 import { speedDown } from './speed-down.ts';
 import { speedSave } from './speed-save.ts';
 import { stop } from './stop.ts';
+import { updraft } from './updraft.ts';
 import { taggedResistanceShift } from './tagged-resistance-shift.ts';
 import { taunted } from './taunted.ts';
 import { vulnerable } from './vulnerable.ts';
@@ -51,9 +53,11 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   regenAuto,
   shell,
   silence,
+  slow,
   speedDown,
   speedSave,
   stop,
+  updraft,
   taggedResistanceShift,
   taunted,
   vulnerable,

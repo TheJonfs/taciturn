@@ -93,7 +93,7 @@ describe('team builder state — mutations', () => {
   it('setClass clears equipment the new class cannot use', () => {
     let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
     // war_plate is Knight-only — valid on a Knight.
-    state = setEquipment(state, 0, 'armor', itemId('war_plate'));
+    state = setEquipment(state, 0, 'armor', itemId('war_plate'), catalog);
     expect(state.units[0]!.equipment.armor).toBe(itemId('war_plate'));
     // Reclassing to Water Mage drops it (Knight-only restriction).
     state = setClass(state, 0, classId('water_mage'), catalog);
@@ -229,7 +229,7 @@ describe('team builder state — validity', () => {
     let state = teamBuilderStateFromBuiltTeam(currentTestTeam);
     // Knight (slot 0) wears Diamond Bracelet; force it onto the
     // Lightning Mage (slot 1) too, replacing Boots of Haste.
-    state = setEquipment(state, 1, 'accessory', itemId('diamond_bracelet'));
+    state = setEquipment(state, 1, 'accessory', itemId('diamond_bracelet'), catalog);
     const validity = computeTeamValidity(state, catalog, RULESET_ID);
     expect(validity.duplicateItemIds).toContain(itemId('diamond_bracelet'));
     expect(validity.valid).toBe(false);
@@ -238,7 +238,7 @@ describe('team builder state — validity', () => {
   it('flags an equipment item the unit class cannot use', () => {
     let state = teamBuilderStateFromBuiltTeam(currentTestTeam);
     // Slot a Knight-only war plate onto the Water Mage (unit index 1).
-    state = setEquipment(state, 1, 'armor', itemId('war_plate'));
+    state = setEquipment(state, 1, 'armor', itemId('war_plate'), catalog);
     const validity = computeTeamValidity(state, catalog, RULESET_ID);
     expect(validity.units[1]!.invalidEquipmentSlots).toContain('armor');
     expect(validity.valid).toBe(false);
@@ -257,8 +257,8 @@ describe('team builder state — validity', () => {
   it('flags dual-wielding (two weapons across the hand slots)', () => {
     let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
     // Long Sword + War Axe — both weapons.
-    state = setEquipment(state, 0, 'rightHand', itemId('long_sword'));
-    state = setEquipment(state, 0, 'leftHand', itemId('war_axe'));
+    state = setEquipment(state, 0, 'rightHand', itemId('long_sword'), catalog);
+    state = setEquipment(state, 0, 'leftHand', itemId('war_axe'), catalog);
     const validity = computeTeamValidity(state, catalog, RULESET_ID);
     expect(validity.units[0]!.dualWielding).toBe(true);
     expect(validity.units[0]!.valid).toBe(false);
@@ -267,8 +267,8 @@ describe('team builder state — validity', () => {
 
   it('weapon + shield (one of each) is allowed', () => {
     let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
-    state = setEquipment(state, 0, 'rightHand', itemId('long_sword'));
-    state = setEquipment(state, 0, 'leftHand', itemId('managuard'));
+    state = setEquipment(state, 0, 'rightHand', itemId('long_sword'), catalog);
+    state = setEquipment(state, 0, 'leftHand', itemId('managuard'), catalog);
     const validity = computeTeamValidity(state, catalog, RULESET_ID);
     expect(validity.units[0]!.dualWielding).toBe(false);
   });
@@ -277,11 +277,38 @@ describe('team builder state — validity', () => {
     // Assassin has native Two Weapons (modifyDualWield), so a weapon in
     // each hand is valid rather than flagged.
     let state = setClass(createEmptyTeamBuilderState(), 0, classId('assassin'), catalog);
-    state = setEquipment(state, 0, 'rightHand', itemId('sai'));
-    state = setEquipment(state, 0, 'leftHand', itemId('chefs_knife'));
+    state = setEquipment(state, 0, 'rightHand', itemId('sai'), catalog);
+    state = setEquipment(state, 0, 'leftHand', itemId('chefs_knife'), catalog);
     const validity = computeTeamValidity(state, catalog, RULESET_ID);
     expect(validity.units[0]!.dualWielding).toBe(false);
     expect(validity.units[0]!.valid).toBe(true);
+  });
+
+  it('equipping a two-handed bow clears the off-hand (Session 45)', () => {
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('hunter'), catalog);
+    // Shield first, then a two-handed Longbow in the other hand.
+    state = setEquipment(state, 0, 'leftHand', itemId('managuard'), catalog);
+    state = setEquipment(state, 0, 'rightHand', itemId('longbow'), catalog);
+    expect(state.units[0]!.equipment.rightHand).toBe(itemId('longbow'));
+    expect(state.units[0]!.equipment.leftHand).toBeNull();
+    expect(computeTeamValidity(state, catalog, RULESET_ID).units[0]!.twoHandedConflict).toBe(false);
+  });
+
+  it('flags a two-handed weapon sharing a hand with an off-hand item (Session 45)', () => {
+    // Build the illegal state directly (the picker auto-clears, so this
+    // guards loaded templates / edge states).
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('hunter'), catalog);
+    state = {
+      ...state,
+      units: state.units.map((u, i) =>
+        i === 0
+          ? { ...u, equipment: { ...u.equipment, rightHand: itemId('longbow'), leftHand: itemId('managuard') } }
+          : u,
+      ) as unknown as typeof state.units,
+    };
+    const validity = computeTeamValidity(state, catalog, RULESET_ID);
+    expect(validity.units[0]!.twoHandedConflict).toBe(true);
+    expect(validity.units[0]!.valid).toBe(false);
   });
 
   it('flags an over-capacity bucket', () => {

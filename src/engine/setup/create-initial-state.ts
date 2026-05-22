@@ -310,6 +310,25 @@ function validateEquipmentPlacement(
       );
     }
   }
+  // Session 45: two-handed weapons (the bow class) occupy both hands.
+  // A two-handed weapon in one hand forbids any item — weapon or shield —
+  // in the other. Because the off-hand is necessarily empty, a Two-Weapons
+  // dual-wielder holding a bow collapses to a single swing (the swing loop
+  // requires weapons in both hands).
+  for (const [hand, other] of [
+    ['rightHand', 'leftHand'],
+    ['leftHand', 'rightHand'],
+  ] as const) {
+    const id = equipment[hand];
+    if (id === null) continue;
+    const item = catalog.getItem(id);
+    if (item.kind === 'weapon' && item.twoHanded === true && equipment[other] !== null) {
+      throw new BattleConfigError(
+        `Unit ${JSON.stringify(placement.id)}: two-handed weapon ${JSON.stringify(id)} in ${hand} ` +
+          `forbids an item in ${other}`,
+      );
+    }
+  }
 }
 
 function fillVitalsFromComputedMaxes(

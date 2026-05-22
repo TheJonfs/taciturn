@@ -11,6 +11,7 @@
 
 import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
 import { runModifyAbilityRange } from '../hooks/index.ts';
+import { getEquippedWeapon } from '../items/equipment.ts';
 import {
   getUnit,
   type GameState,
@@ -34,15 +35,33 @@ export function computeAbilityRange(
   if (targeting.kind === 'self') {
     return { horizontal: 0, vertical: 0, minHorizontal: undefined };
   }
+  // Session 45: weapon-sourced range fork. Weapon-tagged physical attacks
+  // (the universal Attack and weapon-tagged Battle Skills like Lightning
+  // Stab) read the equipped weapon's range when it declares one — a bow
+  // reaches 2-5 where the ability hardcodes melee 1. Parallel in spirit
+  // to the `physicalVariance` fork: the weapon carries the swing's reach,
+  // not the abstract attack ability. The hook chain still composes on top
+  // of the resolved base. Absent → ability-declared range (melee).
+  let baseHorizontal = targeting.range.horizontal;
+  let baseVertical = targeting.range.vertical;
+  let minHorizontal = targeting.range.minHorizontal;
+  if (ability.effects.damage?.tags.includes('weapon') === true) {
+    const weapon = getEquippedWeapon(unit, catalog);
+    if (weapon?.range !== undefined) {
+      baseHorizontal = weapon.range.max;
+      minHorizontal = weapon.range.min ?? minHorizontal;
+      if (weapon.range.vertical !== undefined) baseVertical = weapon.range.vertical;
+    }
+  }
   const composed = runModifyAbilityRange(state, catalog, {
     unit,
     ability,
-    baseHorizontal: targeting.range.horizontal,
-    baseVertical: targeting.range.vertical,
+    baseHorizontal,
+    baseVertical,
   });
   return {
     horizontal: composed.horizontal,
     vertical: composed.vertical,
-    minHorizontal: targeting.range.minHorizontal,
+    minHorizontal,
   };
 }

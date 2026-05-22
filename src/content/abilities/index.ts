@@ -3,6 +3,13 @@ import { aetherBloom } from './aether-bloom.ts';
 import { applyBurnProc } from './apply-burn-proc.ts';
 import { applySilenceProc } from './apply-silence-proc.ts';
 import { attack } from './attack.ts';
+import { chargedAttack } from './charged-attack.ts';
+import { eagleEye } from './eagle-eye.ts';
+import { highJump } from './high-jump.ts';
+import { pinDown } from './pin-down.ts';
+import { scramble } from './scramble.ts';
+import { undertow } from './undertow.ts';
+import { updraftReaction } from './updraft.ts';
 import { bedrockStride } from './bedrock-stride.ts';
 import { blowdart } from './blowdart.ts';
 import { bolt } from './bolt.ts';
@@ -62,6 +69,7 @@ import { tidewalker } from './tidewalker.ts';
 import { twoWeapons } from './two-weapons.ts';
 import { undermine } from './undermine.ts';
 import { wandOfDeepwoodApplyShift } from './wand-of-deepwood-apply-shift.ts';
+import { wandOfLumenApplyShift } from './wand-of-lumen-apply-shift.ts';
 import { wandOfDepthsApplyShift } from './wand-of-depths-apply-shift.ts';
 import { waterStrike } from './water-strike.ts';
 
@@ -122,6 +130,13 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   stormCaller,
   taunt,
   throwItem,
+  chargedAttack,
+  eagleEye,
+  highJump,
+  pinDown,
+  scramble,
+  undertow,
+  updraftReaction,
   tidalPull,
   tidalWave,
   tideSurge,
@@ -130,5 +145,6 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   undermine,
   wandOfDeepwoodApplyShift,
   wandOfDepthsApplyShift,
+  wandOfLumenApplyShift,
   waterStrike,
 ];

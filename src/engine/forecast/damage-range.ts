@@ -56,6 +56,7 @@ export function projectDamageRange(args: ProjectDamageRangeArgs): DamageRange {
     args.state,
     args.catalog,
     args.attacker,
+    args.target,
     args.ability,
   );
   // Build min/max ability variants — pure structural copies with the

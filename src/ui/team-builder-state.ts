@@ -498,12 +498,21 @@ export function setEquipment(
   index: number,
   slot: EquipmentSlotId,
   itemId: ItemId | null,
+  catalog: Catalog,
 ): TeamBuilderState {
   const unit = state.units[index]!;
-  return withUnit(state, index, {
-    ...unit,
-    equipment: { ...unit.equipment, [slot]: itemId },
-  });
+  let equipment = { ...unit.equipment, [slot]: itemId };
+  // Session 45: a two-handed weapon (the bow class) occupies both hands —
+  // placing one clears the off-hand so the equipment never lands in the
+  // illegal "two-handed + off-hand item" state the engine rejects.
+  if ((slot === 'leftHand' || slot === 'rightHand') && itemId !== null) {
+    const item = catalog.getItem(itemId);
+    if (item.kind === 'weapon' && item.twoHanded === true) {
+      const otherHand: EquipmentSlotId = slot === 'leftHand' ? 'rightHand' : 'leftHand';
+      equipment = { ...equipment, [otherHand]: null };
+    }
+  }
+  return withUnit(state, index, { ...unit, equipment });
 }
 
 function clampBraveFaith(value: number): number {
@@ -597,6 +606,11 @@ export interface UnitValidity {
   // a future ability will unlock it (and a separate two-handed grip
   // bonus). A shield + weapon combination is fine.
   readonly dualWielding: boolean;
+  // Session 45: true when a two-handed weapon (a bow) shares a hand with
+  // any off-hand item — the engine rejects this combination. The picker
+  // normally prevents it (auto-clearing the off-hand), so this guards
+  // loaded templates / edge states.
+  readonly twoHandedConflict: boolean;
   readonly valid: boolean;
 }
 
@@ -622,6 +636,7 @@ function computeUnitValidity(
       invalidEquipmentSlots: [],
       bucketOverages: [],
       dualWielding: false,
+      twoHandedConflict: false,
       valid: false,
     };
   }
@@ -646,16 +661,19 @@ function computeUnitValidity(
   }
 
   const dualWielding = isDualWielding(unit, catalog);
+  const twoHandedConflict = isTwoHandedConflict(unit, catalog);
 
   return {
     hasClass: true,
     invalidEquipmentSlots,
     bucketOverages,
     dualWielding,
+    twoHandedConflict,
     valid:
       invalidEquipmentSlots.length === 0 &&
       bucketOverages.length === 0 &&
-      !dualWielding,
+      !dualWielding &&
+      !twoHandedConflict,
   };
 }
 
@@ -676,6 +694,22 @@ function isDualWielding(unit: DraftUnit, catalog: Catalog): boolean {
     catalog.getItem(right).kind === 'weapon';
   if (!bothWeapons) return false;
   return !unitGrantsDualWield(unit, catalog);
+}
+
+// Session 45: true when a two-handed weapon shares a hand with any
+// off-hand item (weapon or shield) — the engine's slotting validation
+// rejects this. Mirrors `validateEquipmentPlacement`'s two-handed rule.
+function isTwoHandedConflict(unit: DraftUnit, catalog: Catalog): boolean {
+  const left = unit.equipment.leftHand;
+  const right = unit.equipment.rightHand;
+  const isTwoHanded = (id: ItemId | null): boolean => {
+    if (id === null) return false;
+    const item = catalog.getItem(id);
+    return item.kind === 'weapon' && item.twoHanded === true;
+  };
+  if (isTwoHanded(right) && left !== null) return true;
+  if (isTwoHanded(left) && right !== null) return true;
+  return false;
 }
 
 // True when any equipped passive registers a `modifyDualWield` hook

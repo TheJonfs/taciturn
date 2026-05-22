@@ -327,6 +327,15 @@ export function reduceUseAbility(
     return commitCharged(workingState, action, ability, actor, catalog, mpCost);
   }
 
+  // Session 45: caster-reposition (Scramble). Resolves instantly by
+  // relocating the caster to the tile target — the in-reduce position
+  // update knockback uses, applied to the actor instead of a victim. No
+  // damage / status / reaction surface, so it returns directly rather
+  // than threading the target-resolution pipeline.
+  if (ability.effects.selfMove === true) {
+    return resolveSelfMove(workingState, action, ability, actor, mpCost);
+  }
+
   const incomingProposed: ProposedAction = {
     type: 'use_ability',
     source: action.source,
@@ -384,6 +393,38 @@ export function reduceUseAbility(
       ? { generatedReactions: resolved.generatedReactions }
       : {}),
   };
+}
+
+// Session 45: caster-reposition resolution (Scramble). Relocates the
+// actor to the tile target, recording the hop on the outcome for the
+// renderer. MP / Act budget were already handled in `reduceUseAbility`;
+// the destination's terrain-enterable + unoccupied legality was checked
+// at validation (the engine re-validates before reducing). No reactions
+// or hooks fire — repositioning is not an attack.
+function resolveSelfMove(
+  state: GameState,
+  action: Extract<Action, { type: 'use_ability' }>,
+  ability: ActiveAbilityDefinition,
+  actor: Unit,
+  mpCost: number,
+): ReduceResult<UseAbilityOutcome> {
+  const target = action.payload.target;
+  if (target.kind !== 'tile') {
+    throw new Error(
+      `resolveSelfMove: ability ${JSON.stringify(ability.id)} has selfMove but no tile target`,
+    );
+  }
+  const from = actor.position;
+  const dest = target.position;
+  const newState = withUnit(state, { ...actor, position: dest });
+  const outcome: UseAbilityOutcome = {
+    kind: 'use_ability',
+    abilityId: ability.id,
+    perTargetResults: [],
+    mpSpent: mpCost,
+    casterMove: { path: [from, dest], facingAfter: actor.facing },
+  };
+  return { newState, outcome, generatedActions: [] };
 }
 
 // Decrement actsAvailable on the active turn; bump consumed.actsConsumed.
@@ -813,6 +854,7 @@ function resolveAbilityEffect(
           typeId: spec.typeId,
           sourceUnitId: args.attacker.id,
           sourceActionSeq: args.sourceActionSeq,
+          sourceAbilityTags: args.ability.tags ?? [],
           ...(spec.magnitude !== undefined ? { magnitude: spec.magnitude } : {}),
           ...(spec.duration !== undefined ? { duration: spec.duration } : {}),
           ...(spec.customState !== undefined ? { customState: spec.customState } : {}),
@@ -870,12 +912,13 @@ function resolveAbilityEffect(
       }
       ctEffectIndex++;
       if (!chanceLanded) continue;
-      const ma = runModifyStatQuery(workingState, catalog, {
+      const ctStat = spec.stat ?? 'ma';
+      const statValue = runModifyStatQuery(workingState, catalog, {
         unit: args.attacker,
-        statName: 'ma',
-        baseValue: args.attacker.baseStats.ma,
+        statName: ctStat,
+        baseValue: args.attacker.baseStats[ctStat],
       });
-      const magnitude = Math.floor(spec.factor * ma);
+      const magnitude = Math.floor(spec.factor * statValue);
       if (magnitude === 0) continue;
       pipelineEmissions.push({
         type: 'system_ct_push',

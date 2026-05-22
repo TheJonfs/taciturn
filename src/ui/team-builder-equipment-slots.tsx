@@ -112,14 +112,21 @@ export function TeamBuilderEquipmentSlots({
             slot === 'leftHand' ? 'rightHand' :
             slot === 'rightHand' ? 'leftHand' : null;
           const otherHandItemId = otherHand !== null ? selectedUnit.equipment[otherHand] : null;
-          const otherHandHasWeapon =
-            otherHandItemId !== null &&
-            catalog.getItem(otherHandItemId).kind === 'weapon';
+          const otherHandItem = otherHandItemId !== null ? catalog.getItem(otherHandItemId) : null;
+          const otherHandHasWeapon = otherHandItem?.kind === 'weapon';
+          // Session 45: a two-handed weapon (the bow class) in the other
+          // hand locks this hand shut — no shield, no second weapon. The
+          // slot grays out (only "Empty" selectable).
+          const otherHandTwoHanded =
+            otherHandItem?.kind === 'weapon' && otherHandItem.twoHanded === true;
           const options = AVAILABLE_ITEMS.filter((item) => {
             if (!classCanEquip(classId, slot, item, catalog)) return false;
             // Keep the slot's current item; drop anything used elsewhere.
             if (item.id === currentItemId) return true;
             if (usedByOthers.has(item.id)) return false;
+            // Two-handed gate: the off-hand of a two-handed weapon takes
+            // nothing.
+            if (otherHandTwoHanded) return false;
             // Dual-wield gate: don't offer a second weapon for the
             // off-hand slot unless the unit has Two Weapons.
             if (otherHandHasWeapon && item.kind === 'weapon' && !dualWieldEnabled) return false;

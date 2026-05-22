@@ -44,4 +44,11 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   // Mage / Alchemist 10) — the Assassin acts most often, the core of its
   // action-economy identity. MA 3 (lowest) — not a caster.
   [classId('assassin'),       { maxHpBase: 96,  maxMpBase: 24, pa: 6,  ma: 3,  spd: 14 }],
+  // Session 45. The 8th class, balancing the roster at 4 physical / 4
+  // magical. HP 116 sits between Assassin (96) and Earth Mage (112)-ish —
+  // sturdier than the glass-cannon Assassin but a back-line shooter, not
+  // a front-liner. MP 28 is a light caster supplement (the bow kit spends
+  // no MP). PA 6 medium-strong physical; MA 3 (lowest, tied Assassin) —
+  // not a caster. Speed 9 medium (below Assassin 14, at the Knight tier).
+  [classId('hunter'),         { maxHpBase: 116, maxMpBase: 28, pa: 6,  ma: 3,  spd: 9  }],
 ]);

@@ -24,6 +24,7 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `lightning_mage` | Lightning Mage | `src/content/classes/lightning-mage.ts` |
 | `alchemist` | Alchemist | `src/content/classes/alchemist.ts` |
 | `assassin` | Assassin | `src/content/classes/assassin.ts` |
+| `hunter` | Hunter | `src/content/classes/hunter.ts` |
 
 ## Command sets
 
@@ -31,6 +32,7 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 |---|---|---|---|
 | `battle_skill` | Battle Skill | `power_attack`, `lightning_stab`, `taunt` (S42: Stasis Sword → Lightning Stab; `attack` surfaced via class freeAbilities) | `src/content/command-sets/battle-skill.ts` |
 | `shadow_arts` | Shadow Arts | `shadow_stitch`, `blowdart`, `undermine`, `sow_doubt` | `src/content/command-sets/shadow-arts.ts` |
+| `marksmanship` | Marksmanship | `pin_down`, `charged_attack`, `scramble` | `src/content/command-sets/marksmanship.ts` |
 | `alchemy` | Alchemy | `compound`, `throw_item` | `src/content/command-sets/alchemy.ts` |
 | `white_magic` | White Magic | `cure` | `src/content/command-sets/white-magic.ts` |
 | `arcane_skill` | Arcane Skill | `bolt` | `src/content/command-sets/arcane-skill.ts` |
@@ -70,6 +72,11 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `magnetic_mark` | Magnetic Mark | first_action | yes (actionSpeed 35 — deliberately slow, applies Vulnerable) | `src/content/abilities/magnetic-mark.ts` |
 | `storm_caller` | Storm Caller | first_action | yes (actionSpeed 18, power 36 single-target with 25% maxHp self-cost) | `src/content/abilities/storm-caller.ts` |
 | `discharge_strike` | Discharge Strike | first_action | no (instant, reaction-only payload — emitted by Discharge passive) | `src/content/abilities/discharge-strike.ts` |
+| `pin_down` | Pin Down | first_action | no (instant, Slow applier — Brave-and-Speed formula, baseChance 50, 4 turns) | `src/content/abilities/pin-down.ts` |
+| `charged_attack` | Charged Attack | first_action | yes (actionSpeed 25, physical bow, power_coefficient 1.5) | `src/content/abilities/charged-attack.ts` |
+| `scramble` | Scramble | first_action | no (instant, `selfMove` reposition — 1 tile, jump delta 5) | `src/content/abilities/scramble.ts` |
+| `undertow` | Undertow | first_action | no (hidden; Riptide Bow proc — PA-scaled CT push, factor -3) | `src/content/abilities/undertow.ts` |
+| `wand_of_lumen_apply_shift` | Wand of Lumen Resonance | first_action | no (hidden; Lumen proc — applies tagged_resistance_shift +Earth/−Water) | `src/content/abilities/wand-of-lumen-apply-shift.ts` |
 
 ## Passive abilities
 
@@ -90,6 +97,9 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `aether_bloom` | Aether Bloom | support | `src/content/abilities/aether-bloom.ts` |
 | `discharge` | Discharge | reaction | `src/content/abilities/discharge.ts` |
 | `conductor` | Conductor | support | `src/content/abilities/conductor.ts` |
+| `updraft` | Updraft | reaction | `src/content/abilities/updraft.ts` |
+| `eagle_eye` | Eagle Eye | support | `src/content/abilities/eagle-eye.ts` |
+| `high_jump` | High Jump | movement | `src/content/abilities/high-jump.ts` |
 
 ## Status types
 
@@ -115,6 +125,8 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `ma_down` | MA Down | negative, fire | STACK_ADDITIVE | permanent | `src/content/statuses/ma-down.ts` |
 | `vulnerable` | Vulnerable | negative, lightning | REFRESH | custom (on_damage_received) | `src/content/statuses/vulnerable.ts` |
 | `crit_modifier` | Crit Modifier | positive | STACK_INDEPENDENT | permanent | `src/content/statuses/crit-modifier.ts` |
+| `slow` | Slow | negative, time | REFRESH | per_unit_ct | `src/content/statuses/slow.ts` |
+| `updraft` | Updraft | positive, time | STACK_ADDITIVE | permanent | `src/content/statuses/updraft.ts` |
 
 ## Equipment
 
@@ -125,6 +137,11 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `boots_of_haste` | Boots of Haste | accessory | grants Haste while equipped | `src/content/items/boots-of-haste.ts` |
 | `iron_helm` | Iron Helm | headgear | +20 maxHpBase | `src/content/items/iron-helm.ts` |
 | `iron_mail` | Iron Mail | armor | +30 maxHpBase | `src/content/items/iron-mail.ts` |
+| `longbow` | Longbow | weapon | WP 7, accuracy 33, two-handed, range 2-5 / vertical-inf, height-delta variance, tags `['bow']` | `src/content/items/longbow.ts` |
+| `riptide_bow` | Riptide Bow | weapon | WP 5, accuracy 33, two-handed, range 2-5, height-delta variance, 30% Undertow CT-push proc, tags `['bow','water']` | `src/content/items/riptide-bow.ts` |
+| `wand_of_lumen` | Wand of Lumen | weapon | WP 2, accuracy 90, 100% on-hit `+Earth/−Water` shift, +1 Burn stack on fire-tagged ability apply (ADR-0084), tags `['wand']` | `src/content/items/wand-of-lumen.ts` |
+| `mantle_of_protection` | Mantle of Protection | accessory | +25 resistance to fire/water/earth/lightning/holy/dark; +25 front/side/back evasion | `src/content/items/mantle-of-protection.ts` |
+| `ironfoot` | Ironfoot | accessory | −1 Move, −1 Jump, −1 Speed; +1 PA, +1 MA; +1 Movement-bucket capacity | `src/content/items/ironfoot.ts` |
 
 ## Rulesets
 

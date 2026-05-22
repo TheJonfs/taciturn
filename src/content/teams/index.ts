@@ -16,11 +16,13 @@ export { assignAiTeamNames } from './assign-ai-team-names.ts';
 import type { BuiltTeam } from './built-team.ts';
 import { currentTestTeam } from './current-test-team.ts';
 import { defensiveFront } from './defensive-front.ts';
+import { highlandHunters } from './highland-hunters.ts';
 import { mageVarietyPack } from './mage-variety-pack.ts';
 import { shadowAndSteel } from './shadow-and-steel.ts';
 
 export { currentTestTeam } from './current-test-team.ts';
 export { defensiveFront } from './defensive-front.ts';
+export { highlandHunters } from './highland-hunters.ts';
 export { mageVarietyPack } from './mage-variety-pack.ts';
 export { shadowAndSteel } from './shadow-and-steel.ts';
 
@@ -42,4 +44,5 @@ export const defaultTeamTemplates: ReadonlyArray<TeamTemplate> = [
   { id: 'mage-variety-pack', team: mageVarietyPack },
   { id: 'defensive-front', team: defensiveFront },
   { id: 'shadow-and-steel', team: shadowAndSteel },
+  { id: 'highland-hunters', team: highlandHunters },
 ];

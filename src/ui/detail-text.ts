@@ -194,16 +194,28 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
   if (item.kind === 'weapon') {
     const w = item as WeaponEquipment;
     const bits: string[] = [`WP ${w.wp}`, `Acc ${w.accuracy}`];
+    if (w.range !== undefined) {
+      // Session 45: ranged (bow) weapons advertise their reach. Min
+      // defaults to 1 (adjacent) when omitted; vertical is shown only
+      // when the weapon overrides it (bows shoot across elevation).
+      bits.push(`Rng ${w.range.min ?? 1}-${w.range.max}`);
+    }
+    if (w.twoHanded === true) bits.push('Two-handed');
     if (w.physicalVariance !== undefined) {
-      if (w.physicalVariance.kind === 'static') {
-        bits.push(`Var ${formatVarianceBand(w.physicalVariance.min, w.physicalVariance.max)}`);
-      } else {
+      const pv = w.physicalVariance;
+      if (pv.kind === 'static') {
+        bits.push(`Var ${formatVarianceBand(pv.min, pv.max)}`);
+      } else if (pv.kind === 'attacker_speed') {
         // Speed-based: render the dynamic source so the player sees why
         // the band shifts with the wielder. The actual numerical band
         // (Speed/10 ± spread) lives on the forecast panel for the
         // currently-equipped unit; this surface is the item itself,
         // shown without a wielder context.
-        bits.push(`Var Speed/10 ±${w.physicalVariance.spread.toFixed(2)}`);
+        bits.push(`Var Speed/10 ±${pv.spread.toFixed(2)}`);
+      } else {
+        // Height-delta (bows): variance tracks the elevation the shot is
+        // taken from — more from above, less from below.
+        bits.push('Var by elevation');
       }
     }
     lines.push(bits.join(' · '));

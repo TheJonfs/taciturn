@@ -332,6 +332,45 @@ function* statusTickAmountContributor(
   }
 }
 
+// modifyStatusApplicationStackCount contributor (Session 45 follow-up,
+// ADR-0084): source-side stack-count adjustment, gated on status type
+// / tag and on the source ability's tags. Wand of Lumen authors
+// `[{ delta: 1, statusTypeId: 'burn', sourceAbilityTagAll: ['fire'] }]`
+// → +1 Burn stack when its wielder casts a fire-tagged ability. Single
+// modifier pass per application; no re-entry into `applyStatus`.
+function* statusApplicationStackCountContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'modifyStatusApplicationStackCount'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.statusApplicationStackCountModifiers === undefined) continue;
+    for (const mod of item.statusApplicationStackCountModifiers) {
+      const localIndex = tieBreakIndex++;
+      const localMod = mod;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (localMod.statusTypeId !== undefined && args.statusTypeId !== localMod.statusTypeId) {
+            return args.baseCount;
+          }
+          if (localMod.statusTag !== undefined && !args.statusTags.includes(localMod.statusTag)) {
+            return args.baseCount;
+          }
+          if (localMod.sourceAbilityTagAll !== undefined) {
+            for (const t of localMod.sourceAbilityTagAll) {
+              if (!args.sourceAbilityTags.includes(t)) return args.baseCount;
+            }
+          }
+          return args.baseCount + localMod.delta;
+        },
+      };
+    }
+  }
+}
+
 // modifyAbilityRange contributor: each item's `abilityRangeModifiers`
 // declares per-axis additive deltas, optionally gated on the ability's
 // damage tags. Wand of Depths: `+1` horizontal/`+1` vertical on
@@ -657,6 +696,7 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   modifyIncomingStatusApplicationChance: incomingStatusChanceContributor,
   modifyBucketCapacity: bucketCapacityContributor,
   modifyStatusTickAmount: statusTickAmountContributor,
+  modifyStatusApplicationStackCount: statusApplicationStackCountContributor,
   modifyAbilityRange: abilityRangeContributor,
   modifyOutgoingHitChance: outgoingHitChanceContributor,
   modifyEvasion: evasionContributor,
