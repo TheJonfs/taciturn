@@ -54,10 +54,10 @@ on spell-craft, so the faster and bolder the cadet, the surer the pin.`,
     },
     blowdart: {
       full: `A dart of venom sent across the field — Poison, applied at
-range and with little ceremony. It asks nothing of position and little
-of timing; it is the Assassin's cheapest standing pressure, ticking a
-foe down while she turns her attention to the next throat.`,
-      compact: 'Ranged Poison — cheap, reliable chip pressure. Apply it and move on.',
+range and with little ceremony. It is the Assassin's *standing* chip
+pressure: it ticks a foe down while she turns her attention to the next
+throat, and asks nothing of her once it is on.`,
+      compact: 'Ranged Poison — reliable, untended chip pressure. Apply it and move on.',
     },
     undermine: {
       full: `Undermine strips a measure of a foe's *Brave* — and Brave,

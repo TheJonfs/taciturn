@@ -85,6 +85,13 @@ in the swing, long in the reach — where the water runs, so does she.`,
 discipline. It does not hurry her, but it hurries her earth.`,
     tactical: 'Quickens her earth-tagged casts and shifts a struck foe’s resistances. The Geosage’s answer to her own slow tempo.',
   },
+  wand_of_lumen: {
+    flavor: `The Pyromancer's wand — slim and warm to the touch, and
+faintly bright at the tip when its bearer has been working her art.
+The lamp-light her cadets nickname it for is the engagement's quiet
+warning that the burn is taking root.`,
+    tactical: 'A Pyromancer’s wand in all but the label: every fire-tagged status she applies lands with an extra stack of Burn behind it — Slow Burn, Scorch, Ignition’s passing kindlings all sharpened. On hit, the wand also bends a struck foe’s resistances — a gift to a Hydrologist ally and a tax on a Geosage one. Read the team before requisitioning.',
+  },
 
   // --- Knives -------------------------------------------------------
   // A small, quick, accurate weapon class, requisitionable by any cadet
@@ -109,6 +116,24 @@ issues the Magebane with a brief, formal warning about which cadets it
 is *not* meant for — and a longer, more private remark about which
 cadets it absolutely is.`,
     tactical: 'The heaviest of the knives, with a real chance each blow that lands gags the target — a serious threat to a caster. Open to any class; punishing on a Knight or an Alchemist who can close on the mage line.',
+  },
+
+  // --- Bows ---------------------------------------------------------
+  // The bow weapon class is the Hunter's natural arm but no class is
+  // gated from it. The trade is uniform: a thin baseline accuracy
+  // (Eagle Eye exists for this), a two-handed grip, and a damage band
+  // governed by elevation rather than by the wielder's roll.
+  longbow: {
+    flavor: `A tall yew bow, requisitioned with a quiet word from the
+Armorer about wind and patience. It is the plainest of the Academy's
+ranged arms and the one that asks the most of its bearer's feet.`,
+    tactical: 'High WP, an honest two-handed shot — and an accuracy that is half what a sword’s is, so equip Eagle Eye or accept that every other arrow vanishes. The elevation-driven variance is the soul of it: from above, every level lifts the damage; from below, every level cuts it, and five levels below the target the arrow does nothing at all. Take the high ground or take a different weapon.',
+  },
+  riptide_bow: {
+    flavor: `A driftwood-and-sinew bow, kept oiled against the damp. It
+hisses against the air on release, and on a hit it draws a measure of
+the target's tempo away with it.`,
+    tactical: 'Lower WP than the Longbow, but the arrows carry water with them — cross-element pressure on a kit that already wants the perch — and roughly one shot in three drags the struck foe’s CT back besides. Same accuracy caveat as its sister bow, and the same height rules.',
   },
 
   // --- Shields ------------------------------------------------------
@@ -313,6 +338,18 @@ frequently the piece that decides a build.`,
 with it wearing a raised eyebrow. It asks its price in raw power and
 returns it in *frequency*: the blade falls twice where once it fell
 but once.`,
-    tactical: 'Doubles every weapon’s swings on a basic Attack, at a flat −2 PA. Paired with Two Weapons, that is four light strikes in a turn — the Assassin’s volume-damage keystone. Wasted on a single heavy blow; it rewards many small ones.',
+    tactical: 'Doubles every weapon’s swings on a basic Attack, at a flat −3 PA. Paired with Two Weapons, that is four light strikes in a turn — the Assassin’s volume-damage keystone. Wasted on a single heavy blow; it rewards many small ones.',
+  },
+  ironfoot: {
+    flavor: `Iron-shod boots, heavy at the foot and willingly so. The
+cadet who wears them moves shorter, lower, and slower — and hits
+harder for the planted weight beneath her.`,
+    tactical: 'A trade of mobility for power: a step lost in Move, a tile lost in Jump, a measure of Speed besides — paid back in a flat point each of Physical and Magical Attack, and one further Movement slot. The opposite accessory of Lightfoot; for the kit that has chosen its ground and means to hold it.',
+  },
+  mantle_of_protection: {
+    flavor: `A heavy travelling cloak with a quiet weight to it, worn
+by every cadet who has reason to fear *every* kind of harm at once.
+The Armorer keeps a single one in stock and trades it grudgingly.`,
+    tactical: 'A broad defensive blanket: +25 to every elemental and metaphysical resistance the Academy recognises, and +25 evasion at every facing. The accessory for the cadet who cannot predict what is coming — and who would rather not be specialised against any of it.',
   },
 };

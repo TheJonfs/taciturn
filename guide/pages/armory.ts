@@ -9,7 +9,7 @@
 import { items } from '../build/data.ts';
 import { describeItem, type ItemFacts } from '../build/item-format.ts';
 import { renderProse, renderInline } from '../build/markdown.ts';
-import { armoryIntro, sectionIntros, itemNotes } from '../content/items/index.ts';
+import { sectionIntros, itemNotes } from '../content/items/index.ts';
 import type { ItemDefinition } from '@engine/index.ts';
 import { esc, join } from './html.ts';
 
@@ -18,6 +18,49 @@ interface ArmorySection {
   readonly title: string;
   readonly intro: string;
   readonly kinds: ReadonlyArray<ItemDefinition['kind']>;
+  /**
+   * Optional ordering key for sub-category sorting within the section.
+   * Items with equal keys keep their catalog order (Array.sort is
+   * stable). Sections without a sortKey render in catalog order.
+   */
+  readonly sortKey?: (item: ItemDefinition) => number;
+}
+
+// Weapon Racks: weapons first (grouped by family — sword, knife, axe,
+// bow, staff, wand), shields last. Items without a recognised family
+// tag fall to the end of the weapons block; shields fall after that.
+const WEAPON_FAMILY_ORDER: ReadonlyArray<string> = [
+  'sword',
+  'knife',
+  'axe',
+  'bow',
+  'staff',
+  'wand',
+];
+
+function weaponSortKey(item: ItemDefinition): number {
+  if (item.kind === 'shield') return 200; // shields come last
+  const family = item.tags?.find((t) => WEAPON_FAMILY_ORDER.includes(t));
+  const familyIdx = family ? WEAPON_FAMILY_ORDER.indexOf(family) : 100;
+  return familyIdx;
+}
+
+// Armour Stores: armour first, then headgear; within each, universal
+// items first, then Knight-only, then Mages-only, then any other
+// (currently empty) restriction.
+const MAGE_CLASS_IDS = new Set(['earth_mage', 'water_mage', 'fire_mage', 'lightning_mage']);
+
+function restrictionRank(item: ItemDefinition): number {
+  const ids = item.classRestrictions;
+  if (!ids || ids.length === 0) return 0; // universal
+  if (ids.length === 1 && String(ids[0]) === 'knight') return 1;
+  if (ids.length === 4 && ids.every((id) => MAGE_CLASS_IDS.has(String(id)))) return 2;
+  return 3;
+}
+
+function armourSortKey(item: ItemDefinition): number {
+  const kindRank = item.kind === 'armor' ? 0 : item.kind === 'headgear' ? 1 : 2;
+  return kindRank * 10 + restrictionRank(item);
 }
 
 const SECTIONS: ReadonlyArray<ArmorySection> = [
@@ -26,12 +69,14 @@ const SECTIONS: ReadonlyArray<ArmorySection> = [
     title: 'The Weapon Racks',
     intro: sectionIntros.weapons ?? '',
     kinds: ['weapon', 'shield'],
+    sortKey: weaponSortKey,
   },
   {
     key: 'armour',
     title: 'The Armour Stores',
     intro: sectionIntros.armour ?? '',
     kinds: ['armor', 'headgear'],
+    sortKey: armourSortKey,
   },
   {
     key: 'accessories',
@@ -84,25 +129,35 @@ function section(sec: ArmorySection, index: number): string {
   const sectionItems = items().filter(
     (it) => it.availability === 'available' && sec.kinds.includes(it.kind),
   );
+  // Within the section, sub-category sort if the section declares one.
+  // Array.sort is stable, so items within a sub-category preserve their
+  // catalog order.
+  const sortKey = sec.sortKey;
+  const orderedItems = sortKey
+    ? sectionItems.slice().sort((a, b) => sortKey(a) - sortKey(b))
+    : sectionItems;
   const breakClass = index > 0 ? ' armory-section--break' : '';
   return `
     <section class="armory-section${breakClass}" id="armory-${esc(sec.key)}">
       <h2 class="armory-section__title">${esc(sec.title)}</h2>
       <div class="armory-section__intro">${renderProse(sec.intro)}</div>
       <div class="armory-items">
-        ${join(sectionItems.map(itemEntry))}
+        ${join(orderedItems.map(itemEntry))}
       </div>
     </section>`;
 }
 
-/** Render the full Armory chapter — masthead, then the three sections. */
+/**
+ * Render the full Armory chapter — the three sections, flowing in
+ * order. The chapter intro (`armoryIntro`) is no longer surfaced here:
+ * it lives on the Armory half-title (`pages/layout.ts → armoryHalfTitle`),
+ * which sits before this chapter and carries the Armorer's framing for
+ * the section. The chapter container's id is dropped for the same reason
+ * — the half-title now owns `#ch-armory`.
+ */
 export function armory(): string {
   return `
-    <div class="armory" id="ch-armory">
-      <header class="armory__masthead">
-        <h1 class="armory__title">The Armory</h1>
-        <div class="armory__intro">${renderProse(armoryIntro)}</div>
-      </header>
+    <div class="armory">
       ${join(SECTIONS.map(section))}
     </div>`;
 }

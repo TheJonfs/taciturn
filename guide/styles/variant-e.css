@@ -76,6 +76,17 @@
   --band-label: #aab2bf;
 }
 
+/* The Hunter's palette is deep emerald — a forest-green accent over a
+   dark-forest stat band, with a pale-sage label. Matches the tunic in
+   her portrait and reads as "deep forest in shade," cooler and darker
+   than the Geosage's brighter olive-green so the two greens stay
+   visually distinct when the book is flipped between them. */
+.v-e--hunter {
+  --accent: #2d5641;
+  --band: #1f3d2e;
+  --band-label: #a7c8b3;
+}
+
 /* Per-class portrait override: the Alchemist's source art is 848×1264
    — a slightly more vertical aspect than the other class portraits
    (1792×2400). Crop the box a touch shorter so the brief fits on the

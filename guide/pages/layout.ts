@@ -5,6 +5,8 @@
 
 import { catalog } from '../build/data.ts';
 import { SPREAD_ORDER } from '../build/spread-context.ts';
+import { renderInline } from '../build/markdown.ts';
+import { armoryIntro } from '../content/items/index.ts';
 import academySealSvg from '../art/academy-seal.svg?raw';
 import { esc } from './html.ts';
 
@@ -102,14 +104,36 @@ export function specializationsHalfTitle(): string {
         What follows is the Academy&rsquo;s standing course catalogue:
         the disciplines that answer the field with the body — the Knight
         at the line, the Alchemist with her satchel, the Assassin out of
-        the shadow — and the four elemental Mages, who answer it with
-        their art. Each spread is the same — stats imported from the
-        Academy&rsquo;s records, the full repertoire annotated, the
+        the shadow, the Hunter from the perch — and the four elemental
+        Mages, who answer it with their art. The spreads are arranged
+        alphabetically; each is the same in form — stats imported from
+        the Academy&rsquo;s records, the full repertoire annotated, the
         instructor&rsquo;s counsel at the close. Read in the order they
         are placed; or open at the discipline you mean to take, and read
         it whole.
       </p>
       <ul class="half-title__list">${spreadList}</ul>
+    </section>`;
+}
+
+/**
+ * Half-title for the Armory chapter. Frames the chapter the same way
+ * the Specializations and Training Fields half-titles do — Part Four,
+ * the chapter's name, the standing intro the Armorer voice opens with,
+ * and the three section names as the chapter's table-of-contents.
+ */
+export function armoryHalfTitle(): string {
+  return `
+    <section class="half-title half-title--armory" id="ch-armory">
+      <p class="half-title__eyebrow">Part Four</p>
+      <h1 class="half-title__title">The Armory</h1>
+      <p class="half-title__subtitle">the Armorer&rsquo;s catalogue, in three rooms</p>
+      <p class="half-title__brief">${renderInline(armoryIntro)}</p>
+      <ul class="half-title__list">
+        <li>The Weapon Racks</li>
+        <li>The Armour Stores</li>
+        <li>The Accessory Cases</li>
+      </ul>
     </section>`;
 }
 

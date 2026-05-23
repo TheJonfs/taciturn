@@ -56,14 +56,30 @@ function titleCase(tag: string): string {
 function rangeText(active: ActiveAbilityDefinition): string {
   const t = active.targeting;
   if (t.kind === 'self') return 'Self';
-  const h = t.range.horizontal;
+  const r = t.range;
+  // Minimum horizontal (bows can't hit adjacent foes — Pin Down is
+  // range 2–5, not range 5) is mechanically meaningful; surface it
+  // when present so the line reads as the actual tactical envelope.
+  const hMin = r.minHorizontal;
+  const hStr = hMin !== undefined && hMin > 0 ? `${hMin}–${r.horizontal}` : `${r.horizontal}`;
+  // Vertical: only surface when it's a genuine identifying feature, so
+  // ordinary melee/spell verticals (commonly 2–3) stay implicit.
+  //   - >= 10 → "any elevation" (bow weapons' vertical-99 sentinel)
+  //   - self-move abilities whose vertical exceeds horizontal → spelled
+  //     out explicitly (Scramble's 1 horizontal × 5 vertical leap)
+  let vSuffix = '';
+  if (r.vertical >= 10) {
+    vSuffix = ', any elevation';
+  } else if (active.effects.selfMove && r.vertical > r.horizontal) {
+    vSuffix = `, vertical ${r.vertical}`;
+  }
   switch (t.rangeMode) {
     case 'melee':
-      return `Melee (${h})`;
+      return `Melee (${hStr})${vSuffix}`;
     case 'straight_line':
-      return `Line, range ${h}`;
+      return `Line, range ${hStr}${vSuffix}`;
     case 'arc':
-      return `Arc, range ${h}`;
+      return `Arc, range ${hStr}${vSuffix}`;
   }
 }
 
@@ -131,6 +147,9 @@ function activeEffects(active: ActiveAbilityDefinition): string[] {
   }
   for (const _ct of active.effects.ctEffects ?? []) out.push('Adjusts CT');
   if (active.effects.aoe) out.push('Area effect');
+  // Scramble's self-relocating hop carries no damage and no status —
+  // without surfacing selfMove the line reads as empty effects.
+  if (active.effects.selfMove) out.push('Self-move');
   if (active.selfDamage) {
     out.push(`Self-cost: ${Math.round(active.selfDamage.fraction * 100)}% max HP`);
   }

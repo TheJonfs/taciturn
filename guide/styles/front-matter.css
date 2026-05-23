@@ -30,7 +30,13 @@
   justify-content: center;
   align-items: center;
   text-align: center;
-  break-before: page;
+  /* Each half-title starts on a right-hand page (recto). When the prior
+     chapter ends on a recto, Paged.js inserts a blank verso to honour
+     this — the standard book convention for chapter title pages. The
+     Specializations and Training Fields half-titles already land on
+     odd pages naturally; the Armory half-title needs the auto-blank
+     after Aethurge's recto. */
+  break-before: right;
 }
 
 .half-title__eyebrow {

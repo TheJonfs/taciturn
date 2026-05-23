@@ -1,115 +1,202 @@
 # Handoff
 
-*Outgoing notes from the S42-catchup session — added the Assassin
-spread, added The Offering accessory, swapped the Knight's Stasis Sword
-for Lightning Stab, and cleaned up two pieces of older drift the render
-exposed (Knight S41 passive renames, stale class-count prose).*
+*Outgoing notes from the S45/S46 catch-up + Hunter spread + new items
++ S46 stat-and-MP tuning + Armory half-title + alphabetical
+specializations + armoury sub-category sort.*
 *Overwritten each session — read every item, then act / promote / drop.*
 
 ## What landed
 
-The guide is in sync with main as of S42. **31 pages**; verso/recto
-parity preserved across all seven spreads (Knight 8, Alchemist 10,
-Assassin 12, Geosage 14, Hydrologist 16, Pyromancer 18, Aethurge 20 —
-every spread verso falls on an even page).
+The guide is in sync with main as of S46 + the tuning pass. **37 pages**;
+verso/recto parity preserved across all eight spreads, and both
+half-titles now land on right-hand (recto) pages.
 
-### Assassin spread (new — the seventh class, third non-caster)
+### Hunter spread (new — the eighth class, fourth non-caster)
 
-- `content/classes/assassin.ts` — full prose: brief, eight ability
-  notes (attack + the four Shadow Arts: shadow_stitch, blowdart,
-  undermine, sow_doubt; plus speed_save, two_weapons, fleet_of_foot),
-  strategy, four marginalia. **The recto is volume-constrained** — the
-  Assassin has five active skills (the most of any class), so the brief
-  *and* the strategy were authored tight. A longer counsel overflows
-  page 13 onto a near-blank 14 and breaks parity for every spread that
-  follows; if you expand the counsel, trim ability notes (Shadow Stitch
-  / Speed Save / Two Weapons are the longest) to compensate.
-- `content/classes/index.ts` — `assassinProse` registered.
-- `build/spread-context.ts` — portrait imported, `'assassin'` added to
-  `ElementId`, `CLASS_META` entry, inserted into `SPREAD_ORDER` **third**
-  (after Knight + Alchemist, before the four Mages — the three
-  non-casters grouped, then the elemental wheel). The SPREAD_ORDER doc
-  comment was rewritten for the seven-class roster.
-- `styles/variant-e.css` — `.v-e--assassin` palette: moonlit steel
-  (gunmetal accent `#3d4452` / charcoal stat band `#23272e` / cool
-  steel-grey label `#aab2bf`). Distinct from the Knight's oxblood, the
-  Alchemist's brass, and the Aethurge's purple.
-- `art/assassin_1.png` — **cropped this session.** Chris supplied a
-  landscape 2752×1536 portrait, which rendered as a short wide strip in
-  the tall portrait frame. Cropped symmetrically around the figure's
-  alpha bbox (she occupied x=879–1771) to **1120×1536** (~0.73 portrait
-  aspect, matching the other six), keeping both daggers. The uncropped
-  original is at `/tmp/assassin_1_original.png` for this machine only —
-  if a re-crop is ever wanted, re-export from Chris's source.
+- `content/classes/hunter.ts` — full prose: brief, seven ability notes
+  (attack + Marksmanship's pin_down / charged_attack / scramble +
+  passives updraft / eagle_eye / high_jump), strategy, four marginalia.
+  Recto holds at a single page (4 actives + 3 passives, same shape as
+  the Knight).
+- `content/classes/index.ts` — `hunterProse` registered.
+- `build/spread-context.ts` — portrait imported (`hunter_1.png`, the
+  user's tall 1696×2528 art that fills the frame), `'hunter'` added to
+  `ElementId`, `CLASS_META` entry, inserted into `SPREAD_ORDER`.
+- `styles/variant-e.css` — `.v-e--hunter` palette: deep emerald
+  (`#2d5641`) over dark-forest band (`#1f3d2e`) with pale-sage label
+  (`#a7c8b3`). Cooler and darker than the Geosage's brighter olive, so
+  the two greens stay clearly distinct in a side-by-side flip.
 
-### The Offering (new accessory)
+### New armoury items (5)
 
-- `build/item-format.ts` — new branch surfaces `attackSwingMultiplier`
-  (it was previously dropped silently). Renders as
-  "Attack swings ×N per weapon".
-- `content/items/index.ts` — `the_offering` note added to the accessory
-  cases: doubles every weapon's swings on a basic Attack at −2 PA; with
-  Two Weapons that is four light strikes — the Assassin's volume-damage
-  keystone.
+In `content/items/index.ts` with flavor + tactical notes:
+- **Wand of Lumen** (the Pyromancer's wand — `+1 Burn stack per
+  fire-tagged application`, plus on-hit Wand of Lumen Resonance
+  resistance shift)
+- **Longbow** (WP 7, two-handed, range 2–5, height-delta variance)
+- **Riptide Bow** (WP 5, water-imbued two-handed, 30% on-hit Undertow
+  CT push)
+- **Ironfoot** (mobility ↔ power trade: Move/Jump/Spd cost for PA/MA
+  + Movement-slot lift)
+- **Mantle of Protection** (catalog name; you'd called it "Mantle of
+  Resistance" — used the catalog) — all 6 damage-type resistances +25
+  and all-facing evasion +25
 
-### Knight — Lightning Stab replaces Stasis Sword (S42)
+### Formatter expansions
 
-- `content/classes/knight.ts` — ability note rekeyed
-  `stasis_sword` → `lightning_stab`, rewritten for the Silence rider
-  (and the Bravestrider Brave-synergy: Silence scales on Brave×MA).
-  Stasis Sword stays in the catalog as a cross-class option; the
-  Knight's Battle Skill set no longer surfaces it.
+The new content surfaced gaps in the auto-rendered mechanical lines.
+All extensions are minimal and scoped.
 
-## Drift the render exposed and I fixed (not in the brief)
+**`build/ability-format.ts`:**
+- **Min horizontal range** — `"Arc, range 2–5"` for bows / Pin Down
+  (was always rendering as just `"range 5"`).
+- **Vertical** — `vertical >= 10` becomes `", any elevation"` (the
+  bow's vertical-99 sentinel). For `selfMove` abilities, vertical is
+  spelled out when it exceeds horizontal (Scramble: `"Melee (1),
+  vertical 5"`). Ordinary melee/spell verticals stay implicit so basic
+  Attacks aren't noised up with `"vertical 3"`.
+- **`selfMove`** — surfaces as the effect `"Self-move"` so Scramble has
+  a non-empty mechanical line.
 
-- **Knight S41 passive renames.** The Knight's free Support/Movement
-  passives became **Martial Expertise** (PA ×1.25) and **Bravestrider**
-  (+1 Move, +10 Brave) back in S41 — the S40 catch-up missed it, so the
-  spread was rendering those two abilities with *blank* notes (the old
-  `damage_reduction` / `move_plus_1` keys no longer resolved). Both
-  notes rewritten and rekeyed. Damage Reduction / Move +1 remain in the
-  catalog as cross-class options.
-- **Stale class counts.** Welcome letter said "five specializations"
-  (×2); the Specializations half-title said "five disciplines, five
-  spreads" with a brief naming only "the Knight and the four elemental
-  Mages." All pre-Alchemist text. Fixes: welcome letter made numberless;
-  half-title subtitle is now **data-driven** off `SPREAD_ORDER.length`
-  via a small `numberWord()` helper in `pages/layout.ts` ("seven
-  disciplines, seven spreads" today, self-updating as the roster grows);
-  half-title brief rewritten to name all three non-casters and the four
-  Mages. The spread list under it was already data-driven.
+**`build/item-format.ts`:**
+- **Weapon `range` + `twoHanded`** on the headline — the bow line now
+  reads `"WP 7 · 33% accuracy · bow · range 2–5 · two-handed"`.
+- **`height_delta` variance** — `"Variance scales with elevation
+  (±20% per level above/below target)"`.
+- **`statusApplicationStackCountModifiers`** — Wand of Lumen surfaces
+  `"+1 Burn stack per fire-tagged application"`.
+- **Six-element resistance collapse** — Mantle of Protection prints
+  as `"All damage-type resistance +25"` instead of six lines. The
+  earlier four-element ("All elemental resistance") collapse still
+  applies.
+- **All-equal evasion collapse** — Mantle's uniform +25/+25/+25
+  prints as `"All-facing evasion +25"`.
+
+### S46 tuning catch-up
+
+S46 tuned baseline stats across the roster; the stat bands auto-render
+the new values from `baseline-stats.ts`, so no per-class prose edits
+were needed beyond a spot-check pass. The changes the data picked up:
+**Knight PA 11→10**, **Alchemist Spd 10→11**, **Assassin Spd 14→13**,
+**Move −1 across all eight classes**, **Assassin Command Set MP
+retune** (Shadow Stitch 8→10, Undermine 10→6, Sow Doubt 10→6),
+**The Offering tax −2→−3 PA**. All comparative-superlative claims in
+prose (Aethurge "highest MA / lowest HP", Geosage "slowest of the four
+elemental cadets / sturdiest caster", Hydrologist "fastest caster",
+Pyromancer "one of the most fragile", Assassin "fastest cadet")
+re-verified against the new numbers and still hold.
+
+Two pieces of prose drift the data shift exposed and I fixed:
+- The Offering's tactical line said "at a flat −2 PA" — corrected to
+  −3 PA.
+- Blowdart's note called it "the Assassin's cheapest standing
+  pressure"; with Undermine/Sow Doubt now at 6 MP (cheaper than
+  Blowdart's 8), the superlative is stale. Reframed as "the Assassin's
+  *standing* chip pressure" — the durable claim (Blowdart is the only
+  Shadow Art that lays ongoing damage).
+
+### Armory half-title (Part Four)
+
+- `pages/layout.ts` — new `armoryHalfTitle()` matching the
+  Specializations and Training Fields half-titles (eyebrow / title /
+  subtitle / brief / section list). The brief reuses the existing
+  `armoryIntro` from `content/items/index.ts` — single source of truth
+  for the Armorer's framing.
+- `pages/armory.ts` — chapter masthead dropped (it duplicated what the
+  half-title now carries). The `armoryIntro` import is gone from this
+  file; the `#ch-armory` id moved to the half-title.
+- `build/compose.ts` — `armoryHalfTitle()` inserted between the
+  spreads and the armory chapter.
+- `styles/front-matter.css` — `.half-title` now uses
+  `break-before: right` so half-titles auto-land on recto. This was
+  needed for the Armory half-title (Aethurge's recto ends on an odd
+  page in the new alphabetical order, so the half-title would have
+  fallen on an even page without it). The Specializations half-title
+  was already on a recto and is unaffected.
+- `styles/base.css` — new `@page :blank` rule styles the auto-inserted
+  parity-blank pages with the standard frame and suppresses the folio
+  + running header, so they read as intentional "end-of-part" pages
+  rather than stray blanks. Page 24 (the parity blank before the
+  Armory half-title) is the current consumer.
+
+### Specializations sorted alphabetically
+
+- `build/spread-context.ts` — `SPREAD_ORDER` reordered by display
+  name: Aethurge, Alchemist, Assassin, Geosage, Hunter, Hydrologist,
+  Knight, Pyromancer. Doc comment rewritten with the
+  display-name-to-class-id mapping in the new order.
+- `pages/layout.ts` — Specializations half-title brief lightly updated:
+  added "the Hunter from the perch" to the non-caster roll-call, and
+  noted "the spreads are arranged alphabetically; each is the same in
+  form."
+- All eight spread versos still land on even pages (the half-title
+  before them keeps the parity).
+
+### Armoury items sorted by sub-category
+
+- `pages/armory.ts` — `ArmorySection` gained an optional `sortKey`,
+  and each section declares its own.
+  - *Weapon Racks* (`weaponSortKey`): swords → knives → axes → bows
+    → staves → wands → shields. Items with no recognised family tag
+    fall before shields.
+  - *Armour Stores* (`armourSortKey`): armour first (universal →
+    Knight-only → Mages-only), then headgear in the same restriction
+    order.
+  - *Accessory Cases*: no sortKey — preserves catalog order (you
+    didn't ask for sub-sort there).
+- Sort is stable (`Array.sort` since ES2019), so items within each
+  sub-category preserve their catalog order. Sub-category groupings
+  are visually apparent from the existing per-item header chips
+  (`WEAPON · SWORD`, `ARMOUR · MAGES ONLY`, etc.) — no subheadings
+  added.
 
 ## Watch-for / flag to Chris
 
-- **`numberWord()` covers 0–12.** Past twelve classes the subtitle falls
-  back to digits. Not a concern at seven; noted for completeness.
-- **Alchemist brief still says "the Academy's sixth specialization"** and
-  the Assassin's file comment says "seventh discipline." These are
-  chronological-introduction order (correct), but the Alchemist reads
-  *second* in the book — a reader could find "sixth" momentarily odd.
-  Left as-is (it predates this session and isn't wrong); flag for the
-  write-through if the phrasing grates.
+- **Page 28 carries only Managuard.** The two-column flow chose to
+  break the Weapon Racks section there, leaving a sparse page. Not
+  broken — just a touch underfilled. Could tighten with a `widows`
+  hint or by adjusting items per column; left as-is for now.
+- **`@page :blank` styling.** Future half-title additions will
+  trigger the same auto-blank treatment. If a chapter is ever added
+  whose parity makes the previous half-title's blank land in the
+  middle of a chapter (rather than between chapters), the blank could
+  read awkwardly. Not currently a risk.
+- **Alphabetical order reshuffled the chronological-intro phrasings.**
+  The Alchemist brief still says "the Academy's sixth specialization"
+  and the Hunter brief still says "the Academy's eighth specialization";
+  these mean chronological-introduction order, not handbook order.
+  Defensible as written; flag for the write-through if Chris wants
+  them genericized.
 - **Dev server still doesn't load styles** (Vite serves CSS as JS in
-  dev — flagged two sessions ago). Verified throughout via
-  `npm run build:guide` + inspecting `output/guide.pdf`.
-- **PDF ~49 MB** — the art downsample remains the publication pre-pass,
-  now more pressing with two large new portraits (Alchemist, Assassin).
+  dev — flagged sessions ago). All verification continues through
+  `npm run build:guide` + `output/guide.pdf`.
+- **PDF is now ~55 MB.** Art downsample is overdue.
 
 ## Considered and rejected
 
-- **Blind 30%/30% crop of the Assassin portrait** (as first suggested).
-  Her daggers reach to ~28% and ~71% of the width, so a strict 30%
-  trim from each side would have clipped both blade tips. Cropped to
-  the figure's measured alpha bbox instead — same visual goal, blades
-  intact.
-- **A per-Assassin CSS portrait treatment** (letterbox / shorter frame)
-  to accommodate the landscape source. The crop is the right fix — it
-  makes the Assassin a true peer of the other spreads rather than a
-  special case. No CSS portrait override needed (the Alchemist's 4.1in
-  override still stands for its own reason).
+- **Adding visible sub-category subheadings** (e.g. "Swords", "Knives"
+  inline) inside Weapon Racks / Armour Stores. The per-item header
+  chips already communicate the grouping clearly enough that the sort
+  alone reads. Subheadings would have needed CSS to span columns and
+  break nicely. Easy to add later if you'd like them.
+- **Hand-authored Armory half-title brief.** Re-using `armoryIntro`
+  keeps a single source of truth for the Armorer's framing — and the
+  existing prose already opens the chapter in exactly the voice a
+  half-title needs.
+- **Per-class MP-economy commentary in the Assassin's ability notes.**
+  Tried adding "the dearest of her four" to Shadow Stitch and "cheap
+  enough to spread" to Undermine; the additions tipped the recto past
+  the page edge and broke parity. Reverted — the auto-rendered MP
+  costs on the mechanical lines carry the economy clearly enough.
+- **Restoring Foundations to 4 pages or rearranging the front matter
+  to flip parity** so the Armory half-title would land on an odd page
+  without an auto-blank. Cleaner solution turned out to be
+  `break-before: right` + a styled `@page :blank` — book-typography
+  standard, no front-matter disruption.
 
 ## Suggested next scope
 
-Roadmap is unchanged: the write-through pass, the art downsample (now
-overdue at ~49 MB), and future content as the game ships it. The guide
-reads end to end as the seven-discipline Cadet's Handbook.
+Roadmap unchanged: write-through pass, art downsample (now overdue at
+~55 MB), and future content as the game ships it. The handbook reads
+end to end as the eight-discipline, alphabetically-ordered, four-part
+Cadet's Handbook.

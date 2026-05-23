@@ -11,6 +11,7 @@ import {
   tableOfContents,
   colophon,
   specializationsHalfTitle,
+  armoryHalfTitle,
   trainingFieldsHalfTitle,
 } from '../pages/layout.ts';
 import { spreadContextFor, SPREAD_ORDER } from './spread-context.ts';
@@ -71,6 +72,7 @@ export function composeHandbook(): string {
     // verso/recto facing pair in two-page view.
     specializationsHalfTitle(),
     ...spreads,
+    armoryHalfTitle(),
     armory(),
     trainingFieldsHalfTitle(),
     trainingField(),

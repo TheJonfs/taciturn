@@ -67,6 +67,26 @@ img {
   }
 }
 
+/* Blank parity pages — those Paged.js auto-inserts to satisfy
+   `break-before: right` on the half-titles, so the half-title lands on
+   a recto. The default @page would print a folio (and a stale running
+   header) on these auto-blanks, which reads as a printing accident.
+   Give them the standard frame background instead, and suppress the
+   folio + header so the page is intentionally, cleanly blank. */
+@page :blank {
+  background:
+    url('../art/page-frame.svg') center / 100% 100% no-repeat,
+    url('../art/paper-texture.svg') repeat,
+    radial-gradient(
+      ellipse 120% 90% at 50% 40%,
+      #f3e9d2 0%,
+      #ece0c2 62%,
+      #ddcca4 100%
+    );
+  @top-center { content: none; }
+  @bottom-center { content: none; }
+}
+
 /* Special pages with no running header or folio: the title page and
    the colophon. The weathered background is inherited (same recipe
    declared explicitly here in case Paged.js doesn't inherit it). */

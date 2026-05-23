@@ -77,6 +77,16 @@ function weaponLine(item: ItemDefinition): string | undefined {
   const parts = [`WP ${item.wp}`, `${item.accuracy}% accuracy`];
   const family = item.tags?.find((t) => WEAPON_FAMILIES.has(t));
   if (family) parts.push(family);
+  // Some weapons declare an inherent range (Session 45 bows — Longbow,
+  // Riptide Bow). When present, it sets the basic Attack's reach with
+  // that weapon, so it belongs on the headline alongside WP / accuracy.
+  if (item.range) {
+    const r = item.range;
+    const min = r.min;
+    const range = min !== undefined && min > 0 ? `${min}–${r.max}` : `${r.max}`;
+    parts.push(`range ${range}`);
+  }
+  if (item.twoHanded) parts.push('two-handed');
   return parts.join('  ·  ');
 }
 
@@ -107,33 +117,51 @@ function statEffects(item: ItemDefinition): string[] {
 function defensiveEffects(item: ItemDefinition): string[] {
   const out: string[] = [];
 
-  // Resistances — collapse "all four elements, equal value" into one bit.
+  // Resistances — collapse common all-equal patterns so a uniform six-
+  // way blanket (the Mantle of Protection) doesn't print as six lines,
+  // and the older "all four elements" case stays collapsed too.
   if (item.resistanceMods && item.resistanceMods.size > 0) {
     const entries = [...item.resistanceMods.entries()];
     const values = new Set(entries.map(([, v]) => v));
-    const elements = entries.map(([tag]) => tag);
-    const isAllElements =
-      entries.length === 4 &&
-      ['fire', 'water', 'earth', 'lightning'].every((e) => elements.includes(e));
-    if (isAllElements && values.size === 1) {
+    const elements = entries.map(([tag]) => String(tag));
+    const ELEMENTAL = ['fire', 'water', 'earth', 'lightning'];
+    const ALL_DAMAGE_TAGS = [...ELEMENTAL, 'holy', 'dark'];
+    const isAllDamage =
+      entries.length === ALL_DAMAGE_TAGS.length &&
+      ALL_DAMAGE_TAGS.every((e) => elements.includes(e));
+    const isAllElemental =
+      entries.length === ELEMENTAL.length &&
+      ELEMENTAL.every((e) => elements.includes(e));
+    if (isAllDamage && values.size === 1) {
+      out.push(`All damage-type resistance ${signed(entries[0]![1])}`);
+    } else if (isAllElemental && values.size === 1) {
       out.push(`All elemental resistance ${signed(entries[0]![1])}`);
     } else {
       for (const [tag, value] of entries) {
-        out.push(`${titleCase(tag)} resistance ${signed(value)}`);
+        out.push(`${titleCase(String(tag))} resistance ${signed(value)}`);
       }
     }
   }
 
-  // Per-facing evasion.
+  // Per-facing evasion — collapse when all three facings carry the same
+  // value (Mantle of Protection's uniform +25 across the lot).
   const ev = item.evasionMods;
   if (ev) {
-    const facings: Array<[string, number | undefined]> = [
-      ['front', ev.front],
-      ['side', ev.side],
-      ['back', ev.back],
-    ];
-    for (const [facing, value] of facings) {
-      if (value !== undefined) out.push(`${titleCase(facing)} evasion ${signed(value)}`);
+    if (
+      ev.front !== undefined &&
+      ev.front === ev.side &&
+      ev.side === ev.back
+    ) {
+      out.push(`All-facing evasion ${signed(ev.front)}`);
+    } else {
+      const facings: Array<[string, number | undefined]> = [
+        ['front', ev.front],
+        ['side', ev.side],
+        ['back', ev.back],
+      ];
+      for (const [facing, value] of facings) {
+        if (value !== undefined) out.push(`${titleCase(facing)} evasion ${signed(value)}`);
+      }
     }
   }
 
@@ -221,20 +249,40 @@ function hookEffects(item: ItemDefinition): string[] {
     }
   }
 
-  // Physical variance — Session 40 reshaped this into a discriminated
-  // union. Static bands ({kind:'static', min, max}) print their range
-  // directly (War Axe, Bolt Hammer). Speed-derived bands
-  // ({kind:'attacker_speed', spread}) depend on the wielder, so the
-  // armory entry communicates the principle, not a fixed range.
+  // Physical variance — discriminated union of three arms:
+  //  - static: a fixed band (War Axe, Bolt Hammer).
+  //  - attacker_speed (S40): band centred at Speed/10 ± spread; the
+  //    wielder's Speed sets the absolute numbers, so the armory entry
+  //    communicates the principle, not a fixed range.
+  //  - height_delta (S45 bow class): deterministic given positions,
+  //    1 ± falloffPerHeight × (attackerHeight − targetHeight). Above
+  //    target → boost; below → cut. The armory communicates the lever.
   if (item.kind === 'weapon' && item.physicalVariance) {
     const v = item.physicalVariance;
     if (v.kind === 'static') {
       out.push(`Variance ${v.min}–${v.max}`);
-    } else {
-      // attacker_speed: centred at (Speed/10) with the spread on each side.
+    } else if (v.kind === 'attacker_speed') {
       const pct = Math.round(v.spread * 100);
       out.push(`Variance scales with Speed (±${pct}%)`);
+    } else {
+      // height_delta
+      const pct = Math.round(v.falloffPerHeight * 100);
+      out.push(`Variance scales with elevation (±${pct}% per level above/below target)`);
     }
+  }
+
+  // Status-application stack-count modifiers (S45+, Wand of Lumen). The
+  // wielder's matching status applications add (or subtract) stacks —
+  // e.g. Wand of Lumen lifts every fire-tagged Burn application by one
+  // stack, so a Pyromancer's spells land that much heavier.
+  for (const mod of item.statusApplicationStackCountModifiers ?? []) {
+    const statusName = catalog().getStatusType(mod.statusTypeId).name;
+    const tags = mod.sourceAbilityTagAll;
+    const gate =
+      tags && tags.length > 0
+        ? ` per ${tags.join('/')}-tagged application`
+        : ' per application';
+    out.push(`${signed(mod.delta)} ${statusName} stack${gate}`);
   }
 
   return out;
