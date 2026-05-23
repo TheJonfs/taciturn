@@ -7,7 +7,7 @@
 // the catalog. The four Phase 3 spread variants share this formatter so
 // they all quote the same mechanical truth, only laid out differently.
 
-import { catalog } from './data.ts';
+import { catalog, defaultRuleset } from './data.ts';
 import type {
   AbilityDefinition,
   ActiveAbilityDefinition,
@@ -62,15 +62,18 @@ function rangeText(active: ActiveAbilityDefinition): string {
   // when present so the line reads as the actual tactical envelope.
   const hMin = r.minHorizontal;
   const hStr = hMin !== undefined && hMin > 0 ? `${hMin}–${r.horizontal}` : `${r.horizontal}`;
-  // Vertical: only surface when it's a genuine identifying feature, so
-  // ordinary melee/spell verticals (commonly 2–3) stay implicit.
-  //   - >= 10 → "any elevation" (bow weapons' vertical-99 sentinel)
-  //   - self-move abilities whose vertical exceeds horizontal → spelled
-  //     out explicitly (Scramble's 1 horizontal × 5 vertical leap)
+  // Vertical: only surface when it's a genuine identifying feature.
+  // S47 made vertical 99 (the "unbounded" sentinel) the universal
+  // default for both bows and spells, so it stays implicit. Ordinary
+  // melee/spell verticals (2–3) also stay implicit. A self-move whose
+  // vertical exceeds its horizontal and is *bounded* — Scramble's
+  // 1 horizontal × 5 vertical leap — surfaces explicitly.
   let vSuffix = '';
-  if (r.vertical >= 10) {
-    vSuffix = ', any elevation';
-  } else if (active.effects.selfMove && r.vertical > r.horizontal) {
+  if (
+    active.effects.selfMove &&
+    r.vertical > r.horizontal &&
+    r.vertical < 10
+  ) {
     vSuffix = `, vertical ${r.vertical}`;
   }
   switch (t.rangeMode) {
@@ -146,7 +149,51 @@ function activeEffects(active: ActiveAbilityDefinition): string[] {
     out.push(`Knockback ${active.effects.damage.knockback.distance}`);
   }
   for (const _ct of active.effects.ctEffects ?? []) out.push('Adjusts CT');
-  if (active.effects.aoe) out.push('Area effect');
+  if (active.effects.aoe) {
+    // `rangeMode` and `aoe.shape` are separate concerns: rangeMode
+    // governs how the caster *aims* (the target tile is just the aim
+    // point); aoe.shape describes what the spell actually *hits*. For
+    // caster-anchored shapes (cone, line) the AoE projects from the
+    // caster's tile in the aimed cardinal direction, not from where
+    // the player clicked — so the rangeMode line is the aim envelope
+    // and the shape line is the hit footprint.
+    //
+    // verticalTolerance: per-ability override wins; otherwise the
+    // ruleset's `aoeVerticalTolerance` (S47/ADR-0085: 3) is the default.
+    // We surface the number ONLY when the ability overrides the default
+    // (Flame Lance's vertical 5, e.g.) — repeating the universal "3" on
+    // every diamond spell adds wrap risk for no information.
+    const aoe = active.effects.aoe;
+    const shape = aoe.shape;
+    let shapeText: string;
+    switch (shape.kind) {
+      case 'tile':
+        shapeText = 'Area effect';
+        break;
+      case 'diamond':
+        shapeText = `Diamond, radius ${shape.radius}`;
+        break;
+      case 'square':
+        shapeText = `Square, radius ${shape.radius}`;
+        break;
+      case 'cross':
+        shapeText = `Cross, radius ${shape.radius}`;
+        break;
+      case 'cone':
+        shapeText = `Cone from caster, reach ${shape.rows.length}`;
+        break;
+      case 'line':
+        shapeText = `Line from caster, length ${shape.length}`;
+        break;
+      case 'custom':
+        shapeText = 'Area effect, custom shape';
+        break;
+    }
+    const override = aoe.verticalTolerance;
+    out.push(
+      override !== undefined ? `${shapeText} (vertical ${override})` : shapeText,
+    );
+  }
   // Scramble's self-relocating hop carries no damage and no status —
   // without surfacing selfMove the line reads as empty effects.
   if (active.effects.selfMove) out.push('Self-move');

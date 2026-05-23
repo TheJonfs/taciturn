@@ -1,14 +1,19 @@
-// Training-field chapter — River Ridge in v1, structured to extend
-// to additional fields without further machinery.
+// Training-field chapter — renders one field per call.
 //
-// Map render is data-driven (build/diagrams.mapDiagram); the prose
-// is hand-authored (content/training-fields/river-ridge.ts).
+// The map render is data-driven (build/diagrams.mapDiagram); the prose
+// and the legend swatches are authored per field (content/training-
+// fields/*.ts). The compose layer iterates `TRAINING_FIELDS` and calls
+// `trainingField(entry)` once per field.
 
-import { riverRidgeMap } from '../build/data.ts';
+import type { BattleMap } from '@engine/index.ts';
 import { mapDiagram } from '../build/diagrams.ts';
 import { renderProse } from '../build/markdown.ts';
-import { riverRidgeProse } from '../content/training-fields/river-ridge.ts';
-import type { FieldSection } from '../content/training-fields/river-ridge.ts';
+import type {
+  FieldProse,
+  FieldSection,
+  FieldLegendSwatch,
+} from '../content/training-fields/river-ridge.ts';
+import { TRAINING_FIELDS } from '../build/training-fields.ts';
 import { esc, join } from './html.ts';
 
 function sectionBlock(s: FieldSection): string {
@@ -19,17 +24,7 @@ function sectionBlock(s: FieldSection): string {
     </section>`;
 }
 
-function mapLegend(): string {
-  // Six representative tiers (deep, shallow, plain, low ridge, high
-  // ridge, peak). Order of swatches follows the map's elevation grade.
-  const swatches: Array<[string, string]> = [
-    ['#234a55', 'deep water'],
-    ['#5a8c95', 'shallow water'],
-    ['#c9b88a', 'plain (elev 2)'],
-    ['#9e864c', 'rising ridge (5)'],
-    ['#7e6629', 'central jump (7)'],
-    ['#594814', 'high perch (9)'],
-  ];
+function mapLegend(swatches: ReadonlyArray<FieldLegendSwatch>): string {
   const cells = swatches
     .map(
       ([color, label]) => `
@@ -51,27 +46,27 @@ function mapLegend(): string {
     </div>`;
 }
 
-export function trainingField(): string {
-  const p = riverRidgeProse;
-  const terrain = join(p.terrainSections.map(sectionBlock));
-  const zones = join(p.zoneSections.map(sectionBlock));
+/** Render one training-field chapter from its (prose, map) pair. */
+export function trainingField(prose: FieldProse, map: BattleMap): string {
+  const terrain = join(prose.terrainSections.map(sectionBlock));
+  const zones = join(prose.zoneSections.map(sectionBlock));
 
   return `
-    <section class="field" id="ch-river-ridge">
+    <section class="field" id="ch-${esc(prose.id)}">
       <header class="field__masthead">
         <p class="field__eyebrow">Training Exercise</p>
-        <h1 class="field__title">${esc(p.title)}</h1>
-        <p class="field__subtitle">${esc(p.subtitle)}</p>
+        <h1 class="field__title">${esc(prose.title)}</h1>
+        <p class="field__subtitle">${esc(prose.subtitle)}</p>
       </header>
 
-      <div class="field__intro">${renderProse(p.intro)}</div>
+      <div class="field__intro">${renderProse(prose.intro)}</div>
 
       <figure class="field__map">
-        ${mapDiagram(riverRidgeMap())}
-        <figcaption>The Academy&rsquo;s standing render of River Ridge — north at the top.</figcaption>
+        ${mapDiagram(map)}
+        <figcaption>The Academy&rsquo;s standing render of ${esc(prose.title)} &mdash; north at the top.</figcaption>
       </figure>
 
-      ${mapLegend()}
+      ${mapLegend(prose.legend)}
 
       <h2 class="field__heading">The Terrain</h2>
       ${terrain}
@@ -80,11 +75,16 @@ export function trainingField(): string {
       ${zones}
 
       <h2 class="field__heading">Knockback &amp; the Falls</h2>
-      <div class="field-prose">${renderProse(p.knockback)}</div>
+      <div class="field-prose">${renderProse(prose.knockback)}</div>
 
       <aside class="field__counsel">
         <h3 class="field__counsel-head">The Instructor&rsquo;s Counsel</h3>
-        ${renderProse(p.counsel)}
+        ${renderProse(prose.counsel)}
       </aside>
     </section>`;
+}
+
+/** Render all training fields, in handbook order. Used by composeHandbook. */
+export function allTrainingFields(): string {
+  return TRAINING_FIELDS.map((f) => trainingField(f.prose, f.map)).join('\n');
 }

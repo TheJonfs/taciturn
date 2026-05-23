@@ -83,7 +83,12 @@ export function mapDiagram(map: BattleMap): string {
   const totalW = w + margin * 2;
   const totalH = h + margin * 2;
 
-  const elevColor = (elev: number): string => {
+  const tileColor = (t: { elevation: number; terrain?: unknown }): string => {
+    // Rampart (S47, Stonebridge keep walls) reads as stone, not as
+    // another elevation tier — distinct from natural ground at the same
+    // height so the keep's architecture is visible at a glance.
+    if (String(t.terrain) === 'rampart') return '#7d756a';
+    const elev = t.elevation;
     if (elev === 0) return '#234a55';
     if (elev === 1) return '#5a8c95';
     // Land elevations 2–9 grade lightest → darkest with rising ground.
@@ -113,7 +118,7 @@ export function mapDiagram(map: BattleMap): string {
     const x = margin + t.x * tile;
     const y = margin + t.y * tile;
     tiles.push(
-      `<rect x="${x}" y="${y}" width="${tile}" height="${tile}" fill="${elevColor(t.elevation)}" stroke="#3a3024" stroke-width="0.4" stroke-opacity="0.4" />`,
+      `<rect x="${x}" y="${y}" width="${tile}" height="${tile}" fill="${tileColor(t)}" stroke="#3a3024" stroke-width="0.4" stroke-opacity="0.4" />`,
     );
     const zf = zoneFill(t.deploymentZone as string | undefined);
     if (zf) {
@@ -154,7 +159,7 @@ export function mapDiagram(map: BattleMap): string {
 
   return `
   <svg viewBox="0 0 ${totalW} ${totalH}" class="diagram diagram--map" role="img"
-       aria-label="River Ridge battlefield map: a 14×14 grid with a western river, a central ridge climbing east, and team deployment zones at the north and south edges">
+       aria-label="Battlefield map: a ${map.width}×${map.height} grid; team deployment zones tinted blue (north) and red (south)">
     ${tiles.join('')}
     ${frame}
     ${xLabels.join('')}

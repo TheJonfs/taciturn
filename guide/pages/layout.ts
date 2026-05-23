@@ -5,6 +5,7 @@
 
 import { catalog } from '../build/data.ts';
 import { SPREAD_ORDER } from '../build/spread-context.ts';
+import { TRAINING_FIELDS } from '../build/training-fields.ts';
 import { renderInline } from '../build/markdown.ts';
 import { armoryIntro } from '../content/items/index.ts';
 import academySealSvg from '../art/academy-seal.svg?raw';
@@ -64,7 +65,10 @@ export function tableOfContents(): string {
         <li class="toc__entry toc__entry--sub"><a href="#armory-armour">The Armour Stores</a></li>
         <li class="toc__entry toc__entry--sub"><a href="#armory-accessories">The Accessory Cases</a></li>
         <li class="toc__group">The Training Fields</li>
-        <li class="toc__entry toc__entry--sub"><a href="#ch-river-ridge">River Ridge</a></li>
+        ${TRAINING_FIELDS.map(
+          (f) =>
+            `<li class="toc__entry toc__entry--sub"><a href="#ch-${esc(f.prose.id)}">${esc(f.prose.title)}</a></li>`,
+        ).join('\n        ')}
         <li class="toc__entry"><a href="#ch-colophon">Colophon</a></li>
       </ol>
     </section>`;
@@ -138,10 +142,14 @@ export function armoryHalfTitle(): string {
 }
 
 /**
- * Half-title for the Training Exercises chapter (River Ridge in v1).
- * Frames the chapter in the same form as the Specializations half-title.
+ * Half-title for the Training Exercises chapter. Lists every field in
+ * the registry below the brief; the body iterates `TRAINING_FIELDS` so
+ * the list never goes stale as the Academy adds maps.
  */
 export function trainingFieldsHalfTitle(): string {
+  const fieldList = TRAINING_FIELDS.map(
+    (f) => `<li>${esc(f.prose.title)}</li>`,
+  ).join('\n        ');
   return `
     <section class="half-title half-title--training" id="ch-training">
       <p class="half-title__eyebrow">Part Five</p>
@@ -152,9 +160,12 @@ export function trainingFieldsHalfTitle(): string {
         on a real piece of ground. The Academy&rsquo;s training fields
         exist for that second teaching: each is shaped for a specific
         lesson, and each rewards the cadet who reads its terrain as
-        carefully as she reads her opponent. Mage War is fought on one
-        of them.
+        carefully as she reads her opponent. The Mage War exercises run
+        on whichever field the engagement is set to.
       </p>
+      <ul class="half-title__list">
+        ${fieldList}
+      </ul>
     </section>`;
 }
 

@@ -1,202 +1,149 @@
 # Handoff
 
-*Outgoing notes from the S45/S46 catch-up + Hunter spread + new items
-+ S46 stat-and-MP tuning + Armory half-title + alphabetical
-specializations + armoury sub-category sort.*
+*Outgoing notes from the Stonebridge + spell-vertical / AoE-tolerance
+session — second training field added, training-field machinery
+generalised, AoE shape rendering reworked around the implementer's
+correction.*
 *Overwritten each session — read every item, then act / promote / drop.*
 
 ## What landed
 
-The guide is in sync with main as of S46 + the tuning pass. **37 pages**;
-verso/recto parity preserved across all eight spreads, and both
-half-titles now land on right-hand (recto) pages.
+The guide is in sync with main as of S47. **40 pages**; verso/recto
+parity preserved across all eight spreads; both half-titles (Part Four
+Armory, Part Five Training Fields) on right-hand pages.
 
-### Hunter spread (new — the eighth class, fourth non-caster)
+### Stonebridge — the Academy's second training field
 
-- `content/classes/hunter.ts` — full prose: brief, seven ability notes
-  (attack + Marksmanship's pin_down / charged_attack / scramble +
-  passives updraft / eagle_eye / high_jump), strategy, four marginalia.
-  Recto holds at a single page (4 actives + 3 passives, same shape as
-  the Knight).
-- `content/classes/index.ts` — `hunterProse` registered.
-- `build/spread-context.ts` — portrait imported (`hunter_1.png`, the
-  user's tall 1696×2528 art that fills the frame), `'hunter'` added to
-  `ElementId`, `CLASS_META` entry, inserted into `SPREAD_ORDER`.
-- `styles/variant-e.css` — `.v-e--hunter` palette: deep emerald
-  (`#2d5641`) over dark-forest band (`#1f3d2e`) with pale-sage label
-  (`#a7c8b3`). Cooler and darker than the Geosage's brighter olive, so
-  the two greens stay clearly distinct in a side-by-side flip.
+- `content/training-fields/stonebridge.ts` — full FieldProse:
+  intro, four terrain sections (Bridge, River, Corner Hills, Keep),
+  three tactical zones (Bridge Charge, Keep Door, Hill Roost),
+  knockback section that names the three signature falls, instructor's
+  counsel. Sits in three pages, matching River Ridge.
+- `content/training-fields/river-ridge.ts` — `FieldProse` interface
+  gained `id` (for the `#ch-{id}` anchor and TOC link) and `legend`
+  (the previously hardcoded swatch list); River Ridge picked them up
+  with its existing six tiers.
+- `build/training-fields.ts` (new) — `TRAINING_FIELDS` registry
+  pairs each field's prose with its catalog map. Compose layer +
+  TOC + Training Fields half-title all iterate this; adding a third
+  field is now (a) author its FieldProse, (b) append the entry,
+  (c) the page template handles the rest.
+- `build/data.ts` — `stonebridgeMap()` added alongside
+  `riverRidgeMap()`.
+- `pages/training-field.ts` — generalised to a function of
+  `(prose, map)`; an `allTrainingFields()` helper renders every
+  registered field in order. Legend is now per-field.
+- `build/diagrams.ts` — rampart tiles (S47 Stonebridge terrain) render
+  as stone-grey (`#7d756a`) rather than as another elevation tier, so
+  the keep's architecture is visible at a glance. The aria-label is
+  now generic (the previous "River Ridge battlefield map…" was
+  hardcoded).
+- `pages/layout.ts` — Specializations half-title brief updated to add
+  "the Hunter from the perch"; Training Fields half-title now iterates
+  `TRAINING_FIELDS` (lists both fields, drops the v1 "Mage War is
+  fought on one of them" line). TOC's Training Fields entries iterate
+  the registry too.
 
-### New armoury items (5)
+### Spell-vertical + AoE-shape formatter rework
 
-In `content/items/index.ts` with flavor + tactical notes:
-- **Wand of Lumen** (the Pyromancer's wand — `+1 Burn stack per
-  fire-tagged application`, plus on-hit Wand of Lumen Resonance
-  resistance shift)
-- **Longbow** (WP 7, two-handed, range 2–5, height-delta variance)
-- **Riptide Bow** (WP 5, water-imbued two-handed, 30% on-hit Undertow
-  CT push)
-- **Ironfoot** (mobility ↔ power trade: Move/Jump/Spd cost for PA/MA
-  + Movement-slot lift)
-- **Mantle of Protection** (catalog name; you'd called it "Mantle of
-  Resistance" — used the catalog) — all 6 damage-type resistances +25
-  and all-facing evasion +25
-
-### Formatter expansions
-
-The new content surfaced gaps in the auto-rendered mechanical lines.
-All extensions are minimal and scoped.
+S47 made two ruleset-level changes (spells reach any vertical;
+`aoeVerticalTolerance` 1 → 3). Surfacing those forced a careful pass
+on what gets rendered per spell.
 
 **`build/ability-format.ts`:**
-- **Min horizontal range** — `"Arc, range 2–5"` for bows / Pin Down
-  (was always rendering as just `"range 5"`).
-- **Vertical** — `vertical >= 10` becomes `", any elevation"` (the
-  bow's vertical-99 sentinel). For `selfMove` abilities, vertical is
-  spelled out when it exceeds horizontal (Scramble: `"Melee (1),
-  vertical 5"`). Ordinary melee/spell verticals stay implicit so basic
-  Attacks aren't noised up with `"vertical 3"`.
-- **`selfMove`** — surfaces as the effect `"Self-move"` so Scramble has
-  a non-empty mechanical line.
-
-**`build/item-format.ts`:**
-- **Weapon `range` + `twoHanded`** on the headline — the bow line now
-  reads `"WP 7 · 33% accuracy · bow · range 2–5 · two-handed"`.
-- **`height_delta` variance** — `"Variance scales with elevation
-  (±20% per level above/below target)"`.
-- **`statusApplicationStackCountModifiers`** — Wand of Lumen surfaces
-  `"+1 Burn stack per fire-tagged application"`.
-- **Six-element resistance collapse** — Mantle of Protection prints
-  as `"All damage-type resistance +25"` instead of six lines. The
-  earlier four-element ("All elemental resistance") collapse still
-  applies.
-- **All-equal evasion collapse** — Mantle's uniform +25/+25/+25
-  prints as `"All-facing evasion +25"`.
-
-### S46 tuning catch-up
-
-S46 tuned baseline stats across the roster; the stat bands auto-render
-the new values from `baseline-stats.ts`, so no per-class prose edits
-were needed beyond a spot-check pass. The changes the data picked up:
-**Knight PA 11→10**, **Alchemist Spd 10→11**, **Assassin Spd 14→13**,
-**Move −1 across all eight classes**, **Assassin Command Set MP
-retune** (Shadow Stitch 8→10, Undermine 10→6, Sow Doubt 10→6),
-**The Offering tax −2→−3 PA**. All comparative-superlative claims in
-prose (Aethurge "highest MA / lowest HP", Geosage "slowest of the four
-elemental cadets / sturdiest caster", Hydrologist "fastest caster",
-Pyromancer "one of the most fragile", Assassin "fastest cadet")
-re-verified against the new numbers and still hold.
-
-Two pieces of prose drift the data shift exposed and I fixed:
-- The Offering's tactical line said "at a flat −2 PA" — corrected to
-  −3 PA.
-- Blowdart's note called it "the Assassin's cheapest standing
-  pressure"; with Undermine/Sow Doubt now at 6 MP (cheaper than
-  Blowdart's 8), the superlative is stale. Reframed as "the Assassin's
-  *standing* chip pressure" — the durable claim (Blowdart is the only
-  Shadow Art that lays ongoing damage).
-
-### Armory half-title (Part Four)
-
-- `pages/layout.ts` — new `armoryHalfTitle()` matching the
-  Specializations and Training Fields half-titles (eyebrow / title /
-  subtitle / brief / section list). The brief reuses the existing
-  `armoryIntro` from `content/items/index.ts` — single source of truth
-  for the Armorer's framing.
-- `pages/armory.ts` — chapter masthead dropped (it duplicated what the
-  half-title now carries). The `armoryIntro` import is gone from this
-  file; the `#ch-armory` id moved to the half-title.
-- `build/compose.ts` — `armoryHalfTitle()` inserted between the
-  spreads and the armory chapter.
-- `styles/front-matter.css` — `.half-title` now uses
-  `break-before: right` so half-titles auto-land on recto. This was
-  needed for the Armory half-title (Aethurge's recto ends on an odd
-  page in the new alphabetical order, so the half-title would have
-  fallen on an even page without it). The Specializations half-title
-  was already on a recto and is unaffected.
-- `styles/base.css` — new `@page :blank` rule styles the auto-inserted
-  parity-blank pages with the standard frame and suppresses the folio
-  + running header, so they read as intentional "end-of-part" pages
-  rather than stray blanks. Page 24 (the parity blank before the
-  Armory half-title) is the current consumer.
-
-### Specializations sorted alphabetically
-
-- `build/spread-context.ts` — `SPREAD_ORDER` reordered by display
-  name: Aethurge, Alchemist, Assassin, Geosage, Hunter, Hydrologist,
-  Knight, Pyromancer. Doc comment rewritten with the
-  display-name-to-class-id mapping in the new order.
-- `pages/layout.ts` — Specializations half-title brief lightly updated:
-  added "the Hunter from the perch" to the non-caster roll-call, and
-  noted "the spreads are arranged alphabetically; each is the same in
-  form."
-- All eight spread versos still land on even pages (the half-title
-  before them keeps the parity).
-
-### Armoury items sorted by sub-category
-
-- `pages/armory.ts` — `ArmorySection` gained an optional `sortKey`,
-  and each section declares its own.
-  - *Weapon Racks* (`weaponSortKey`): swords → knives → axes → bows
-    → staves → wands → shields. Items with no recognised family tag
-    fall before shields.
-  - *Armour Stores* (`armourSortKey`): armour first (universal →
-    Knight-only → Mages-only), then headgear in the same restriction
-    order.
-  - *Accessory Cases*: no sortKey — preserves catalog order (you
-    didn't ask for sub-sort there).
-- Sort is stable (`Array.sort` since ES2019), so items within each
-  sub-category preserve their catalog order. Sub-category groupings
-  are visually apparent from the existing per-item header chips
-  (`WEAPON · SWORD`, `ARMOUR · MAGES ONLY`, etc.) — no subheadings
-  added.
+- **"any elevation" dropped from range lines.** S47 made vertical 99
+  (the unbounded sentinel) the universal default for both bows and
+  spells, so it's now the baseline and stays implicit. A bounded
+  self-move whose vertical exceeds its horizontal — Scramble's
+  1-horizontal × 5-vertical leap — still surfaces explicitly.
+- **AoE shape rendering reworked** after the implementer correction:
+  `rangeMode` governs how the caster *aims* (the target tile is the
+  aim point), and `effects.aoe.shape` + `anchorMode` describe what
+  actually gets *hit*. The formatter was conflating the two — Maelstrom
+  and Flame Lance read as "Arc, range 4 · Area effect" while their
+  shapes are a caster-anchored cone and line respectively. Now:
+  - `tile` → `"Area effect"`
+  - `diamond` / `square` / `cross` → `"Diamond, radius N"`,
+    `"Square, radius N"`, `"Cross, radius N"`
+  - `cone` → `"Cone from caster, reach N"` (where N = `rows.length`)
+  - `line` → `"Line from caster, length N"`
+  - `custom` → `"Area effect, custom shape"`
+  The rangeMode line (Arc, range 4) stays — it's the aim envelope —
+  but the shape line now tells the reader what footprint actually
+  lands. Maelstrom's mechanical line and prose line up; Flame Lance's
+  too.
+- **AoE vertical-tolerance surfaces only when per-ability override.**
+  The ruleset's `aoeVerticalTolerance: 3` is the universal default;
+  repeating "(vertical 3)" on every AoE adds wrap risk for no
+  information. Only abilities that override (Flame Lance's
+  `verticalTolerance: 5`) surface their number, as
+  `"(vertical 5)"` appended to the shape text.
 
 ## Watch-for / flag to Chris
 
-- **Page 28 carries only Managuard.** The two-column flow chose to
-  break the Weapon Racks section there, leaving a sparse page. Not
-  broken — just a touch underfilled. Could tighten with a `widows`
-  hint or by adjusting items per column; left as-is for now.
-- **`@page :blank` styling.** Future half-title additions will
-  trigger the same auto-blank treatment. If a chapter is ever added
-  whose parity makes the previous half-title's blank land in the
-  middle of a chapter (rather than between chapters), the blank could
-  read awkwardly. Not currently a risk.
-- **Alphabetical order reshuffled the chronological-intro phrasings.**
-  The Alchemist brief still says "the Academy's sixth specialization"
-  and the Hunter brief still says "the Academy's eighth specialization";
-  these mean chronological-introduction order, not handbook order.
-  Defensible as written; flag for the write-through if Chris wants
-  them genericized.
+- **Maelstrom and Flame Lance source-data follow-ups (the implementer
+  thread).** Both have `rangeMode: 'arc'` — *correct*, that's how the
+  caster aims. The shape is in `effects.aoe.shape`, which the formatter
+  now reads. **Open follow-up on the game side:** the catalog still has
+  `aoe.shape: { kind: 'line', length: 4 }` for Flame Lance; you noted
+  it should reach 5. One-line fix in
+  `src/content/abilities/flame-lance.ts` and the guide picks it up on
+  the next build. No guide change required.
+- **Flame Lance's vertical tolerance override.** The catalog sets
+  `aoe.verticalTolerance: 5` on Flame Lance (kinematic-stop line — it
+  terminates on a wall taller than 5). The guide now surfaces that as
+  `"(vertical 5)"` on the mechanical line. The prose doesn't
+  separately call it out — the number is in the line.
+- **`@page :blank` handling.** Adding a third training field (or any
+  chapter that flips parity) will trigger an auto-inserted blank if
+  `break-before: right` lands an odd-page chapter on an even page.
+  Currently one such blank exists at page 24, between the Pyromancer
+  recto (23) and the Armory half-title (25). Stays as designed.
+- **Hunter's elevation identity is softened now that spells reach any
+  vertical too.** The Hunter prose still claims "she answers the field
+  at a range and from a height most cadets cannot reach" — that read
+  as bow-unique when written; now it's about *standing* on perches
+  others can't reach, not about *shooting* there. Defensible but
+  worth flagging for the write-through pass.
 - **Dev server still doesn't load styles** (Vite serves CSS as JS in
-  dev — flagged sessions ago). All verification continues through
+  dev — flagged sessions ago). All verification via
   `npm run build:guide` + `output/guide.pdf`.
-- **PDF is now ~55 MB.** Art downsample is overdue.
+- **PDF ~55 MB.** Art downsample remains overdue, more so with two
+  new portraits + a second map.
 
 ## Considered and rejected
 
-- **Adding visible sub-category subheadings** (e.g. "Swords", "Knives"
-  inline) inside Weapon Racks / Armour Stores. The per-item header
-  chips already communicate the grouping clearly enough that the sort
-  alone reads. Subheadings would have needed CSS to span columns and
-  break nicely. Easy to add later if you'd like them.
-- **Hand-authored Armory half-title brief.** Re-using `armoryIntro`
-  keeps a single source of truth for the Armorer's framing — and the
-  existing prose already opens the chapter in exactly the voice a
-  half-title needs.
-- **Per-class MP-economy commentary in the Assassin's ability notes.**
-  Tried adding "the dearest of her four" to Shadow Stitch and "cheap
-  enough to spread" to Undermine; the additions tipped the recto past
-  the page edge and broke parity. Reverted — the auto-rendered MP
-  costs on the mechanical lines carry the economy clearly enough.
-- **Restoring Foundations to 4 pages or rearranging the front matter
-  to flip parity** so the Armory half-title would land on an odd page
-  without an auto-blank. Cleaner solution turned out to be
-  `break-before: right` + a styled `@page :blank` — book-typography
-  standard, no front-matter disruption.
+- **Updating `src/` to fix Maelstrom (rangeMode → cone) directly.**
+  Per the guide's read-only-on-`src/` rule, asked first; Chris chose
+  "you'll fix src/ separately" — and then the implementer's note
+  showed the source data was actually right all along and the formatter
+  was the wrong layer. Net: no `src/` changes, formatter rework was
+  the correct fix.
+- **Adding a Foundations sentence about the new AoE 3-elevation
+  tolerance.** Tried `"a spell's *area* splashes only within three
+  elevations of where it lands — a diamond across deep water and the
+  bank above will catch one side, rarely both"`; it pushed Foundations
+  from 3 to 4 pages and triggered an orphan + parity blank. Reverted.
+  The per-AoE mechanical line ("(vertical N)" when non-default)
+  communicates the per-ability case; the universal default reader
+  learns by playing.
+- **Showing `"any elevation"` on every spell line** now that S47 made
+  it universal. Removed: it adds noise to every spell without
+  differentiating anything. Bows are no longer distinctive on
+  vertical reach — only on the height-delta damage curve, which their
+  variance line already reports.
+- **Showing `"(vertical 3)"` on every AoE line.** Removed: same logic
+  — the ruleset default doesn't need to be repeated. Per-ability
+  overrides do.
+- **Suffixing every AoE label with `"AoE"`** (`Diamond AoE, radius 1`).
+  Dropped: implicit from context — the entry is in the effects list,
+  the reader knows the shape describes the splash. Saves a few chars
+  per AoE entry, which mattered for keeping the Geosage recto on one
+  page.
 
 ## Suggested next scope
 
-Roadmap unchanged: write-through pass, art downsample (now overdue at
-~55 MB), and future content as the game ships it. The handbook reads
-end to end as the eight-discipline, alphabetically-ordered, four-part
-Cadet's Handbook.
+Roadmap unchanged. The Maelstrom / Flame Lance source-data follow-ups
+on the game side are the natural next thing the guide is waiting on;
+the formatter is ready for whatever lands. After that, the
+write-through pass and the art downsample remain.

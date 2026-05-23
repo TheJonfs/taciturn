@@ -15,6 +15,7 @@ import {
   type ClassBaselineStats,
 } from '@content/classes/baseline-stats.ts';
 import { riverRidge } from '@content/maps/river-ridge.ts';
+import { stonebridge } from '@content/maps/stonebridge.ts';
 import { classId, rulesetId } from '@engine/index.ts';
 import type {
   AbilityId,
@@ -57,9 +58,14 @@ export function defaultRuleset(): RulesetDefinition {
   return catalog().getRuleset(rulesetId('default'));
 }
 
-/** River Ridge — the v1 training-field map. */
+/** River Ridge — the Academy's first training-field map. */
 export function riverRidgeMap(): BattleMap {
   return riverRidge;
+}
+
+/** Stonebridge — the Academy's second training-field map (S47). */
+export function stonebridgeMap(): BattleMap {
+  return stonebridge;
 }
 
 /** One spoke of the elemental wheel, derived from a Mage class's baseline. */

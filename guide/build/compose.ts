@@ -19,7 +19,7 @@ import { variantE } from '../pages/variant-e.ts';
 import { welcome } from '../pages/welcome.ts';
 import { foundations } from '../pages/foundations.ts';
 import { armory } from '../pages/armory.ts';
-import { trainingField } from '../pages/training-field.ts';
+import { allTrainingFields } from '../pages/training-field.ts';
 
 const KNOWN_CLASSES = new Set(SPREAD_ORDER.map((id) => String(id)));
 
@@ -46,7 +46,7 @@ const SECTIONS: Record<SectionKey, () => string> = {
   welcome,
   foundations,
   armory,
-  training: trainingField,
+  training: allTrainingFields,
   toc: tableOfContents,
   colophon,
 };
@@ -75,7 +75,7 @@ export function composeHandbook(): string {
     armoryHalfTitle(),
     armory(),
     trainingFieldsHalfTitle(),
-    trainingField(),
+    allTrainingFields(),
     colophon(),
   ].join('\n');
 }

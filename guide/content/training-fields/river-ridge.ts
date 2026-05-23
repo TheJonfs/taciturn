@@ -8,7 +8,12 @@ export interface FieldSection {
   readonly body: string;
 }
 
+/** A swatch shown in the map legend — color and the cadet-facing label. */
+export type FieldLegendSwatch = readonly [color: string, label: string];
+
 export interface FieldProse {
+  /** Slug for the chapter anchor (`#ch-${id}`) and the TOC link. */
+  readonly id: string;
   readonly title: string;
   readonly subtitle: string;
   readonly intro: string;
@@ -16,9 +21,12 @@ export interface FieldProse {
   readonly zoneSections: ReadonlyArray<FieldSection>;
   readonly knockback: string;
   readonly counsel: string;
+  /** Map-legend swatches, ordered as the legend should read them. */
+  readonly legend: ReadonlyArray<FieldLegendSwatch>;
 }
 
 export const riverRidgeProse: FieldProse = {
+  id: 'river-ridge',
   title: 'River Ridge',
   subtitle: 'the Academy’s flagship training field',
 
@@ -128,4 +136,13 @@ appear on the page — but only to a cadet who can hold them, and
 holding them means refusing the edge. A perched cadet thrown into
 deep water is the field's lesson at its sharpest. Do not be on either
 side of that lesson without understanding which side you are on.`,
+
+  legend: [
+    ['#234a55', 'deep water'],
+    ['#5a8c95', 'shallow water'],
+    ['#c9b88a', 'plain (elev 2)'],
+    ['#9e864c', 'rising ridge (5)'],
+    ['#7e6629', 'central jump (7)'],
+    ['#594814', 'high perch (9)'],
+  ],
 };
