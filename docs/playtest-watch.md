@@ -524,3 +524,45 @@ shouldn't drift out of memory between sessions.
 - **What to watch.** The S46 audit fixed the padding (bar at top:12 instead of top:0) but couldn't reproduce the mid-battle vanishing in the dev-server pass — the bar is rendered unconditionally per the code path. Cursor-tile useState persistence between battles is the leading hypothesis but doesn't explain mid-battle disappearance well.
 - **Why it matters.** A vanishing top bar mid-battle hides the X/Y/Elev/Terrain readout the player relies on for elevation-aware positioning (bows, knockback, Bedrock Stride). If it's genuinely intermittent, more playtest data is needed.
 - **Signal for adjustment.** Next playtest pass: try to repro and capture (a) when in the turn cycle, (b) what action / settings change preceded it, (c) whether the bar's DOM is still present (use the inspect tool). Common candidates to consider: a turn-transition alert, a pause-resume cycle, a settings toggle.
+
+### Stonebridge — race-to-seize dynamics (S47)
+
+- **What to watch.** Stonebridge's symmetric deployment + south-team-closer-to-the-keep layout. Watch (a) whether Red consistently reaches the keep by turn 2-3, (b) whether magic vertical (Blue can engage rampart from afar) balances this or whether the building falls to whoever spawns nearest, (c) whether the central bridge (peak elev 6) sees actual fighting or whether teams just pass each other and converge on the keep.
+- **Why it matters.** S47 ships Stonebridge with explicit awareness that deployment is symmetric but the building is *not* symmetric in reach — Red is closer. The race may produce one-sided matches.
+- **Signal for adjustment.** If Red wins ≥70% with the same team comps and Blue plays optimally, tighten Red's deployment (move to rows 13-14 instead of 14-15) or restructure the keep (widen the gate, add a postern). If Blue can keep up via magic vertical, leave as-is.
+
+### Stonebridge — two-Hunter-rampart stress test (S47)
+
+- **What to watch.** Two Hunters deployed by Red onto the rampart (elev 8) shooting bow attacks down at attackers. Magic vertical (ADR-0085) is intended as the equalizer. Watch (a) whether magic from flat ground feels like adequate counterplay, (b) whether the Hunters' elevation-damage-reward (per ADR-0083 height_delta variance) makes them too dominant before magic can land, (c) whether the keep + bow combination feels like a fortress or a fair perch.
+- **Why it matters.** Hunters on perch is the canonical defensive composition; if magic vertical is the answer per the brief's framing, this is the proof.
+- **Signal for adjustment.** If two-Hunter-rampart wins consistently, levers: (a) drop rampart elev 8 → 7 (reducing Hunter bow damage bonus), (b) tighten the AoE vertical tolerance further (default 3 might still be too generous), (c) widen the gate so attackers can collapse the choke without exposing themselves to two shots before reaching melee range.
+
+### Stonebridge — defender bottle-up at the gate (S47)
+
+- **What to watch.** The keep's single-tile gate at (10, 14). Watch matches where attackers can't dislodge defenders even with magic + Assassin tools — bodies pile up at the gate, the rampart picks them off, and attackers run out of MP before breaking in.
+- **Why it matters.** A choke point is healthy tension; a *deadly* choke point makes the map unwinnable for attackers. The single-tile gate may be either.
+- **Signal for adjustment.** Levers: (a) widen the gate to 2 tiles (turn (10, 14) and (11, 14) both into the opening), (b) add a postern via a future map revision (one extra ground tile in the south or east wall as a secondary entry), (c) restructure the rampart's line-of-sight to add a blind spot near the gate.
+
+### Stonebridge — AI deployment on the new map (S47)
+
+- **What to watch.** The AI deployment heuristic places HP-descending into front-center. Watch how it lays out a Red team for Stonebridge: does it place tanks toward the bridge, support classes inside the keep, or does it bunch everyone in the center of the south zone? Does it deploy a Hunter onto the rampart sensibly?
+- **Why it matters.** The AI's deployment heuristic was tuned for River Ridge; Stonebridge's keep wants different positional preferences (Hunters on rampart, tanks at gate, Mages behind walls). If the AI plays the map naively, the human-vs-AI experience degrades.
+- **Signal for adjustment.** If the AI consistently bunches or fails to use the keep, role-aware deployment scoring (S44 carry — Hunter sharpens the case) becomes a higher-priority feature for a future session.
+
+### Stonebridge — hill heights at the corners (S47 / D9)
+
+- **What to watch.** Corner hills at (0, 0) and (0, 15) at elev 8 — same height as the rampart. Watch whether the NW corner hill becomes an auto-take perch for Blue early-game (a Hunter parks there, dominates the north half) and whether the SW corner does the same for Red. If both, the map becomes two parallel race-to-seize-the-perch lanes rather than the intended "race for the bridge + race for the keep" double-pivot.
+- **Why it matters.** Hills were deliberately set at elev 8 (same as rampart) to test whether secondary high-ground positions are needed. If they're too tall, the answer is they crowd out other strategic considerations.
+- **Signal for adjustment.** Drop corner hill elevations to 6 (still high but no longer "automatically taken first turn") in a future tuning round if playtest reveals corner-perch dominance.
+
+### Stonebridge — AoE vertical tolerance default 3 (S47 / ADR-0085)
+
+- **What to watch.** The S47 default tolerance bump from 1 → 3 affects 6 magical AoE spells (Earth Quake, Earth Cataclysm, Fire Storm, Maelstrom, Chain Lightning, Tidal Wave). On flat terrain (River Ridge or anywhere away from the rampart), behavior should feel identical. On Stonebridge's keep, AoE on rampart now splashes to ±3 elevation. Watch (a) whether existing River Ridge engagements feel different (regression-feel), (b) whether the rampart-AoE coverage feels right or too generous, (c) any AoE spell that feels wrong with the new default.
+- **Why it matters.** The default change touches every default-tolerance AoE in the game. A per-spell override is the lever, but identifying which spells warrant ≠ default needs playtest.
+- **Signal for adjustment.** Specific spells reading wrong → author per-spell `verticalTolerance` overrides. Aether Bloom's +1 might compound feel-issues; revisit if multiple players note the wider splash.
+
+### Stonebridge — magic vertical change affecting existing battles (S47 / ADR-0085)
+
+- **What to watch.** Pre-S47 most magic capped at `vertical: 2`; post-S47 it's uniform `vertical: 99`. River Ridge battles will see different magic behavior anywhere there was a cap interaction — most likely spells targeting cliff-top Hunters or Mages on the elev-9 east perch.
+- **Why it matters.** A regression in feel where a former "you have to climb to magic them" becomes "magic anyone anywhere" is the intended consequence — but watch for cases where the change makes a previous tactical position pointless.
+- **Signal for adjustment.** If a former perch (River Ridge elev-9 cliff) becomes worthless because magic now nullifies the elevation, revisit per-element vertical caps (a future tuning pass declaring `vertical: 5` on selected spells).

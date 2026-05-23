@@ -34,7 +34,7 @@ export const lightningStrike: ActiveAbilityDefinition = {
   tags: ['magical', 'lightning'],
   targeting: {
     kind: 'unit_or_tile',
-    range: { horizontal: 4, vertical: 2 },
+    range: { horizontal: 4, vertical: 99 },
     rangeMode: 'arc',
   },
   actionSpeed: 30,

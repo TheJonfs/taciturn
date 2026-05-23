@@ -138,7 +138,7 @@ describe('applyKnockback', () => {
   });
 
   // Session 32 / Item 16 — River Ridge ridge-into-water knockback case.
-  // Per docs/twentyOneDesign/river-ridge.md "Knockback Into Water":
+  // Per docs/maps/river-ridge.md "Knockback Into Water":
   // a unit knocked off the elev-7 ridge into adjacent shallow water at
   // elev 1 should land on the water tile with dropDistance 6 and emit
   // fall damage of 10 × 6 = 60. Confirms the primitive does not filter

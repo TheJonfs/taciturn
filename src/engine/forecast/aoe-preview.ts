@@ -20,7 +20,7 @@ import { aoeFootprint, cardinalFromTo } from '../map/aoe.ts';
 import { tileAt, unitAt } from '../map/accessors.ts';
 import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
 import type { GameState, Position, Unit } from '../types/index.ts';
-import { runModifyAoeShape } from '../hooks/runners.ts';
+import { runModifyAoeShape, runModifyAoeVerticalTolerance } from '../hooks/runners.ts';
 
 export interface AoePreviewTile {
   readonly position: Position;
@@ -74,7 +74,13 @@ export function projectAoePreview(
   if (anchorTile === undefined) return [];
 
   const ruleset = args.catalog.getRuleset(args.state.ruleset.id);
-  const verticalTolerance = aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
+  const baseVerticalTolerance =
+    aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
+  const verticalTolerance = runModifyAoeVerticalTolerance(args.state, args.catalog, {
+    unit: args.caster,
+    ability: args.ability,
+    baseValue: baseVerticalTolerance,
+  });
 
   const direction =
     finalShape.kind === 'cone' || finalShape.kind === 'line'

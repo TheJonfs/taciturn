@@ -31,7 +31,7 @@ export const alchemist: ClassDefinition = {
     terrainCosts: new Map(),
     // Universal water-enterable; cost is the gate. Matches the
     // post-S33 convention (ADR-0073).
-    canEnter: new Set(['ground', 'water_shallow', 'water_deep']),
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart']),
   },
   evasion: { front: 6, side: 4, back: 0 },
   equipmentSlots: {

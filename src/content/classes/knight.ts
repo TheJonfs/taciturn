@@ -24,7 +24,7 @@ export const knight: ClassDefinition = {
     // (ruleset default: water_shallow 2, water_deep 3) is the tactical
     // gate, not access. A Knight can wade through water at penalty
     // cost or leap over it via jump-over-water pathfinding.
-    canEnter: new Set(['ground', 'water_shallow', 'water_deep']),
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart']),
   },
   // S41 review: heavy-armor class identity. Best front evade in v1 —
   // beats Water Mage (10) clearly; middling side; uniform back-zero

@@ -128,7 +128,7 @@ describe('defaultRuleset', () => {
   it('range defaults match docs/design/map-and-battlefield.md ("v1 starting parameters")', () => {
     expect(defaultRuleset.rangeDefaults.meleeHorizontal).toBe(1);
     expect(defaultRuleset.rangeDefaults.minHorizontal).toBe(0);
-    expect(defaultRuleset.rangeDefaults.aoeVerticalTolerance).toBe(1);
+    expect(defaultRuleset.rangeDefaults.aoeVerticalTolerance).toBe(3);
   });
 });
 

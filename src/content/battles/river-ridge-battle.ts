@@ -48,7 +48,7 @@ import {
   WATER_MAGE_LOADOUT,
 } from './demo.ts';
 
-// Per `docs/twentyOneDesign/river-ridge.md`:
+// Per `docs/maps/river-ridge.md`:
 //   Blue zone: rows 0-2, cols 5-8 (12 tiles)
 //   Red zone:  rows 11-13, cols 5-8 (12 tiles)
 //

@@ -342,6 +342,28 @@ export function runModifyAoeShape(
   return shape;
 }
 
+// AoE vertical-tolerance modifier (S47) — fires against the caster's
+// hooks at the same site as `modifyAoeShape`. Additive chain over the
+// effective vertical tolerance. Aether Bloom is the first consumer
+// (+1 on magical-tagged AoEs). See ADR-0085.
+export function runModifyAoeVerticalTolerance(
+  state: GameState,
+  catalog: Catalog,
+  args: { unit: Unit; ability: ActiveAbilityDefinition; baseValue: number },
+): number {
+  const handlers = collectActiveHandlers(
+    state,
+    args.unit.id,
+    catalog,
+    'modifyAoeVerticalTolerance',
+  );
+  let value = args.baseValue;
+  for (const h of handlers) {
+    value = h.invoke({ unit: args.unit, ability: args.ability, baseValue: value });
+  }
+  return value;
+}
+
 // Additive chain over bucket-capacity modifiers. Handlers fire against
 // the unit's registrations (Steel Helm +1 R, Augmentor +1 S, Magus Crown
 // +1 active). Each handler returns the next running capacity (shape:

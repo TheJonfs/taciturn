@@ -1,5 +1,5 @@
 // River Ridge map shape tests. The map is data-only; assertions here
-// lock in the spec called out in `docs/twentyOneDesign/river-ridge.md`
+// lock in the spec called out in `docs/maps/river-ridge.md`
 // and the constants exported by `river-ridge.ts`.
 //
 // Approach: spot-sample tiles at strategic positions (river column,

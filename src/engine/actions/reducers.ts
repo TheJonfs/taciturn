@@ -22,6 +22,7 @@ import { defaultDamageHandlers } from '../damage/default-handlers.ts';
 import { runDamagePipeline } from '../damage/pipeline.ts';
 import {
   runModifyAoeShape,
+  runModifyAoeVerticalTolerance,
   runModifyDualWield,
   runModifyStatQuery,
   runModifySwingsPerWeapon,
@@ -1318,10 +1319,17 @@ function resolveAoeDispatch(
 
   // Footprint: tiles within the shape's offsets and within vertical
   // tolerance of the anchor's elevation. Per-ability override takes
-  // precedence over the ruleset's `rangeDefaults.aoeVerticalTolerance`.
+  // precedence over the ruleset's `rangeDefaults.aoeVerticalTolerance`;
+  // the resolved base then composes through `modifyAoeVerticalTolerance`
+  // on the caster (Aether Bloom +1, S47 / ADR-0085).
   const ruleset = catalog.getRuleset(state.ruleset.id);
-  const verticalTolerance =
+  const baseVerticalTolerance =
     aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
+  const verticalTolerance = runModifyAoeVerticalTolerance(state, catalog, {
+    unit: args.attacker,
+    ability: args.ability,
+    baseValue: baseVerticalTolerance,
+  });
   const tiles = aoeFootprint({
     map: state.map,
     anchor: { x: anchorPos.x, y: anchorPos.y, elevation: anchorTile.elevation },

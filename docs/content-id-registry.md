@@ -149,6 +149,33 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 |---|---|---|
 | `default` | Default Ruleset | `src/content/rulesets/default.ts` |
 
+## Maps
+
+| ID (key in source) | Name | Dimensions | File |
+|---|---|---|---|
+| `riverRidge` | River Ridge | 14×14 | `src/content/maps/river-ridge.ts` |
+| `stonebridge` | Stonebridge | 16×16 | `src/content/maps/stonebridge.ts` |
+
+Authored battles consume these maps via per-scenario battle configs:
+
+| Battle ID | Map | File |
+|---|---|---|
+| `river_ridge_v1` | River Ridge | `src/content/battles/river-ridge-battle.ts` |
+| `stonebridge_v1` | Stonebridge | `src/content/battles/stonebridge-battle.ts` |
+| `demo_battle` (smoke-test fixture) | (inline 6×6) | `src/content/battles/demo.ts` |
+| `training_field` (engine smoke-test) | Training Field | `src/content/battles/training-field-battle.ts` |
+
+## Terrain types
+
+Registered in `default.ts`'s `terrain.tags` map; see ADR-0073 (tag abstraction) and ADR-0085 (S47 Stonebridge addition).
+
+| Terrain ID | Tags | Notes |
+|---|---|---|
+| `ground` | `land` | Default land. Default step cost 1. |
+| `water_shallow` | `water`, `shallow` | Elev 1 in River Ridge / Stonebridge. Default cost 2 (Tidewalker reduces to 1). |
+| `water_deep` | `water`, `deep` | Elev 0. Default cost 3 (Tidewalker reduces to 2). |
+| `rampart` | `land` | S47. Keep walls on Stonebridge. Walkable by every class at elev 8; default step cost 1. Distinct id for renderer art identity. |
+
 ---
 
 ## Conventions

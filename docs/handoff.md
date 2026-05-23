@@ -6,86 +6,80 @@ This is a transient note from one session to the next.
 
 ---
 
-## From Session 46 close (2026-05-22) — Playtest tuning + bug fixes (6 items) + post-fix tuning pass
+## From Session 47 close (2026-05-23) — Stonebridge (second map) + rampart tile type + magic vertical-axis substrate + four stretch cleanups
 
-S46 was a tuning/bug-fix session, not substrate or content. Two commits: (1) audited six playtest-surfaced items and implemented fixes for five gameplay/UI items + part one of the sixth (terrain bar padding); the second part of the sixth (mid-battle vanishing root cause) couldn't be reproduced in the dev-server pass and is deferred. (2) Chris ran a small tuning pass on top — baseline Move -1 across all 8 classes, three per-class stat nudges, The Offering's PA tax steepened, and authored hover text for 9 R/S/M passives. **1352 tests pass** (1342 → 1352, +10 new from S46 fixes; tuning pass kept the count at 1352 — 5 existing test expectations updated to the new baselines), `tsc -b` and `npm run build` clean.
+S47 was a content-and-substrate session. Three primary pieces landed cleanly per the audit's "light to medium-light" framing: a new 16×16 map (Stonebridge), a new terrain type (`rampart`), and a vertical-axis targeting substrate (uniform magic vertical-infinite + AoE tolerance default bump + a new `modifyAoeVerticalTolerance` hook). The session also folded in Chris's authored rampart art when it arrived mid-session, and all four stretch candidates from the brief landed in the remaining budget. One ADR (0085). **1375 tests pass** (1352 → 1382 from primary work; net to 1375 after stretch cleanups removed 7 dead tests), `tsc -b` clean, `npm run build` succeeds.
 
-### What shipped
+### What shipped — primary work
 
-- **Item 1 — Bow damage projection.** Two compounding bugs in the UI forecast:
-  - The projection's variance handler (`src/ai/projection.ts` `projectionVarianceRoll`) early-returned on a pinned-1 variance band, quietly skipping the weapon-band resolver for the *expected midpoint* path. A Hunter shooting downhill projected ×1.0 instead of the height_delta-resolved ×2.0. Fix: removed the pinned-1 early return; pinned-non-1 still honors the caller's specific value (so `damage-range`'s endpoint reads still work for knife / static bands).
-  - The same projection appended `hit_chance` as a damage multiplier — correct for AI EV scoring, but the UI forecast panel ALSO displays hit chance in its own row, double-counting visually. Fix: added `noEvasion?: boolean` to `ProjectExpectedDamageArgs` and a `projectionRegistryNoEvasion` that swaps `projectionEvasionCheck` for a no-op; `damage-range.ts` passes `noEvasion: true`. AI scoring unchanged (still EV-weighted); UI shows raw variance-only damage.
-  - Coverage: 4 new tests in `damage-range.test.ts` (height-delta downhill, level, uphill clamp at 0, hit-chance not folded in).
+- **`modifyAoeVerticalTolerance` hook (closed surface 13 → 14).** Per the audit, `modifyAoeShape` returns just an `AoeShape`; adding a separate hook for the orthogonal "tolerance" axis matches the project's parallel-concern hook pattern (`modifyHitChance` / `modifyEvasion` / `modifyAbilityRange`). Wired into `resolveAoeDispatch`, `aoe-preview.ts` (forecast), `use-turn-flow.ts` (UI overlay), `charged-action-detail-panel.tsx` (charged AoE preview), and `basic.ts` (AI scoring). Threaded through `src/engine/index.ts` re-exports.
 
-- **Item 2 — Charging hit guarantee.** Was never implemented. Per FFT canon (a charging unit is defenseless against incoming physical strikes), physical attacks on Charging-statused targets now auto-hit. Single-point pre-roll guard in `evasionCheck` (`src/engine/damage/handlers.ts`); mirrored in `projectionEvasionCheck` (`src/ai/projection.ts`) and `computeOutgoingHitChance` (`src/engine/damage/hit-chance.ts`) so AI EV and UI hit-chance display agree with the engine. Extension scar: the guard reads `ruleset.chargedActions.chargingStatusTypeId` against `target.statuses`; future opt-out content (status, ability tag, equipment) edits the predicate in one location. 2 new tests in `pipeline.test.ts` (auto-hit across 50 seeds; magical attacks unchanged).
+- **Default ruleset `aoeVerticalTolerance` 1 → 3.** Affects the 6 magical AoE spells that use the default (Earth Quake, Earth Cataclysm, Fire Storm, Maelstrom, Chain Lightning, Tidal Wave). Flame Lance retains its explicit `verticalTolerance: 5`. The brief's D4 settled at 3.
 
-- **Item 3 — Stop duration ticking + CT drain.** Two sub-bugs:
-  - Pre-S46, `suppressStatusTicks: true` on Stop's `queryTurnSkipped` return swallowed *all* status_tick emissions, including Stop's own — so Stop's duration never decremented on its fake turn (the unit stayed Stopped forever in theory; in practice they came back fast via CT). Fix: `TurnSkipResult` gained an optional `statusTypeId`, stamped by `runQueryTurnSkipped` from the winning handler's `sourceTypeId`. `reduceTurnStart` emits a self-tick for that statusTypeId on the skipped turn — even when `suppressStatusTicks: true`. Other statuses (Poison, Regen on a Stopped unit) remain governed by the flag's original intent (frozen in time). 4 new tests in `turn-flow.test.ts`; the existing S16 integration test updated to expect the new self-tick emission.
-  - Pre-S46, a Stopped unit's fake turn drained CT only by `ctCosts.wait` (20) via the standard turn_end path. FFT canon: the fake turn fully drains CT. Fix: in the `reduceTurnStart` skip branch, set `unit.ct = 0` before returning. Subsequent `turn_end` is a no-op on CT (already 0).
+- **Uniform magic vertical-infinite (`vertical: 99`).** 23 magical active abilities updated to `range.vertical: 99`, mirroring the bow precedent (ADR-0083). Includes single-target spells, AoE casts, status appliers, buffs, healing, and CT manipulators — every ability tagged `'magical'`. Per PR-Q1 settled in plan-review: the brief's "single-target only" framing widened to all magic; the strict reading would have left the rampart untargettable for AoE magic from flat ground.
 
-- **Item 4a — Terrain bar padding.** `TileInfoPanel` was positioned `top: 0` and felt flush with the viewport top. Bumped to `top: 12`. ActiveTeamBanner's `top: 28` was previously flush with the bar's bottom edge (y=28); bumped its `top: 40` so the banner stays flush under the padded bar instead of overlapping the bottom 12px of it.
+- **Aether Bloom extension.** Second handler (`modifyAoeVerticalTolerance`) on Aether Bloom adds +1 to vertical tolerance on magical AoE casts, gated on the `'magical'` tag (same as the existing shape grow). Symmetric "more bloom" — horizontal radius +1 step and vertical window +1 step.
 
-- **Item 4b — Terrain bar mid-battle vanishing (DEFERRED).** Audit couldn't reproduce the mid-battle disappearance in the dev-server pass — the bar is rendered unconditionally and no overlay was observed covering it. Chris will repro on next playtest. The `cursorTile` useState persistence theory remains the leading guess for the post-Main-Menu return-to-battle variant but doesn't explain mid-battle vanishing. Carried to `playtest-watch.md`.
+- **`rampart` terrain type.** Registered in `ruleset.terrain.tags` with the `'land'` tag (so existing land-aware composition covers it). 8 class `canEnter` sets updated to include `'rampart'`. Pathfinding cost defaults to 1 (`defaultStepCost`).
 
-- **Item 5 — Permadeath sprite removal.** Pre-S46, `removed: true` units rendered at `KO_ALPHA = 0.4` (visually identical to KO'd units except for the S41 permadeath badge). Fix: in `BattleRenderer.applyVisualState`, hide the sprite container when `unit.removed`. KO'd units retain their sprite (regression-safe). The S41 badge becomes redundant once the parent container is hidden; left in place since it auto-hides via the same parent-visibility gate.
+- **Rampart art (delivered mid-session).** Chris produced three authored rampart variants (~700px source). Stretched to 256×256 with `sips -z` to match the existing terrain tile convention; imported in `src/assets/terrain/index.ts` and added to `TERRAIN_MANIFEST`. The renderer composes the new variant pool deterministically per-tile (existing infrastructure). Placeholder color in `TERRAIN_COLORS` remains as the safety net for any code path that bypasses the manifest.
 
-- **Item 6 — Zoom max.** Default `maxZoom` raised from 3 to 4 (33% bump) in `CameraController`. Verified at the new cap in the dev server: art holds up, tiles still crisp. Camera bounds are zoom-independent so no other tuning needed.
+- **Stonebridge map.** Authored at `src/content/maps/stonebridge.ts` (16×16, per the brief's elevation grid verbatim). 9 rampart tiles forming the SE keep walls; deployment zones at rows 0-1 cols 5-8 (Blue, 8 tiles) and rows 14-15 cols 5-8 (Red, 8 tiles). Battle config at `src/content/battles/stonebridge-battle.ts` derives from `riverRidgeBattle` with position remapping; equipment reuses River Ridge's unique-per-team-compliant set. 19 tests in `src/content/maps/stonebridge.test.ts` cover structure, terrain derivation, rampart positions, bridge, deployment zones, and validator pass.
 
-### Item 7 (resolved in the post-S46 tuning pass below)
+- **Map picker UI.** `BattleSetupScreen` now picks between River Ridge and Stonebridge (two-button segmented control). `App.tsx` owns `mapId` state and threads the selected `BattleConfig` to the team builder via a new `mapTemplate` prop. Tests updated for the new required props.
 
-Was deferred to the second-map design session; Chris elected to act on lever (a) — baseline Move -1 across all classes — within this session as part of the broader tuning round. Lever (b) (larger maps) remains a future option if Move still feels too high after this pass.
+- **`docs/maps/` directory created; `docs/twentyOneDesign/river-ridge.md` migrated to `docs/maps/river-ridge.md`.** Active source-file references updated via the migration. ADR-0072 and ADR-0073 still link to the old path (historical records, intentionally not edited).
 
-### Post-S46 tuning pass (same session)
+- **`docs/maps/stonebridge.md` spec.** Authored per River Ridge convention: Purpose and Scope, Metadata, Elevation Grid, Terrain Features (river / bridge / SE keep / corner hills / flat plain / deployment zones), Movement Rules (rampart pathing notes), Tactical Character, Engine Requirements, Open Considerations (incl. D9 hill heights, D8 future asymmetric siege variant).
 
-After landing the S46 fixes, Chris ran a small gameplay-tuning round. **1352 tests still pass** (same count — 5 hard-coded test expectations updated to the new baselines), `tsc -b` and `npm run build` clean. Browser-verified the team builder reflects the new stats (Bremondt PA reads 12, was 13; SPD values for Geosage/Hydrologist unchanged as expected).
+- **ADR-0085 — "Vertical-axis targeting rules — uniform magic vertical-infinite, AoE vertical-tolerance default + new modifier hook."** Single ADR covers (a) per-ability `vertical: 99` on all magic, (b) default tolerance 1 → 3, (c) new `modifyAoeVerticalTolerance` hook. Includes rationale for plan-review decisions (uniform vs. strict, new hook vs. widening `modifyAoeShape`).
 
-**Class baseline Move -1** (uniform across all 8 classes — Item 7's lever (a)):
-- Knight / Earth Mage / Fire Mage: 3 → 2
-- Water Mage / Lightning Mage / Alchemist / Assassin / Hunter: 4 → 3
+- **`playtest-watch.md` extended** with 7 Stonebridge-specific watch-fors: race-to-seize dynamics, two-Hunter-rampart stress test, gate bottle-up, AI deployment on new map, hill-height adequacy (D9), AoE tolerance default 3 reading, magic vertical change affecting existing River Ridge battles.
 
-Reason: post-S46 playtest, equipment + Movement-bucket passives compounded routine units into 5-7 Move on a 14×14 map — first turn often resolved into combat without much positional setup. Lowering the baseline preserves the "pick a Movement option" system while restoring some positional friction. If still too high after a playtest pass, drop another point or revisit map size.
+### What shipped — stretch cleanups (all four from the brief landed)
 
-**Per-class stat nudges:**
-- **Alchemist** spd: 10 → 11. Support-tempo role wants more turns per battle than the prior 10 was producing.
-- **Assassin** spd: 14 → 13. Speed Save's +1 Speed/hit ramps quickly off 14; 13 keeps the Assassin the fastest base in v1 (next: Alchemist 11 / Water Mage 10) while easing the early-fight tempo lead.
-- **Knight** pa: 11 → 10. Raw output read a touch high alongside Battle Skill + Martial Expertise's ×1.25.
+- **`assignAiTeamNames` removed.** Confirmed zero production callers via grep; deleted `src/content/teams/assign-ai-team-names.ts` + its test file, removed the re-export from `src/content/teams/index.ts`. 7 dead tests dropped.
 
-**Equipment tuning:**
-- **The Offering**: PA tax −2 → −3. Steeper four-swing tax; composes additively at the equipment tier before Two Weapons' ×0.75, matching the prior shape.
+- **Border/borderColor React dev warnings fixed.** Sole culprit was `BattleSetupScreen.segmentStyle` mixing the `border` shorthand with a state-conditional `borderColor` override in the active variant. Switched to non-shorthand `borderWidth/borderStyle/borderColor` per the deployment-roster-panel convention. Browser-verified: zero console warnings/errors across map-picker and Human/AI toggle cycles.
 
-**UI polish — author hover text for the 9 R/S/M passives that previously fell back to "(Description not yet authored — flag for Session 31.5 content pass.)":**
-- **Knight**: Martial Expertise, Bravestrider, Bulwark Stance.
-- **Assassin**: Two Weapons, Speed Save, Fleet of Foot.
-- **Hunter**: Eagle Eye, Updraft, High Jump.
+- **Permadeath countdown badge removed from the unit sprite.** Per the brief's read (and confirmed by code inspection): with S46's sprite-hide on `removed` units, the on-sprite countdown became redundant. The unit-detail panel still surfaces "KO — N/3 virtual turns elapsed" with imminent styling for the same info via the side panel — that path is preserved. Removed from `unit-layer.ts`: badge fields, constructor setup, addChild, drawPermadeathBadge method, the call site, and the `permadeathCountdown` field on `UnitVisualState`. Removed the computation block in `battle-renderer.ts`. Removed unused `PERMADEATH_BADGE_*` constants from `renderer/constants.ts`.
 
-Five test files needed updating: `assassin-kit.test.ts`, `hunter-kit.test.ts`, `session-20-integration.test.ts`, `session-39b-integration.test.ts`, `session-42-multiswing-integration.test.ts`. Each had a single hard-coded expectation against a specific baseline (Assassin spd 14, Hunter moveRange 4, Lightning Mage moveRange 4, Alchemist moveRange 4, The Offering's −2 PA composition math).
+- **`content-id-registry.md` Maps + Terrain rows added.** Two new sections: **Maps** (River Ridge + Stonebridge + their battle configs) and **Terrain types** (the 4 registered types: ground, water_shallow, water_deep, rampart). The pre-S45 staleness in the rest of the registry is a separate sweep — not addressed.
 
-**Watch-fors from this tuning pass:**
-- Whether Move 2/3 baselines feel too restrictive *without* a Movement-bucket passive (a Knight with no Movement option now reaches just 2 tiles unboosted).
-- Whether the Knight's effective PA 12 (post-Martial Expertise) still over-performs Battle Skill matchups; the −1 may need a second nudge.
-- Whether Assassin spd 13 still snowballs unreasonably via Speed Save; if so, the lever is the +1/hit grant rate, not the base.
-- Alchemist spd 11 vs Water Mage spd 10 — Alchemist is now strictly faster than the Hydrologist, which may shift the team-builder pick math.
-- The Offering at −3 PA: the four-swing burst should now feel meaningfully taxed. Watch whether Knight/dual-axe builds still default to The Offering or whether the steeper tax tips them back to other accessories.
+### Test coverage delta
 
-### Browser verification
+`1352 → 1375` net:
+- Stonebridge map: +19 (structure, terrain, rampart positions, bridge, deployment zones, validator)
+- `modifyAoeVerticalTolerance` hook: +5 (3 in `aoe-substrate.test.ts`, 2 in `session-19-integration.test.ts`)
+- Other primary additions: +6 (mostly side effects of test fixture updates)
+- Stretch cleanup: -7 (removed `assignAiTeamNames` test file entirely)
 
-Dev-server pass confirmed: app boots clean (no new console errors), team builder works (Highland Hunters template loads, Hunter selectable with Longbow), deployment screen works, battle starts cleanly, **terrain bar visible at the new top:12 padding** (DOM-confirmed `top: 12px`, rect at y=20), **zoom past 3× works smoothly with no pixelation** (mouse wheel scrolling pulls the camera into close-up view). The 1352-test suite covers all the engine fixes (Items 1, 2, 3); Items 5 (permadeath sprite) and the in-battle dynamics of 1/2/3 were not feel-verified in actual play during this session — they're test-validated but Chris's next pass over the battle layer will surface any rendering or pacing issues.
+### Known follow-ups
 
-### Carry-forward (longer-term, unchanged)
+- **AI deployment on Stonebridge** — the current heuristic places HP-descending into front-center. Will likely produce mediocre Stonebridge placements (no Hunter-on-rampart awareness). Role-aware deployment scoring is a pre-existing carry (S44, now sharpened by Hunter at S45 and the rampart at S47).
+- **Default ruleset tolerance impact on existing River Ridge** — the bump from 1 to 3 should preserve flat-terrain AoE behavior but may shift edge-case interactions on the ridge. Playtest signal will tell.
 
-- **Terrain bar mid-battle vanishing root cause** (S46 Item 4b, this session's deferral). See playtest-watch entry.
-- **`content-id-registry.md` broader reconciliation** — S45 added its own rows but the pre-S45 staleness persists.
-- Calculator class (9th, magical-knowledge specialist).
-- Second map design — now an S47+ candidate after S46 displaced it for tuning.
-- 5v5 unlock — later in roadmap.
-- Equipment expansion (Hi-Potion / Holy Water / Elixir + accessories).
-- Charm/Seduction (team-override substrate, dedicated session).
-- Pyromancer R/S/M consolidation (future R/S/M review).
-- ~~Knight base-PA recalibration~~ — resolved in the post-S46 tuning pass (PA 11 → 10). Watch list above tracks whether a second nudge is needed.
-- AI deployment role-aware sorting (playtest-driven; Hunter sharpens the case).
-- Speed Save / Updraft per-swing reaction cap (S42 D5 deviation).
-- Renderer-side multi-swing animation polish (S42 carry).
-- Border/borderColor React dev warnings (cosmetic console noise).
-- `assignAiTeamNames` removal (confirmed dead post-S43; still exported + tested).
-- ActionType-wiring smoke test (future CI item; S46 added no ActionTypes, gap unchanged).
-- ~~Move/map size tuning (Item 7, logged for S47+)~~ — resolved by acting on lever (a) in the post-S46 tuning pass. Map-size lever (b) remains a future option if playtest still reads "too much mobility."
+### Looking ahead — S48 candidate scope (Chris's preview)
+
+The next session is shaping up around **5v5 team-size unlock** and a **pre-built teams refresh**:
+
+- **5v5 unlock.** Currently locked at 4v4 (`team-builder-state.ts:60` and the deployment-zone validation gate). Leaning toward enabling 5v5 on *both* maps (River Ridge has 12-tile zones; Stonebridge's 8-tile zones tightly fit 4 but 5 would require a zone audit). May need either Stonebridge zone expansion to 10+ tiles or a "5v5 not supported on this map" surface. Decisions for the brief.
+- **Pre-built teams refresh.** The current bundled templates (Aggro Knight Squad / Mage Variety Pack / Defensive Front / Shadow and Steel / Highland Hunters) aren't optimally built — they're due for a refresh anyway. Likely a wholesale replacement with new 5-unit templates assembled with full ability loadouts (the existing templates predate some R/S/M content). May also retire the old 4-unit templates entirely rather than keeping both sizes.
+- **Implications to audit:** team-builder validation (currently hardcodes the 4-unit count), deployment-zone validator (currently enforces a per-team minimum tied to team size — works as-is, but Stonebridge's 8-tile zones may not satisfy the 5-tile minimum), the team-builder UI's roster grid (4 slots hardcoded?), the AI deployment heuristic's slot-by-slot loop. Worth surfacing as the audit-first pass at session start.
+
+### Carry-forward (longer-term)
+
+- **Terrain bar mid-battle vanishing root cause** (S46 deferral). Still pending repro.
+- **`content-id-registry.md` reconciliation** — pre-S45 staleness persists. S45, S47 added their own rows but a broader sweep is a separate session.
+- **Calculator class** (9th, magical-knowledge specialist).
+- **Equipment expansion** (Hi-Potion / Holy Water / Elixir + accessories).
+- **Charm/Seduction substrate** (team-override, dedicated session).
+- **Pyromancer R/S/M consolidation** (future R/S/M review).
+- **AI deployment role-aware sorting** (now sharpened by both Hunter and the rampart).
+- **Speed Save / Updraft per-swing reaction cap** (S42 D5 deviation).
+- **Renderer-side multi-swing animation polish** (S42 carry).
+- **ActionType-wiring smoke test** (future CI item).
+- **Hill-height adjustment on Stonebridge** (S47 D9 — playtest-driven, see playtest-watch).
+- **Asymmetric siege scenario for Stonebridge** (S47 D8 — future content session).
+- **`docs/decisions/0072-cliff-edge-rendering.md` and `0073-terrain-tag-abstraction.md` links** — both reference the now-migrated `docs/twentyOneDesign/river-ridge.md` path. Intentionally left as-is (ADRs are historical records); if a future docs sweep wants to update them, the active-source references are already on the new path.
+- **Rampart art originals not preserved in-repo.** Chris's ~700px source files were stretched to 256×256 in place. If the originals need to be versioned anywhere, that's outside the repo today.

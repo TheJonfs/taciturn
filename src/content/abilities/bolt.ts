@@ -51,7 +51,7 @@ export const bolt: ActiveAbilityDefinition = {
   tags: ['magical', 'lightning'],
   targeting: {
     kind: 'tile',
-    range: { horizontal: 4, vertical: 3 },
+    range: { horizontal: 4, vertical: 99 },
     rangeMode: 'arc',
   },
   actionSpeed: 25,

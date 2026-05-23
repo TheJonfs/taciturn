@@ -28,6 +28,8 @@ describe('BattleSetupScreen', () => {
         <BattleSetupScreen
           controls={DEFAULT_CONTROLS}
           onControlsChange={() => {}}
+          mapId="river_ridge"
+          onMapChange={() => {}}
           onStart={() => {}}
           onBack={() => {}}
         />,
@@ -50,6 +52,8 @@ describe('BattleSetupScreen', () => {
         <BattleSetupScreen
           controls={DEFAULT_CONTROLS}
           onControlsChange={() => {}}
+          mapId="river_ridge"
+          onMapChange={() => {}}
           onStart={onStart}
           onBack={() => {}}
         />,
@@ -73,6 +77,8 @@ describe('BattleSetupScreen', () => {
         <BattleSetupScreen
           controls={DEFAULT_CONTROLS}
           onControlsChange={() => {}}
+          mapId="river_ridge"
+          onMapChange={() => {}}
           onStart={() => {}}
           onBack={onBack}
         />,
@@ -96,6 +102,8 @@ describe('BattleSetupScreen', () => {
         <BattleSetupScreen
           controls={DEFAULT_CONTROLS}
           onControlsChange={onControlsChange}
+          mapId="river_ridge"
+          onMapChange={() => {}}
           onStart={() => {}}
           onBack={() => {}}
         />,

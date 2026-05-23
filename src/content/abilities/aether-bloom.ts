@@ -8,6 +8,13 @@
 // would compose on a future cross-classed mage's AoE casts (e.g., a
 // hypothetical Earth AoE would expand too).
 //
+// Session 47 (ADR-0085) extends Aether Bloom with a parallel
+// `modifyAoeVerticalTolerance` handler: same `'magical'` gate, +1 to
+// the running vertical tolerance. Symmetric to the shape grow — the
+// horizontal footprint AND the elevation window both widen by one step
+// — so an Aether-Bloom-equipped Fire Mage projects a fuller bloom in
+// elevation-rich terrain (Stonebridge ramparts, River Ridge perches).
+//
 // Per session 19 plaintext review (footprint counts revised session 26
 // alongside the cross-r1 → diamond-r1 base-shape switch):
 //   - baseCost 2; free for Fire Mage (listed in `freeAbilities`)
@@ -20,7 +27,8 @@
 // Composition: chained with another `modifyAoeShape` handler (e.g., a
 // hypothetical "Mediator's Reach" passive that grows all AoEs further),
 // the chain composes naturally — each handler grows the running shape,
-// so two stacked expanders produce `+2 step` growth.
+// so two stacked expanders produce `+2 step` growth. The vertical-
+// tolerance chain composes additively the same way.
 //
 // Healing-tagged casts: Aether Bloom does NOT specifically exclude
 // healing — a future group-heal AoE would grow too, which is the right
@@ -48,6 +56,11 @@ export const aetherBloom: PassiveAbilityDefinition = {
       const tags = args.ability.tags ?? [];
       if (!tags.includes('magical')) return args.baseShape;
       return enlargeAoeShape(args.baseShape);
+    }),
+    passiveHook('modifyAoeVerticalTolerance', (args) => {
+      const tags = args.ability.tags ?? [];
+      if (!tags.includes('magical')) return args.baseValue;
+      return args.baseValue + 1;
     }),
   ],
 };

@@ -22,7 +22,11 @@ import {
 } from '../map/aoe.ts';
 import { applyStatus } from '../status/apply.ts';
 import { rollStatusChance } from '../status/chance.ts';
-import { runModifyAoeShape, runModifyStatQuery } from '../hooks/runners.ts';
+import {
+  runModifyAoeShape,
+  runModifyAoeVerticalTolerance,
+  runModifyStatQuery,
+} from '../hooks/runners.ts';
 import { activeTurnFor, makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { flatMap } from '../map/test-fixtures.ts';
 import { abilityId, bucketId, statusTypeId, unitId } from '@engine/index.ts';
@@ -592,6 +596,55 @@ describe('Aether Bloom — modifyAoeShape', () => {
       baseShape,
     });
     expect(result).toBe(baseShape); // passed through, identity
+  });
+
+  // ===== S47: Aether Bloom also widens vertical tolerance by +1 =====
+
+  it('adds +1 to AoE vertical tolerance on magical casts', () => {
+    const caster = makeUnit({
+      id: 'caster',
+      spd: 10,
+      ma: 9,
+      hp: 100,
+      classId: 'fire_mage',
+      loadout: {
+        actionBuckets: {},
+        passiveBuckets: { [bucketId('support')]: [abilityId('aether_bloom')] },
+      },
+    });
+    const state = makeGameState({ units: [caster] });
+    const fireStorm = catalog.getAbility(abilityId('fire_storm'));
+    if (fireStorm.kind !== 'active') throw new Error('expected active');
+    // Base tolerance 3 → 4 with Aether Bloom equipped.
+    const widened = runModifyAoeVerticalTolerance(state, catalog, {
+      unit: caster,
+      ability: fireStorm,
+      baseValue: 3,
+    });
+    expect(widened).toBe(4);
+  });
+
+  it('does not widen vertical tolerance on non-magical abilities', () => {
+    const caster = makeUnit({
+      id: 'caster',
+      spd: 10,
+      ma: 9,
+      hp: 100,
+      classId: 'fire_mage',
+      loadout: {
+        actionBuckets: {},
+        passiveBuckets: { [bucketId('support')]: [abilityId('aether_bloom')] },
+      },
+    });
+    const state = makeGameState({ units: [caster] });
+    const physical = catalog.getAbility(abilityId('attack'));
+    if (physical.kind !== 'active') throw new Error('expected active');
+    const passThrough = runModifyAoeVerticalTolerance(state, catalog, {
+      unit: caster,
+      ability: physical,
+      baseValue: 3,
+    });
+    expect(passThrough).toBe(3);
   });
 });
 

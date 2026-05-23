@@ -291,6 +291,28 @@ export interface HookSignatures {
     return: AoeShape;
   };
 
+  // AoE vertical-tolerance modifier (S47) — fires against the *caster's*
+  // hooks at the same site as `modifyAoeShape`, just before the footprint
+  // resolves. Additive chain over the AoE's effective vertical tolerance:
+  // each handler receives the running integer and returns the next.
+  //
+  // Base value is resolved per-call as `aoe.verticalTolerance ??
+  // ruleset.rangeDefaults.aoeVerticalTolerance`; equipment / status /
+  // passive contributors then add or subtract. Aether Bloom is the first
+  // consumer (+1 on magical-tagged AoEs) and registers alongside its
+  // existing `modifyAoeShape` handler. Parallel-concern hook (not folded
+  // into modifyAoeShape) per ADR-0085: shape and tolerance are different
+  // axes — one is the horizontal footprint, the other is the elevation
+  // window — and the closed surface grows for separable concepts.
+  modifyAoeVerticalTolerance: {
+    args: {
+      unit: Unit;
+      ability: ActiveAbilityDefinition;
+      baseValue: number;
+    };
+    return: number;
+  };
+
   // MP cost modifier — multiplicative on the ability's base MP cost.
   // Equipment / status / passive contributors (e.g., Staff of Power
   // × 1.20) fire against the caster's hooks; the chain is read by

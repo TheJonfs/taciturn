@@ -1,5 +1,5 @@
 // Map validator — load-time sanity checks for authored maps.
-// See ADR-0073 and `docs/twentyOneDesign/river-ridge.md`.
+// See ADR-0073 and `docs/maps/river-ridge.md`.
 //
 // Validation is intentionally minimal in v1: catch the kinds of typos
 // content authors make (terrain string not in the registry, deployment

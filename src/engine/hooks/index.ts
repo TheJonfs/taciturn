@@ -26,6 +26,7 @@ export {
   runModifyAbilityRange,
   runModifyActionSpeed,
   runModifyAoeShape,
+  runModifyAoeVerticalTolerance,
   runModifyBucketCapacity,
   runModifyCanEnter,
   runModifyDualWield,

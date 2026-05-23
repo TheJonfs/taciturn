@@ -532,7 +532,7 @@ describe('getLegalMoves — pure function', () => {
 // Session 32 / Item 15: jump-over-water leap candidates.
 // Cardinal two-step leap where the intermediate is water (elev 0 or 1)
 // and the destination is land (elev ≥ 2). Cost 2 fixed. Requires jump ≥ 1.
-// Per docs/twentyOneDesign/river-ridge.md "Jump-Over-Water Rule".
+// Per docs/maps/river-ridge.md "Jump-Over-Water Rule".
 //
 // Tests use a custom legend pairing water terrain with elevation 0/1
 // and ground terrain with elevation 2 (matches the universal water-table

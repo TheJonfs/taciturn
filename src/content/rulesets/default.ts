@@ -113,12 +113,15 @@ export const defaultRuleset: RulesetDefinition = {
   },
 
   // Range defaults from docs/design/map-and-battlefield.md
-  // ("v1 starting parameters").
+  // ("v1 starting parameters"). S47 / ADR-0085: aoeVerticalTolerance
+  // bumped 1 → 3 so AoE splash carries onto adjacent elevation tiers
+  // (e.g., from a rampart at elev 8 down to elev 5 tiles) rather than
+  // strict-equal elevation only. Per-AoE overrides still take precedence.
   rangeDefaults: {
     meleeHorizontal: 1,
     meleeVertical: 3,
     minHorizontal: 0,
-    aoeVerticalTolerance: 1,
+    aoeVerticalTolerance: 3,
   },
 
   // Pathfinding global defaults. Per-class movement baselines override
@@ -142,11 +145,19 @@ export const defaultRuleset: RulesetDefinition = {
   // future water passives compose without enumerating literals. `ground`
   // carries `'land'` for symmetry — future "land-only" abilities can key
   // on it.
+  //
+  // Session 47: `rampart` joins for Stonebridge's fortified keep walls.
+  // Behaves as land for pathfinding (same default step cost, walkable by
+  // every class) — the distinct terrain id is for renderer / content
+  // identity rather than mechanical differentiation. Carries the
+  // `'land'` tag so existing land-aware composition (future passives)
+  // covers it; no `'rampart'` tag yet because there is no consumer.
   terrain: {
     tags: new Map<string, ReadonlySet<string>>([
       ['ground', new Set(['land'])],
       ['water_shallow', new Set(['water', 'shallow'])],
       ['water_deep', new Set(['water', 'deep'])],
+      ['rampart', new Set(['land'])],
     ]),
   },
 

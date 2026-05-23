@@ -8,14 +8,22 @@
 // handoff prompts appear, and how the battle-loop wires controllers.
 // Default: Team A human, Team B AI (the classic single-player flow). Both
 // human → pass-and-play; both AI → AI-vs-AI balance testing.
+//
+// Session 47: also picks the map (River Ridge / Stonebridge). The choice
+// flows through App into the team builder template and the assembled
+// battle config.
 
 import type { CSSProperties, ReactElement } from 'react';
 import type { TeamControl } from '@engine/index.ts';
+import { MAP_OPTIONS, type MapId } from './App.tsx';
 
 export interface BattleSetupScreenProps {
   // [Team A, Team B] control flags.
   readonly controls: readonly [TeamControl, TeamControl];
   readonly onControlsChange: (controls: readonly [TeamControl, TeamControl]) => void;
+  // S47: selected battle map.
+  readonly mapId: MapId;
+  readonly onMapChange: (id: MapId) => void;
   readonly onStart: () => void;
   readonly onBack: () => void;
 }
@@ -23,6 +31,8 @@ export interface BattleSetupScreenProps {
 export function BattleSetupScreen({
   controls,
   onControlsChange,
+  mapId,
+  onMapChange,
   onStart,
   onBack,
 }: BattleSetupScreenProps): ReactElement {
@@ -32,11 +42,27 @@ export function BattleSetupScreen({
     onControlsChange(next);
   };
 
+  const selectedLabel = MAP_OPTIONS.find((m) => m.id === mapId)?.label ?? 'Battle';
+
   return (
     <div style={rootStyle}>
       <div style={cardStyle}>
         <div style={eyebrowStyle}>Battle</div>
-        <div style={battleNameStyle}>River Ridge</div>
+        <div style={battleNameStyle}>{selectedLabel}</div>
+
+        <div style={mapPickerStyle} role="group" aria-label="Map">
+          {MAP_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              aria-pressed={mapId === opt.id}
+              style={{ ...segmentStyle, ...(mapId === opt.id ? segmentActiveStyle : {}) }}
+              onClick={() => onMapChange(opt.id)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
 
         <div style={teamsRowStyle}>
           <ControlPicker
@@ -57,7 +83,7 @@ export function BattleSetupScreen({
             Back
           </button>
           <button type="button" style={primaryButtonStyle} onClick={onStart}>
-            Start River Ridge
+            Start {selectedLabel}
           </button>
         </div>
       </div>
@@ -142,6 +168,12 @@ const battleNameStyle: CSSProperties = {
   marginBottom: 14,
 };
 
+const mapPickerStyle: CSSProperties = {
+  display: 'flex',
+  gap: 4,
+  marginBottom: 16,
+};
+
 const teamsRowStyle: CSSProperties = {
   display: 'flex',
   gap: 16,
@@ -171,7 +203,13 @@ const segmentStyle: CSSProperties = {
   padding: '6px 10px',
   fontSize: 12,
   borderRadius: 4,
-  border: '1px solid #2c2f36',
+  // Non-shorthand border props: the segmentActiveStyle variant overlays
+  // `borderColor`, and mixing it with the `border` shorthand triggers
+  // React's rerender style-conflict warning ("Removing borderColor").
+  // Same convention as deployment-roster-panel.tsx.
+  borderWidth: 1,
+  borderStyle: 'solid',
+  borderColor: '#2c2f36',
   background: '#1c1e23',
   color: '#b9bcc4',
   fontFamily: 'inherit',

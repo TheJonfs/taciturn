@@ -12,7 +12,6 @@ export {
   type BuiltUnit,
 } from './built-team.ts';
 export { buildTeamBattleConfig } from './build-team-battle-config.ts';
-export { assignAiTeamNames } from './assign-ai-team-names.ts';
 import type { BuiltTeam } from './built-team.ts';
 import { currentTestTeam } from './current-test-team.ts';
 import { defensiveFront } from './defensive-front.ts';

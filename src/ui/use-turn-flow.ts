@@ -26,6 +26,7 @@ import {
   getLegalMoves,
   positionKey,
   runModifyAoeShape,
+  runModifyAoeVerticalTolerance,
   tileAt,
   validateAction,
   ACTIVE_BUCKET_IDS,
@@ -913,7 +914,13 @@ function resolveAoeTiles(
 ) {
   const source = actor.position;
   const ruleset = catalog.getRuleset(state.ruleset.id);
-  const verticalTolerance = aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
+  const baseVerticalTolerance =
+    aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
+  const verticalTolerance = runModifyAoeVerticalTolerance(state, catalog, {
+    unit: actor,
+    ability,
+    baseValue: baseVerticalTolerance,
+  });
   const finalShape = runModifyAoeShape(state, catalog, {
     unit: actor,
     ability,

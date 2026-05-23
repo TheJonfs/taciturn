@@ -24,7 +24,7 @@ import {
   BRAVE_FAITH_MIN,
 } from '@content/teams/index.ts';
 import { UNIT_NAME_MAX_LENGTH } from '@ui/team-builder-state.ts';
-import type { Catalog, TeamControl } from '@engine/index.ts';
+import type { BattleConfig, Catalog, TeamControl } from '@engine/index.ts';
 import {
   TeamBuilderAbilityPicker,
   TeamBuilderClassPicker,
@@ -44,6 +44,10 @@ export interface TeamBuilderScreenProps {
   readonly onContinue: (team: BuiltTeam) => void;
   // Back to battle setup.
   readonly onBack: () => void;
+  // S47: the map template the builder builds against. Defaults to
+  // riverRidgeBattle for backward compatibility with tests; `App` passes
+  // the player's setup-screen selection through.
+  readonly mapTemplate?: BattleConfig;
   // Which team this builder instance is assembling (S43). Drives the
   // header title; `App` runs the builder once per team in sequence.
   readonly teamLabel: string;
@@ -71,6 +75,7 @@ export interface TeamBuilderScreenProps {
 export function TeamBuilderScreen({
   onContinue,
   onBack,
+  mapTemplate = riverRidgeBattle,
   teamLabel,
   control,
   continueLabel,
@@ -87,7 +92,7 @@ export function TeamBuilderScreen({
   const catalog = catalogRef.current;
 
   const builder = useTeamBuilder({
-    mapTemplate: riverRidgeBattle,
+    mapTemplate,
     catalog,
     initialDraft,
     onDraftChange,

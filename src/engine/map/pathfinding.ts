@@ -31,7 +31,7 @@
 // from source to destination must still satisfy the jump tolerance
 // (same rule as a standard step). The intermediate tile is *not*
 // required to satisfy `canEnter` — the unit leaps over it. See
-// docs/twentyOneDesign/river-ridge.md ("Jump-Over-Water Rule").
+// docs/maps/river-ridge.md ("Jump-Over-Water Rule").
 
 import { computeMovementProfile } from './movement-profile.ts';
 import { tileAt, tilesAt, unitAt, isKO } from './accessors.ts';

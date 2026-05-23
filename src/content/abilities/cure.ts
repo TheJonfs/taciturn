@@ -26,7 +26,7 @@ export const cure: ActiveAbilityDefinition = {
   tags: ['magical', 'holy', 'healing'],
   targeting: {
     kind: 'single_unit',
-    range: { horizontal: 4, vertical: 3 },
+    range: { horizontal: 4, vertical: 99 },
     rangeMode: 'arc',
   },
   actionSpeed: 0,

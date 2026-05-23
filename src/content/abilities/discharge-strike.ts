@@ -36,7 +36,7 @@ export const dischargeStrike: ActiveAbilityDefinition = {
   tags: ['magical', 'lightning'],
   targeting: {
     kind: 'single_unit',
-    range: { horizontal: 4, vertical: 2 },
+    range: { horizontal: 4, vertical: 99 },
     rangeMode: 'arc',
   },
   actionSpeed: 0,

@@ -25,6 +25,7 @@ import {
 } from './deployment-config.ts';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
+import { stonebridgeBattle } from '@content/battles/stonebridge-battle.ts';
 import { buildTeamBattleConfig, type BuiltTeam } from '@content/teams/index.ts';
 import type { BattleConfig, Catalog, TeamControl, TeamId } from '@engine/index.ts';
 import { TEAM_PALETTE, TEAM_PALETTE_FALLBACK_CSS } from '@renderer/index.ts';
@@ -32,6 +33,18 @@ import { SettingsProvider, useSettings, type TeamBuilderState } from '@ui/index.
 
 type Screen = 'title' | 'setup' | 'teamBuilder' | 'deployment' | 'battle';
 type Slot = 0 | 1;
+
+// S47: two maps live; the setup screen picks between them. Both configs
+// declare the same two teams in the same order, so TEAM_IDS / TEAM_NAMES
+// stay derived from one canonical config.
+export type MapId = 'river_ridge' | 'stonebridge';
+export const MAP_OPTIONS: ReadonlyArray<{ id: MapId; label: string; config: BattleConfig }> = [
+  { id: 'river_ridge', label: 'River Ridge', config: riverRidgeBattle },
+  { id: 'stonebridge', label: 'Stonebridge', config: stonebridgeBattle },
+];
+function battleForMap(id: MapId): BattleConfig {
+  return MAP_OPTIONS.find((m) => m.id === id)!.config;
+}
 
 const TEAM_IDS: readonly [TeamId, TeamId] = [
   riverRidgeBattle.teams[0]!.id,
@@ -84,6 +97,10 @@ function AppInner() {
     'human',
     'ai',
   ]);
+
+  // S47: map selected on the setup screen. Default River Ridge.
+  const [mapId, setMapId] = useState<MapId>('river_ridge');
+  const selectedBattle = battleForMap(mapId);
 
   // The team being built right now (0 = Team A, 1 = Team B). The builder
   // runs once per slot in sequence.
@@ -151,19 +168,20 @@ function AppInner() {
 
   // ===== Setup pipeline =====
 
-  // Assemble the two built teams onto River Ridge, stamping each team's
-  // control flag. Placeholder positions come from the map template; they
-  // get overwritten by deployment (human) or the heuristic (AI).
+  // Assemble the two built teams onto the selected map (S47: River Ridge
+  // or Stonebridge), stamping each team's control flag. Placeholder
+  // positions come from the map template; they get overwritten by
+  // deployment (human) or the heuristic (AI).
   const assemble = useCallback(
     (teamA: BuiltTeam, teamB: BuiltTeam): BattleConfig => {
-      let cfg = buildTeamBattleConfig(riverRidgeBattle, teamA, TEAM_IDS[0]);
+      let cfg = buildTeamBattleConfig(selectedBattle, teamA, TEAM_IDS[0]);
       cfg = buildTeamBattleConfig(cfg, teamB, TEAM_IDS[1]);
       return {
         ...cfg,
         teams: cfg.teams.map((t, i) => ({ ...t, control: controls[i] ?? t.control })),
       };
     },
-    [controls],
+    [controls, selectedBattle],
   );
 
   // Begin the deployment pipeline once both teams are built: fold every
@@ -281,6 +299,8 @@ function AppInner() {
         <BattleSetupScreen
           controls={controls}
           onControlsChange={setControls}
+          mapId={mapId}
+          onMapChange={setMapId}
           onStart={() => {
             // Re-enter the builder at Team A. Drafts persist across the
             // Setup ↔ Builder round-trip (S37); only return-to-title
@@ -295,6 +315,7 @@ function AppInner() {
       {screen === 'teamBuilder' && (
         <TeamBuilderScreen
           key={builderSlot}
+          mapTemplate={selectedBattle}
           teamLabel={`Team ${builderSlot === 0 ? 'A' : 'B'} (${TEAM_NAMES[builderSlot]})`}
           control={controls[builderSlot]!}
           continueLabel={builderSlot === 0 ? 'Continue to Team B' : 'Continue to Deployment'}

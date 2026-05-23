@@ -21,6 +21,7 @@ import {
   aoeFootprint,
   cardinalFromTo,
   projectChargedResolution,
+  runModifyAoeVerticalTolerance,
   tileAt,
   type Catalog,
   type ChargedActionId,
@@ -211,7 +212,18 @@ function computeChargedAoe(
 
   const caster = state.units.get(charged.casterId);
   const ruleset = catalog.getRuleset(state.ruleset.id);
-  const verticalTolerance = aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
+  const baseVerticalTolerance =
+    aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
+  // Caster may be undefined (KO'd in-flight); fall back to base when the
+  // hook can't compose against a present unit. Display-only path.
+  const verticalTolerance =
+    caster === undefined
+      ? baseVerticalTolerance
+      : runModifyAoeVerticalTolerance(state, catalog, {
+          unit: caster,
+          ability,
+          baseValue: baseVerticalTolerance,
+        });
 
   if ((aoe.shape.kind === 'cone' || aoe.shape.kind === 'line') && caster !== undefined) {
     if (caster.position.x === anchor.x && caster.position.y === anchor.y) return [];

@@ -70,6 +70,7 @@ import {
   itemId,
   positionKey,
   runModifyAoeShape,
+  runModifyAoeVerticalTolerance,
   tileAt,
   aoeFootprint,
   cardinalFromTo,
@@ -1135,7 +1136,13 @@ function aoeTilesAffected(
   // doesn't read position — it looks at the actor's loadout / equipment
   // / statuses for `modifyAoeShape` handlers.
   const ruleset = catalog.getRuleset(state.ruleset.id);
-  const verticalTolerance = aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
+  const baseVerticalTolerance =
+    aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
+  const verticalTolerance = runModifyAoeVerticalTolerance(state, catalog, {
+    unit: actor,
+    ability,
+    baseValue: baseVerticalTolerance,
+  });
   const finalShape = runModifyAoeShape(state, catalog, {
     unit: actor,
     ability,

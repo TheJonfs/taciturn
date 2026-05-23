@@ -683,23 +683,6 @@ export class BattleRenderer {
         });
         maxHp = Math.max(1, Math.floor(queried));
       }
-      // S41 permadeath countdown — visible only on KO'd, not-yet-removed
-      // units. Reads the ruleset threshold the same way the unit-detail
-      // panel does and passes `threshold - turnsKOd` so the badge counts
-      // *down* (3 → 2 → 1 → permadeath). Skipped on `removed` units (the
-      // sprite is already filtered out elsewhere; defensive here).
-      let permadeathCountdown: number | undefined;
-      if (
-        snap.ko &&
-        unit !== undefined &&
-        !unit.removed &&
-        this.lastState !== null &&
-        this.catalog !== null
-      ) {
-        const ruleset = this.catalog.getRuleset(this.lastState.ruleset.id);
-        const remaining = ruleset.permadeath.threshold - unit.turnsKOd;
-        if (remaining > 0) permadeathCountdown = remaining;
-      }
       sprite.setVisualState({
         position: snap.position,
         facing: snap.facing,
@@ -712,7 +695,6 @@ export class BattleRenderer {
         active: activeId === unitId,
         statuses,
         counterpart: this.counterpartUnits.has(unitId) ? 1 : 0,
-        ...(permadeathCountdown !== undefined ? { permadeathCountdown } : {}),
       });
     }
   }

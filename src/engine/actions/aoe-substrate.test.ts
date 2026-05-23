@@ -237,6 +237,28 @@ function shapeRewriterPassive(): PassiveAbilityDefinition {
   };
 }
 
+// S47: A passive that widens AoE vertical tolerance by +2 on magical
+// ability casts, used to verify the `modifyAoeVerticalTolerance` hook
+// composes through the dispatch path. Aether Bloom is the production
+// consumer (with +1).
+function verticalToleranceWidenerPassive(): PassiveAbilityDefinition {
+  return {
+    id: abilityId('tall_bloom'),
+    name: 'Tall Bloom',
+    kind: 'passive',
+    bucket: bucketId('support'),
+    baseCost: 1,
+    availability: 'hidden',
+    hooks:[
+      passiveHook('modifyAoeVerticalTolerance', (args) => {
+        const tags = args.ability.tags ?? [];
+        if (!tags.includes('magical')) return args.baseValue;
+        return args.baseValue + 2;
+      }),
+    ],
+  };
+}
+
 // A trivial AoE spell with the default `tile` shape (single tile),
 // used together with shapeRewriterPassive to prove the hook expands it.
 function singleTileAoe(): ActiveAbilityDefinition {
@@ -740,6 +762,219 @@ describe('session 17a — AoE per-target dispatch', () => {
     // 5 targets in cross radius-1 (center + 4 cardinals); without the
     // rewriter the base 'tile' shape would hit only `center`.
     expect(used.outcome!.perTargetResults).toHaveLength(5);
+  });
+});
+
+describe('session 47 — modifyAoeVerticalTolerance hook', () => {
+  // Base setup: a magical AoE with explicit verticalTolerance: 1.
+  // Two enemies, one at the anchor elevation (always in), one at the
+  // anchor elevation + 3 (in only when tolerance widens to ≥ 3).
+  function makeFootprintFixture(opts: {
+    readonly equipWidener: boolean;
+  }) {
+    const supports = opts.equipWidener ? [abilityId('tall_bloom')] : [];
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [crossDamageSpell(), verticalToleranceWidenerPassive()],
+      commandSets: [battleSkill()],
+      classes: [knightClass()],
+      items: [],
+      // Default tolerance 1, so the un-widened cast excludes the +3 unit.
+      // Test ruleset default tolerance is 1 (independent of the S47
+      // production default bump). That gives a tight base, so the +2
+      // widener crosses cleanly above the +3 unit's elevation delta.
+      rulesets: [makeRuleset()],
+    });
+    const caster = makeUnit({
+      id: 'a',
+      spd: 10,
+      ma: 5,
+      mp: 10,
+      loadout: loadoutWith({ firstActionSet: commandSetId('battle_skill'), supports }),
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const sameElev = makeUnit({
+      id: 'same',
+      spd: 10,
+      hp: 100,
+      team: 'team_b',
+      position: { x: 3, y: 3, layer: 0 },
+    });
+    const highElev = makeUnit({
+      id: 'high',
+      spd: 10,
+      hp: 100,
+      team: 'team_b',
+      position: { x: 3, y: 2, layer: 0 },
+    });
+    const map = mapWith({
+      width: 6,
+      height: 6,
+      tiles: [
+        // Anchor and same-elev neighbor both at elevation 5; caster
+        // also at 5 so the test's range.vertical (which is the spell
+        // *targeting* axis, not the AoE splash axis) lets us land the
+        // cast. The AoE *footprint* axis (which is what this test
+        // exercises) is separately bounded by verticalTolerance.
+        { x: 3, y: 3, elevation: 5 },
+        { x: 3, y: 2, elevation: 8 }, // +3 above anchor
+        { x: 0, y: 0, elevation: 5 }, // caster
+        // Everything else flat.
+        ...flatMap(6, 6).tiles
+          .filter(
+            (t) =>
+              !(t.x === 3 && (t.y === 2 || t.y === 3)) && !(t.x === 0 && t.y === 0),
+          )
+          .map((t) => ({ x: t.x, y: t.y, elevation: 0 })),
+      ],
+    });
+    const state = makeGameState({
+      units: [caster, sameElev, highElev],
+      map,
+      turnState: activeTurnFor(caster.id),
+      masterSeed: 1,
+    });
+    return { cat, state, caster };
+  }
+
+  it('without a tolerance modifier (default 1), the +3 unit is OUT of the footprint', () => {
+    const { cat, state, caster } = makeFootprintFixture({ equipWidener: false });
+    const action: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: caster.id,
+      payload: { abilityId: abilityId('quake'), target: { kind: 'tile', position: { x: 3, y: 3, layer: 0 } } },
+    };
+    const r = commitAction(state, action, cat);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const used = r.committed[0]!;
+    if (used.type !== 'use_ability') return;
+    // Only the same-elev target is hit; the +3 unit is excluded.
+    expect(used.outcome!.perTargetResults).toHaveLength(1);
+    expect(r.newState.units.get('high' as never)!.vitals.hp).toBe(100);
+  });
+
+  it('with the +2 widener passive, the +3 unit is INSIDE the footprint', () => {
+    const { cat, state, caster } = makeFootprintFixture({ equipWidener: true });
+    const action: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: caster.id,
+      payload: { abilityId: abilityId('quake'), target: { kind: 'tile', position: { x: 3, y: 3, layer: 0 } } },
+    };
+    const r = commitAction(state, action, cat);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const used = r.committed[0]!;
+    if (used.type !== 'use_ability') return;
+    // Base tolerance 1 + widener 2 = 3; the +3 elev delta is in bounds.
+    expect(used.outcome!.perTargetResults).toHaveLength(2);
+    expect(r.newState.units.get('high' as never)!.vitals.hp).toBeLessThan(100);
+  });
+
+  it('non-magical ability casts are unchanged (gate respected)', () => {
+    // Author a non-magical AoE with the same shape; wire it into a
+    // bespoke command set so the loadout validation passes.
+    const physicalAoe: ActiveAbilityDefinition = {
+      id: abilityId('stomp'),
+      name: 'Stomp',
+      kind: 'active',
+      bucket: bucketId('first_action'),
+      baseCost: 1,
+      availability: 'hidden',
+      tags: ['physical'],
+      targeting: { kind: 'tile', range: { horizontal: 10, vertical: 3 }, rangeMode: 'arc' },
+      actionSpeed: 0,
+      mpCost: 0,
+      effects: {
+        damage: { tags: ['physical'], power_coefficient: 5 },
+        aoe: { shape: { kind: 'cross', radius: 1 } },
+      },
+    };
+    const stompSkill: CommandSetDefinition = {
+      id: commandSetId('stomp_skill'),
+      name: 'Stomp Skill',
+      members: [abilityId('stomp')],
+      baseCost: 1,
+      availability: 'hidden',
+    };
+    const stompKnight: ClassDefinition = {
+      ...knightClass(),
+      firstActionCommandSet: commandSetId('stomp_skill'),
+    };
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [physicalAoe, verticalToleranceWidenerPassive()],
+      commandSets: [stompSkill],
+      classes: [stompKnight],
+      items: [],
+      // Test ruleset default tolerance is 1 (independent of the S47
+      // production default bump). That gives a tight base, so the +2
+      // widener crosses cleanly above the +3 unit's elevation delta.
+      rulesets: [makeRuleset()],
+    });
+    const caster = makeUnit({
+      id: 'a',
+      spd: 10,
+      pa: 8,
+      mp: 10,
+      loadout: loadoutWith({
+        firstActionSet: commandSetId('stomp_skill'),
+        supports: [abilityId('tall_bloom')],
+      }),
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const sameElev = makeUnit({
+      id: 'same',
+      spd: 10,
+      hp: 100,
+      team: 'team_b',
+      position: { x: 3, y: 3, layer: 0 },
+    });
+    const highElev = makeUnit({
+      id: 'high',
+      spd: 10,
+      hp: 100,
+      team: 'team_b',
+      position: { x: 3, y: 2, layer: 0 },
+    });
+    const map = mapWith({
+      width: 6,
+      height: 6,
+      tiles: [
+        { x: 3, y: 3, elevation: 5 },
+        { x: 3, y: 2, elevation: 8 },
+        { x: 0, y: 0, elevation: 5 },
+        ...flatMap(6, 6).tiles
+          .filter(
+            (t) =>
+              !(t.x === 3 && (t.y === 2 || t.y === 3)) && !(t.x === 0 && t.y === 0),
+          )
+          .map((t) => ({ x: t.x, y: t.y, elevation: 0 })),
+      ],
+    });
+    const state = makeGameState({
+      units: [caster, sameElev, highElev],
+      map,
+      turnState: activeTurnFor(caster.id),
+      masterSeed: 1,
+    });
+    const action: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: caster.id,
+      payload: { abilityId: abilityId('stomp'), target: { kind: 'tile', position: { x: 3, y: 3, layer: 0 } } },
+    };
+    const r = commitAction(state, action, cat);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const used = r.committed[0]!;
+    if (used.type !== 'use_ability') return;
+    // Tall Bloom's gate excludes non-magical: physical AoE still only
+    // hits the same-elev target at default tolerance 1.
+    expect(used.outcome!.perTargetResults).toHaveLength(1);
+    expect(r.newState.units.get('high' as never)!.vitals.hp).toBe(100);
   });
 });
 

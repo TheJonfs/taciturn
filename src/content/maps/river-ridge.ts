@@ -1,6 +1,6 @@
 // River Ridge — the first authored Mage War battlefield.
 //
-// Spec: `docs/twentyOneDesign/river-ridge.md` (v1.0). The grid below
+// Spec: `docs/maps/river-ridge.md` (v1.0). The grid below
 // is the design doc's "Elevation Grid" verbatim. Terrain type derives
 // from elevation per the universal water-table convention:
 //   elev 0  → water_deep
@@ -38,7 +38,7 @@ const TEAM_RED: TeamId = teamId('team_b');
 // Per the design doc's elevation grid. Rows are y=0 (first) through
 // y=13 (last). Each row is a width-14 sequence of elevations.
 //
-// Source: docs/twentyOneDesign/river-ridge.md "Elevation Grid". The
+// Source: docs/maps/river-ridge.md "Elevation Grid". The
 // design doc prints y=13 at the top (visual N/S); this array stores
 // y=0 first, the canonical engine row order. Comparing visually
 // inverts the printed y axis, but the same x columns and same
