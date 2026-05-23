@@ -33,7 +33,7 @@ export const assassin: ClassDefinition = {
   id: classId('assassin'),
   name: 'Assassin',
   movement: {
-    moveRange: 4,
+    moveRange: 3,
     jump: 4,
     terrainCosts: new Map(),
     // Universal water-enterable; cost is the gate (ADR-0073).

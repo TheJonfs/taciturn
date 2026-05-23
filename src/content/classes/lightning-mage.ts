@@ -37,7 +37,7 @@ export const lightningMage: ClassDefinition = {
   // underlying classId preserved for save-state continuity.
   name: 'Aethurge',
   movement: {
-    moveRange: 4,
+    moveRange: 3,
     jump: 3,
     terrainCosts: new Map(),
     // Session 33 (ADR-0073): water is universally enterable; cost is

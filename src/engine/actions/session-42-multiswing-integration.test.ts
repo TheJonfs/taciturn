@@ -245,8 +245,9 @@ describe('The Offering — swings-per-weapon (ADR-0080)', () => {
       equipment: OFFERING, // Sai + The Offering only
     });
     const state = gameStateWith([atk, defender()]);
-    // (base 12 − 2 Offering) = 10, then Two Weapons × 0.75 = 7.5 → 7.
-    expect(runModifyStatQuery(state, catalog, { unit: atk, statName: 'pa', baseValue: 12 })).toBe(7);
+    // S46 tuning: The Offering −3 (was −2). (base 12 − 3 Offering) = 9,
+    // then Two Weapons × 0.75 = 6.75 → 6.
+    expect(runModifyStatQuery(state, catalog, { unit: atk, statName: 'pa', baseValue: 12 })).toBe(6);
   });
 });
 

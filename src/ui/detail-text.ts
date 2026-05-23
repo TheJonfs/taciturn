@@ -95,6 +95,18 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('combat_focus'), 'When hit by an enemy, has a chance to raise PA by 1.'],
   [abilityId('field_kit'), 'Begin the fight with a Potion, Phoenix Down, and Remedy already stocked.'],
   [abilityId('field_recovery'), 'Restores HP equal to the square of the number of spaces moved.'],
+  // S41 — Knight R/S/M.
+  [abilityId('martial_expertise'), '× 1.25 PA — sharpens every physical hit (Knight’s Support parity to the Lightning Mage’s Conductor on MA).'],
+  [abilityId('bravestrider'), '+1 Move Range and +10 Brave — the Knight pushes reactions and Brave-gated status applications harder.'],
+  [abilityId('bulwark_stance'), '−1 Move, −1 Jump in exchange for +20% MaxHP and +10 Front Evade. The “plant and tank” stance.'],
+  // S42 — Assassin R/S/M.
+  [abilityId('two_weapons'), 'Holding a weapon in both hands lets each one swing on basic Attack / Counter / Power Attack. Each swing reads PA × 0.75 — the dual-wield tax.'],
+  [abilityId('speed_save'), 'On taking enemy damage, gain +1 Speed permanently. Stacks across the battle and persists through KO.'],
+  [abilityId('fleet_of_foot'), '+1 Move Range and +1 Jump — a two-axis mobility package.'],
+  // S45 — Hunter R/S/M.
+  [abilityId('eagle_eye'), '× 2 physical hit chance — takes the bow’s bare 33 accuracy to ~66%, and saturates the clamp on high-accuracy weapons.'],
+  [abilityId('updraft'), 'On taking enemy damage, gain +1 Jump permanently. Stacks across the battle and persists through KO.'],
+  [abilityId('high_jump'), '+2 Jump — reach the high ground bows’ elevation-variance rewards.'],
 ]);
 
 // Tiny formatting helpers — kept inline rather than a regex zoo so the

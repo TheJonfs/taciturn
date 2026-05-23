@@ -530,7 +530,7 @@ describe('Storm Caller — selfDamage emits system_damage with ability_self_cost
 describe('Lightning Mage class — registered in catalog with expected shape', () => {
   it('class definition exists with expected baseline', () => {
     const cls = catalog.getClass(classId('lightning_mage'));
-    expect(cls.movement.moveRange).toBe(4);
+    expect(cls.movement.moveRange).toBe(3); // S46 tuning: -1
     expect(cls.movement.jump).toBe(3);
     expect(cls.evasion.front).toBe(7);
     expect(cls.evasion.side).toBe(4);

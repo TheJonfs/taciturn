@@ -28,7 +28,7 @@ export const earthMage: ClassDefinition = {
   // underlying classId preserved for save-state continuity.
   name: 'Geosage',
   movement: {
-    moveRange: 3,
+    moveRange: 2,
     jump: 3,
     terrainCosts: new Map(),
     // Session 33 (ADR-0073): water is universally enterable; cost is

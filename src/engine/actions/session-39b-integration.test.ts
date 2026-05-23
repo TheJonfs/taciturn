@@ -35,7 +35,7 @@ describe('S39b — Alchemist class registration', () => {
     expect(catalog.hasClass(classId('alchemist'))).toBe(true);
     const cls = catalog.getClass(classId('alchemist'));
     expect(cls.name).toBe('Alchemist');
-    expect(cls.movement.moveRange).toBe(4);
+    expect(cls.movement.moveRange).toBe(3); // S46 tuning: -1
     expect(cls.movement.jump).toBe(3);
     expect(cls.evasion).toEqual({ front: 6, side: 4, back: 0 });
     expect(cls.firstActionCommandSet).toBe(commandSetId('alchemy'));

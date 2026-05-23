@@ -195,9 +195,9 @@ describe('Brave-and-Speed / Faith-and-Speed formula variants', () => {
 });
 
 describe('Assassin class definition', () => {
-  it('baseline stats: HP 96 / MP 24 / PA 6 / MA 3 / Speed 14', () => {
+  it('baseline stats: HP 96 / MP 24 / PA 6 / MA 3 / Speed 13 (S46 tuning: -1)', () => {
     const s = classBaselineStats.get(classId('assassin'))!;
-    expect(s).toEqual({ maxHpBase: 96, maxMpBase: 24, pa: 6, ma: 3, spd: 14 });
+    expect(s).toEqual({ maxHpBase: 96, maxMpBase: 24, pa: 6, ma: 3, spd: 13 });
   });
 
   it('evasion 8 / 4 / 0', () => {

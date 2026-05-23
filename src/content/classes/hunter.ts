@@ -35,7 +35,7 @@ export const hunter: ClassDefinition = {
   id: classId('hunter'),
   name: 'Hunter',
   movement: {
-    moveRange: 4,
+    moveRange: 3,
     jump: 3,
     terrainCosts: new Map(),
     canEnter: new Set(['ground', 'water_shallow', 'water_deep']),

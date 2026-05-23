@@ -26,7 +26,7 @@ export const alchemist: ClassDefinition = {
   id: classId('alchemist'),
   name: 'Alchemist',
   movement: {
-    moveRange: 4,
+    moveRange: 3,
     jump: 3,
     terrainCosts: new Map(),
     // Universal water-enterable; cost is the gate. Matches the

@@ -24,7 +24,9 @@ export type ClassBaselineStats = Pick<
 >;
 
 export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new Map([
-  [classId('knight'),         { maxHpBase: 144, maxMpBase: 20, pa: 11, ma: 4,  spd: 9  }],
+  // S46 tuning: PA 11 → 10. Knight's raw output read a touch too high
+  // alongside Battle Skill + Martial Expertise's ×1.25.
+  [classId('knight'),         { maxHpBase: 144, maxMpBase: 20, pa: 10, ma: 4,  spd: 9  }],
   [classId('earth_mage'),     { maxHpBase: 112, maxMpBase: 60, pa: 4,  ma: 12, spd: 8  }],
   [classId('water_mage'),     { maxHpBase: 102, maxMpBase: 60, pa: 4,  ma: 12, spd: 10 }],
   [classId('fire_mage'),      { maxHpBase: 97,  maxMpBase: 60, pa: 4,  ma: 13, spd: 9  }],
@@ -36,14 +38,19 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   // coefficients land meaningfully. Speed 10 ties Water Mage (the
   // fastest base) — the Alchemist needs to act often enough to keep
   // the team supplied; lower Speed left them too slow in playtest.
-  [classId('alchemist'),      { maxHpBase: 126, maxMpBase: 36, pa: 8,  ma: 5,  spd: 10 }],
+  // S46 tuning: spd 10 → 11. The Alchemist's support-tempo role wants
+  // more turns per battle than the prior 10 was producing.
+  [classId('alchemist'),      { maxHpBase: 126, maxMpBase: 36, pa: 8,  ma: 5,  spd: 11 }],
   // Session 42. Glass-cannon skirmisher: lowest HP (96) and a low PA (6,
   // halved again to effective ~4 by Two Weapons) — its damage comes from
   // two swings and tempo, not raw stats. MP 24 gates the Command Set
   // (~2–3 castings). Speed 14 is the highest base in v1 (next: Water
   // Mage / Alchemist 10) — the Assassin acts most often, the core of its
   // action-economy identity. MA 3 (lowest) — not a caster.
-  [classId('assassin'),       { maxHpBase: 96,  maxMpBase: 24, pa: 6,  ma: 3,  spd: 14 }],
+  // S46 tuning: spd 14 → 13. The +1 Speed Save snowball ramps quickly
+  // off 14; 13 keeps the Assassin the fastest base in v1 (next: Alchemist
+  // 11 / Water Mage 10) while easing the early-fight tempo lead.
+  [classId('assassin'),       { maxHpBase: 96,  maxMpBase: 24, pa: 6,  ma: 3,  spd: 13 }],
   // Session 45. The 8th class, balancing the roster at 4 physical / 4
   // magical. HP 116 sits between Assassin (96) and Earth Mage (112)-ish —
   // sturdier than the glass-cannon Assassin but a back-line shooter, not

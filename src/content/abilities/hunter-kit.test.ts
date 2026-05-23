@@ -74,9 +74,9 @@ describe('Hunter class definition', () => {
     });
   });
 
-  it('evasion 6 / 3 / 0 and base move 4 / jump 3', () => {
+  it('evasion 6 / 3 / 0 and base move 3 / jump 3 (S46 tuning: Move -1)', () => {
     expect(hunter.evasion).toEqual({ front: 6, side: 3, back: 0 });
-    expect(hunter.movement.moveRange).toBe(4);
+    expect(hunter.movement.moveRange).toBe(3);
     expect(hunter.movement.jump).toBe(3);
   });
 
