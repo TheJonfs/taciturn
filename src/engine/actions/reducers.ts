@@ -1630,6 +1630,25 @@ export function reduceTurnStart(
           });
         }
       }
+    } else if (skip.statusTypeId !== undefined) {
+      // S46 fix: even when this status suppresses *other* status ticks
+      // (Stop's "frozen in time"), the skipping status itself must
+      // tick on the fake turn — otherwise its own duration never
+      // decrements and the unit stays Stopped indefinitely (FFT canon:
+      // the skipped turn counts down the Stop). Emit a single self-tick
+      // for the winning status only; other statuses on the unit stay
+      // suppressed per the flag's original intent.
+      const ticking = unit.statuses.find((s) => s.typeId === skip.statusTypeId);
+      if (ticking !== undefined) {
+        const type = catalog.getStatusType(ticking.typeId);
+        if (ticksOnUnitCt100(type)) {
+          generated.push({
+            type: 'status_tick',
+            source: 'system',
+            payload: { unitId, statusTypeId: ticking.typeId },
+          });
+        }
+      }
     }
     const turnEnd: ProposedAction = {
       type: 'turn_end',
@@ -1637,8 +1656,15 @@ export function reduceTurnStart(
       payload: { unitId },
     };
     generated.push(turnEnd);
+    // S46 fix: a Stopped unit's "fake turn" fully drains CT per FFT
+    // canon — the skipped turn doesn't leave residual CT to roll into
+    // the next event. Pre-S46 the turn_end's normal `ctCosts.wait` (20)
+    // only chipped 20 off, so a Stopped unit at CT 110 came back up
+    // for another fake turn every ~2 enemy turns instead of waiting
+    // a full Speed cycle.
+    const drainedUnit: Unit = { ...unit, ct: 0 };
     return {
-      newState: { ...state, turnState: newTurn },
+      newState: { ...withUnit(state, drainedUnit), turnState: newTurn },
       outcome: { kind: 'turn_start', unitId, skipped: true, skipReason: skip.reason },
       generatedActions: generated,
     };

@@ -77,21 +77,26 @@ import type {
 // Variance projection: append the expected (midpoint) factor as a
 // multiplier. Resolves the *effective* band via the shared
 // `resolvePhysicalVarianceBand` so weapon-driven variance (knives'
-// Speed-based `attacker_speed` band) is reflected — before Session 42
-// this read only the ability's static band, badly under-projecting knife
-// damage (a Speed-16 knife rolls ~1.6×, not ~1.0×).
+// Speed-based `attacker_speed` band, bows' `height_delta` band) is
+// reflected — before Session 42 this read only the ability's static band,
+// badly under-projecting knife damage (a Speed-16 knife rolls ~1.6×, not
+// ~1.0×).
 //
 // Pinned-factor escape hatch: when the incoming `ctx.variance` band is
-// degenerate (`min === max`), the caller has pinned a specific factor
+// degenerate at a non-1 value, the caller has pinned a specific factor
 // (the forecast's `damage-range` collapses the band to an endpoint to
-// read min/max bounds). Honor it directly rather than re-resolving — so
-// the range bounds stay controllable while the expected midpoint
-// auto-resolves the weapon band. v1 abilities all declare non-degenerate
-// bands, so live AI scoring always takes the auto-resolve path.
+// read min/max bounds). Honor non-1 pins directly rather than
+// re-resolving — so the range bounds stay controllable.
+//
+// A pinned value of 1 means "no caller override" (the ability's default
+// fallback variance) — fall through to resolve the weapon band so
+// target-context variance (height_delta) is applied to the midpoint.
+// Pre-S46 the pinned-1 path early-returned and quietly skipped the
+// resolver, badly under-projecting bow damage with elevation deltas
+// (a Hunter shooting downhill 5 tiles rolls ×2.0, projected at ×1.0).
 const projectionVarianceRoll: DamageHandler = (ctx, env) => {
-  if (ctx.variance.min === ctx.variance.max) {
+  if (ctx.variance.min === ctx.variance.max && ctx.variance.min !== 1) {
     const pinned = ctx.variance.min;
-    if (pinned === 1) return ctx;
     return { ...ctx, multipliers: [...ctx.multipliers, { source: 'variance', factor: pinned }] };
   }
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
@@ -122,6 +127,14 @@ const projectionEvasionCheck: DamageHandler = (ctx, env) => {
   if (ability.kind !== 'active') return ctx;
   const hitRoll = ability.hitRoll;
   if (hitRoll === undefined) return ctx;
+
+  // S46: physical attacks on Charging targets auto-hit — mirror
+  // `evasionCheck`'s pre-roll guard so the AI's EV reflects the
+  // guaranteed-hit semantics. Without this, AI scoring under-values
+  // attacks on charging targets by the hit_chance factor.
+  const ruleset = env.catalog.getRuleset(env.state.ruleset.id);
+  const chargingTypeId = ruleset.chargedActions.chargingStatusTypeId;
+  if (ctx.target.statuses.some((s) => s.typeId === chargingTypeId)) return ctx;
 
   const weapon = getEquippedWeapon(ctx.attacker, env.catalog);
   const accuracyPct = hitRoll.accuracy ?? weapon?.accuracy ?? 100;
@@ -183,6 +196,15 @@ const projectionCritRoll: DamageHandler = (ctx, env) => {
   };
 };
 
+// No-op evasion handler — used by the `noEvasion` projection variant so
+// the UI damage-range forecast can produce raw variance-only damage
+// without the hit-chance multiplier folded in (the forecast panel
+// displays hit chance separately; folding it into the damage range
+// double-counts visually). AI scoring continues to use the default
+// projection registry (hit-chance-weighted EV is what offensive scoring
+// wants).
+const noopEvasionCheck: DamageHandler = (ctx) => ctx;
+
 // Projection registry — every handler from defaultDamageHandlers, with
 // the three random-rolling refs overridden.
 const projectionRegistry: DamageHandlerRegistry = (() => {
@@ -190,6 +212,12 @@ const projectionRegistry: DamageHandlerRegistry = (() => {
   map.set('variance_roll', projectionVarianceRoll);
   map.set('evasion_check', projectionEvasionCheck);
   map.set('crit_roll', projectionCritRoll);
+  return map;
+})();
+
+const projectionRegistryNoEvasion: DamageHandlerRegistry = (() => {
+  const map = new Map<string, DamageHandler>(projectionRegistry);
+  map.set('evasion_check', noopEvasionCheck);
   return map;
 })();
 
@@ -201,6 +229,11 @@ export interface ProjectExpectedDamageArgs {
   readonly ability: ActiveAbilityDefinition;
   // AoE cluster size for chain-damage scaling. Default 1 (single-target).
   readonly targetCount?: number;
+  // When true, skip the hit-chance multiplier so the projection reflects
+  // raw damage given variance only. The UI damage-range forecast sets
+  // this (hit chance is rendered in its own row); AI offensive scoring
+  // leaves it false (EV needs hit chance folded in).
+  readonly noEvasion?: boolean;
 }
 
 // Projected expected `finalDamage` for the cast. Always >= 0; healing
@@ -247,7 +280,7 @@ function runDamagePipelineProjection(args: ProjectExpectedDamageArgs): DamageCon
     // Seed is unused in projection mode (the random handlers are
     // replaced) but the pipeline requires it.
     seed: 0,
-    registry: projectionRegistry,
+    registry: args.noEvasion === true ? projectionRegistryNoEvasion : projectionRegistry,
     ...(args.targetCount !== undefined ? { targetCount: args.targetCount } : {}),
   });
 }

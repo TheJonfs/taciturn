@@ -1086,6 +1086,93 @@ describe('runDamagePipeline — evasion check (ADR-0019)', () => {
     }
     expect(allHit).toBe(true);
   });
+
+  it('physical attacks on Charging targets auto-hit (S46 — FFT canon)', () => {
+    // A charging unit is defenseless against incoming physical attacks.
+    // Target has 99 evasion in every facing plus 25% accuracy attacker;
+    // without the guarantee, hit chance clamps at the 5% floor and most
+    // seeds miss. With the guarantee, every seed lands.
+    const spell: ActiveAbilityDefinition = {
+      ...basicSpell({ tags: ['physical', 'weapon'], power_coefficient: 4 }),
+      hitRoll: { accuracy: 25 },
+    };
+    const chargingStatus = makeStatusType({ id: 'charging', durationMode: 'conditional' });
+    const attacker = makeUnit({ id: 'a', spd: 10, pa: 5 });
+    const target = makeUnit({
+      id: 'b',
+      spd: 10,
+      hp: 100,
+      classId: 'evasive',
+      statuses: [makeStatusInstance({ typeId: 'charging' })],
+    });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [chargingStatus],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass(), evasiveClass({ front: 99, side: 99, back: 99 })],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({ units: [attacker, target] });
+    for (let seed = 0; seed < 50; seed++) {
+      const ctx = runDamagePipeline({
+        state,
+        catalog: cat,
+        attacker,
+        target,
+        ability: spell,
+        sourceActionSeq: 0,
+        seed,
+        registry: defaultDamageHandlers,
+      });
+      expect(ctx.hit).toBe(true);
+      expect(ctx.finalDamage).toBe(20); // 5 PA × 4 coefficient × 1.0
+    }
+  });
+
+  it('magical attacks on Charging targets land unchanged (the guarantee is physical-only)', () => {
+    // The guarantee mirrors evasionCheck's pre-existing magical-only
+    // short-circuit: magical attacks already auto-hit, so the Charging
+    // guard contributes nothing extra. Belt-and-suspenders coverage that
+    // the guard doesn't accidentally short-circuit something it shouldn't.
+    const spell: ActiveAbilityDefinition = {
+      ...basicSpell({ tags: ['magical'], power_coefficient: 4 }),
+      hitRoll: {},
+    };
+    const chargingStatus = makeStatusType({ id: 'charging', durationMode: 'conditional' });
+    const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: 100 });
+    const target = makeUnit({
+      id: 'b',
+      spd: 10,
+      hp: 100,
+      classId: 'evasive',
+      faith: 100,
+      statuses: [makeStatusInstance({ typeId: 'charging' })],
+    });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [chargingStatus],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass(), evasiveClass({ front: 99, side: 99, back: 99 })],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const state = makeGameState({ units: [attacker, target] });
+    const ctx = runDamagePipeline({
+      state,
+      catalog: cat,
+      attacker,
+      target,
+      ability: spell,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    });
+    expect(ctx.hit).toBe(true);
+    expect(ctx.finalDamage).toBe(20);
+  });
 });
 
 // Keep imports tidy.

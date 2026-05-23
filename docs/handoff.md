@@ -6,53 +6,54 @@ This is a transient note from one session to the next.
 
 ---
 
-## From Session 45 close (2026-05-22) — Hunter class + bow weapon substrate + three follow-up items
+## From Session 46 close (2026-05-22) — Playtest tuning + bug fixes (6 items)
 
-S45 landed the **Hunter** (8th class; roster now 4 physical / 4 magical) and the **bow** weapon class, then a follow-up batch added three new items (Mantle of Protection, Wand of Lumen, Ironfoot) plus the small substrate hook the Lumen needed. **1342 tests pass (119 files; +57 net)**, `tsc -b` clean, `npm run build` succeeds end-to-end locally. ADR-0083 captures the bow substrate; ADR-0084 captures the new `modifyStatusApplicationStackCount` hook. The bow audit found the engine cleaner than the brief assumed — two pre-specified pieces were avoidable (see below).
+S46 was a tuning/bug-fix session, not substrate or content. Audited six playtest-surfaced items, then implemented fixes for five gameplay/UI items + one part of the sixth (terrain bar padding); the second part of the sixth (mid-battle vanishing root cause) couldn't be reproduced in the dev-server pass and is deferred. **1352 tests pass** (1342 → 1352, +10 new), `tsc -b` and `npm run build` clean.
 
 ### What shipped
 
-- **Substrate (ADR-0083):** `WeaponEquipment.twoHanded` (slotting rejects off-hand/shield) + `range` (weapon-sourced reach; `computeAbilityRange` forks for weapon-tagged physical attacks, parallel to the variance fork); `WeaponPhysicalVariance` gains a `height_delta` arm (first variance arm reading the *target* — `resolvePhysicalVarianceBand` took a `target` param, threaded through its 3 call sites); `CtEffectSpec.stat?: 'pa'|'ma'` (PA-scaled CT push); `AbilityEffects.selfMove` (Scramble repositioning).
-- **Hunter:** stats HP 116 / MP 28 / PA 6 / MA 3 / Speed 9, Move 4 / Jump 3, evades 6/3/0. Native R/S/M — Updraft (Reaction, accumulating +1 Jump on hit), Eagle Eye (Support cost 2, ×2 physical hit chance), High Jump (Movement cost 1, +2 Jump). Marksmanship command set — Pin Down (Slow 4t, Brave-and-Speed @ base 50), Charged Attack (charged physical, ×1.5, actionSpeed 25), Scramble (1-tile jump-5 hop).
-- **Weapons:** Longbow (WP 7 / Acc 33 / 2H / range 2-5 vert-inf / height-delta var) and Riptide Bow (WP 5 / Acc 33 / 2H / range 2-5 / + 30% Undertow proc → PA-scaled CT push ~18). New `slow` and `updraft` statuses; new `'bow'` damage tag.
-- **Team template:** "Highland Hunters" (Hunter + Knight + Earth Mage + Water Mage), registered in `defaultTeamTemplates`.
-- **UI:** equipment picker auto-clears the off-hand on a two-handed equip + grays it out; `computeTeamValidity` flags two-handed conflicts; detail-text shows bow range / two-handed / "Var by elevation". Class picker gained the Hunter tagline ("Ranged elevation marksman") and portrait wiring (`hunter.png`, which was pre-placed in the repo but unwired).
-- **Registry:** `content-id-registry.md` backfilled with the S45 rows (Hunter content only — the broader pre-S45 staleness remains a carry, see below).
+- **Item 1 — Bow damage projection.** Two compounding bugs in the UI forecast:
+  - The projection's variance handler (`src/ai/projection.ts` `projectionVarianceRoll`) early-returned on a pinned-1 variance band, quietly skipping the weapon-band resolver for the *expected midpoint* path. A Hunter shooting downhill projected ×1.0 instead of the height_delta-resolved ×2.0. Fix: removed the pinned-1 early return; pinned-non-1 still honors the caller's specific value (so `damage-range`'s endpoint reads still work for knife / static bands).
+  - The same projection appended `hit_chance` as a damage multiplier — correct for AI EV scoring, but the UI forecast panel ALSO displays hit chance in its own row, double-counting visually. Fix: added `noEvasion?: boolean` to `ProjectExpectedDamageArgs` and a `projectionRegistryNoEvasion` that swaps `projectionEvasionCheck` for a no-op; `damage-range.ts` passes `noEvasion: true`. AI scoring unchanged (still EV-weighted); UI shows raw variance-only damage.
+  - Coverage: 4 new tests in `damage-range.test.ts` (height-delta downhill, level, uphill clamp at 0, hit-chance not folded in).
 
-### Follow-up batch (also in S45): three items + new hook
+- **Item 2 — Charging hit guarantee.** Was never implemented. Per FFT canon (a charging unit is defenseless against incoming physical strikes), physical attacks on Charging-statused targets now auto-hit. Single-point pre-roll guard in `evasionCheck` (`src/engine/damage/handlers.ts`); mirrored in `projectionEvasionCheck` (`src/ai/projection.ts`) and `computeOutgoingHitChance` (`src/engine/damage/hit-chance.ts`) so AI EV and UI hit-chance display agree with the engine. Extension scar: the guard reads `ruleset.chargedActions.chargingStatusTypeId` against `target.statuses`; future opt-out content (status, ability tag, equipment) edits the predicate in one location. 2 new tests in `pipeline.test.ts` (auto-hit across 50 seeds; magical attacks unchanged).
 
-- **Substrate (ADR-0084):** new `modifyStatusApplicationStackCount` hook — source-side, additive, single-pass numeric modifier fired inside `applyStatus` before the type's `composeApplyState` reads the stack count. `ApplyStatusArgs.sourceAbilityTags` lets contributors gate on the casting ability's tags. Equipment carries the modifier declaratively (`statusApplicationStackCountModifiers` field + generic contributor). Structurally recursion-free: the chain mutates a number, it does not re-enter the apply path.
-- **Mantle of Protection** (accessory): +25 resistance to fire/water/earth/lightning/holy/dark; +25 to front/side/back evasion. The most defensively-oriented accessory in v1.
-- **Wand of Lumen** (weapon): WP 2 / Acc 90 wand. 100% on-hit `tagged_resistance_shift` of `+25 Earth / −25 Water` (via `wand_of_lumen_apply_shift`, mirroring the Depths/Deepwood content). Bonus: +1 stack on Burn applications driven by the wielder's fire-tagged abilities (the new hook).
-- **Ironfoot** (accessory): −1 Move, −1 Jump, −1 Speed; +1 PA, +1 MA; +1 Movement-bucket capacity. The reverse-Lightfoot tradeoff slot.
+- **Item 3 — Stop duration ticking + CT drain.** Two sub-bugs:
+  - Pre-S46, `suppressStatusTicks: true` on Stop's `queryTurnSkipped` return swallowed *all* status_tick emissions, including Stop's own — so Stop's duration never decremented on its fake turn (the unit stayed Stopped forever in theory; in practice they came back fast via CT). Fix: `TurnSkipResult` gained an optional `statusTypeId`, stamped by `runQueryTurnSkipped` from the winning handler's `sourceTypeId`. `reduceTurnStart` emits a self-tick for that statusTypeId on the skipped turn — even when `suppressStatusTicks: true`. Other statuses (Poison, Regen on a Stopped unit) remain governed by the flag's original intent (frozen in time). 4 new tests in `turn-flow.test.ts`; the existing S16 integration test updated to expect the new self-tick emission.
+  - Pre-S46, a Stopped unit's fake turn drained CT only by `ctCosts.wait` (20) via the standard turn_end path. FFT canon: the fake turn fully drains CT. Fix: in the `reduceTurnStart` skip branch, set `unit.ct = 0` before returning. Subsequent `turn_end` is a no-op on CT (already 0).
 
-### Two brief assumptions the audit overturned (Chris confirmed in plan-review)
+- **Item 4a — Terrain bar padding.** `TileInfoPanel` was positioned `top: 0` and felt flush with the viewport top. Bumped to `top: 12`. ActiveTeamBanner's `top: 28` was previously flush with the bar's bottom edge (y=28); bumped its `top: 40` so the banner stays flush under the padded bar instead of overlapping the bottom 12px of it.
 
-1. **No `modifyAccuracy` hook.** Eagle Eye reuses the existing `modifyOutgoingHitChance` (caster-side, physical-only, multiplicative, pre-clamp) — mathematically identical, no new closed-surface hook.
-2. **No `scramble` ActionType.** Scramble is a `selfMove` ability effect that relocates the caster in-reduce (the knockback pattern, ADR-0026), recorded on `UseAbilityOutcome.casterMove` and replayed by the animator as a `move`. No 5-site ActionType wiring.
+- **Item 4b — Terrain bar mid-battle vanishing (DEFERRED).** Audit couldn't reproduce the mid-battle disappearance in the dev-server pass — the bar is rendered unconditionally and no overlay was observed covering it. Chris will repro on next playtest. The `cursorTile` useState persistence theory remains the leading guess for the post-Main-Menu return-to-battle variant but doesn't explain mid-battle vanishing. Carried to `playtest-watch.md`.
 
-Also: charge-time needed **no** generalization (the gate was already flavor-agnostic), so the brief's contingency ADR-0084 was not written.
+- **Item 5 — Permadeath sprite removal.** Pre-S46, `removed: true` units rendered at `KO_ALPHA = 0.4` (visually identical to KO'd units except for the S41 permadeath badge). Fix: in `BattleRenderer.applyVisualState`, hide the sprite container when `unit.removed`. KO'd units retain their sprite (regression-safe). The S41 badge becomes redundant once the parent container is hidden; left in place since it auto-hides via the same parent-visibility gate.
 
-### Post-commit / next-session
+- **Item 6 — Zoom max.** Default `maxZoom` raised from 3 to 4 (33% bump) in `CameraController`. Verified at the new cap in the dev server: art holds up, tiles still crisp. Camera bounds are zoom-independent so no other tuning needed.
 
-- **Verify the Vercel deployment** under the restored `npm run build` gate (passes locally; the one item not locally verifiable).
-- **Browser verification — team-builder layer DONE; in-battle layer NOT done.** Verified in the dev server: app boots with zero new console errors (only the pre-existing border/borderColor warnings); Hunter is selectable in the class picker (portrait + tagline render); both bows equippable; equipping the Longbow auto-empties + grays the off-hand; Updraft / Eagle Eye / High Jump all show "Free" for the Hunter; the "Highland Hunters" template loads with 4 valid units; base stats render HP 116 / MP 28 / PA 6 / MA 3 / SPD 9. **Not yet driven in an actual battle:** height-delta damage scaling visibly on the map, Eagle Eye's ~66% hit feel, the Riptide CT-push read, a Charged Attack resolving, and the Scramble hop *animating* (the `casterMove` → `move`-anim path). All of these are covered at the engine/test layer (1330 tests), so this is a feel/rendering check, not a correctness gap.
-- **All seven S45 watch-fors** are logged in `docs/playtest-watch.md` (bow accuracy, elevation safe zones, Pin Down EV, Riptide tuning, Charged Attack speed, Scramble frequency, cross-build combos, AI Hunter placement).
+### Item 7 (deferred — Move/map size tuning)
+
+Logged in `playtest-watch.md` for the second-map design session (S47+). Two levers: (a) reduce baseline Move by 1 across all classes, (b) make future maps larger. Decision waits for the second map's elevation/footprint to shape up; not acting on River Ridge alone.
+
+### Browser verification
+
+Dev-server pass confirmed: app boots clean (no new console errors), team builder works (Highland Hunters template loads, Hunter selectable with Longbow), deployment screen works, battle starts cleanly, **terrain bar visible at the new top:12 padding** (DOM-confirmed `top: 12px`, rect at y=20), **zoom past 3× works smoothly with no pixelation** (mouse wheel scrolling pulls the camera into close-up view). The 1352-test suite covers all the engine fixes (Items 1, 2, 3); Items 5 (permadeath sprite) and the in-battle dynamics of 1/2/3 were not feel-verified in actual play during this session — they're test-validated but Chris's next pass over the battle layer will surface any rendering or pacing issues.
 
 ### Carry-forward (longer-term, unchanged)
 
-- **`content-id-registry.md` broader reconciliation** — S45 added its own rows, but the pre-S45 staleness persists: the Equipment section lists only 5 of ~52 items; several abilities/statuses (Alchemist kit, Assassin Shadow Arts members, S42 statuses speed_save/brave_down/faith_down, the full passive list) are missing. A dedicated docs sweep is still owed.
+- **Terrain bar mid-battle vanishing root cause** (S46 Item 4b, this session's deferral). See playtest-watch entry.
+- **`content-id-registry.md` broader reconciliation** — S45 added its own rows but the pre-S45 staleness persists.
 - Calculator class (9th, magical-knowledge specialist).
-- Second map design — S46 candidate.
+- Second map design — now an S47+ candidate after S46 displaced it for tuning.
 - 5v5 unlock — later in roadmap.
 - Equipment expansion (Hi-Potion / Holy Water / Elixir + accessories).
 - Charm/Seduction (team-override substrate, dedicated session).
 - Pyromancer R/S/M consolidation (future R/S/M review).
 - Knight base-PA recalibration (playtest-driven).
-- AI deployment role-aware sorting (playtest-driven; the Hunter sharpens the case — see watch-for).
-- Speed Save / Updraft per-swing reaction cap (S42 D5 deviation — Updraft inherits the same "one grant per enemy turn even under multi-swing" throttle).
+- AI deployment role-aware sorting (playtest-driven; Hunter sharpens the case).
+- Speed Save / Updraft per-swing reaction cap (S42 D5 deviation).
 - Renderer-side multi-swing animation polish (S42 carry).
-- Permadeath badge first-playtest visual read (S41 carry).
 - Border/borderColor React dev warnings (cosmetic console noise).
 - `assignAiTeamNames` removal (confirmed dead post-S43; still exported + tested).
-- ActionType-wiring smoke test (future CI item; S45 added no ActionTypes, so the gap is unchanged).
+- ActionType-wiring smoke test (future CI item; S46 added no ActionTypes, gap unchanged).
+- Move/map size tuning — Item 7, logged for S47+.

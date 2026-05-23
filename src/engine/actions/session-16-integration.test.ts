@@ -634,9 +634,16 @@ describe('session 16 — queryTurnSkipped suppressStatusTicks', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const types = r.committed.map((c) => c.type);
-    // Stop suppresses ticks: only turn_start + turn_end.
-    expect(types).toEqual(['turn_start', 'turn_end']);
-    // HP unchanged.
+    // Stop suppresses *other* statuses' ticks (Regen here stays frozen),
+    // but per S46 emits its own self-tick on the skipped turn so its
+    // duration decrements: turn_start + status_tick(stop) + turn_end.
+    expect(types).toEqual(['turn_start', 'status_tick', 'turn_end']);
+    // Confirm the tick is for Stop, not Regen.
+    const tickAction = r.committed[1]!;
+    expect(tickAction.type).toBe('status_tick');
+    if (tickAction.type !== 'status_tick') return;
+    expect(tickAction.payload.statusTypeId).toBe('stop');
+    // Regen did not tick → HP unchanged.
     expect(r.newState.units.get(u.id)!.vitals.hp).toBe(50);
   });
 });

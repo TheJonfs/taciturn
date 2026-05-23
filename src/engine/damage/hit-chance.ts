@@ -50,6 +50,14 @@ export function computeOutgoingHitChance(args: ComputeHitChanceArgs): number {
   const hitRoll = ability.hitRoll;
   if (hitRoll === undefined) return 1.0;
 
+  // S46: physical attacks on Charging targets auto-hit per FFT canon —
+  // mirror `evasionCheck`'s pre-roll guard so the forecast UI displays
+  // 100% rather than the rolled chance the engine would otherwise
+  // compute (which the engine then ignores anyway).
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  const chargingTypeId = ruleset.chargedActions.chargingStatusTypeId;
+  if (target.statuses.some((s) => s.typeId === chargingTypeId)) return 1.0;
+
   const weapon = getEquippedWeapon(attacker, catalog);
   const accuracyPct = hitRoll.accuracy ?? weapon?.accuracy ?? 100;
   const accuracy = accuracyPct / 100;

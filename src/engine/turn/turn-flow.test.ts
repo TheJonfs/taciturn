@@ -133,15 +133,161 @@ describe('turn-skip — Stop status', () => {
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    // Two committed: turn_start (skipped) + turn_end.
-    expect(r.committed).toHaveLength(2);
+    // Three committed (S46): turn_start (skipped) + status_tick(stop)
+    // self-tick so the Stop duration decrements + turn_end.
+    expect(r.committed).toHaveLength(3);
     expect(r.committed[0]!.type).toBe('turn_start');
     if (r.committed[0]!.type !== 'turn_start') return;
     expect(r.committed[0]!.outcome!.skipped).toBe(true);
     expect(r.committed[0]!.outcome!.skipReason).toBe('stopped');
-    expect(r.committed[1]!.type).toBe('turn_end');
+    expect(r.committed[1]!.type).toBe('status_tick');
+    expect(r.committed[2]!.type).toBe('turn_end');
     // turnState cleared after turn_end.
     expect(r.newState.turnState).toBeNull();
+  });
+
+  it('emits a self-tick for Stop on the skipped turn so its duration decrements (S46 fix)', () => {
+    // Pre-S46: `suppressStatusTicks: true` swallowed Stop's own status_tick
+    // along with everyone else's, so Stopped units' Stop duration never
+    // counted down — they stayed Stopped forever. FFT canon: the fake turn
+    // IS the duration tick.
+    const cat = createCatalog({
+      statusTypes: [stopStatus],
+      abilities: [],
+      commandSets: [battleSkill()],
+      classes: [knightClass()],
+      items: [],
+      rulesets: defaultTestRulesets,
+    });
+    const u = makeUnit({
+      id: 'u1', spd: 10, ct: 100, loadout: loadoutWith(),
+      statuses: [makeStatusInstance({ typeId: 'stop', remainingDuration: 3 })],
+    });
+    const state = makeGameState({ units: [u], map: flatMap(3, 3), teams: teamsAB });
+    const r = commitAction(
+      state,
+      { type: 'turn_start', source: 'system', payload: { unitId: u.id } },
+      cat,
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // Three committed: turn_start (skipped) + status_tick(stop) + turn_end.
+    expect(r.committed).toHaveLength(3);
+    expect(r.committed[0]!.type).toBe('turn_start');
+    expect(r.committed[1]!.type).toBe('status_tick');
+    if (r.committed[1]!.type !== 'status_tick') return;
+    expect(r.committed[1]!.payload.statusTypeId).toBe('stop');
+    expect(r.committed[2]!.type).toBe('turn_end');
+    // Stop duration decremented from 3 to 2.
+    const after = r.newState.units.get(u.id)!;
+    const stopInst = after.statuses.find((s) => s.typeId === 'stop');
+    expect(stopInst).toBeDefined();
+    expect(stopInst!.remainingDuration).toBe(2);
+  });
+
+  it('zeroes CT on a skipped turn (FFT canon — fake turn drains the CT counter)', () => {
+    // Pre-S46: a Stopped unit's CT only ticked down by `ctCosts.wait` (20)
+    // per fake turn, so they "came back up" every couple of enemy turns.
+    // FFT canon: the fake turn fully drains the CT counter to 0.
+    const cat = createCatalog({
+      statusTypes: [stopStatus],
+      abilities: [],
+      commandSets: [battleSkill()],
+      classes: [knightClass()],
+      items: [],
+      rulesets: defaultTestRulesets,
+    });
+    const u = makeUnit({
+      id: 'u1', spd: 10, ct: 110, loadout: loadoutWith(),
+      statuses: [makeStatusInstance({ typeId: 'stop', remainingDuration: 3 })],
+    });
+    const state = makeGameState({ units: [u], map: flatMap(3, 3), teams: teamsAB });
+    const r = commitAction(
+      state,
+      { type: 'turn_start', source: 'system', payload: { unitId: u.id } },
+      cat,
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.newState.units.get(u.id)!.ct).toBe(0);
+  });
+
+  it('expires Stop after duration fake turns (3 fake turns clears a 3-duration Stop)', () => {
+    const cat = createCatalog({
+      statusTypes: [stopStatus],
+      abilities: [],
+      commandSets: [battleSkill()],
+      classes: [knightClass()],
+      items: [],
+      rulesets: defaultTestRulesets,
+    });
+    const u = makeUnit({
+      id: 'u1', spd: 10, ct: 100, loadout: loadoutWith(),
+      statuses: [makeStatusInstance({ typeId: 'stop', remainingDuration: 3 })],
+    });
+    let state = makeGameState({ units: [u], map: flatMap(3, 3), teams: teamsAB });
+    for (let i = 0; i < 3; i++) {
+      // Reset CT to 100 so the next fake turn fires.
+      const curr = state.units.get(u.id)!;
+      state = {
+        ...state,
+        units: new Map(state.units).set(u.id, { ...curr, ct: 100 }),
+      };
+      const r = commitAction(
+        state,
+        { type: 'turn_start', source: 'system', payload: { unitId: u.id } },
+        cat,
+      );
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      state = r.newState;
+    }
+    const final = state.units.get(u.id)!;
+    expect(final.statuses.find((s) => s.typeId === 'stop')).toBeUndefined();
+  });
+
+  it('does not tick other suppressed statuses on the skipped turn (only the skipping status self-ticks)', () => {
+    // Belt-and-suspenders: Poison on a Stopped unit must NOT tick while
+    // Stop's `suppressStatusTicks: true` is active. The S46 fix only
+    // self-ticks the skipping status itself; other per_unit_ct statuses
+    // stay frozen in time per the pre-S46 behavior.
+    const poison = makeStatusType({
+      id: 'poison',
+      stackingRule: 'REFRESH',
+      durationMode: 'per_unit_ct',
+    });
+    const cat = createCatalog({
+      statusTypes: [stopStatus, poison],
+      abilities: [],
+      commandSets: [battleSkill()],
+      classes: [knightClass()],
+      items: [],
+      rulesets: defaultTestRulesets,
+    });
+    const u = makeUnit({
+      id: 'u1', spd: 10, ct: 100, loadout: loadoutWith(),
+      statuses: [
+        makeStatusInstance({ typeId: 'stop', remainingDuration: 3 }),
+        makeStatusInstance({ typeId: 'poison', remainingDuration: 5 }),
+      ],
+    });
+    const state = makeGameState({ units: [u], map: flatMap(3, 3), teams: teamsAB });
+    const r = commitAction(
+      state,
+      { type: 'turn_start', source: 'system', payload: { unitId: u.id } },
+      cat,
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // Only Stop's status_tick fires; Poison's does not.
+    const tickActions = r.committed.filter((a) => a.type === 'status_tick');
+    expect(tickActions).toHaveLength(1);
+    if (tickActions[0]!.type !== 'status_tick') return;
+    expect(tickActions[0]!.payload.statusTypeId).toBe('stop');
+    // Poison duration unchanged.
+    const after = r.newState.units.get(u.id)!;
+    const poisonInst = after.statuses.find((s) => s.typeId === 'poison');
+    expect(poisonInst!.remainingDuration).toBe(5);
   });
 
   it('does not skip when the unit has no skip-emitting status', () => {

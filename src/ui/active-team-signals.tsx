@@ -92,7 +92,10 @@ function withAlpha(hex: string, alpha: number): string {
 
 const bannerStyle: CSSProperties = {
   position: 'absolute',
-  top: 28,
+  // Sits flush under the terrain bar (top:12, height:28 → ends at y=40).
+  // Pre-S46 the terrain bar was at top:0 ending at y=28, so this lived
+  // at top:28. The S46 padding shift requires the banner to follow.
+  top: 40,
   left: 0,
   right: 0,
   height: 22,

@@ -56,7 +56,17 @@ export type ActionAttemptResult =
 // calls for it (a unit that's still "alive but unable to act" — Charging,
 // not Stop). See ADR-0024.
 export type TurnSkipResult =
-  | { readonly reason: string; readonly suppressStatusTicks: boolean }
+  | {
+      readonly reason: string;
+      readonly suppressStatusTicks: boolean;
+      // Set by the `runQueryTurnSkipped` runner from the winning
+      // handler's source. When the skip originated from a status (Stop,
+      // Sleep, Petrify, Charging), the reducer emits a self-tick for
+      // that status on the skipped turn so its own duration decrements —
+      // even when `suppressStatusTicks` is true. Other statuses on the
+      // unit remain governed by the flag. Per S46 fix.
+      readonly statusTypeId?: StatusTypeId;
+    }
   | null;
 
 // Result of `onTick` — fired during status_tick reduction so a status

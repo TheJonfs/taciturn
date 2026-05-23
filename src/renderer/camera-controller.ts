@@ -87,7 +87,10 @@ export class CameraController {
     this.tileSize = opts.tileSize;
     this.screenWidth = Math.max(1, opts.screenWidth);
     this.screenHeight = Math.max(1, opts.screenHeight);
-    this.maxZoom = opts.maxZoom ?? 3;
+    // S46: bumped from 3 → 4 (33%) after playtest read that art holds up
+    // at the higher zoom and the prior cap left close-up framing feeling
+    // distant on small viewports.
+    this.maxZoom = opts.maxZoom ?? 4;
     this.panTilesPerSec = opts.panTilesPerSec ?? 8;
     this.fitPadding = opts.fitPadding ?? 0.92;
     this.fitMap();

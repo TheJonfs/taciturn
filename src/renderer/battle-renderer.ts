@@ -641,6 +641,18 @@ export class BattleRenderer {
       // type that mutates them (system_apply_status, status_tick,
       // status_remove); deferred per the carry-forward.
       const unit = this.lastState?.units.get(unitId);
+      // S46: permadead units (`removed: true`, per ADR-0076) are
+      // hidden from the field entirely (FFT-style — the body leaves the
+      // map at permadeath). KO'd-but-not-removed units retain their
+      // sprite at reduced alpha; the visual distinction is now binary
+      // (alpha-faded = KO'd; gone = removed) rather than the S41 badge
+      // overlay. Re-show the sprite if the unit becomes un-removed in
+      // the future (no v1 path; defensive symmetry).
+      if (unit !== undefined && unit.removed) {
+        sprite.container.visible = false;
+        continue;
+      }
+      sprite.container.visible = true;
       const mp = snap.mp;
       // Per ADR-0058: read effective `maxMp` per-frame via
       // `runModifyStatQuery` so equipment / status contributions

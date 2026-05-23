@@ -86,12 +86,18 @@ export function projectDamageRange(args: ProjectDamageRangeArgs): DamageRange {
   // scoring); for the forecast panel we need the actual absorbed
   // amounts, so we read them off the projection ctx for the absorption
   // case and from `projectExpectedDamage` otherwise.
-  const expectedCtx = projectDamageContext({ ...args, ability: args.ability });
+  //
+  // `noEvasion: true` is the S46 fix: the forecast panel renders hit
+  // chance in its own row, so folding it into the damage range double-
+  // counts visually (a 66%-accuracy bow projecting 28 dmg where actual
+  // is 84). AI scoring still uses the hit-chance-weighted projection;
+  // only the UI damage range opts out.
+  const expectedCtx = projectDamageContext({ ...args, ability: args.ability, noEvasion: true });
   const isNativelyHealing = damage.tags.includes('healing');
   const projectionFlippedToHeal = !isNativelyHealing && expectedCtx.damageTags.has('healing');
   if (projectionFlippedToHeal) {
-    const minCtx = projectDamageContext({ ...args, ability: minAbility });
-    const maxCtx = projectDamageContext({ ...args, ability: maxAbility });
+    const minCtx = projectDamageContext({ ...args, ability: minAbility, noEvasion: true });
+    const maxCtx = projectDamageContext({ ...args, ability: maxAbility, noEvasion: true });
     return {
       min: minCtx.finalDamage ?? 0,
       expected: expectedCtx.finalDamage ?? 0,
@@ -99,9 +105,9 @@ export function projectDamageRange(args: ProjectDamageRangeArgs): DamageRange {
       regime: 'absorbed',
     };
   }
-  const expected = projectExpectedDamage({ ...args, ability: args.ability });
-  const min = projectExpectedDamage({ ...args, ability: minAbility });
-  const max = projectExpectedDamage({ ...args, ability: maxAbility });
+  const expected = projectExpectedDamage({ ...args, ability: args.ability, noEvasion: true });
+  const min = projectExpectedDamage({ ...args, ability: minAbility, noEvasion: true });
+  const max = projectExpectedDamage({ ...args, ability: maxAbility, noEvasion: true });
   return {
     min,
     expected,

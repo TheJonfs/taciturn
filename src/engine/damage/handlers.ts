@@ -287,6 +287,16 @@ export const evasionCheck: DamageHandler = (ctx, env) => {
   const hitRoll = ability.hitRoll;
   if (hitRoll === undefined) return ctx;
 
+  // S46: physical attacks on Charging targets auto-hit per FFT canon —
+  // a unit mid-cast is defenseless against incoming physical strikes.
+  // Skip the whole roll: no accuracy lookup, no facing, no elevation.
+  // Extension point: future content (a status that lets charging units
+  // retain evasion, an ability-tag opt-out, an equipment override) adds
+  // its branch into this predicate.
+  const ruleset = env.catalog.getRuleset(env.state.ruleset.id);
+  const chargingTypeId = ruleset.chargedActions.chargingStatusTypeId;
+  if (ctx.target.statuses.some((s) => s.typeId === chargingTypeId)) return ctx;
+
   // Accuracy precedence (per ADR-0028): per-ability `hitRoll.accuracy`
   // override → equipped weapon's `accuracy` → unarmed default (100).
   // The override path lets specific abilities depart from weapon

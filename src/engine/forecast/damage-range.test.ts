@@ -10,6 +10,7 @@ import {
   itemId,
   type ActiveAbilityDefinition,
   type ClassDefinition,
+  type GameState,
 } from '../index.ts';
 import { loadDefaultCatalog } from '../../content/index.ts';
 import {
@@ -121,6 +122,132 @@ describe('projectDamageRange', () => {
     expect(r16.min).toBeLessThan(r16.expected);
     expect(r16.max).toBeGreaterThan(r16.expected);
     expect(r16.max / r16.min).toBeLessThan(1.2);
+  });
+
+  it('reflects bow height_delta variance — shooting downhill multiplies the projection (S46 fix)', () => {
+    // Hunter (PA 6) with Longbow (WP 7) shooting a target on a lower tile.
+    // Longbow's `physicalVariance` is `height_delta` with falloffPerHeight
+    // 0.2 → shooting 5 tiles down → factor max(0, 1 - 0.2 × -5) = 2.0.
+    // Expected projected damage: 6 × 7 × 1.0 × 2.0 = 84. Pre-S46 the
+    // pinned-1 escape hatch in `projectionVarianceRoll` quietly skipped
+    // the resolver on the midpoint path, leaving the expected at ×1.0.
+    const cat = loadDefaultCatalog();
+    const attack = cat.getAbility(abilityId('attack')) as ActiveAbilityDefinition;
+    const longbow = { leftHand: null, rightHand: itemId('longbow'), headgear: null, armor: null, accessory: null };
+    const attacker = makeUnit({
+      id: 'hunter', spd: 9, pa: 6, classId: 'hunter',
+      position: { x: 0, y: 0, layer: 0 },
+      equipment: longbow,
+    });
+    const target = makeUnit({
+      id: 'target', spd: 9, classId: 'knight', maxHpBase: 200, hp: 200,
+      // Place target far enough away to be inside bow range; back-facing
+      // to keep evasion neutral (though noEvasion now drops the multiplier).
+      facing: 'N',
+      position: { x: 4, y: 0, layer: 0 },
+    });
+    const map: GameState['map'] = {
+      width: 5,
+      height: 5,
+      tiles: [
+        { x: 0, y: 0, layer: 0, elevation: 5, terrain: 'ground', properties: [] },
+        { x: 4, y: 0, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+      ],
+    };
+    const state = makeGameState({ units: [attacker, target], map });
+    const r = projectDamageRange({ state, catalog: cat, attacker, target, ability: attack });
+    // Base 42 × variance 2.0 = 84. Variance is deterministic (single
+    // point) so min/expected/max all collapse to 84.
+    expect(r.min).toBe(84);
+    expect(r.expected).toBe(84);
+    expect(r.max).toBe(84);
+  });
+
+  it('reflects bow height_delta variance — shooting at the same elevation projects ×1.0', () => {
+    const cat = loadDefaultCatalog();
+    const attack = cat.getAbility(abilityId('attack')) as ActiveAbilityDefinition;
+    const longbow = { leftHand: null, rightHand: itemId('longbow'), headgear: null, armor: null, accessory: null };
+    const attacker = makeUnit({
+      id: 'hunter', spd: 9, pa: 6, classId: 'hunter',
+      position: { x: 0, y: 0, layer: 0 },
+      equipment: longbow,
+    });
+    const target = makeUnit({
+      id: 'target', spd: 9, classId: 'knight', maxHpBase: 200, hp: 200,
+      position: { x: 4, y: 0, layer: 0 },
+    });
+    const map: GameState['map'] = {
+      width: 5, height: 5,
+      tiles: [
+        { x: 0, y: 0, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 4, y: 0, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+      ],
+    };
+    const state = makeGameState({ units: [attacker, target], map });
+    const r = projectDamageRange({ state, catalog: cat, attacker, target, ability: attack });
+    expect(r.expected).toBe(42); // 6 × 7 × 1.0
+  });
+
+  it('reflects bow height_delta variance — shooting 5+ tiles uphill projects 0', () => {
+    const cat = loadDefaultCatalog();
+    const attack = cat.getAbility(abilityId('attack')) as ActiveAbilityDefinition;
+    const longbow = { leftHand: null, rightHand: itemId('longbow'), headgear: null, armor: null, accessory: null };
+    const attacker = makeUnit({
+      id: 'hunter', spd: 9, pa: 6, classId: 'hunter',
+      position: { x: 0, y: 0, layer: 0 },
+      equipment: longbow,
+    });
+    const target = makeUnit({
+      id: 'target', spd: 9, classId: 'knight', maxHpBase: 200, hp: 200,
+      position: { x: 4, y: 0, layer: 0 },
+    });
+    const map: GameState['map'] = {
+      width: 5, height: 5,
+      tiles: [
+        { x: 0, y: 0, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 4, y: 0, layer: 0, elevation: 5, terrain: 'ground', properties: [] },
+      ],
+    };
+    const state = makeGameState({ units: [attacker, target], map });
+    const r = projectDamageRange({ state, catalog: cat, attacker, target, ability: attack });
+    expect(r.expected).toBe(0);
+  });
+
+  it('damage range excludes hit chance — bow with low-accuracy weapon projects raw damage (S46 fix)', () => {
+    // Pre-S46 the projection folded hit_chance into the damage multipliers,
+    // so a Longbow's 33% accuracy produced a damage range that was
+    // pre-multiplied by ~0.33. The forecast panel separately displays hit
+    // chance, so this double-counted visually. Post-fix, the damage range
+    // is the raw variance-only projection; the panel's hit-chance row
+    // shows accuracy as its own number.
+    const cat = loadDefaultCatalog();
+    const attack = cat.getAbility(abilityId('attack')) as ActiveAbilityDefinition;
+    const longbow = { leftHand: null, rightHand: itemId('longbow'), headgear: null, armor: null, accessory: null };
+    const attacker = makeUnit({
+      id: 'hunter', spd: 9, pa: 6, classId: 'hunter',
+      position: { x: 0, y: 0, layer: 0 },
+      equipment: longbow,
+    });
+    // Target facing toward attacker — front evasion lookup. Knight has
+    // 0/0/0 evasion in v1, so the multiplier would be 33% × 1.0 × 1.0 =
+    // 0.33 if hit chance were folded in. We assert it's NOT folded in.
+    const target = makeUnit({
+      id: 'target', spd: 9, classId: 'knight', maxHpBase: 200, hp: 200,
+      position: { x: 4, y: 0, layer: 0 },
+      facing: 'W',
+    });
+    const map: GameState['map'] = {
+      width: 5, height: 5,
+      tiles: [
+        { x: 0, y: 0, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 4, y: 0, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+      ],
+    };
+    const state = makeGameState({ units: [attacker, target], map });
+    const r = projectDamageRange({ state, catalog: cat, attacker, target, ability: attack });
+    // Raw 6 × 7 × 1.0 = 42. If hit chance (33%) were folded in, it would
+    // be ~14. Anything between 14 and 42 indicates partial folding.
+    expect(r.expected).toBe(42);
   });
 
   it('returns zero range for an ability without a damage spec', () => {

@@ -879,7 +879,16 @@ export function runQueryTurnSkipped(
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'queryTurnSkipped');
   for (const h of handlers) {
     const result = h.invoke({ unit: args.unit });
-    if (result !== null) return result;
+    if (result !== null) {
+      // Stamp the winning handler's source status (if any) onto the
+      // result so the reducer can emit a self-tick for it on the
+      // skipped turn — per the S46 fix, Stop's own duration must
+      // decrement even when `suppressStatusTicks` is true. Non-status
+      // sources (passive / equipment / class) leave it undefined.
+      return h.sourceTypeId !== undefined
+        ? { ...result, statusTypeId: h.sourceTypeId }
+        : result;
+    }
   }
   return null;
 }

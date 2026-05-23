@@ -478,3 +478,49 @@ shouldn't drift out of memory between sessions.
 - **What to watch.** The HP-only AI deployment heuristic (S43) places the Hunter (HP 116) mid-pack. A bow archer wants high ground or the back line, not the middle.
 - **Why it matters.** Same root as the S43 role-aware-sorting watch: maxHP is a poor proxy for a ranged class's ideal position.
 - **Signal for adjustment.** Reinforces the case for role-aware deployment sorting (tank > damage > ranged/support).
+
+---
+
+## Session 46 — Playtest tuning / bug fixes (Hunter, UI, Stop)
+
+### Move/map size tuning observation (deferred — second-map design)
+
+- **What to watch.** Units routinely have 5-7 Move on the 14×14 River Ridge — first turn often resolves into combat without much positional setup. This is structural, not a class-balance read.
+- **Why it matters.** A "turn 1 = engage" tempo skips the deliberate positioning phase the map's elevation/terrain is designed to reward. Two tuning levers: (a) reduce baseline Move by 1 across all classes, (b) make future maps larger (16×16 or 18×18).
+- **Signal for adjustment.** Decision lands in the next map-design session (S47+) — pick (a), (b), or both based on how the second map's footprint and elevation rhythm shape up. Don't act on River Ridge alone.
+
+### Bow damage forecast format after Item-1 fix
+
+- **What to watch.** Bow forecasts now show raw damage range (variance only) with hit chance in a separate row. Watch for edge cases: range "0-0" when shooting ≥5 tiles uphill (height_delta clamps to 0), big swings on cliff-edge shots, and whether the hit-chance row is visible enough next to the damage row in actual play.
+- **Why it matters.** The S46 fix removes the hit-chance multiplier from the damage range and resolves height_delta on the midpoint. UI semantics changed: "damage" now means "if it hits" rather than "EV including miss." A player might initially miscalibrate against the prior display.
+- **Signal for adjustment.** Players asked "why does the forecast show 84 but I expected 55?" — readability issue, lever is panel layout (combine damage × hit_chance into a third "expected" row, or label the existing row more clearly). Not a calculation bug.
+
+### Charging-target hit guarantee — interaction surfaces
+
+- **What to watch.** Per S46 Item 2: physical attacks on charging targets auto-hit. Watch the interaction with: (a) The Offering's four-swing burst on a charging target (each swing guaranteed?), (b) Counter reactions firing on the auto-hit, (c) AI scoring — does the AI now sharply prefer attacking visibly-charging enemies?
+- **Why it matters.** The guarantee is new content (not just an audit-cleanup), so its second-order effects haven't been observed yet. A charging Aethurge becomes a high-value target for ANY physical attacker — possibly a Knight cleaning house mid-cast.
+- **Signal for adjustment.** If charging Mages feel un-defendable (every physical hit lands), tune the actionSpeed of the charged spells or the timing windows. If the AI ignores charging targets, expand the role-aware scoring.
+
+### Stop tick + CT drain after Item 3 fix
+
+- **What to watch.** Per S46 Item 3: Stopped units' fake turns drain CT to 0 AND decrement Stop's duration. Watch for: (a) Shadow Stitch / Stasis Sword Stops feeling meaningful (3 fake turns of actual immobility), (b) whether Stopped + Slowed compounds into very-long disable windows, (c) the action log's readability — three "status_tick" rows + a "Stop expired" row across the Stop's lifetime.
+- **Why it matters.** Pre-S46 Stop felt sticky-then-weak (duration never counted down, but CT also kept high so the unit came back fast). Post-fix it's FFT-canonical (CT drains, duration ticks). The "right" feel needs human playtest signal — too short and Stop becomes filler; too long and locked-out units feel un-fun.
+- **Signal for adjustment.** Levers: Stop's duration on each applier (Shadow Stitch 3t, Stasis Sword 3t), the Brave×MA application chance, or revisit the "Stop drains CT entirely" rule if it makes the recovery cycle feel too punishing for fast classes.
+
+### Permadeath visual now full sprite removal
+
+- **What to watch.** Per S46 Item 5: removed (permadead) units are hidden from the field entirely. KO'd-but-not-removed units retain their sprite at reduced alpha. Watch for: (a) does the disappearance read as decisive (FFT-style) or jarring (sprite pops out instantly)?, (b) does the action log readout suffice to explain the missing body?, (c) any odd interactions during the moment a unit transitions from KO'd to removed.
+- **Why it matters.** The S41 permadeath badge is now redundant (the sprite is just gone). Visual ambiguity between KO and permadeath was the bug — confirmed fixed structurally; the "feel" is the next question.
+- **Signal for adjustment.** If the instant-pop feels too abrupt, add a 200-400ms fade-out transition before removal. If players miss the moment of removal, lean into the action-log line and / or a brief flash on the tile.
+
+### Zoom max bumped to 4.0 (from 3.0)
+
+- **What to watch.** Per S46 Item 6: maximum zoom raised from 3× to 4×. Watch: (a) art quality at max zoom (tile textures, unit sprites, status badges), (b) whether the higher cap shifts how players use the camera in actual play (more close-up tactical view, less mini-map-style overview), (c) any UI overlap at extreme zoom (status chips, action log).
+- **Why it matters.** The prior 3× cap was conservative. Verified visually at 4×: tiles still crisp, no pixelation. But playtest may surface issues the visual spot-check missed.
+- **Signal for adjustment.** Levers: lower back to 3.5× if pixelation visible; raise to 4.5× if 4× still feels distant. The pan / camera-bounds math is zoom-independent so further tuning is single-knob.
+
+### Terrain bar mid-battle vanishing — deferred root-cause investigation
+
+- **What to watch.** The S46 audit fixed the padding (bar at top:12 instead of top:0) but couldn't reproduce the mid-battle vanishing in the dev-server pass — the bar is rendered unconditionally per the code path. Cursor-tile useState persistence between battles is the leading hypothesis but doesn't explain mid-battle disappearance well.
+- **Why it matters.** A vanishing top bar mid-battle hides the X/Y/Elev/Terrain readout the player relies on for elevation-aware positioning (bows, knockback, Bedrock Stride). If it's genuinely intermittent, more playtest data is needed.
+- **Signal for adjustment.** Next playtest pass: try to repro and capture (a) when in the turn cycle, (b) what action / settings change preceded it, (c) whether the bar's DOM is still present (use the inspect tool). Common candidates to consider: a turn-transition alert, a pause-resume cycle, a settings toggle.

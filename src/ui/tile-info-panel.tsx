@@ -136,7 +136,10 @@ function Field({ label, value }: { readonly label: string; readonly value: strin
 
 const panelStyle: CSSProperties = {
   position: 'absolute',
-  top: 0,
+  // S46: small top offset so the bar isn't flush against the viewport
+  // top — pre-S46 the bar ran into the edge and felt clipped, esp. on
+  // browser tabs with narrow chrome.
+  top: 12,
   left: 0,
   right: 0,
   height: 28,
