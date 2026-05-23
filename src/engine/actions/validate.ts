@@ -301,29 +301,38 @@ function validateUseAbility(
     if (destTile === undefined) {
       return invalid(`Target tile (${tilePos.x},${tilePos.y},${tilePos.layer}) does not exist`);
     }
-    const effectiveTileRange = computeAbilityRange(state, catalog, actor.id, ability);
-    const tileInRange = inRange({
-      source: endpointFrom(actor.position, sourceTile.elevation),
-      target: endpointFrom(tilePos, destTile.elevation),
-      params: {
-        horizontalMax: effectiveTileRange.horizontal,
-        horizontalMin: effectiveTileRange.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
-        verticalMax: effectiveTileRange.vertical,
-      },
-    });
-    if (!tileInRange) return invalid('Target tile is out of range');
+    // Geometric reach checks (range / LoS / arc). Skipped for rider casts
+    // per ADR-0064 extension (S47): the rider's `range` field is vestigial
+    // schema noise — the parent attack already determined the target and
+    // validated reach. Sibling bypass to the existing MP-cost (ADR-0064)
+    // and Act-budget (ADR-0068) skips. Without this, a bow firing at long
+    // range crashes when a tight-range proc (Riptide undertow at 1/1)
+    // emits against the hit target.
+    if (!isRider) {
+      const effectiveTileRange = computeAbilityRange(state, catalog, actor.id, ability);
+      const tileInRange = inRange({
+        source: endpointFrom(actor.position, sourceTile.elevation),
+        target: endpointFrom(tilePos, destTile.elevation),
+        params: {
+          horizontalMax: effectiveTileRange.horizontal,
+          horizontalMin: effectiveTileRange.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
+          verticalMax: effectiveTileRange.vertical,
+        },
+      });
+      if (!tileInRange) return invalid('Target tile is out of range');
 
-    const tileRangeMode: RangeMode = ability.targeting.rangeMode;
-    if (tileRangeMode === 'straight_line') {
-      const losOk = hasLineOfSight(
-        state.map,
-        endpointFrom(actor.position, sourceTile.elevation),
-        endpointFrom(tilePos, destTile.elevation),
-      );
-      if (!losOk) return invalid('Line of sight is blocked');
-    } else if (tileRangeMode === 'arc') {
-      const arcOk = arcTargetable(state.map, actor.position, tilePos);
-      if (!arcOk) return invalid('Arc target is covered');
+      const tileRangeMode: RangeMode = ability.targeting.rangeMode;
+      if (tileRangeMode === 'straight_line') {
+        const losOk = hasLineOfSight(
+          state.map,
+          endpointFrom(actor.position, sourceTile.elevation),
+          endpointFrom(tilePos, destTile.elevation),
+        );
+        if (!losOk) return invalid('Line of sight is blocked');
+      } else if (tileRangeMode === 'arc') {
+        const arcOk = arcTargetable(state.map, actor.position, tilePos);
+        if (!arcOk) return invalid('Arc target is covered');
+      }
     }
     // Session 45: a caster-reposition (Scramble) additionally requires the
     // destination to be enterable terrain for the actor's class and free
@@ -361,31 +370,41 @@ function validateUseAbility(
   if (targetTile === undefined) {
     return invalid('Target tile does not exist');
   }
-  const effectiveUnitRange = computeAbilityRange(state, catalog, actor.id, ability);
-  const inRangeOk = inRange({
-    source: endpointFrom(actor.position, sourceTile.elevation),
-    target: endpointFrom(targetUnit.position, targetTile.elevation),
-    params: {
-      horizontalMax: effectiveUnitRange.horizontal,
-      horizontalMin: effectiveUnitRange.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
-      verticalMax: effectiveUnitRange.vertical,
-    },
-  });
-  if (!inRangeOk) return invalid('Target is out of range');
 
-  const rangeMode: RangeMode = ability.targeting.rangeMode;
-  if (rangeMode === 'straight_line') {
-    const losOk = hasLineOfSight(
-      state.map,
-      endpointFrom(actor.position, sourceTile.elevation),
-      endpointFrom(targetUnit.position, targetTile.elevation),
-    );
-    if (!losOk) return invalid('Line of sight is blocked');
-  } else if (rangeMode === 'arc') {
-    const arcOk = arcTargetable(state.map, actor.position, targetUnit.position);
-    if (!arcOk) return invalid('Arc target is covered');
+  // Geometric reach checks (range / LoS / arc). Skipped for rider casts
+  // per ADR-0064 extension (S47): the rider's `range` field is vestigial
+  // schema noise — the parent attack already determined the target and
+  // validated reach. Sibling bypass to the existing MP-cost (ADR-0064)
+  // and Act-budget (ADR-0068) skips. Without this, a bow firing at long
+  // range crashes when a tight-range proc (Riptide undertow at 1/1)
+  // emits against the hit target.
+  if (!isRider) {
+    const effectiveUnitRange = computeAbilityRange(state, catalog, actor.id, ability);
+    const inRangeOk = inRange({
+      source: endpointFrom(actor.position, sourceTile.elevation),
+      target: endpointFrom(targetUnit.position, targetTile.elevation),
+      params: {
+        horizontalMax: effectiveUnitRange.horizontal,
+        horizontalMin: effectiveUnitRange.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
+        verticalMax: effectiveUnitRange.vertical,
+      },
+    });
+    if (!inRangeOk) return invalid('Target is out of range');
+
+    const rangeMode: RangeMode = ability.targeting.rangeMode;
+    if (rangeMode === 'straight_line') {
+      const losOk = hasLineOfSight(
+        state.map,
+        endpointFrom(actor.position, sourceTile.elevation),
+        endpointFrom(targetUnit.position, targetTile.elevation),
+      );
+      if (!losOk) return invalid('Line of sight is blocked');
+    } else if (rangeMode === 'arc') {
+      const arcOk = arcTargetable(state.map, actor.position, targetUnit.position);
+      if (!arcOk) return invalid('Arc target is covered');
+    }
+    // 'melee' has no extra check beyond range.
   }
-  // 'melee' has no extra check beyond range.
 
   return VALID;
 }

@@ -720,6 +720,230 @@ describe('Session 30 riderSource bypass — MP gates', () => {
   });
 });
 
+// ===========================================================================
+// 5. riderSource bypass — range / LoS / arc gates (S47 / ADR-0064 extension)
+// ===========================================================================
+//
+// Surfaced on Stonebridge: a Hunter shooting from elev-8 rampart at a
+// distant target with a Riptide Bow equipped crashed when the proc
+// (`undertow`, range 1/1) was emitted against the bow target (5 tiles
+// away). The proc's range field is vestigial — its target was already
+// determined by the parent attack. Bypass for riders.
+
+function makeTightRangeProc(args: { readonly id: string }): ActiveAbilityDefinition {
+  return {
+    id: abilityId(args.id),
+    name: args.id,
+    kind: 'active',
+    bucket: bucketId('first_action'),
+    baseCost: 1,
+    availability: 'hidden',
+    // Mirrors undertow's shape: melee-range, single-unit-target, with no
+    // damage component. The proc emits against the parent attack's
+    // already-validated target.
+    targeting: {
+      kind: 'single_unit',
+      range: { horizontal: 1, vertical: 1 },
+      rangeMode: 'melee',
+    },
+    actionSpeed: 0,
+    mpCost: 0,
+    effects: {
+      ctEffects: [{ target: 'primary_target', factor: -2, stat: 'pa' }],
+    },
+  };
+}
+
+describe('Session 47 riderSource bypass — range / LoS / arc gates', () => {
+  it('validator accepts a rider use_ability against a far target despite the proc ability\'s tight range', () => {
+    // Scenario: bow attack lands at horizontal distance 5; Riptide-style
+    // proc with declared 1/1 range emits against the same target.
+    // Pre-S47 this throws; post-S47 it validates and the CT push lands.
+    const proc = makeTightRangeProc({ id: 'tight_undertow' });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [proc],
+      commandSets: [],
+      classes: [makeKnight()],
+      items: [],
+      rulesets: defaultTestRulesets,
+    });
+    const actor = makeUnit({ id: 'archer', spd: 10, position: { x: 0, y: 0, layer: 0 } });
+    const target = makeUnit({
+      id: 'far_target',
+      spd: 10,
+      team: 'team_b',
+      position: { x: 5, y: 0, layer: 0 }, // 5 tiles away — well outside the proc's 1/1 range
+    });
+    const state = makeGameState({
+      units: [actor, target],
+      map: flatMap(8, 8),
+      turnState: {
+        unitId: actor.id,
+        budget: { movesAvailable: 1, actsAvailable: 1 },
+        consumed: { movesConsumed: 0, actsConsumed: 0 },
+        reactionsUsedThisTurn: new Map(),
+      },
+    });
+    const riderAction: ProposedAction = {
+      type: 'use_ability',
+      source: 'system',
+      actorId: actor.id,
+      payload: {
+        abilityId: proc.id,
+        target: { kind: 'unit', unitId: target.id },
+        riderSource: { kind: 'equipment_proc', itemId: itemId('test_bow') },
+      },
+    };
+    const result = validateAction(state, riderAction, cat);
+    expect(result.valid).toBe(true);
+  });
+
+  it('validator REJECTS a non-rider use_ability with the same tight-range proc ability and far target (regression check)', () => {
+    // Same setup as above but without the rider flag. The geometric reach
+    // check still applies and returns out-of-range. This locks in that
+    // the bypass is rider-scoped, not a general loosening of range checks.
+    const proc = makeTightRangeProc({ id: 'tight_undertow' });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [proc],
+      commandSets: [],
+      classes: [makeKnight()],
+      items: [],
+      rulesets: defaultTestRulesets,
+    });
+    const actor = makeUnit({ id: 'archer', spd: 10, position: { x: 0, y: 0, layer: 0 } });
+    const target = makeUnit({
+      id: 'far_target',
+      spd: 10,
+      team: 'team_b',
+      position: { x: 5, y: 0, layer: 0 },
+    });
+    const state = makeGameState({
+      units: [actor, target],
+      map: flatMap(8, 8),
+      turnState: {
+        unitId: actor.id,
+        budget: { movesAvailable: 1, actsAvailable: 1 },
+        consumed: { movesConsumed: 0, actsConsumed: 0 },
+        reactionsUsedThisTurn: new Map(),
+      },
+    });
+    const plainAction: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: actor.id,
+      payload: {
+        abilityId: proc.id,
+        target: { kind: 'unit', unitId: target.id },
+      },
+    };
+    const result = validateAction(state, plainAction, cat);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toMatch(/out of range/);
+  });
+
+  it('validator accepts a rider use_ability whose declared rangeMode would otherwise be blocked by terrain LoS', () => {
+    // Mirrors the Stonebridge scenario where a Hunter on the rampart
+    // (elev 8) shoots an Assassin on flat ground (elev 2) with an
+    // elev-8 wall tile in between. A rider proc declared with
+    // 'straight_line' rangeMode would normally fail the LoS check; the
+    // bypass lets it land off the parent attack's already-validated
+    // targeting.
+    const losBlockedProc: ActiveAbilityDefinition = {
+      id: abilityId('los_proc'),
+      name: 'LoS Proc',
+      kind: 'active',
+      bucket: bucketId('first_action'),
+      baseCost: 1,
+      availability: 'hidden',
+      targeting: {
+        kind: 'single_unit',
+        range: { horizontal: 99, vertical: 99 }, // range OK; LoS is the issue
+        rangeMode: 'straight_line',
+      },
+      actionSpeed: 0,
+      mpCost: 0,
+      effects: { damage: { tags: ['magical'], power_coefficient: 1 } },
+    };
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [losBlockedProc],
+      commandSets: [],
+      classes: [makeKnight()],
+      items: [],
+      rulesets: defaultTestRulesets,
+    });
+    const actor = makeUnit({ id: 'archer', spd: 10, position: { x: 0, y: 0, layer: 0 } });
+    const target = makeUnit({
+      id: 'target',
+      spd: 10,
+      team: 'team_b',
+      position: { x: 2, y: 0, layer: 0 },
+    });
+    // Build a tiny map with a LoS-blocking wall tile between actor (elev 0)
+    // and target (elev 1). Bresenham trace from (0, 0) to (2, 0) passes
+    // through (1, 0) at interpolated elevation 0.5; the wall there is
+    // elev 0 with `blocks_los`, occupying the half-open span [0, 1) →
+    // 0.5 is strictly inside, so LoS is blocked per `tileBlocksAt`.
+    const map = {
+      width: 4,
+      height: 4,
+      tiles: [
+        { x: 0, y: 0, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 1, y: 0, layer: 0, elevation: 0, terrain: 'ground', properties: ['blocks_los'] }, // wall
+        { x: 2, y: 0, layer: 0, elevation: 1, terrain: 'ground', properties: [] }, // raised target
+        { x: 3, y: 0, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 0, y: 1, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 1, y: 1, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 2, y: 1, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 3, y: 1, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 0, y: 2, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 1, y: 2, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 2, y: 2, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 3, y: 2, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 0, y: 3, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 1, y: 3, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 2, y: 3, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+        { x: 3, y: 3, layer: 0, elevation: 0, terrain: 'ground', properties: [] },
+      ],
+    };
+    const state = makeGameState({
+      units: [actor, target],
+      map,
+      turnState: {
+        unitId: actor.id,
+        budget: { movesAvailable: 1, actsAvailable: 1 },
+        consumed: { movesConsumed: 0, actsConsumed: 0 },
+        reactionsUsedThisTurn: new Map(),
+      },
+    });
+    // Non-rider: LoS-blocked → rejected.
+    const plainAction: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: actor.id,
+      payload: { abilityId: losBlockedProc.id, target: { kind: 'unit', unitId: target.id } },
+    };
+    const plain = validateAction(state, plainAction, cat);
+    expect(plain.valid).toBe(false);
+    expect(plain.reason).toMatch(/Line of sight/);
+    // Rider: LoS bypass → accepted.
+    const riderAction: ProposedAction = {
+      type: 'use_ability',
+      source: 'system',
+      actorId: actor.id,
+      payload: {
+        abilityId: losBlockedProc.id,
+        target: { kind: 'unit', unitId: target.id },
+        riderSource: { kind: 'equipment_proc', itemId: itemId('test_weapon') },
+      },
+    };
+    const rider = validateAction(state, riderAction, cat);
+    expect(rider.valid).toBe(true);
+  });
+});
+
 // Avoid an unused-import lint for teamId (it's available for future tests
 // that need to build multi-team states explicitly).
 void teamId;

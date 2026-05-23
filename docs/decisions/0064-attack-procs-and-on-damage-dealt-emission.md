@@ -87,6 +87,27 @@ The runner accumulates emissions onto the ctx; the rest of the pipeline preserve
 
 **Carry the action seed via a new hook argument rather than `ctx.actionSeed`.** Rejected — would mean widening `onDamageDealt`'s args signature (cascading to every handler), versus a single optional field on the context the handler is already reading. The context is the natural carrier for "data about this pipeline run."
 
+## Session 47 extension — rider bypass for range / LoS / arc gates
+
+S47 surfaced a latent bug in playtest on Stonebridge. A Hunter on the rampart (elev 8) shot an Assassin on flat ground (elev 2) at horizontal distance 5 with a Riptide Bow. The bow attack validated and committed; the Riptide proc (`undertow`, declared `range: { horizontal: 1, vertical: 1 }`) rolled successfully and was emitted as a `use_ability` chain action against the same target — but `validateAction`'s `inRange` check rejected it because the target was outside *undertow's own* declared range. `commitAction` then threw, crashing the battle.
+
+The proc's range field is vestigial schema noise. The parent attack already determined the target and validated reach; the rider is an additional effect on that target, not a fresh targeted action with its own geometry. `undertow.ts`'s own header captures the design intent verbatim: *"Range is irrelevant — the proc emits against the hit target directly."* The intent was always for riders to bypass range — the bypass simply wasn't implemented past MP / Act.
+
+**Extension:** `isRider === true` now also skips the `inRange` and `rangeMode`-specific (`straight_line` LoS, `arc` cover) gates in `validateAction`, for both `single_unit` and `tile` targeting branches. Target-existence checks, target-kind checks, and the `selfMove` terrain/occupant check still run — the bypass is scoped to geometric reach, not all validation.
+
+Parallel consequences:
+
+- **Reactions** (Counter, Discharge, Earth Resilience, …) continue to fizzle silently on validation failure per ADR-0011's chain-fizzle rule. The Assassin's Counter from the same Stonebridge scenario — Counter range 1, Hunter 5 tiles away — still doesn't fire, which is the correct behavior (you genuinely can't counter a target you can't reach).
+- **Knockback** collisions remain handled by `applyKnockback` per ADR-0026 — cancel-at-last-legal-tile with fall damage on drops. Independent of validation; this ADR's extension doesn't interact.
+
+**Why not also bypass the target-existence and target-kind checks for riders:** because those are programmer-error guards (the emission should always carry a valid target the engine recognizes), not gameplay constraints the bow already validated. A rider emitted against a non-existent unit is a bug in the proc's emission logic, not a graceful-failure case.
+
+**Tests** in `src/engine/actions/session-30-integration.test.ts`:
+
+- Rider use_ability against a far target with a tight-range proc → validates (proc lands).
+- Non-rider use_ability with the same setup → rejected (regression check; the bypass is rider-scoped).
+- Rider use_ability with `rangeMode: 'straight_line'` and a `blocks_los`-tagged wall between caster and target → validates (the LoS bypass also covers the scenario where a fortress wall would otherwise block a proc against a target the parent attack already hit).
+
 ## References
 
 - `src/engine/hooks/hooks.ts` — `OnDamageDealtResult` interface; `onDamageDealt` return widening.

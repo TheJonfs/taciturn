@@ -6,9 +6,9 @@ This is a transient note from one session to the next.
 
 ---
 
-## From Session 47 close (2026-05-23) — Stonebridge (second map) + rampart tile type + magic vertical-axis substrate + four stretch cleanups
+## From Session 47 close (2026-05-23) — Stonebridge (second map) + rampart tile type + magic vertical-axis substrate + four stretch cleanups + post-commit playtest fix
 
-S47 was a content-and-substrate session. Three primary pieces landed cleanly per the audit's "light to medium-light" framing: a new 16×16 map (Stonebridge), a new terrain type (`rampart`), and a vertical-axis targeting substrate (uniform magic vertical-infinite + AoE tolerance default bump + a new `modifyAoeVerticalTolerance` hook). The session also folded in Chris's authored rampart art when it arrived mid-session, and all four stretch candidates from the brief landed in the remaining budget. One ADR (0085). **1375 tests pass** (1352 → 1382 from primary work; net to 1375 after stretch cleanups removed 7 dead tests), `tsc -b` clean, `npm run build` succeeds.
+S47 was a content-and-substrate session. Three primary pieces landed cleanly per the audit's "light to medium-light" framing: a new 16×16 map (Stonebridge), a new terrain type (`rampart`), and a vertical-axis targeting substrate (uniform magic vertical-infinite + AoE tolerance default bump + a new `modifyAoeVerticalTolerance` hook). The session also folded in Chris's authored rampart art when it arrived mid-session, all four stretch candidates from the brief landed in the remaining budget, and a post-commit playtest surfaced a latent rider-validation bug that was fixed in a follow-up. Two ADR contributions: new ADR-0085 (vertical-axis targeting) and a substantial extension to ADR-0064 (rider range/LoS bypass). **1378 tests pass** (1352 → 1382 from primary work; net to 1375 after stretch cleanups removed 7 dead tests; +3 to 1378 for the rider bypass), `tsc -b` clean, `npm run build` succeeds.
 
 ### What shipped — primary work
 
@@ -46,13 +46,20 @@ S47 was a content-and-substrate session. Three primary pieces landed cleanly per
 
 - **`content-id-registry.md` Maps + Terrain rows added.** Two new sections: **Maps** (River Ridge + Stonebridge + their battle configs) and **Terrain types** (the 4 registered types: ground, water_shallow, water_deep, rampart). The pre-S45 staleness in the rest of the registry is a separate sweep — not addressed.
 
+### What shipped — post-commit playtest fix
+
+- **Rider bypass extended to range / LoS / arc gates (ADR-0064 extension).** Chris's first Stonebridge playtest crashed when his Hunter (Riptide Bow, on the elev-8 rampart) shot an Assassin on flat ground at horizontal-5. The bow attack landed; the Riptide proc (`undertow`, declared range 1/1) emitted against the target; `validateAction`'s range check rejected it; `commitAction` threw at the chain-fail throw site. The proc's range field is vestigial — the parent attack already validated reach. `undertow.ts:18` literally says *"Range is irrelevant — the proc emits against the hit target directly."* The fix wraps the `inRange` + `rangeMode`-specific LoS/arc gates in `validate.ts` in `if (!isRider)`, mirroring the existing MP-cost and Act-budget bypasses. Target-existence, target-kind, and `selfMove` terrain/occupant checks still run. Reactions continue to fizzle silently on validation failure (the Assassin's Counter from the same scenario — range 1, Hunter 5 away — still doesn't fire, which is correct).
+- **3 new tests** in `session-30-integration.test.ts`: rider with tight-range proc against a far target validates (proc lands); non-rider with same setup is rejected (regression); rider with `straight_line` rangeMode through a `blocks_los` wall validates (LoS bypass exercised).
+- **ADR-0064 extended** with a "Session 47 extension — rider bypass for range / LoS / arc gates" section capturing the rationale + scope.
+
 ### Test coverage delta
 
-`1352 → 1375` net:
+`1352 → 1378` net:
 - Stonebridge map: +19 (structure, terrain, rampart positions, bridge, deployment zones, validator)
 - `modifyAoeVerticalTolerance` hook: +5 (3 in `aoe-substrate.test.ts`, 2 in `session-19-integration.test.ts`)
 - Other primary additions: +6 (mostly side effects of test fixture updates)
 - Stretch cleanup: -7 (removed `assignAiTeamNames` test file entirely)
+- Post-commit playtest fix: +3 (rider bypass tests)
 
 ### Known follow-ups
 
