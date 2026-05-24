@@ -13,6 +13,7 @@
 
 import {
   useRef,
+  useState,
   type CSSProperties,
   type ReactElement,
 } from 'react';
@@ -24,6 +25,7 @@ import {
   BRAVE_FAITH_MIN,
 } from '@content/teams/index.ts';
 import { UNIT_NAME_MAX_LENGTH } from '@ui/team-builder-state.ts';
+import { TeamExportModal } from '@ui/team-export-modal.tsx';
 import type { BattleConfig, Catalog, TeamControl } from '@engine/index.ts';
 import {
   TeamBuilderAbilityPicker,
@@ -99,10 +101,21 @@ export function TeamBuilderScreen({
   });
   const { validity } = builder;
 
+  // S48 export modal — open via the "Export" header button. The modal
+  // captures the current team's JSON form at open time; mutations in
+  // the builder after opening don't update the modal until the player
+  // closes and re-opens.
+  const [exportOpen, setExportOpen] = useState(false);
+
   const handleContinue = (): void => {
     if (!validity.valid) return;
     onContinue(builder.toBuiltTeam());
   };
+
+  // Gate the Export button on team validity — matches the "Continue"
+  // button's gate so the player only ever exports a structurally-sound
+  // team. (An invalid mid-build team is rarely useful to paste anywhere.)
+  const canExport = validity.valid;
 
   return (
     <div style={rootStyle}>
@@ -113,6 +126,22 @@ export function TeamBuilderScreen({
         </div>
         <div style={headerActionsStyle}>
           <TeamBuilderDefaultLoader builder={builder} />
+          <button
+            type="button"
+            style={{
+              ...secondaryButtonStyle,
+              ...(canExport ? {} : disabledButtonStyle),
+            }}
+            onClick={() => canExport && setExportOpen(true)}
+            disabled={!canExport}
+            title={
+              canExport
+                ? 'Export current team as JSON'
+                : 'Team must be valid to export'
+            }
+          >
+            Export
+          </button>
           <button type="button" style={secondaryButtonStyle} onClick={onBack}>
             {backLabel}
           </button>
@@ -130,6 +159,13 @@ export function TeamBuilderScreen({
         catalog={catalog}
         continueLabel={continueLabel}
       />
+
+      {exportOpen && (
+        <TeamExportModal
+          team={builder.toBuiltTeam()}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
     </div>
   );
 }
