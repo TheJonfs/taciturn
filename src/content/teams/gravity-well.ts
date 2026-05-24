@@ -48,7 +48,8 @@ export const gravityWell: BuiltTeam = {
     {
       name: 'Chris',
       classId: classId('knight'),
-      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH, 25),
+      level: 25,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('battle_skill')],
@@ -84,7 +85,8 @@ export const gravityWell: BuiltTeam = {
     {
       name: 'Lumen',
       classId: classId('fire_mage'),
-      baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH, 24),
+      level: 24,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('fire_spells')],
@@ -122,7 +124,8 @@ export const gravityWell: BuiltTeam = {
     {
       name: 'Clio',
       classId: classId('water_mage'),
-      baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH, 26),
+      level: 26,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('water_spells')],
@@ -157,7 +160,8 @@ export const gravityWell: BuiltTeam = {
     {
       name: 'Sera',
       classId: classId('assassin'),
-      baseStats: buildBaseStats(classId('assassin'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('assassin'), BRAVE, FAITH, 23),
+      level: 23,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('shadow_arts')],

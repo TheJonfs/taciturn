@@ -32,6 +32,15 @@ export interface Unit {
   readonly loadout: Loadout;
   readonly equipment: UnitEquipment;
 
+  // Slot-based level assignment (Session 49). L25 is the baseline; each
+  // step away modifies HP and MP by ±10% and, at ±2 or beyond, the
+  // class's dominant stat (per `ClassDefinition.dominantStat`) by ±1.
+  // Applied at `buildBaseStats` time (so `baseStats` is already level-
+  // adjusted by the time the unit lands here); also stored on the unit
+  // so Math Skill's `parameter: 'level'` predicate can read it. Locked
+  // at battle start; no in-battle mutation.
+  readonly level: number;
+
   position: Position;
   facing: Direction;
 

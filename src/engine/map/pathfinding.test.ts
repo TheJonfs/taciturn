@@ -34,6 +34,7 @@ function knightCatalog(args?: {
     equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
+    dominantStat: 'pa',
   };
   const rulesets =
     args?.friendlyPassThrough === undefined

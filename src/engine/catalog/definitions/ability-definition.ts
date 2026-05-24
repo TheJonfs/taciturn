@@ -101,6 +101,25 @@ export type TargetingSpec =
       readonly kind: 'unit_or_tile';
       readonly range: AbilityRange;
       readonly rangeMode: RangeMode;
+    }
+  | {
+      // Session 49: Math Skill targeting — the Calculator's signature
+      // mechanic. At cast time the controller picks a `parameter` (CT,
+      // Height, Level, or Current HP) and a `value` (Prime, 3, 4, or 5);
+      // the engine enumerates every unit on the field whose parameter
+      // matches the value's predicate (divisible by 3/4/5 or prime) and
+      // dispatches the ability's effect to each.
+      //
+      // Friendly fire applies: matching allies receive the effect just
+      // like matching enemies; the controller sees a friend/foe-colored
+      // preview before committing. Self-targeting applies: a Calculator
+      // whose own parameter matches takes the effect too. KO'd units are
+      // filtered out (ADR-0086); `removed` units always are.
+      //
+      // No `range` or `rangeMode` field — Math Skill is battlefield-wide.
+      // No `mathSkillCost` lives on the spec; per-target MP scaling is
+      // declared on the active ability via `mathSkillMpCost`.
+      readonly kind: 'math_skill';
     };
 
 // Per-ability factor selection for the status application formula.
@@ -299,6 +318,12 @@ export interface CtEffectSpec {
   // otherwise push a trivial amount). Read through `modifyStatQuery` so
   // equipment / status modifiers compose.
   readonly stat?: 'pa' | 'ma';
+  // Session 49: when true, the resolved magnitude is multiplied by
+  // computeFaithFactor(caster, target) before flooring — matches the
+  // Math Skill blueprint's `SP × MA × Faith Factor` formula for
+  // Exact Rhythm. Default (omitted / false) preserves existing CT
+  // effects' Faith-gates-via-chance-only behavior (Tide Surge etc.).
+  readonly faithScalesMagnitude?: boolean;
 }
 
 // Area-of-effect spec — when set, `resolveAbilityTargets` expands the
@@ -425,6 +450,16 @@ export interface ActiveAbilityDefinition extends AbilityCommon {
   // that matches on `action.payload.source.kind === 'ability_self_cost'`
   // and returns `blocked`.
   readonly selfDamage?: { readonly fraction: number };
+  // Session 49: per-target MP cost rider for Math Skill abilities. When
+  // set, the total MP cost at cast time becomes
+  //   `mpCost + perTarget × matchingTargetCount`
+  // where `perTarget` is the value threaded through the
+  // `modifyMathSkillPerTargetMpCost` hook (default 3; Mathematician
+  // returns 1). Math Skill abilities omitting this field would charge
+  // only the static `mpCost` — but every v1 Math ability declares it.
+  // Non-Math abilities ignore it; the per-target term only fires from
+  // `resolveMathSkillDispatch`.
+  readonly mathSkillMpCost?: { readonly perTarget: number };
 }
 
 // Session 39b: passive abilities can grant starting stockpile entries

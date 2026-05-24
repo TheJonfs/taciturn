@@ -31,7 +31,16 @@
 // side effects on top (legal-target memos, highlight repaints, tile-
 // click wiring, uiController submissions).
 
-import type { AbilityId, CommandSetId, Direction, Position, ProposedAction, UnitId } from '@engine/index.ts';
+import type {
+  AbilityId,
+  CommandSetId,
+  Direction,
+  MathSkillParameter,
+  MathSkillValue,
+  Position,
+  ProposedAction,
+  UnitId,
+} from '@engine/index.ts';
 
 // One entry in the Act picker — either a class-granted free ability
 // (Attack today; future classless utility actions) or a command set.
@@ -135,6 +144,20 @@ export type TurnFlowState =
       readonly abilityId: AbilityId;
       readonly targetUnitId: UnitId;
     }
+  // Session 49: Math Skill picker. Entered when the player picks a Math
+  // Skill ability — instead of target-select (tile / unit click), the
+  // UI surfaces parameter (CT / Height / Level / HP) and value (Prime /
+  // 3 / 4 / 5) pickers plus a Cast affordance gated on both picks. The
+  // renderer paints the matched-unit highlights as the player toggles
+  // selections so they preview the cast before committing.
+  | {
+      readonly kind: 'math-skill-target-select';
+      readonly commandSetId: CommandSetId | null;
+      readonly commandSetCount: number;
+      readonly abilityId: AbilityId;
+      readonly parameter: MathSkillParameter | null;
+      readonly value: MathSkillValue | null;
+    }
   | { readonly kind: 'animation' };
 
 export type TurnFlowEvent =
@@ -154,11 +177,11 @@ export type TurnFlowEvent =
   //   - 'throw_item' → target-select (Throw Item; the item picker
   //                     follows the target pick via `pickThrowTarget`)
   //   - undefined    → target-select (standard ability flow)
-  | { readonly kind: 'pickFreeAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' }
+  | { readonly kind: 'pickFreeAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' | 'math_skill' }
   | { readonly kind: 'pickWait' }
   // Sub-picks.
   | { readonly kind: 'pickCommandSet'; readonly commandSetId: CommandSetId }
-  | { readonly kind: 'pickAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' }
+  | { readonly kind: 'pickAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' | 'math_skill' }
   // Session 39b: Throw Item target selection. Distinct from
   // `commitTarget` because the action isn't built yet (item is
   // picked next).
@@ -197,7 +220,15 @@ export type TurnFlowEvent =
   // unit_or_tile mode toggle — flips tileMode while in target-select.
   // Ignored for non-unit_or_tile abilities (the reducer is unaware of
   // ability kinds; the UI gates the event emission).
-  | { readonly kind: 'toggleTileMode' };
+  | { readonly kind: 'toggleTileMode' }
+  // Session 49: Math Skill parameter + value picks. `pickMathSkillParameter`
+  // sets parameter and clears value (re-picking parameter invalidates
+  // the prior value). `pickMathSkillValue` is ignored when no parameter
+  // is yet selected. Final commit rides the existing `commitTarget` event
+  // with a `{ kind: 'math_skill', parameter, value }` AbilityTarget
+  // payload — the picker UI builds the proposal once both are non-null.
+  | { readonly kind: 'pickMathSkillParameter'; readonly parameter: MathSkillParameter }
+  | { readonly kind: 'pickMathSkillValue'; readonly value: MathSkillValue };
 
 export const INITIAL_TURN_FLOW: TurnFlowState = { kind: 'idle' };
 
@@ -341,6 +372,18 @@ export function transition(
             commandSetCount: state.commandSetCount,
           };
         }
+        // Session 49: Math Skill abilities go to their dedicated
+        // parameter + value picker rather than target-select.
+        if (event.route === 'math_skill') {
+          return {
+            kind: 'math-skill-target-select',
+            commandSetId: state.commandSetId,
+            commandSetCount: state.commandSetCount,
+            abilityId: event.abilityId,
+            parameter: null,
+            value: null,
+          };
+        }
         return {
           kind: 'target-select',
           commandSetId: state.commandSetId,
@@ -441,6 +484,43 @@ export function transition(
         };
       }
       if (event.kind === 'pickItem') {
+        return { kind: 'animation' };
+      }
+      return state;
+
+    case 'math-skill-target-select':
+      // Session 49. Cancel routes the same way target-select does — to
+      // ability-list (with the source command set) or to the
+      // command-set-select / action-menu fallback.
+      if (event.kind === 'cancel') {
+        if (state.commandSetId === null) {
+          return state.commandSetCount > 1
+            ? { kind: 'command-set-select' }
+            : { kind: 'action-menu' };
+        }
+        return {
+          kind: 'ability-list',
+          commandSetId: state.commandSetId,
+          commandSetCount: state.commandSetCount,
+        };
+      }
+      if (event.kind === 'pickMathSkillParameter') {
+        // Re-picking the parameter invalidates the prior value
+        // selection. The picker UI should immediately surface the
+        // value buttons; until the player picks a value, Cast is
+        // disabled and the matched-unit preview shows nothing.
+        return { ...state, parameter: event.parameter, value: null };
+      }
+      if (event.kind === 'pickMathSkillValue') {
+        if (state.parameter === null) return state;
+        return { ...state, value: event.value };
+      }
+      if (event.kind === 'commitTarget') {
+        // Math Skill bypasses the await-confirm gate even when
+        // confirmStep is on — the picker UI is itself the confirmation
+        // surface (the player chose parameter + value explicitly with
+        // the matched-unit preview in front of them). Same convention
+        // as the item pickers (Compound / Throw Item) per S39b.
         return { kind: 'animation' };
       }
       return state;

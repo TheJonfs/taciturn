@@ -711,6 +711,46 @@ export interface HookSignatures {
     args: { unit: Unit };
     return: TurnSkipResult;
   };
+
+  // Session 49 / ADR-0086: Math Skill per-target MP cost modifier.
+  // Math Skill abilities declare a base per-target cost via
+  // `mathSkillMpCost.perTarget` (default 3 for v1 abilities). This hook
+  // composes contributors (Mathematician's Support passive returns 1)
+  // against the caster's hook chain at cast time. Total MP cost =
+  // `ability.mpCost + perTargetResolved × matchingTargetCount`. The
+  // hook fires only from `resolveMathSkillDispatch` — non-Math casts
+  // don't read it.
+  //
+  // Composition: standard chain ordering; later handlers (priority +
+  // tier) see the running value. Result is floored at 0 by
+  // `computeMathSkillPerTargetCost` so a Mathematician-equipped
+  // Calculator can drop the per-target cost to 1 (or 0, if a future
+  // passive zeros it) without negative MP gain on huge clusters.
+  modifyMathSkillPerTargetMpCost: {
+    args: {
+      unit: Unit;
+      ability: ActiveAbilityDefinition;
+      baseValue: number;
+    };
+    return: number;
+  };
+
+  // Session 49 / ADR-0086: Math Skill SP (power_coefficient) bonus.
+  // Mathematician's "+1 SP on Math Skill" effect rides through this hook.
+  // Composes additively against the caster's hook chain at cast time.
+  // The dispatcher reads the bonus and adds it to the ability's
+  // `effects.damage.power_coefficient` before invoking the per-target
+  // body. Abilities without `effects.damage` (Sculpted Enhancement,
+  // Engineered Defenses) ignore the bonus since they don't scale with
+  // SP — the brief calls this out explicitly.
+  modifyMathSkillSpBonus: {
+    args: {
+      unit: Unit;
+      ability: ActiveAbilityDefinition;
+      baseValue: number;
+    };
+    return: number;
+  };
 }
 
 export type HookName = keyof HookSignatures;

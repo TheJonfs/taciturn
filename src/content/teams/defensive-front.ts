@@ -37,7 +37,8 @@ export const defensiveFront: BuiltTeam = {
     {
       name: 'Halric',
       classId: classId('knight'),
-      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH, 25),
+      level: 25,
       loadout: KNIGHT_LOADOUT,
       equipment: {
         leftHand: itemId('warriors_aegis'),
@@ -50,7 +51,8 @@ export const defensiveFront: BuiltTeam = {
     {
       name: 'Beorn',
       classId: classId('alchemist'),
-      baseStats: buildBaseStats(classId('alchemist'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('alchemist'), BRAVE, FAITH, 24),
+      level: 24,
       loadout: ALCHEMIST_LOADOUT,
       equipment: {
         leftHand: null,
@@ -70,7 +72,8 @@ export const defensiveFront: BuiltTeam = {
     {
       name: 'Ysolde',
       classId: classId('water_mage'),
-      baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH, 26),
+      level: 26,
       loadout: WATER_MAGE_LOADOUT,
       equipment: {
         leftHand: null,
@@ -83,7 +86,8 @@ export const defensiveFront: BuiltTeam = {
     {
       name: 'Auralia',
       classId: classId('fire_mage'),
-      baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH, 23),
+      level: 23,
       loadout: FIRE_MAGE_LOADOUT,
       equipment: {
         leftHand: null,

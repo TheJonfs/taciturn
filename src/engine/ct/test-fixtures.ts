@@ -64,6 +64,7 @@ export function makeUnit(overrides: {
     classState: { currentClass: mkClassId(overrides.classId ?? 'knight') },
     loadout: overrides.loadout ?? EMPTY_LOADOUT,
     equipment: overrides.equipment ?? EMPTY_UNIT_EQUIPMENT,
+    level: 25,
     position: overrides.position ?? { x: 0, y: 0, layer: 0 },
     facing: overrides.facing ?? 'N',
     ct: overrides.ct ?? 0,

@@ -12,6 +12,7 @@
 
 import alchemistUrl from './alchemist.png';
 import assassinUrl from './assassin.png';
+import calculatorUrl from './calculator.png';
 import earthMageUrl from './earth-mage.png';
 import fireMageUrl from './fire-mage.png';
 import hunterUrl from './hunter.png';
@@ -23,6 +24,7 @@ import { classId, type ClassId } from '@engine/index.ts';
 export const PORTRAIT_URLS: ReadonlyMap<ClassId, string> = new Map([
   [classId('alchemist'), alchemistUrl],
   [classId('assassin'), assassinUrl],
+  [classId('calculator'), calculatorUrl],
   [classId('earth_mage'), earthMageUrl],
   [classId('fire_mage'), fireMageUrl],
   [classId('hunter'), hunterUrl],

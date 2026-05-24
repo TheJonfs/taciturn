@@ -4,7 +4,9 @@ import { braveDown } from './brave-down.ts';
 import { burn } from './burn.ts';
 import { charging } from './charging.ts';
 import { combatFocus } from './combat-focus.ts';
+import { corneredFocus } from './cornered-focus.ts';
 import { critModifier } from './crit-modifier.ts';
+import { engineeredDefenses } from './engineered-defenses.ts';
 import { dontAct } from './dont-act.ts';
 import { dontMove } from './dont-move.ts';
 import { faithDown } from './faith-down.ts';
@@ -36,7 +38,9 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   burn,
   charging,
   combatFocus,
+  corneredFocus,
   critModifier,
+  engineeredDefenses,
   dontAct,
   dontMove,
   faithDown,

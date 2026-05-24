@@ -21,7 +21,7 @@
 // directly; the hook owns all validation.
 
 import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
-import { projectTurnEndCt, statusTypeId, type ActiveAbilityDefinition, type Catalog, type ConsumableDefinition, type Direction, type GameState, type ProposedAction, type Unit, type UnitId } from '@engine/index.ts';
+import { enumerateMathSkillTargets, projectTurnEndCt, statusTypeId, type ActiveAbilityDefinition, type Catalog, type ConsumableDefinition, type Direction, type GameState, type ProposedAction, type Unit, type UnitId } from '@engine/index.ts';
 import { abilityRoute, type TurnFlow } from './use-turn-flow.ts';
 import { DetailHover } from './detail-hover.tsx';
 import { formatAbilityDetail } from './detail-text.ts';
@@ -146,6 +146,16 @@ export function ActionMenu({ turnFlow, catalog, engineState, onOpenUnitDetail }:
           turnFlow={turnFlow}
           catalog={catalog}
           targetUnitId={state.targetUnitId}
+        />
+      );
+
+    case 'math-skill-target-select':
+      return (
+        <MathSkillPicker
+          turnFlow={turnFlow}
+          catalog={catalog}
+          state={state}
+          engineState={engineState}
         />
       );
 
@@ -357,7 +367,7 @@ function CommandSetPicker({ turnFlow, catalog }: { readonly turnFlow: TurnFlow; 
               label={label}
               disabled={false}
               onClick={() => {
-                const route = abilityRoute(entry.abilityId);
+                const route = abilityRoute(entry.abilityId, catalog);
                 turnFlow.dispatch({
                   kind: 'pickFreeAbility',
                   abilityId: entry.abilityId,
@@ -405,7 +415,7 @@ function AbilityListPicker(props: {
           disabled={entry.disabled}
           reason={entry.disableReason}
           onClick={() => {
-            const route = abilityRoute(entry.ability.id);
+            const route = abilityRoute(entry.ability.id, catalog);
             turnFlow.dispatch({
               kind: 'pickAbility',
               abilityId: entry.ability.id,
@@ -464,6 +474,119 @@ function AbilityButton(props: {
         )}
       </button>
     </DetailHover>
+  );
+}
+
+// Math Skill picker (Session 49). Renders the two-step picker:
+// parameter row (CT / Height / Level / HP) then value row (Prime / 3 /
+// 4 / 5), with a Cast button gated on both picks being non-null. A
+// "Hits: N" chip shows the matched-unit count as the player toggles
+// pairs — paired with the renderer's matched-unit highlights (painted
+// in `use-turn-flow`'s highlights effect).
+function MathSkillPicker({
+  turnFlow,
+  catalog,
+  state,
+  engineState,
+}: {
+  readonly turnFlow: TurnFlow;
+  readonly catalog: Catalog;
+  readonly state: Extract<TurnFlow['state'], { kind: 'math-skill-target-select' }>;
+  readonly engineState: GameState | null;
+}): ReactElement {
+  const ability = catalog.getAbility(state.abilityId);
+  const label = ability.kind === 'active' ? ability.name : String(state.abilityId);
+
+  const parameters: ReadonlyArray<{ id: 'ct' | 'height' | 'level' | 'current_hp'; label: string }> = [
+    { id: 'ct', label: 'CT' },
+    { id: 'height', label: 'Height' },
+    { id: 'level', label: 'Level' },
+    { id: 'current_hp', label: 'HP' },
+  ];
+  const values: ReadonlyArray<{ id: 'prime' | 3 | 4 | 5; label: string }> = [
+    { id: 'prime', label: 'Prime' },
+    { id: 3, label: '×3' },
+    { id: 4, label: '×4' },
+    { id: 5, label: '×5' },
+  ];
+
+  // Hit counter — recompute the matched set on every render when both
+  // picks are non-null. Lightweight (single linear pass over units);
+  // memoization is unnecessary for the panel's refresh cadence.
+  let hits = 0;
+  let alliesHit = 0;
+  let enemiesHit = 0;
+  if (state.parameter !== null && state.value !== null && engineState !== null && turnFlow.activeUnit !== null) {
+    const matched = enumerateMathSkillTargets(engineState, state.parameter, state.value);
+    hits = matched.length;
+    const myTeam = turnFlow.activeUnit.team;
+    for (const u of matched) {
+      if (u.team === myTeam) alliesHit++;
+      else enemiesHit++;
+    }
+  }
+
+  const canCast = state.parameter !== null && state.value !== null;
+
+  return (
+    <Panel header={`Math Skill — ${label}`}>
+      <StatusLine>Pick a parameter, then a value</StatusLine>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {parameters.map((p) => (
+          <Button
+            key={p.id}
+            label={p.label}
+            disabled={false}
+            onClick={() => turnFlow.pickMathSkillParameter(p.id)}
+            variant={state.parameter === p.id ? 'primary' : 'secondary'}
+          />
+        ))}
+      </div>
+      {state.parameter !== null && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+          {values.map((v) => (
+            <Button
+              key={String(v.id)}
+              label={v.label}
+              disabled={false}
+              onClick={() => turnFlow.pickMathSkillValue(v.id)}
+              variant={state.value === v.id ? 'primary' : 'secondary'}
+            />
+          ))}
+        </div>
+      )}
+      {canCast && (
+        <StatusLine>
+          Hits: {hits} ({alliesHit} ally{alliesHit === 1 ? '' : 'ies'}, {enemiesHit} enem
+          {enemiesHit === 1 ? 'y' : 'ies'})
+        </StatusLine>
+      )}
+      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+        <Button
+          label="Cast"
+          disabled={!canCast}
+          onClick={() => {
+            if (!canCast || turnFlow.activeUnit === null) return;
+            const action: ProposedAction = {
+              type: 'use_ability',
+              source: 'player',
+              actorId: turnFlow.activeUnit.id,
+              payload: {
+                abilityId: state.abilityId,
+                target: {
+                  kind: 'math_skill',
+                  parameter: state.parameter!,
+                  value: state.value!,
+                },
+              },
+            };
+            turnFlow.submitTargetedAction(action);
+          }}
+          variant="primary"
+        />
+        <Button label="Cancel" disabled={false} onClick={turnFlow.cancel} variant="secondary" />
+      </div>
+    </Panel>
   );
 }
 

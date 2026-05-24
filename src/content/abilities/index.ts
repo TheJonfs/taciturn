@@ -19,9 +19,12 @@ import { chainLightning } from './chain-lightning.ts';
 import { combatFocusReaction } from './combat-focus.ts';
 import { compound } from './compound.ts';
 import { conductor } from './conductor.ts';
+import { corneredFocusReaction } from './cornered-focus.ts';
 import { counter } from './counter.ts';
 import { cure } from './cure.ts';
 import { damageReduction } from './damage-reduction.ts';
+import { engineeredDefenses as engineeredDefensesAbility } from './engineered-defenses.ts';
+import { exactRhythm } from './exact-rhythm.ts';
 import { discharge } from './discharge.ts';
 import { dischargeStrike } from './discharge-strike.ts';
 import { earthBlessing } from './earth-blessing.ts';
@@ -48,9 +51,12 @@ import { lightningStrike } from './lightning-strike.ts';
 import { magneticMark } from './magnetic-mark.ts';
 import { maelstrom } from './maelstrom.ts';
 import { martialExpertise } from './martial-expertise.ts';
+import { mathematician } from './mathematician.ts';
 import { movePlus1 } from './move-plus-1.ts';
 import { powerAttack } from './power-attack.ts';
+import { precisionFire } from './precision-fire.ts';
 import { quickstep } from './quickstep.ts';
+import { sculptedEnhancement } from './sculpted-enhancement.ts';
 import { shadowStitch } from './shadow-stitch.ts';
 import { smolder } from './smolder.ts';
 import { sowDoubt } from './sow-doubt.ts';
@@ -59,7 +65,9 @@ import { speedSaveReaction } from './speed-save.ts';
 import { stasisSword } from './stasis-sword.ts';
 import { staticEmbrace } from './static-embrace.ts';
 import { stormCaller } from './storm-caller.ts';
+import { targetedTreatment } from './targeted-treatment.ts';
 import { taunt } from './taunt.ts';
+import { thoughtfulPacing } from './thoughtful-pacing.ts';
 import { throwItem } from './throw-item.ts';
 import { tidalPull } from './tidal-pull.ts';
 import { tidalWave } from './tidal-wave.ts';
@@ -86,9 +94,12 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   combatFocusReaction,
   compound,
   conductor,
+  corneredFocusReaction,
   counter,
   cure,
   damageReduction,
+  engineeredDefensesAbility,
+  exactRhythm,
   discharge,
   dischargeStrike,
   earthBlessing,
@@ -115,9 +126,12 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   magneticMark,
   maelstrom,
   martialExpertise,
+  mathematician,
   movePlus1,
   powerAttack,
+  precisionFire,
   quickstep,
+  sculptedEnhancement,
   shadowStitch,
   smolder,
   sowDoubt,
@@ -126,7 +140,9 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   stasisSword,
   staticEmbrace,
   stormCaller,
+  targetedTreatment,
   taunt,
+  thoughtfulPacing,
   throwItem,
   chargedAttack,
   eagleEye,

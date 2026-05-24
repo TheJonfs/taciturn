@@ -115,10 +115,18 @@ describe('loadDefaultCatalog', () => {
     // (no class home; was the original `modifyEvasion` consumer but
     // never lived on a class's free kit):
     //   - abilities: 73 → 72
-    expect(cat.statusTypes()).toHaveLength(30);
-    expect(cat.abilities()).toHaveLength(72);
-    expect(cat.commandSets()).toHaveLength(10);
-    expect(cat.classes()).toHaveLength(8);
+    //
+    // Session 49 Calculator + Math Skill:
+    //   - statuses: 30 → 32 (cornered_focus, engineered_defenses)
+    //   - abilities: 72 → 80 (precision_fire, targeted_treatment,
+    //     exact_rhythm, sculpted_enhancement, engineered_defenses ability,
+    //     cornered_focus reaction, mathematician, thoughtful_pacing)
+    //   - commandSets: 10 → 11 (math_skill)
+    //   - classes: 8 → 9 (calculator)
+    expect(cat.statusTypes()).toHaveLength(32);
+    expect(cat.abilities()).toHaveLength(80);
+    expect(cat.commandSets()).toHaveLength(11);
+    expect(cat.classes()).toHaveLength(9);
     expect(cat.items()).toHaveLength(55);
     expect(cat.rulesets()).toHaveLength(1);
   });

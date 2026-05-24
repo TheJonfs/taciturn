@@ -1007,3 +1007,62 @@ export function runOnTick(
   }
   return emissions;
 }
+
+
+// Session 49 / ADR-0086: Math Skill per-target MP cost chain. Composes
+// contributors against the caster's hooks; default per-target is the
+// ability's `mathSkillMpCost.perTarget` (3 in v1 content). Mathematician
+// returns 1 unconditionally — the chain doesn't gate on ability identity
+// at the engine level; if multiple contributors ever stack (none in v1),
+// the chain runs them in tier+priority order, each receiving the
+// running value. Result is floored at 0 by `computeMathSkillPerTargetCost`
+// at the call site.
+export function runModifyMathSkillPerTargetMpCost(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    ability: ActiveAbilityDefinition;
+    baseValue: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(
+    state,
+    args.unit.id,
+    catalog,
+    'modifyMathSkillPerTargetMpCost',
+  );
+  let value = args.baseValue;
+  for (const h of handlers) {
+    value = h.invoke({ unit: args.unit, ability: args.ability, baseValue: value });
+  }
+  return value;
+}
+
+// Session 49 / ADR-0086: Math Skill SP bonus chain. Additive over the
+// ability's base `power_coefficient`. Mathematician returns +1; future
+// SP-boosting content for Math Skill registers here. Only consulted by
+// damage / heal / CT-push Math abilities — status-only Math abilities
+// (Sculpted Enhancement, Engineered Defenses) don't have an SP factor
+// so the hook never fires for them.
+export function runModifyMathSkillSpBonus(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    ability: ActiveAbilityDefinition;
+    baseValue: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(
+    state,
+    args.unit.id,
+    catalog,
+    'modifyMathSkillSpBonus',
+  );
+  let value = args.baseValue;
+  for (const h of handlers) {
+    value = h.invoke({ unit: args.unit, ability: args.ability, baseValue: value });
+  }
+  return value;
+}

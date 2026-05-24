@@ -107,6 +107,7 @@ const knight: ClassDefinition = {
   firstActionCommandSet: BATTLE_SKILL,
   freeAbilities: new Set(),
   equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
+  dominantStat: 'pa',
 };
 
 function buildCatalog(): Catalog {

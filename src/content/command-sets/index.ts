@@ -6,6 +6,7 @@ import { earthSpells } from './earth-spells.ts';
 import { fireSpells } from './fire-spells.ts';
 import { lightningSpells } from './lightning-spells.ts';
 import { marksmanship } from './marksmanship.ts';
+import { mathSkill } from './math-skill.ts';
 import { shadowArts } from './shadow-arts.ts';
 import { waterSpells } from './water-spells.ts';
 import { whiteMagic } from './white-magic.ts';
@@ -18,6 +19,7 @@ export const commandSets: ReadonlyArray<CommandSetDefinition> = [
   fireSpells,
   lightningSpells,
   marksmanship,
+  mathSkill,
   shadowArts,
   waterSpells,
   whiteMagic,

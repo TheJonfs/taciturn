@@ -35,6 +35,13 @@ export function computeAbilityRange(
   if (targeting.kind === 'self') {
     return { horizontal: 0, vertical: 0, minHorizontal: undefined };
   }
+  // Session 49: Math Skill is battlefield-wide — every unit is in
+  // range by definition. Reporting `Infinity` keeps any range-check
+  // call site that erroneously dispatches against a Math Skill ability
+  // from blocking a legitimate target.
+  if (targeting.kind === 'math_skill') {
+    return { horizontal: Infinity, vertical: Infinity, minHorizontal: undefined };
+  }
   // Session 45: weapon-sourced range fork. Weapon-tagged physical attacks
   // (the universal Attack and weapon-tagged Battle Skills like Lightning
   // Stab) read the equipped weapon's range when it declares one — a bow

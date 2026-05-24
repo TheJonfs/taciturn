@@ -23,6 +23,7 @@ import {
   computeAbilityRange,
   computeBaseActionSpeed,
   computeMpCost,
+  enumerateMathSkillTargets,
   getLegalMoves,
   positionKey,
   runModifyAoeShape,
@@ -54,11 +55,23 @@ const UNIVERSAL_ATTACK_ID = abilityId('attack');
 const COMPOUND_ABILITY_ID = abilityId('compound');
 const THROW_ITEM_ABILITY_ID = abilityId('throw_item');
 
+// Session 49: Math Skill abilities route via the new
+// `math-skill-target-select` picker. Detected by `targeting.kind`
+// rather than by ability id (the route applies to every Math Skill
+// ability, present and future). The caller passes the catalog +
+// ability id; we look up the ability and inspect its targeting.
 export function abilityRoute(
   abilityIdValue: AbilityId,
-): 'compound' | 'throw_item' | undefined {
+  catalog?: Catalog,
+): 'compound' | 'throw_item' | 'math_skill' | undefined {
   if (abilityIdValue === COMPOUND_ABILITY_ID) return 'compound';
   if (abilityIdValue === THROW_ITEM_ABILITY_ID) return 'throw_item';
+  if (catalog !== undefined && catalog.hasAbility(abilityIdValue)) {
+    const ability = catalog.getAbility(abilityIdValue);
+    if (ability.kind === 'active' && ability.targeting.kind === 'math_skill') {
+      return 'math_skill';
+    }
+  }
   return undefined;
 }
 import type { BattleRenderer } from '@renderer/index.ts';
@@ -133,6 +146,12 @@ export interface TurnFlow {
   // targeting kind, and the reducer ignores `toggleTileMode` outside
   // target-select).
   toggleTileMode(): void;
+  // Session 49: Math Skill picker helpers. `pickMathSkillParameter`
+  // sets parameter and clears value; `pickMathSkillValue` is a no-op
+  // when no parameter is yet selected. The Cast affordance commits via
+  // `submitTargetedAction` once both picks are non-null.
+  pickMathSkillParameter(parameter: import('@engine/index.ts').MathSkillParameter): void;
+  pickMathSkillValue(value: import('@engine/index.ts').MathSkillValue): void;
   // Forecast payload — populated during target-select / await-confirm
   // when a hovered tile produces a meaningful preview. `null` outside
   // of those states or when no hover target is set.
@@ -351,10 +370,28 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       const ability = catalog.getAbility((flowState as { abilityId: AbilityId }).abilityId);
       const kind = isHealingAbility(ability) ? 'heal' : 'attack';
       renderer.setHighlights(legalTargetsState.positions, kind);
+    } else if (flowState.kind === 'math-skill-target-select') {
+      // Session 49: Math Skill preview. When both parameter and value
+      // are picked, paint the matched-unit positions with the heal /
+      // attack tint hinting the ability's polarity (heal abilities use
+      // green; damage / CT-push / buffs use red, since "would-be-hit"
+      // is the universal read of the preview overlay regardless of
+      // benefit direction). Empty highlights when either pick is null.
+      if (flowState.parameter !== null && flowState.value !== null && state !== null) {
+        const matched = enumerateMathSkillTargets(state, flowState.parameter, flowState.value);
+        const ability = catalog.getAbility(flowState.abilityId);
+        const kind = isHealingAbility(ability) ? 'heal' : 'attack';
+        renderer.setHighlights(
+          matched.map((u) => u.position),
+          kind,
+        );
+      } else {
+        renderer.setHighlights([], 'none');
+      }
     } else {
       renderer.setHighlights([], 'none');
     }
-  }, [renderer, flowState, legalMoveDestinations, legalTargetsState, catalog]);
+  }, [renderer, flowState, legalMoveDestinations, legalTargetsState, catalog, state]);
 
   // Overlay channel: AoE preview during target-select, single-tile move
   // hover during move-select, locked-destination highlight during move-
@@ -689,6 +726,8 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     confirmAccept: confirmAcceptInternal,
     cancel: () => dispatch({ kind: 'cancel' }),
     toggleTileMode: () => dispatch({ kind: 'toggleTileMode' }),
+    pickMathSkillParameter: (parameter) => dispatch({ kind: 'pickMathSkillParameter', parameter }),
+    pickMathSkillValue: (value) => dispatch({ kind: 'pickMathSkillValue', value }),
     forecast,
     cursorScreen,
     cursorTile,

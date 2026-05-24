@@ -62,7 +62,8 @@ export const shadowAndSteel: BuiltTeam = {
     {
       name: 'Lysha',
       classId: classId('assassin'),
-      baseStats: buildBaseStats(classId('assassin'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('assassin'), BRAVE, FAITH, 25),
+      level: 25,
       loadout: ASSASSIN_LOADOUT,
       equipment: {
         // Two knives → Two Weapons swings both. Magebane in the off-hand
@@ -78,7 +79,8 @@ export const shadowAndSteel: BuiltTeam = {
     {
       name: 'Aldric',
       classId: classId('knight'),
-      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH, 24),
+      level: 24,
       loadout: MODERN_KNIGHT_LOADOUT,
       equipment: {
         leftHand: itemId('warriors_aegis'),
@@ -91,7 +93,8 @@ export const shadowAndSteel: BuiltTeam = {
     {
       name: 'Corvin',
       classId: classId('alchemist'),
-      baseStats: buildBaseStats(classId('alchemist'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('alchemist'), BRAVE, FAITH, 26),
+      level: 26,
       loadout: ALCHEMIST_LOADOUT,
       equipment: {
         leftHand: null,
@@ -104,7 +107,8 @@ export const shadowAndSteel: BuiltTeam = {
     {
       name: 'Senna',
       classId: classId('earth_mage'),
-      baseStats: buildBaseStats(classId('earth_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('earth_mage'), BRAVE, FAITH, 23),
+      level: 23,
       loadout: EARTH_MAGE_LOADOUT,
       equipment: {
         leftHand: null,

@@ -136,6 +136,7 @@ function quickstepCatalog(passive: PassiveAbilityDefinition) {
     equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set([passive.id]),
+    dominantStat: 'pa',
   };
   const cs: CommandSetDefinition = {
     id: commandSetId('battle_skill'),

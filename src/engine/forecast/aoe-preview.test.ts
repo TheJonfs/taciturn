@@ -24,6 +24,7 @@ function knightClass(): ClassDefinition {
     equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
+    dominantStat: 'pa',
   };
 }
 

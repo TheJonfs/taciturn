@@ -62,6 +62,7 @@ function knightClass(): ClassDefinition {
     equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(),
+    dominantStat: 'pa',
   };
 }
 
@@ -737,6 +738,7 @@ describe('session 17b — Earth Quake AoE', () => {
       equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
       firstActionCommandSet: commandSetId('earth_spells'),
       freeAbilities: new Set(),
+      dominantStat: 'pa',
     };
   }
 
@@ -901,6 +903,7 @@ describe('session 17b — Earth Cataclysm AoE three-status combo', () => {
       equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
       firstActionCommandSet: commandSetId('earth_spells'),
       freeAbilities: new Set(),
+      dominantStat: 'pa',
     };
     const cat = createCatalog({
       statusTypes: [poison, dontAct, dontMove],

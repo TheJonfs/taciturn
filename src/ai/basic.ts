@@ -93,6 +93,7 @@ import {
   statusTypeId,
 } from '@engine/index.ts';
 import { projectExpectedDamage } from './projection.ts';
+import { pickBestMathSkill } from './math-skill-scoring.ts';
 
 // AI's answer for a single decision step. Mirrors the orchestrator's
 // `ControllerDecision` minus the `pending` case — the AI always has an
@@ -219,6 +220,18 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
   if (state.turnState.budget.actsAvailable > 0 && isAlchemistActor(actor, catalog)) {
     const alch = pickAlchemistAction(state, catalog, actor, allies);
     if (alch !== null) return { kind: 'commit', action: alch };
+  }
+
+  // Session 49 — Phase 0b: Math Skill scoring. The Calculator's signature
+  // mechanic; enumerates the 5 × 4 × 4 = 80 (ability × parameter × value)
+  // options and picks the highest-scoring one above MATH_SCORE_THRESHOLD.
+  // Returns null for non-Math-equipped actors and falls through to the
+  // standard phases. Math Skill abilities are instant-cast (no
+  // actionSpeed) so they slot in front of the joint plan without the
+  // multi-turn awareness deferred for charged casts.
+  if (state.turnState.budget.actsAvailable > 0) {
+    const math = pickBestMathSkill(state, catalog, actor);
+    if (math !== null) return { kind: 'commit', action: math.action };
   }
 
   // Phase 0: heal if an ally is wounded and in range.

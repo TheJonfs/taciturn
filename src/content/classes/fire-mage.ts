@@ -69,4 +69,6 @@ export const fireMage: ClassDefinition = {
     ['earth', 50],
     ['water', -50],
   ]),
+  // S49 Level system: mage class — MA-dominant.
+  dominantStat: 'ma',
 };

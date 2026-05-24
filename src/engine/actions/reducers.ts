@@ -19,11 +19,14 @@ import type {
   StatusEffectType,
 } from '../catalog/index.ts';
 import { defaultDamageHandlers } from '../damage/default-handlers.ts';
+import { computeFaithFactor } from '../damage/handlers.ts';
 import { runDamagePipeline } from '../damage/pipeline.ts';
 import {
   runModifyAoeShape,
   runModifyAoeVerticalTolerance,
   runModifyDualWield,
+  runModifyMathSkillPerTargetMpCost,
+  runModifyMathSkillSpBonus,
   runModifyStatQuery,
   runModifySwingsPerWeapon,
   runModifyStatusTickAmount,
@@ -36,6 +39,7 @@ import {
   runOnTurnEnd,
   runQueryTurnSkipped,
 } from '../hooks/runners.ts';
+import { enumerateMathSkillTargets } from '../targeting/index.ts';
 import { tileAt, unitAt } from '../map/accessors.ts';
 import { aoeFootprint, cardinalFromTo } from '../map/aoe.ts';
 import { applyKnockback, type KnockbackDirection } from '../map/knockback.ts';
@@ -285,7 +289,35 @@ export function reduceUseAbility(
   // free. The validator already skipped the affordability check for
   // rider casts.
   const isRider = isRiderCast(action.payload);
-  const mpCost = isRider ? 0 : computeMpCost(state, catalog, actor.id, ability.id);
+  let mpCost = isRider ? 0 : computeMpCost(state, catalog, actor.id, ability.id);
+  // Session 49: Math Skill abilities scale MP cost with the matching
+  // target count. The dispatcher enumerates the same set again; both
+  // reads see the same `state` and produce the same count (the dispatch
+  // hasn't run yet, so no state mutation between cost and dispatch).
+  // The result lands on `mpSpent` so the action log reflects the true
+  // cost (e.g., "Precision Fire — 13 MP" for a 3-target Mathematician-
+  // free cast).
+  if (
+    !isRider &&
+    ability.targeting.kind === 'math_skill' &&
+    ability.mathSkillMpCost !== undefined &&
+    action.payload.target.kind === 'math_skill'
+  ) {
+    const matched = enumerateMathSkillTargets(
+      state,
+      action.payload.target.parameter,
+      action.payload.target.value,
+    );
+    const perTarget = Math.max(
+      0,
+      runModifyMathSkillPerTargetMpCost(state, catalog, {
+        unit: actor,
+        ability,
+        baseValue: ability.mathSkillMpCost.perTarget,
+      }),
+    );
+    mpCost += perTarget * matched.length;
+  }
   let workingState: GameState = state;
   if (!isRider && mpCost > 0) {
     workingState = withUnit(state, {
@@ -530,6 +562,15 @@ function buildTargetRefs(target: AbilityTarget): TargetRef[] {
       return [{ kind: 'unit', unitId: target.unitId }];
     case 'tile':
       return [{ kind: 'tile', position: target.position }];
+    case 'math_skill':
+      // Session 49: Math Skill is instant-cast in v1 by design (the brief
+      // sells the parameter+value pick as a snap decision). Pinning a
+      // (parameter, value) tuple into a ChargedAction would require
+      // re-enumerating at resolve time and would change the cluster
+      // mid-charge — out of scope for v1.
+      throw new Error(
+        'buildTargetRefs: charged math_skill abilities are out of v1 scope — Math Skill is instant-cast',
+      );
   }
 }
 
@@ -588,6 +629,11 @@ interface ResolveAbilityEffectArgs {
   // weapon and fires only this slot's procs. Omitted on the single-
   // swing fast path (dominant-weapon resolution, bit-identical pre-S42).
   readonly attackingWeaponSlot?: EquipmentSlotId;
+  // Session 49: Math Skill SP bonus. Threaded to the damage pipeline as
+  // `additionalPowerCoefficient` so Mathematician's +1 SP composes on
+  // top of the ability's declared `power_coefficient`. Omitted on every
+  // non-Math caller.
+  readonly additionalPowerCoefficient?: number;
 }
 
 interface ResolveAbilityEffectResult {
@@ -634,6 +680,9 @@ function resolveAbilityEffect(
       ...(args.targetCount !== undefined ? { targetCount: args.targetCount } : {}),
       ...(args.attackingWeaponSlot !== undefined
         ? { attackingWeaponSlot: args.attackingWeaponSlot }
+        : {}),
+      ...(args.additionalPowerCoefficient !== undefined
+        ? { additionalPowerCoefficient: args.additionalPowerCoefficient }
         : {}),
     });
     workingState = applyDamageToTarget(workingState, damageContext);
@@ -919,7 +968,20 @@ function resolveAbilityEffect(
         statName: ctStat,
         baseValue: args.attacker.baseStats[ctStat],
       });
-      const magnitude = Math.floor(spec.factor * statValue);
+      // Session 49: Math-Skill CT pushes (Exact Rhythm) request
+      // `faithScalesMagnitude: true` so the per-target magnitude reads
+      // `factor × stat × Faith_factor`, matching the blueprint's
+      // `SP × MA × Faith Factor` formula. Default-off for Tide Surge
+      // and other pre-S49 CT consumers.
+      const faithScale = spec.faithScalesMagnitude === true
+        ? computeFaithFactor({
+            state: workingState,
+            catalog,
+            attacker: args.attacker,
+            target: recipientUnit,
+          })
+        : 1;
+      const magnitude = Math.floor(spec.factor * statValue * faithScale);
       if (magnitude === 0) continue;
       pipelineEmissions.push({
         type: 'system_ct_push',
@@ -1044,11 +1106,27 @@ function resolveAbilityTargets(
   catalog: Catalog,
   args: ResolveAbilityTargetsArgs,
 ): ResolveAbilityTargetsResult {
+  // Session 49 / ADR-0086: Math Skill targeting routes through a
+  // parameter-predicate enumeration instead of single-target lookup or
+  // AoE-shape expansion. The dispatcher reads matching units from
+  // `enumerateMathSkillTargets` and runs the standard per-target body.
+  const targetingKind = args.ability.targeting.kind;
   const aoe = args.ability.effects.aoe;
+  if (targetingKind === 'math_skill' && aoe !== undefined) {
+    // AoE + math_skill is a content-authoring error: math_skill
+    // already enumerates a target set; layering AoE on top would
+    // double-expand. Surface the violation here so authoring fails
+    // loud.
+    throw new Error(
+      `resolveAbilityTargets: ability ${JSON.stringify(args.ability.id)} declares math_skill targeting AND AoE — these are mutually exclusive`,
+    );
+  }
   const result =
-    aoe === undefined
-      ? resolveSingleTargetDispatch(state, catalog, args)
-      : resolveAoeDispatch(state, catalog, args, aoe);
+    targetingKind === 'math_skill'
+      ? resolveMathSkillDispatch(state, catalog, args)
+      : aoe === undefined
+        ? resolveSingleTargetDispatch(state, catalog, args)
+        : resolveAoeDispatch(state, catalog, args, aoe);
 
   // Per-cast self-damage cost (ADR-0032). Fires once per resolved cast,
   // independent of cluster size or hit/miss. Emitted as a labeled
@@ -1242,6 +1320,13 @@ function resolveSingleTargetUnit(
       const at = unitAt(state, target.position.x, target.position.y, target.position.layer);
       return at ?? null;
     }
+    case 'math_skill':
+      // Math Skill targets resolve through `resolveMathSkillDispatch`,
+      // not the single-target path — reaching here is a programmer
+      // error in dispatcher routing.
+      throw new Error(
+        `resolveSingleTargetUnit: math_skill targets must route through resolveMathSkillDispatch`,
+      );
   }
 }
 
@@ -1409,6 +1494,156 @@ function resolveAoeDispatch(
   };
 }
 
+// Math Skill dispatch (Session 49 / ADR-0086) — the Calculator's
+// signature mechanic. Distinct from AoE in that the target set comes
+// from a parameter-predicate enumeration over every unit on the field,
+// not a footprint expansion from an anchor. Caster's choice of
+// (parameter, value) is carried on the payload; the engine enumerates
+// matching units via `enumerateMathSkillTargets` and dispatches the
+// standard per-target body for each.
+//
+// Friendly fire applies (matching allies receive the effect). Self-
+// targeting applies (a Calculator whose own parameter matches takes
+// the effect). KO'd and removed units are filtered out at enumeration
+// time. The Math Skill MP cost (base + per-target × matchCount) is
+// computed here and added to the action chain via emission once the
+// per-target dispatch finishes.
+function resolveMathSkillDispatch(
+  state: GameState,
+  catalog: Catalog,
+  args: ResolveAbilityTargetsArgs,
+): ResolveAbilityTargetsResult {
+  // Math Skill abilities can't carry caster-target status / ctEffects
+  // (the "caster" isn't a separate axis from the matching set — the
+  // caster is just one possible match). Surface authoring errors early.
+  for (const spec of args.ability.effects.statusEffects ?? []) {
+    if (spec.target === 'caster') {
+      throw new Error(
+        `resolveMathSkillDispatch: ability ${JSON.stringify(args.ability.id)} declares a caster-target status effect on a math_skill ability — use 'primary_target' so it applies to each matching unit (including the caster if they match)`,
+      );
+    }
+  }
+  for (const spec of args.ability.effects.ctEffects ?? []) {
+    if (spec.target === 'caster') {
+      throw new Error(
+        `resolveMathSkillDispatch: ability ${JSON.stringify(args.ability.id)} declares a caster-target ctEffect on a math_skill ability — use 'primary_target' so it applies to each matching unit`,
+      );
+    }
+  }
+
+  if (args.payloadTarget.kind !== 'math_skill') {
+    throw new Error(
+      `resolveMathSkillDispatch: ability ${JSON.stringify(args.ability.id)} dispatched with non-math_skill payload ${JSON.stringify(args.payloadTarget.kind)} — validate.ts should have rejected this`,
+    );
+  }
+  const { parameter, value } = args.payloadTarget;
+  const matched = enumerateMathSkillTargets(state, parameter, value);
+
+  // SP bonus modifier (Mathematician returns +1). Two-track application:
+  //   - For damage / heal Math abilities, the bonus rides the damage
+  //     pipeline as `additionalPowerCoefficient` (per ADR-0086) — the
+  //     pipeline re-looks up the ability by id from the catalog, so a
+  //     synthesized ability with a bumped power_coefficient wouldn't
+  //     take effect.
+  //   - For CT effects (Exact Rhythm), the resolver reads `args.ability`
+  //     directly, so an ability synthesized with bumped `factor` values
+  //     does take effect. `applyMathSkillSpBonus` handles only that
+  //     synthesis now; damage abilities pass through untouched.
+  const spBonus = runModifyMathSkillSpBonus(state, catalog, {
+    unit: args.attacker,
+    ability: args.ability,
+    baseValue: 0,
+  });
+  const dispatchAbility = applyMathSkillSpBonus(args.ability, spBonus);
+
+  // Per-target dispatch (mirrors AoE). Each matched unit receives the
+  // ability's effect with a branched seed so variance / evasion / status
+  // / brave-reaction rolls are independent. The cluster size is passed
+  // so any future chainBonus consumer reads it uniformly.
+  let workingState = state;
+  const allResults: AbilityTargetResult[] = [];
+  const allReactions: GeneratedReaction[] = [];
+  const allEmissions: ProposedAction[] = [];
+  for (let i = 0; i < matched.length; i++) {
+    const target = matched[i]!;
+    // A prior target's reaction may have KO'd this target. Re-fetch
+    // and skip if gone (mirrors AoE dispatch's guard).
+    const current = workingState.units.get(target.id);
+    if (current === undefined || current.vitals.hp <= 0 || current.removed) continue;
+
+    const resolved = resolveAbilityEffect(workingState, catalog, {
+      ability: dispatchAbility,
+      attacker: args.attacker,
+      targetUnit: current,
+      payloadTargetForResult: { kind: 'unit', unitId: current.id },
+      // No anchor for knockback (Math abilities don't currently knock back
+      // — but if a future Math ability does, the caster's position is the
+      // natural directional source).
+      effectAnchorPosition: args.attacker.position,
+      incomingProposed: args.incomingProposed,
+      sourceActionSeq: args.sourceActionSeq,
+      seed: perTargetSeed(args.seed, i),
+      applyCasterEffects: false,
+      targetCount: matched.length,
+      // S49: route SP bonus through the pipeline so damage / heal handlers
+      // see the bumped power_coefficient (the catalog re-lookup ignores
+      // synthesized abilities — see comment above).
+      ...(spBonus !== 0 ? { additionalPowerCoefficient: spBonus } : {}),
+      ...(args.isReaction === true ? { isReaction: true } : {}),
+    });
+    workingState = resolved.newState;
+    for (const r of resolved.perTargetResults) allResults.push(r);
+    for (const r of resolved.generatedReactions) allReactions.push(r);
+    for (const a of resolved.generatedActions) allEmissions.push(a);
+  }
+
+  // MP cost: the full `mpCost + perTarget × matched.length` was already
+  // deducted up front by `reduceUseAbility`. No per-target emission here
+  // — keeps the `mpSpent` on the outcome aligned with the actual cost.
+
+  return {
+    newState: workingState,
+    perTargetResults: allResults,
+    generatedReactions: allReactions,
+    generatedActions: allEmissions,
+  };
+}
+
+// Synthesize a Math Skill ability with the SP bonus applied to its
+// `ctEffects` (Exact Rhythm's SP 2 → 3 with Mathematician). The bonus
+// is added in the factor's direction so a negative-factor push gets
+// *stronger* (more CT reduction), and a positive-factor bump gets a
+// larger CT boost.
+//
+// Damage / heal SP bonus rides a different path — see the
+// `additionalPowerCoefficient` thread in `resolveMathSkillDispatch`.
+// The damage pipeline re-looks up the ability by id from the catalog,
+// so a synthesized `effects.damage` would be ignored; the SP bonus
+// reaches damage handlers via DamageContext.additionalPowerCoefficient
+// instead.
+//
+// Status-only Math abilities (Sculpted Enhancement, Engineered Defenses)
+// have no ctEffects field — they're returned unchanged. Their lack of
+// SP scaling is by design (per the brief).
+function applyMathSkillSpBonus(
+  ability: ActiveAbilityDefinition,
+  spBonus: number,
+): ActiveAbilityDefinition {
+  if (spBonus === 0) return ability;
+  const ctEffects = ability.effects.ctEffects;
+  if (ctEffects === undefined) return ability;
+  return {
+    ...ability,
+    effects: {
+      ...ability.effects,
+      ctEffects: ctEffects.map((spec) => ({
+        ...spec,
+        factor: spec.factor + (spec.factor < 0 ? -spBonus : spBonus),
+      })),
+    },
+  };
+}
+
 // Anchor position for AoE expansion. `self` is the caster's current
 // position; `tile` is the targeted tile; `unit` reads the target unit's
 // current position (FFT-canonical for unit-anchored AoE — the AoE
@@ -1427,6 +1662,14 @@ function resolveAoeAnchor(
       const unit = getUnit(state, target.unitId);
       return unit.position;
     }
+    case 'math_skill':
+      // Math Skill has no anchor — every matching unit is its own
+      // target. Reaching here means an AoE ability with math_skill
+      // targeting attempted to anchor, which is a content-authoring
+      // error: AoE + math_skill should not coexist on the same ability.
+      throw new Error(
+        `resolveAoeAnchor: math_skill targets don't expand from an anchor`,
+      );
   }
 }
 

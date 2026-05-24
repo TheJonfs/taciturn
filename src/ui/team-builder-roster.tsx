@@ -5,6 +5,7 @@
 
 import type { CSSProperties, ReactElement } from 'react';
 import type { Catalog } from '@engine/index.ts';
+import { slotLevelFor } from '@content/teams/index.ts';
 import { portraitUrlFor } from '../assets/portraits/index.ts';
 import type { DraftUnit, DraftUnitStats, UnitValidity } from './team-builder-state.ts';
 import type { TeamBuilder } from './use-team-builder.ts';
@@ -27,18 +28,32 @@ export function TeamBuilderRoster({
         <div style={teamNameStyle}>{state.name}</div>
       </div>
       <div style={listStyle}>
-        {state.units.map((unit, index) => (
-          <RosterCard
-            key={index}
-            index={index}
-            unit={unit}
-            stats={unitStats[index] ?? null}
-            unitValidity={validity.units[index]!}
-            isSelected={index === selectedIndex}
-            onClick={() => selectUnit(index)}
-            catalog={catalog}
-          />
-        ))}
+        {(() => {
+          // S49: level is the active-unit's post-filter position. The
+          // first filled slot is the captain at L25; outward filled
+          // slots step ±1 per `slotLevelFor`. Empty slots get no level.
+          // We track activeCount as we walk so the level reads the same
+          // sequence the team-builder export uses when assembling the
+          // `BuiltTeam`.
+          let activeCount = 0;
+          return state.units.map((unit, index) => {
+            const level = unit.classId !== null ? slotLevelFor(activeCount) : null;
+            if (unit.classId !== null) activeCount += 1;
+            return (
+              <RosterCard
+                key={index}
+                index={index}
+                unit={unit}
+                level={level}
+                stats={unitStats[index] ?? null}
+                unitValidity={validity.units[index]!}
+                isSelected={index === selectedIndex}
+                onClick={() => selectUnit(index)}
+                catalog={catalog}
+              />
+            );
+          });
+        })()}
       </div>
     </div>
   );
@@ -47,6 +62,10 @@ export function TeamBuilderRoster({
 interface RosterCardProps {
   readonly index: number;
   readonly unit: DraftUnit;
+  // S49: null for empty slots; a number for filled slots derived from
+  // active-unit position via `slotLevelFor`. Filled slots render the
+  // level as a small pill on the portrait corner.
+  readonly level: number | null;
   readonly stats: DraftUnitStats | null;
   readonly unitValidity: UnitValidity;
   readonly isSelected: boolean;
@@ -57,6 +76,7 @@ interface RosterCardProps {
 function RosterCard({
   index,
   unit,
+  level,
   stats,
   unitValidity,
   isSelected,
@@ -99,8 +119,15 @@ function RosterCard({
         )}
       </div>
       <div style={bodyStyle}>
-        <div style={nameStyle}>
-          {unit.name ?? className ?? `Unit ${index + 1}`}
+        <div style={nameRowStyle}>
+          <span style={nameStyle}>
+            {unit.name ?? className ?? `Unit ${index + 1}`}
+          </span>
+          {/* S49: small level pill next to the unit name; absent on
+              empty slots. Surfaced only on filled slots so the player
+              sees the level shift across the team without it cluttering
+              the empty pad. */}
+          {level !== null && <span style={levelBadgeStyle}>L{level}</span>}
         </div>
         <div style={subStyle}>
           {unit.classId === null ? 'No class selected' : `${className}`}
@@ -248,9 +275,33 @@ const bodyStyle: CSSProperties = {
   minWidth: 0,
 };
 
+const nameRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'baseline',
+  gap: 6,
+  minWidth: 0,
+};
+
 const nameStyle: CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
+// S49: compact level pill — distinguishable from the validity badge by
+// shape (rectangular pill) and color (cool blue rather than the
+// validity green/orange).
+const levelBadgeStyle: CSSProperties = {
+  fontSize: 9,
+  fontWeight: 700,
+  letterSpacing: '0.04em',
+  padding: '1px 5px',
+  borderRadius: 3,
+  background: '#2a3a52',
+  color: '#a3c6f0',
+  flexShrink: 0,
 };
 
 const subStyle: CSSProperties = {

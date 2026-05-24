@@ -55,4 +55,7 @@ export const hunter: ClassDefinition = {
     abilityId('eagle_eye'),
     abilityId('high_jump'),
   ]),
+  // S49 Level system: Hunter is a PA-scaling ranged class (bows compute
+  // damage off PA × WP) — physical-dominant.
+  dominantStat: 'pa',
 };

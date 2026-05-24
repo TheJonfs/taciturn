@@ -61,6 +61,11 @@ export interface RunDamagePipelineArgs {
   // DamageContext so the base handler and proc contributor scope to one
   // weapon slot. Omitted for single-weapon / pre-S42 callers.
   readonly attackingWeaponSlot?: EquipmentSlotId;
+  // Session 49: additive bump applied to the ability's effective
+  // `power_coefficient` for this cast. Set by `resolveMathSkillDispatch`
+  // from the Mathematician hook's resolved value; omitted by every
+  // other caller.
+  readonly additionalPowerCoefficient?: number;
 }
 
 export function runDamagePipeline(args: RunDamagePipelineArgs): DamageContext {
@@ -93,6 +98,9 @@ export function runDamagePipeline(args: RunDamagePipelineArgs): DamageContext {
     actionSeed: args.seed,
     ...(args.attackingWeaponSlot !== undefined
       ? { attackingWeaponSlot: args.attackingWeaponSlot }
+      : {}),
+    ...(args.additionalPowerCoefficient !== undefined
+      ? { additionalPowerCoefficient: args.additionalPowerCoefficient }
       : {}),
   };
 

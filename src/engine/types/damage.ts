@@ -135,6 +135,15 @@ export interface DamageContext {
   // single-weapon attack), behavior is unchanged — `getEquippedWeapon`
   // resolves the dominant weapon and procs fire from all equipped items.
   readonly attackingWeaponSlot?: EquipmentSlotId;
+
+  // Session 49 / ADR-0086: additive bump applied to the ability's
+  // effective `power_coefficient` for this cast. The Math Skill
+  // dispatcher passes the resolved SP bonus (Mathematician returns +1)
+  // through here so base-stage handlers add it on top of the
+  // ability's declared scalar — without mutating the catalog. Defaults
+  // to 0 / undefined for every non-Math caller; the lookup in
+  // `effectivePowerCoefficient` is no-op when absent.
+  readonly additionalPowerCoefficient?: number;
 }
 
 // Resolved outcome of a single pipeline run. The orchestrator returns

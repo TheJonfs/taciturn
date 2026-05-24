@@ -36,7 +36,8 @@ export const mageVarietyPack: BuiltTeam = {
     {
       name: 'Maerwynn',
       classId: classId('earth_mage'),
-      baseStats: buildBaseStats(classId('earth_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('earth_mage'), BRAVE, FAITH, 25),
+      level: 25,
       loadout: VARIETY_EARTH_LOADOUT,
       equipment: {
         leftHand: null,
@@ -49,7 +50,8 @@ export const mageVarietyPack: BuiltTeam = {
     {
       name: 'Mireille',
       classId: classId('water_mage'),
-      baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH, 24),
+      level: 24,
       loadout: WATER_MAGE_LOADOUT,
       equipment: {
         leftHand: null,
@@ -62,7 +64,8 @@ export const mageVarietyPack: BuiltTeam = {
     {
       name: 'Calista',
       classId: classId('fire_mage'),
-      baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH, 26),
+      level: 26,
       loadout: FIRE_MAGE_LOADOUT,
       equipment: {
         leftHand: null,
@@ -75,7 +78,8 @@ export const mageVarietyPack: BuiltTeam = {
     {
       name: 'Liorel',
       classId: classId('lightning_mage'),
-      baseStats: buildBaseStats(classId('lightning_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('lightning_mage'), BRAVE, FAITH, 23),
+      level: 23,
       loadout: LIGHTNING_MAGE_LOADOUT,
       equipment: {
         leftHand: null,

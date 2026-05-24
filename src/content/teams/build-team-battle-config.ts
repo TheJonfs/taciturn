@@ -60,6 +60,11 @@ export function buildTeamBattleConfig(
       baseStats: unit.baseStats,
       loadout: unit.loadout,
       equipment: unit.equipment,
+      // S49: forward the BuiltUnit's level into the placement so Math
+      // Skill's `parameter: 'level'` predicate can read it off the
+      // constructed `Unit`. `baseStats` is already level-adjusted
+      // upstream by `buildBaseStats(..., level)`.
+      level: unit.level,
     };
   });
 

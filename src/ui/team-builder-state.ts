@@ -45,6 +45,7 @@ import {
 } from '@engine/index.ts';
 import {
   buildBaseStats,
+  slotLevelFor,
   BRAVE_FAITH_MIN,
   BRAVE_FAITH_MAX,
   MAX_TEAM_SIZE,
@@ -167,6 +168,12 @@ export function teamBuilderStateToBuiltTeam(
   const units: BuiltUnit[] = [];
   for (const unit of state.units) {
     if (unit.classId === null) continue;
+    // S49: level is the active-unit's post-filter position (the unit's
+    // slot among the team's filled units, not its draft slot). The
+    // player thinks "where is this unit in my team list" — empty pad
+    // slots don't count. The first active unit is the team captain at
+    // L25; outward slots step ±1 per `slotLevelFor`.
+    const level = slotLevelFor(units.length);
     units.push({
       // `setClass` auto-picks a name on first class assignment, so an
       // active unit always carries one. The class-name fallback covers
@@ -174,9 +181,10 @@ export function teamBuilderStateToBuiltTeam(
       // a test).
       name: unit.name ?? catalog.getClass(unit.classId).name,
       classId: unit.classId,
-      baseStats: buildBaseStats(unit.classId, unit.brave, unit.faith),
+      baseStats: buildBaseStats(unit.classId, unit.brave, unit.faith, level),
       loadout: unit.loadout,
       equipment: unit.equipment,
+      level,
     });
   }
   if (units.length < MIN_TEAM_SIZE) {
@@ -361,10 +369,18 @@ export interface DraftUnitStats {
 // its current loadout is invalid (over-capacity): `createInitialState`
 // throws on an invalid loadout, and a draft mid-edit may briefly be in
 // that state. The caller falls back to class-baseline display.
+//
+// S49: `level` is the unit's assigned level (slot-derived; the caller
+// computes it from the draft's active-unit position via `slotLevelFor`).
+// Threaded into `buildBaseStats` so the displayed stats are the
+// level-adjusted values (per Session 49 / ADR-0087: effects applied
+// silently — the stat panel shows the modified numbers without a
+// breakdown).
 export function computeDraftUnitStats(
   unit: DraftUnit,
   catalog: Catalog,
   mapTemplate: BattleConfig,
+  level: number = 25,
 ): DraftUnitStats | null {
   if (unit.classId === null) return null;
   // Any authored placement supplies a valid id / team / on-map position
@@ -379,9 +395,10 @@ export function computeDraftUnitStats(
     classId: unit.classId,
     position: slot.position,
     facing: slot.facing,
-    baseStats: buildBaseStats(unit.classId, unit.brave, unit.faith),
+    baseStats: buildBaseStats(unit.classId, unit.brave, unit.faith, level),
     loadout: unit.loadout,
     equipment: unit.equipment,
+    level,
   };
   const config: BattleConfig = { ...mapTemplate, units: [placement] };
 

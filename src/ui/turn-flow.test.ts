@@ -388,3 +388,107 @@ describe('turn-flow reducer — guards', () => {
     expect(transition(s, { kind: 'cancel' })).toEqual(s);
   });
 });
+
+describe('turn-flow reducer — Math Skill picker (Session 49)', () => {
+  const mathAbility = abilityId('precision_fire');
+
+  it('pickAbility with route=math_skill from ability-list → math-skill-target-select with null picks', () => {
+    const s: TurnFlowState = { kind: 'ability-list', commandSetId: setA, commandSetCount: 1 };
+    expect(
+      transition(s, { kind: 'pickAbility', abilityId: mathAbility, route: 'math_skill' }),
+    ).toEqual({
+      kind: 'math-skill-target-select',
+      commandSetId: setA,
+      commandSetCount: 1,
+      abilityId: mathAbility,
+      parameter: null,
+      value: null,
+    });
+  });
+
+  it('pickMathSkillParameter sets parameter and clears value', () => {
+    const s: TurnFlowState = {
+      kind: 'math-skill-target-select',
+      commandSetId: setA,
+      commandSetCount: 1,
+      abilityId: mathAbility,
+      parameter: 'ct',
+      value: 5,
+    };
+    expect(transition(s, { kind: 'pickMathSkillParameter', parameter: 'level' })).toEqual({
+      kind: 'math-skill-target-select',
+      commandSetId: setA,
+      commandSetCount: 1,
+      abilityId: mathAbility,
+      parameter: 'level',
+      value: null,
+    });
+  });
+
+  it('pickMathSkillValue is ignored when parameter is null', () => {
+    const s: TurnFlowState = {
+      kind: 'math-skill-target-select',
+      commandSetId: setA,
+      commandSetCount: 1,
+      abilityId: mathAbility,
+      parameter: null,
+      value: null,
+    };
+    expect(transition(s, { kind: 'pickMathSkillValue', value: 3 })).toEqual(s);
+  });
+
+  it('pickMathSkillValue sets value when parameter is non-null', () => {
+    const s: TurnFlowState = {
+      kind: 'math-skill-target-select',
+      commandSetId: setA,
+      commandSetCount: 1,
+      abilityId: mathAbility,
+      parameter: 'ct',
+      value: null,
+    };
+    expect(transition(s, { kind: 'pickMathSkillValue', value: 'prime' })).toEqual({
+      kind: 'math-skill-target-select',
+      commandSetId: setA,
+      commandSetCount: 1,
+      abilityId: mathAbility,
+      parameter: 'ct',
+      value: 'prime',
+    });
+  });
+
+  it('commitTarget transitions to animation (no await-confirm gate; picker is implicit confirm)', () => {
+    const s: TurnFlowState = {
+      kind: 'math-skill-target-select',
+      commandSetId: setA,
+      commandSetCount: 1,
+      abilityId: mathAbility,
+      parameter: 'ct',
+      value: 5,
+    };
+    const action: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: 'u1' as never,
+      payload: { abilityId: mathAbility, target: { kind: 'math_skill', parameter: 'ct', value: 5 } },
+    };
+    expect(
+      transition(s, { kind: 'commitTarget', action, confirmStep: true }),
+    ).toEqual({ kind: 'animation' });
+  });
+
+  it('cancel from math-skill-target-select returns to ability-list when commandSetId is set', () => {
+    const s: TurnFlowState = {
+      kind: 'math-skill-target-select',
+      commandSetId: setA,
+      commandSetCount: 1,
+      abilityId: mathAbility,
+      parameter: null,
+      value: null,
+    };
+    expect(transition(s, { kind: 'cancel' })).toEqual({
+      kind: 'ability-list',
+      commandSetId: setA,
+      commandSetCount: 1,
+    });
+  });
+});

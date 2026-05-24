@@ -8,6 +8,8 @@
 
 export {
   buildBaseStats,
+  slotLevelFor,
+  BASELINE_LEVEL,
   BRAVE_FAITH_MIN,
   BRAVE_FAITH_MAX,
   MAX_TEAM_SIZE,

@@ -274,6 +274,34 @@ function validateUseAbility(
     return VALID;
   }
 
+  // Session 49 / ADR-0086: Math Skill targeting validates the payload's
+  // parameter + value shape. No range, LoS, or arc check — the cast
+  // is battlefield-wide and resolves against units matching the
+  // predicate at reduce time. Empty matching sets are still valid casts
+  // (the player loses the MP base but no per-target term applies).
+  if (targetingKind === 'math_skill') {
+    if (payloadTargetKind !== 'math_skill') {
+      return invalid(
+        `Ability ${JSON.stringify(ability.id)} requires a math_skill target (parameter + value)`,
+      );
+    }
+    const mathPayload = action.payload.target as Extract<
+      AbilityTarget,
+      { kind: 'math_skill' }
+    >;
+    const validParams: ReadonlyArray<string> = ['ct', 'height', 'level', 'current_hp'];
+    if (!validParams.includes(mathPayload.parameter)) {
+      return invalid(
+        `Invalid Math Skill parameter ${JSON.stringify(mathPayload.parameter)}`,
+      );
+    }
+    const validValues: ReadonlyArray<string | number> = ['prime', 3, 4, 5];
+    if (!validValues.includes(mathPayload.value)) {
+      return invalid(`Invalid Math Skill value ${JSON.stringify(mathPayload.value)}`);
+    }
+    return VALID;
+  }
+
   const ruleset = catalog.getRuleset(state.ruleset.id);
   const sourceTile = tileAt(state.map, actor.position.x, actor.position.y, actor.position.layer);
   if (sourceTile === undefined) {

@@ -57,6 +57,7 @@ function knightClass(freeAbilities: ReadonlyArray<string>): ClassDefinition {
     },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(freeAbilities.map(abilityId)),
+    dominantStat: 'pa',
   };
 }
 

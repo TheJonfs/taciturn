@@ -17,7 +17,7 @@ import type {
   ItemId,
   RulesetId,
 } from '@engine/index.ts';
-import type { BuiltTeam } from '@content/teams/index.ts';
+import { slotLevelFor, type BuiltTeam } from '@content/teams/index.ts';
 import {
   computeDraftUnitStats,
   computeTeamValidity,
@@ -110,8 +110,19 @@ export function useTeamBuilder({
   );
 
   const unitStats = useMemo(
-    () =>
-      state.units.map((unit) => computeDraftUnitStats(unit, catalog, mapTemplate)),
+    () => {
+      // S49: thread per-unit level (slot-derived from active-unit
+      // position) into the stat computation so HP/MP/dominant-stat
+      // shifts surface immediately when the player moves a unit between
+      // slots. Empty slots get no stats anyway; level defaults to L25
+      // but is unused on the null return.
+      let activeCount = 0;
+      return state.units.map((unit) => {
+        const level = unit.classId !== null ? slotLevelFor(activeCount) : 25;
+        if (unit.classId !== null) activeCount += 1;
+        return computeDraftUnitStats(unit, catalog, mapTemplate, level);
+      });
+    },
     [state.units, catalog, mapTemplate],
   );
 

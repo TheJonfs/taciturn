@@ -24,6 +24,14 @@ export interface TeamExportThinUnit {
   readonly classId: string;
   readonly brave: number;
   readonly faith: number;
+  // S49: Level system. The team-builder assigns level by active-unit
+  // position (slot 0 = L25 baseline; outward steps per `slotLevelFor`),
+  // and the exporter preserves whatever value the BuiltUnit carries. The
+  // implementer pastes the JSON into a new template and wraps each
+  // unit's level with the source of their choice — `slotLevelFor(index)`
+  // for slot-derived (the team-builder convention) or a literal value
+  // for hand-tuned templates.
+  readonly level: number;
   readonly loadout: {
     readonly actionBuckets: Readonly<Record<string, ReadonlyArray<string>>>;
     readonly passiveBuckets: Readonly<Record<string, ReadonlyArray<string>>>;
@@ -68,6 +76,7 @@ export function exportBuiltTeamThin(team: BuiltTeam): TeamExportThin {
         classId: String(u.classId),
         brave: u.baseStats.brave,
         faith: u.baseStats.faith,
+        level: u.level,
         loadout: {
           actionBuckets: bucketsAsStrings(u.loadout.actionBuckets),
           passiveBuckets: bucketsAsStrings(u.loadout.passiveBuckets),

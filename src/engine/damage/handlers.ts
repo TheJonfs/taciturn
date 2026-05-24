@@ -156,7 +156,11 @@ export function computeSpeedFactor(args: {
 export const physicalPaWp: DamageHandler = (ctx, env) => {
   if (!ctx.damageTags.has('physical')) return ctx;
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
-  const power_coefficient = effectivePowerCoefficient(ability, ctx.targetCount);
+  const power_coefficient = effectivePowerCoefficient(
+    ability,
+    ctx.targetCount,
+    ctx.additionalPowerCoefficient ?? 0,
+  );
   const pa = runModifyStatQuery(env.state, env.catalog, {
     unit: ctx.attacker,
     statName: 'pa',
@@ -205,8 +209,11 @@ export const healingBase: DamageHandler = (ctx, env) => {
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
   // Healing doesn't compose chainBonus today — no v1 ability is both
   // healing and AoE-chain-scaling. The default-1 power_coefficient
-  // path is preserved.
-  const power = ability.effects.damage?.power_coefficient ?? 1;
+  // path is preserved. Session 49: Math Skill's additional power
+  // (Mathematician's +1 SP) composes additively for Targeted Treatment.
+  const power =
+    (ability.effects.damage?.power_coefficient ?? 1) +
+    (ctx.additionalPowerCoefficient ?? 0);
   const ma = runModifyStatQuery(env.state, env.catalog, {
     unit: ctx.attacker,
     statName: 'ma',
@@ -228,7 +235,11 @@ export const healingBase: DamageHandler = (ctx, env) => {
 export const magicalMaPower: DamageHandler = (ctx, env) => {
   if (!ctx.damageTags.has('magical')) return ctx;
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
-  const power = effectivePowerCoefficient(ability, ctx.targetCount);
+  const power = effectivePowerCoefficient(
+    ability,
+    ctx.targetCount,
+    ctx.additionalPowerCoefficient ?? 0,
+  );
   const ma = runModifyStatQuery(env.state, env.catalog, {
     unit: ctx.attacker,
     statName: 'ma',
@@ -709,12 +720,15 @@ export const fireOnFinalDamageReceived: DamageHandler = (ctx, env) => {
 function effectivePowerCoefficient(
   ability: import('../catalog/index.ts').ActiveAbilityDefinition,
   targetCount: number,
+  additionalPowerCoefficient: number = 0,
 ): number {
   const base = ability.effects.damage?.power_coefficient ?? 1;
   const chainBonus = ability.effects.damage?.chainBonus;
-  if (chainBonus === undefined) return base;
-  const additional = Math.max(0, targetCount - 1);
-  return base + chainBonus.powerPerAdditionalTarget * additional;
+  const chainAdditional =
+    chainBonus !== undefined
+      ? chainBonus.powerPerAdditionalTarget * Math.max(0, targetCount - 1)
+      : 0;
+  return base + chainAdditional + additionalPowerCoefficient;
 }
 
 // Helper — apply additives, then multipliers, against baseDamage.

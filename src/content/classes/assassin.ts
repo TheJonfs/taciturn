@@ -54,4 +54,7 @@ export const assassin: ClassDefinition = {
     abilityId('two_weapons'),
     abilityId('fleet_of_foot'),
   ]),
+  // S49 Level system: Assassin's identity is Speed (14 base, highest in
+  // v1) — at L27 Speed bumps to 15.
+  dominantStat: 'spd',
 };

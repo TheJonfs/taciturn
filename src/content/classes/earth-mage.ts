@@ -61,4 +61,7 @@ export const earthMage: ClassDefinition = {
     ['lightning', 50],
     ['fire', -50],
   ]),
+  // S49 Level system: mage classes lean on MA — at L23 MA drops 1; at
+  // L27 MA boosts 1.
+  dominantStat: 'ma',
 };

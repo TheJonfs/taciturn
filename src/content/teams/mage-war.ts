@@ -55,7 +55,8 @@ export const mageWar: BuiltTeam = {
     {
       name: 'Grant',
       classId: classId('knight'),
-      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH, 25),
+      level: 25,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('battle_skill')],
@@ -92,7 +93,8 @@ export const mageWar: BuiltTeam = {
     {
       name: 'Roderic',
       classId: classId('earth_mage'),
-      baseStats: buildBaseStats(classId('earth_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('earth_mage'), BRAVE, FAITH, 24),
+      level: 24,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('earth_spells')],
@@ -128,7 +130,8 @@ export const mageWar: BuiltTeam = {
     {
       name: 'Bethla',
       classId: classId('fire_mage'),
-      baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH, 26),
+      level: 26,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('fire_spells')],
@@ -165,7 +168,8 @@ export const mageWar: BuiltTeam = {
     {
       name: 'Aldric',
       classId: classId('lightning_mage'),
-      baseStats: buildBaseStats(classId('lightning_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('lightning_mage'), BRAVE, FAITH, 23),
+      level: 23,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('lightning_spells')],
@@ -200,7 +204,8 @@ export const mageWar: BuiltTeam = {
     {
       name: 'Octavia',
       classId: classId('water_mage'),
-      baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH, 27),
+      level: 27,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('water_spells')],

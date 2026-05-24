@@ -20,7 +20,11 @@ import type {
   Loadout,
   UnitEquipment,
 } from '@engine/index.ts';
-import { classBaselineStats } from '../classes/baseline-stats.ts';
+import {
+  classBaselineStats,
+  classDominantStats,
+  type ClassBaselineStats,
+} from '../classes/baseline-stats.ts';
 
 export interface BuiltUnit {
   readonly name: string;
@@ -28,6 +32,14 @@ export interface BuiltUnit {
   readonly baseStats: BaseStats;
   readonly loadout: Loadout;
   readonly equipment: UnitEquipment;
+  // Session 49: slot-based level. L25 is the baseline; values away from
+  // 25 modify the unit's HP/MP (±10% per ±1) and the class's dominant
+  // stat (±1 at ±2 from baseline). `baseStats` is already level-adjusted
+  // when this unit was assembled — `buildBaseStats(..., level)` applies
+  // the modifier so consumers see the final values directly. Stored on
+  // the unit so Math Skill's `parameter: 'level'` predicate can read it
+  // off the resulting `Unit.level` after `createInitialState`.
+  readonly level: number;
 }
 
 // Session 48: variable-length team — between MIN_TEAM_SIZE and
@@ -57,15 +69,50 @@ export const BRAVE_FAITH_MAX = 90;
 // lives here as a constant rather than on the slider surface.
 const CRIT_DEFAULTS = { crit_chance: 5, crit_multiplier: 1.5 } as const;
 
+// Session 49: baseline level. Slot 0 = L25; outward slots step ±1 per
+// position via `slotLevelFor`. Level modifies HP/MP by ±10% per ±1 and
+// the class's dominant stat (per `classDominantStats`) by ±1 at ±2.
+export const BASELINE_LEVEL = 25;
+
+// Session 49: slot-to-level mapping. Slot 0 = L25; slot 1 = L24; slot 2
+// = L26; slot 3 = L23; slot 4 = L27. Alternating outward from baseline:
+// odd indices step *down* (slot 1 → -1, slot 3 → -2); even non-zero
+// indices step *up* (slot 2 → +1, slot 4 → +2).
+//
+// Pattern extends naturally to larger teams: slot 5 → L22, slot 6 →
+// L28, etc. MAX_TEAM_SIZE today is 5 so the only consumers are slots
+// 0..4, but the formula stays sound for any future expansion.
+export function slotLevelFor(slotIndex: number): number {
+  if (slotIndex <= 0) return BASELINE_LEVEL;
+  const halfStep = Math.floor((slotIndex + 1) / 2);
+  return slotIndex % 2 === 0
+    ? BASELINE_LEVEL + halfStep // even ≥ 2: +N
+    : BASELINE_LEVEL - halfStep; // odd: -N
+}
+
 // Assemble a full `BaseStats` for a class: the class-differentiated
 // baseline (single source of truth in `baseline-stats.ts`) plus the
-// player-chosen Brave / Faith and the uniform crit defaults. Mirrors
-// `demo.ts`'s `baseStatsFor`, but takes Brave / Faith as arguments
-// since the team builder makes them per-unit editable.
+// player-chosen Brave / Faith, the uniform crit defaults, and the
+// Session 49 Level modifier. Mirrors `demo.ts`'s `baseStatsFor`, but
+// takes Brave / Faith / level as arguments since the team builder
+// makes Brave / Faith per-unit editable and level is slot-derived.
+//
+// Level modifier (per Session 49 / ADR-0087):
+//   - HP_modified = round(maxHpBase × (1 + 0.1 × (level - 25)))
+//   - MP_modified = round(maxMpBase × (1 + 0.1 × (level - 25)))
+//   - dominant_stat += 1 if level >= 27, -1 if level <= 23, else 0
+//
+// Rounding is `Math.round` (banker's-style nearest, half-up); the v1
+// numbers all round cleanly. Floor-only would systematically bias the
+// negative-modifier side; round is symmetric and matches FFT's tradition.
+//
+// Level defaults to 25 (no-op modifier) so legacy callers that haven't
+// adopted Level yet keep their existing behavior.
 export function buildBaseStats(
   classId: ClassId,
   brave: number,
   faith: number,
+  level: number = BASELINE_LEVEL,
 ): BaseStats {
   const baseline = classBaselineStats.get(classId);
   if (baseline === undefined) {
@@ -73,5 +120,23 @@ export function buildBaseStats(
       `buildBaseStats: no baseline stats registered for class ${String(classId)}`,
     );
   }
-  return { ...baseline, brave, faith, ...CRIT_DEFAULTS };
+  const dominantStat = classDominantStats.get(classId);
+  if (dominantStat === undefined) {
+    throw new Error(
+      `buildBaseStats: no dominant stat registered for class ${String(classId)}`,
+    );
+  }
+  const levelOffset = level - BASELINE_LEVEL;
+  const hpMpMultiplier = 1 + 0.1 * levelOffset;
+  const dominantStatDelta =
+    levelOffset >= 2 ? 1 : levelOffset <= -2 ? -1 : 0;
+
+  const leveled: ClassBaselineStats = {
+    maxHpBase: Math.max(1, Math.round(baseline.maxHpBase * hpMpMultiplier)),
+    maxMpBase: Math.max(0, Math.round(baseline.maxMpBase * hpMpMultiplier)),
+    pa: baseline.pa + (dominantStat === 'pa' ? dominantStatDelta : 0),
+    ma: baseline.ma + (dominantStat === 'ma' ? dominantStatDelta : 0),
+    spd: baseline.spd + (dominantStat === 'spd' ? dominantStatDelta : 0),
+  };
+  return { ...leveled, brave, faith, ...CRIT_DEFAULTS };
 }

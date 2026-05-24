@@ -17,6 +17,7 @@ export {
   type ClassEquipmentSlots,
   type ClassEvasionBaseline,
   type ClassMovementBaseline,
+  type DominantStat,
   type CommandSetDefinition,
   type ConsumableDefinition,
   type ConsumableEffects,

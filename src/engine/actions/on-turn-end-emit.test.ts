@@ -46,6 +46,7 @@ function knightClass(freeAbilities: ReadonlyArray<string> = []): ClassDefinition
     equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
     firstActionCommandSet: commandSetId('battle_skill'),
     freeAbilities: new Set(freeAbilities.map(abilityId)),
+    dominantStat: 'pa',
   };
 }
 

@@ -68,4 +68,6 @@ export const lightningMage: ClassDefinition = {
     ['water', 50],
     ['earth', -50],
   ]),
+  // S49 Level system: mage class — MA-dominant.
+  dominantStat: 'ma',
 };

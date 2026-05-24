@@ -62,10 +62,15 @@ describe('exportBuiltTeamThin', () => {
       // Reassembling baseStats from (classId, brave, faith) reproduces
       // the source's baseStats (modulo branding, which is structural in
       // TS but plain runtime values).
+      // S49: level is part of the export's thin form; baseStats is
+      // re-derived from (classId, brave, faith, level) on load. The
+      // round-trip therefore threads the exported level into the
+      // reassembly so slot-based modifiers reproduce the source stats.
       const reassembled = buildBaseStats(
         classId(unitOut.classId),
         unitOut.brave,
         unitOut.faith,
+        unitOut.level,
       );
       expect(reassembled).toEqual(source.baseStats);
     });

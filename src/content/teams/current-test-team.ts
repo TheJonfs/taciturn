@@ -48,7 +48,8 @@ export const currentTestTeam: BuiltTeam = {
     {
       name: 'Roderic',
       classId: classId('knight'),
-      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH, 25),
+      level: 25,
       loadout: KNIGHT_LOADOUT,
       equipment: {
         leftHand: itemId('managuard'),
@@ -61,7 +62,8 @@ export const currentTestTeam: BuiltTeam = {
     {
       name: 'Caedric',
       classId: classId('lightning_mage'),
-      baseStats: buildBaseStats(classId('lightning_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('lightning_mage'), BRAVE, FAITH, 24),
+      level: 24,
       loadout: AGGRO_LIGHTNING_LOADOUT,
       equipment: {
         leftHand: null,
@@ -74,7 +76,8 @@ export const currentTestTeam: BuiltTeam = {
     {
       name: 'Severin',
       classId: classId('fire_mage'),
-      baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('fire_mage'), BRAVE, FAITH, 26),
+      level: 26,
       loadout: FIRE_MAGE_LOADOUT,
       equipment: {
         leftHand: null,
@@ -87,7 +90,8 @@ export const currentTestTeam: BuiltTeam = {
     {
       name: 'Marisol',
       classId: classId('water_mage'),
-      baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH, 23),
+      level: 23,
       loadout: WATER_MAGE_LOADOUT,
       equipment: {
         leftHand: null,

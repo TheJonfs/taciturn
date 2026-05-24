@@ -69,6 +69,17 @@ export interface ClassEquipmentSlots {
 // `resistances` overrides are applied. Future status-driven resistance
 // changes layer on top via the resistance composition path in
 // `composeResistance`.
+//
+// Session 49: the Level system substrate keys its dominant-stat modifier
+// off `dominantStat` — at L23 the unit's dominant stat is -1; at L27 +1.
+// Mage-flavor classes declare 'ma'; physical brawlers declare 'pa'; speed
+// specialists declare 'spd'. Matches `BaseStats` field names so
+// `buildBaseStats` can index directly. The `classDominantStats` map
+// (in src/content/classes/baseline-stats.ts) carries the same data so
+// templates can apply level modifiers without a catalog lookup; a
+// loader-side cross-check pins the two in sync.
+export type DominantStat = 'pa' | 'ma' | 'spd';
+
 export interface ClassDefinition {
   readonly id: ClassId;
   readonly name: string;
@@ -77,6 +88,7 @@ export interface ClassDefinition {
   readonly equipmentSlots: ClassEquipmentSlots;
   readonly firstActionCommandSet: CommandSetId;
   readonly freeAbilities: ReadonlySet<AbilityId>;
+  readonly dominantStat: DominantStat;
   // Optional per-class resistance baseline. Missing = no class-level
   // resistance (the unit's resistances come entirely from the placement).
   readonly baselineResistances?: ReadonlyMap<DamageTag, number>;

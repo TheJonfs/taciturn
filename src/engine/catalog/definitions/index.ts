@@ -17,6 +17,7 @@ export type {
   ClassEquipmentSlots,
   ClassEvasionBaseline,
   ClassMovementBaseline,
+  DominantStat,
 } from './class-definition.ts';
 export type { CommandSetDefinition } from './command-set-definition.ts';
 export type {

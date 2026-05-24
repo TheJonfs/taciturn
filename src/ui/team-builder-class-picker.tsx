@@ -22,6 +22,7 @@ const CLASS_TAGLINES: ReadonlyMap<string, string> = new Map([
   ['alchemist', 'Field-medic toolkit support'],
   ['assassin', 'Swift debilitating skirmisher'],
   ['hunter', 'Ranged elevation marksman'],
+  ['calculator', 'Battlefield-wide parameter mage'],
 ]);
 
 export interface TeamBuilderClassPickerProps {

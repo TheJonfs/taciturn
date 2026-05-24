@@ -27,6 +27,7 @@ The four-school mage display names are flavored (Geosage / Hydrologist / Pyroman
 | `alchemist` | Alchemist | `src/content/classes/alchemist.ts` |
 | `assassin` | Assassin | `src/content/classes/assassin.ts` |
 | `hunter` | Hunter | `src/content/classes/hunter.ts` |
+| `calculator` | Calculator | `src/content/classes/calculator.ts` |
 
 ## Command sets
 
@@ -42,6 +43,7 @@ The four-school mage display names are flavored (Geosage / Hydrologist / Pyroman
 | `water_spells` | Water Spells | `water_strike`, `tide_surge`, `tidal_wave`, `brine`, `maelstrom` | `src/content/command-sets/water-spells.ts` |
 | `fire_spells` | Fire Spells | `fire_strike`, `fire_embrace`, `fire_storm`, `spark`, `flame_lance` | `src/content/command-sets/fire-spells.ts` |
 | `lightning_spells` | Lightning Spells | `lightning_strike`, `static_embrace`, `chain_lightning`, `magnetic_mark`, `storm_caller` | `src/content/command-sets/lightning-spells.ts` |
+| `math_skill` | Math Skill | `precision_fire`, `targeted_treatment`, `exact_rhythm`, `sculpted_enhancement`, `engineered_defenses` | `src/content/command-sets/math-skill.ts` |
 
 The `attack` ability is universal — surfaced through every class's `freeAbilities` rather than as a command-set member, so the action menu shows it alongside the player's First Action set.
 
@@ -94,6 +96,11 @@ The display names of the elemental-spell suite were re-flavored (S40 name pass a
 | `wand_of_lumen_apply_shift` | Wand of Lumen Resonance | first_action | no (hidden Lumen proc — applies +Earth/−Water shift; S45 follow-up + ADR-0084 Burn-stack rider) | hidden | `src/content/abilities/wand-of-lumen-apply-shift.ts` |
 | `apply_burn_proc` | Burn | first_action | no (hidden helper — emitted by Flametongue / Wand of Lumen Burn-rider) | hidden | `src/content/abilities/apply-burn-proc.ts` |
 | `apply_silence_proc` | Silence | first_action | no (hidden helper — emitted by Silence-applying weapons / casts) | hidden | `src/content/abilities/apply-silence-proc.ts` |
+| `precision_fire` | Precision Fire | first_action | no (S49 Math Skill — fire damage + 50% Burn proc per matching target) | available | `src/content/abilities/precision-fire.ts` |
+| `targeted_treatment` | Targeted Treatment | first_action | no (S49 Math Skill — multi-target heal; friendly fire on enemies) | available | `src/content/abilities/targeted-treatment.ts` |
+| `exact_rhythm` | Exact Rhythm | first_action | no (S49 Math Skill — CT push, magnitude = SP × MA × Faith; clamps at 0) | available | `src/content/abilities/exact-rhythm.ts` |
+| `sculpted_enhancement` | Sculpted Enhancement | first_action | no (S49 Math Skill — 50% Faith-gated PA Up + MA Up apply, linked roll) | available | `src/content/abilities/sculpted-enhancement.ts` |
+| `engineered_defenses` | Engineered Defenses | first_action | no (S49 Math Skill — 80% Faith-gated apply of `engineered_defenses` status) | available | `src/content/abilities/engineered-defenses.ts` |
 
 ## Passive abilities
 
@@ -130,6 +137,9 @@ Reaction / Support / Movement passives are equipped through their respective R/S
 | `martial_expertise` | Martial Expertise | support | 2 (S41 Knight — × 1.25 PA multiplier; Conductor parity) | `src/content/abilities/martial-expertise.ts` |
 | `two_weapons` | Two Weapons | support | 3 (S42 Assassin — dual-wield + per-swing PA × 0.75) | `src/content/abilities/two-weapons.ts` |
 | `field_kit` | Travel Preparations | support | 1 (S39 Alchemist — start battle with Potion / Phoenix Down / Remedy stocked) | `src/content/abilities/field-kit.ts` |
+| `mathematician` | Mathematician | support | 2 (S49 Calculator native — +1 SP on Math + per-target MP cost 3 → 1) | `src/content/abilities/mathematician.ts` |
+| `cornered_focus` | Cornered Focus | reaction | 1 (S49 Calculator native — +1 MA permanently on hit, stacks; Speed Save / Updraft parity) | `src/content/abilities/cornered-focus.ts` |
+| `thoughtful_pacing` | Thoughtful Pacing | movement | 1 (S49 Calculator native — restore 2 × tiles MP on Move) | `src/content/abilities/thoughtful-pacing.ts` |
 
 S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive without a class home; the `modifyEvasion` hook it introduced stays for equipment-side consumers).
 
@@ -167,6 +177,8 @@ S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive w
 | `speed_save` | Speed Save | positive, time | STACK_ADDITIVE | permanent | `src/content/statuses/speed-save.ts` |
 | `combat_focus` | Combat Focus | positive | REFRESH | turn_based | `src/content/statuses/combat-focus.ts` |
 | `tagged_resistance_shift` | Resonance | negative, dispellable | STACK_INDEPENDENT | permanent | `src/content/statuses/tagged-resistance-shift.ts` |
+| `cornered_focus` | Cornered Focus | positive, mental | STACK_ADDITIVE | permanent | `src/content/statuses/cornered-focus.ts` |
+| `engineered_defenses` | Engineered Defenses | positive, dispellable | STACK_INDEPENDENT | permanent | `src/content/statuses/engineered-defenses.ts` |
 
 A status's `aiHints.polarity` (`'buff' | 'debuff'`) drives AI scoring; the polarity is independent of the `negative`/`positive` *tag* (which steers resistance application). Buff statuses include haste, regen, movement_self_buff, pa_up, ma_up, crit_modifier, and the S42 `speed_save` / Hunter `updraft` self-stacking buffs.
 

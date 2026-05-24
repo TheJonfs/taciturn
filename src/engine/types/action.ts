@@ -43,6 +43,22 @@ export type ActionType =
 
 export type ActionSource = 'player' | 'system';
 
+// Session 49: Math Skill targeting parameter — picks which numeric
+// property of each candidate unit the predicate inspects. The four
+// canonical FFT-style parameters cover dynamic (CT, current HP) and
+// static (Height, Level) axes.
+export type MathSkillParameter = 'ct' | 'height' | 'level' | 'current_hp';
+
+// Session 49: Math Skill value — the test the parameter is checked
+// against. `'prime'` selects units whose parameter is a prime number;
+// the numeric values select units whose parameter is divisible by N.
+//
+// The 4 × 4 grid (parameter × value) generates the 16 combinations a
+// Calculator picks among per Math cast. Future expansions (more
+// parameters or more divisors) extend the union; the engine's
+// predicate enumerator handles every (param, value) pair uniformly.
+export type MathSkillValue = 'prime' | 3 | 4 | 5;
+
 // What target an ability action is aimed at. `self` for `targeting.kind:
 // 'self'` abilities; `unit` for single-unit targeting; `tile` for
 // tile-anchored targeting (resolves at the position regardless of which
@@ -50,10 +66,21 @@ export type ActionSource = 'player' | 'system';
 // behavior). AoE per-target dispatch lands additively in session 17;
 // per-target results for AoE / tile-anchored damage are still
 // unit-keyed.
+//
+// Session 49: `math_skill` carries the cast-time parameter + value the
+// controller picked. The engine enumerates matching units at resolve
+// time via the predicate; per-target dispatch runs through the same
+// `resolveAbilityEffect` body as AoE — no targeting-specific resolution
+// branch.
 export type AbilityTarget =
   | { readonly kind: 'self' }
   | { readonly kind: 'unit'; readonly unitId: UnitId }
-  | { readonly kind: 'tile'; readonly position: Position };
+  | { readonly kind: 'tile'; readonly position: Position }
+  | {
+      readonly kind: 'math_skill';
+      readonly parameter: MathSkillParameter;
+      readonly value: MathSkillValue;
+    };
 
 // Per-target result inside a UseAbility outcome. Damage is populated
 // session 8; v1 records hits and per-target status-application outcomes.
@@ -352,9 +379,13 @@ export interface SystemMpRestoreOutcome {
   readonly applied: number; // post-cap delta
   readonly mpAfter?: number; // ADR-0074 absolute (absent if target not in state)
 }
-// Provenance for a system_mp_restore. v1 producer is throw_item (Ether).
+// Provenance for a system_mp_restore. v1 producers:
+//   - throw_item (Ether)
+//   - movement_passive (Session 49: Calculator's Thoughtful Pacing emits
+//     2 × tilesMoved MP restore on each Move completion).
 export type SystemMpRestoreSource =
-  | { readonly kind: 'throw_item'; readonly itemId: ItemId; readonly casterId: UnitId };
+  | { readonly kind: 'throw_item'; readonly itemId: ItemId; readonly casterId: UnitId }
+  | { readonly kind: 'movement_passive'; readonly abilityId: AbilityId; readonly unitId: UnitId };
 
 // `system_mp_drain` — engine-emitted MP transfer used by Rasp Pendant
 // (Session 31) and any future damage-to-MP-drain effects. Distinct from

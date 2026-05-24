@@ -249,6 +249,7 @@ describe('runOnActionTargeted — Brave-gated reaction trigger (ADR-0021)', () =
       equipmentSlots: { leftHand: true, rightHand: true, headgear: true, armor: true, accessory: true },
       firstActionCommandSet: commandSetId('battle_skill'),
       freeAbilities: new Set(),
+      dominantStat: 'pa',
     };
   }
 

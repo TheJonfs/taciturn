@@ -47,7 +47,8 @@ export const highlandHunters: BuiltTeam = {
     {
       name: 'Faramund',
       classId: classId('hunter'),
-      baseStats: buildBaseStats(classId('hunter'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('hunter'), BRAVE, FAITH, 25),
+      level: 25,
       loadout: HUNTER_LOADOUT,
       equipment: {
         // Two-handed bow → off-hand stays empty (slotting enforces it).
@@ -61,7 +62,8 @@ export const highlandHunters: BuiltTeam = {
     {
       name: 'Bremondt',
       classId: classId('knight'),
-      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH, 24),
+      level: 24,
       loadout: KNIGHT_LOADOUT,
       equipment: {
         leftHand: itemId('warriors_aegis'),
@@ -74,7 +76,8 @@ export const highlandHunters: BuiltTeam = {
     {
       name: 'Saphira',
       classId: classId('earth_mage'),
-      baseStats: buildBaseStats(classId('earth_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('earth_mage'), BRAVE, FAITH, 26),
+      level: 26,
       loadout: EARTH_MAGE_LOADOUT,
       equipment: {
         leftHand: null,
@@ -87,7 +90,8 @@ export const highlandHunters: BuiltTeam = {
     {
       name: 'Maelis',
       classId: classId('water_mage'),
-      baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('water_mage'), BRAVE, FAITH, 23),
+      level: 23,
       loadout: WATER_MAGE_LOADOUT,
       equipment: {
         leftHand: null,

@@ -485,7 +485,9 @@ describe('Session 29 modifyAbilityRange', () => {
     const u = makeUnit({ id: 'u', spd: 10 });
     const state = makeGameState({ units: [u] });
     const ability = makeTaggedAbility({ id: 'water_spell', tags: ['water'], horizontal: 4, vertical: 3 });
-    if (ability.targeting.kind === 'self') throw new Error('expected ranged targeting');
+    if (ability.targeting.kind === 'self' || ability.targeting.kind === 'math_skill') {
+      throw new Error('expected ranged targeting');
+    }
     const out = runModifyAbilityRange(state, cat, {
       unit: u,
       ability,

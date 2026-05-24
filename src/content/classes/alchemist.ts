@@ -48,4 +48,7 @@ export const alchemist: ClassDefinition = {
     abilityId('field_recovery'),
     abilityId('field_kit'),
   ]),
+  // S49 Level system: Alchemist is the second-highest PA in v1 (8) and
+  // builds throw-item magnitudes off PA — physical-dominant.
+  dominantStat: 'pa',
 };

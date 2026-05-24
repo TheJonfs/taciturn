@@ -33,6 +33,8 @@ export {
   runModifyEvasion,
   runModifyHitChance,
   runModifyIncomingStatusApplicationChance,
+  runModifyMathSkillPerTargetMpCost,
+  runModifyMathSkillSpBonus,
   runModifyMpCost,
   runModifyOutgoingHitChance,
   runModifyResistance,

@@ -1,6 +1,7 @@
 import type { ClassDefinition } from '@engine/index.ts';
 import { alchemist } from './alchemist.ts';
 import { assassin } from './assassin.ts';
+import { calculator } from './calculator.ts';
 import { earthMage } from './earth-mage.ts';
 import { fireMage } from './fire-mage.ts';
 import { hunter } from './hunter.ts';
@@ -11,6 +12,7 @@ import { waterMage } from './water-mage.ts';
 export const classes: ReadonlyArray<ClassDefinition> = [
   alchemist,
   assassin,
+  calculator,
   earthMage,
   fireMage,
   hunter,

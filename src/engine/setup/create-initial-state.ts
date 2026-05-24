@@ -257,6 +257,11 @@ function placementToUnit(
     classState: { currentClass: placement.classId },
     loadout: placement.loadout,
     equipment,
+    // Session 49: level defaults to 25 when the placement omits it
+    // (demo / hand-authored configs). The team-builder pipeline
+    // always sets it; `baseStats` should already reflect the level
+    // modifier from `buildBaseStats(..., level)` upstream.
+    level: placement.level ?? 25,
     position: placement.position,
     facing: placement.facing,
     ct,

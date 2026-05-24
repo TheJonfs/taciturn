@@ -26,6 +26,71 @@ shouldn't drift out of memory between sessions.
 
 ## Active entries
 
+### S49 — Calculator + Math Skill + Level system
+
+- **Math Skill targeting UX clarity.** The Calculator's parameter ×
+  value pick is complex (4 × 4 = 16 combinations per ability). The
+  preview UI is responsible for making the matched-set obvious at a
+  glance. Watch first-pass feedback: can players read who they'd hit
+  before committing? If not, UI iteration (16-grid layout, color
+  contrast, hit counter prominence) needed.
+
+- **Self-damage from Math.** A Calculator at L25 (slot 0) whose own
+  CT / HP match the predicate eats their own Math cast. Watch first-
+  cast surprise vs. the design intent (the trade-off is a feature, not
+  a bug). The Calculator-at-slot-3 (L26) convention sidesteps Level-
+  parameter self-hits; CT / HP / Height self-matches are situational.
+
+- **Friendly fire on Math (Sculpted / Engineered buffing enemies).**
+  Math Skill's friendly fire applies in both directions — a status
+  buff lands on matching enemies too. Watch whether the "I buffed my
+  opponent" moments read as interesting trade-offs or frustrating
+  whiffs.
+
+- **Exact Rhythm snowball.** Multi-target CT push every Calculator
+  turn could lock out enemies. Brief flagged this; Chris will
+  stress-test. Lever: SP reduction or per-cast cooldown if it runs
+  away.
+
+- **Sculpted Enhancement stack-up.** PA Up / MA Up are STACK_ADDITIVE.
+  Multiple casts compound the party's offensive stats — across 5+
+  casts, decisive or just "Calculator earned a slow setup"?
+
+- **Engineered Defenses runaway.** Same concern at 80% base rate,
+  multiplicatively stronger per cast (+10 to *each* elemental
+  resistance + 5% per facing). Watch whether multiple stacks make
+  units near-invulnerable; lever is non-stackable rule if so.
+
+- **Level-system retroactive template rebalance.** S49 applied
+  slot-based levels to all 8 pre-S49 templates (Mage War's Geosage
+  at slot 1 → L24 → -10% HP/MP; the Aethurge at slot 3 → L23 → -1
+  MA + -20% HP/MP). Watch whether these tunings hold or want
+  rebalancing — the templates were calibrated at uniform L25.
+
+- **Calculator at L26 (slot 3) default placement.** Naturally optimal
+  for Level math (immune to Level-parameter self-hits). Watch whether
+  every Calculator team defaults to this — predictable + meta-locked
+  — or whether other slot placements stay viable for CT / HP
+  parameter strategies.
+
+- **AI Math Skill quality.** v1 max-EV scoring may pick options that
+  look weird to a human (a Calculator hitting many allies for a
+  slight enemy hit; Targeted Treatment on enemies). Watch AI play
+  for "intelligent" vs "arbitrary" reads. Aggressive / Conservative
+  variants deferred to a future session if needed.
+
+- **Magus Crown + Math Skill interactions.** A Calculator + Magus
+  Crown gets Math + two secondaries at MA 5 (down from 8). A Mage +
+  Magus + Math secondary gets native spells + Math + a third
+  secondary at MA 8–9. Watch whether these are interesting build
+  options or auto-picks.
+
+- **Mathematician's anti-parasitism lever holds?** Mage + Math
+  secondary + Mathematician costs the Mage's Support slot
+  (Conductor). Watch whether the trade is real — does the Math
+  output justify giving up MA × 1.25 — or whether cross-class Math
+  becomes the default for Mages.
+
 ### River Ridge balance post-S37 loadout changes
 
 - **What to watch.** River Ridge engagements after the S36 loadout

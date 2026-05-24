@@ -48,7 +48,8 @@ export const highGround: BuiltTeam = {
     {
       name: 'Ajax',
       classId: classId('hunter'),
-      baseStats: buildBaseStats(classId('hunter'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('hunter'), BRAVE, FAITH, 25),
+      level: 25,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('marksmanship')],
@@ -84,7 +85,8 @@ export const highGround: BuiltTeam = {
     {
       name: 'Tina',
       classId: classId('alchemist'),
-      baseStats: buildBaseStats(classId('alchemist'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('alchemist'), BRAVE, FAITH, 24),
+      level: 24,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('alchemy')],
@@ -120,7 +122,8 @@ export const highGround: BuiltTeam = {
     {
       name: 'Eldred',
       classId: classId('lightning_mage'),
-      baseStats: buildBaseStats(classId('lightning_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('lightning_mage'), BRAVE, FAITH, 26),
+      level: 26,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('lightning_spells')],
@@ -156,7 +159,8 @@ export const highGround: BuiltTeam = {
     {
       name: 'Samuel',
       classId: classId('earth_mage'),
-      baseStats: buildBaseStats(classId('earth_mage'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('earth_mage'), BRAVE, FAITH, 23),
+      level: 23,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('earth_spells')],
@@ -199,7 +203,8 @@ export const highGround: BuiltTeam = {
     {
       name: 'Cecil',
       classId: classId('knight'),
-      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH),
+      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH, 27),
+      level: 27,
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('battle_skill')],

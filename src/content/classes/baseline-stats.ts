@@ -15,6 +15,7 @@
 // implicitly L25 and these values are authored directly.
 
 import { classId, type BaseStats, type ClassId } from '@engine/index.ts';
+import type { DominantStat } from '@engine/index.ts';
 
 // The class-differentiated subset of `BaseStats`. Derived via `Pick` so
 // a rename in the engine's `BaseStats` propagates here automatically.
@@ -22,6 +23,26 @@ export type ClassBaselineStats = Pick<
   BaseStats,
   'maxHpBase' | 'maxMpBase' | 'pa' | 'ma' | 'spd'
 >;
+
+// Session 49: per-class dominant stat — the stat that bumps ±1 at level
+// ±2 from baseline (L23 → -1, L27 → +1). Mirrors the `dominantStat`
+// field on each `ClassDefinition`; a loader-side cross-check pins the
+// two in sync. `buildBaseStats` reads from this map directly (no
+// catalog dependency at template-author time).
+export const classDominantStats: ReadonlyMap<ClassId, DominantStat> = new Map([
+  [classId('knight'),         'pa'],
+  [classId('earth_mage'),     'ma'],
+  [classId('water_mage'),     'ma'],
+  [classId('fire_mage'),      'ma'],
+  [classId('lightning_mage'), 'ma'],
+  [classId('alchemist'),      'pa'],
+  [classId('assassin'),       'spd'],
+  [classId('hunter'),         'pa'],
+  // S49: Calculator is MA-dominant — Math Skill damage / heal / CT
+  // scale off MA × Faith, and the +1 at L≥27 / -1 at L≤23 axis is the
+  // class's identity stat.
+  [classId('calculator'),     'ma'],
+]);
 
 export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new Map([
   // S46 tuning: PA 11 → 10. Knight's raw output read a touch too high
@@ -58,4 +79,11 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   // no MP). PA 6 medium-strong physical; MA 3 (lowest, tied Assassin) —
   // not a caster. Speed 9 medium (below Assassin 14, at the Knight tier).
   [classId('hunter'),         { maxHpBase: 116, maxMpBase: 28, pa: 6,  ma: 3,  spd: 9  }],
+  // Session 49 (Calculator, the 9th class). HP 101 sits between
+  // Assassin (96) and Earth Mage (112) — modest. MP 47 is moderate
+  // (between Knight 20 and Mages 60); Mathematician + Thoughtful
+  // Pacing extends sustain. PA 5 (low; Calculator doesn't do physical
+  // damage). MA 8 (moderate; not as high as a fully-equipped Mage).
+  // Speed 7 (slow; fewer turns per battle). Per blueprint.
+  [classId('calculator'),     { maxHpBase: 101, maxMpBase: 47, pa: 5,  ma: 8,  spd: 7  }],
 ]);

@@ -54,6 +54,15 @@ export interface UnitPlacement {
   readonly statuses?: ReadonlyArray<StatusInstance>;
   readonly resistances?: ReadonlyMap<DamageTag, number>;
   readonly initialCT?: number;
+  // Session 49: slot-based level. Optional — when omitted, the unit is
+  // L25 (baseline). The team-builder pipeline derives this from slot
+  // index via `slotLevelFor`; demo / hand-authored battles can leave it
+  // off and accept the baseline. `baseStats` should already reflect the
+  // level modifier when present (the team-builder calls `buildBaseStats`
+  // with the level), so this field is informational from the engine's
+  // perspective except where Math Skill's `parameter: 'level'`
+  // predicate reads it off the resulting Unit.
+  readonly level?: number;
 }
 
 // Victory conditions are data-as-config. The shape lives in

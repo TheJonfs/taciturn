@@ -52,4 +52,7 @@ export const knight: ClassDefinition = {
     abilityId('martial_expertise'),
     abilityId('bravestrider'),
   ]),
+  // S49 Level system: Knight's identity is physical attack — at L23 the
+  // dominant-stat modifier drops PA by 1; at L27 boosts by 1.
+  dominantStat: 'pa',
 };
