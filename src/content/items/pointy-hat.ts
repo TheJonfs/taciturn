@@ -10,6 +10,7 @@ const MAGE_CLASSES = [
   classId('water_mage'),
   classId('fire_mage'),
   classId('lightning_mage'),
+  classId('calculator'),
 ];
 
 export const pointyHat: HeadgearEquipment = {

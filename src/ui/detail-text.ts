@@ -109,6 +109,10 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('eagle_eye'), '× 2 physical hit chance — takes the bow’s bare 33 accuracy to ~66%, and saturates the clamp on high-accuracy weapons.'],
   [abilityId('updraft'), 'On taking enemy damage, gain +1 Jump permanently. Stacks across the battle and persists through KO.'],
   [abilityId('high_jump'), '+2 Jump — reach the high ground bows’ elevation-variance rewards.'],
+  // S49 — Calculator R/S/M.
+  [abilityId('cornered_focus'), 'On taking enemy damage, gain +1 MA permanently. Stacks across the battle and persists through KO — the Calculator sharpens under pressure.'],
+  [abilityId('mathematician'), 'Math Skill abilities gain +1 SP (damage / heal / CT push all read +1 to power), and the per-target MP cost drops from 3 to 1 per matching unit.'],
+  [abilityId('thoughtful_pacing'), 'Restores MP equal to 2 × spaces moved at the end of each Move action.'],
 ]);
 
 // Tiny formatting helpers — kept inline rather than a regex zoo so the

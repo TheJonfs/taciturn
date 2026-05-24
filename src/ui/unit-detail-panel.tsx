@@ -181,7 +181,7 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
             <div>
               <div style={nameStyle}>{unit.name}</div>
               <div style={subStyle}>
-                {cls.name} · Team {String(unit.team)}
+                L{unit.level} {cls.name} · Team {String(unit.team)}
               </div>
             </div>
           </div>

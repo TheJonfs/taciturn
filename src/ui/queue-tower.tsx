@@ -252,7 +252,7 @@ function ActiveUnitAnchor(props: {
         )}
         <div>
           <div style={anchorNameStyle}>{unit.name}</div>
-          <div style={anchorSubStyle}>{cls.name}</div>
+          <div style={anchorSubStyle}>L{unit.level} {cls.name}</div>
         </div>
       </div>
       <Stat label="HP" current={unit.vitals.hp} max={maxHp} />
