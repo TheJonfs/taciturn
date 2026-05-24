@@ -1,16 +1,12 @@
 // Team export — exporter shape + round-trip tests (S48).
 
 import { describe, expect, it } from 'vitest';
-import { loadDefaultCatalog } from '@content/index.ts';
 import {
   buildBaseStats,
   currentTestTeam,
-  type BuiltTeam,
 } from '@content/teams/index.ts';
 import { classId } from '@engine/index.ts';
 import { exportBuiltTeamJson, exportBuiltTeamThin } from './team-export.ts';
-
-const catalog = loadDefaultCatalog();
 
 describe('exportBuiltTeamThin', () => {
   it('preserves the team name', () => {
@@ -44,7 +40,11 @@ describe('exportBuiltTeamThin', () => {
     for (const unit of out.units) {
       // The exporter intentionally does NOT serialize baseStats; the
       // values are recomputed via buildBaseStats on the loading side.
-      expect((unit as Record<string, unknown>).baseStats).toBeUndefined();
+      // (Bracket access + `unknown` double-cast per strict-mode
+      // `noPropertyAccessFromIndexSignature` and `noUnusedLocals` —
+      // TypeExportThinUnit doesn't structurally overlap with an open
+      // Record, so probing the absent field at runtime takes both.)
+      expect((unit as unknown as Record<string, unknown>)['baseStats']).toBeUndefined();
       expect(typeof unit.brave).toBe('number');
       expect(typeof unit.faith).toBe('number');
     }
@@ -108,6 +108,3 @@ describe('exportBuiltTeamJson', () => {
 // parsed value's shape lined up with the exporter's interface so the
 // equality check is precise.
 type TeamExportThinParsed = ReturnType<typeof exportBuiltTeamThin>;
-
-// Used by the import shape so `catalog` isn't an unused import.
-void catalog;
