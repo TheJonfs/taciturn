@@ -18,6 +18,7 @@ import {
   type AbilityId,
   type ActiveAbilityDefinition,
   type Catalog,
+  type CommandSetDefinition,
   type ConsumableDefinition,
   type DamageTag,
   type EquipmentDefinition,
@@ -559,6 +560,82 @@ function formatActiveDetail(ability: ActiveAbilityDefinition, catalog: Catalog):
   return {
     title: ability.name,
     subtitle: `${bucketLabel(ability.bucket)} ability`,
+    lines,
+  };
+}
+
+// Per-member one-liner for command-set tooltips (S48). Compact enough
+// to render five abilities in a single tooltip card without overflowing
+// the panel; the full per-ability detail content remains available via
+// the action menu in battle.
+function formatActiveOneLiner(
+  ability: ActiveAbilityDefinition,
+  catalog: Catalog,
+): string {
+  const parts: string[] = [];
+  if (ability.mpCost > 0) parts.push(`MP ${ability.mpCost}`);
+  if (ability.actionSpeed > 0) parts.push(`Charge ${ability.actionSpeed}`);
+  const dmg = ability.effects.damage;
+  if (dmg !== undefined) {
+    // Tag-driven shorthand: "Heal MA×P", "Magical MA×P", "Physical PA×WP×P".
+    const power = dmg.power_coefficient ?? 1;
+    if (dmg.tags.includes('healing')) {
+      parts.push(`Heal MA×${power}`);
+    } else if (dmg.tags.includes('magical')) {
+      parts.push(`MA×${power}`);
+    } else if (dmg.tags.includes('physical')) {
+      parts.push(`PA×WP×${power}`);
+    }
+  }
+  if (ability.effects.aoe !== undefined) {
+    parts.push(`AoE ${ability.effects.aoe.shape.kind}`);
+  }
+  if (ability.effects.statusEffects !== undefined) {
+    const names = ability.effects.statusEffects.map((fx) =>
+      catalog.hasStatusType(fx.typeId)
+        ? catalog.getStatusType(fx.typeId).name
+        : String(fx.typeId),
+    );
+    parts.push(`+${names.join('/')}`);
+  }
+  return `${ability.name}${parts.length > 0 ? ' — ' + parts.join(' · ') : ''}`;
+}
+
+// Command-set hover content (S48). Lists the set's member abilities
+// with a compact one-liner per ability so a player can compare the
+// secondary-set picks at a glance without leaving the team builder.
+// The full per-ability detail (range, accuracy, variance, knockback,
+// etc.) renders during battle on the action menu's existing tooltip.
+export function formatCommandSetDetail(
+  set: CommandSetDefinition,
+  catalog: Catalog,
+): DetailContent {
+  const lines: string[] = [];
+  if (set.members.length === 0) {
+    lines.push('(empty set — no member abilities)');
+  } else {
+    for (const memberId of set.members) {
+      if (!catalog.hasAbility(memberId)) {
+        lines.push(`${String(memberId)} (unregistered)`);
+        continue;
+      }
+      const ability = catalog.getAbility(memberId);
+      if (ability.kind === 'active') {
+        lines.push(formatActiveOneLiner(ability, catalog));
+      } else {
+        // Passives don't normally live inside a command set, but the
+        // shape allows it. Fall back to the authored description.
+        const desc = PASSIVE_DESCRIPTIONS.get(ability.id);
+        lines.push(`${ability.name}${desc !== undefined ? ' — ' + desc : ''}`);
+      }
+    }
+  }
+  if (set.baseCost > 0) {
+    lines.push(`Set cost: ${set.baseCost}`);
+  }
+  return {
+    title: set.name,
+    subtitle: `Command Set · ${set.members.length} abilit${set.members.length === 1 ? 'y' : 'ies'}`,
     lines,
   };
 }

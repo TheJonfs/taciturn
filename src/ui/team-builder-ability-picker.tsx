@@ -23,6 +23,12 @@ import {
   type CommandSetId,
 } from '@engine/index.ts';
 import { abilities, commandSets } from '@content/index.ts';
+import { DetailHover } from './detail-hover.tsx';
+import {
+  formatAbilityDetail,
+  formatCommandSetDetail,
+  type DetailContent,
+} from './detail-text.ts';
 import {
   draftAbilityCost,
   draftBucketUsage,
@@ -99,6 +105,7 @@ export function TeamBuilderAbilityPicker({
                 isEquipped={isEquipped}
                 cost={cost}
                 disabled={wouldOverflow}
+                detail={formatCommandSetDetail(cs, catalog)}
                 onToggle={() =>
                   toggleSecondaryCommandSet(selectedIndex, cs.id as CommandSetId)
                 }
@@ -135,6 +142,7 @@ export function TeamBuilderAbilityPicker({
                   isEquipped={isEquipped || isFree}
                   cost={cost}
                   disabled={isFree || wouldOverflow}
+                  detail={formatAbilityDetail(ability, catalog)}
                   onToggle={() =>
                     togglePassive(selectedIndex, bucketId, ability.id as AbilityId)
                   }
@@ -172,6 +180,10 @@ interface OptionRowProps {
   readonly isEquipped: boolean;
   readonly cost: number;
   readonly disabled: boolean;
+  // S48: optional auto-generated detail content for the hover tooltip.
+  // Passive ability picker passes `formatAbilityDetail(ability, ...)`;
+  // command-set picker passes `formatCommandSetDetail(cs, ...)`.
+  readonly detail?: DetailContent;
   readonly onToggle: () => void;
 }
 
@@ -181,9 +193,10 @@ function OptionRow({
   isEquipped,
   cost,
   disabled,
+  detail,
   onToggle,
 }: OptionRowProps): ReactElement {
-  return (
+  const row = (
     <label
       style={{
         ...optionRowStyle,
@@ -202,6 +215,12 @@ function OptionRow({
       <span style={costTagStyle}>{isFree ? 'Free' : `Cost ${cost}`}</span>
     </label>
   );
+  if (detail === undefined) return row;
+  // S48: wrap the row in DetailHover so a player can read the ability /
+  // command-set's mechanical detail by hovering it in the builder. The
+  // tooltip renders to a portal so the label's cursor + click semantics
+  // are unaffected.
+  return <DetailHover content={detail}>{row}</DetailHover>;
 }
 
 // ---- styles ----

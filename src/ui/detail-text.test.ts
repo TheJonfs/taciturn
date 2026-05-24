@@ -20,7 +20,16 @@ import { maelstrom } from '../content/abilities/maelstrom.ts';
 import { burn } from '../content/statuses/burn.ts';
 import { shell } from '../content/statuses/shell.ts';
 import { taggedResistanceShift } from '../content/statuses/tagged-resistance-shift.ts';
-import { formatAbilityDetail, formatItemDetail, formatStatusDetail } from './detail-text.ts';
+import { battleSkill } from '../content/command-sets/battle-skill.ts';
+import { powerAttack } from '../content/abilities/power-attack.ts';
+import { lightningStab } from '../content/abilities/lightning-stab.ts';
+import { taunt } from '../content/abilities/taunt.ts';
+import {
+  formatAbilityDetail,
+  formatCommandSetDetail,
+  formatItemDetail,
+  formatStatusDetail,
+} from './detail-text.ts';
 
 function makeCat() {
   return createCatalog({
@@ -126,6 +135,47 @@ describe('formatAbilityDetail', () => {
     const cat = makeCat();
     const d = formatAbilityDetail(maelstrom, cat);
     expect(d.lines.join('\n')).toContain('Knockback: 1 tiles (always)');
+  });
+});
+
+// S48: command-set hover content for the team-builder ability picker.
+describe('formatCommandSetDetail', () => {
+  function makeCatWithBattleSkill() {
+    return createCatalog({
+      statusTypes: [],
+      abilities: [powerAttack, lightningStab, taunt],
+      commandSets: [battleSkill],
+      classes: [makeKnight()],
+      items: [],
+      rulesets: defaultTestRulesets,
+    });
+  }
+
+  it('lists every member ability of a command set with a compact one-liner', () => {
+    const cat = makeCatWithBattleSkill();
+    const d = formatCommandSetDetail(battleSkill, cat);
+    expect(d.title).toBe('Battle Skill');
+    expect(d.subtitle).toContain('Command Set');
+    expect(d.subtitle).toContain('3 abilities');
+    const joined = d.lines.join('\n');
+    expect(joined).toContain('Power Attack');
+    expect(joined).toContain('Lightning Stab');
+    expect(joined).toContain('Taunt');
+  });
+
+  it("surfaces a member's MP cost and damage formula on its summary line", () => {
+    const cat = makeCatWithBattleSkill();
+    const d = formatCommandSetDetail(battleSkill, cat);
+    const joined = d.lines.join('\n');
+    // Power Attack is a physical damage active — MP cost + PA×WP×coef.
+    expect(joined).toMatch(/Power Attack — MP \d+/);
+    expect(joined).toMatch(/PA×WP×/);
+  });
+
+  it('renders the set-level cost line when nonzero', () => {
+    const cat = makeCatWithBattleSkill();
+    const d = formatCommandSetDetail(battleSkill, cat);
+    expect(d.lines.join('\n')).toContain('Set cost:');
   });
 });
 
