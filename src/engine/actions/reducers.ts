@@ -271,7 +271,22 @@ export function reduceUseAbility(
   // charged abilities are magical; session 20's Discharge has no
   // damage-tag filter, so it surfaces the gap. Per ADR-0032's
   // "magical reactions" item.
-  if (state.turnState === null && !action.isReaction) {
+  //
+  // S50 fix: rider casts (weapon `attackProcs`) need the same bypass.
+  // ADR-0064 already exempts them from MP / onActionAttempted /
+  // actionSpeed / Act-budget gates because the weapon is paying, not
+  // the wielder — the turn-in-progress check is the same kind of gate
+  // ("the wielder is taking a turn"), and a rider cast emitted from a
+  // post-turn-end status_tick / onTurnEnd / scheduler-advance chain
+  // shouldn't crash the battle because its parent action ran between
+  // turns. The missing bypass surfaced in Chris's Calculator playtest:
+  // Math + Move + End Turn → a deferred rider cast in the post-turn-end
+  // chain hit this throw, freezing the battle.
+  if (
+    state.turnState === null &&
+    !action.isReaction &&
+    !isRiderCast(action.payload)
+  ) {
     throw new Error('reduceUseAbility: no turn in progress');
   }
 

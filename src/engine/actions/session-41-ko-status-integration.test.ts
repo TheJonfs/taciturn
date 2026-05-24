@@ -167,18 +167,22 @@ describe('S41 — KO/status clear-at-KO sweep', () => {
   });
 
   it('emits the finite ones and skips the infinite ones in a mixed loadout', () => {
-    // Silence (per_unit_ct, finite) + Combat Focus (turn_based, finite) +
+    // Silence (per_unit_ct, finite) + Blind (per_unit_ct, finite) +
     // Regen-Auto (permanent_per_unit_ct, infinite) + Poison (permanent_per_unit_ct, infinite).
+    // S50: Combat Focus migrated from turn_based/3 to permanent so it
+    // joins the "persists through KO" family with Speed Save / Updraft
+    // / Cornered Focus; this test pivoted to Blind for the second
+    // finite-and-cleared example.
     const { state, target } = stateWithTargetAndStatuses([
       'silence',
-      'combat_focus',
+      'blind',
       'regen_auto',
       'poison',
     ]);
     const { generatedActions } = reduceSystemDamage(state, koActionFor(target.id), catalog);
     const cleared = statusRemovesOn(generatedActions, target.id);
     expect(cleared).toContain('silence');
-    expect(cleared).toContain('combat_focus');
+    expect(cleared).toContain('blind');
     expect(cleared).not.toContain('regen_auto');
     expect(cleared).not.toContain('poison');
   });

@@ -123,11 +123,15 @@ describe('loadDefaultCatalog', () => {
     //     cornered_focus reaction, mathematician, thoughtful_pacing)
     //   - commandSets: 10 → 11 (math_skill)
     //   - classes: 8 → 9 (calculator)
+    //
+    // Session 50 universal armor + head expansion:
+    //   - items: 55 → 60 (shimmer_cloak, golden_hairpin, soul_vest,
+    //     parrying_sword, skullclamp)
     expect(cat.statusTypes()).toHaveLength(32);
     expect(cat.abilities()).toHaveLength(80);
     expect(cat.commandSets()).toHaveLength(11);
     expect(cat.classes()).toHaveLength(9);
-    expect(cat.items()).toHaveLength(55);
+    expect(cat.items()).toHaveLength(60);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

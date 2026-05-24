@@ -250,6 +250,40 @@ describe('reduceUseAbility — instant + status-application', () => {
     expect(outcome.perTargetResults).toHaveLength(0);
     expect(outcome.mpSpent).toBe(6);
   });
+
+  // S50 regression: rider casts (weapon attackProcs) need to bypass the
+  // "no turn in progress" gate, parallel to the existing reaction
+  // bypass. When a rider is emitted by an action that runs between
+  // turns — e.g., a charged_action_resolve dispatched by the scheduler
+  // post-turn-end — turnState is null. The rider's parent already paid
+  // the gate (ADR-0064: the weapon is the source, not the wielder), so
+  // the rider should not crash on it. Surfaced by Chris's Calculator
+  // playtest: Math + Move + End Turn → freeze with "reduceUseAbility:
+  // no turn in progress".
+  it('S50: rider cast commits without throwing when turnState is null', () => {
+    const proc = makeActive({
+      id: 'rider_proc',
+      targeting: { kind: 'self' },
+    });
+    const cat = makeAbilitiesCatalog({ abilities: [proc] });
+    const u = makeUnit({ id: 'u1', spd: 10, mp: 10, loadout: knightLoadout() });
+    // turnState explicitly omitted (defaults to null in makeGameState).
+    const state = makeGameState({ units: [u] });
+    const action = asAction(
+      'use_ability',
+      { sequenceNumber: 1, actorId: 'u1' },
+      {
+        abilityId: abilityId('rider_proc'),
+        target: { kind: 'self' },
+        riderSource: {
+          kind: 'equipment_proc',
+          itemId: 'fake_item' as never,
+        },
+      },
+    );
+    expect(state.turnState).toBeNull();
+    expect(() => reduceUseAbility(state, action, cat)).not.toThrow();
+  });
 });
 
 describe('reduceTurnStart', () => {

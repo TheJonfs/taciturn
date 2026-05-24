@@ -31,6 +31,12 @@ import {
   KO_X_ALPHA,
   KO_X_COLOR,
   KO_X_WIDTH,
+  PERMADEATH_BADGE_BG,
+  PERMADEATH_BADGE_BG_IMMINENT,
+  PERMADEATH_BADGE_BORDER,
+  PERMADEATH_BADGE_BORDER_IMMINENT,
+  PERMADEATH_BADGE_TEXT,
+  PERMADEATH_BADGE_TEXT_IMMINENT,
   MP_BAR_FG,
   PORTRAIT_BG_COLOR,
   PORTRAIT_FRAME_CORNER,
@@ -103,6 +109,12 @@ export interface UnitVisualState {
   // A non-zero value draws a translucent ring around the unit body so
   // the player can map a log row to the actor/target on the canvas.
   readonly counterpart: number;
+  // S41 permadeath countdown — when defined and > 0, draws a numeric
+  // badge on the KO'd sprite showing the virtual turns remaining before
+  // permadeath. Caller passes `threshold - turnsKOd` so the badge
+  // counts *down* (3 → 2 → 1 → removed). Undefined when the unit isn't
+  // KO'd or has been removed; the badge isn't drawn.
+  readonly permadeathCountdown?: number;
 }
 
 export class UnitSprite {
@@ -115,6 +127,9 @@ export class UnitSprite {
   private readonly counterpartRing: Graphics;
   private readonly teamRing: Graphics;
   private readonly koMarker: Graphics;
+  private readonly permadeathBadge: Container;
+  private readonly permadeathBadgeBg: Graphics;
+  private readonly permadeathBadgeText: Text;
   private readonly statusRow: Container;
   private readonly teamColor: number;
   // Portrait sprite — null until `setPortrait` is called (async asset
@@ -141,6 +156,21 @@ export class UnitSprite {
     this.body = new Graphics();
     this.facingTick = new Graphics();
     this.koMarker = new Graphics();
+    this.permadeathBadge = new Container();
+    this.permadeathBadge.label = 'permadeath_badge';
+    this.permadeathBadgeBg = new Graphics();
+    this.permadeathBadgeText = new Text({
+      text: '',
+      style: {
+        fontFamily: 'monospace',
+        fontSize: 14,
+        fontWeight: 'bold',
+        fill: PERMADEATH_BADGE_TEXT,
+      },
+    });
+    this.permadeathBadgeText.anchor.set(0.5, 0.5);
+    this.permadeathBadge.addChild(this.permadeathBadgeBg, this.permadeathBadgeText);
+    this.permadeathBadge.visible = false;
     this.hpBar = new Graphics();
     this.mpBar = new Graphics();
     this.statusRow = new Container();
@@ -158,6 +188,9 @@ export class UnitSprite {
       this.hpBar,
       this.mpBar,
       this.statusRow,
+      // Permadeath badge sits above everything else on the KO'd sprite
+      // so the countdown reads at a glance over the KO X marker.
+      this.permadeathBadge,
     );
 
     // Mount-time initial draw. `maxHp` / `maxMp` here are seeded from the
@@ -198,6 +231,7 @@ export class UnitSprite {
     this.drawActive(state.active && !state.ko);
     this.drawCounterpart(state.counterpart);
     this.drawStatuses(state.statuses, state.ko);
+    this.drawPermadeathBadge(state.ko, state.permadeathCountdown);
     // Hit-flash on the portrait: lerp tint toward HIT_FLASH_COLOR so a
     // damage event still reads visibly even when the colored-body's
     // flash overlay is occluded by the portrait sprite.
@@ -261,6 +295,53 @@ export class UnitSprite {
     g.moveTo(-r, r);
     g.lineTo(r, -r);
     g.stroke({ color: KO_X_COLOR, width: KO_X_WIDTH, alpha: KO_X_ALPHA });
+  }
+
+  // S41 permadeath countdown badge. Visible only when the unit is KO'd
+  // (not removed — caller passes undefined countdown on removed units)
+  // AND the countdown is > 0. Imminent (≤ 1) shifts to a red/amber-red
+  // palette for "this is the last virtual turn before permadeath."
+  // Counters the KO_ALPHA fade by drawing at full alpha on the badge
+  // container — the number must read regardless of the unit's
+  // translucency.
+  private drawPermadeathBadge(ko: boolean, countdown: number | undefined): void {
+    if (!ko || countdown === undefined || countdown <= 0) {
+      this.permadeathBadge.visible = false;
+      return;
+    }
+    const imminent = countdown <= 1;
+    this.permadeathBadge.visible = true;
+    // Overlay alpha so the badge is readable above the KO_ALPHA-faded
+    // sprite. Divide by KO_ALPHA so the on-screen alpha ends up ~1.
+    this.permadeathBadge.alpha = Math.min(1, 1 / KO_ALPHA);
+
+    const text = String(countdown);
+    this.permadeathBadgeText.text = text;
+    this.permadeathBadgeText.style.fill = imminent
+      ? PERMADEATH_BADGE_TEXT_IMMINENT
+      : PERMADEATH_BADGE_TEXT;
+
+    // Size the rounded-rect background to the text.
+    const padX = 6;
+    const padY = 3;
+    const w = Math.max(18, this.permadeathBadgeText.width + padX * 2);
+    const h = this.permadeathBadgeText.height + padY * 2;
+
+    const g = this.permadeathBadgeBg;
+    g.clear();
+    g.roundRect(-w / 2, -h / 2, w, h, 4);
+    g.fill({ color: imminent ? PERMADEATH_BADGE_BG_IMMINENT : PERMADEATH_BADGE_BG, alpha: 0.95 });
+    g.stroke({
+      color: imminent ? PERMADEATH_BADGE_BORDER_IMMINENT : PERMADEATH_BADGE_BORDER,
+      width: 2,
+      alpha: 1,
+    });
+
+    // Position over the body center, slightly above the KO X marker's
+    // center so the X reads underneath as "down" and the number reads
+    // on top as "remaining."
+    this.permadeathBadge.position.set(0, -2);
+    this.permadeathBadgeText.position.set(0, 0);
   }
 
   private drawCounterpart(strength: number): void {

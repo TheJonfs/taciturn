@@ -61,13 +61,13 @@ describe('Session 37 — team-build draft preservation', () => {
 
     // Fresh draft — no class on Unit 1.
     expect(container.textContent).toContain('Editing Unit 1');
-    expect(container.textContent).not.toContain('Editing Unit 1 — Knight');
+    expect(container.textContent).not.toContain('Editing Unit 1 — Assassin');
 
-    // Load the Gravity Well template — Unit 1 is the Knight.
+    // Load the Gravity Well template — Unit 1 is the Assassin.
     act(() => {
       selectOption(findSelect(container), 'gravity-well');
     });
-    expect(container.textContent).toContain('Editing Unit 1 — Knight');
+    expect(container.textContent).toContain('Editing Unit 1 — Assassin');
 
     // Back to Setup, then forward into Team Builder again.
     act(() => {
@@ -78,7 +78,7 @@ describe('Session 37 — team-build draft preservation', () => {
     });
 
     // The draft was preserved — Unit 1 is still the Knight.
-    expect(container.textContent).toContain('Editing Unit 1 — Knight');
+    expect(container.textContent).toContain('Editing Unit 1 — Assassin');
 
     act(() => root.unmount());
     container.remove();
@@ -96,7 +96,7 @@ describe('Session 37 — team-build draft preservation', () => {
     act(() => {
       selectOption(findSelect(container), 'gravity-well');
     });
-    expect(container.textContent).toContain('Editing Unit 1 — Knight');
+    expect(container.textContent).toContain('Editing Unit 1 — Assassin');
 
     // Back to Setup, then Back (to Title).
     act(() => {
@@ -111,7 +111,7 @@ describe('Session 37 — team-build draft preservation', () => {
     // Forward again to a fresh Team Builder.
     gotoTeamBuilder(container);
     expect(container.textContent).toContain('Editing Unit 1');
-    expect(container.textContent).not.toContain('Editing Unit 1 — Knight');
+    expect(container.textContent).not.toContain('Editing Unit 1 — Assassin');
 
     act(() => root.unmount());
     container.remove();

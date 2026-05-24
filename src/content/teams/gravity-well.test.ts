@@ -1,6 +1,6 @@
 // Structural compliance tests for the "Gravity Well" template (S48 —
 // first Chris-authored default template under the variable-length
-// BuiltTeam shape).
+// BuiltTeam shape; S50 — Calculator added to bring the roster to 5).
 //
 // Mirrors `computeTeamValidity`'s rules: size within bounds, single-
 // class-per-team, unique-per-team items, valid ability budgets, non-
@@ -19,13 +19,14 @@ describe('Gravity Well template (gravityWell)', () => {
     expect(gravityWell.name).toBe('Gravity Well');
   });
 
-  it('fields four units (Knight / Pyromancer / Hydrologist / Assassin)', () => {
-    expect(gravityWell.units).toHaveLength(4);
+  it('fields five units (Assassin / Calculator / Pyromancer / Knight / Hydrologist)', () => {
+    expect(gravityWell.units).toHaveLength(5);
     expect(gravityWell.units.map((u) => String(u.classId))).toEqual([
-      'knight',
-      'fire_mage',
-      'water_mage',
       'assassin',
+      'calculator',
+      'fire_mage',
+      'knight',
+      'water_mage',
     ]);
   });
 });

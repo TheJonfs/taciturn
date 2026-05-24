@@ -13,6 +13,7 @@ import { escutcheon } from './escutcheon.ts';
 import { ether } from './ether.ts';
 import { flametongue } from './flametongue.ts';
 import { focusBand } from './focus-band.ts';
+import { goldenHairpin } from './golden-hairpin.ts';
 import { guardCap } from './guard-cap.ts';
 import { ironHelm } from './iron-helm.ts';
 import { ironMail } from './iron-mail.ts';
@@ -22,6 +23,7 @@ import { ironfoot } from './ironfoot.ts';
 import { longSword } from './long-sword.ts';
 import { longbow } from './longbow.ts';
 import { mantleOfProtection } from './mantle-of-protection.ts';
+import { parryingSword } from './parrying-sword.ts';
 import { riptideBow } from './riptide-bow.ts';
 import { wandOfLumen } from './wand-of-lumen.ts';
 import { lookoutsHood } from './lookouts-hood.ts';
@@ -35,7 +37,10 @@ import { purifier } from './purifier.ts';
 import { raspPendant } from './rasp-pendant.ts';
 import { remedy } from './remedy.ts';
 import { sai } from './sai.ts';
+import { shimmerCloak } from './shimmer-cloak.ts';
 import { silveredVest } from './silvered-vest.ts';
+import { skullclamp } from './skullclamp.ts';
+import { soulVest } from './soul-vest.ts';
 import { soldiersLeathers } from './soldiers-leathers.ts';
 import { sorcerersRobe } from './sorcerers-robe.ts';
 import { spikedMail } from './spiked-mail.ts';
@@ -78,6 +83,9 @@ export const items: ReadonlyArray<ItemDefinition> = [
   chefsKnife,
   magebane,
   sai,
+  // Session 50 — defensive sword variant (universal sword; WP 6 + per-
+  // facing evade in lieu of higher WP).
+  parryingSword,
   // Shields (Knight-only)
   escutcheon,
   warriorsAegis,
@@ -94,6 +102,10 @@ export const items: ReadonlyArray<ItemDefinition> = [
   lightRobe,
   darkRobe,
   spikedMail,
+  // Session 50 — universal armor expansion: defensive +HP/evade body
+  shimmerCloak,
+  // Session 50 — Brave/Faith hybrid body
+  soulVest,
   // Head armor
   guardCap,
   focusBand,
@@ -105,6 +117,10 @@ export const items: ReadonlyArray<ItemDefinition> = [
   lookoutsHood,
   crusadersHelm,
   tricorn,
+  // Session 50 — universal head expansion: MP-economy head (50% MP cost)
+  goldenHairpin,
+  // Session 50 — hybrid offense head with HP/MP tax (-20 HP / -10 MP / +1 PA / +1 MA)
+  skullclamp,
   // Accessories
   capacitorRing,
   tintinibar,

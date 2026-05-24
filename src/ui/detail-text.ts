@@ -66,6 +66,14 @@ const STATUS_DESCRIPTIONS: ReadonlyMap<StatusTypeId, string> = new Map([
   [statusTypeId('movement_debuff'), '−Move Range while active.'],
   [statusTypeId('crit_modifier'), 'Crit chance / multiplier modified for the duration.'],
   [statusTypeId('tagged_resistance_shift'), 'Per-tag resistance shift carried as instance customState. Composes additively across multiple applications; opposite-signed shifts cancel.'],
+  // S50 — Reaction-granted accumulating buffs (parallel pattern across
+  // four classes). Each applies +1 to one stat per enemy hit; permanent
+  // through KO; Remedy never clears them.
+  [statusTypeId('combat_focus'), '+1 PA per stack — granted by the Alchemist’s Combat Focus reaction on enemy damage taken. Permanent through KO.'],
+  [statusTypeId('speed_save'), '+1 Speed per stack — granted by the Assassin’s Speed Save reaction on enemy damage taken. Permanent through KO.'],
+  [statusTypeId('updraft'), '+1 Jump per stack — granted by the Hunter’s Updraft reaction on enemy damage taken. Permanent through KO.'],
+  [statusTypeId('cornered_focus'), '+1 MA per stack — granted by the Calculator’s Cornered Focus reaction on enemy damage taken. Permanent through KO.'],
+  [statusTypeId('engineered_defenses'), '+10 per elemental resistance and +5% per-facing evade per stack — granted by the Calculator’s Engineered Defenses cast. Permanent.'],
 ]);
 
 // Short authored placeholders for the demo passives. Each line is the

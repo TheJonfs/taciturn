@@ -86,6 +86,28 @@ import {
 import type { ConfirmStepPreference } from './settings-context.tsx';
 import { composeForecast, type Forecast } from './forecast-compose.ts';
 
+// Whether a targeted-action submit should defer through await-confirm
+// (the player explicitly accepts before the action commits) or go
+// straight to the controller. Math Skill always submits directly — its
+// picker UI (parameter + value + matched-unit preview) is itself the
+// confirmation surface, mirroring the item pickers per S39b. The FSM
+// reducer's math-skill-target-select branch on commitTarget already
+// transitions straight to animation without await-confirm; this helper
+// keeps the submit path aligned with that, otherwise the action is
+// dropped and the cast vanishes (S50 bug fix).
+export function shouldDeferToConfirm(
+  action: ProposedAction,
+  confirmStep: ConfirmStepPreference,
+): boolean {
+  if (
+    action.type === 'use_ability' &&
+    action.payload.target.kind === 'math_skill'
+  ) {
+    return false;
+  }
+  return confirmStep === 'confirm';
+}
+
 export interface ActionMenuAbility {
   readonly ability: ActiveAbilityDefinition;
   readonly disabled: boolean;
@@ -665,7 +687,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
   }
 
   function submitTargetedActionInternal(action: ProposedAction): void {
-    const willConfirm = confirmStep === 'confirm';
+    const willConfirm = shouldDeferToConfirm(action, confirmStep);
     if (willConfirm) {
       // Transition to await-confirm; defer the controller submit until
       // the player accepts.

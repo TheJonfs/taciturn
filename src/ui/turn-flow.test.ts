@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { abilityId, commandSetId, type ProposedAction } from '@engine/index.ts';
 import { INITIAL_TURN_FLOW, transition, type TurnFlowState } from './turn-flow.ts';
+import { shouldDeferToConfirm } from './use-turn-flow.ts';
 
 const setA = commandSetId('battle_skill');
 const setB = commandSetId('water_magic');
@@ -474,6 +475,33 @@ describe('turn-flow reducer — Math Skill picker (Session 49)', () => {
     expect(
       transition(s, { kind: 'commitTarget', action, confirmStep: true }),
     ).toEqual({ kind: 'animation' });
+  });
+
+  // S50 regression: the FSM reducer correctly bypasses await-confirm
+  // for math-skill-target-select (it transitions straight to animation
+  // regardless of confirmStep — picker is the implicit confirm surface).
+  // The submit-helper in use-turn-flow.ts must honor the same convention,
+  // otherwise it short-circuits on `confirmStep === 'confirm'` and the
+  // action never reaches the controller. `shouldDeferToConfirm` is the
+  // extracted decision; this test pins the asymmetry that caused the bug.
+  it("shouldDeferToConfirm: false for math_skill targets even when confirmStep='confirm'", () => {
+    const mathAction: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: 'u1' as never,
+      payload: {
+        abilityId: mathAbility,
+        target: { kind: 'math_skill', parameter: 'current_hp', value: 4 },
+      },
+    };
+    expect(shouldDeferToConfirm(mathAction, 'confirm')).toBe(false);
+    expect(shouldDeferToConfirm(mathAction, 'skip')).toBe(false);
+  });
+
+  it("shouldDeferToConfirm: true for non-math_skill use_ability when confirmStep='confirm'", () => {
+    // Sanity: the helper still defers for normal target-select actions.
+    expect(shouldDeferToConfirm(attackAction, 'confirm')).toBe(true);
+    expect(shouldDeferToConfirm(attackAction, 'skip')).toBe(false);
   });
 
   it('cancel from math-skill-target-select returns to ability-list when commandSetId is set', () => {

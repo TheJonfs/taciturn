@@ -78,11 +78,10 @@ describe('TeamBuilderScreen — load default and continue', () => {
 
     expect(onContinue).toHaveBeenCalledTimes(1);
     const team = onContinue.mock.calls[0]![0];
-    // S48: the loaded Gravity Well template is a 4-unit BuiltTeam;
-    // loading it into the (now 5-slot) builder pads with one empty
-    // slot, and the empty slot is filtered out on export. So the team
-    // coming through the Continue gate has the template's original 4
-    // units.
+    // S50: the loaded Gravity Well template is now a 5-unit BuiltTeam
+    // (S48 shipped 4-unit; S50 added a Calculator). The 5-slot builder
+    // fills exactly. The team coming through the Continue gate has the
+    // template's 5 units.
     expect(team.units).toHaveLength(gravityWell.units.length);
     expect(team.units.map((u) => String(u.classId))).toEqual(
       gravityWell.units.map((u) => String(u.classId)),
@@ -122,9 +121,7 @@ describe('team builder output → deployment → battle pipeline', () => {
     // 3. Engine consumes it unchanged — createInitialState +
     //    pre-battle phase both succeed.
     const initial = createInitialState(deployed, catalog);
-    // S48: 4-unit Gravity Well + 5-unit Red template = 9 total. The
-    // trailing Blue template slot (blue_earth_mage) is dropped when
-    // the built team is shorter than the template.
+    // S50: 5-unit Gravity Well + 5-unit Red template = 10 total.
     const expectedSize =
       gravityWell.units.length +
       riverRidgeBattle.units.filter((u) => u.team !== BLUE).length;
