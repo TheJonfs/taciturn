@@ -322,9 +322,13 @@ function baseStatsFor(id: ClassId): BaseStats {
   return { ...baseline, ...SHARED_STAT_DEFAULTS };
 }
 
-const KNIGHT_BASE_STATS = baseStatsFor(classId('knight'));
+// Exported — consumed by `river-ridge-battle.ts`'s extra placements
+// (S35 / S48 5v5 expansion). `MAGE_BASE_STATS` retains its short name
+// for the local Earth-Mage placement below but also exports under the
+// fully-qualified alias for cross-file readers.
+export const KNIGHT_BASE_STATS = baseStatsFor(classId('knight'));
 const MAGE_BASE_STATS = baseStatsFor(classId('earth_mage'));
-// Exported — consumed by `river-ridge-battle.ts`'s extra placements.
+export const EARTH_MAGE_BASE_STATS = MAGE_BASE_STATS;
 export const WATER_MAGE_BASE_STATS = baseStatsFor(classId('water_mage'));
 export const FIRE_MAGE_BASE_STATS = baseStatsFor(classId('fire_mage'));
 const LIGHTNING_MAGE_BASE_STATS = baseStatsFor(classId('lightning_mage'));

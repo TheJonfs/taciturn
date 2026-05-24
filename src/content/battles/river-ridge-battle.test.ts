@@ -31,12 +31,13 @@ describe('River Ridge battle config', () => {
     expect(riverRidgeBattle.teams[1]!.control).toBe('ai');
   });
 
-  it('extends the demo roster to 4v4 (all demo units + Blue Fire / Red Water Mage)', () => {
-    // Session 35: River Ridge is the 4v4 deployment-phase demo. It
-    // carries all six `demoBattle` units (unchanged teams / classes)
-    // plus two River-Ridge-specific units so the 3v3 engine smoke-test
-    // fixture stays untouched.
-    expect(riverRidgeBattle.units.length).toBe(8);
+  it('extends the demo roster to 5v5 (all demo units + S35/S48 5v5 expansion)', () => {
+    // Session 35: River Ridge added two units (blue_fire_mage,
+    // red_water_mage) to reach 4v4 on top of the 3v3 demo.
+    // Session 48: 5v5 expansion adds two more (blue_earth_mage,
+    // red_knight_s) so each team carries Knight + all four mage
+    // schools.
+    expect(riverRidgeBattle.units.length).toBe(10);
     expect(demoBattle.units.length).toBe(6);
 
     const battleIds = new Set(riverRidgeBattle.units.map((u) => u.id));
@@ -50,10 +51,14 @@ describe('River Ridge battle config', () => {
     const extras = riverRidgeBattle.units.filter(
       (u) => !demoBattle.units.some((d) => d.id === u.id),
     );
-    expect(extras.map((u) => u.id)).toEqual([
-      unitId('blue_fire_mage'),
-      unitId('red_water_mage'),
-    ]);
+    expect(new Set(extras.map((u) => u.id))).toEqual(
+      new Set([
+        unitId('blue_fire_mage'),
+        unitId('red_water_mage'),
+        unitId('blue_earth_mage'),
+        unitId('red_knight_s'),
+      ]),
+    );
 
     let blue = 0;
     let red = 0;
@@ -61,8 +66,8 @@ describe('River Ridge battle config', () => {
       if (u.team === teamId('team_a')) blue += 1;
       if (u.team === teamId('team_b')) red += 1;
     }
-    expect(blue).toBe(4);
-    expect(red).toBe(4);
+    expect(blue).toBe(5);
+    expect(red).toBe(5);
   });
 
   it('places every unit within the 14×14 board', () => {

@@ -47,6 +47,8 @@ import {
   buildBaseStats,
   BRAVE_FAITH_MIN,
   BRAVE_FAITH_MAX,
+  MAX_TEAM_SIZE,
+  MIN_TEAM_SIZE,
   type BuiltTeam,
   type BuiltUnit,
 } from '@content/teams/index.ts';
@@ -57,11 +59,15 @@ import { pickName } from '@content/names/index.ts';
 // roster cell and the action-log line.
 export const UNIT_NAME_MAX_LENGTH = 24;
 
-// River Ridge / Mage War v1 team size. Locked at four.
-export const TEAM_SIZE = 4;
+// S48 team-size bounds. Sourced from `@content/teams/built-team.ts` so
+// content (template compliance, battle-config wiring) and the UI share
+// a single constant; re-exported here for the team-builder UI's
+// historic import path. Pre-S48 this was a single `TEAM_SIZE = 4`.
+export { MAX_TEAM_SIZE, MIN_TEAM_SIZE };
 
 // One unit under construction. `classId` is null until the player picks
-// a class; while null, `loadout` is empty and the unit is invalid.
+// a class; while null, `loadout` is empty and the slot is empty (S48:
+// empty = valid-but-empty rather than invalid).
 //
 // `name` is auto-picked from the Ivalician pool on first class
 // assignment (see `setClass`) so an active unit always carries a
@@ -81,8 +87,10 @@ export interface DraftUnit {
 
 export interface TeamBuilderState {
   readonly name: string;
-  readonly units: readonly [DraftUnit, DraftUnit, DraftUnit, DraftUnit];
-  // Which unit slot (0-3) the edit panel is focused on.
+  // Up to `MAX_TEAM_SIZE` slots; empty slots (classId === null) are
+  // valid-but-empty. Pre-S48 this was a 4-tuple at the type level.
+  readonly units: ReadonlyArray<DraftUnit>;
+  // Which unit slot the edit panel is focused on.
   readonly selectedIndex: number;
 }
 
@@ -109,27 +117,27 @@ function emptyDraftUnit(): DraftUnit {
   };
 }
 
-// A blank four-unit team — the "build from scratch" entry point. Every
-// unit is classless, so the team is invalid until all four are given a
-// class.
+// A blank team — `MAX_TEAM_SIZE` empty slots, the "build from scratch"
+// entry point. S48: empty slots are valid-but-empty; the team becomes
+// valid for battle once at least one unit has a class (subject to the
+// usual loadout / dual-wield / unique-per-team checks).
 export function createEmptyTeamBuilderState(): TeamBuilderState {
+  const units: DraftUnit[] = [];
+  for (let i = 0; i < MAX_TEAM_SIZE; i++) units.push(emptyDraftUnit());
   return {
     name: 'Custom Team',
-    units: [
-      emptyDraftUnit(),
-      emptyDraftUnit(),
-      emptyDraftUnit(),
-      emptyDraftUnit(),
-    ],
+    units,
     selectedIndex: 0,
   };
 }
 
 // Load a `BuiltTeam` template into builder state. Brave / Faith are read
 // back off the assembled `baseStats`; everything else copies straight
-// across, including the template's authored `name`.
+// across, including the template's authored `name`. Templates shorter
+// than `MAX_TEAM_SIZE` (e.g., S38's 4-unit legacy templates) pad with
+// empty slots so the builder always presents `MAX_TEAM_SIZE` rows.
 export function teamBuilderStateFromBuiltTeam(team: BuiltTeam): TeamBuilderState {
-  const units = team.units.map(
+  const units: DraftUnit[] = team.units.map(
     (unit): DraftUnit => ({
       classId: unit.classId,
       name: unit.name,
@@ -139,28 +147,27 @@ export function teamBuilderStateFromBuiltTeam(team: BuiltTeam): TeamBuilderState
       loadout: unit.loadout,
     }),
   );
+  while (units.length < MAX_TEAM_SIZE) units.push(emptyDraftUnit());
   return {
     name: team.name,
-    units: units as unknown as TeamBuilderState['units'],
+    units,
     selectedIndex: 0,
   };
 }
 
 // Convert builder state back to a `BuiltTeam` — the output contract.
-// Throws if any unit is still classless; the "Continue to Deployment"
-// affordance gates on team validity, so reaching here with a classless
-// unit is a programmer error, not a user-facing case.
+// Empty (classless) slots are filtered out so a `BuiltTeam` only ever
+// holds the team's active units. Throws when no slot has a class — that
+// state should be unreachable because `computeTeamValidity` flags it,
+// and the "Continue to Deployment" affordance gates on validity.
 export function teamBuilderStateToBuiltTeam(
   state: TeamBuilderState,
   catalog: Catalog,
 ): BuiltTeam {
-  const units = state.units.map((unit, index): BuiltUnit => {
-    if (unit.classId === null) {
-      throw new Error(
-        `teamBuilderStateToBuiltTeam: unit slot ${index} has no class assigned`,
-      );
-    }
-    return {
+  const units: BuiltUnit[] = [];
+  for (const unit of state.units) {
+    if (unit.classId === null) continue;
+    units.push({
       // `setClass` auto-picks a name on first class assignment, so an
       // active unit always carries one. The class-name fallback covers
       // any path that bypassed `setClass` (e.g., a hand-built state in
@@ -170,11 +177,16 @@ export function teamBuilderStateToBuiltTeam(
       baseStats: buildBaseStats(unit.classId, unit.brave, unit.faith),
       loadout: unit.loadout,
       equipment: unit.equipment,
-    };
-  });
+    });
+  }
+  if (units.length < MIN_TEAM_SIZE) {
+    throw new Error(
+      `teamBuilderStateToBuiltTeam: team has no active units (need at least ${MIN_TEAM_SIZE})`,
+    );
+  }
   return {
     name: state.name,
-    units: units as unknown as BuiltTeam['units'],
+    units,
   };
 }
 
@@ -409,12 +421,14 @@ function withUnit(
   next: DraftUnit,
 ): TeamBuilderState {
   const units = state.units.map((unit, i) => (i === index ? next : unit));
-  return { ...state, units: units as unknown as TeamBuilderState['units'] };
+  return { ...state, units };
 }
 
 export function selectUnit(state: TeamBuilderState, index: number): TeamBuilderState {
-  if (index < 0 || index >= TEAM_SIZE) {
-    throw new Error(`selectUnit: index ${index} out of range [0, ${TEAM_SIZE})`);
+  if (index < 0 || index >= state.units.length) {
+    throw new Error(
+      `selectUnit: index ${index} out of range [0, ${state.units.length})`,
+    );
   }
   return { ...state, selectedIndex: index };
 }
@@ -611,16 +625,23 @@ export interface UnitValidity {
   // normally prevents it (auto-clearing the off-hand), so this guards
   // loaded templates / edge states.
   readonly twoHandedConflict: boolean;
+  // S48: a unit is valid when it has no rule violations. An empty
+  // (classless) slot is valid-but-empty — the slot doesn't contribute
+  // any active unit, but it also doesn't fail validation.
   readonly valid: boolean;
 }
 
 export interface TeamValidity {
-  readonly units: readonly [UnitValidity, UnitValidity, UnitValidity, UnitValidity];
+  readonly units: ReadonlyArray<UnitValidity>;
   // Items appearing on more than one unit of the team.
   readonly duplicateItemIds: ReadonlyArray<ItemId>;
   // Classes appearing on more than one unit of the team — a team carries
   // at most one unit of any class.
   readonly duplicateClassIds: ReadonlyArray<ClassId>;
+  // S48: number of non-empty (class-assigned) slots. A team is valid for
+  // battle when this is at least `MIN_TEAM_SIZE` and at most
+  // `MAX_TEAM_SIZE`, in addition to per-unit / team-level rule checks.
+  readonly activeUnitCount: number;
   readonly valid: boolean;
 }
 
@@ -631,13 +652,16 @@ function computeUnitValidity(
 ): UnitValidity {
   const hasClass = unit.classId !== null;
   if (!hasClass) {
+    // S48: empty slot — no class, no equipment, no rule violations.
+    // Valid-but-empty so the team's overall validity is unaffected by
+    // leftover slots beyond the player's chosen unit count.
     return {
       hasClass: false,
       invalidEquipmentSlots: [],
       bucketOverages: [],
       dualWielding: false,
       twoHandedConflict: false,
-      valid: false,
+      valid: true,
     };
   }
   const classId = unit.classId!;
@@ -752,23 +776,40 @@ function findDuplicateClassIds(state: TeamBuilderState): ClassId[] {
   return [...counts.entries()].filter(([, count]) => count > 1).map(([id]) => id);
 }
 
-// The full team validity predicate (plan decision 12). A team is valid
-// when every unit has a class, no two units share a class, no unit has
-// invalid equipment or an over-capacity bucket, and no equipment item is
-// used twice on the team.
+// The full team validity predicate (plan decision 12; S48-extended).
+// A team is valid when:
+//   - at least `MIN_TEAM_SIZE` and at most `MAX_TEAM_SIZE` slots are
+//     active (have a class assigned);
+//   - every active unit passes `computeUnitValidity` (empty slots are
+//     valid-but-empty);
+//   - no two units share a class;
+//   - no equipment item is used twice on the team.
 export function computeTeamValidity(
   state: TeamBuilderState,
   catalog: Catalog,
   rulesetId: RulesetId,
 ): TeamValidity {
-  const units = state.units.map((unit) =>
+  const units: ReadonlyArray<UnitValidity> = state.units.map((unit) =>
     computeUnitValidity(unit, catalog, rulesetId),
-  ) as unknown as TeamValidity['units'];
+  );
   const duplicateItemIds = findDuplicateItemIds(state);
   const duplicateClassIds = findDuplicateClassIds(state);
+  const activeUnitCount = state.units.reduce(
+    (n, u) => n + (u.classId !== null ? 1 : 0),
+    0,
+  );
+  const sizeOk =
+    activeUnitCount >= MIN_TEAM_SIZE && activeUnitCount <= MAX_TEAM_SIZE;
   const valid =
+    sizeOk &&
     units.every((unit) => unit.valid) &&
     duplicateItemIds.length === 0 &&
     duplicateClassIds.length === 0;
-  return { units, duplicateItemIds, duplicateClassIds, valid };
+  return {
+    units,
+    duplicateItemIds,
+    duplicateClassIds,
+    activeUnitCount,
+    valid,
+  };
 }

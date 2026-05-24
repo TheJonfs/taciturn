@@ -1,7 +1,8 @@
 // Stonebridge battle — Session 47's second authored Mage War scenario.
 //
-// Derives from `riverRidgeBattle` (8-unit roster, equipment loadouts,
-// ruleset, masterSeed) and restages onto the 16×16 Stonebridge map.
+// Derives from `riverRidgeBattle` (10-unit roster post-S48 5v5;
+// equipment loadouts, ruleset, masterSeed) and restages onto the 16×16
+// Stonebridge map.
 // Starting positions place each side at the front edge of its
 // deployment zone — Blue at y=1, Red at y=14 — facing the central
 // engagement.
@@ -44,11 +45,15 @@ const STARTING_POSITIONS: ReadonlyMap<UnitId, Position> = new Map([
   [unitId('blue_water_mage'), { x: 5, y: 0, layer: 0 }],
   [unitId('blue_lightning_mage'), { x: 8, y: 0, layer: 0 }],
   [unitId('blue_fire_mage'), { x: 6, y: 1, layer: 0 }],
+  // S48 5v5 — Blue's Earth Mage takes the back rank.
+  [unitId('blue_earth_mage'), { x: 8, y: 1, layer: 0 }],
   // Red / team_b — south zone (rows 14-15). Facing N.
   [unitId('red_earth_mage'), { x: 5, y: 15, layer: 0 }],
   [unitId('red_lightning_mage'), { x: 8, y: 15, layer: 0 }],
   [unitId('red_fire_mage'), { x: 7, y: 14, layer: 0 }],
   [unitId('red_water_mage'), { x: 6, y: 15, layer: 0 }],
+  // S48 5v5 — Red's Knight mirrors Blue's melee anchor.
+  [unitId('red_knight_s'), { x: 7, y: 15, layer: 0 }],
 ]);
 
 export const stonebridgeBattle: BattleConfig = {

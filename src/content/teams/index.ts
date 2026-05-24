@@ -8,6 +8,8 @@ export {
   buildBaseStats,
   BRAVE_FAITH_MIN,
   BRAVE_FAITH_MAX,
+  MAX_TEAM_SIZE,
+  MIN_TEAM_SIZE,
   type BuiltTeam,
   type BuiltUnit,
 } from './built-team.ts';

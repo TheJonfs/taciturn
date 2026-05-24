@@ -2,7 +2,11 @@
 //
 // Derives from `demoBattle` (the 6-unit roster + loadouts + base stats
 // + ruleset + masterSeed) and restages onto the 14×14 River Ridge map,
-// then adds two River-Ridge-specific units for the 4v4 deployment demo.
+// then adds the River-Ridge-specific units that bring each team up to
+// the v1 maximum size. Pre-S48: 4v4 (8 units). S48: up to 5v5 (10
+// units) — Blue gains an Earth Mage, Red gains a Knight; team-builder
+// teams of size 1-5 fold in via `buildTeamBattleConfig`, with the
+// trailing template slots simply dropped when the built team is shorter.
 // Blue (team_a) deploys in the northern zone (rows 0-2 cols 5-8); Red
 // (team_b) deploys in the southern zone (rows 11-13 cols 5-8).
 //
@@ -42,8 +46,12 @@ import { classId, itemId, teamId, unitId } from '@engine/index.ts';
 import { riverRidge } from '../maps/river-ridge.ts';
 import {
   demoBattle,
+  EARTH_MAGE_BASE_STATS,
+  EARTH_MAGE_LOADOUT,
   FIRE_MAGE_BASE_STATS,
   FIRE_MAGE_LOADOUT,
+  KNIGHT_BASE_STATS,
+  KNIGHT_LOADOUT,
   WATER_MAGE_BASE_STATS,
   WATER_MAGE_LOADOUT,
 } from './demo.ts';
@@ -63,12 +71,19 @@ const STARTING_POSITIONS: ReadonlyMap<UnitId, Position> = new Map([
   [unitId('blue_water_mage'), { x: 5, y: 1, layer: 0 }],
   [unitId('blue_lightning_mage'), { x: 8, y: 1, layer: 0 }],
   [unitId('blue_fire_mage'), { x: 6, y: 2, layer: 0 }],
+  // S48 5v5 — Blue's Earth Mage rounds the team out to all four magic
+  // schools + Knight. Back rank (row 0) keeps the front-line layout
+  // intact for melee staging.
+  [unitId('blue_earth_mage'), { x: 5, y: 0, layer: 0 }],
   // Red / team_b — south zone.
   // Mirror layout — Fire mage center-front, Earth + Lightning flank.
   [unitId('red_earth_mage'), { x: 5, y: 12, layer: 0 }],
   [unitId('red_lightning_mage'), { x: 8, y: 12, layer: 0 }],
   [unitId('red_fire_mage'), { x: 7, y: 11, layer: 0 }],
   [unitId('red_water_mage'), { x: 6, y: 12, layer: 0 }],
+  // S48 5v5 — Red gains a Knight, mirroring Blue's melee anchor. Back
+  // rank (row 13).
+  [unitId('red_knight_s'), { x: 8, y: 13, layer: 0 }],
 ]);
 
 // Session 36: unique-per-team compliant equipment, authored locally so
@@ -168,6 +183,32 @@ const RIVER_RIDGE_EQUIPMENT: ReadonlyMap<UnitId, UnitEquipment> = new Map([
       accessory: itemId('lightfoot'),
     },
   ],
+  // S48 5v5 — placeholder equipment for the new 5th units (Earth Mage
+  // on Blue, Knight on Red). All-null slots are valid for `createInitial
+  // State` and trivially satisfy the unique-per-team rule. Chris's new
+  // template set in S48 Commit 5 supersedes this battle config's player
+  // team; the AI side's filler unit will be tuned in a later content
+  // pass.
+  [
+    unitId('blue_earth_mage'),
+    {
+      leftHand: null,
+      rightHand: null,
+      headgear: null,
+      armor: null,
+      accessory: null,
+    },
+  ],
+  [
+    unitId('red_knight_s'),
+    {
+      leftHand: null,
+      rightHand: null,
+      headgear: null,
+      armor: null,
+      accessory: null,
+    },
+  ],
 ]);
 
 // Session 35: River Ridge expands to 4v4 (the deployment-phase UI
@@ -200,6 +241,35 @@ const redWaterMage: UnitPlacement = {
   equipment: RIVER_RIDGE_EQUIPMENT.get(unitId('red_water_mage'))!,
 };
 
+// S48 5v5 — substrate-level expansion. Blue's 5th unit fills the
+// Earth-Mage slot the team lacks; Red's 5th unit mirrors Blue's Knight.
+// Equipment is intentionally minimal — these are filler placements that
+// Chris's S48 Commit 5 new template set will replace for the player
+// side, and a later content pass may tune for the AI side.
+const blueEarthMage: UnitPlacement = {
+  id: unitId('blue_earth_mage'),
+  name: 'Blue Earth Mage',
+  team: teamId('team_a'),
+  classId: classId('earth_mage'),
+  position: STARTING_POSITIONS.get(unitId('blue_earth_mage'))!,
+  facing: 'S',
+  baseStats: EARTH_MAGE_BASE_STATS,
+  loadout: EARTH_MAGE_LOADOUT,
+  equipment: RIVER_RIDGE_EQUIPMENT.get(unitId('blue_earth_mage'))!,
+};
+
+const redKnightS: UnitPlacement = {
+  id: unitId('red_knight_s'),
+  name: 'Red Knight',
+  team: teamId('team_b'),
+  classId: classId('knight'),
+  position: STARTING_POSITIONS.get(unitId('red_knight_s'))!,
+  facing: 'N',
+  baseStats: KNIGHT_BASE_STATS,
+  loadout: KNIGHT_LOADOUT,
+  equipment: RIVER_RIDGE_EQUIPMENT.get(unitId('red_knight_s'))!,
+};
+
 export const riverRidgeBattle: BattleConfig = {
   ...demoBattle,
   battleId: 'river_ridge_v1',
@@ -219,5 +289,7 @@ export const riverRidgeBattle: BattleConfig = {
     }),
     blueFireMage,
     redWaterMage,
+    blueEarthMage,
+    redKnightS,
   ],
 };

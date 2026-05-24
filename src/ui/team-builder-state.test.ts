@@ -30,6 +30,7 @@ import {
   createEmptyTeamBuilderState,
   draftAbilityCost,
   draftBucketCapacity,
+  MAX_TEAM_SIZE,
   setBrave,
   setClass,
   setEquipment,
@@ -46,39 +47,54 @@ const catalog = loadDefaultCatalog();
 const RULESET_ID = riverRidgeBattle.rulesetId;
 
 describe('team builder state — construction', () => {
-  it('createEmptyTeamBuilderState yields four classless, invalid units', () => {
+  it('createEmptyTeamBuilderState yields MAX_TEAM_SIZE empty (valid-but-empty) slots; team is invalid until a unit is added', () => {
     const state = createEmptyTeamBuilderState();
-    expect(state.units).toHaveLength(4);
+    expect(state.units).toHaveLength(MAX_TEAM_SIZE);
     for (const unit of state.units) {
       expect(unit.classId).toBeNull();
     }
     const validity = computeTeamValidity(state, catalog, RULESET_ID);
+    // S48: per-slot validity is "valid-but-empty" — empty slots don't
+    // fail validation in isolation.
+    expect(validity.units.every((u) => u.valid)).toBe(true);
+    // But the team itself is invalid until at least one slot is filled.
+    expect(validity.activeUnitCount).toBe(0);
     expect(validity.valid).toBe(false);
-    expect(validity.units.every((u) => !u.valid)).toBe(true);
   });
 
-  it('teamBuilderStateFromBuiltTeam round-trips a template', () => {
+  it('teamBuilderStateFromBuiltTeam round-trips a template; shorter templates pad with empty slots', () => {
     const state = teamBuilderStateFromBuiltTeam(currentTestTeam);
     expect(state.name).toBe(currentTestTeam.name);
-    state.units.forEach((unit, i) => {
-      const source = currentTestTeam.units[i]!;
+    // S48: state always presents MAX_TEAM_SIZE slots; legacy 4-unit
+    // templates load with their 4 filled + (MAX_TEAM_SIZE - 4) empty.
+    expect(state.units).toHaveLength(MAX_TEAM_SIZE);
+    currentTestTeam.units.forEach((source, i) => {
+      const unit = state.units[i]!;
       expect(unit.classId).toBe(source.classId);
       expect(unit.brave).toBe(source.baseStats.brave);
       expect(unit.faith).toBe(source.baseStats.faith);
       expect(unit.equipment).toEqual(source.equipment);
       expect(unit.loadout).toEqual(source.loadout);
     });
+    // Trailing slot(s) are empty.
+    for (let i = currentTestTeam.units.length; i < MAX_TEAM_SIZE; i++) {
+      expect(state.units[i]!.classId).toBeNull();
+    }
   });
 
-  it('teamBuilderStateToBuiltTeam reproduces a loaded template', () => {
+  it('teamBuilderStateToBuiltTeam reproduces a loaded template (empty slots filtered out)', () => {
     const state = teamBuilderStateFromBuiltTeam(currentTestTeam);
     const rebuilt = teamBuilderStateToBuiltTeam(state, catalog);
+    // S48: empty padding slots are filtered out so a round-trip
+    // preserves the original (shorter) template length.
     expect(rebuilt.units).toEqual(currentTestTeam.units);
   });
 
-  it('teamBuilderStateToBuiltTeam throws on a classless unit', () => {
+  it('teamBuilderStateToBuiltTeam throws when no slot has a class', () => {
     const state = createEmptyTeamBuilderState();
-    expect(() => teamBuilderStateToBuiltTeam(state, catalog)).toThrow(/no class/);
+    expect(() => teamBuilderStateToBuiltTeam(state, catalog)).toThrow(
+      /no active units/,
+    );
   });
 });
 
@@ -167,7 +183,11 @@ describe('team builder state — unit naming (Session 38)', () => {
     state = setClass(state, 1, classId('water_mage'), catalog);
     state = setClass(state, 2, classId('fire_mage'), catalog);
     state = setClass(state, 3, classId('lightning_mage'), catalog);
-    const names = state.units.map((u) => u.name!);
+    // S48: skip any trailing empty slots — they carry no name.
+    const names = state.units
+      .filter((u) => u.classId !== null)
+      .map((u) => u.name!);
+    expect(names).toHaveLength(4);
     expect(new Set(names).size).toBe(4);
   });
 
@@ -197,8 +217,10 @@ describe('team builder state — unit naming (Session 38)', () => {
 
   it('teamBuilderStateFromBuiltTeam carries the template-authored names', () => {
     const state = teamBuilderStateFromBuiltTeam(currentTestTeam);
-    state.units.forEach((unit, i) => {
-      expect(unit.name).toBe(currentTestTeam.units[i]!.name);
+    // S48: only the first N slots come from the template; trailing
+    // pad-slots are empty (no name).
+    currentTestTeam.units.forEach((source, i) => {
+      expect(state.units[i]!.name).toBe(source.name);
     });
   });
 
@@ -309,6 +331,47 @@ describe('team builder state — validity', () => {
     const validity = computeTeamValidity(state, catalog, RULESET_ID);
     expect(validity.units[0]!.twoHandedConflict).toBe(true);
     expect(validity.units[0]!.valid).toBe(false);
+  });
+
+  // ---- S48 variable team size ----
+
+  it('a 1-unit team is valid — single-unit teams clear the minimum (S48)', () => {
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
+    const validity = computeTeamValidity(state, catalog, RULESET_ID);
+    expect(validity.activeUnitCount).toBe(1);
+    expect(validity.valid).toBe(true);
+  });
+
+  it('a 5-unit team is valid — every slot filled with a distinct class (S48)', () => {
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
+    state = setClass(state, 1, classId('water_mage'), catalog);
+    state = setClass(state, 2, classId('fire_mage'), catalog);
+    state = setClass(state, 3, classId('lightning_mage'), catalog);
+    state = setClass(state, 4, classId('earth_mage'), catalog);
+    const validity = computeTeamValidity(state, catalog, RULESET_ID);
+    expect(validity.activeUnitCount).toBe(MAX_TEAM_SIZE);
+    expect(validity.valid).toBe(true);
+  });
+
+  it('a 5-unit team folds through buildTeamBattleConfig + createInitialState (S48)', () => {
+    let state = setClass(createEmptyTeamBuilderState(), 0, classId('knight'), catalog);
+    state = setClass(state, 1, classId('water_mage'), catalog);
+    state = setClass(state, 2, classId('fire_mage'), catalog);
+    state = setClass(state, 3, classId('lightning_mage'), catalog);
+    state = setClass(state, 4, classId('earth_mage'), catalog);
+    const built = teamBuilderStateToBuiltTeam(state, catalog);
+    expect(built.units).toHaveLength(MAX_TEAM_SIZE);
+    const config = buildTeamBattleConfig(
+      riverRidgeBattle,
+      built,
+      teamId('team_a'),
+    );
+    const initial = createInitialState(config, catalog);
+    // 5 player units + every authored team_b unit.
+    const otherTeamCount = riverRidgeBattle.units.filter(
+      (u) => u.team !== teamId('team_a'),
+    ).length;
+    expect(initial.units.size).toBe(MAX_TEAM_SIZE + otherTeamCount);
   });
 
   it('flags an over-capacity bucket', () => {

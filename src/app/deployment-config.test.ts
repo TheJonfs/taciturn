@@ -27,8 +27,9 @@ import {
 const BLUE: TeamId = teamId('team_a');
 const RED: TeamId = teamId('team_b');
 
-// A complete Blue deployment — all four Blue units on distinct tiles in
-// the northern zone (rows 0-2, cols 5-8), each facing south.
+// A complete Blue deployment — every Blue unit on a distinct tile in
+// the northern zone (rows 0-2, cols 5-8), each facing south. S48: now
+// 5 units (Blue gains an Earth Mage in the 5v5 expansion).
 const south: Direction = 'S';
 function blueDeployment(): DeploymentResult {
   const at = (x: number, y: number): DeploymentPlacement => ({
@@ -42,6 +43,7 @@ function blueDeployment(): DeploymentResult {
       [unitId('blue_water_mage'), at(6, 0)],
       [unitId('blue_lightning_mage'), at(7, 0)],
       [unitId('blue_fire_mage'), at(8, 0)],
+      [unitId('blue_earth_mage'), at(5, 1)],
     ]),
   };
 }
@@ -113,7 +115,7 @@ describe('computeAiDeploymentResult (S43 AI deployment bridge)', () => {
     const config = buildDeployedBattleConfig(riverRidgeBattle, result);
     // No throw (every Red unit has a placement) and the engine consumes it.
     const initial = createInitialState(config, catalog);
-    expect(initial.units.size).toBe(8);
+    expect(initial.units.size).toBe(10);
   });
 
   it('faces the deployed AI team toward the opponent (Red faces north)', () => {
@@ -131,7 +133,7 @@ describe('pipeline integration — deployment commit → initial state → pre-b
     const config = buildDeployedBattleConfig(riverRidgeBattle, result);
 
     const initial = createInitialState(config, catalog);
-    expect(initial.units.size).toBe(8);
+    expect(initial.units.size).toBe(10);
 
     // Blue units sit where deployment placed them.
     for (const [id, placement] of result.placements) {
@@ -143,7 +145,7 @@ describe('pipeline integration — deployment commit → initial state → pre-b
     // deployment-derived config — equipment auto-statuses + initial-CT
     // randomization land, and the state is ready for turn 1.
     const ready = runPreBattlePhase(initial, config, catalog);
-    expect(ready.units.size).toBe(8);
+    expect(ready.units.size).toBe(10);
     // Initial-CT randomization committed: at least one unit has CT > 0
     // (the default ruleset's uniform_int{0,20} draw is per-unit).
     expect([...ready.units.values()].some((u) => u.ct > 0)).toBe(true);
@@ -157,11 +159,11 @@ describe('deployment-mount map validation (validateMap)', () => {
     riverRidgeBattle.rulesetId,
   ).terrain.tags;
 
-  it("River Ridge's zones are sufficient for the 4v4 roster", () => {
+  it("River Ridge's zones are sufficient for the 5v5 roster (S48)", () => {
     const result = validateMap(riverRidge, registry, {
       requiredZonesPerTeam: new Map([
-        [BLUE, 4],
-        [RED, 4],
+        [BLUE, 5],
+        [RED, 5],
       ]),
     });
     expect(result.ok).toBe(true);

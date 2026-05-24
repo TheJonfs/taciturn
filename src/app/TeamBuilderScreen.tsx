@@ -280,17 +280,27 @@ function FooterBar({
 }
 
 // Human-readable validity messages for the footer. Built from the
-// structured `TeamValidity` predicate.
+// structured `TeamValidity` predicate. S48: empty slots are valid-but-
+// empty and produce no message; only filled slots' rule violations show.
+// A single top-line message surfaces when the team has no active units
+// at all (the only way the size gate fails today, since MAX_TEAM_SIZE
+// matches the slot count).
 function validationMessages(builder: TeamBuilder, catalog: Catalog): string[] {
   const { validity, state } = builder;
   const messages: string[] = [];
 
+  if (validity.activeUnitCount === 0) {
+    messages.push('Add at least one unit — empty teams cannot deploy.');
+  }
+
   validity.units.forEach((unitValidity, index) => {
+    // S48: an empty (classless) slot is intentionally not flagged. The
+    // roster card already presents the "No class selected" placeholder
+    // and clicking it lets the player fill the slot; surfacing the
+    // emptiness as a validation error treats normal "team < MAX" play
+    // as broken.
+    if (!unitValidity.hasClass) return;
     const label = `Unit ${index + 1}`;
-    if (!unitValidity.hasClass) {
-      messages.push(`${label} needs a class.`);
-      return;
-    }
     if (unitValidity.invalidEquipmentSlots.length > 0) {
       messages.push(
         `${label}: ${unitValidity.invalidEquipmentSlots.join(', ')} ` +

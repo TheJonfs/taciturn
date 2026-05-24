@@ -24,21 +24,27 @@ import type { BuiltTeam } from './built-team.ts';
 // Fold a `BuiltTeam` into a `BattleConfig` template. The `team`'s
 // authored placements are replaced by the built units (preserving each
 // slot's id + placeholder position + facing); every other team's
-// authored placements are left intact. Throws if the template's `team`
-// has a different unit count than the built team — a mismatch means the
-// template and the locked team size have drifted, which should fail
-// loud rather than silently truncate.
+// authored placements are left intact.
+//
+// S48: variable team size. The built team's unit count must be at most
+// the template's authored slot count for `team` (the template is the
+// upper-bound surface — bumping a map's max team size means adding more
+// authored slots to the battle config). When the built team is shorter
+// than the template, the trailing template slots are simply dropped,
+// matching the team-builder's "empty slot = valid-but-empty" semantics.
+// Throws when the built team is larger than the template can support so
+// the failure is loud rather than silently truncating.
 export function buildTeamBattleConfig(
   template: BattleConfig,
   builtTeam: BuiltTeam,
   team: TeamId,
 ): BattleConfig {
   const templateSlots = template.units.filter((u) => u.team === team);
-  if (templateSlots.length !== builtTeam.units.length) {
+  if (builtTeam.units.length > templateSlots.length) {
     throw new Error(
-      `buildTeamBattleConfig: template team ${JSON.stringify(team)} has ` +
-        `${templateSlots.length} units but the built team has ` +
-        `${builtTeam.units.length}`,
+      `buildTeamBattleConfig: built team has ${builtTeam.units.length} ` +
+        `units but template team ${JSON.stringify(team)} only authors ` +
+        `${templateSlots.length} slot(s)`,
     );
   }
 

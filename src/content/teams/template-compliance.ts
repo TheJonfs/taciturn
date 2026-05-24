@@ -10,7 +10,7 @@ import { loadDefaultCatalog } from '@content/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import { createInitialState, teamId } from '@engine/index.ts';
 import { buildTeamBattleConfig } from './build-team-battle-config.ts';
-import type { BuiltTeam } from './built-team.ts';
+import { MAX_TEAM_SIZE, MIN_TEAM_SIZE, type BuiltTeam } from './built-team.ts';
 
 const EQUIPMENT_SLOTS = [
   'leftHand',
@@ -23,8 +23,10 @@ const EQUIPMENT_SLOTS = [
 // Run the full structural-compliance battery against a `BuiltTeam`.
 // Fails the test at the first violation; otherwise no return value.
 export function assertTemplateCompliance(template: BuiltTeam): void {
-  // Four units (the locked v1 team size).
-  expect(template.units).toHaveLength(4);
+  // S48: team size is variable. Compliance requires that the template
+  // sit within the runtime bounds the team builder enforces.
+  expect(template.units.length).toBeGreaterThanOrEqual(MIN_TEAM_SIZE);
+  expect(template.units.length).toBeLessThanOrEqual(MAX_TEAM_SIZE);
 
   // Each unit has a non-empty name.
   for (const unit of template.units) {
@@ -63,5 +65,12 @@ export function assertTemplateCompliance(template: BuiltTeam): void {
     teamId('team_a'),
   );
   const state = createInitialState(config, catalog);
-  expect(state.units.size).toBe(riverRidgeBattle.units.length);
+  // The built config drops unused template slots (S48: the upper-bound
+  // template authors 5 blue slots; a shorter team consumes only the
+  // first N), so the state size is "built-team units + every authored
+  // team_b unit" — not the raw template's `units.length`.
+  const otherTeamUnits = riverRidgeBattle.units.filter(
+    (u) => u.team !== teamId('team_a'),
+  ).length;
+  expect(state.units.size).toBe(template.units.length + otherTeamUnits);
 }

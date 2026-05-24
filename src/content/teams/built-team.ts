@@ -10,7 +10,7 @@
 // generating placements.
 //
 // `BuiltUnit` carries no `id` — ids are assigned positionally at
-// config-build time, so a unit's identity is its slot (0-3), not a
+// config-build time, so a unit's identity is its slot index, not a
 // stored key. Names are cosmetic; templates author them, the builder
 // defaults them from the class.
 
@@ -30,13 +30,20 @@ export interface BuiltUnit {
   readonly equipment: UnitEquipment;
 }
 
-// Exactly four units — River Ridge / Mage War's locked team size. The
-// tuple shape enforces the count at the type level so a malformed
-// template fails to compile rather than at battle start.
+// Session 48: variable-length team — between MIN_TEAM_SIZE and
+// MAX_TEAM_SIZE units. The team builder represents in-progress drafts
+// with up to MAX_TEAM_SIZE slots (empty slots are valid-but-empty);
+// `teamBuilderStateToBuiltTeam` filters empty slots out so a `BuiltTeam`
+// only ever holds active units. Pre-S48 this was a fixed 4-tuple.
 export interface BuiltTeam {
   readonly name: string;
-  readonly units: readonly [BuiltUnit, BuiltUnit, BuiltUnit, BuiltUnit];
+  readonly units: ReadonlyArray<BuiltUnit>;
 }
+
+// S48 team-size bounds. Shared between content (template compliance,
+// battle-config wiring) and the team-builder UI's validity layer.
+export const MAX_TEAM_SIZE = 5;
+export const MIN_TEAM_SIZE = 1;
 
 // Brave / Faith bounds for the team builder's sliders (per the Sessions
 // 21+ roadmap). The placement default is 70 (see `demo.ts`'s

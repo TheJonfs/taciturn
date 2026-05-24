@@ -82,14 +82,21 @@ function RosterCard({
         ) : (
           <div style={portraitFallbackStyle}>{index + 1}</div>
         )}
-        <div
-          style={{
-            ...statusBadgeStyle,
-            ...(unitValidity.valid ? statusOkStyle : statusWarnStyle),
-          }}
-        >
-          {unitValidity.valid ? '✓' : '!'}
-        </div>
+        {/* S48: empty slots (no class assigned) skip the validity badge
+            — the slot is valid-but-empty and the "pick a class"
+            placeholder body text already signals that the slot needs
+            filling. Only filled slots surface ✓ / ! against their
+            equipment + loadout. */}
+        {unit.classId !== null && (
+          <div
+            style={{
+              ...statusBadgeStyle,
+              ...(unitValidity.valid ? statusOkStyle : statusWarnStyle),
+            }}
+          >
+            {unitValidity.valid ? '✓' : '!'}
+          </div>
+        )}
       </div>
       <div style={bodyStyle}>
         <div style={nameStyle}>

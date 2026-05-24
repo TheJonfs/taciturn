@@ -78,7 +78,11 @@ describe('TeamBuilderScreen — load default and continue', () => {
 
     expect(onContinue).toHaveBeenCalledTimes(1);
     const team = onContinue.mock.calls[0]![0];
-    expect(team.units).toHaveLength(4);
+    // S48: the loaded template is a legacy 4-unit BuiltTeam; loading it
+    // into the (now 5-slot) builder pads with one empty slot, and the
+    // empty slot is filtered out on export. So the team coming through
+    // the Continue gate has the template's original 4 units.
+    expect(team.units).toHaveLength(currentTestTeam.units.length);
     expect(team.units.map((u) => String(u.classId))).toEqual(
       currentTestTeam.units.map((u) => String(u.classId)),
     );
@@ -96,7 +100,9 @@ describe('team builder output → deployment → battle pipeline', () => {
       currentTestTeam,
       BLUE,
     );
-    expect(teamConfig.units.filter((u) => u.team === BLUE)).toHaveLength(4);
+    expect(teamConfig.units.filter((u) => u.team === BLUE)).toHaveLength(
+      currentTestTeam.units.length,
+    );
 
     // 2. Deployment phase output — place each Blue unit (here, at the
     //    placeholder positions; the real screen lets the player choose).
@@ -115,8 +121,14 @@ describe('team builder output → deployment → battle pipeline', () => {
     // 3. Engine consumes it unchanged — createInitialState +
     //    pre-battle phase both succeed.
     const initial = createInitialState(deployed, catalog);
-    expect(initial.units.size).toBe(8);
+    // S48: legacy 4-unit currentTestTeam + S48 5-unit Red template =
+    // 9 total. The trailing Blue template slot (blue_earth_mage) is
+    // dropped when the built team is shorter than the template.
+    const expectedSize =
+      currentTestTeam.units.length +
+      riverRidgeBattle.units.filter((u) => u.team !== BLUE).length;
+    expect(initial.units.size).toBe(expectedSize);
     const postPreBattle = runPreBattlePhase(initial, deployed, catalog);
-    expect(postPreBattle.units.size).toBe(8);
+    expect(postPreBattle.units.size).toBe(expectedSize);
   });
 });
