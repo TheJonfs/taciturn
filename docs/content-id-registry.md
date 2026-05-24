@@ -224,7 +224,7 @@ Equipment slots: weapon (one- or two-handed), shield, armor, headgear, accessory
 | `iron_helm` | Iron Helm | +20 maxHpBase | `src/content/items/iron-helm.ts` |
 | `guard_cap` | Guard Cap | basic balanced headgear | `src/content/items/guard-cap.ts` |
 | `focus_band` | Focus Band | × 0.75 incoming negative-status apply chance | `src/content/items/focus-band.ts` |
-| `steel_helm` | Steel Helm | +N front/side/back evasion + bucket capacity mod | `src/content/items/steel-helm.ts` |
+| `steel_helm` | Steel Helm | Knight-only. +40 maxHpBase, +1 Reaction-bucket capacity, −20 side/back evasion (positive-feedback "Knight wants to get hit" identity) | `src/content/items/steel-helm.ts` |
 | `tactical_mask` | Tactical Mask | utility-focused headgear | `src/content/items/tactical-mask.ts` |
 | `pointy_hat` | Pointy Hat | mage-favored headgear | `src/content/items/pointy-hat.ts` |
 | `magus_crown` | Magus Crown | +1 secondary-command-set capacity | `src/content/items/magus-crown.ts` |
@@ -241,7 +241,7 @@ Equipment slots: weapon (one- or two-handed), shield, armor, headgear, accessory
 | `capacitor_ring` | Capacitor Ring | per-tag resistance shifts | `src/content/items/capacitor-ring.ts` |
 | `tintinibar` | Tintinibar | grants Auto-Regen at battle start | `src/content/items/tintinibar.ts` |
 | `lightfoot` | Lightfoot | +1 Move via movementMods | `src/content/items/lightfoot.ts` |
-| `augmentor` | Augmentor | +1 reaction-bucket capacity | `src/content/items/augmentor.ts` |
+| `augmentor` | Augmentor | +1 Support-bucket capacity (sister to Steel Helm's +1 Reaction) | `src/content/items/augmentor.ts` |
 | `diamond_bracelet` | Diamond Bracelet | status-defense accessory | `src/content/items/diamond-bracelet.ts` |
 | `purifier` | Purifier | × 2 status-tick amount on negative-tagged statuses (S30 / S33.5 interaction piece) | `src/content/items/purifier.ts` |
 | `arcane_lens` | Arcane Lens | × 1.10 outgoing hit chance | `src/content/items/arcane-lens.ts` |

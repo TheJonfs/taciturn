@@ -1,6 +1,6 @@
-// Movement Self-Buff (Earth) — boosts the wearer's Move Range and Jump.
-// The companion of Movement Debuff. Earth Resilience emits this when
-// triggered.
+// Movement Self-Buff (Earth) — boosts the wearer's Move Range. The
+// companion of Movement Debuff. Earth Resilience (Landwalker) emits
+// this when triggered.
 //
 // Per session 16 plaintext review: kept as a *separate type* from
 // Movement Debuff because (a) tag polarity differs (positive vs.
@@ -8,11 +8,16 @@
 // debuff should compose to a net 0 when both are present rather than
 // REFRESH each other off.
 //
+// S48: scoped to Move only — the Jump component was removed to keep
+// Landwalker (Geosage Reaction) symmetric with the Hunter's Updraft
+// (Jump-only) and Assassin's Speed Save (Speed-only) stacking-reaction
+// pattern. Each Reaction now buffs exactly one mobility axis.
+//
 // Stacking: STACK_INDEPENDENT — each Earth Resilience trigger creates
-// a new instance with its own duration, contributing +1/+1 each. With
-// three triggers active, the unit has +3/+3 Move/Jump. Each instance
-// expires on its own timer (24 CT-units default), bounding total
-// stacking by trigger frequency × duration.
+// a new instance with its own duration, contributing +1 Move each.
+// With three triggers active, the unit has +3 Move; each instance
+// expires on its own timer (6 CT default), bounding total stacking by
+// trigger frequency × duration.
 
 import {
   statusHook,
@@ -30,7 +35,7 @@ export const movementSelfBuff: StatusEffectType = {
   aiHints: { polarity: 'buff' },
   hooks: [
     statusHook('modifyStatQuery', (args, ctx) => {
-      if (args.statName !== 'moveRange' && args.statName !== 'jump') return args.baseValue;
+      if (args.statName !== 'moveRange') return args.baseValue;
       const magnitude = ctx.instance.magnitude ?? 1;
       return args.baseValue + magnitude;
     }),

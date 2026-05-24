@@ -20,7 +20,7 @@ import { loadDefaultCatalog } from '@content/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import {
   buildTeamBattleConfig,
-  currentTestTeam,
+  gravityWell,
   type BuiltTeam,
 } from '@content/teams/index.ts';
 import {
@@ -63,7 +63,7 @@ describe('TeamBuilderScreen — load default and continue', () => {
     expect(loader).not.toBeNull();
 
     act(() => {
-      loader!.value = 'current-test-team';
+      loader!.value = 'gravity-well';
       loader!.dispatchEvent(new Event('change', { bubbles: true }));
     });
 
@@ -78,13 +78,14 @@ describe('TeamBuilderScreen — load default and continue', () => {
 
     expect(onContinue).toHaveBeenCalledTimes(1);
     const team = onContinue.mock.calls[0]![0];
-    // S48: the loaded template is a legacy 4-unit BuiltTeam; loading it
-    // into the (now 5-slot) builder pads with one empty slot, and the
-    // empty slot is filtered out on export. So the team coming through
-    // the Continue gate has the template's original 4 units.
-    expect(team.units).toHaveLength(currentTestTeam.units.length);
+    // S48: the loaded Gravity Well template is a 4-unit BuiltTeam;
+    // loading it into the (now 5-slot) builder pads with one empty
+    // slot, and the empty slot is filtered out on export. So the team
+    // coming through the Continue gate has the template's original 4
+    // units.
+    expect(team.units).toHaveLength(gravityWell.units.length);
     expect(team.units.map((u) => String(u.classId))).toEqual(
-      currentTestTeam.units.map((u) => String(u.classId)),
+      gravityWell.units.map((u) => String(u.classId)),
     );
 
     act(() => root.unmount());
@@ -97,11 +98,11 @@ describe('team builder output → deployment → battle pipeline', () => {
     // 1. Team builder output → map config (team_a built, team_b authored).
     const teamConfig = buildTeamBattleConfig(
       riverRidgeBattle,
-      currentTestTeam,
+      gravityWell,
       BLUE,
     );
     expect(teamConfig.units.filter((u) => u.team === BLUE)).toHaveLength(
-      currentTestTeam.units.length,
+      gravityWell.units.length,
     );
 
     // 2. Deployment phase output — place each Blue unit (here, at the
@@ -121,11 +122,11 @@ describe('team builder output → deployment → battle pipeline', () => {
     // 3. Engine consumes it unchanged — createInitialState +
     //    pre-battle phase both succeed.
     const initial = createInitialState(deployed, catalog);
-    // S48: legacy 4-unit currentTestTeam + S48 5-unit Red template =
-    // 9 total. The trailing Blue template slot (blue_earth_mage) is
-    // dropped when the built team is shorter than the template.
+    // S48: 4-unit Gravity Well + 5-unit Red template = 9 total. The
+    // trailing Blue template slot (blue_earth_mage) is dropped when
+    // the built team is shorter than the template.
     const expectedSize =
-      currentTestTeam.units.length +
+      gravityWell.units.length +
       riverRidgeBattle.units.filter((u) => u.team !== BLUE).length;
     expect(initial.units.size).toBe(expectedSize);
     const postPreBattle = runPreBattlePhase(initial, deployed, catalog);

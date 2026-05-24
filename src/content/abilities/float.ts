@@ -18,6 +18,14 @@
 // maps, neutral on flat ones.
 //
 // Cost-1 in v1.
+//
+// S48: marked `'hidden'` — Float currently lives without a class home
+// (no class lists it in `freeAbilities` and no equipment grants it).
+// Pulled from the team-builder picker until a class adopts it or a
+// deliberate cross-class baseline use case lands. The registration
+// stays so future content can flip it back to `'available'` without
+// reauthoring; tests that exercise the modifyTerrainCosts pipeline
+// still reach this definition.
 
 import {
   abilityId,
@@ -33,7 +41,7 @@ export const float: PassiveAbilityDefinition = {
   kind: 'passive',
   bucket: bucketId('movement'),
   baseCost: 1,
-  availability: 'available',
+  availability: 'hidden',
   hooks: [
     passiveHook('modifyTerrainCosts', (args) =>
       mapAllTerrainCosts(args.baseValue, args.terrainRegistry, (c) => Math.min(c, 1)),

@@ -6,8 +6,15 @@
 // in ~1 enemy turn for a Speed-9 Hunter; the calibration lever per D4).
 // Because the charge mechanism is flavor-agnostic (`actionSpeed > 0` is
 // the only gate, no magic check), a physical bow attack charges exactly
-// like a spell. `power_coefficient: 1.5` is the extra-damage multiplier
-// over the basic shot.
+// like a spell.
+//
+// S48 tuning: `power_coefficient: 2.0` and `mpCost: 6` — the charge
+// delay deserves an outsized payoff. Pre-S48 Charged Attack and Power
+// Attack both landed at 1.5× coefficient, trading mpCost 0 + delay vs.
+// mpCost 6 + instant. Two trades on the same axis collapsed the choice;
+// the new shape (2.0× + 6 MP) makes Charged Attack the higher-ceiling
+// option — the player pays both the wait and the MP, but the hit at the
+// end of the queue is a bona fide hammer.
 //
 // Tags ['physical', 'weapon'] make it weapon-sourced across the board:
 // the equipped bow supplies WP, accuracy (`hitRoll: {}` → weapon
@@ -15,7 +22,6 @@
 // fork — the 2-5 range. `unit_or_tile` arc targeting is the FFT
 // pin-a-tile-or-unit charged pattern: pin a tile and the shot hits
 // whoever stands there at resolution (nothing if they've moved off).
-// mpCost 0 — bow attacks don't spend MP.
 
 import {
   abilityId,
@@ -39,12 +45,12 @@ export const chargedAttack: ActiveAbilityDefinition = {
     rangeMode: 'arc',
   },
   actionSpeed: 25,
-  mpCost: 0,
+  mpCost: 6,
   hitRoll: {},
   effects: {
     damage: {
       tags: ['physical', 'weapon'],
-      power_coefficient: 1.5,
+      power_coefficient: 2.0,
     },
   },
 };

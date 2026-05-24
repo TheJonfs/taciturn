@@ -1,10 +1,12 @@
-// Earth Resilience — Earth Mage's Reaction.
+// Earth Resilience (display: Landwalker) — Geosage's Reaction.
 //
 // On taking damage from a non-healing-tagged hit, self-applies a
-// `movement_self_buff` instance — +1 Move / +1 Jump for 24 CT-units.
+// `movement_self_buff` instance — +1 Move for 6 CT-units (S48: dropped
+// the +1 Jump component to keep the stacking-mobility-reaction family
+// — Landwalker / Updraft / Speed Save — each axis-specific).
 // STACK_INDEPENDENT means each trigger creates a new instance with its
 // own timer; repeated triggers stack additively (3 hits in quick
-// succession → +3 / +3 Move/Jump until the timers age out).
+// succession → +3 Move until the timers age out).
 //
 // Per session 16 plaintext review: baseCost 2 (powerful when triggered
 // multiple times). Brave-gated trigger per ADR-0021 — fires probabilistically

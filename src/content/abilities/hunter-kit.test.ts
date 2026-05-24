@@ -207,6 +207,11 @@ describe('Charged Attack', () => {
   it('is a charged ability — committing it spawns a ChargedAction', () => {
     const attacker = makeUnit({
       id: 'a', spd: 9, pa: 6, classId: 'hunter', position: { x: 0, y: 0, layer: 0 },
+      // S48: Charged Attack picked up an MP cost (6 MP, parity with
+      // Power Attack); the fixture needs MP available so the commit
+      // doesn't fail validation. The test makes no assertion that
+      // tracks MP balance, so 50 is just a comfortable head-room.
+      mp: 50,
       loadout: { actionBuckets: { [bucketId('first_action')]: [commandSetId('marksmanship')], [bucketId('secondary_command_sets')]: [] }, passiveBuckets: {} },
       equipment: equipRight('longbow'),
     });
@@ -224,17 +229,17 @@ describe('Charged Attack', () => {
     expect(r.outcome.chargedActionId).toBeDefined();
   });
 
-  it('deals PA × WP × 1.5 × variance damage (same elevation → ×1.0)', () => {
+  it('deals PA × WP × 2.0 × variance damage (same elevation → ×1.0) — S48 coefficient bump', () => {
     const attacker = makeUnit({ id: 'a', spd: 9, pa: 6, classId: 'hunter', position: { x: 0, y: 0, layer: 0 }, equipment: equipRight('longbow') });
     const target = makeUnit({ id: 't', spd: 9, hp: 200, maxHpBase: 200, classId: 'knight', position: { x: 1, y: 0, layer: 0 } });
     const state = makeGameState({ units: [attacker, target], map: elevMap(0, 0) });
-    // base = PA 6 × WP 7 × coeff 1.5 = 63; variance 1.0 at equal elevation.
+    // base = PA 6 × WP 7 × coeff 2.0 = 84; variance 1.0 at equal elevation.
     const r = runDamagePipeline({
       state, catalog, attacker, target,
       ability: expectActiveAbility(catalog, abilityId('charged_attack')),
       sourceActionSeq: 0, seed: 1, registry: defaultDamageHandlers,
     });
-    expect(r.finalDamage).toBe(63);
+    expect(r.finalDamage).toBe(84);
   });
 });
 

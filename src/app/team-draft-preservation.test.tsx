@@ -63,9 +63,9 @@ describe('Session 37 — team-build draft preservation', () => {
     expect(container.textContent).toContain('Editing Unit 1');
     expect(container.textContent).not.toContain('Editing Unit 1 — Knight');
 
-    // Load the Current Test Team template — Unit 1 is the Knight.
+    // Load the Gravity Well template — Unit 1 is the Knight.
     act(() => {
-      selectOption(findSelect(container), 'current-test-team');
+      selectOption(findSelect(container), 'gravity-well');
     });
     expect(container.textContent).toContain('Editing Unit 1 — Knight');
 
@@ -94,7 +94,7 @@ describe('Session 37 — team-build draft preservation', () => {
 
     gotoTeamBuilder(container);
     act(() => {
-      selectOption(findSelect(container), 'current-test-team');
+      selectOption(findSelect(container), 'gravity-well');
     });
     expect(container.textContent).toContain('Editing Unit 1 — Knight');
 
@@ -138,7 +138,7 @@ describe('Session 37 — team-build draft preservation', () => {
 
     // Load a template so Unit 1 has a class (and an auto-picked name).
     act(() => {
-      selectOption(findSelect(container), 'current-test-team');
+      selectOption(findSelect(container), 'gravity-well');
     });
 
     // Change the name input on the focused unit (slot 0).

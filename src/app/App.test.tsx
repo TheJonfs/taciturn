@@ -38,7 +38,7 @@ function loadDefaultTemplate(container: HTMLElement): void {
     'value',
   )?.set;
   act(() => {
-    setter?.call(select, 'current-test-team');
+    setter?.call(select, 'gravity-well');
     select.dispatchEvent(new Event('change', { bubbles: true }));
   });
 }
