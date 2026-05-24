@@ -566,3 +566,51 @@ shouldn't drift out of memory between sessions.
 - **What to watch.** Pre-S47 most magic capped at `vertical: 2`; post-S47 it's uniform `vertical: 99`. River Ridge battles will see different magic behavior anywhere there was a cap interaction — most likely spells targeting cliff-top Hunters or Mages on the elev-9 east perch.
 - **Why it matters.** A regression in feel where a former "you have to climb to magic them" becomes "magic anyone anywhere" is the intended consequence — but watch for cases where the change makes a previous tactical position pointless.
 - **Signal for adjustment.** If a former perch (River Ridge elev-9 cliff) becomes worthless because magic now nullifies the elevation, revisit per-element vertical caps (a future tuning pass declaring `vertical: 5` on selected spells).
+
+### 5v5 battle pacing (S48)
+
+- **What to watch.** S48 unlocked 1–5 unit team sizes; River Ridge and Stonebridge templates now field 5v5 by default. Watch turn count, action density per side per turn, and average battle duration vs. the pre-S48 4v4 baseline. Especially: does the 5th unit per side land in roles that meaningfully extend tactical options, or does it just lengthen the same engagement?
+- **Why it matters.** Adding a 5th unit on a map sized for 4v4 (14×14 / 16×16) compresses positioning and may produce bunching at the central engagement zone. The AI deployment heuristic places HP-descending — five units in that order may stack squishies behind a single front line.
+- **Signal for adjustment.** Battles consistently lasting 1.5–2× longer with the same decisive moments — consider adjusting per-team default size in scenarios. Map feels cramped — consider larger maps for future content. AI deployment looks awkward — sharpens the role-aware-sort carry case (a recurring item since S43).
+
+### AI deployment with 5 units (S48)
+
+- **What to watch.** Both River Ridge and Stonebridge bumped to 5-slot per-team templates. The AI's HP-descending placement now spreads five units across the deployment zone (River Ridge: 12 tiles per team, Stonebridge: 8). Watch (a) whether Red ends up with sensible front-line / back-line shape, (b) whether the 5th unit lands awkwardly (a Mage in the front-center, a Knight on the flank), (c) whether the rampart sees a Hunter on Stonebridge.
+- **Why it matters.** The deployment heuristic was tuned for 4-unit Red teams. 5 units stress its single-axis sort. Role-aware sort (S44 carry) is sharpened further; this may be the playtest evidence to commit to.
+- **Signal for adjustment.** AI 5-unit placements consistently look "wrong" (Mage in melee, Knight at far flank) → role-aware deployment is a future-session priority.
+
+### New default-template balance — Gravity Well / High Ground / Mage War (S48)
+
+- **What to watch.** The three new Chris-authored default templates landed this session: Gravity Well (4 units; Knight dual-wield + Burn-pressure Pyromancer), High Ground (5 units; Hunter / Alchemist cross-bow + Aethurge + Geosage dual-secondary + Knight shield), Mage War (5 units; one of every class). Watch matchup parity — does any template consistently dominate the others when played against the stock Red AI template, and how do head-to-head matchups feel?
+- **Why it matters.** New content encodes Chris's current best-thinking about team comp. Playtest reveals balance and surfaces which interactions read well vs. don't.
+- **Signal for adjustment.** Lopsided matchups (Gravity Well's Knight + The Offering one-shotting every Red Mage every game) → tune the offending interaction, not the team. Specific spells / passives consistently feel skippable in these comps → revisit content individually.
+
+### Command Set tooltip information density (S48)
+
+- **What to watch.** The S48 team-builder ability picker now wraps every Command Set option in a hover tooltip that lists its 5 member abilities with a compact one-liner per ability (MP / Charge / damage formula / AoE / status effects). On Earth Spells / Water Spells / Fire Spells / Lightning Spells, that's 5–6 lines of inline detail. Watch (a) whether the tooltip is enough to decide between secondary command sets, (b) whether the one-liner format is dense-but-scannable or unreadable, (c) whether players want a follow-on "full ability detail" surface on click vs. hover.
+- **Why it matters.** Command Set abilities are richer than R/S/M passives (cost, range, accuracy, status effects, AoE shape). A condensed view trades depth for scannability; the right balance is a tooltip-readability question.
+- **Signal for adjustment.** Players hover repeatedly trying to extract info that isn't there → enrich the one-liner or add a click-to-expand affordance. Players don't hover the tooltip at all → reduce the surface to titles only.
+
+### Charged Attack power_coefficient bump to 2.0 + 6 MP (S48)
+
+- **What to watch.** Pre-S48 Charged Attack and Power Attack both landed at 1.5× — same damage, different cost vector. S48 lifted Charged Attack to 2.0× / 6 MP so the player pays both the delay and the MP. Watch (a) whether the Hunter's Marksmanship reads as the higher-ceiling First Action option vs. the Knight's Battle Skill, (b) whether 6 MP is gating enough that Hunter's MP-pool design (probably 30–40) feels constrained, (c) whether the 2.0× + bow's height-delta variance starts producing one-shot kills on Mages.
+- **Why it matters.** Two abilities trading the same axis (delay vs. MP) collapsed the choice; the new shape makes them genuinely different role picks. If 2.0× is too much, single-shot kills break the engagement tempo.
+- **Signal for adjustment.** Hunter consistently one-shots Mages on the first elevation-delta cast → consider 1.75×, or limit the height-delta-variance ceiling. Hunter never uses Charged Attack (MP cost too steep) → lower to 4 MP or 5 MP.
+
+### Landwalker scope shift — Move-only (S48)
+
+- **What to watch.** Earth Resilience's stacking buff now applies +1 Move only (was +1 Move / +1 Jump pre-S48). Watch whether the Geosage's mobility identity feels diminished — the Jump component was a small but real perk in elevated terrain (river-crossing on River Ridge, rampart-stepping on Stonebridge).
+- **Why it matters.** The change brings the stacking-mobility reaction family — Landwalker / Updraft / Speed Save — into symmetric one-axis-each shape. If the Jump-on-hit was actually doing important work on the Geosage's identity, removing it may surface as a feel regression.
+- **Signal for adjustment.** Geosage players note Landwalker "doesn't do much" on elevated maps → consider adding a paired but cheaper status (Jump-only reaction passive) for the Earth school. Geosage feels fine → the symmetry was the right call.
+
+### Float suppression — content gap watch (S48)
+
+- **What to watch.** Float (terrain-cost leveling on every tile) is suppressed from the picker (`'hidden'`) for S48. No class is currently shipped with Float in `freeAbilities`. Watch whether the missing-from-picker cross-class universal-mobility option is felt — does anyone hit a moment in playtest where "I wish I could just walk over the water tile" without Tidewalker?
+- **Why it matters.** Float was a cross-class baseline; pulling it removes a player option even though no team was using it. If the suppression silently degrades any specific playstyle, that's signal a class needs to adopt it.
+- **Signal for adjustment.** Repeated playtest comments about water-tile movement friction → restore Float (`availability: 'available'`) or attach to a new class (Hydrologist-adjacent — Tidewalker is the current water-friendly Movement, Float would extend to *every* terrain).
+
+### Bulwark Stance suppression — Knight Movement content gap (S48)
+
+- **What to watch.** Bulwark Stance was removed in S48 Commit 2 (Knight-flavored Movement passive without a class home). Knight's Movement bucket now offers Move +1 / Bravestrider (free) / Field Recovery / Fleet of Foot / Tidewalker / Hotfoot / Quickstep / Bedrock Stride. Watch whether Knight Movement still feels sufficient or whether a deliberate "Knight tank" Movement passive (the role Bulwark Stance was filling) wants to be re-designed.
+- **Why it matters.** Knight is the v1 tank archetype; Bulwark Stance's "trade Move for MaxHP / Evade" identity was the only Knight-flavored Movement option. Suppressed; the tank fantasy is now equipment-only (War Plate + Steel Helm + Tintinibar).
+- **Signal for adjustment.** Knight players consistently equip the same Movement (Bravestrider + filler) without any of the new options reading as defensive → a future content pass authors a Knight-flavored defensive Movement passive (potentially adopting the suppressed Bulwark Stance with refreshed numbers).
