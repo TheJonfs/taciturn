@@ -15,7 +15,6 @@ import { blowdart } from './blowdart.ts';
 import { bolt } from './bolt.ts';
 import { bravestrider } from './bravestrider.ts';
 import { brine } from './brine.ts';
-import { bulwarkStance } from './bulwark-stance.ts';
 import { chainLightning } from './chain-lightning.ts';
 import { combatFocusReaction } from './combat-focus.ts';
 import { compound } from './compound.ts';
@@ -83,7 +82,6 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   bolt,
   bravestrider,
   brine,
-  bulwarkStance,
   chainLightning,
   combatFocusReaction,
   compound,

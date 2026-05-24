@@ -110,8 +110,13 @@ describe('loadDefaultCatalog', () => {
     // Ironfoot (+ wand_of_lumen_apply_shift hidden proc):
     //   - abilities: 72 → 73
     //   - items: 52 → 55
+    //
+    // Session 48 stray-ability cleanup — Bulwark Stance suppressed
+    // (no class home; was the original `modifyEvasion` consumer but
+    // never lived on a class's free kit):
+    //   - abilities: 73 → 72
     expect(cat.statusTypes()).toHaveLength(30);
-    expect(cat.abilities()).toHaveLength(73);
+    expect(cat.abilities()).toHaveLength(72);
     expect(cat.commandSets()).toHaveLength(10);
     expect(cat.classes()).toHaveLength(8);
     expect(cat.items()).toHaveLength(55);

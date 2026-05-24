@@ -85,7 +85,6 @@ Keep this in sync with the catalog. If you rename a `name`, update the row. If y
 | `move_plus_1` | Move +1 | movement | `src/content/abilities/move-plus-1.ts` |
 | `float` | Float | movement | `src/content/abilities/float.ts` |
 | `fly` | Fly | movement | `src/content/abilities/fly.ts` |
-| `bulwark_stance` | Bulwark Stance | movement | `src/content/abilities/bulwark-stance.ts` |
 | `counter` | Counter | reaction | `src/content/abilities/counter.ts` |
 | `earth_resilience` | Earth Resilience | reaction | `src/content/abilities/earth-resilience.ts` |
 | `earth_communion` | Earth Communion | support | `src/content/abilities/earth-communion.ts` |

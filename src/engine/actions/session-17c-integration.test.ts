@@ -34,7 +34,7 @@ import {
 import { activeTurnFor } from '../ct/test-fixtures.ts';
 import { flatMap } from '../map/test-fixtures.ts';
 import { getEquippedWeapon, validateSlotItem } from '../items/equipment.ts';
-import { runModifyEvasion, runModifyStatQuery } from '../hooks/runners.ts';
+import { runModifyStatQuery } from '../hooks/runners.ts';
 import {
   createInitialState,
   BattleConfigError,
@@ -480,75 +480,16 @@ describe('equipment — weapon tag composition', () => {
   });
 });
 
-// ===== modifyEvasion + Bulwark Stance =====
-
-describe('Bulwark Stance — passive composition', () => {
-  it('-1 Move and -1 Jump compose through modifyStatQuery', () => {
-    const { state, catalog } = buildBattle({
-      knightLoadout: knightLoadout({ passive_movement: abilityId('bulwark_stance') }),
-    });
-    const knight = state.units.get(unitId('blue_knight'))!;
-    const move = runModifyStatQuery(state, catalog, {
-      unit: knight,
-      statName: 'moveRange',
-      baseValue: 3, // knight base
-    });
-    const jump = runModifyStatQuery(state, catalog, {
-      unit: knight,
-      statName: 'jump',
-      baseValue: 2,
-    });
-    expect(move).toBe(2);
-    expect(jump).toBe(1);
-  });
-
-  it('+20% MaxHP composes through modifyStatQuery', () => {
-    const { state, catalog } = buildBattle({
-      knightLoadout: knightLoadout({ passive_movement: abilityId('bulwark_stance') }),
-      knightStats: { maxHpBase: 60 },
-    });
-    const knight = state.units.get(unitId('blue_knight'))!;
-    const maxHp = runModifyStatQuery(state, catalog, {
-      unit: knight,
-      statName: 'maxHp',
-      baseValue: knight.baseStats.maxHpBase,
-    });
-    // 60 × 1.2 = 72.
-    expect(maxHp).toBe(72);
-  });
-
-  it('+10 Front Evade fires only on front facing through modifyEvasion', () => {
-    const { state, catalog } = buildBattle({
-      knightLoadout: knightLoadout({ passive_movement: abilityId('bulwark_stance') }),
-    });
-    const defender = state.units.get(unitId('blue_knight'))!;
-    const attacker = state.units.get(unitId('red_knight'))!;
-    expect(
-      runModifyEvasion(state, catalog, {
-        unit: defender,
-        attacker,
-        baseEvasion: 0,
-        facing: 'front',
-      }),
-    ).toBe(10);
-    expect(
-      runModifyEvasion(state, catalog, {
-        unit: defender,
-        attacker,
-        baseEvasion: 0,
-        facing: 'side',
-      }),
-    ).toBe(0);
-    expect(
-      runModifyEvasion(state, catalog, {
-        unit: defender,
-        attacker,
-        baseEvasion: 0,
-        facing: 'back',
-      }),
-    ).toBe(0);
-  });
-});
+// ===== Bulwark Stance suite removed in S48 =====
+//
+// Bulwark Stance was the original passive consumer of `modifyEvasion`
+// (introduced alongside the hook in this session for the +10 Front
+// Evade test). S48 audit found the ability floating without a class
+// home — no class lists it in freeAbilities, no equipment grants it,
+// no demo loadout equips it. Suppressed in S48 Commit 2; the
+// `modifyEvasion` hook surface remains for equipment-side consumers
+// (Steel Helm and other evasion-mod gear surface through the same
+// chain via the engine's equipment hooks).
 
 // ===== Damage Reduction =====
 

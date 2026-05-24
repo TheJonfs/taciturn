@@ -98,7 +98,8 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   // S41 — Knight R/S/M.
   [abilityId('martial_expertise'), '× 1.25 PA — sharpens every physical hit (Knight’s Support parity to the Lightning Mage’s Conductor on MA).'],
   [abilityId('bravestrider'), '+1 Move Range and +10 Brave — the Knight pushes reactions and Brave-gated status applications harder.'],
-  [abilityId('bulwark_stance'), '−1 Move, −1 Jump in exchange for +20% MaxHP and +10 Front Evade. The “plant and tank” stance.'],
+  // S48: Bulwark Stance suppressed (no class home; was the original
+  // `modifyEvasion` consumer but had no live registration).
   // S42 — Assassin R/S/M.
   [abilityId('two_weapons'), 'Holding a weapon in both hands lets each one swing on basic Attack / Counter / Power Attack. Each swing reads PA × 0.75 — the dual-wield tax.'],
   [abilityId('speed_save'), 'On taking enemy damage, gain +1 Speed permanently. Stacks across the battle and persists through KO.'],
