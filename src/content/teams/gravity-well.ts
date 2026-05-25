@@ -1,5 +1,8 @@
-// Gravity Well — Chris-authored default template; S50 revision adds a
-// Calculator (Thessaly) to bring the roster to 5.
+// Gravity Well — Chris-authored default template; S50 revision added a
+// Calculator (Thessaly) to bring the roster to 5; S51 revision adds the
+// new off-hand pieces (Tome of Power on Thessaly, Livre of Urgency on
+// Lumen, Battle Dictionary on Clio) and reworks Chris into a Knight-Sword
+// + Alchemy support build.
 //
 // 5-unit composition under the variable-length BuiltTeam shape. Slot
 // levels follow the alternating-outward pattern (25 / 24 / 26 / 23 / 27)
@@ -9,26 +12,34 @@
 //   - Sera (Assassin) leads at slot 0 with dual-knife (Sai + Chef's
 //     Knife) and a packed Reaction bucket (Speed Save + Counter + Combat
 //     Focus + Landwalker). Battle Skill secondary, Lookout's Hood +
-//     Battle Gear + Boots of Haste — tempo over burst.
+//     Battle Gear + Boots of Haste — tempo over burst. S51: Thoughtful
+//     Pacing replaces Field Recovery in the Movement bucket for MP-on-
+//     move sustain across the longer engagements the new books enable.
 //   - Thessaly (Calculator) at slot 1 (L24) — Math Skill with Earth
 //     Spells secondary. Mathematician + Conductor for the SP /
 //     MP-discount stack, Earth Communion for the universal status
-//     multiplier. Staff of Power + Focus Band + Silvered Vest + Mantle
-//     of Protection — Calculator-as-fragile-keystone leaning hard on
-//     mitigation.
+//     multiplier. Staff of Power + Tome of Power (S51 — +1 MA / +10 MP)
+//     + Focus Band + Silvered Vest + Mantle of Protection — the Book
+//     compounds with the MA 8 → 9 baseline bump for Math Skill output.
 //   - Lumen (Pyromancer / Fire Mage) at slot 2 (L26). Ironfoot trades
 //     mobility for +1 PA/+1 MA + Movement-capacity headroom, letting
-//     all five Movement passives ride. Wand of Lumen + Pointy Hat +
-//     Wizard's Robe — high-volume Burn pressure.
-//   - Chris (Knight) at slot 3 (L23). Long Sword + War Axe dual-wield
-//     with The Offering (four basic-Attack swings per turn). Battle
-//     Skill + Shadow Arts secondary. Tactical Mask + Soldier's Leathers
-//     — fast bruiser.
+//     all five Movement passives ride. Wand of Lumen + Livre of Urgency
+//     (S51 — +1 Speed + +5 charged action speed on magical) + Pointy Hat
+//     + Wizard's Robe — the Book compounds tempo on top of the high-
+//     volume Burn pressure.
+//   - Chris (Knight) at slot 3 (L23). S51 rework: Absolom Knight Sword
+//     (two-handed, attacker_brave variance) replaces the Long Sword +
+//     War Axe dual-wield; Alchemy secondary replaces Shadow Arts;
+//     Field Kit + Earth Communion replace Two Weapons in Support. The
+//     Offering still rides in the accessory slot, but with a single
+//     two-handed weapon the swing math is the same per swing — the
+//     trade is rider chains (Alchemy items) for raw swing volume.
 //   - Clio (Hydrologist / Water Mage) at slot 4 (L27). Magus Crown
 //     unlocks dual secondary command sets — Math Skill + Fire Spells —
 //     on top of native Water Spells. Augmentor expands the Support
-//     bucket; Sorcerer's Robe's Auto-Shell grant + Wand of the Depths
-//     buy back the defensive layer Magus Crown's −MA implies.
+//     bucket; Sorcerer's Robe's Auto-Shell grant + Wand of the Depths +
+//     Battle Dictionary (S51 — +1 PA / +1 horizontal range / +1 AoE
+//     vertical tolerance on magical) buy a richer caster profile.
 //
 // Authored unit names are personal picks; the team builder respects
 // authored values on template load (S38 naming convention).
@@ -73,14 +84,14 @@ export const gravityWell: BuiltTeam = {
           [bucketId('movement')]: [
             abilityId('fleet_of_foot'),
             abilityId('bravestrider'),
-            abilityId('field_recovery'),
+            abilityId('thoughtful_pacing'),
           ],
         },
       },
       equipment: {
         leftHand: itemId('sai'),
         rightHand: itemId('chefs_knife'),
-        headgear: itemId('golden_hairpin'),
+        headgear: itemId('lookouts_hood'),
         armor: itemId('battle_gear'),
         accessory: itemId('boots_of_haste'),
       },
@@ -116,7 +127,7 @@ export const gravityWell: BuiltTeam = {
       },
       equipment: {
         leftHand: itemId('staff_of_power'),
-        rightHand: null,
+        rightHand: itemId('tome_of_power'),
         headgear: itemId('focus_band'),
         armor: itemId('silvered_vest'),
         accessory: itemId('mantle_of_protection'),
@@ -155,7 +166,7 @@ export const gravityWell: BuiltTeam = {
       },
       equipment: {
         leftHand: itemId('wand_of_lumen'),
-        rightHand: null,
+        rightHand: itemId('livre_of_urgency'),
         headgear: itemId('pointy_hat'),
         armor: itemId('wizards_robe'),
         accessory: itemId('ironfoot'),
@@ -169,7 +180,7 @@ export const gravityWell: BuiltTeam = {
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('battle_skill')],
-          [bucketId('secondary_command_sets')]: [commandSetId('shadow_arts')],
+          [bucketId('secondary_command_sets')]: [commandSetId('alchemy')],
         },
         passiveBuckets: {
           [bucketId('reaction')]: [
@@ -177,10 +188,12 @@ export const gravityWell: BuiltTeam = {
             abilityId('combat_focus'),
             abilityId('speed_save'),
             abilityId('earth_resilience'),
+            abilityId('tidal_pull'),
           ],
           [bucketId('support')]: [
             abilityId('martial_expertise'),
-            abilityId('two_weapons'),
+            abilityId('field_kit'),
+            abilityId('earth_communion'),
           ],
           [bucketId('movement')]: [
             abilityId('bravestrider'),
@@ -191,8 +204,8 @@ export const gravityWell: BuiltTeam = {
         },
       },
       equipment: {
-        leftHand: itemId('long_sword'),
-        rightHand: itemId('war_axe'),
+        leftHand: itemId('absolom'),
+        rightHand: null,
         headgear: itemId('tactical_mask'),
         armor: itemId('soldiers_leathers'),
         accessory: itemId('the_offering'),
@@ -231,7 +244,7 @@ export const gravityWell: BuiltTeam = {
       },
       equipment: {
         leftHand: itemId('wand_of_depths'),
-        rightHand: null,
+        rightHand: itemId('battle_dictionary'),
         headgear: itemId('magus_crown'),
         armor: itemId('sorcerers_robe'),
         accessory: itemId('augmentor'),
