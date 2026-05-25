@@ -83,13 +83,7 @@ Not yet run for the third batch (uncommitted at handoff time). The first two S50
 
 ### Carry-forward (longer-term)
 
-**New watch-fors to log to `docs/playtest-watch.md` next session:**
-- **Skullclamp HP/MP tax balance.** First negative-stat equipment; watch whether the −20 HP / −10 MP feels punishing or fair vs. the +1 PA / +1 MA upside, especially on fragile classes (Calculator, Aethurge).
-- **Parrying Sword + Shimmer Cloak evasion stack.** Combined +20 Front / +15 Side / +10 Back base on a wearer with class-baseline evade. Watch for "uncatchable" feel against physical attackers.
-- **Absolom at default Brave.** Effective WP 9.1 already exceeds Long Sword's 8 + carries +1 Reaction. Watch whether the two-handed slot lockout is enough tax at default Brave 70, or whether WP 13 needs to come down (see flag above).
-- **Level cap retune.** L23/L27 wings now share HP/MP with L24/L26 (only dominant-stat differentiated). Watch whether the slot-3/slot-1 distinction still reads, or feels collapsed.
-- **Speed factor /40.** Sped-up Assassin debuffs at Speed 20 now land at factor 1.40 (was 1.90). Watch whether the high-Speed wing still earns its tempo investment, or now feels flat.
-- **Combat Focus stacking change.** Now permanent + STACK_ADDITIVE (was turn_based/3 + REFRESH). Watch whether the Alchemist's reaction-based PA ramp feels distinct from Knight's Bravestrider-via-stats or whether it overlaps too much.
+**New watch-fors promoted to `docs/playtest-watch.md`** (Session 50 section): Skullclamp HP/MP tax balance, Parrying Sword + Shimmer Cloak evasion stack, Absolom default-Brave WP question, level cap retune, Speed factor /40 ceiling, Combat Focus stacking lifecycle. Each entry carries the standard What-to-watch / Why-it-matters / Signal-for-adjustment shape. Drop from this handoff next session; pick up from playtest-watch.md if observation accumulates.
 
 **All standing carries from S49** (AI deployment role-aware sorting, equipment expansion beyond universal armor/head, Charm/Seduction substrate, Pyromancer R/S/M consolidation, Speed Save / Updraft per-swing cap codification, renderer-side multi-swing polish, ActionType-wiring smoke test, hill-height adjustment on Stonebridge, asymmetric siege scenario for Stonebridge, terrain bar mid-battle vanishing repro, larger teams beyond 5v5, team import). None addressed this session.
 
