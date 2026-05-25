@@ -168,10 +168,10 @@ describe('Eagle Eye (Support → ×2 physical hit chance)', () => {
 
 describe('Pin Down (Slow applier, Brave-and-Speed formula)', () => {
   it('applies Slow via the Brave-and-Speed formula at baseChance 50', () => {
-    // S50 retune: divisor 20 → 30.
-    // 0.5 × (cb/100) × (tb/100) × (0.9 + cspd/30)
+    // S50 retune (two passes): divisor 20 → 30 → 40.
+    // 0.5 × (cb/100) × (tb/100) × (0.9 + cspd/40)
     // Hunter Speed 9, Brave 70 caster vs Brave 70 target:
-    // 0.5 × 0.7 × 0.7 × (0.9 + 9/30) = 0.5 × 0.49 × 1.2 = 0.2940
+    // 0.5 × 0.7 × 0.7 × (0.9 + 9/40) = 0.5 × 0.49 × 1.125 = 0.275625
     const caster = makeUnit({ id: 'c', spd: 9, brave: 70, faith: 70 });
     const target = makeUnit({ id: 't', spd: 9, brave: 70, faith: 70, position: { x: 1, y: 0, layer: 0 } });
     const state = makeGameState({ units: [caster, target], map: flatMap(3, 3) });
@@ -182,7 +182,7 @@ describe('Pin Down (Slow applier, Brave-and-Speed formula)', () => {
       baseChance: 50,
       factors: { brave: true, speed: true },
     });
-    expect(chance).toBeCloseTo(0.294, 5);
+    expect(chance).toBeCloseTo(0.275625, 5);
   });
 
   it('Slow is a multiplicative Speed debuff, timed, and Remedy-clearable', () => {

@@ -109,19 +109,21 @@ export function computeBraveFactor(args: {
 // (Shadow Stitch, Blowdart, Undermine, Sow Doubt — per the Session 42
 // brief). Unlike Faith/Brave (symmetric caster×target), Speed is
 // caster-only: a fast Assassin lands debuffs more reliably regardless of
-// the target's Speed. Formula `0.9 + caster_speed/30` mirrors the MA
-// factor's `0.9 + ma/10` shape but with a /30 divisor (Speed values run
+// the target's Speed. Formula `0.9 + caster_speed/40` mirrors the MA
+// factor's `0.9 + ma/10` shape but with a /40 divisor (Speed values run
 // higher than MA and Speed Save / Haste accumulate across a battle, so
-// a gentler slope keeps the factor in a sane band even on a sped-up
+// a flatter slope keeps the factor in a sane band even on a sped-up
 // Assassin). Read through `modifyStatQuery` so Haste / Speed Save /
-// Speed Down compose. At Assassin baseline Speed 14 → 0.9 + 0.467 ≈
-// 1.37; at Speed 10 → 1.23; at Speed 20 (sped-up Speed Save build)
-// → 1.57.
+// Speed Down compose. At Assassin baseline Speed 14 → 0.9 + 0.35 ≈
+// 1.25; at Speed 10 → 1.15; at Speed 20 (sped-up Speed Save build)
+// → 1.40.
 //
-// S50 retune: divisor 20 → 30. Pre-S50 a sped-up Assassin's debuffs
-// landed too reliably (Speed 14 → 1.6; Speed-Save +3 → Speed 17 →
-// 1.75). The slimmer slope keeps the high-Speed wing playable without
-// nullifying targets' status defenses.
+// S50 retune (two passes): divisor 20 → 30 → 40. Pre-S50 sped-up
+// Assassin debuffs landed too reliably (Speed 14 → 1.6; Speed-Save +3
+// → Speed 17 → 1.75); the first cut to /30 narrowed but didn't
+// flatten the high-Speed wing enough, so /40 takes another step toward
+// a gentler scaling. Keeps the high-Speed Assassin meaningfully better
+// than a slow caster without nullifying targets' status defenses.
 export function computeSpeedFactor(args: {
   readonly state: import('../types/index.ts').GameState;
   readonly catalog: import('../catalog/index.ts').Catalog;
@@ -132,7 +134,7 @@ export function computeSpeedFactor(args: {
     statName: 'spd',
     baseValue: args.caster.baseStats.spd,
   });
-  return 0.9 + speed / 30;
+  return 0.9 + speed / 40;
 }
 
 // Default weapon-accuracy when a hitRoll spec doesn't override it. Per
@@ -509,6 +511,22 @@ export function resolvePhysicalVarianceBand(
     const tElev = tTile?.elevation ?? 0;
     const factor = Math.max(0, 1 - source.falloffPerHeight * (tElev - aElev));
     return { min: factor, max: factor };
+  }
+  if (source.kind === 'attacker_brave') {
+    // S50: Knight Sword class. Variance scales with the wielder's
+    // post-equipment Brave (read through `modifyStatQuery` so Brave-
+    // modifying contributors compose). Center = Brave/100 — a Brave-70
+    // wielder lands at center 0.7, a Brave-100 wielder lands at 1.0.
+    const brave = runModifyStatQuery(state, catalog, {
+      unit: attacker,
+      statName: 'brave',
+      baseValue: attacker.baseStats.brave,
+    });
+    const center = brave / 100;
+    return {
+      min: Math.max(0, center - source.spread),
+      max: Math.max(0, center + source.spread),
+    };
   }
   // source.kind === 'attacker_speed'
   const speed = runModifyStatQuery(state, catalog, {

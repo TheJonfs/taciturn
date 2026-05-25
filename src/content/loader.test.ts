@@ -127,11 +127,17 @@ describe('loadDefaultCatalog', () => {
     // Session 50 universal armor + head expansion:
     //   - items: 55 → 60 (shimmer_cloak, golden_hairpin, soul_vest,
     //     parrying_sword, skullclamp)
+    //
+    // Session 50 batch 3 — Knight Sword weapon class debuts:
+    //   - items: 60 → 61 (absolom)
+    // (damage_reduction availability flipped to 'hidden' — still in
+    // catalog, just hidden from the team-builder picker; abilities()
+    // count unchanged.)
     expect(cat.statusTypes()).toHaveLength(32);
     expect(cat.abilities()).toHaveLength(80);
     expect(cat.commandSets()).toHaveLength(11);
     expect(cat.classes()).toHaveLength(9);
-    expect(cat.items()).toHaveLength(60);
+    expect(cat.items()).toHaveLength(61);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

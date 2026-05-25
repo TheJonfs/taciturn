@@ -292,9 +292,17 @@ interface EquipmentBase {
 //    it. The Longbow uses `falloffPerHeight: 0.2` → same height = 1.0,
 //    4 above = 0.2, 5+ above = 0 (clamped), 5 below = 2.0. The only
 //    variance arm that reads the target, not just the attacker.
+//  - `kind: 'attacker_brave'` — dynamic band computed from the wielder's
+//    Brave (Session 50, Knight Sword weapon class). Band spans
+//    `[Brave/100 - spread, Brave/100 + spread]`. High-Brave wielders
+//    push the average roll toward (and past) parity; low-Brave wielders
+//    consistently under-roll. Absolom uses `spread: 0.05` so a Brave-70
+//    wielder rolls in `[0.65, 0.75]`, a Brave-80 wielder in `[0.75,
+//    0.85]`, and a Brave-100 wielder in `[0.95, 1.05]`.
 export type WeaponPhysicalVariance =
   | { readonly kind: 'static'; readonly min: number; readonly max: number }
   | { readonly kind: 'attacker_speed'; readonly spread: number }
+  | { readonly kind: 'attacker_brave'; readonly spread: number }
   | { readonly kind: 'height_delta'; readonly falloffPerHeight: number };
 
 export interface WeaponEquipment extends EquipmentBase {

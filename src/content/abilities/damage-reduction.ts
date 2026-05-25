@@ -29,13 +29,22 @@ import {
   type PassiveAbilityDefinition,
 } from '@engine/index.ts';
 
+// S50: suppressed from the picker per Chris's "Defensive Posture"
+// playtest call. Damage Reduction is a Knight-flavored Support passive
+// (-25% incoming physical damage) but has never lived in any class's
+// `freeAbilities` — mirrors the Bulwark Stance / Float suppressions
+// from S48 ("support without a class home"). The catalog still carries
+// the definition so historical action-log replays and any out-of-tree
+// fixtures keep resolving the id; switching the flag from `'available'`
+// to `'hidden'` hides it from the team builder's picker without
+// breaking lookup.
 export const damageReduction: PassiveAbilityDefinition = {
   id: abilityId('damage_reduction'),
   name: 'Damage Reduction',
   kind: 'passive',
   bucket: bucketId('support'),
   baseCost: 2,
-  availability: 'available',
+  availability: 'hidden',
   hooks: [
     passiveHook('onDamageReceived', (args) => {
       if (!args.ctx.damageTags.has('physical')) return args.ctx;

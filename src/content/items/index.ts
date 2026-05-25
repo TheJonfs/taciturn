@@ -1,4 +1,5 @@
 import type { ItemDefinition } from '@engine/index.ts';
+import { absolom } from './absolom.ts';
 import { arcaneLens } from './arcane-lens.ts';
 import { augmentor } from './augmentor.ts';
 import { battleGear } from './battle-gear.ts';
@@ -86,6 +87,9 @@ export const items: ReadonlyArray<ItemDefinition> = [
   // Session 50 — defensive sword variant (universal sword; WP 6 + per-
   // facing evade in lieu of higher WP).
   parryingSword,
+  // Session 50 — Knight Sword weapon class (two-handed, Brave-scaled
+  // variance, high WP + rider package).
+  absolom,
   // Shields (Knight-only)
   escutcheon,
   warriorsAegis,

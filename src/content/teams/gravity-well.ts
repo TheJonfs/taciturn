@@ -80,7 +80,7 @@ export const gravityWell: BuiltTeam = {
       equipment: {
         leftHand: itemId('sai'),
         rightHand: itemId('chefs_knife'),
-        headgear: itemId('lookouts_hood'),
+        headgear: itemId('golden_hairpin'),
         armor: itemId('battle_gear'),
         accessory: itemId('boots_of_haste'),
       },

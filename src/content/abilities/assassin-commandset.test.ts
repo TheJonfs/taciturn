@@ -53,11 +53,14 @@ function useAbility(actor: string, ability: AbilityId, targetId: ReturnType<type
 }
 
 // Caster tuned so the Brave/Faith-and-Speed product clamps to 1.0 — the
-// status applies deterministically regardless of the roll.
+// status applies deterministically regardless of the roll. S50 retune
+// (Speed factor divisor 20 → 30 → 40) flattened the high-Speed slope,
+// so spd: 20 (factor 1.4 at /40) no longer clamps Shadow Stitch's
+// baseChance-60 cast; bumped to 40 (factor 1.9) to restore the clamp.
 function highChanceCaster(): Unit {
   return makeUnit({
     id: 'atk',
-    spd: 20, // speed factor 1.9
+    spd: 40, // S50 /40: factor 0.9 + 40/40 = 1.9 — matches the pre-S50 /20 spd:20 clamp shape.
     mp: 30,
     brave: 100,
     faith: 100,

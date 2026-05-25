@@ -6,66 +6,95 @@ This is a transient note from one session to the next.
 
 ---
 
-## From Session 49 close (2026-05-24) — Calculator class + Math Skill substrate + Level system substrate
+## From Session 50 close (2026-05-25) — Playtest tuning + universal equipment expansion + Knight Sword weapon class
 
-S49 introduces the **9th class — Calculator** — together with two new substrates: **Math Skill** (parameter-predicate targeting across the battlefield) and **Level system** (slot-based level assignment with HP/MP and dominant-stat modulation). Large session, comparable to S45 (Hunter + bows). **1440 tests pass** (1399 → 1440, +41), `tsc -b` clean against a fresh build (Vercel pre-flight ran), `npm run build` produces a clean production bundle.
+S50 was a hybrid tuning + content-authoring session. Chris ran a Calculator playtest concurrent with implementation; two engine bugs surfaced and got fixed in flight, plus a UI regression got reversed, plus the new Gravity Well roster integrated, plus six new equipment pieces (five universal + one Knight Sword), plus two tuning retunes (level cap + Speed factor). **1444 tests pass** (1440 → 1444, +4 net), `tsc -b` clean, two S50 commits already pushed (`8e5be3a`, `04f8b0f`) plus a third uncommitted batch staged at session close.
 
-### What shipped — primary work
+### What shipped — engine bug fixes (both Calculator-playtest-surfaced)
 
-- **Level substrate (Commit 1 candidate).** `Unit.level: number` field; `ClassDefinition.dominantStat: 'pa' | 'ma' | 'spd'` (every class declares — 9 sites); `classDominantStats` parallel map in `baseline-stats.ts` (cross-validated against ClassDefinition at test time); `buildBaseStats(classId, brave, faith, level=25)` applies HP/MP ±10% per ±1 and dominant ±1 at ±2; `slotLevelFor(slotIndex)` maps the alternating-outward pattern; `BuiltUnit.level` (required); `buildTeamBattleConfig` forwards level into placements; `createInitialState` threads `placement.level` to `Unit.level` (default 25). All 8 pre-S49 templates retro-apply slot-based levels — small tuning shifts (Mage War's L24 Geosage / L26 Pyromancer / L23 Aethurge / L27 Hydrologist; documented in `playtest-watch.md`). UI: level pill on each filled `RosterCard`; `computeDraftUnitStats` accepts a `level` arg and threads slot-derived levels into the stat panel so HP/MP/dominant shifts surface immediately on slot reorder. Team-export JSON gains `level` field. **+11 substrate tests** (`level-substrate.test.ts`).
+- **Math Skill Cast vanished with `confirmStep: 'confirm'` (default setting).** `submitTargetedActionInternal` short-circuited on the setting, assuming the FSM would route through `await-confirm`. The `math-skill-target-select` branch correctly bypasses await-confirm (its picker is the implicit confirmation surface, per the S39b item-picker convention), but the submit helper didn't honor the asymmetry. Action was never submitted to the controller; FSM landed in `animation` with nothing playing; player saw the menu re-render on next turn. Fix: extracted `shouldDeferToConfirm(action, confirmStep)` as a pure helper that returns `false` for `math_skill` targets regardless of the setting. **2 regression tests** in `turn-flow.test.ts` pin the asymmetry. Severity was high — every player with default settings hit this on every Math Skill cast; the Calculator was non-functional out of the box from S49 ship.
 
-- **Math Skill targeting substrate (Commit 2 candidate).** New `TargetingSpec` kind `'math_skill'` (5th in the union); new `AbilityTarget` payload variant `{ kind: 'math_skill', parameter, value }`; new `MathSkillParameter = 'ct' | 'height' | 'level' | 'current_hp'` and `MathSkillValue = 'prime' | 3 | 4 | 5`. New module `engine/targeting/math-skill.ts` with `enumerateMathSkillTargets` (predicate-based set enumeration, sorted by id, KO'd / removed excluded) and `isPrime` helper. New dispatcher `resolveMathSkillDispatch` parallel to `resolveAoeDispatch`. New optional `faithScalesMagnitude?: boolean` on `CtEffectSpec` for Faith × magnitude (Exact Rhythm consumer). New `mathSkillMpCost?: { perTarget }` on ActiveAbilityDefinition for per-target MP cost. Two new closed-surface hooks (`modifyMathSkillPerTargetMpCost`, `modifyMathSkillSpBonus`); hook surface 13 → 15. New `DamageContext.additionalPowerCoefficient` shim for the SP bonus on damage / heal (the damage pipeline re-looks up the ability by id, so synthesizing an ability's damage spec doesn't take effect — additional power flows via the context field). `validateAction` gets the math_skill kind branch. **+13 substrate tests** (`math-skill.test.ts`).
+- **`reduceUseAbility: no turn in progress` on rider casts between turns.** The S20-era bypass exempted `isReaction: true` use_ability actions but not rider casts (weapon `attackProcs` emitted via `attackProcContributor` → `ctx.emittedActions` → `generatedActions` with `isReaction: false`). ADR-0064 already exempted rider casts from MP / `onActionAttempted` / `actionSpeed` / Act-budget gates because "the weapon is paying, not the wielder" — the turn-in-progress check is the same kind of gate. Fix: extended the bypass at `reduceUseAbility` to allow `isRiderCast(payload)` past the throw, parallel to the reaction bypass. **1 regression test** in `reducers.test.ts`. Severity: any rider proc emitted from a chain that ran post-turn-end (status_tick fan-out, scheduler-advance, charged-action-resolve) froze the battle.
 
-- **Calculator class (Commit 3 candidate).** Stats per blueprint (HP 101 / MP 47 / PA 5 / MA 8 / Speed 7 / Move 2 / Jump 2 / 7-3-0 evades); Mage + Universal armor (all-slot baseline; class-side gating wave-2); `dominantStat: 'ma'`; freeAbilities = attack + cornered_focus + mathematician + thoughtful_pacing. New `math_skill` command set wired into the Calculator's First Action.
+### What shipped — UI fixes
 
-- **Calculator R/S/M passives (Commit 3 ride-along).** Cornered Focus (Reaction, +1 MA permanent on damage taken, STACK_ADDITIVE via `cornered_focus` status — Speed Save / Updraft pattern). Mathematician (Support, registers `modifyMathSkillSpBonus` → +1 and `modifyMathSkillPerTargetMpCost` → 1 — the anti-parasitism lever). Thoughtful Pacing (Movement, restores `2 × tilesMoved` MP on each Move via `onMoveCompleted` hook).
+- **KO 3 → 2 → 1 countdown badge restored** (S47 stretch retirement reversed). Per Chris's playtest: the per-tick numerical countdown on the still-KO'd sprite was hard to miss; pushing it to the detail panel meant it disappeared from peripheral attention. Three renderer files revert cleanly (`constants.ts` re-adds six `PERMADEATH_BADGE_*` colors; `unit-layer.ts` re-adds the Pixi badge container + `drawPermadeathBadge` method; `battle-renderer.ts` re-adds the countdown calc threading through `setVisualState`).
 
-- **5 Math Skill abilities + Engineered Defenses status (Commit 4 candidate).** Precision Fire (SP 3 magical+fire, 50% Burn proc per target). Targeted Treatment (SP 4 magical+healing, multi-target heal). Exact Rhythm (SP 2 ctEffect, Faith × MA magnitude, clamped at 0). Sculpted Enhancement (50% Faith-gated PA Up + MA Up, linked roll). Engineered Defenses (80% Faith-gated apply of the new `engineered_defenses` status — +10 per elemental resistance + 5% per facing, STACK_INDEPENDENT, permanent). All five share `mathSkillMpCost: { perTarget: 3 }` (default; Mathematician returns 1).
+- **Status tooltip text added.** Five `STATUS_DESCRIPTIONS` entries added to `detail-text.ts`: `combat_focus`, `speed_save`, `updraft`, `cornered_focus`, `engineered_defenses`. Pre-S50 these fell back to the auto-gen hook-list line ("Hooks: modifyStatQuery") which omitted the actual buff descriptions.
 
-- **AI Math Skill scoring (Commit 5 candidate).** New `src/ai/math-skill-scoring.ts`; `pickBestMathSkill` enumerates the 80 (ability × parameter × value) options, scores each by net team value (damage-to-enemies − damage-to-allies; heal-to-allies − heal-to-enemies; buff-to-allies − buff-to-enemies; CT-to-enemies − CT-to-allies), filters by MP affordability, and returns the highest-scoring above `MATH_SCORE_THRESHOLD = 8`. New phase 0b in `decideBasicAi` — runs before standard offensive enumeration; falls through for non-Math-equipped actors. **+4 AI tests** (`math-skill-scoring.test.ts`).
+- **Combat Focus lifecycle migrated** from `turn_based`/3-turn to `permanent`/STACK_ADDITIVE. Now matches the Speed Save / Updraft / Cornered Focus family — each enemy hit ratchets PA up by +1 permanently, persists through KO. S41 KO-clear test pivoted from `combat_focus` to `blind` since Combat Focus now correctly persists per ADR-0079.
 
-- **Math Skill UI (Commit 6 candidate).** New `math-skill-target-select` state in `turn-flow.ts` parallel to `target-select` but for parameter-predicate targeting; `pickMathSkillParameter` / `pickMathSkillValue` events + helpers on the TurnFlow interface; `abilityRoute` extended to detect `targeting.kind === 'math_skill'` and route `pickAbility` / `pickFreeAbility` to the new state; new `MathSkillPicker` component in `action-menu.tsx` renders parameter row (CT / Height / Level / HP) + value row (Prime / ×3 / ×4 / ×5) + live "Hits: N (X allies, Y enemies)" counter + Cast / Cancel; `use-turn-flow.ts` highlights effect paints the matched-unit positions on the renderer when both picks are non-null (heal-tinted for Targeted Treatment, attack-tinted otherwise); cancel back-stack matches existing target-select routing. Calculator's class tagline added in `team-builder-class-picker.tsx` ('Battlefield-wide parameter mage') so it surfaces correctly in the picker. **+6 turn-flow tests** (`turn-flow.test.ts`).
+### What shipped — content additions
 
-- **Portrait.** Calculator portrait (1043×1536 full-body → cropped top-square → downscaled to 512×512 RGBA PNG); registered in `assets/portraits/index.ts`.
+- **Gravity Well 5-unit revision** (replaces S48's 4-unit roster). Sera (Assassin L25) → Thessaly (Calculator L24) → Lumen (Pyromancer L26) → Chris (Knight L23) → Clio (Hydrologist L27). Mid-session edit swapped Sera's headgear from Lookout's Hood to Golden Hairpin. Sibling tests + app-level integration tests + draft-preservation Unit-1-is-Knight → Assassin assertion all updated.
 
-- **Calculator kit integration tests.** End-to-end coverage of Precision Fire / Targeted Treatment / Exact Rhythm / Engineered Defenses, Mathematician's MP cost discount + SP bonus on damage, and Thoughtful Pacing's MP restore on Move. **+7 kit tests** (`calculator-kit.test.ts`).
+- **Six new equipment pieces:**
+  - **Shimmer Cloak** (universal armor) — +75 HP, +10 F/S/B evade. First evasion-bias body slot.
+  - **Soul Vest** (universal armor) — +50 HP, +10 Brave, +10 Faith. First universal Brave/Faith piece.
+  - **Golden Hairpin** (universal head) — +10 HP, MP cost × 0.5. First halving MP cost reduction (inverse of Staff of Power's × 1.2).
+  - **Skullclamp** (universal head) — -20 HP, -10 MP, +1 PA, +1 MA. **First equipment to ship a negative HP/MP `statMods`** (parallel pattern to Ironfoot's negative spd; the additive composition through `modifyStatQuery` handles it cleanly).
+  - **Parrying Sword** (sword weapon) — WP 6, accuracy 95, +10 Front / +5 Side evade. Defensive sword variant; trades 25% raw output vs Long Sword for per-facing evade.
+  - **Absolom** (Knight Sword — new weapon class) — WP 13, accuracy 95, two-handed, `attacker_brave` variance (spread 0.05), +1 Reaction-bucket capacity. **First consumer of the new `attacker_brave` `WeaponPhysicalVariance` kind.**
 
-- **ADR-0086** (Math Skill substrate) + **ADR-0087** (Level system) committed.
+- **`attacker_brave` `WeaponPhysicalVariance` kind** (substrate). Parallel to the existing `attacker_speed` kind (knives, S40). Band = `[Brave/100 − spread, Brave/100 + spread]`. Single resolver branch in `resolvePhysicalVarianceBand` covers live engine, AI projection, and UI forecast (the shared-resolver discipline from S42 paid off).
 
-### What's NOT yet shipped (carry into next session)
+### What shipped — tuning
 
-**1. Calculator team template (paused waiting for Chris).** Per the brief's iterative-template pattern: Chris authors the team mid-session via the S48 exporter; implementer integrates as a late commit. The substrate + integration path is ready; Chris just needs to drive a build through the team-builder (loading default → swapping in Calculator + 4 other classes → exporting JSON). Recommend Calculator at slot 3 (L26) per the brief — unrestricted Level math, no self-hit on Level parameter.
+- **Level HP/MP shift capped at ±10%.** Formula changed from `1 + 0.1 × (level − 25)` (linear) to `1 + 0.1 × sign(level − 25)` (binary). Pre-S50 slot 3 / slot 4 lifted to ±20% HP/MP — heavier than Chris's design intent. The dominant-stat shift still ratchets at ±2, so slot 3 vs slot 1 still differ on the dominant axis. Templates' wing units shift: Knight L23 lifts 115 → 130 HP, Knight L27 drops 173 → 158 HP, similar deltas on other classes. **1 new "beyond ±2" test** locks the cap behavior.
 
-**2. End-to-end browser exercise of the Math Skill picker in a real battle.** Browser verification at session close confirmed: app loads, no console errors, Calculator visible in class picker (with new "Battlefield-wide parameter mage" tagline), stats render correctly (HP 101 / MP 47 / PA 5 / MA 8 / SPD 7), Level badge displays L25, deployment phase loads. The Math Skill picker UI itself surfaces only on Calculator's first turn in battle; driving the PixiJS deployment phase via synthetic DOM events isn't reliable (Pixi's pointer pipeline doesn't intercept synthetic browser events the same way real input does), so a hand-driven battle is the natural next-session check. The picker FSM is unit-tested (6 new turn-flow tests) and the engine end-to-end paths are integration-tested (7 kit tests + 13 substrate tests + 4 AI tests), so the surface is well-covered structurally.
+- **Speed factor divisor 20 → 30 → 40** (two passes). `computeSpeedFactor` in damage/handlers.ts. Pre-S50 a sped-up Assassin's debuffs landed too reliably. After two retunes, Speed 20 only earns ~+12% factor over Speed 9 (was ~+40% at divisor 20). 4 pinned Speed-factor test values updated. The `highChanceCaster` Assassin fixture in `assassin-commandset.test.ts` bumped from Speed 20 → Speed 40 to restore the deterministic clamp the test relies on (fixture isn't representative of a live unit; it's a "force the clamp" rig).
+
+- **Damage Reduction suppressed** (`availability: 'available'` → `'hidden'`). Chris flagged it as "Defensive Posture" — that name doesn't literally exist in the catalog. I read it as Damage Reduction since it's the only Knight-flavored Support passive (−25% incoming physical) and has never lived in any class's `freeAbilities` — exactly the S48 Bulwark / Float suppression pattern. **Worth confirming this was the right ability** before next session; one-line revert in `damage-reduction.ts` if not. Hidden-not-deleted (the file stays, catalog still resolves the id for historical action-log replays); `abilities()` count unchanged.
+
+### What's NOT yet shipped
+
+- **Browser-verified end-to-end Math Skill cast in a real battle.** The engine bug fixes are unit-tested at the regression layer; Chris's next playtest is the natural smoke test. The shouldDeferToConfirm fix is straightforward (math_skill action → submit directly); the rider-cast fix is defensive (no live exact trigger isolated — my full-roster repro test didn't reproduce, so the path that actually fires the bug isn't pinned by a test). If the freeze re-surfaces, the trigger isn't what I modeled.
+
+- **"Defensive Posture" interpretation.** Confirm that Damage Reduction was the intended ability to suppress.
+
+- **Absolom WP 13 calibration.** Chris caught my math fumble on the spec: at default Brave 70, the variance midpoint is 0.70, giving effective WP of 13 × 0.70 = **9.1** — already greater than Long Sword's flat 8 (not less, as I'd initially claimed). With the +1 Reaction rider, Absolom is *strictly better* than Long Sword at default Brave for a single-handed-slot trade; the only tax is the two-handed lock-out (no shield, no dual-wield). Worth a tuning pass: dropping WP 13 → 11 puts midpoint effective WP at 7.7 at Brave 70 (parity ~Brave 73, real upside above) so the default-Brave wielder genuinely trades the slot for a small loss until they invest in Brave. Flagged for Chris's call.
+
+- **`docs/content-id-registry.md` updates** (deferred). New equipment entries (shimmer_cloak, soul_vest, golden_hairpin, skullclamp, parrying_sword, absolom) and S48 → S50 catalog count refresh (abilities 72 → 80, status_types 30 → 32, items 55 → 61). The brief flagged this as a session-close task; deferred to the next session if Chris doesn't want to fold it into this commit.
+
+- **`docs/playtest-watch.md` updates** (deferred). Several new watch-fors worth logging — see "Carry-forward" below for the list.
 
 ### Test coverage delta
 
-`1399 → 1440` net (+41):
-- Level substrate: +11 (`level-substrate.test.ts`)
-- Math Skill targeting substrate: +13 (`math-skill.test.ts`)
-- Calculator kit: +7 (`calculator-kit.test.ts`)
-- AI Math scoring: +4 (`math-skill-scoring.test.ts`)
-- Math Skill picker FSM: +6 (`turn-flow.test.ts`)
-- Loader expectations: net 0 (counts bumped for added content)
-- Test-fixture updates: ~25 inline ClassDefinition fixtures updated to declare `dominantStat: 'pa'` (no count change; type-required field).
+`1440 → 1444` net (+4):
+- Math Skill cast bypass regression: +2 (`turn-flow.test.ts`)
+- Rider cast bypass regression: +1 (`reducers.test.ts`)
+- Level cap "beyond ±2" pin: +1 (`level-substrate.test.ts`)
+- Loader counts bumped for 6 new items (no test count delta)
+- 5 pinned Speed-factor test values updated (no count delta)
+- 1 S41 KO-clear test pivoted from `combat_focus` → `blind` (no count delta)
+- Gravity Well sibling tests updated for the 5-unit shape (no count delta)
 
 ### Engine-side notes worth carrying forward
 
-- **MA factor on Math status abilities is already correct.** The brief / blueprint flagged "missing MA factor in status formula" as audit work — the audit found `engine/status/chance.ts`'s `DEFAULT_FACTORS = { faith: true, ma: true }` (per ADR-0028) already runs Faith × MA on every status application that doesn't explicitly opt out. Sculpted Enhancement / Engineered Defenses inherit the canonical formula by leaving `factors` undefined. No engine work was needed; brief stands corrected.
+- **Repro test couldn't reproduce the rider-cast freeze.** I built a full-roster Gravity Well + River Ridge scenario, drove the orchestrator pump through Thessaly's Math Skill + Move + End Turn, and stepped the scheduler post-turn-end — passed cleanly. The path that actually emits the rider in Chris's live battle isn't pinned by a test, only by the defensive bypass + ADR-0064's already-documented rationale for rider exemption from this gate. If the bug re-surfaces, the trigger isn't what I modeled.
 
-- **Damage-pipeline id re-lookup wart.** The damage handlers (`magical_ma_power`, `physical_pa_wp`, `healing_base`) re-look up the source ability by id from the catalog before reading `power_coefficient`. That meant my first attempt at the SP bonus (synthesize a per-cast ability with bumped power_coefficient) didn't take effect — the catalog re-lookup returned the canonical ability. Worked around with `DamageContext.additionalPowerCoefficient` shim. A future cleanup could make the damage handlers trust `ctx.ability` (or take it via env), eliminating the catalog re-lookup. Not session-49 scope.
+- **Combat Focus stacking design call.** Chris asked only for the duration fix (turn_based/3 → permanent). I went further and changed `'REFRESH'` → `'STACK_ADDITIVE'` so it matches Speed Save / Updraft / Cornered Focus — each enemy hit adds +1 PA to the running magnitude rather than re-applying a single +1. One-line revert if Chris wants REFRESH semantics (which on a permanent status means "first hit ever, +1 PA, no-op forever after").
 
-- **Empty Math Skill cast is valid.** When no units match the predicate (e.g., no units have a prime current_hp), the cast still commits — base MP cost is paid but no per-target term applies. AI scorer returns 0 score, so no Math option is picked. Human player would see "empty preview" and could cancel.
-
-- **Knight-fixture dominantStat is 'pa' across the 25+ inline test fixtures.** Test fixtures all use Knight-like classes for setup; programmatic insert of `dominantStat: 'pa'` via the Python helper script in this session. Cleanest from a maintenance perspective is "test fixtures don't exercise dominantStat-specific behavior; the `'pa'` value is a placeholder." If a future test needs a different dominantStat for behavioral coverage, override per-test.
+- **First negative-HP equipment** (Skullclamp). The composition through `modifyStatQuery` is straight additive; `vitals.hp` gets filled to the post-equipment max at battle start so a Skullclamp wearer starts at the reduced HP/MP without going over-cap. Worth a quick verify in playtest that the team-builder stat preview displays the negative correctly.
 
 ### Vercel pre-flight discipline
 
-Ran `rm node_modules/.tmp/tsconfig.app.tsbuildinfo && rm node_modules/.tmp/tsconfig.node.tsbuildinfo` followed by a fresh `tsc -b` at session close — clean. `npm run build` produced a clean production bundle; the only warnings are the pre-existing `>500KB chunk` notices unchanged from S48. Calculator portrait packed at 276KB.
+Not yet run for the third batch (uncommitted at handoff time). The first two S50 commits (`8e5be3a`, `04f8b0f`) shipped clean. Will run `rm node_modules/.tmp/tsconfig.app.tsbuildinfo && rm node_modules/.tmp/tsconfig.node.tsbuildinfo && tsc -b && npm run build` before the next push.
 
 ### Carry-forward (longer-term)
 
-- **All standing carries from S48** (AI deployment role-aware sorting, Bulwark Stance redesign, equipment expansion, Charm/Seduction substrate, Pyromancer R/S/M consolidation, Speed Save / Updraft per-swing cap codification, renderer-side multi-swing polish, ActionType-wiring smoke test, hill-height adjustment on Stonebridge, asymmetric siege scenario for Stonebridge, terrain bar mid-battle vanishing repro, larger teams beyond 5v5, team import). None addressed this session.
-- **AI Math Skill personality variants** (Aggressive / Conservative per brief D8 — deferred to playtest-driven tuning).
-- **Calculator stretch abilities** (Status-debuff Math, Drain Math, Banish Math per blueprint open questions — possible v2 additions; not v1).
-- **Damage-pipeline catalog re-lookup cleanup** (see "Engine-side notes" above).
+**New watch-fors to log to `docs/playtest-watch.md` next session:**
+- **Skullclamp HP/MP tax balance.** First negative-stat equipment; watch whether the −20 HP / −10 MP feels punishing or fair vs. the +1 PA / +1 MA upside, especially on fragile classes (Calculator, Aethurge).
+- **Parrying Sword + Shimmer Cloak evasion stack.** Combined +20 Front / +15 Side / +10 Back base on a wearer with class-baseline evade. Watch for "uncatchable" feel against physical attackers.
+- **Absolom at default Brave.** Effective WP 9.1 already exceeds Long Sword's 8 + carries +1 Reaction. Watch whether the two-handed slot lockout is enough tax at default Brave 70, or whether WP 13 needs to come down (see flag above).
+- **Level cap retune.** L23/L27 wings now share HP/MP with L24/L26 (only dominant-stat differentiated). Watch whether the slot-3/slot-1 distinction still reads, or feels collapsed.
+- **Speed factor /40.** Sped-up Assassin debuffs at Speed 20 now land at factor 1.40 (was 1.90). Watch whether the high-Speed wing still earns its tempo investment, or now feels flat.
+- **Combat Focus stacking change.** Now permanent + STACK_ADDITIVE (was turn_based/3 + REFRESH). Watch whether the Alchemist's reaction-based PA ramp feels distinct from Knight's Bravestrider-via-stats or whether it overlaps too much.
+
+**All standing carries from S49** (AI deployment role-aware sorting, equipment expansion beyond universal armor/head, Charm/Seduction substrate, Pyromancer R/S/M consolidation, Speed Save / Updraft per-swing cap codification, renderer-side multi-swing polish, ActionType-wiring smoke test, hill-height adjustment on Stonebridge, asymmetric siege scenario for Stonebridge, terrain bar mid-battle vanishing repro, larger teams beyond 5v5, team import). None addressed this session.
+
+**Calculator stretch abilities** (Status-debuff Math, Drain Math, Banish Math) — still v2+ candidates.
+
+**Damage-pipeline catalog re-lookup cleanup** (S49 engine note) — still a small future refactor.
+
+**`guide/` subproject** has accumulated work across the session and is uncommitted on the working tree. Separate guide-cycle commit per Chris's S50-open instruction.
