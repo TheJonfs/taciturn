@@ -72,12 +72,23 @@ export class ElevationLabelLayer {
 
   // Render elevation labels for the given map. Called once at mount;
   // labels are static for the lifetime of the map. If a future ability
-  // mutates elevation mid-battle, callers can re-invoke `draw`.
+  // mutates elevation mid-battle, callers can re-invoke `draw`. Also
+  // called from `BattleRenderer.redrawStaticLayers()` on WebGL context
+  // restore (S50 fix).
+  //
+  // S50 memory mitigation: when destroying children, pass
+  // `{ texture: true, textureSource: true }` so Pixi releases the
+  // per-instance canvas-text bitmaps. Default `destroy()` only removes
+  // the Container/Text wrapper and leaves the underlying GPU texture
+  // referenced — across repeated redraws (e.g. one per context-loss /
+  // restore cycle) those orphaned bitmaps compound. Safe to destroy
+  // aggressively here because `draw` is the only path that creates
+  // labels: any future redraw allocates fresh bitmaps from scratch.
   draw(map: BattleMap): void {
     // Clear any previous labels first (supports repaints).
     for (const child of [...this.container.children]) {
       this.container.removeChild(child);
-      child.destroy();
+      child.destroy({ texture: true, textureSource: true });
     }
     for (const tile of map.tiles) {
       const label = elevationLabelFor(tile.elevation);

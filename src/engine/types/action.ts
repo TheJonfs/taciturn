@@ -447,6 +447,21 @@ export interface SystemApplyStatusPayload {
   // composeApplyState (Burn snapshots applier MA × coefficient N
   // times). Defaults to 1 when omitted.
   readonly stackQuantity?: number;
+  // S50 fix: the source ability's `tags` array, threaded through to
+  // `applyStatus` so the `modifyStatusApplicationStackCount` chain's
+  // `sourceAbilityTagAll` gate fires correctly. Pre-S50 this field
+  // was absent on every system_apply_status emission and the gate
+  // defaulted to `[]` — Wand of Lumen's `['fire']` predicate never
+  // matched when Ignition (or any other passive that emits
+  // system_apply_status from a fire-tagged cast) applied the Burn,
+  // so Fireball + Ignition + Wand of Lumen yielded 1 Burn stack
+  // instead of the intended 2. Reaction-emitted applies (Smolder via
+  // the reaction compiler) and passive-emitted applies (Ignition's
+  // onDamageDealt) both populate this from their own `ctx.ability.
+  // tags`; pre-battle equipment grants (Tintinibar's Auto-Regen,
+  // Sorcerer's Robe's Auto-Shell) and other engine-internal emitters
+  // omit it (no caster ability identity to attribute).
+  readonly sourceAbilityTags?: ReadonlyArray<string>;
   // Per ADR-0071 (Session 32): provenance for the apply, in addition
   // to (sourceUnitId, sourceActionSeq) which still travel through
   // `applyStatus`. The action-log formatter reads this to render

@@ -51,7 +51,7 @@ export const ignition: PassiveAbilityDefinition = {
   availability: 'available',
   tags: ['fire'],
   hooks: [
-    passiveHook('onDamageDealt', (args) => {
+    passiveHook('onDamageDealt', (args, ctx) => {
       const tags = args.ctx.damageTags;
       if (!tags.has('magical')) return args.ctx;
       if (tags.has('healing')) return args.ctx;
@@ -60,6 +60,15 @@ export const ignition: PassiveAbilityDefinition = {
       // HP wouldn't have been a valid attack target in the first place;
       // a target that gets KO'd by this damage drops the Burn application
       // at the system_apply_status reducer (it skips KO'd targets).
+      //
+      // S50 fix: thread Ignition's own ability tags through as
+      // `sourceAbilityTags` so Wand of Lumen's `+1 Burn stack on
+      // fire-tagged source ability` gate fires. Ignition is tagged
+      // `['fire']`, so a Wand-of-Lumen-equipped Pyromancer casting
+      // Fireball lands the intended 2-stack Burn (1 from Ignition's
+      // emission + 1 from the Wand's modifier). Pre-S50 this field
+      // was absent → applyStatus saw `sourceAbilityTags: []` →
+      // Wand's `['fire']` predicate failed → only 1 stack landed.
       const burnApply: ProposedAction = {
         type: 'system_apply_status',
         source: 'system',
@@ -68,6 +77,7 @@ export const ignition: PassiveAbilityDefinition = {
           statusTypeId: BURN_TYPE_ID,
           sourceUnitId: args.ctx.attacker.id,
           stackQuantity: 1,
+          sourceAbilityTags: ctx.ability.tags ?? [],
         },
       };
       const existing = args.ctx.emittedActions ?? [];

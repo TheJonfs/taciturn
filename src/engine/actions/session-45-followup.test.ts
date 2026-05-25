@@ -170,6 +170,198 @@ describe('Wand of Lumen — +1 Burn stack hook (ADR-0084)', () => {
 });
 
 // ===========================================================================
+// 2b. S50 — system_apply_status path threads sourceAbilityTags
+// ===========================================================================
+//
+// The Wand of Lumen +1 Burn stack hook is *source-side*: it checks
+// `sourceAbilityTags` on the application args. For direct ability casts
+// the field is populated by `resolveAbilityEffect` from `args.ability.
+// tags`. For passive-emitted applications (Ignition's onDamageDealt →
+// Burn) and reaction-emitted applications (Smolder's apply_status →
+// Burn), the application reaches `applyStatus` via `system_apply_
+// status` — pre-S50 the reducer didn't thread `sourceAbilityTags`,
+// the field defaulted to `[]`, and Wand of Lumen's `['fire']` gate
+// silently failed. The fix threads `sourceAbilityTags` through the
+// reducer.
+
+import { reduceSystemApplyStatus } from './reducers.ts';
+import { ignition } from '../../content/abilities/ignition.ts';
+import type { Action, ProposedAction } from '@engine/index.ts';
+
+function makeSystemApplyStatusAction(payload: {
+  targetId: string;
+  statusTypeId: string;
+  sourceUnitId: string | null;
+  stackQuantity?: number;
+  sourceAbilityTags?: ReadonlyArray<string>;
+}): Extract<Action, { type: 'system_apply_status' }> {
+  return {
+    type: 'system_apply_status',
+    source: 'system',
+    sequenceNumber: 1,
+    timestamp: { tick: 0, ct: 0 },
+    seed: 0,
+    chainDepth: 0,
+    isReaction: false,
+    payload: {
+      targetId: payload.targetId as never,
+      statusTypeId: payload.statusTypeId as never,
+      sourceUnitId: payload.sourceUnitId as never,
+      ...(payload.stackQuantity !== undefined ? { stackQuantity: payload.stackQuantity } : {}),
+      ...(payload.sourceAbilityTags !== undefined
+        ? { sourceAbilityTags: payload.sourceAbilityTags }
+        : {}),
+    },
+  };
+}
+
+describe('Wand of Lumen — system_apply_status path (S50 fix)', () => {
+  it('reducer threads sourceAbilityTags through → Wand +1 stack fires (1 → 2)', () => {
+    const caster = makeUnit({
+      id: 'c',
+      spd: 10,
+      ma: 9,
+      loadout: emptyLoadout(),
+      equipment: equipRight('wand_of_lumen'),
+    });
+    const target = makeUnit({ id: 't', spd: 10, hp: 100, team: 'team_b' });
+    const state = makeGameState({ units: [caster, target], map: flatMap(3, 3) });
+    const action = makeSystemApplyStatusAction({
+      targetId: target.id as unknown as string,
+      statusTypeId: 'burn',
+      sourceUnitId: caster.id as unknown as string,
+      stackQuantity: 1,
+      sourceAbilityTags: ['magical', 'fire'],
+    });
+    const { newState } = reduceSystemApplyStatus(state, action, catalog);
+    const t = newState.units.get(target.id);
+    const burn = t!.statuses.find((s) => s.typeId === statusTypeId('burn'));
+    expect(burn?.stacks).toBe(2);
+  });
+
+  it('reducer with no sourceAbilityTags → Wand gate fails (pins the pre-S50 bug surface)', () => {
+    // The pre-S50 emission path didn't populate sourceAbilityTags, so
+    // the chain defaulted to `[]` and the Wand's `['fire']` predicate
+    // failed silently. This test pins that failure mode so a future
+    // regression (someone drops the threading) fails loud.
+    const caster = makeUnit({
+      id: 'c',
+      spd: 10,
+      ma: 9,
+      loadout: emptyLoadout(),
+      equipment: equipRight('wand_of_lumen'),
+    });
+    const target = makeUnit({ id: 't', spd: 10, hp: 100, team: 'team_b' });
+    const state = makeGameState({ units: [caster, target], map: flatMap(3, 3) });
+    const action = makeSystemApplyStatusAction({
+      targetId: target.id as unknown as string,
+      statusTypeId: 'burn',
+      sourceUnitId: caster.id as unknown as string,
+      stackQuantity: 1,
+      // sourceAbilityTags deliberately omitted — reproduces the pre-
+      // S50 emission shape.
+    });
+    const { newState } = reduceSystemApplyStatus(state, action, catalog);
+    const t = newState.units.get(target.id);
+    const burn = t!.statuses.find((s) => s.typeId === statusTypeId('burn'));
+    expect(burn?.stacks).toBe(1);
+  });
+
+  it("Precision Fire's native Burn rider composes with Wand of Lumen (direct-cast path, no S50 fix needed)", () => {
+    // Precision Fire's `effects.statusEffects` includes a 50%-chance
+    // Burn application. That path goes through `resolveAbilityEffect`,
+    // not through `system_apply_status` — so it gets `sourceAbilityTags`
+    // populated directly from `args.ability.tags`. The S50 fix didn't
+    // touch this path (it's been working since the modifier shipped in
+    // S45), but a future tag-rename or tag-strip on Precision Fire
+    // would silently break composition. Pin the property: Precision
+    // Fire's tags must include 'fire' so the Wand's gate passes.
+    const precisionFire = catalog.getAbility(abilityId('precision_fire'));
+    expect(precisionFire.tags).toContain('fire');
+
+    // Exercise the path: an apply with `sourceAbilityTags: precision_
+    // fire.tags` and a Wand-of-Lumen-equipped caster yields 2 stacks
+    // from a 1-stack request (the native baseChance roll outcome). If
+    // a future change drops the 'fire' tag from Precision Fire, this
+    // assertion fails and the composition silently breaking gets
+    // caught at test time.
+    const caster = makeUnit({
+      id: 'c',
+      spd: 10,
+      ma: 9,
+      loadout: emptyLoadout(),
+      equipment: equipRight('wand_of_lumen'),
+    });
+    const target = makeUnit({ id: 't', spd: 10, hp: 100, team: 'team_b' });
+    const state = makeGameState({ units: [caster, target], map: flatMap(3, 3) });
+    const r = applyStatus(
+      state,
+      {
+        targetId: target.id,
+        typeId: statusTypeId('burn'),
+        sourceUnitId: caster.id,
+        sourceActionSeq: 0,
+        stackQuantity: 1,
+        sourceAbilityTags: precisionFire.tags ?? [],
+      },
+      catalog,
+    );
+    const t = r.newState.units.get(target.id);
+    const burn = t!.statuses.find((s) => s.typeId === statusTypeId('burn'));
+    expect(burn?.stacks).toBe(2);
+  });
+
+  it('Ignition emits with sourceAbilityTags populated from its own ability tags', () => {
+    // Pull Ignition's onDamageDealt handler off the registration and
+    // invoke it with a synthesized args/ctx so we can inspect the
+    // emitted system_apply_status payload directly. This pins the
+    // contract that Ignition's emission carries source-ability
+    // identity — the field the reducer (above) now threads through.
+    const hook = ignition.hooks[0];
+    expect(hook?.name).toBe('onDamageDealt');
+    // Cast through `unknown` because the union of all hook handler
+    // signatures doesn't structurally overlap with the onDamageDealt-
+    // specific shape we need to invoke. The runtime contract is what
+    // we're pinning — TS strict mode just needs the explicit two-step
+    // cast to acknowledge we know what we're doing.
+    const handler = hook?.handler as unknown as (
+      args: {
+        unit: { id: string };
+        ctx: {
+          attacker: { id: string };
+          target: { id: string };
+          damageTags: Set<string>;
+          multipliers: ReadonlyArray<unknown>;
+          hit: boolean;
+          emittedActions?: ReadonlyArray<ProposedAction>;
+        };
+      },
+      ctx: { ability: { tags?: ReadonlyArray<string> } },
+    ) => { emittedActions?: ReadonlyArray<ProposedAction> };
+
+    const result = handler(
+      {
+        unit: { id: 'c' },
+        ctx: {
+          attacker: { id: 'c' },
+          target: { id: 't' },
+          damageTags: new Set(['magical', 'fire']),
+          multipliers: [],
+          hit: true,
+        },
+      },
+      { ability: { tags: ['fire'] } },
+    );
+    const emitted = result.emittedActions ?? [];
+    expect(emitted).toHaveLength(1);
+    const apply = emitted[0]!;
+    expect(apply.type).toBe('system_apply_status');
+    if (apply.type !== 'system_apply_status') return;
+    expect(apply.payload.sourceAbilityTags).toEqual(['fire']);
+  });
+});
+
+// ===========================================================================
 // 3. Ironfoot
 // ===========================================================================
 

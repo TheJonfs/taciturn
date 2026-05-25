@@ -46,6 +46,13 @@ export interface CapturedError {
 
 const SESSION_STORAGE_KEY = 'taciturn.capturedErrors';
 const MAX_PERSISTED = 30; // cap so a runaway loop doesn't blow out storage
+// S50 memory mitigation: cap the in-memory buffer to the same size.
+// Pre-S50 the in-memory `errors` array grew unboundedly while only the
+// persisted slice was trimmed; a long-running tab with many error /
+// context-loss events would compound. Each captured error is small
+// (~1 KB), so 30 entries is negligible (~30 KB worst case) while still
+// preserving the toast / debug-history surface the player relies on.
+const MAX_IN_MEMORY = MAX_PERSISTED;
 
 // Module-local state. Listeners install on first import; subsequent
 // imports observe the same list. The React hook subscribes to a
@@ -82,7 +89,12 @@ function notify(): void {
 }
 
 function record(err: CapturedError): void {
-  errors = [...errors, err];
+  // S50 memory mitigation: cap the in-memory buffer at MAX_IN_MEMORY
+  // (matches the persisted-storage cap). Pre-S50 this was an unbounded
+  // append; a long-running tab with many error / context-loss events
+  // would compound.
+  const next = [...errors, err];
+  errors = next.length > MAX_IN_MEMORY ? next.slice(-MAX_IN_MEMORY) : next;
   persistToStorage();
   notify();
   // Console-log for dev visibility — the toast is for the player, but

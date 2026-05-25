@@ -182,6 +182,15 @@ function compileForHook(
             // the BMG application formula. The reaction's Brave roll
             // (runOnActionTargeted) has already gated whether the
             // reaction fires; the application itself is deterministic.
+            //
+            // S50 fix: thread the registering reaction passive's own
+            // ability tags through as `sourceAbilityTags` (symmetric
+            // to the Ignition fix). For Smolder (tagged ['magical',
+            // 'fire']) emitting Burn to its attacker, a Wand of
+            // Lumen-equipped Smolder wielder lands +1 stack via the
+            // wand's fire-gated rider. Pre-S50 this field was absent
+            // → modifier chain saw `sourceAbilityTags: []` → fire
+            // gate failed silently.
             emissions.push({
               type: 'system_apply_status',
               source: 'system',
@@ -189,6 +198,7 @@ function compileForHook(
                 targetId: targetUnitId,
                 statusTypeId: effect.statusTypeId,
                 sourceUnitId: args.unit.id,
+                sourceAbilityTags: ctx.ability.tags ?? [],
                 ...(effect.magnitude !== undefined ? { magnitude: effect.magnitude } : {}),
                 ...(effect.duration !== undefined ? { duration: effect.duration } : {}),
                 ...(effect.customState !== undefined ? { customState: effect.customState } : {}),

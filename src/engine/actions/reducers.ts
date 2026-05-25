@@ -2496,6 +2496,7 @@ export function reduceSystemApplyStatus(
     duration,
     customState,
     stackQuantity,
+    sourceAbilityTags,
     context,
   } = action.payload;
   const target = state.units.get(targetId);
@@ -2537,6 +2538,13 @@ export function reduceSystemApplyStatus(
       ...(duration !== undefined ? { duration } : {}),
       ...(customState !== undefined ? { customState } : {}),
       ...(stackQuantity !== undefined ? { stackQuantity } : {}),
+      // S50 fix: thread sourceAbilityTags into applyStatus so the
+      // modifyStatusApplicationStackCount chain's `sourceAbilityTagAll`
+      // gate fires for system_apply_status emissions (Ignition →
+      // Burn; reaction-compiled Smolder → Burn). Pre-S50 these
+      // emissions lost their source-ability identity and the
+      // Wand of Lumen +1 Burn stack rider never composed.
+      ...(sourceAbilityTags !== undefined ? { sourceAbilityTags } : {}),
     },
     catalog,
   );
