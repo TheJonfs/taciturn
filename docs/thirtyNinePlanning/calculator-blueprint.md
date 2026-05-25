@@ -104,9 +104,9 @@ Pairs well with Mathematician (cheaper casts) for sustained Math output across a
 - **Effect:** Damage per target = `SP × MA × Faith Factor`
 - **Status proc:** 50% base chance (Faith-gated) to apply 1 stack of Burn per target hit
 
-**Damage example** (Calculator MA 8, Faith 70/70):
-- Base: 3 × 8 × 0.49 = 11.8 per target
-- With Mathematician: 4 × 8 × 0.49 = 15.7 per target
+**Damage example** (Calculator MA 9 post-S51, Faith 70/70):
+- Base: 3 × 9 × 0.49 = 13.2 per target
+- With Mathematician: 4 × 9 × 0.49 = 17.6 per target
 
 **Damage example** (Mage MA 25 via secondary):
 - Base: 3 × 25 × 0.49 = 36.75 per target
@@ -118,20 +118,20 @@ Pairs well with Mathematician (cheaper casts) for sustained Math output across a
 - **Effect:** HP restored per target = `SP × MA × Faith Factor`
 - **Target filtering:** all units matching parameter (friendly fire applies — healing an enemy is possible, though the AI will dis-prefer doing so)
 
-**Healing example** (Calculator MA 8):
-- Base: 4 × 8 × 0.49 = 15.7 per target
-- With Mathematician: 5 × 8 × 0.49 = 19.6 per target
+**Healing example** (Calculator MA 9 post-S51):
+- Base: 4 × 9 × 0.49 = 17.6 per target
+- With Mathematician: 5 × 9 × 0.49 = 22.1 per target
 
-**Note:** the Calculator's MA 8 makes Targeted Treatment modest as a healer (Alchemist Potion at PA × 12 is single-target ~84 HP, far more effective per-target). Math healing's value is multi-target reach. Mage-with-Math-secondary at MA 25 = 49 HP per ally healed — substantial.
+**Note:** the Calculator's MA 9 makes Targeted Treatment modest as a healer (Alchemist Potion at PA × 12 is single-target ~84 HP, far more effective per-target). Math healing's value is multi-target reach. Mage-with-Math-secondary at MA 25 = 49 HP per ally healed — substantial.
 
 #### 3. Exact Rhythm — Multi-target CT push
 
 - **SP:** 2 (3 with Mathematician)
 - **Effect:** CT reduction per target = `SP × MA × Faith Factor`; clamped at CT 0 (no negative CT)
 
-**Reduction example** (Calculator MA 8):
-- Base: 2 × 8 × 0.49 = 7.8 CT per target
-- With Mathematician: 3 × 8 × 0.49 = 11.8 CT per target
+**Reduction example** (Calculator MA 9 post-S51):
+- Base: 2 × 9 × 0.49 = 8.8 CT per target
+- With Mathematician: 3 × 9 × 0.49 = 13.2 CT per target
 
 **Reduction example** (Mage MA 25 secondary):
 - Base: 24.5 CT per target

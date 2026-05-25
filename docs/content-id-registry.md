@@ -1,6 +1,6 @@
 # Content ID Registry
 
-*Started session 16 (2026-05-06). Refreshed session 48 (2026-05-24) — full reconciliation against `loadDefaultCatalog`. Session 50 (2026-05-25) — equipment expansion + Knight Sword class.*
+*Started session 16 (2026-05-06). Refreshed session 48 (2026-05-24) — full reconciliation against `loadDefaultCatalog`. Session 50 (2026-05-25) — equipment expansion + Knight Sword class. Session 51 (2026-05-25) — universal off-hand expansion (6 new off-hand pieces) + Calculator MA 8 → 9 + Wand of the Depths refit (deltaVertical moved off range onto new `aoeVerticalToleranceModifiers` surface) + Escutcheon resistance per-element 10 → 20.*
 
 A flat lookup table of every content ID currently in the catalog: `id` (used internally everywhere — command sets, hook lookups, tests, debug fixtures) ↔ `name` (display string, freely renamable).
 
@@ -197,7 +197,7 @@ Equipment slots: weapon (one- or two-handed), shield, armor, headgear, accessory
 | `chefs_knife` | Chef's Knife | weapon | S40 knife class — Speed-based dynamic variance | `src/content/items/chefs-knife.ts` |
 | `magebane` | Magebane | weapon | S40 knife class — anti-magic flavor | `src/content/items/magebane.ts` |
 | `sai` | Sai | weapon | S40 knife class — Assassin-favored | `src/content/items/sai.ts` |
-| `wand_of_depths` | Wand of the Depths | weapon | 100% on-hit `+Water/−Fire` resonance + ability range +1H/+1V on water spells | `src/content/items/wand-of-depths.ts` |
+| `wand_of_depths` | Wand of the Depths | weapon | 100% on-hit `+Water/−Fire` resonance + ability range +1H on water spells + S51 refit: +1 AoE vertical tolerance on water spells (pre-S51 `deltaVertical: 1` was dead since spells target at vertical 99) | `src/content/items/wand-of-depths.ts` |
 | `wand_of_deepwood` | Wand of the Deepwood | weapon | actionSpeed mod on earth casts; tagged_resistance_shift apply-proc | `src/content/items/wand-of-deepwood.ts` |
 | `wand_of_lumen` | Wand of Lumen | weapon | S45 follow-up — `+Earth/−Water` shift on hit + ADR-0084 Burn-stack rider on fire ability apply | `src/content/items/wand-of-lumen.ts` |
 | `staff_of_power` | Staff of Power | weapon | × 1.20 MP cost · MA buff | `src/content/items/staff-of-power.ts` |
@@ -207,13 +207,24 @@ Equipment slots: weapon (one- or two-handed), shield, armor, headgear, accessory
 | `parrying_sword` | Parrying Sword | weapon | S50 — sword tag, WP 6, accuracy 95, +10 Front / +5 Side evade (defensive sword variant) | `src/content/items/parrying-sword.ts` |
 | `absolom` | Absolom | weapon | S50 Knight Sword class — WP 13, accuracy 95, two-handed, `attacker_brave` variance ([Brave/100 ± 0.05]), +1 Reaction-bucket capacity. First consumer of the new `attacker_brave` `WeaponPhysicalVariance` kind. | `src/content/items/absolom.ts` |
 
-### Shields
+### Shields / Off-hand pieces
+
+The `kind: 'shield'` discriminant covers every non-weapon off-hand piece —
+shields proper, talismans, and books all share the off-hand-slot affordance
+via this kind. Per-item `classRestrictions` enforces who can equip what
+(S51 broke the off-hand open by adding pieces without class restrictions).
 
 | ID | Display Name | Notes | File |
 |---|---|---|---|
-| `escutcheon` | Escutcheon | Knight-flavored shield | `src/content/items/escutcheon.ts` |
-| `warriors_aegis` | Warrior's Aegis | shield + evasion mods | `src/content/items/warriors-aegis.ts` |
-| `managuard` | Managuard | hybrid shield — +2 MA among its mods | `src/content/items/managuard.ts` |
+| `escutcheon` | Escutcheon | Knight-flavored shield. S51 resistance bump 10 → 20 per element. | `src/content/items/escutcheon.ts` |
+| `warriors_aegis` | Warrior's Aegis | shield + evasion mods (Knight-only) | `src/content/items/warriors-aegis.ts` |
+| `managuard` | Managuard | hybrid shield — +2 MA among its mods (Knight-only) | `src/content/items/managuard.ts` |
+| `buckler` | Buckler | S51 universal off-hand baseline — +10F/+5S evade, +15 all elemental resistance. No class restriction. | `src/content/items/buckler.ts` |
+| `talisman_of_warding` | Talisman of Warding | S51 universal off-hand — +20 all elemental resistance. Mantle of Protection (+25 across 6 tags incl. Holy/Dark) remains top-tier. | `src/content/items/talisman-of-warding.ts` |
+| `talisman_of_conviction` | Talisman of Conviction | S51 universal off-hand — +5 Brave, +5 Faith via statMods. Dual-edged Faith is intentional. | `src/content/items/talisman-of-conviction.ts` |
+| `tome_of_power` | Tome of Power | S51 Book (mage off-hand) — +1 MA, +10 MP. Class-restricted to the five mage classes (geosage / hydrologist / pyromancer / aethurge / calculator). | `src/content/items/tome-of-power.ts` |
+| `livre_of_urgency` | Livre of Urgency | S51 Book (mage off-hand) — +1 Speed plus +5 charged action speed on magical-tagged casts (generalized Wand-of-Deepwood pattern). | `src/content/items/livre-of-urgency.ts` |
+| `battle_dictionary` | Battle Dictionary | S51 Book (mage off-hand) — +1 PA plus +1 horizontal range AND +1 AoE vertical tolerance on magical casts. +1 PA plants for future hybrid / Alchemy-secondary builds. First non-Wand consumer of the new `aoeVerticalToleranceModifiers` field. | `src/content/items/battle-dictionary.ts` |
 
 ### Armor
 
@@ -314,15 +325,15 @@ Registered in `default.ts`'s `terrain.tags` map; see ADR-0073 (tag abstraction) 
 
 ---
 
-## Catalog counts (as of S50 — 2026-05-25)
+## Catalog counts (as of S51 — 2026-05-25)
 
-| Kind | Count | Δ since S48 |
+| Kind | Count | Δ since S50 |
 |---|---|---|
-| Classes | 9 | +1 (Calculator) |
-| Command sets | 11 | +1 (Math Skill) |
-| Abilities (active + passive + hidden) | 80 | +8 (S49 Math Skill suite + Calculator R/S/M; S50 net 0 — `damage_reduction` hidden but still in catalog) |
-| Status types | 32 | +2 (S49: `cornered_focus`, `engineered_defenses`) |
-| Equipment + consumables | 61 | +6 (S50: `shimmer_cloak`, `soul_vest`, `golden_hairpin`, `skullclamp`, `parrying_sword`, `absolom`) |
+| Classes | 9 | — |
+| Command sets | 11 | — |
+| Abilities (active + passive + hidden) | 80 | — |
+| Status types | 32 | — |
+| Equipment + consumables | 67 | +6 (S51: `buckler`, `talisman_of_warding`, `talisman_of_conviction`, `tome_of_power`, `livre_of_urgency`, `battle_dictionary`) |
 | Rulesets | 1 | — |
 | Maps | 2 | — |
 | Terrain types | 4 | — |
