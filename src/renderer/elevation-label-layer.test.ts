@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { elevationLabelColor, elevationLabelFor } from './elevation-label-layer.ts';
+import {
+  ElevationLabelLayer,
+  elevationLabelColor,
+  elevationLabelFor,
+} from './elevation-label-layer.ts';
 import {
   ELEVATION_LABEL_COLOR_HIGH,
   ELEVATION_LABEL_COLOR_LOW,
   ELEVATION_LABEL_SATURATION_ELEV,
 } from './constants.ts';
+import type { BattleMap, Tile } from '@engine/index.ts';
 
 describe('elevationLabelFor — every tile labelled', () => {
   it('labels water tiles (elev 0/1)', () => {
@@ -68,5 +73,66 @@ describe('elevationLabelColor — cyan→gold two-hue ramp', () => {
     const r10 = redOf(elevationLabelColor(10));
     expect(r5).toBeGreaterThan(r0);
     expect(r10).toBeGreaterThan(r5);
+  });
+});
+
+// S50 regression: ElevationLabelLayer.draw is idempotent and rebuilds
+// children from scratch. This is the property `BattleRenderer.
+// redrawStaticLayers()` depends on for WebGL context-loss recovery —
+// after a context-loss-then-restore cycle, the Pixi Text objects'
+// GPU-side bitmaps are gone but the layer's `container.children` still
+// holds the stale references; a fresh `draw()` call must replace them
+// cleanly without leaking the old instances and without surfacing a
+// transient "no children" state mid-rebuild.
+describe('ElevationLabelLayer — context-loss redraw idempotency', () => {
+  function makeMap(tiles: ReadonlyArray<{ x: number; y: number; elev: number }>): BattleMap {
+    return {
+      width: 3,
+      height: 3,
+      tiles: tiles.map(({ x, y, elev }) => ({
+        x,
+        y,
+        layer: 0,
+        terrain: 'ground',
+        elevation: elev,
+      } as Tile)),
+    } as BattleMap;
+  }
+
+  it('repaints one label per tile after a second draw() call', () => {
+    const layer = new ElevationLabelLayer();
+    const map = makeMap([
+      { x: 0, y: 0, elev: 2 },
+      { x: 1, y: 0, elev: 5 },
+      { x: 2, y: 0, elev: 8 },
+    ]);
+
+    layer.draw(map);
+    expect(layer.container.children).toHaveLength(3);
+
+    // Simulate the context-loss-then-restore cycle: caller invokes
+    // draw() a second time against the same map. The layer's
+    // implementation clears old children before adding new ones; the
+    // post-redraw count must still be the tile count (no doubling, no
+    // ghost children).
+    layer.draw(map);
+    expect(layer.container.children).toHaveLength(3);
+  });
+
+  it('does not leak old Text instances across redraws (children replaced, not appended)', () => {
+    const layer = new ElevationLabelLayer();
+    const map = makeMap([{ x: 0, y: 0, elev: 4 }]);
+
+    layer.draw(map);
+    const firstPassChild = layer.container.children[0];
+    expect(firstPassChild).toBeDefined();
+
+    layer.draw(map);
+    // After redraw, the original Text instance must be gone from the
+    // container — a real Pixi Text from a lost-context Pixi app would
+    // still render as an empty bitmap. The replace-not-append property
+    // is what makes redrawStaticLayers() actually restore visuals.
+    expect(layer.container.children).not.toContain(firstPassChild);
+    expect(layer.container.children).toHaveLength(1);
   });
 });

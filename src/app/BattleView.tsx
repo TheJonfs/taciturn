@@ -249,17 +249,28 @@ function BattleViewInner({
       // context-loss event is to *not* attempt restoration — we
       // `preventDefault()` so the context can be restored. Both events
       // forward to the global error surface so the player sees a
-      // banner with the same UX as other crashes; reload is the
-      // recommended recovery because partial-restore can leave the
-      // battle map missing terrain bars / overlays (the reported S38
-      // symptom). A future polish pass can save state to sessionStorage
-      // and reinit the renderer in place.
+      // banner with the same UX as other crashes.
+      //
+      // S50: contextRestored now triggers static-layer redraws against
+      // the live renderer. Pre-S50 the handler only logged the event
+      // and suggested a reload because partial-restore left the
+      // elevation-label layer dark (the S38 / S50-reported symptom —
+      // Text-based bitmaps don't auto-restore the way Graphics do).
+      // `redrawStaticLayers` re-runs the static layer draw calls
+      // against the cached map data, restoring the elevation numbers
+      // and re-painting the cliff-edge + tile layers defensively.
+      // Unit sprites self-heal via the orchestrator pump's per-frame
+      // applyVisualState. The handler closure captures `battleRenderer`
+      // by reference so the right renderer instance gets refreshed
+      // even across Fast Refresh re-mounts.
+      let restoreTargetRenderer: BattleRenderer | null = null;
       const onContextLost = (event: Event): void => {
         event.preventDefault();
         recordWebglContextLost('canvas.webglcontextlost fired');
       };
       const onContextRestored = (): void => {
         recordWebglContextRestored();
+        restoreTargetRenderer?.redrawStaticLayers();
       };
       canvas.addEventListener('webglcontextlost', onContextLost as EventListener, false);
       canvas.addEventListener(
@@ -269,6 +280,7 @@ function BattleViewInner({
       );
 
       const battleRenderer = new BattleRenderer(app);
+      restoreTargetRenderer = battleRenderer;
       battleRenderer.mount(initialState, catalog);
       setLatestState(initialState);
       setRenderer(battleRenderer);

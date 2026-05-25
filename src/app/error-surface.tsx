@@ -125,7 +125,7 @@ export function recordWebglContextRestored(): void {
     timestamp: Date.now(),
     source: 'webgl.contextRestored',
     message:
-      'WebGL context restored — renderer state may be partial. Reload recommended.',
+      'WebGL context restored — static layers (terrain, cliff edges, elevation labels) redrawn against the cached map. Unit sprites and HP/MP bars heal via the per-frame render pump. Reload if visuals look incomplete.',
     stack: '(no JS stack — browser-emitted)',
   });
 }

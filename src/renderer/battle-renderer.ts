@@ -420,6 +420,36 @@ export class BattleRenderer {
     this.deploymentZoneLayer.draw(map, currentTeam);
   }
 
+  // S50: WebGL context-loss recovery. Pixi auto-restores `Graphics` draw
+  // commands (recorded once, replayed on the new context), but `Text`
+  // objects rasterize to GPU-side bitmap textures that are gone on
+  // context loss — and our static-at-mount layers don't have a per-
+  // frame refresh path to rebuild them. The elevation-label layer is
+  // the canonical victim: every tile's number vanishes after restore
+  // and never comes back without intervention. Cliff-edge and tile
+  // layers use Graphics so they auto-restore in theory; we redraw them
+  // anyway as belt-and-suspenders (cheap, and protects against a
+  // partial-restore edge case). The deployment-zone layer gets the
+  // same treatment when the deployment phase is active (deploymentTeam
+  // !== null). Unit sprites and HP/MP bars heal automatically via the
+  // orchestrator pump's per-frame `applyVisualState`; the
+  // deployment-facing arrows refresh on the next pointer move /
+  // `showDeploymentFacing` call from the deployment flow.
+  //
+  // Safe to call any time after `mount()` — does nothing if `lastState`
+  // is null (renderer hasn't mounted yet) or if `destroyed` is set.
+  redrawStaticLayers(): void {
+    if (this.destroyed) return;
+    if (this.lastState === null) return;
+    const map = this.lastState.map;
+    this.tileLayer.draw(map);
+    this.cliffEdgeLayer.draw(map);
+    this.elevationLabelLayer.draw(map);
+    if (this.deploymentTeam !== null) {
+      this.deploymentZoneLayer.draw(map, this.deploymentTeam);
+    }
+  }
+
   clearDeploymentZone(): void {
     if (this.destroyed) return;
     this.deploymentZoneLayer.clear();
