@@ -1,6 +1,6 @@
 # Content ID Registry
 
-*Started session 16 (2026-05-06). Refreshed session 48 (2026-05-24) — full reconciliation against `loadDefaultCatalog`.*
+*Started session 16 (2026-05-06). Refreshed session 48 (2026-05-24) — full reconciliation against `loadDefaultCatalog`. Session 50 (2026-05-25) — equipment expansion + Knight Sword class.*
 
 A flat lookup table of every content ID currently in the catalog: `id` (used internally everywhere — command sets, hook lookups, tests, debug fixtures) ↔ `name` (display string, freely renamable).
 
@@ -127,7 +127,7 @@ Reaction / Support / Movement passives are equipped through their respective R/S
 | `updraft` | Updraft | reaction | 1 (S45 Hunter — +1 Jump permanently on hit, stacks) | `src/content/abilities/updraft.ts` |
 | `combat_focus` | Combat Focus | reaction | 1 (S39 Alchemist — Brave-gated PA buff on hit) | `src/content/abilities/combat-focus.ts` |
 | `speed_save` | Speed Save | reaction | 1 (S42 Assassin — +1 Speed permanently on hit, stacks) | `src/content/abilities/speed-save.ts` |
-| `damage_reduction` | Damage Reduction | support | 2 (Knight native) | `src/content/abilities/damage-reduction.ts` |
+| `damage_reduction` | Damage Reduction | support | 2 (Knight-flavored; S50 suppressed — `availability: 'hidden'` — no class home) | `src/content/abilities/damage-reduction.ts` |
 | `earth_communion` | Biomastery | support | 1 (Geosage native — × 1.25 status application chance) | `src/content/abilities/earth-communion.ts` |
 | `flow_state` | Flow State | support | 1 (Hydrologist native — CT refund on magical cast) | `src/content/abilities/flow-state.ts` |
 | `ignition` | Ignition | support | 2 (Pyromancer native — Burn on fire-tagged damage) | `src/content/abilities/ignition.ts` |
@@ -141,7 +141,7 @@ Reaction / Support / Movement passives are equipped through their respective R/S
 | `cornered_focus` | Cornered Focus | reaction | 1 (S49 Calculator native — +1 MA permanently on hit, stacks; Speed Save / Updraft parity) | `src/content/abilities/cornered-focus.ts` |
 | `thoughtful_pacing` | Thoughtful Pacing | movement | 1 (S49 Calculator native — restore 2 × tiles MP on Move) | `src/content/abilities/thoughtful-pacing.ts` |
 
-S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive without a class home; the `modifyEvasion` hook it introduced stays for equipment-side consumers).
+S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive without a class home; the `modifyEvasion` hook it introduced stays for equipment-side consumers). **S50 suppressed Damage Reduction** under the same "support without a class home" pattern — `damage_reduction` is now `'hidden'` (the catalog still resolves the id for historical action-log replays; the picker just doesn't surface it).
 
 ## Status types
 
@@ -175,7 +175,7 @@ S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive w
 | `slow` | Slow | negative, time | REFRESH | per_unit_ct | `src/content/statuses/slow.ts` |
 | `updraft` | Updraft | positive, time | STACK_ADDITIVE | permanent | `src/content/statuses/updraft.ts` |
 | `speed_save` | Speed Save | positive, time | STACK_ADDITIVE | permanent | `src/content/statuses/speed-save.ts` |
-| `combat_focus` | Combat Focus | positive | REFRESH | turn_based | `src/content/statuses/combat-focus.ts` |
+| `combat_focus` | Combat Focus | positive, time | STACK_ADDITIVE | permanent (S50 migrated from turn_based/3 + REFRESH; joins Speed Save / Updraft / Cornered Focus family) | `src/content/statuses/combat-focus.ts` |
 | `tagged_resistance_shift` | Resonance | negative, dispellable | STACK_INDEPENDENT | permanent | `src/content/statuses/tagged-resistance-shift.ts` |
 | `cornered_focus` | Cornered Focus | positive, mental | STACK_ADDITIVE | permanent | `src/content/statuses/cornered-focus.ts` |
 | `engineered_defenses` | Engineered Defenses | positive, dispellable | STACK_INDEPENDENT | permanent | `src/content/statuses/engineered-defenses.ts` |
@@ -204,6 +204,8 @@ Equipment slots: weapon (one- or two-handed), shield, armor, headgear, accessory
 | `staff_of_abundance` | Staff of Abundance | weapon | MP-economy magic staff | `src/content/items/staff-of-abundance.ts` |
 | `longbow` | Longbow | weapon | S45 bow — WP 7, accuracy 33, two-handed, range 2-5/vertical-inf, height-delta variance | `src/content/items/longbow.ts` |
 | `riptide_bow` | Riptide Bow | weapon | S45 bow + 30% Undertow CT-push proc | `src/content/items/riptide-bow.ts` |
+| `parrying_sword` | Parrying Sword | weapon | S50 — sword tag, WP 6, accuracy 95, +10 Front / +5 Side evade (defensive sword variant) | `src/content/items/parrying-sword.ts` |
+| `absolom` | Absolom | weapon | S50 Knight Sword class — WP 13, accuracy 95, two-handed, `attacker_brave` variance ([Brave/100 ± 0.05]), +1 Reaction-bucket capacity. First consumer of the new `attacker_brave` `WeaponPhysicalVariance` kind. | `src/content/items/absolom.ts` |
 
 ### Shields
 
@@ -228,6 +230,8 @@ Equipment slots: weapon (one- or two-handed), shield, armor, headgear, accessory
 | `dark_robe` | Dark Robe | mage-restricted robe with dark-flavored mods | `src/content/items/dark-robe.ts` |
 | `spiked_mail` | Spiked Mail | S37 — revenge-tax armor (reflects on hit) | `src/content/items/spiked-mail.ts` |
 | `iron_mail` | Iron Mail | +30 maxHpBase | `src/content/items/iron-mail.ts` |
+| `shimmer_cloak` | Shimmer Cloak | S50 universal armor — +75 HP, +10 F/S/B evade. First evasion-bias body slot. | `src/content/items/shimmer-cloak.ts` |
+| `soul_vest` | Soul Vest | S50 universal armor — +50 HP, +10 Brave, +10 Faith. First universal Brave/Faith piece (Tricorn = Mage-only; Crusader's Helm = Knight-only). | `src/content/items/soul-vest.ts` |
 
 ### Headgear
 
@@ -243,6 +247,8 @@ Equipment slots: weapon (one- or two-handed), shield, armor, headgear, accessory
 | `lookouts_hood` | Lookout's Hood | mid-tier utility | `src/content/items/lookouts-hood.ts` |
 | `crusaders_helm` | Crusader's Helm | Knight-flavored heavy headgear | `src/content/items/crusaders-helm.ts` |
 | `tricorn` | Tricorn | +Brave headgear | `src/content/items/tricorn.ts` |
+| `golden_hairpin` | Golden Hairpin | S50 universal head — +10 HP, `mpCostMultipliers: [0.5]` (50% MP cost on every cast). Inverse shape of Staff of Power's × 1.20. | `src/content/items/golden-hairpin.ts` |
+| `skullclamp` | Skullclamp | S50 universal head — −20 HP, −10 MP, +1 PA, +1 MA. **First equipment to ship a negative HP/MP `statMods`** (additive composition through `modifyStatQuery`; vitals fill to post-equipment max at battle start). | `src/content/items/skullclamp.ts` |
 
 ### Accessories
 
@@ -308,18 +314,18 @@ Registered in `default.ts`'s `terrain.tags` map; see ADR-0073 (tag abstraction) 
 
 ---
 
-## Catalog counts (as of S48 — 2026-05-24)
+## Catalog counts (as of S50 — 2026-05-25)
 
-| Kind | Count |
-|---|---|
-| Classes | 8 |
-| Command sets | 10 |
-| Abilities (active + passive + hidden) | 72 |
-| Status types | 30 |
-| Equipment + consumables | 55 |
-| Rulesets | 1 |
-| Maps | 2 |
-| Terrain types | 4 |
+| Kind | Count | Δ since S48 |
+|---|---|---|
+| Classes | 9 | +1 (Calculator) |
+| Command sets | 11 | +1 (Math Skill) |
+| Abilities (active + passive + hidden) | 80 | +8 (S49 Math Skill suite + Calculator R/S/M; S50 net 0 — `damage_reduction` hidden but still in catalog) |
+| Status types | 32 | +2 (S49: `cornered_focus`, `engineered_defenses`) |
+| Equipment + consumables | 61 | +6 (S50: `shimmer_cloak`, `soul_vest`, `golden_hairpin`, `skullclamp`, `parrying_sword`, `absolom`) |
+| Rulesets | 1 | — |
+| Maps | 2 | — |
+| Terrain types | 4 | — |
 
 Pinned in `src/content/loader.test.ts`; that test fails loud if the counts drift without a corresponding registry update.
 
