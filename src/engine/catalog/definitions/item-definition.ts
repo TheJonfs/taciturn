@@ -51,6 +51,17 @@ export interface AbilityRangeModifier {
   readonly tagFilter?: ReadonlyArray<DamageTag>;
 }
 
+// S51: additive delta on AoE vertical tolerance, optionally gated on the
+// ability's damage tags. Battle Dictionary widens magical AoEs by +1
+// elevation tolerance; the Wand of the Depths refit moves its dead
+// `deltaVertical: 1` (spells already have vertical: 99 targeting) onto
+// this surface so the bonus actually moves a value players can feel —
+// elevation-rich AoE casts cover more tiles. Composition is additive.
+export interface AoeVerticalToleranceModifier {
+  readonly delta: number;
+  readonly tagFilter?: ReadonlyArray<DamageTag>;
+}
+
 // Per-facing evasion delta. Steel Helm authors `{ side: -20, back: -20 }`.
 // Composition is additive; negative deltas are valid (they produce
 // hit-chance > weapon accuracy from the targeted facing, clamped at the
@@ -208,6 +219,13 @@ interface EquipmentBase {
   // ability tags. Wand of Depths' "+1 horizontal/+1 vertical on Water-
   // tagged spells" composes here. Read by `computeAbilityRange`.
   readonly abilityRangeModifiers?: ReadonlyArray<AbilityRangeModifier>;
+
+  // S51: AoE vertical-tolerance modifiers — additive deltas, optionally
+  // gated on ability tags. Battle Dictionary (book, mage off-hand) and the
+  // Wand of the Depths refit (water-tagged) both consume this surface.
+  // Composed through `modifyAoeVerticalTolerance` alongside Aether Bloom's
+  // existing passive-side contribution.
+  readonly aoeVerticalToleranceModifiers?: ReadonlyArray<AoeVerticalToleranceModifier>;
 
   // Session 29: caster-side outgoing hit-chance multipliers. Arcane Lens
   // authors `[1.10]`. Each entry contributes one handler that multiplies

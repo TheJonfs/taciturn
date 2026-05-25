@@ -5,7 +5,7 @@
 // reach comes from Math Skill's battlefield-wide targeting, not from
 // physical positioning.
 //
-// Stats (see classBaselineStats): HP 101 / MP 47 / PA 5 / MA 8 /
+// Stats (see classBaselineStats): HP 101 / MP 47 / PA 5 / MA 9 /
 // Speed 7. Movement 2 / Jump 2 — lowest tier (with Knight, Geosage,
 // Pyromancer post-S46). MP 47 is moderate; Thoughtful Pacing extends
 // sustain meaningfully on Move-heavy turns.

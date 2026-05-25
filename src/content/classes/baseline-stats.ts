@@ -83,7 +83,10 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   // Assassin (96) and Earth Mage (112) — modest. MP 47 is moderate
   // (between Knight 20 and Mages 60); Mathematician + Thoughtful
   // Pacing extends sustain. PA 5 (low; Calculator doesn't do physical
-  // damage). MA 8 (moderate; not as high as a fully-equipped Mage).
-  // Speed 7 (slow; fewer turns per battle). Per blueprint.
-  [classId('calculator'),     { maxHpBase: 101, maxMpBase: 47, pa: 5,  ma: 8,  spd: 7  }],
+  // damage). MA 9 (S51 bump 8 → 9; raises Math Skill damage / heal /
+  // CT ~12.5% per cast — early playtest read the Calculator's per-cast
+  // payoff as undersized relative to the action-economy cost of casting
+  // it). Still below a fully-equipped Mage. Speed 7 (slow; fewer turns
+  // per battle). Per blueprint + S51 tuning.
+  [classId('calculator'),     { maxHpBase: 101, maxMpBase: 47, pa: 5,  ma: 9,  spd: 7  }],
 ]);

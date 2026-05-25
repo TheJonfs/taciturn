@@ -407,6 +407,40 @@ function* abilityRangeContributor(
   }
 }
 
+// S51: modifyAoeVerticalTolerance contributor. Mirrors the abilityRange
+// contributor's tag-filter shape: each `aoeVerticalToleranceModifiers`
+// entry adds a delta to the running tolerance, optionally gated on the
+// ability's damage tags. Battle Dictionary (+1, tagFilter ['magical']) and
+// the Wand of the Depths refit (+1, tagFilter ['water']) consume this.
+// Composes alongside Aether Bloom's existing passive-side handler.
+function* aoeVerticalToleranceContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'modifyAoeVerticalTolerance'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.aoeVerticalToleranceModifiers === undefined) continue;
+    for (const mod of item.aoeVerticalToleranceModifiers) {
+      const localIndex = tieBreakIndex++;
+      const localDelta = mod.delta;
+      const localFilter = mod.tagFilter;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (localFilter !== undefined) {
+            const abilityTags = args.ability.tags ?? [];
+            const matches = localFilter.some((t: DamageTag) => abilityTags.includes(t));
+            if (!matches) return args.baseValue;
+          }
+          return args.baseValue + localDelta;
+        },
+      };
+    }
+  }
+}
+
 // modifyOutgoingHitChance contributor: each item's
 // `outgoingHitChanceMultipliers` declares multiplicative factors
 // (Arcane Lens × 1.10). Caster-side, composes after the target-side
@@ -698,6 +732,9 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   modifyStatusTickAmount: statusTickAmountContributor,
   modifyStatusApplicationStackCount: statusApplicationStackCountContributor,
   modifyAbilityRange: abilityRangeContributor,
+  // S51: equipment-driven AoE vertical-tolerance modifier (Battle
+  // Dictionary, Wand of the Depths refit).
+  modifyAoeVerticalTolerance: aoeVerticalToleranceContributor,
   modifyOutgoingHitChance: outgoingHitChanceContributor,
   modifyEvasion: evasionContributor,
   // ADR-0080 (Session 42): The Offering's swings-per-weapon multiplier.

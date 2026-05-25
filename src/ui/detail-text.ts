@@ -303,14 +303,31 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
     if (parts.length > 0) lines.push(`Evasion: ${parts.join(' · ')}`);
   }
 
-  // Ability-range modifiers (Wand of Depths +1H/+1V on water spells).
+  // Ability-range modifiers (Wand of Depths +1H on water spells). Skip
+  // zero deltas — S51's wand refit moved vertical reach off this surface
+  // onto `aoeVerticalToleranceModifiers`, so the H/V combined render
+  // would emit a meaningless "+0V" suffix.
   if (item.abilityRangeModifiers !== undefined && item.abilityRangeModifiers.length > 0) {
     for (const mod of item.abilityRangeModifiers) {
       const dh = mod.deltaHorizontal ?? 0;
       const dv = mod.deltaVertical ?? 0;
+      const parts: string[] = [];
+      if (dh !== 0) parts.push(`${dh >= 0 ? '+' : ''}${dh}H`);
+      if (dv !== 0) parts.push(`${dv >= 0 ? '+' : ''}${dv}V`);
+      if (parts.length === 0) continue;
+      const tag = mod.tagFilter?.[0] !== undefined ? `${String(mod.tagFilter[0])}-tagged` : 'all';
+      lines.push(`Range: ${parts.join(' · ')} on ${tag} casts`);
+    }
+  }
+
+  // S51: AoE vertical-tolerance modifiers (Wand of Depths refit, Battle
+  // Dictionary book). Renders alongside the range line; widens which
+  // elevation bands an AoE actually covers vs. the targeting reach above.
+  if (item.aoeVerticalToleranceModifiers !== undefined && item.aoeVerticalToleranceModifiers.length > 0) {
+    for (const mod of item.aoeVerticalToleranceModifiers) {
       const tag = mod.tagFilter?.[0] !== undefined ? `${String(mod.tagFilter[0])}-tagged` : 'all';
       lines.push(
-        `Range: ${dh >= 0 ? '+' : ''}${dh}H · ${dv >= 0 ? '+' : ''}${dv}V on ${tag} casts`,
+        `AoE elevation: ${mod.delta >= 0 ? '+' : ''}${mod.delta} on ${tag} casts`,
       );
     }
   }

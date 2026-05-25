@@ -68,7 +68,12 @@ describe('formatItemDetail', () => {
     const cat = makeCat();
     const d = formatItemDetail(wandOfDepths, cat);
     const joined = d.lines.join('\n');
-    expect(joined).toContain('+1H · +1V on water-tagged casts');
+    // S51 refit: range carries only the +1H now; the prior +1V was dead
+    // (every spell already targets at vertical: 99) so the wand moved
+    // its +1 vertical onto AoE vertical tolerance — a value players can
+    // actually feel on elevation-rich AoE casts.
+    expect(joined).toContain('+1H on water-tagged casts');
+    expect(joined).toContain('AoE elevation: +1 on water-tagged casts');
     expect(joined).toContain('100% chance to trigger');
   });
 

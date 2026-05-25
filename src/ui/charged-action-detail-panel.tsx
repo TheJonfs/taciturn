@@ -21,6 +21,7 @@ import {
   aoeFootprint,
   cardinalFromTo,
   projectChargedResolution,
+  runModifyAoeShape,
   runModifyAoeVerticalTolerance,
   tileAt,
   type Catalog,
@@ -179,8 +180,9 @@ export function ChargedActionDetailPanel(props: ChargedActionDetailPanelProps): 
 // the dispatch in use-turn-flow's `resolveAoeTiles`. Caster-anchored
 // shapes (cone, line) read direction from caster→anchor; other shapes
 // use the anchor tile directly. Returns a position list ready for
-// `setHighlightOverlay`.
-function computeChargedAoe(
+// `setHighlightOverlay`. S51: exported for regression-test coverage of
+// the `runModifyAoeShape` threading (Aether Bloom + queue-tower preview).
+export function computeChargedAoe(
   state: GameState,
   catalog: Catalog,
   charged: { readonly abilityId: import('@engine/index.ts').AbilityId; readonly casterId: import('@engine/index.ts').UnitId; readonly targets: ReadonlyArray<{ readonly kind: 'unit' | 'tile'; readonly unitId?: import('@engine/index.ts').UnitId; readonly position?: Position }> } | null,
@@ -216,6 +218,11 @@ function computeChargedAoe(
     aoe.verticalTolerance ?? ruleset.rangeDefaults.aoeVerticalTolerance;
   // Caster may be undefined (KO'd in-flight); fall back to base when the
   // hook can't compose against a present unit. Display-only path.
+  // S51: thread runModifyAoeShape (parallel to runModifyAoeVerticalTolerance
+  // already in place) so an in-flight charge with Aether Bloom equipped
+  // shows the enlarged shape in the queue-tower inspector — matching what
+  // resolveAbilityTargets actually casts. Pre-S51 the inspector painted the
+  // base shape while resolution used the modified one.
   const verticalTolerance =
     caster === undefined
       ? baseVerticalTolerance
@@ -224,15 +231,23 @@ function computeChargedAoe(
           ability,
           baseValue: baseVerticalTolerance,
         });
+  const finalShape =
+    caster === undefined
+      ? aoe.shape
+      : runModifyAoeShape(state, catalog, {
+          unit: caster,
+          ability,
+          baseShape: aoe.shape,
+        });
 
-  if ((aoe.shape.kind === 'cone' || aoe.shape.kind === 'line') && caster !== undefined) {
+  if ((finalShape.kind === 'cone' || finalShape.kind === 'line') && caster !== undefined) {
     if (caster.position.x === anchor.x && caster.position.y === anchor.y) return [];
     const sourceTile = tileAt(state.map, caster.position.x, caster.position.y, caster.position.layer);
     if (sourceTile === undefined) return [];
     const direction = cardinalFromTo(caster.position, anchor);
     const tiles = aoeFootprint({
       map: state.map,
-      shape: aoe.shape,
+      shape: finalShape,
       anchor: { x: caster.position.x, y: caster.position.y, elevation: sourceTile.elevation },
       verticalTolerance,
       direction,
@@ -244,7 +259,7 @@ function computeChargedAoe(
   if (anchorTile === undefined) return [];
   const tiles = aoeFootprint({
     map: state.map,
-    shape: aoe.shape,
+    shape: finalShape,
     anchor: { x: anchor.x, y: anchor.y, elevation: anchorTile.elevation },
     verticalTolerance,
   });
