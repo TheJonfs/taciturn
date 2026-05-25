@@ -133,11 +133,15 @@ describe('loadDefaultCatalog', () => {
     // (damage_reduction availability flipped to 'hidden' — still in
     // catalog, just hidden from the team-builder picker; abilities()
     // count unchanged.)
+    //
+    // Session 51 — universal off-hand expansion (six off-hand pieces):
+    //   - items: 61 → 67 (buckler, talisman_of_warding, talisman_of_conviction,
+    //     tome_of_power, livre_of_urgency, battle_dictionary)
     expect(cat.statusTypes()).toHaveLength(32);
     expect(cat.abilities()).toHaveLength(80);
     expect(cat.commandSets()).toHaveLength(11);
     expect(cat.classes()).toHaveLength(9);
-    expect(cat.items()).toHaveLength(61);
+    expect(cat.items()).toHaveLength(67);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

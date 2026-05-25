@@ -1,6 +1,6 @@
 // Session 51 integration tests — universal off-hand substrate +
 // equipment-driven AoE vertical-tolerance + Aether Bloom queue-tower
-// preview fix.
+// preview fix + 6 new off-hand pieces.
 //
 // Covers (Pt 1 substrate/bug-fix slice):
 //   1. New `aoeVerticalToleranceModifiers` field on EquipmentBase: a
@@ -15,6 +15,15 @@
 //      `runModifyAoeShape`, so an in-flight Fire Storm whose caster has
 //      Aether Bloom equipped previews the enlarged diamond r2 footprint
 //      (matching what resolution casts), not the base diamond r1.
+//
+// Covers (Pt 2 — 6 new off-hand pieces):
+//   4. Buckler / Talisman of Warding / Talisman of Conviction — universal
+//      off-hand pieces. Stat / resistance / evasion contributions apply
+//      to non-Knight classes (no class restriction).
+//   5. Tome of Power / Livre of Urgency / Battle Dictionary — mage-only
+//      Books (off-hand). Class restriction enforced at createInitialState;
+//      tag-gated modifier surfaces (actionSpeed, abilityRange, aoeVT)
+//      compose against magical casts.
 
 import { describe, expect, it } from 'vitest';
 import { createCatalog } from '../catalog/index.ts';
@@ -22,8 +31,15 @@ import { defaultTestRulesets } from '../catalog/test-fixtures.ts';
 import { makeKnight } from '../abilities/test-fixtures.ts';
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { flatMap } from '../map/test-fixtures.ts';
-import { runModifyAoeVerticalTolerance } from '../hooks/runners.ts';
+import {
+  runModifyAoeVerticalTolerance,
+  runModifyResistance,
+  runModifyStatQuery,
+} from '../hooks/runners.ts';
 import { computeAbilityRange } from '../abilities/range.ts';
+import { computeBaseActionSpeed } from '../ct/speed.ts';
+import { createInitialState } from '../setup/create-initial-state.ts';
+import { loadDefaultCatalog } from '../../content/index.ts';
 import { wandOfDepths } from '../../content/items/wand-of-depths.ts';
 import { fireStorm } from '../../content/abilities/fire-storm.ts';
 import { aetherBloom } from '../../content/abilities/aether-bloom.ts';
@@ -38,7 +54,13 @@ import {
   abilityId,
   bucketId,
   chargedActionId,
+  classId,
+  EMPTY_LOADOUT,
   itemId,
+  rulesetId,
+  teamId,
+  unitId,
+  type BattleConfig,
   type ChargedAction,
   type DamageTag,
 } from '../types/index.ts';
@@ -330,3 +352,206 @@ describe('S51 computeChargedAoe — modifyAoeShape threading', () => {
   });
 });
 
+// ===========================================================================
+// 4. Six new off-hand pieces — catalog load + per-piece behavior
+// ===========================================================================
+
+describe('S51 new off-hand pieces — catalog + behavior', () => {
+  it('loads all six pieces in the default catalog', () => {
+    const cat = loadDefaultCatalog();
+    expect(cat.hasItem(itemId('buckler'))).toBe(true);
+    expect(cat.hasItem(itemId('talisman_of_warding'))).toBe(true);
+    expect(cat.hasItem(itemId('talisman_of_conviction'))).toBe(true);
+    expect(cat.hasItem(itemId('tome_of_power'))).toBe(true);
+    expect(cat.hasItem(itemId('livre_of_urgency'))).toBe(true);
+    expect(cat.hasItem(itemId('battle_dictionary'))).toBe(true);
+  });
+
+  it('Buckler resistance applies on a non-Knight class wearer (universal off-hand)', () => {
+    const cat = loadDefaultCatalog();
+    const u = makeUnit({
+      id: 'u',
+      spd: 10,
+      classId: 'fire_mage',
+      equipment: {
+        leftHand: itemId('buckler'),
+        rightHand: null,
+        headgear: null,
+        armor: null,
+        accessory: null,
+      },
+    });
+    const state = makeGameState({ units: [u] });
+    const fireResist = runModifyResistance(state, cat, {
+      unit: u,
+      tag: 'fire',
+      baseValue: 0,
+    });
+    expect(fireResist).toBe(15);
+  });
+
+  it('Talisman of Warding adds +20 across the four elements (universal off-hand)', () => {
+    const cat = loadDefaultCatalog();
+    const u = makeUnit({
+      id: 'u',
+      spd: 10,
+      classId: 'water_mage',
+      equipment: {
+        leftHand: itemId('talisman_of_warding'),
+        rightHand: null,
+        headgear: null,
+        armor: null,
+        accessory: null,
+      },
+    });
+    const state = makeGameState({ units: [u] });
+    for (const tag of ['fire', 'water', 'earth', 'lightning'] as const) {
+      const r = runModifyResistance(state, cat, { unit: u, tag, baseValue: 0 });
+      expect(r).toBe(20);
+    }
+  });
+
+  it('Talisman of Conviction adds +5 Brave and +5 Faith via modifyStatQuery', () => {
+    const cat = loadDefaultCatalog();
+    const u = makeUnit({
+      id: 'u',
+      spd: 10,
+      brave: 70,
+      faith: 70,
+      classId: 'assassin',
+      equipment: {
+        leftHand: itemId('talisman_of_conviction'),
+        rightHand: null,
+        headgear: null,
+        armor: null,
+        accessory: null,
+      },
+    });
+    const state = makeGameState({ units: [u] });
+    const brave = runModifyStatQuery(state, cat, { unit: u, statName: 'brave', baseValue: 70 });
+    const faith = runModifyStatQuery(state, cat, { unit: u, statName: 'faith', baseValue: 70 });
+    expect(brave).toBe(75);
+    expect(faith).toBe(75);
+  });
+
+  it('Books (mage off-hand) reject non-mage classes via classRestrictions', () => {
+    const cat = loadDefaultCatalog();
+    const cfg: BattleConfig = {
+      battleId: 'b1',
+      rulesetId: rulesetId('default'),
+      masterSeed: 1,
+      map: flatMap(3, 3),
+      teams: [{ id: teamId('a'), name: 'A', control: 'ai' }],
+      units: [
+        {
+          id: unitId('u'),
+          name: 'U',
+          team: teamId('a'),
+          classId: classId('knight'),
+          position: { x: 0, y: 0, layer: 0 },
+          facing: 'S',
+          baseStats: {
+            maxHpBase: 100,
+            maxMpBase: 10,
+            pa: 5,
+            ma: 4,
+            spd: 9,
+            brave: 70,
+            faith: 70,
+            crit_chance: 0,
+            crit_multiplier: 1,
+          },
+          loadout: EMPTY_LOADOUT,
+          equipment: {
+            leftHand: itemId('tome_of_power'),
+            rightHand: null,
+            headgear: null,
+            armor: null,
+            accessory: null,
+          },
+        },
+      ],
+      victoryConditions: [],
+    };
+    expect(() => createInitialState(cfg, cat)).toThrow(/cannot equip/);
+  });
+
+  it('Tome of Power on a Calculator adds +1 MA and +10 MaxMP via modifyStatQuery', () => {
+    const cat = loadDefaultCatalog();
+    const u = makeUnit({
+      id: 'u',
+      spd: 7,
+      ma: 9,
+      maxMpBase: 47,
+      classId: 'calculator',
+      equipment: {
+        leftHand: itemId('tome_of_power'),
+        rightHand: null,
+        headgear: null,
+        armor: null,
+        accessory: null,
+      },
+    });
+    const state = makeGameState({ units: [u] });
+    const ma = runModifyStatQuery(state, cat, { unit: u, statName: 'ma', baseValue: 9 });
+    const maxMp = runModifyStatQuery(state, cat, { unit: u, statName: 'maxMp', baseValue: 47 });
+    expect(ma).toBe(10);
+    expect(maxMp).toBe(57);
+  });
+
+  it('Livre of Urgency contributes +5 action speed on magical casts and +1 Speed always', () => {
+    const cat = loadDefaultCatalog();
+    const u = makeUnit({
+      id: 'u',
+      spd: 9,
+      classId: 'fire_mage',
+      equipment: {
+        leftHand: itemId('livre_of_urgency'),
+        rightHand: null,
+        headgear: null,
+        armor: null,
+        accessory: null,
+      },
+    });
+    const state = makeGameState({ units: [u] });
+    const spd = runModifyStatQuery(state, cat, { unit: u, statName: 'spd', baseValue: 9 });
+    expect(spd).toBe(10);
+    // Action-speed bonus fires on a magical cast (Fire Storm tagged
+    // ['magical', 'fire']). Base actionSpeed 25, +5 → 30.
+    const speed = computeBaseActionSpeed(state, cat, u, fireStorm);
+    expect(speed).toBe(30);
+  });
+
+  it('Battle Dictionary contributes +1 PA, +1 horizontal range, and +1 AoE vertical tolerance on magical casts', () => {
+    const cat = loadDefaultCatalog();
+    const u = makeUnit({
+      id: 'u',
+      spd: 8,
+      pa: 4,
+      classId: 'lightning_mage',
+      equipment: {
+        leftHand: itemId('battle_dictionary'),
+        rightHand: null,
+        headgear: null,
+        armor: null,
+        accessory: null,
+      },
+    });
+    const state = makeGameState({ units: [u] });
+    const pa = runModifyStatQuery(state, cat, { unit: u, statName: 'pa', baseValue: 4 });
+    expect(pa).toBe(5);
+    // Fire Storm range 4 → 5 horizontal; vertical untouched (99).
+    const range = computeAbilityRange(state, cat, u.id, fireStorm);
+    expect(range.horizontal).toBe(5);
+    expect(range.vertical).toBe(99);
+    // AoE vertical tolerance: base 0 + 1 (Battle Dictionary). Fire Storm
+    // doesn't declare an explicit verticalTolerance, so the ruleset default
+    // applies before the modifier.
+    const tol = runModifyAoeVerticalTolerance(state, cat, {
+      unit: u,
+      ability: fireStorm,
+      baseValue: 1,
+    });
+    expect(tol).toBe(2);
+  });
+});

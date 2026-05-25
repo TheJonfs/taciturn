@@ -2,7 +2,9 @@ import type { ItemDefinition } from '@engine/index.ts';
 import { absolom } from './absolom.ts';
 import { arcaneLens } from './arcane-lens.ts';
 import { augmentor } from './augmentor.ts';
+import { battleDictionary } from './battle-dictionary.ts';
 import { battleGear } from './battle-gear.ts';
+import { buckler } from './buckler.ts';
 import { boltHammer } from './bolt-hammer.ts';
 import { bootsOfHaste } from './boots-of-haste.ts';
 import { capacitorRing } from './capacitor-ring.ts';
@@ -21,6 +23,7 @@ import { ironMail } from './iron-mail.ts';
 import { lightRobe } from './light-robe.ts';
 import { lightfoot } from './lightfoot.ts';
 import { ironfoot } from './ironfoot.ts';
+import { livreOfUrgency } from './livre-of-urgency.ts';
 import { longSword } from './long-sword.ts';
 import { longbow } from './longbow.ts';
 import { mantleOfProtection } from './mantle-of-protection.ts';
@@ -50,8 +53,11 @@ import { staffOfPower } from './staff-of-power.ts';
 import { steelHelm } from './steel-helm.ts';
 import { strengthRing } from './strength-ring.ts';
 import { tacticalMask } from './tactical-mask.ts';
+import { talismanOfConviction } from './talisman-of-conviction.ts';
+import { talismanOfWarding } from './talisman-of-warding.ts';
 import { theOffering } from './the-offering.ts';
 import { tintinibar } from './tintinibar.ts';
+import { tomeOfPower } from './tome-of-power.ts';
 import { travelGarb } from './travel-garb.ts';
 import { tricorn } from './tricorn.ts';
 import { wandOfDeepwood } from './wand-of-deepwood.ts';
@@ -90,10 +96,18 @@ export const items: ReadonlyArray<ItemDefinition> = [
   // Session 50 — Knight Sword weapon class (two-handed, Brave-scaled
   // variance, high WP + rider package).
   absolom,
-  // Shields (Knight-only)
+  // Shields (Knight-only via per-item classRestrictions)
   escutcheon,
   warriorsAegis,
   managuard,
+  // S51 — universal off-hand pieces (shield kind, no classRestrictions)
+  buckler,
+  talismanOfWarding,
+  talismanOfConviction,
+  // S51 — mage off-hand Books (shield kind, mage class restriction)
+  tomeOfPower,
+  livreOfUrgency,
+  battleDictionary,
   // Body armor
   battleGear,
   silveredVest,
