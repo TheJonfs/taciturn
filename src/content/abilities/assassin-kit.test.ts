@@ -173,19 +173,21 @@ describe('Brave-and-Speed / Faith-and-Speed formula variants', () => {
     });
   }
 
-  it('Brave-and-Speed = baseFraction × (cb/100) × (tb/100) × (0.9 + spd/20)', () => {
-    // 0.6 × 0.7 × 0.8 × (0.9 + 14/20) = 0.6 × 0.56 × 1.6 = 0.5376
-    expect(chance({ brave: true, speed: true }, 14)).toBeCloseTo(0.5376, 4);
+  it('Brave-and-Speed = baseFraction × (cb/100) × (tb/100) × (0.9 + spd/30)', () => {
+    // S50 retune: divisor 20 → 30.
+    // 0.6 × 0.7 × 0.8 × (0.9 + 14/30) = 0.336 × 1.3667 ≈ 0.4592
+    expect(chance({ brave: true, speed: true }, 14)).toBeCloseTo(0.336 * (0.9 + 14 / 30), 4);
   });
 
   it('Speed term scales with caster Speed', () => {
-    // Faster caster → higher chance. Speed 20 → factor 1.9.
-    expect(chance({ brave: true, speed: true }, 20)).toBeCloseTo(0.6 * 0.56 * 1.9, 4);
+    // Faster caster → higher chance. Speed 20 → factor 0.9 + 20/30 ≈ 1.567.
+    expect(chance({ brave: true, speed: true }, 20)).toBeCloseTo(0.6 * 0.56 * (0.9 + 20 / 30), 4);
   });
 
-  it('Faith-and-Speed = baseFraction × (cf/100) × (tf/100) × (0.9 + spd/20)', () => {
-    // 0.6 × 0.7 × 0.8 × 1.6 = 0.5376 (same numbers; faith 70/80 here)
-    expect(chance({ faith: true, speed: true }, 14)).toBeCloseTo(0.5376, 4);
+  it('Faith-and-Speed = baseFraction × (cf/100) × (tf/100) × (0.9 + spd/30)', () => {
+    // S50 retune: divisor 20 → 30. Same multiplicands as Brave variant
+    // (faith 70/80 here matches brave 70/80 in the brave test).
+    expect(chance({ faith: true, speed: true }, 14)).toBeCloseTo(0.336 * (0.9 + 14 / 30), 4);
   });
 
   it('backward-compat: Brave-and-MA (no speed) is unchanged', () => {

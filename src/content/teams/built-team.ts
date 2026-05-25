@@ -97,10 +97,17 @@ export function slotLevelFor(slotIndex: number): number {
 // takes Brave / Faith / level as arguments since the team builder
 // makes Brave / Faith per-unit editable and level is slot-derived.
 //
-// Level modifier (per Session 49 / ADR-0087):
-//   - HP_modified = round(maxHpBase × (1 + 0.1 × (level - 25)))
-//   - MP_modified = round(maxMpBase × (1 + 0.1 × (level - 25)))
+// Level modifier (per Session 49 / ADR-0087, S50 retune):
+//   - HP_modified = round(maxHpBase × (1 + 0.1 × sign(level − 25)))
+//   - MP_modified = round(maxMpBase × (1 + 0.1 × sign(level − 25)))
 //   - dominant_stat += 1 if level >= 27, -1 if level <= 23, else 0
+//
+// S50 capped the HP/MP shift at ±10% regardless of slot distance from
+// baseline. Pre-S50 the multiplier was linear (`1 + 0.1 × (level − 25)`),
+// so slot 3 / slot 4 (L23 / L27) lifted to ±20% HP/MP — heavier than
+// Chris's design intent. The dominant-stat shift still ratchets at the
+// ±2 boundary (so slot 3 vs slot 1 still differ on the dominant axis),
+// preserving the slot-distance signal where it matters most.
 //
 // Rounding is `Math.round` (banker's-style nearest, half-up); the v1
 // numbers all round cleanly. Floor-only would systematically bias the
@@ -127,7 +134,9 @@ export function buildBaseStats(
     );
   }
   const levelOffset = level - BASELINE_LEVEL;
-  const hpMpMultiplier = 1 + 0.1 * levelOffset;
+  // S50: cap HP/MP shift at ±10% — slot ±1 and slot ±2+ all land at the
+  // same magnitude. Dominant stat still steps at ±2 (below).
+  const hpMpMultiplier = 1 + 0.1 * Math.sign(levelOffset);
   const dominantStatDelta =
     levelOffset >= 2 ? 1 : levelOffset <= -2 ? -1 : 0;
 

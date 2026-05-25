@@ -109,12 +109,19 @@ export function computeBraveFactor(args: {
 // (Shadow Stitch, Blowdart, Undermine, Sow Doubt — per the Session 42
 // brief). Unlike Faith/Brave (symmetric caster×target), Speed is
 // caster-only: a fast Assassin lands debuffs more reliably regardless of
-// the target's Speed. Formula `0.9 + caster_speed/20` mirrors the MA
-// factor's `0.9 + ma/10` shape but with a /20 divisor (Speed values run
-// higher than MA, so a gentler slope keeps the factor in a sane band).
-// Read through `modifyStatQuery` so Haste / Speed Save / Speed Down
-// compose. At Assassin baseline Speed 14 → 0.9 + 0.7 = 1.6; at Speed 10
-// → 1.4; at Speed 20 → 1.9.
+// the target's Speed. Formula `0.9 + caster_speed/30` mirrors the MA
+// factor's `0.9 + ma/10` shape but with a /30 divisor (Speed values run
+// higher than MA and Speed Save / Haste accumulate across a battle, so
+// a gentler slope keeps the factor in a sane band even on a sped-up
+// Assassin). Read through `modifyStatQuery` so Haste / Speed Save /
+// Speed Down compose. At Assassin baseline Speed 14 → 0.9 + 0.467 ≈
+// 1.37; at Speed 10 → 1.23; at Speed 20 (sped-up Speed Save build)
+// → 1.57.
+//
+// S50 retune: divisor 20 → 30. Pre-S50 a sped-up Assassin's debuffs
+// landed too reliably (Speed 14 → 1.6; Speed-Save +3 → Speed 17 →
+// 1.75). The slimmer slope keeps the high-Speed wing playable without
+// nullifying targets' status defenses.
 export function computeSpeedFactor(args: {
   readonly state: import('../types/index.ts').GameState;
   readonly catalog: import('../catalog/index.ts').Catalog;
@@ -125,7 +132,7 @@ export function computeSpeedFactor(args: {
     statName: 'spd',
     baseValue: args.caster.baseStats.spd,
   });
-  return 0.9 + speed / 20;
+  return 0.9 + speed / 30;
 }
 
 // Default weapon-accuracy when a hitRoll spec doesn't override it. Per

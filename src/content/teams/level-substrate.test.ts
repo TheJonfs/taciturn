@@ -1,10 +1,16 @@
-// Level system substrate tests (Session 49).
+// Level system substrate tests (Session 49; S50 cap retune).
 //
 // The Level mechanic is slot-based: slot 0 → L25 baseline; outward
 // slots step ±1 per `slotLevelFor`. Effects:
-//   - HP_modified = round(maxHpBase × (1 + 0.1 × (level - 25)))
-//   - MP_modified = round(maxMpBase × (1 + 0.1 × (level - 25)))
+//   - HP_modified = round(maxHpBase × (1 + 0.1 × sign(level − 25)))
+//   - MP_modified = round(maxMpBase × (1 + 0.1 × sign(level − 25)))
 //   - dominant_stat += 1 at level ≥ 27, -1 at level ≤ 23
+//
+// S50 capped the HP/MP shift at ±10% regardless of slot distance.
+// Pre-S50 was linear (slot 3 / slot 4 hit ±20%); the cap matches
+// Chris's design intent that ±10% is the maximum HP/MP swing across
+// the level axis. The dominant-stat shift still ratchets at ±2 so slot
+// 3 vs slot 1 differ on their dominant axis.
 //
 // Covers: `slotLevelFor` mapping, `buildBaseStats` modifier application
 // across the canonical level range, and a cross-validation between
@@ -86,24 +92,41 @@ describe('buildBaseStats — level modifier', () => {
     expect(stats.pa).toBe(10);
   });
 
-  it('L23 applies -20% HP/MP and -1 to the dominant stat', () => {
+  it('L23 caps HP/MP at -10% (S50) and applies -1 to the dominant stat', () => {
     const knightStats = buildBaseStats(KNIGHT, BRAVE, FAITH, 23);
-    // 144 × 0.8 = 115.2 → 115; 20 × 0.8 = 16.
-    expect(knightStats.maxHpBase).toBe(115);
-    expect(knightStats.maxMpBase).toBe(16);
+    // 144 × 0.9 = 129.6 → 130; 20 × 0.9 = 18. Same HP/MP as L24 per
+    // the S50 cap; the L23 distinction lives on the dominant-stat axis.
+    expect(knightStats.maxHpBase).toBe(130);
+    expect(knightStats.maxMpBase).toBe(18);
     // Knight is PA-dominant — PA drops 10 → 9.
     expect(knightStats.pa).toBe(9);
     expect(knightStats.ma).toBe(4);
     expect(knightStats.spd).toBe(9);
   });
 
-  it('L27 applies +20% HP/MP and +1 to the dominant stat', () => {
+  it('L27 caps HP/MP at +10% (S50) and applies +1 to the dominant stat', () => {
     const knightStats = buildBaseStats(KNIGHT, BRAVE, FAITH, 27);
-    // 144 × 1.2 = 172.8 → 173; 20 × 1.2 = 24.
-    expect(knightStats.maxHpBase).toBe(173);
-    expect(knightStats.maxMpBase).toBe(24);
+    // 144 × 1.1 = 158.4 → 158; 20 × 1.1 = 22. Same HP/MP as L26 per
+    // the S50 cap; the L27 distinction lives on the dominant-stat axis.
+    expect(knightStats.maxHpBase).toBe(158);
+    expect(knightStats.maxMpBase).toBe(22);
     // Knight PA 10 → 11.
     expect(knightStats.pa).toBe(11);
+  });
+
+  it('beyond-±2 slots stay at the ±10% cap (HP/MP) but keep the dominant-stat shift', () => {
+    // L22 / L28 (slot 5 / slot 6 in a hypothetical 6+ team) also land
+    // at ±10% on HP/MP per the S50 cap, with the dominant-stat ±1
+    // shift unchanged from the ±2 threshold.
+    const knightL22 = buildBaseStats(KNIGHT, BRAVE, FAITH, 22);
+    expect(knightL22.maxHpBase).toBe(130);
+    expect(knightL22.maxMpBase).toBe(18);
+    expect(knightL22.pa).toBe(9);
+
+    const knightL28 = buildBaseStats(KNIGHT, BRAVE, FAITH, 28);
+    expect(knightL28.maxHpBase).toBe(158);
+    expect(knightL28.maxMpBase).toBe(22);
+    expect(knightL28.pa).toBe(11);
   });
 
   it('targets the correct dominant stat per class', () => {
