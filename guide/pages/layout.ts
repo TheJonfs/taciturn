@@ -108,8 +108,9 @@ export function specializationsHalfTitle(): string {
         What follows is the Academy&rsquo;s standing course catalogue:
         the disciplines that answer the field with the body — the Knight
         at the line, the Alchemist with her satchel, the Assassin out of
-        the shadow, the Hunter from the perch — and the four elemental
-        Mages, who answer it with their art. The spreads are arranged
+        the shadow, the Hunter from the perch — the four elemental
+        Mages, who answer it with their art, and the Calculator, who
+        answers it with her arithmetic. The spreads are arranged
         alphabetically; each is the same in form — stats imported from
         the Academy&rsquo;s records, the full repertoire annotated, the
         instructor&rsquo;s counsel at the close. Read in the order they

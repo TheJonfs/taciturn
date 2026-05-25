@@ -92,6 +92,13 @@ The lamp-light her cadets nickname it for is the engagement's quiet
 warning that the burn is taking root.`,
     tactical: 'A Pyromancer’s wand in all but the label: every fire-tagged status she applies lands with an extra stack of Burn behind it — Slow Burn, Scorch, Ignition’s passing kindlings all sharpened. On hit, the wand also bends a struck foe’s resistances — a gift to a Hydrologist ally and a tax on a Geosage one. Read the team before requisitioning.',
   },
+  parrying_sword: {
+    flavor: `A blade cut for the defence, not the cut. Lighter at the
+edge than the Long Sword and quicker at the cross-guard, the
+Parrying Sword teaches its wielder to read the incoming blow and
+turn it before it lands.`,
+    tactical: 'Lower WP than the Long Sword, paid back in evasion: a meaningful lift to front and a smaller one to the side. Same back as before — flanking still tells. The blade for the cadet who means to stand a long exchange, not to end it in one blow.',
+  },
 
   // --- Knives -------------------------------------------------------
   // A small, quick, accurate weapon class, requisitionable by any cadet
@@ -218,6 +225,19 @@ edge are the elements one tends to fear in the heat of an exchange;
 the Light Robe answers them.`,
     tactical: 'Mages only: solid HP and MP, with strong resistance to Fire and Lightning. Choose it when the opposition leans on those two.',
   },
+  shimmer_cloak: {
+    flavor: `A travelling cloak woven so its surface is never quite
+where the eye expects it. The cadet inside is harder to read, harder
+to strike, and — the Armorer notes drily — harder to find in the
+common-room afterwards.`,
+    tactical: 'Unrestricted: a real lift to HP and a flat ten points of evasion at every facing. The defensive body for the cadet who expects to be flanked as often as faced.',
+  },
+  soul_vest: {
+    flavor: `A vest with a measure of the cadet's own conviction worked
+through it. The Armorer cannot quite explain how, and is careful not
+to ask.`,
+    tactical: 'Unrestricted: a modest HP gain alongside lifts to *both* Brave and Faith. Useful on a Knight whose reactions need the firing chance, on an Alchemist running magical secondaries, or on any cadet whose kit asks both stats to compose.',
+  },
 
   // --- Headgear -----------------------------------------------------
   iron_helm: {
@@ -276,6 +296,18 @@ tempo.`,
 preferred cure for a cadet whose Reactions miss too often. A lifted
 Brave makes the body's answer surer.`,
     tactical: 'Mages only: HP, MP, and Brave — the last makes her reactions more likely to fire when the field gives the chance.',
+  },
+  golden_hairpin: {
+    flavor: `A thin gilded pin, worn through the hair where it stays
+quiet and out of the engagement. The work in it is older than the
+Academy, and the spells it touches notice.`,
+    tactical: 'Unrestricted: a touch of HP and, more importantly, every cast costs the wearer half its standing MP. The headgear for a cadet whose reserve runs short — a long-engagement mage, a Calculator paying the per-cadet Math tax, or a Knight running a magical secondary.',
+  },
+  skullclamp: {
+    flavor: `A heavy iron band that fits, with some discomfort, to the
+brow. The Armorer issues it with a brief warning about headaches and
+a longer one about what the cadet trades to wear it.`,
+    tactical: 'Unrestricted: a flat lift to *both* Physical and Magical Attack, paid for in HP and MP both. The hybrid striker’s helm — useful on any cadet whose kit hits with both arms (a Knight casting a borrowed school, a Calculator wanting a sharper MA, an Alchemist with a magical secondary). The HP and MP costs are real; treat it as a deliberate trade.',
   },
 
   // --- Accessories --------------------------------------------------

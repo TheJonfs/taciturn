@@ -35,8 +35,15 @@ function passiveFactsLine(f: AbilityFacts): string {
 function abilityBlock(ctx: SpreadContext, id: string, name: string): string {
   const f = ctx.facts.get(id);
   if (!f) return '';
+  // Convention: an ability without a hand-authored note is omitted from
+  // the spread entirely. The Calculator drops `attack` this way (per
+  // S49: the Math Skill picker is the whole story, the universal Attack
+  // is a footnote at best, and dropping it frees a "slot" on the recto
+  // for the Math Skill intro). Pre-S49 every class authored a note for
+  // every ability, so this branch was load-bearing for no one until now.
+  const note = ctx.prose.abilityNotes[id]?.full;
+  if (note === undefined) return '';
   const line = f.kind === 'active' ? activeFactsLine(f) : passiveFactsLine(f);
-  const note = ctx.prose.abilityNotes[id]?.full ?? '';
   return `
     <div class="v-e__ability">
       <p class="v-e__ability-head">
@@ -44,6 +51,27 @@ function abilityBlock(ctx: SpreadContext, id: string, name: string): string {
           class="v-e__ability-facts">${esc(line)}</span>
       </p>
       <p class="v-e__ability-note">${renderInline(note)}</p>
+    </div>`;
+}
+
+/**
+ * Optional intro block for the Active Skills column. Renders with the
+ * same chrome as an ability block so it lands as a peer of the entries
+ * beneath it — the Calculator's Math Skill is the originating consumer.
+ * Returns the empty string when the prose declares no `commandSetIntro`,
+ * so every other class is unchanged.
+ */
+function commandSetIntroBlock(ctx: SpreadContext): string {
+  const intro = ctx.prose.commandSetIntro;
+  if (intro === undefined) return '';
+  const factsLine = intro.facts ?? '';
+  return `
+    <div class="v-e__ability v-e__ability--intro">
+      <p class="v-e__ability-head">
+        <span class="v-e__ability-name">${esc(intro.name)}</span><span
+          class="v-e__ability-facts">${esc(factsLine)}</span>
+      </p>
+      <p class="v-e__ability-note">${renderInline(intro.full)}</p>
     </div>`;
 }
 
@@ -90,7 +118,7 @@ export function variantE(ctx: SpreadContext): string {
   const { prose, abilities, cls, element } = ctx;
   const margins = prose.marginalia ?? [];
 
-  const actives = join(
+  const actives = commandSetIntroBlock(ctx) + join(
     abilities.actives.map((a) => abilityBlock(ctx, a.id, a.name)),
   );
   const passives = join(

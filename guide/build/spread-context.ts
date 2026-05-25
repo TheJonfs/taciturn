@@ -18,6 +18,7 @@ import academySealSvg from '../art/academy-seal.svg?raw';
 import knightPortraitUrl from '../art/knight_1.png';
 import alchemistPortraitUrl from '../art/alchemist_1.png';
 import assassinPortraitUrl from '../art/assassin_1.png';
+import calculatorPortraitUrl from '../art/calculator_1.png';
 import hunterPortraitUrl from '../art/hunter_1.png';
 import earthMagePortraitUrl from '../art/earth_mage_1.png';
 import waterMagePortraitUrl from '../art/water_mage_1.png';
@@ -38,6 +39,7 @@ export type ElementId =
   | 'knight'
   | 'alchemist'
   | 'assassin'
+  | 'calculator'
   | 'hunter'
   | 'earth'
   | 'water'
@@ -53,12 +55,15 @@ interface ClassMeta {
 // Knight's "element" is institutional — oxblood, steel band. The
 // Alchemist's is brass / copper; the Assassin's is gunmetal / charcoal;
 // the Hunter's is deep emerald / forest — distinct from Earth Mage's
-// brighter olive-green by its bluer, darker cast. The elemental wheel's
-// four hues finish the set.
+// brighter olive-green by its bluer, darker cast. The Calculator's
+// palette is parchment-ink (cool indigo over warm vellum) — a scholar's
+// kit, distinct from the elemental hues. The elemental wheel's four
+// hues finish the set.
 const CLASS_META: Record<string, ClassMeta> = {
   knight: { element: 'knight', portraitUrl: knightPortraitUrl },
   alchemist: { element: 'alchemist', portraitUrl: alchemistPortraitUrl },
   assassin: { element: 'assassin', portraitUrl: assassinPortraitUrl },
+  calculator: { element: 'calculator', portraitUrl: calculatorPortraitUrl },
   hunter: { element: 'hunter', portraitUrl: hunterPortraitUrl },
   earth_mage: { element: 'earth', portraitUrl: earthMagePortraitUrl },
   water_mage: { element: 'water', portraitUrl: waterMagePortraitUrl },
@@ -116,7 +121,7 @@ export function spreadContextFor(id: ClassId): SpreadContext {
 }
 
 /**
- * The eight classes, in handbook order — alphabetical by display name.
+ * The nine classes, in handbook order — alphabetical by display name.
  * The order is intentionally not grouped by physical/magical or by
  * pedagogical sequence; a reader looking for a discipline finds it by
  * name and the alphabet, and any in-spread cross-references mention the
@@ -126,6 +131,7 @@ export function spreadContextFor(id: ClassId): SpreadContext {
  *   Aethurge       → lightning_mage
  *   Alchemist      → alchemist
  *   Assassin       → assassin
+ *   Calculator     → calculator
  *   Geosage        → earth_mage
  *   Hunter         → hunter
  *   Hydrologist    → water_mage
@@ -136,6 +142,7 @@ export const SPREAD_ORDER: ReadonlyArray<ClassId> = [
   classId('lightning_mage'), // Aethurge
   classId('alchemist'),
   classId('assassin'),
+  classId('calculator'),
   classId('earth_mage'),     // Geosage
   classId('hunter'),
   classId('water_mage'),     // Hydrologist

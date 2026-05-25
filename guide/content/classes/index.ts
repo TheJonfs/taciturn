@@ -6,6 +6,7 @@ import type { ClassProse } from '../prose.ts';
 import { knightProse } from './knight.ts';
 import { alchemistProse } from './alchemist.ts';
 import { assassinProse } from './assassin.ts';
+import { calculatorProse } from './calculator.ts';
 import { hunterProse } from './hunter.ts';
 import { earthMageProse } from './earth-mage.ts';
 import { waterMageProse } from './water-mage.ts';
@@ -16,6 +17,7 @@ export const classProse: Record<string, ClassProse> = {
   knight: knightProse,
   alchemist: alchemistProse,
   assassin: assassinProse,
+  calculator: calculatorProse,
   hunter: hunterProse,
   earth_mage: earthMageProse,
   water_mage: waterMageProse,

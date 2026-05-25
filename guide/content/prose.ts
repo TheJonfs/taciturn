@@ -35,6 +35,25 @@ export interface ClassProse {
   readonly brief: string;
   /** Per-ability notes, keyed by ability id (e.g. "power_attack"). */
   readonly abilityNotes: Readonly<Record<string, AbilityNote>>;
+  /**
+   * Optional: an instructor's-voice block rendered at the head of the
+   * Active Skills column, *above* the per-ability entries. For classes
+   * whose First Action is a system rather than a list — the Calculator's
+   * Math Skill is the originating case — the spread needs to explain the
+   * system itself before describing the spells it dispatches.
+   *
+   * Authored as if it were a synthetic ability block: a display name, an
+   * optional one-line facts strip, and a prose note. The template renders
+   * it with the same visual chrome as the surrounding ability blocks so
+   * it lands as the first entry the reader meets in the column.
+   */
+  readonly commandSetIntro?: {
+    readonly name: string;
+    /** Optional one-line facts strip; omit for note-only intros. */
+    readonly facts?: string;
+    /** Prose note — same density as an AbilityNote.full. Light markdown ok. */
+    readonly full: string;
+  };
   /** Specialization strategy note — a paragraph or two. Light markdown ok. */
   readonly strategy: string;
   /**

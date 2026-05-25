@@ -119,6 +119,43 @@ Read the terrain as carefully as you read your opponent. More often
 than the cadet expects, the two are the same reading.`,
   },
   {
+    key: 'standing',
+    title: 'The Cadet&rsquo;s Standing',
+    body: `Before a cadet's gear is requisitioned and before the
+engagement is called, the Academy registers each member of a team in
+the *marching order* — the sequence in which the team's cadets are
+listed for the field. This is not a courtesy. The marching order
+sets, for each cadet, her *level* in the engagement, and the level
+shapes the body she will fight with.
+
+The convention is simple. The first cadet in the order is set at the
+Academy's reference level — *level twenty-five* — and stands at her
+baseline of HP, MP, and her discipline's *dominant* stat (Physical
+Attack for the Knight, the Alchemist, the Hunter; Speed for the
+Assassin; Magical Attack for the four elemental Mages and the
+Calculator). The second cadet drops one rank to twenty-four, the
+third rises one to twenty-six; the fourth drops two to twenty-three,
+the fifth rises two to twenty-seven, and so on outward by
+alternating step.
+
+The effects come in two tiers. A single rank of remove — slot two or
+three — shifts the cadet's HP and MP by a tenth, raised at the
+higher level and lowered at the lower. Two ranks of remove — slots
+four and five — carry that same ten-percent HP and MP shift and *add*
+a point of the cadet's dominant stat besides, gained at the higher
+level and lost at the lower. The HP-and-MP shift does not compound
+further with distance; the dominant-stat shift is the cost and the
+gift the outer ranks pay for their place.
+
+The marching order is therefore a quiet design choice the team-builder
+makes for the cadet who will most reward the body she is given. A
+team whose first cadet is the discipline's anchor — the Knight at the
+line, the Calculator behind it — concedes the outer slots' HP and MP
+in exchange for that anchor's standing at her clean baseline. A team
+that arranges otherwise is asking the engagement to favour a different
+shape of cadet. Neither is wrong; both are *chosen*.`,
+  },
+  {
     key: 'equipment',
     title: 'Requisitioned Gear',
     body: `A cadet does not take the field as she is. She takes it as she

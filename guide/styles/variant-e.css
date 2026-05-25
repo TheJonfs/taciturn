@@ -87,6 +87,18 @@
   --band-label: #a7c8b3;
 }
 
+/* The Calculator's palette is parchment-ink — a cool, scholarly indigo
+   accent over a deep ink-on-vellum stat band, with a warm vellum label.
+   Reads as "library and lectern," distinct from the four elemental hues
+   and from the Aethurge's brighter purple (the indigo is darker, more
+   stable, less electric). The arithmetician's discipline gets the
+   discipline of an old manuscript. */
+.v-e--calculator {
+  --accent: #2c3a6b;
+  --band: #1e2747;
+  --band-label: #d8c79b;
+}
+
 /* Per-class portrait override: the Alchemist's source art is 848×1264
    — a slightly more vertical aspect than the other class portraits
    (1792×2400). Crop the box a touch shorter so the brief fits on the

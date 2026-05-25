@@ -56,6 +56,13 @@ function titleCase(tag: string): string {
 function rangeText(active: ActiveAbilityDefinition): string {
   const t = active.targeting;
   if (t.kind === 'self') return 'Self';
+  // Session 49: Math Skill targets every unit on the field whose chosen
+  // parameter matches the chosen value (CT / Height / Level / current HP
+  // ÷ a divisor of 3, 4, or 5, or *prime* as a special test). No tile
+  // range; no rangeMode. The picker — parameter row + value row — is the
+  // controller's whole "aim." Render that as a one-line shape; the
+  // Calculator's `commandSetIntro` carries the longer explanation.
+  if (t.kind === 'math_skill') return 'Field-wide (parameter × value)';
   const r = t.range;
   // Minimum horizontal (bows can't hit adjacent foes — Pin Down is
   // range 2–5, not range 5) is mechanically meaningful; surface it

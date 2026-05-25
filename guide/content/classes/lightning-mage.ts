@@ -89,11 +89,11 @@ between a heavy turn and a decisive one.`,
       compact: 'Support: multiplies her Magical Attack. Atop the field’s highest MA, no small thing.',
     },
     quickstep: {
-      full: `On a turn the Aethurge commits to moving, Quickstep
-returns a measure of charge at its end. The discipline's concession to
-its own fragility: she may reposition out of danger and not, for once,
-pay the full price in tempo for it.`,
-      compact: 'Refunds CT at the end of a turn she moved on. Reposition without losing the tempo.',
+      full: `On any turn the Aethurge moves — whether or not she also
+acts — Quickstep returns a measure of charge at its end. The
+discipline's concession to its own fragility: she may reposition out of
+danger and not, for once, pay the full price in tempo for it.`,
+      compact: 'Refunds CT at the end of any turn she moved on (Act or no Act). Reposition without losing the tempo.',
     },
   },
 
