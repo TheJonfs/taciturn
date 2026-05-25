@@ -1,4 +1,6 @@
-// High Ground — second S48-authored default template (Chris).
+// High Ground — second S48-authored default template (Chris); S51
+// refresh adds Tome of Power (Eldred) and Talisman of Warding (Samuel)
+// to take advantage of the new universal-off-hand opening.
 //
 // 5-unit composition that exercises the S48 5v5 unlock. Both maps
 // (River Ridge / Stonebridge) have authored 5 player-side slots; this
@@ -9,21 +11,29 @@
 //     class gets the +per-weapon-swing accessory's single-weapon
 //     payoff, plus a Hunter-native R/S/M kit (Updraft / Eagle Eye /
 //     High Jump). Focus Band defuses incoming status pressure, Battle
-//     Gear is the lightweight default armor.
+//     Gear is the lightweight default armor. S51: Fleet of Foot
+//     replaces Field Recovery for tempo over sustain.
 //   - Alchemist "Tina" with a Longbow (cross-class bow use — Hunter
 //     doesn't monopolize the bow class) + The Offering's sibling
 //     accessory, Augmentor (+1 Support-bucket capacity), to fit Field
 //     Kit / Martial Expertise / Eagle Eye on a Support-stacked
-//     toolkit-medic. Travel Garb + Lookout's Hood.
+//     toolkit-medic. Travel Garb + Lookout's Hood. S51: Movement
+//     reshuffled to Field Recovery + High Jump + Fleet of Foot +
+//     Thoughtful Pacing (Bravestrider dropped).
 //   - Aethurge "Eldred" with Staff of Power (× 1.20 MP cost / MA buff
-//     trade) + Ironfoot for the Movement-bucket headroom (4 passives
-//     fit: Quickstep + Fleet of Foot + Tidewalker + Hotfoot). Wizard's
+//     trade) + Tome of Power (S51 — +1 MA / +10 MP off-hand Book) +
+//     Ironfoot for the Movement-bucket headroom (4 passives fit:
+//     Quickstep + Fleet of Foot + Tidewalker + Hotfoot). Wizard's
 //     Robe + Pointy Hat. Fire Spells as the secondary command set.
+//     The Tome stacks an additional +1 MA on top of Staff of Power's
+//     multiplier — Eldred is the team's raw-MA spike.
 //   - Geosage "Samuel" with Magus Crown's +1 secondary-command-set
 //     capacity unlocking *two* secondary sets (Lightning Spells +
 //     Water Spells) — control plus a long-charge sustain back-up.
 //     Wand of the Deepwood + Sorcerer's Robe + Mantle of Protection
-//     for the elemental-resist + per-facing evasion package.
+//     for the elemental-resist + per-facing evasion package, plus
+//     Talisman of Warding (S51 — +20 all elemental resistance off-
+//     hand) layering another resist coat on top of Mantle's +25.
 //   - Knight "Cecil" with Bolt Hammer + Managuard (weapon + shield —
 //     no dual-wield, so basic Attack stays single-swing but the
 //     Managuard's +2 MA hybrid shield buys some magic resistance).
@@ -70,7 +80,7 @@ export const highGround: BuiltTeam = {
           [bucketId('movement')]: [
             abilityId('high_jump'),
             abilityId('bravestrider'),
-            abilityId('field_recovery'),
+            abilityId('fleet_of_foot'),
           ],
         },
       },
@@ -106,8 +116,9 @@ export const highGround: BuiltTeam = {
           ],
           [bucketId('movement')]: [
             abilityId('field_recovery'),
-            abilityId('bravestrider'),
             abilityId('high_jump'),
+            abilityId('fleet_of_foot'),
+            abilityId('thoughtful_pacing'),
           ],
         },
       },
@@ -150,7 +161,7 @@ export const highGround: BuiltTeam = {
       },
       equipment: {
         leftHand: itemId('staff_of_power'),
-        rightHand: null,
+        rightHand: itemId('tome_of_power'),
         headgear: itemId('pointy_hat'),
         armor: itemId('wizards_robe'),
         accessory: itemId('ironfoot'),
@@ -193,7 +204,7 @@ export const highGround: BuiltTeam = {
         },
       },
       equipment: {
-        leftHand: null,
+        leftHand: itemId('talisman_of_warding'),
         rightHand: itemId('wand_of_deepwood'),
         headgear: itemId('magus_crown'),
         armor: itemId('sorcerers_robe'),

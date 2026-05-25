@@ -1,4 +1,8 @@
-// Mage War — third S48-authored default template (Chris).
+// Mage War — third S48-authored default template (Chris); S51 refresh
+// fills four off-hand slots that were empty pre-S51 (Livre of Urgency
+// on Roderic, Talisman of Conviction on Bethla, Tome of Power on
+// Aldric, Battle Dictionary on Octavia). Every mage now carries an
+// off-hand piece, showcasing the new universal off-hand opening.
 //
 // The "original five classes" lineup: Knight + one of each magic school
 // (Geosage / Pyromancer / Aethurge / Hydrologist). Named after the v1
@@ -14,24 +18,32 @@
 //     class Support, Alchemy as the secondary command set.
 //   - Geosage "Roderic" — straightforward earth control. Wand of the
 //     Deepwood (actionSpeed mod on earth casts + tagged_resistance_shift
-//     proc), Dark Robe + Guard Cap, Capacitor Ring's per-tag
+//     proc) plus S51's Livre of Urgency (+1 Speed + +5 charged action
+//     speed on magical) layering more tempo onto an already-tempo-
+//     focused build. Dark Robe + Guard Cap, Capacitor Ring's per-tag
 //     resistance shifts. Water Spells as the secondary.
 //   - Pyromancer "Bethla" — Wand of Lumen's S45-followup +Earth/−Water
-//     shift, Tricorn (+Brave) to push Brave-gated apply rolls,
-//     Silvered Vest (+30 MP / +2 MA mage-hybrid armor), Diamond
-//     Bracelet for status defense. Earth Communion as a cross-class
-//     Support pickup (× 1.25 status application chance on every cast).
-//     Lightning Spells as the secondary.
+//     shift, Tricorn (+Brave) to push Brave-gated apply rolls plus S51's
+//     Talisman of Conviction (+5 Brave / +5 Faith) compounding the
+//     Brave-roll bias, Silvered Vest (+30 MP / +2 MA mage-hybrid armor),
+//     Diamond Bracelet for status defense. Earth Communion as a cross-
+//     class Support pickup (× 1.25 status application chance on every
+//     cast). Lightning Spells as the secondary.
 //   - Aethurge "Aldric" — classic Lightning glass cannon: Staff of
-//     Power's MA buff (in exchange for × 1.20 MP cost), Wizard's Robe,
-//     Pointy Hat, Rasp Pendant (10% damage-to-MP-drain on hit). Fire
-//     Spells as the secondary.
+//     Power's MA buff (in exchange for × 1.20 MP cost) plus S51's
+//     Tome of Power (+1 MA / +10 MP) stacking another MA bump and
+//     buying back the MP tax, Wizard's Robe, Pointy Hat, Rasp Pendant
+//     (10% damage-to-MP-drain on hit). Fire Spells as the secondary.
 //   - Hydrologist "Octavia" runs the team's most layered loadout:
 //     Magus Crown's +1 secondary-command-set capacity opens *two*
 //     secondary sets (Alchemy + Earth Spells), and Augmentor's +1
 //     Support-bucket capacity fits four Support passives (Flow State
 //     + Field Kit + Conductor + Earth Communion). Wand of the Depths
-//     + Sorcerer's Robe (Auto-Shell grant).
+//     + S51's Battle Dictionary (+1 PA / +1 horizontal range / +1 AoE
+//     vertical tolerance on magical) + Sorcerer's Robe (Auto-Shell
+//     grant) — the Battle Dictionary's +1 horizontal range compounds
+//     with the Wand of the Depths' existing +1 horizontal on water
+//     casts for a +2 horizontal reach on every Water Spell.
 //
 // One of every magic school + Knight, no class duplication — the team
 // can answer almost any matchup with the right cast picked from the
@@ -120,7 +132,7 @@ export const mageWar: BuiltTeam = {
         },
       },
       equipment: {
-        leftHand: null,
+        leftHand: itemId('livre_of_urgency'),
         rightHand: itemId('wand_of_deepwood'),
         headgear: itemId('guard_cap'),
         armor: itemId('dark_robe'),
@@ -158,7 +170,7 @@ export const mageWar: BuiltTeam = {
         },
       },
       equipment: {
-        leftHand: null,
+        leftHand: itemId('talisman_of_conviction'),
         rightHand: itemId('wand_of_lumen'),
         headgear: itemId('tricorn'),
         armor: itemId('silvered_vest'),
@@ -194,7 +206,7 @@ export const mageWar: BuiltTeam = {
         },
       },
       equipment: {
-        leftHand: null,
+        leftHand: itemId('tome_of_power'),
         rightHand: itemId('staff_of_power'),
         headgear: itemId('pointy_hat'),
         armor: itemId('wizards_robe'),
@@ -237,7 +249,7 @@ export const mageWar: BuiltTeam = {
         },
       },
       equipment: {
-        leftHand: null,
+        leftHand: itemId('battle_dictionary'),
         rightHand: itemId('wand_of_depths'),
         headgear: itemId('magus_crown'),
         armor: itemId('sorcerers_robe'),
