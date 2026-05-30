@@ -25,6 +25,10 @@ import { battleSkill } from '../content/command-sets/battle-skill.ts';
 import { powerAttack } from '../content/abilities/power-attack.ts';
 import { lightningStab } from '../content/abilities/lightning-stab.ts';
 import { taunt } from '../content/abilities/taunt.ts';
+import { pillar } from '../content/abilities/worldcraft/pillar.ts';
+import { hill } from '../content/abilities/worldcraft/hill.ts';
+import { valley } from '../content/abilities/worldcraft/valley.ts';
+import { barrier } from '../content/abilities/worldcraft/barrier.ts';
 import {
   formatAbilityDetail,
   formatCommandSetDetail,
@@ -152,6 +156,52 @@ describe('formatAbilityDetail', () => {
     const cat = makeCat();
     const d = formatAbilityDetail(maelstrom, cat);
     expect(d.lines.join('\n')).toContain('Knockback: 1 tiles (always)');
+  });
+
+  // S55: Worldcraft abilities had no damage/AoE spec to format, so their
+  // tooltips read as a bare "Cost · Target". Each now leads with an authored
+  // effect description (incl. the effect-queue interaction) ahead of the
+  // auto cost/target lines.
+  describe('Worldcraft tooltips', () => {
+    function worldcraftCat() {
+      return createCatalog({
+        statusTypes: [],
+        abilities: [pillar, hill, valley, barrier],
+        commandSets: [],
+        classes: [makeKnight()],
+        items: [],
+        rulesets: defaultTestRulesets,
+      });
+    }
+
+    it('leads Pillar with its effect + queue description, then cost/target', () => {
+      const d = formatAbilityDetail(pillar, worldcraftCat());
+      expect(d.title).toBe('Pillar');
+      expect(d.lines[0]).toMatch(/Raise a single tile by 4/);
+      expect(d.lines[0]).toMatch(/1 active Worldcraft effect/);
+      const joined = d.lines.join('\n');
+      expect(joined).toContain('MP 8');
+      expect(joined).toContain('Target: tile');
+    });
+
+    it('describes the Hill kernel (center +3, edges +2, corners +1)', () => {
+      const d = formatAbilityDetail(hill, worldcraftCat());
+      expect(d.lines[0]).toMatch(/3×3/);
+      expect(d.lines[0]).toContain('center +3');
+      expect(d.lines[0]).toContain('corners +1');
+    });
+
+    it('notes Valley deals fall damage', () => {
+      const d = formatAbilityDetail(valley, worldcraftCat());
+      expect(d.lines[0]).toMatch(/fall damage/i);
+    });
+
+    it('describes Barrier as a destructible line that blocks movement + sight', () => {
+      const d = formatAbilityDetail(barrier, worldcraftCat());
+      expect(d.lines[0]).toMatch(/3–5 barrier tiles/);
+      expect(d.lines[0]).toMatch(/block movement and line of sight/i);
+      expect(d.lines.join('\n')).toContain('MP 12');
+    });
   });
 });
 

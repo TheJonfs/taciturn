@@ -123,6 +123,22 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('thoughtful_pacing'), 'Restores MP equal to 2 × spaces moved at the end of each Move action.'],
 ]);
 
+// Authored lead-lines for active abilities whose mechanics don't read off
+// the auto-generated cost/target/damage lines — currently the S54 Worldcraft
+// command set, whose effect is a geometric terrain mutation (no damage/AoE
+// spec to format) plus the bounded effect-queue interaction. Prepended to the
+// detail lines in `formatActiveDetail` (S55 — the auto lines alone read as a
+// bare "Cost: MP 8 · Target: tile", which playtest found unhelpful). The auto
+// Cost/Target lines still render below, so these describe the *effect* and the
+// queue cost, not the MP/range already shown.
+const ACTIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
+  [abilityId('pillar'), 'Raise a single tile by 4 elevation. Counts as 1 active Worldcraft effect (cap 2; the oldest reverts when exceeded).'],
+  [abilityId('pit'), 'Lower a single tile by 4, dropping any unit on it for fall damage. Counts as 1 active Worldcraft effect.'],
+  [abilityId('hill'), 'Raise a 3×3 area — center +3, edges +2, corners +1. Counts as 1 active Worldcraft effect.'],
+  [abilityId('valley'), 'Lower a 3×3 area — center −3, edges −2, corners −1 — dealing fall damage to occupants. Counts as 1 active Worldcraft effect.'],
+  [abilityId('barrier'), 'Spawn a line of 3–5 barrier tiles. Barriers block movement and line of sight, persist ~5 rounds, and take damage from attacks. Counts as 1 active Worldcraft effect.'],
+]);
+
 // Tiny formatting helpers — kept inline rather than a regex zoo so the
 // output is easy to scan and edit.
 function formatRange(h: number, v: number): string {
@@ -481,6 +497,10 @@ export function formatAbilityDetail(
 
 function formatActiveDetail(ability: ActiveAbilityDefinition, catalog: Catalog): DetailContent {
   const lines: string[] = [];
+
+  // Authored effect description (Worldcraft etc.) leads, when present.
+  const authored = ACTIVE_DESCRIPTIONS.get(ability.id);
+  if (authored !== undefined) lines.push(authored);
 
   // Cost line: MP cost + action speed (charge time).
   const costParts: string[] = [];
