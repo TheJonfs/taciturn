@@ -34,6 +34,7 @@ import {
 import { TILE_SIZE } from './constants.ts';
 import { TileLayer } from './tile-layer.ts';
 import { CliffEdgeLayer } from './cliff-edge-layer.ts';
+import { BarrierLayer } from './barrier-layer.ts';
 import { ElevationLabelLayer } from './elevation-label-layer.ts';
 import { statusBadgeFromInstance, UnitSprite, type StatusBadge } from './unit-layer.ts';
 import { HighlightLayer, type HighlightKind, type KernelCell } from './highlight-layer.ts';
@@ -60,6 +61,7 @@ export class BattleRenderer {
   // neighbor sits at lower elevation. Static for the map's lifetime;
   // a future elevation-mutation ability would re-call `draw`.
   private readonly cliffEdgeLayer: CliffEdgeLayer;
+  private readonly barrierLayer: BarrierLayer;
   // Per Session 33's in-session decision (revised mid-session): a
   // numeric per-tile elevation label replaces the earlier pip-stack
   // design. Cliff edges show *that* two adjacent tiles differ in
@@ -132,6 +134,7 @@ export class BattleRenderer {
 
     this.tileLayer = new TileLayer();
     this.cliffEdgeLayer = new CliffEdgeLayer();
+    this.barrierLayer = new BarrierLayer();
     this.elevationLabelLayer = new ElevationLabelLayer();
     this.deploymentZoneLayer = new DeploymentZoneLayer();
     this.highlightLayer = new HighlightLayer();
@@ -141,6 +144,9 @@ export class BattleRenderer {
     this.world.addChild(
       this.tileLayer.container,
       this.cliffEdgeLayer.container,
+      // Barriers draw on the tile (above terrain/cliff) but under the
+      // elevation labels, highlights, and unit sprites (S55).
+      this.barrierLayer.container,
       this.elevationLabelLayer.container,
       this.deploymentZoneLayer.container,
       this.highlightLayer.container,
@@ -175,6 +181,7 @@ export class BattleRenderer {
     this.catalog = catalog;
     this.tileLayer.draw(state.map);
     this.cliffEdgeLayer.draw(state.map);
+    this.barrierLayer.draw(state.map);
     this.elevationLabelLayer.draw(state.map);
 
     this.camera = new CameraController({
@@ -358,8 +365,18 @@ export class BattleRenderer {
     // changed tiles re-paint. Instant update — no transition tween (the
     // Animator returns null for this action); animation is deferred polish.
     // Re-drawing to `newState.map` paints the batch's final terrain, which
-    // is the correct end state for an instant redraw.
-    if (actions.some((a) => a.type === 'system_terrain_change')) {
+    // is the correct end state for an instant redraw. S55: barrier spawn /
+    // expiry / destruction (system_barrier_change|damage) also mutate the
+    // map's tile-side state, so they trigger the same redraw — that's how the
+    // BarrierLayer learns a wall appeared or fell.
+    if (
+      actions.some(
+        (a) =>
+          a.type === 'system_terrain_change' ||
+          a.type === 'system_barrier_change' ||
+          a.type === 'system_barrier_damage',
+      )
+    ) {
       this.redrawStaticLayers();
     }
   }
@@ -476,6 +493,7 @@ export class BattleRenderer {
       this.tileLayer.applyTerrainTextures(map, terrainType, textures, masterSeed);
     }
     this.cliffEdgeLayer.draw(map);
+    this.barrierLayer.draw(map);
     this.elevationLabelLayer.draw(map);
     if (this.deploymentTeam !== null) {
       this.deploymentZoneLayer.draw(map, this.deploymentTeam);
