@@ -159,6 +159,24 @@ export function ActionMenu({ turnFlow, catalog, engineState, onOpenUnitDetail }:
         />
       );
 
+    case 'tile-set-target-select': {
+      // Session 55: Barrier line picker. Two-phase click-far-end UX — the
+      // hint switches once the anchor is placed. Cancel backs out one stage
+      // (extent → re-pick anchor; anchor → leave the picker).
+      const ability = catalog.getAbility(state.abilityId);
+      const label = ability.kind === 'active' ? ability.name : String(state.abilityId);
+      const hint =
+        state.anchor === null
+          ? 'Click a highlighted tile to anchor the line'
+          : 'Click a highlighted tile to set the far end (3–5 tiles)';
+      return (
+        <Panel header={`Target — ${label}`}>
+          <StatusLine>{hint}</StatusLine>
+          <CancelButton onClick={turnFlow.cancel} />
+        </Panel>
+      );
+    }
+
     case 'wait-confirm':
       return <WaitConfirm turnFlow={turnFlow} />;
 

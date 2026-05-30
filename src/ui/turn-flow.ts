@@ -158,6 +158,22 @@ export type TurnFlowState =
       readonly parameter: MathSkillParameter | null;
       readonly value: MathSkillValue | null;
     }
+  // Session 55: tile_set picker — the Worldcraft Barrier line. Two-phase
+  // click-far-end UX: the first click sets the `anchor` tile; the second
+  // click picks the far end of a straight H/V line (length 3-5 from the
+  // `tile_set` targeting spec), which the hook turns into the committed
+  // tile_set action. While `anchor` is null the picker is in its anchor
+  // phase; once set, the extent phase. `hoverTarget` drives the candidate-
+  // line preview. Cancel is two-stage (extent → re-pick anchor; anchor →
+  // leave the picker, routing like target-select).
+  | {
+      readonly kind: 'tile-set-target-select';
+      readonly commandSetId: CommandSetId | null;
+      readonly commandSetCount: number;
+      readonly abilityId: AbilityId;
+      readonly anchor: Position | null;
+      readonly hoverTarget: Position | null;
+    }
   | { readonly kind: 'animation' };
 
 export type TurnFlowEvent =
@@ -177,11 +193,11 @@ export type TurnFlowEvent =
   //   - 'throw_item' → target-select (Throw Item; the item picker
   //                     follows the target pick via `pickThrowTarget`)
   //   - undefined    → target-select (standard ability flow)
-  | { readonly kind: 'pickFreeAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' | 'math_skill' }
+  | { readonly kind: 'pickFreeAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' | 'math_skill' | 'tile_set' }
   | { readonly kind: 'pickWait' }
   // Sub-picks.
   | { readonly kind: 'pickCommandSet'; readonly commandSetId: CommandSetId }
-  | { readonly kind: 'pickAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' | 'math_skill' }
+  | { readonly kind: 'pickAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' | 'math_skill' | 'tile_set' }
   // Session 39b: Throw Item target selection. Distinct from
   // `commitTarget` because the action isn't built yet (item is
   // picked next).
@@ -228,7 +244,11 @@ export type TurnFlowEvent =
   // with a `{ kind: 'math_skill', parameter, value }` AbilityTarget
   // payload — the picker UI builds the proposal once both are non-null.
   | { readonly kind: 'pickMathSkillParameter'; readonly parameter: MathSkillParameter }
-  | { readonly kind: 'pickMathSkillValue'; readonly value: MathSkillValue };
+  | { readonly kind: 'pickMathSkillValue'; readonly value: MathSkillValue }
+  // Session 55: tile_set anchor pick (first click of the Barrier line). The
+  // far-end pick rides the existing `commitTarget` event (the hook builds the
+  // tile_set action once both ends are known), as Math Skill commits do.
+  | { readonly kind: 'pickTileSetAnchor'; readonly anchor: Position };
 
 export const INITIAL_TURN_FLOW: TurnFlowState = { kind: 'idle' };
 
@@ -384,6 +404,18 @@ export function transition(
             value: null,
           };
         }
+        // Session 55: tile_set abilities (Worldcraft Barrier) go to the
+        // anchor → extent line picker rather than target-select.
+        if (event.route === 'tile_set') {
+          return {
+            kind: 'tile-set-target-select',
+            commandSetId: state.commandSetId,
+            commandSetCount: state.commandSetCount,
+            abilityId: event.abilityId,
+            anchor: null,
+            hoverTarget: null,
+          };
+        }
         return {
           kind: 'target-select',
           commandSetId: state.commandSetId,
@@ -521,6 +553,39 @@ export function transition(
         // surface (the player chose parameter + value explicitly with
         // the matched-unit preview in front of them). Same convention
         // as the item pickers (Compound / Throw Item) per S39b.
+        return { kind: 'animation' };
+      }
+      return state;
+
+    case 'tile-set-target-select':
+      // Session 55. Two-stage cancel: an extent-phase cancel (anchor set)
+      // drops back to anchor re-pick — like move-await-confirm → move-select.
+      // An anchor-phase cancel leaves the picker, routing like target-select.
+      if (event.kind === 'cancel') {
+        if (state.anchor !== null) {
+          return { ...state, anchor: null, hoverTarget: null };
+        }
+        if (state.commandSetId === null) {
+          return state.commandSetCount > 1
+            ? { kind: 'command-set-select' }
+            : { kind: 'action-menu' };
+        }
+        return {
+          kind: 'ability-list',
+          commandSetId: state.commandSetId,
+          commandSetCount: state.commandSetCount,
+        };
+      }
+      if (event.kind === 'hoverTarget') {
+        return { ...state, hoverTarget: event.position };
+      }
+      if (event.kind === 'pickTileSetAnchor') {
+        return { ...state, anchor: event.anchor, hoverTarget: null };
+      }
+      if (event.kind === 'commitTarget') {
+        // The line-building picker is itself the confirm surface (the player
+        // placed both ends with the candidate line previewed), so bypass
+        // await-confirm — same convention as Math Skill / the item pickers.
         return { kind: 'animation' };
       }
       return state;

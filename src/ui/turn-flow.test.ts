@@ -520,3 +520,86 @@ describe('turn-flow reducer — Math Skill picker (Session 49)', () => {
     });
   });
 });
+
+describe('turn-flow reducer — tile-set (Barrier) picker (Session 55)', () => {
+  const barrier = abilityId('barrier');
+  const anchorPhase: TurnFlowState = {
+    kind: 'tile-set-target-select',
+    commandSetId: setA,
+    commandSetCount: 1,
+    abilityId: barrier,
+    anchor: null,
+    hoverTarget: null,
+  };
+
+  it('pickAbility with route=tile_set from ability-list → tile-set-target-select with null anchor', () => {
+    const s: TurnFlowState = { kind: 'ability-list', commandSetId: setA, commandSetCount: 1 };
+    expect(transition(s, { kind: 'pickAbility', abilityId: barrier, route: 'tile_set' })).toEqual({
+      kind: 'tile-set-target-select',
+      commandSetId: setA,
+      commandSetCount: 1,
+      abilityId: barrier,
+      anchor: null,
+      hoverTarget: null,
+    });
+  });
+
+  it('pickTileSetAnchor sets the anchor and clears hover (anchor → extent phase)', () => {
+    const anchor = { x: 2, y: 3, layer: 0 };
+    expect(transition({ ...anchorPhase, hoverTarget: { x: 1, y: 1, layer: 0 } }, { kind: 'pickTileSetAnchor', anchor })).toEqual({
+      ...anchorPhase,
+      anchor,
+      hoverTarget: null,
+    });
+  });
+
+  it('hoverTarget updates the preview tile in both phases', () => {
+    const hover = { x: 4, y: 3, layer: 0 };
+    expect(transition(anchorPhase, { kind: 'hoverTarget', position: hover })).toEqual({
+      ...anchorPhase,
+      hoverTarget: hover,
+    });
+  });
+
+  it('commitTarget transitions to animation (picker is the implicit confirm surface)', () => {
+    const extentPhase: TurnFlowState = { ...anchorPhase, anchor: { x: 2, y: 3, layer: 0 } };
+    const action: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: 'u1' as never,
+      payload: {
+        abilityId: barrier,
+        target: { kind: 'tile_set', positions: [{ x: 2, y: 3, layer: 0 }, { x: 3, y: 3, layer: 0 }, { x: 4, y: 3, layer: 0 }] },
+      },
+    };
+    expect(transition(extentPhase, { kind: 'commitTarget', action, confirmStep: true })).toEqual({ kind: 'animation' });
+  });
+
+  it('cancel in extent phase drops back to anchor re-pick (clears anchor)', () => {
+    const extentPhase: TurnFlowState = { ...anchorPhase, anchor: { x: 2, y: 3, layer: 0 }, hoverTarget: { x: 4, y: 3, layer: 0 } };
+    expect(transition(extentPhase, { kind: 'cancel' })).toEqual(anchorPhase);
+  });
+
+  it('cancel in anchor phase returns to ability-list when commandSetId is set', () => {
+    expect(transition(anchorPhase, { kind: 'cancel' })).toEqual({
+      kind: 'ability-list',
+      commandSetId: setA,
+      commandSetCount: 1,
+    });
+  });
+
+  it('cancel in anchor phase falls back to action-menu for a single-entry free-ability picker', () => {
+    const freeAnchor: TurnFlowState = { ...anchorPhase, commandSetId: null, commandSetCount: 0 };
+    expect(transition(freeAnchor, { kind: 'cancel' })).toEqual({ kind: 'action-menu' });
+  });
+
+  it('shouldDeferToConfirm: false for tile_set targets even when confirmStep=confirm', () => {
+    const action: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: 'u1' as never,
+      payload: { abilityId: barrier, target: { kind: 'tile_set', positions: [{ x: 0, y: 0, layer: 0 }] } },
+    };
+    expect(shouldDeferToConfirm(action, 'confirm')).toBe(false);
+  });
+});

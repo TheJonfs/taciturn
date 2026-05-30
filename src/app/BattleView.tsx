@@ -509,6 +509,7 @@ function BattleViewInner({
         kind === 'command-set-select' ||
         kind === 'ability-list' ||
         kind === 'target-select' ||
+        kind === 'tile-set-target-select' ||
         kind === 'await-confirm' ||
         kind === 'wait-confirm'
       ) {

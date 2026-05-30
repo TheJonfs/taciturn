@@ -65,13 +65,16 @@ const THROW_ITEM_ABILITY_ID = abilityId('throw_item');
 export function abilityRoute(
   abilityIdValue: AbilityId,
   catalog?: Catalog,
-): 'compound' | 'throw_item' | 'math_skill' | undefined {
+): 'compound' | 'throw_item' | 'math_skill' | 'tile_set' | undefined {
   if (abilityIdValue === COMPOUND_ABILITY_ID) return 'compound';
   if (abilityIdValue === THROW_ITEM_ABILITY_ID) return 'throw_item';
   if (catalog !== undefined && catalog.hasAbility(abilityIdValue)) {
     const ability = catalog.getAbility(abilityIdValue);
-    if (ability.kind === 'active' && ability.targeting.kind === 'math_skill') {
-      return 'math_skill';
+    if (ability.kind === 'active') {
+      // Session 49: Math Skill → parameter/value picker. Session 55:
+      // tile_set (Worldcraft Barrier) → anchor → extent line picker.
+      if (ability.targeting.kind === 'math_skill') return 'math_skill';
+      if (ability.targeting.kind === 'tile_set') return 'tile_set';
     }
   }
   return undefined;
@@ -97,13 +100,20 @@ import { composeForecast, type Forecast } from './forecast-compose.ts';
 // transitions straight to animation without await-confirm; this helper
 // keeps the submit path aligned with that, otherwise the action is
 // dropped and the cast vanishes (S50 bug fix).
+//
+// Session 55: tile_set (Worldcraft Barrier) submits directly for the same
+// reason — its tile-set-target-select picker (anchor + previewed line) is the
+// confirm surface, and that FSM branch also transitions straight to animation.
+// Without this, a `confirmStep: 'confirm'` setting would dispatch commitTarget
+// but never call uiController.submit — the same drop the S50 fix addressed.
 export function shouldDeferToConfirm(
   action: ProposedAction,
   confirmStep: ConfirmStepPreference,
 ): boolean {
   if (
     action.type === 'use_ability' &&
-    action.payload.target.kind === 'math_skill'
+    (action.payload.target.kind === 'math_skill' ||
+      action.payload.target.kind === 'tile_set')
   ) {
     return false;
   }
@@ -382,6 +392,30 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     return computeAoeFootprint(state, catalog, activeUnit, ability, flowState.hoverTarget);
   }, [flowState, state, activeUnit, catalog]);
 
+  // Session 55: tile_set (Barrier) targeting candidates. Anchor phase exposes
+  // the valid anchor tiles; extent phase exposes the valid far-end → line map
+  // (keyed by far-end position key) for the highlight, hover preview, and
+  // click commit. Null outside the tile-set picker.
+  const tileSetTargeting = useMemo<
+    | { readonly phase: 'anchor'; readonly anchors: ReadonlyArray<Position>; readonly lines: ReadonlyMap<string, Position[]> }
+    | { readonly phase: 'extent'; readonly anchors: ReadonlyArray<Position>; readonly lines: ReadonlyMap<string, Position[]> }
+    | null
+  >(() => {
+    if (flowState.kind !== 'tile-set-target-select') return null;
+    if (state === null || activeUnit === null) return null;
+    if (actsAvailable <= 0) return null;
+    const ability = catalog.getAbility(flowState.abilityId);
+    if (ability.kind !== 'active' || ability.targeting.kind !== 'tile_set') return null;
+    if (flowState.anchor === null) {
+      return { phase: 'anchor', anchors: validTileSetAnchors(state, catalog, activeUnit, ability), lines: new Map() };
+    }
+    return {
+      phase: 'extent',
+      anchors: [],
+      lines: validTileSetLinesFrom(state, catalog, activeUnit, ability, flowState.anchor),
+    };
+  }, [flowState, state, activeUnit, actsAvailable, catalog]);
+
   // ===== Renderer side effects: highlights =====
 
   useEffect(() => {
@@ -412,10 +446,28 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       } else {
         renderer.setHighlights([], 'none');
       }
+    } else if (flowState.kind === 'tile-set-target-select') {
+      // Session 55: Barrier line picker. Anchor phase paints the tiles a line
+      // can start from; extent phase paints the anchor + every valid far-end
+      // (the line itself previews via the overlay channel on hover). 'attack'
+      // tint — the generic "selecting tiles for an ability" red (Barrier is
+      // neither a heal nor a damage cast, but red reads as the active aim).
+      if (tileSetTargeting === null) {
+        renderer.setHighlights([], 'none');
+      } else if (tileSetTargeting.phase === 'anchor') {
+        renderer.setHighlights(tileSetTargeting.anchors, 'attack');
+      } else {
+        const farEnds: Position[] = [];
+        for (const line of tileSetTargeting.lines.values()) {
+          farEnds.push(line[line.length - 1]!);
+        }
+        const anchor = flowState.anchor;
+        renderer.setHighlights(anchor !== null ? [anchor, ...farEnds] : farEnds, 'attack');
+      }
     } else {
       renderer.setHighlights([], 'none');
     }
-  }, [renderer, flowState, legalMoveDestinations, legalTargetsState, catalog, state]);
+  }, [renderer, flowState, legalMoveDestinations, legalTargetsState, tileSetTargeting, catalog, state]);
 
   // Overlay channel: AoE preview during target-select, single-tile move
   // hover during move-select, locked-destination highlight during move-
@@ -443,12 +495,24 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       renderer.setHighlightOverlay([flowState.destination], 'aoe');
       return;
     }
+    if (flowState.kind === 'tile-set-target-select') {
+      // Session 55: in the extent phase, preview the full candidate line the
+      // hovered far-end would commit (gold overlay, the same idiom as AoE
+      // preview). Nothing in the anchor phase — the per-tile anchor highlight
+      // already shows where a line can start.
+      const line =
+        tileSetTargeting?.phase === 'extent' && flowState.hoverTarget !== null
+          ? tileSetTargeting.lines.get(positionKey(flowState.hoverTarget))
+          : undefined;
+      renderer.setHighlightOverlay(line ?? [], line !== undefined ? 'aoe' : 'none');
+      return;
+    }
     if (aoePreviewPositions.length === 0) {
       renderer.setHighlightOverlay([], 'none');
       return;
     }
     renderer.setHighlightOverlay(aoePreviewPositions, 'aoe');
-  }, [renderer, flowState, aoePreviewPositions, legalMoveDestinations]);
+  }, [renderer, flowState, aoePreviewPositions, tileSetTargeting, legalMoveDestinations]);
 
   // ===== Renderer side effects: tile click =====
 
@@ -586,11 +650,46 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
         submitTargetedActionInternal(action);
         return;
       }
+
+      if (flowState.kind === 'tile-set-target-select') {
+        const ability = catalog.getAbility(flowState.abilityId);
+        if (ability.kind !== 'active' || ability.targeting.kind !== 'tile_set') return;
+        if (flowState.anchor === null) {
+          // Anchor phase: only a tile a barrier line can start from is a valid
+          // first click. Anything else cancels out (matches target-select's
+          // click-outside-the-highlight behavior).
+          const validAnchor =
+            tileSetTargeting?.phase === 'anchor' &&
+            tileSetTargeting.anchors.some((a) => samePosition(a, pos));
+          if (!validAnchor) {
+            dispatch({ kind: 'cancel' });
+            return;
+          }
+          dispatch({ kind: 'pickTileSetAnchor', anchor: pos });
+          return;
+        }
+        // Extent phase: a valid far-end commits the line; any other click
+        // cancels back to anchor re-pick (the two-stage cancel clears the
+        // anchor) so the player can re-aim without leaving the picker.
+        const line =
+          tileSetTargeting?.phase === 'extent'
+            ? tileSetTargeting.lines.get(positionKey(pos))
+            : undefined;
+        if (line !== undefined) {
+          const action = tileSetAction(activeUnit.id, ability.id, line);
+          if (canCommitAction(state, catalog, activeUnit, action)) {
+            submitTargetedActionInternal(action);
+            return;
+          }
+        }
+        dispatch({ kind: 'cancel' });
+        return;
+      }
     };
     renderer.setOnTileClick(handler);
     return () => renderer.setOnTileClick(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renderer, flowState, state, activeUnit, legalMoveDestinations, catalog, confirmStep, onInspectUnit]);
+  }, [renderer, flowState, state, activeUnit, legalMoveDestinations, tileSetTargeting, catalog, confirmStep, onInspectUnit]);
 
   // ===== Renderer side effects: tile hover =====
 
@@ -610,7 +709,9 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     // event when in target-select / move-select.
     const handler = (pos: Position | null): void => {
       setCursorTile(pos);
-      if (flowState.kind === 'target-select') {
+      if (flowState.kind === 'target-select' || flowState.kind === 'tile-set-target-select') {
+        // Session 55: tile-set extent phase reuses `hoverTarget` to drive the
+        // candidate-line preview overlay.
         dispatch({ kind: 'hoverTarget', position: pos });
       } else if (flowState.kind === 'move-select') {
         dispatch({ kind: 'hoverMove', position: pos });
@@ -1077,5 +1178,123 @@ function buildAction(
     actorId,
     payload: { abilityId: ability.id, target: { kind: 'tile', position: pos } },
   };
+}
+
+// =====================
+// Session 55: tile_set (Worldcraft Barrier) line targeting
+// =====================
+
+// The straight horizontal/vertical line from `anchor` to `far`, inclusive,
+// when the two are axis-aligned and the run length is within
+// [minLength, maxLength]; null otherwise. Geometry only — the engine's
+// per-tile range / unoccupied / barrier-free checks are applied separately
+// via validateAction (the authoritative gate). Exported for unit testing.
+export function tileSetLine(
+  anchor: Position,
+  far: Position,
+  minLength: number,
+  maxLength: number,
+): Position[] | null {
+  if (anchor.layer !== far.layer) return null;
+  const dx = far.x - anchor.x;
+  const dy = far.y - anchor.y;
+  if (dx !== 0 && dy !== 0) return null; // not axis-aligned
+  const len = Math.max(Math.abs(dx), Math.abs(dy)) + 1;
+  if (len < minLength || len > maxLength) return null;
+  const sx = Math.sign(dx);
+  const sy = Math.sign(dy);
+  const out: Position[] = [];
+  for (let i = 0; i < len; i++) {
+    out.push({ x: anchor.x + sx * i, y: anchor.y + sy * i, layer: anchor.layer });
+  }
+  return out;
+}
+
+function tileSetAction(
+  actorId: UnitId,
+  abilityIdValue: AbilityId,
+  positions: ReadonlyArray<Position>,
+): ProposedAction {
+  return {
+    type: 'use_ability',
+    source: 'player',
+    actorId,
+    payload: { abilityId: abilityIdValue, target: { kind: 'tile_set', positions } },
+  };
+}
+
+// Every valid Barrier line that starts at `anchor` — one per (direction,
+// length) combination that passes full engine validation. Keyed by the
+// far-end position key for O(1) hit-testing on click/hover; the value is the
+// full line, so preview and commit reuse the exact tiles validateAction
+// accepted. Exported for testing.
+export function validTileSetLinesFrom(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  ability: ActiveAbilityDefinition,
+  anchor: Position,
+): Map<string, Position[]> {
+  const out = new Map<string, Position[]>();
+  if (ability.targeting.kind !== 'tile_set') return out;
+  const { minLength, maxLength } = ability.targeting;
+  const dirs = [
+    { dx: 1, dy: 0 },
+    { dx: -1, dy: 0 },
+    { dx: 0, dy: 1 },
+    { dx: 0, dy: -1 },
+  ];
+  for (const dir of dirs) {
+    for (let len = minLength; len <= maxLength; len++) {
+      const far: Position = {
+        x: anchor.x + dir.dx * (len - 1),
+        y: anchor.y + dir.dy * (len - 1),
+        layer: anchor.layer,
+      };
+      const line = tileSetLine(anchor, far, minLength, maxLength);
+      if (line === null) continue;
+      // Skip lines that run off the map before probing the engine: the
+      // tile_set validation reads tiles via `tileAt`, which throws (rather
+      // than returning invalid) for out-of-bounds coords. The real picker
+      // only ever sees on-map clicks, but this enumerator generates candidate
+      // far-ends that can overshoot the edge.
+      if (line.some((p) => p.x < 0 || p.y < 0 || p.x >= state.map.width || p.y >= state.map.height)) {
+        continue;
+      }
+      const action = tileSetAction(actor.id, ability.id, line);
+      if (!validateAction(state, action, catalog).valid) continue;
+      out.set(positionKey(far), line);
+    }
+  }
+  return out;
+}
+
+// Tiles within the ability's range from which at least one valid Barrier line
+// can be drawn — the anchor-phase highlight set. A tile that's occupied,
+// already has a barrier, or has no room for a 3-tile run yields no lines and
+// is omitted (so the player can only anchor where a barrier can actually go).
+// Exported for testing.
+export function validTileSetAnchors(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  ability: ActiveAbilityDefinition,
+): Position[] {
+  if (ability.targeting.kind !== 'tile_set') return [];
+  const range = computeAbilityRange(state, catalog, actor.id, ability).horizontal;
+  const anchors: Position[] = [];
+  for (let dy = -range; dy <= range; dy++) {
+    for (let dx = -range; dx <= range; dx++) {
+      const x = actor.position.x + dx;
+      const y = actor.position.y + dy;
+      if (x < 0 || y < 0 || x >= state.map.width || y >= state.map.height) continue;
+      const anchor: Position = { x, y, layer: 0 };
+      if (tileAt(state.map, x, y, 0) === undefined) continue;
+      if (validTileSetLinesFrom(state, catalog, actor, ability, anchor).size > 0) {
+        anchors.push(anchor);
+      }
+    }
+  }
+  return anchors;
 }
 
