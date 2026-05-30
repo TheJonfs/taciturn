@@ -36,7 +36,7 @@ import { TileLayer } from './tile-layer.ts';
 import { CliffEdgeLayer } from './cliff-edge-layer.ts';
 import { ElevationLabelLayer } from './elevation-label-layer.ts';
 import { statusBadgeFromInstance, UnitSprite, type StatusBadge } from './unit-layer.ts';
-import { HighlightLayer, type HighlightKind } from './highlight-layer.ts';
+import { HighlightLayer, type HighlightKind, type KernelCell } from './highlight-layer.ts';
 import { DeploymentZoneLayer } from './deployment-zone-layer.ts';
 import {
   DeploymentFacingLayer,
@@ -396,6 +396,13 @@ export class BattleRenderer {
   // `kind: 'none'` or an empty array to clear.
   setHighlightOverlay(positions: ReadonlyArray<Position>, kind: HighlightKind): void {
     this.highlightLayer.setOverlay(positions, kind);
+  }
+
+  // Session 55: replace the Worldcraft elevation-kernel preview (Hill/Valley
+  // 3×3 + Pillar/Pit single tile) — per-tile tint by delta magnitude + a
+  // numeric +/− label. Pass an empty array to clear.
+  setKernelOverlay(cells: ReadonlyArray<KernelCell>): void {
+    this.highlightLayer.setKernelOverlay(cells);
   }
 
   // Halt the animator while paused. The Pixi ticker keeps running (so

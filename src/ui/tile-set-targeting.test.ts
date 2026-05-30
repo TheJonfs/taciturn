@@ -10,12 +10,20 @@ import { abilityId, validateAction, type BattleMap, type Unit } from '@engine/in
 import { loadDefaultCatalog } from '../content/index.ts';
 import { makeGameState, makeUnit, activeTurnFor } from '../engine/ct/test-fixtures.ts';
 import { mapWith } from '../engine/map/test-fixtures.ts';
-import { tileSetLine, validTileSetLinesFrom, validTileSetAnchors } from './use-turn-flow.ts';
+import { tileSetLine, validTileSetLinesFrom, validTileSetAnchors, elevationKernelCells } from './use-turn-flow.ts';
 
 const catalog = loadDefaultCatalog();
 const barrierDef = catalog.getAbility(abilityId('barrier'));
 if (barrierDef.kind !== 'active') throw new Error('barrier ability must be active');
 const barrierAbility = barrierDef;
+
+function deltasOf(id: string): ReadonlyArray<{ dx: number; dy: number; delta: number }> {
+  const def = catalog.getAbility(abilityId(id));
+  if (def.kind !== 'active' || def.effects.worldcraft?.kind !== 'elevation') {
+    throw new Error(`${id} is not an elevation Worldcraft ability`);
+  }
+  return def.effects.worldcraft.deltas;
+}
 
 function landMap(width: number, height: number, elevation = 4): BattleMap {
   const tiles = [];
@@ -93,6 +101,34 @@ describe('validTileSetLinesFrom — engine-valid lines from an anchor', () => {
     for (const line of lines.values()) {
       expect(line.some((p) => p.x === 6 && p.y === 4)).toBe(false);
     }
+  });
+});
+
+describe('elevationKernelCells — Hill/Valley/Pillar hover preview', () => {
+  it('Hill yields the full 3×3 kernel (center +3, edges +2, corners +1) when in bounds', () => {
+    const cells = elevationKernelCells(12, 12, deltasOf('hill'), { x: 5, y: 5, layer: 0 });
+    expect(cells).toHaveLength(9);
+    const byPos = new Map(cells.map((c) => [`${c.position.x},${c.position.y}`, c.delta]));
+    expect(byPos.get('5,5')).toBe(3); // center
+    expect(byPos.get('5,4')).toBe(2); // edge
+    expect(byPos.get('4,4')).toBe(1); // corner
+  });
+
+  it('Valley yields the negated kernel', () => {
+    const cells = elevationKernelCells(12, 12, deltasOf('valley'), { x: 5, y: 5, layer: 0 });
+    const byPos = new Map(cells.map((c) => [`${c.position.x},${c.position.y}`, c.delta]));
+    expect(byPos.get('5,5')).toBe(-3);
+    expect(byPos.get('4,4')).toBe(-1);
+  });
+
+  it('Pillar yields a single +4 cell (post-S55 tune)', () => {
+    const cells = elevationKernelCells(12, 12, deltasOf('pillar'), { x: 5, y: 5, layer: 0 });
+    expect(cells).toEqual([{ position: { x: 5, y: 5, layer: 0 }, delta: 4 }]);
+  });
+
+  it('drops kernel offsets that fall off the map edge (corner anchor)', () => {
+    const cells = elevationKernelCells(12, 12, deltasOf('hill'), { x: 0, y: 0, layer: 0 });
+    expect(cells).toHaveLength(4); // anchor + east + south + SE
   });
 });
 

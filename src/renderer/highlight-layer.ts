@@ -15,7 +15,7 @@
 // of richer overlays (animated outlines, gradient fills) is a polish-
 // pass concern.
 
-import { Container, Graphics } from 'pixi.js';
+import { Container, Graphics, Text } from 'pixi.js';
 import type { Position } from '@engine/index.ts';
 import {
   HIGHLIGHT_ALPHA,
@@ -29,17 +29,33 @@ import {
 
 export type HighlightKind = 'move' | 'attack' | 'heal' | 'aoe' | 'none';
 
+// Session 55: one tile of a Worldcraft elevation-kernel preview — its
+// position and the per-tile elevation delta the cast would apply (+ raises,
+// − lowers). Drives the Hill/Valley (and Pillar/Pit) hover preview.
+export interface KernelCell {
+  readonly position: Position;
+  readonly delta: number;
+}
+
 export class HighlightLayer {
   readonly container: Container;
   private readonly baseGfx: Graphics;
   private readonly overlayGfx: Graphics;
+  // Session 55: Worldcraft kernel-preview channel — per-tile tint (by delta
+  // magnitude) plus a numeric label. Its own Graphics + Text container sit
+  // above the overlay so the +3/−2 labels read on top of everything.
+  private readonly kernelGfx: Graphics;
+  private readonly kernelText: Container;
 
   constructor() {
     this.container = new Container();
     this.container.label = 'highlights';
     this.baseGfx = new Graphics();
     this.overlayGfx = new Graphics();
-    this.container.addChild(this.baseGfx, this.overlayGfx);
+    this.kernelGfx = new Graphics();
+    this.kernelText = new Container();
+    this.kernelText.label = 'kernel-labels';
+    this.container.addChild(this.baseGfx, this.overlayGfx, this.kernelGfx, this.kernelText);
   }
 
   // Replace the base highlight set. Pass `kind: 'none'` or an empty
@@ -55,10 +71,54 @@ export class HighlightLayer {
     drawHighlights(this.overlayGfx, positions, kind, HIGHLIGHT_OVERLAY_ALPHA);
   }
 
+  // Session 55: replace the Worldcraft kernel preview. Each cell is tinted by
+  // its delta magnitude (raise → green, lower → attack-red) with a numeric
+  // overlay (+3 / −2 / …) at the tile centre. Pass an empty array to clear.
+  setKernelOverlay(cells: ReadonlyArray<KernelCell>): void {
+    this.kernelGfx.clear();
+    for (const child of [...this.kernelText.children]) {
+      this.kernelText.removeChild(child);
+      child.destroy();
+    }
+    const size = TILE_SIZE - TILE_INSET;
+    for (const { position: p, delta } of cells) {
+      if (delta === 0) continue;
+      const px = p.x * TILE_SIZE + TILE_INSET / 2;
+      const py = p.y * TILE_SIZE + TILE_INSET / 2;
+      const color = delta > 0 ? HIGHLIGHT_COLORS.heal : HIGHLIGHT_COLORS.attack;
+      // Alpha scales with magnitude so the center (±3/±4) reads stronger than
+      // the corners (±1) — the kernel's "shape" is legible at a glance.
+      const alpha = Math.min(HIGHLIGHT_OVERLAY_ALPHA, 0.18 + 0.12 * Math.abs(delta));
+      this.kernelGfx.rect(px, py, size, size);
+      this.kernelGfx.fill({ color, alpha });
+      this.kernelGfx.stroke({ color, alpha: HIGHLIGHT_STROKE_ALPHA, width: HIGHLIGHT_STROKE_WIDTH });
+      this.kernelText.addChild(buildKernelLabel(`${delta > 0 ? '+' : '−'}${Math.abs(delta)}`, px, py, size));
+    }
+  }
+
   clear(): void {
     this.baseGfx.clear();
     this.overlayGfx.clear();
+    this.setKernelOverlay([]);
   }
+}
+
+function buildKernelLabel(label: string, px: number, py: number, size: number): Text {
+  const text = new Text({
+    text: label,
+    style: {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: Math.round(size * 0.4),
+      fontWeight: 'bold',
+      fill: 0xffffff,
+      stroke: { color: 0x000000, width: 3, join: 'round' },
+      align: 'center',
+    },
+  });
+  text.anchor.set(0.5);
+  text.x = px + size / 2;
+  text.y = py + size / 2;
+  return text;
 }
 
 function drawHighlights(

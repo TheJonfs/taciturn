@@ -392,6 +392,23 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     return computeAoeFootprint(state, catalog, activeUnit, ability, flowState.hoverTarget);
   }, [flowState, state, activeUnit, catalog]);
 
+  // Session 55: Worldcraft elevation-kernel preview (Pillar/Pit single tile,
+  // Hill/Valley 3×3) for the hovered target tile. Returns the authored per-
+  // tile deltas for in-bounds kernel offsets — a "what this ability does to
+  // the area" preview (off-map offsets are dropped; the empty-cast guard
+  // still rejects an all-no-op cast at commit). Empty outside an elevation
+  // Worldcraft cast.
+  const worldcraftKernelPreview = useMemo<ReadonlyArray<{ position: Position; delta: number }>>(() => {
+    if (flowState.kind !== 'target-select') return [];
+    if (flowState.hoverTarget === null) return [];
+    if (state === null || activeUnit === null) return [];
+    const ability = catalog.getAbility(flowState.abilityId);
+    if (ability.kind !== 'active') return [];
+    const wc = ability.effects.worldcraft;
+    if (wc === undefined || wc.kind !== 'elevation') return [];
+    return elevationKernelCells(state.map.width, state.map.height, wc.deltas, flowState.hoverTarget);
+  }, [flowState, state, activeUnit, catalog]);
+
   // Session 55: tile_set (Barrier) targeting candidates. Anchor phase exposes
   // the valid anchor tiles; extent phase exposes the valid far-end → line map
   // (keyed by far-end position key) for the highlight, hover preview, and
@@ -475,6 +492,15 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
   // ("preview overlay on top of the legal-target set") is the same.
   useEffect(() => {
     if (renderer === null) return;
+    // Session 55: the Worldcraft elevation-kernel preview owns its own channel
+    // (per-tile tint + numeric label). Drawing it (or clearing it, when empty)
+    // first; when it's active it replaces the plain single-tile overlay an
+    // elevation cast would otherwise paint.
+    renderer.setKernelOverlay(worldcraftKernelPreview);
+    if (worldcraftKernelPreview.length > 0) {
+      renderer.setHighlightOverlay([], 'none');
+      return;
+    }
     if (flowState.kind === 'move-select') {
       if (flowState.hoverTarget !== null) {
         // Only show the hover if it's on a legal destination — clicking
@@ -512,7 +538,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       return;
     }
     renderer.setHighlightOverlay(aoePreviewPositions, 'aoe');
-  }, [renderer, flowState, aoePreviewPositions, tileSetTargeting, legalMoveDestinations]);
+  }, [renderer, flowState, aoePreviewPositions, worldcraftKernelPreview, tileSetTargeting, legalMoveDestinations]);
 
   // ===== Renderer side effects: tile click =====
 
@@ -1178,6 +1204,26 @@ function buildAction(
     actorId,
     payload: { abilityId: ability.id, target: { kind: 'tile', position: pos } },
   };
+}
+
+// Session 55: the in-bounds cells of a Worldcraft elevation kernel anchored
+// at `anchor` — the per-tile authored delta the cast would apply, for the
+// hover preview (Pillar/Pit single tile; Hill/Valley 3×3). Off-map offsets
+// are dropped. Exported for testing.
+export function elevationKernelCells(
+  mapWidth: number,
+  mapHeight: number,
+  deltas: ReadonlyArray<{ readonly dx: number; readonly dy: number; readonly delta: number }>,
+  anchor: Position,
+): { position: Position; delta: number }[] {
+  const cells: { position: Position; delta: number }[] = [];
+  for (const d of deltas) {
+    const x = anchor.x + d.dx;
+    const y = anchor.y + d.dy;
+    if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight) continue;
+    cells.push({ position: { x, y, layer: anchor.layer }, delta: d.delta });
+  }
+  return cells;
 }
 
 // =====================
