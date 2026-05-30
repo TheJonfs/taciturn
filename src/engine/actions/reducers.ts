@@ -109,6 +109,7 @@ import { expectActiveAbility } from './validate.ts';
 import { isRiderCast } from './payload-helpers.ts';
 import { computeMpCost } from '../abilities/cost.ts';
 import { resolveWorldcraftCast } from '../abilities/worldcraft-resolution.ts';
+import { computeBarrierDamage } from '../damage/barrier-damage.ts';
 import { getWeaponInSlot } from '../items/equipment.ts';
 import { computeBaseActionSpeed } from '../ct/speed.ts';
 
@@ -409,6 +410,25 @@ export function reduceUseAbility(
     return resolveWorldcraft(workingState, catalog, action, ability, castActor, mpCost);
   }
 
+  // Session 54: a damaging, non-AoE ability aimed at a tile bearing a barrier
+  // hits the barrier (a tile object), not a unit — route to a
+  // `system_barrier_damage` (pipeline-bypass: no variance / resistance /
+  // reactions). AoE abilities don't short-circuit here: their footprint can
+  // cover a barrier tile AND units, so barrier damage is folded into the AoE
+  // dispatch instead.
+  if (
+    ability.effects.damage !== undefined &&
+    ability.effects.aoe === undefined &&
+    action.payload.target.kind === 'tile'
+  ) {
+    const pos = action.payload.target.position;
+    const tile = tileAt(workingState.map, pos.x, pos.y, pos.layer);
+    if (tile?.barrier !== undefined) {
+      const atkActor = workingState.units.get(actor.id) ?? actor;
+      return resolveBarrierAttack(workingState, catalog, ability, atkActor, pos, mpCost);
+    }
+  }
+
   const incomingProposed: ProposedAction = {
     type: 'use_ability',
     source: action.source,
@@ -526,6 +546,44 @@ function resolveWorldcraft(
     mpAfter: cast.actor.vitals.mp,
   };
   return { newState, outcome, generatedActions: [...cast.actions] };
+}
+
+// Session 54: a basic attack (or any damaging, non-AoE ability) aimed at a
+// barrier tile. The barrier takes the ability's deterministic attacker-side
+// base damage via `system_barrier_damage` — no hit roll, no variance, no
+// resistance, no reactions (a barrier is an inert object). MP / Act budget
+// were already applied in `reduceUseAbility`.
+function resolveBarrierAttack(
+  state: GameState,
+  catalog: Catalog,
+  ability: ActiveAbilityDefinition,
+  actor: Unit,
+  pos: Position,
+  mpCost: number,
+): ReduceResult<UseAbilityOutcome> {
+  const amount = computeBarrierDamage(state, catalog, actor, ability);
+  const generatedActions: ProposedAction[] = [];
+  if (amount > 0) {
+    generatedActions.push({
+      type: 'system_barrier_damage',
+      source: 'system',
+      payload: {
+        x: pos.x,
+        y: pos.y,
+        layer: pos.layer,
+        amount,
+        source: { attackerId: actor.id, abilityId: ability.id },
+      },
+    });
+  }
+  const outcome: UseAbilityOutcome = {
+    kind: 'use_ability',
+    abilityId: ability.id,
+    perTargetResults: [{ target: { kind: 'tile', position: pos }, hit: amount > 0, damage: amount }],
+    mpSpent: mpCost,
+    mpAfter: actor.vitals.mp,
+  };
+  return { newState: state, outcome, generatedActions };
 }
 
 // Decrement actsAvailable on the active turn; bump consumed.actsConsumed.
@@ -1566,6 +1624,39 @@ function resolveAoeDispatch(
     for (const r of resolved.perTargetResults) allResults.push(r);
     for (const r of resolved.generatedReactions) allReactions.push(r);
     for (const a of resolved.generatedActions) allEmissions.push(a);
+  }
+
+  // Session 54: barrier tiles inside the footprint take damage too. A
+  // barrier sits on an unoccupied tile, so it never appears in the affected
+  // *unit* set — enumerate the footprint separately and emit one
+  // `system_barrier_damage` per barrier (deduped by coordinate; a multi-layer
+  // footprint can list the same (x,y) twice). Uses the cluster size as
+  // targetCount so chainBonus-scaled power matches the unit hits.
+  if (args.ability.effects.damage !== undefined) {
+    const barrierAmount = computeBarrierDamage(state, catalog, args.attacker, args.ability, {
+      targetCount: affected.length,
+    });
+    if (barrierAmount > 0) {
+      const seenBarrier = new Set<string>();
+      for (const t of tiles) {
+        const key = `${t.x},${t.y},${t.layer}`;
+        if (seenBarrier.has(key)) continue;
+        const tile = tileAt(state.map, t.x, t.y, t.layer);
+        if (tile?.barrier === undefined) continue;
+        seenBarrier.add(key);
+        allEmissions.push({
+          type: 'system_barrier_damage',
+          source: 'system',
+          payload: {
+            x: t.x,
+            y: t.y,
+            layer: t.layer,
+            amount: barrierAmount,
+            source: { attackerId: args.attacker.id, abilityId: args.ability.id },
+          },
+        });
+      }
+    }
   }
 
   return {

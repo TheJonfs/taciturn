@@ -312,6 +312,50 @@ function validateUseAbility(
     return invalid('Source tile does not exist');
   }
 
+  // Session 54: barrier-as-target. A damaging ability aimed at a tile that
+  // bears a barrier is valid even if its declared targeting requires a unit
+  // (a basic Attack is `single_unit`, but you can swing at a wall). Range /
+  // LoS / arc are checked against the barrier tile per the ability's own
+  // range; resolution routes the hit to `system_barrier_damage`. Self and
+  // math_skill targeting carry no range and never damage a tile object.
+  if (
+    ability.effects.damage !== undefined &&
+    payloadTargetKind === 'tile' &&
+    targetingKind !== 'tile_set'
+  ) {
+    const tilePos = action.payload.target.position;
+    const destTile = tileAt(state.map, tilePos.x, tilePos.y, tilePos.layer);
+    if (destTile !== undefined && destTile.barrier !== undefined) {
+      if (!isRider) {
+        const effRange = computeAbilityRange(state, catalog, actor.id, ability);
+        const inR = inRange({
+          source: endpointFrom(actor.position, sourceTile.elevation),
+          target: endpointFrom(tilePos, destTile.elevation),
+          params: {
+            horizontalMax: effRange.horizontal,
+            horizontalMin: effRange.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
+            verticalMax: effRange.vertical,
+          },
+        });
+        if (!inR) return invalid('Barrier target is out of range');
+        if (ability.targeting.rangeMode === 'straight_line') {
+          if (!hasLineOfSight(
+            state.map,
+            endpointFrom(actor.position, sourceTile.elevation),
+            endpointFrom(tilePos, destTile.elevation),
+          )) {
+            return invalid('Line of sight is blocked');
+          }
+        } else if (ability.targeting.rangeMode === 'arc') {
+          if (!arcTargetable(state.map, actor.position, tilePos)) {
+            return invalid('Arc target is covered');
+          }
+        }
+      }
+      return VALID;
+    }
+  }
+
   // Session 54: tile_set targeting — the Worldcraft Barrier ability. A
   // contiguous straight horizontal/vertical line of `minLength`-`maxLength`
   // tiles, each within range of the caster. Barrier placement additionally
