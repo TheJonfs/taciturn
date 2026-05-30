@@ -36,6 +36,7 @@ import { hasLineOfSight } from '../map/line-of-sight.ts';
 import { arcTargetable } from '../map/arc.ts';
 import { UnknownDefinitionError } from '../catalog/index.ts';
 import { computeMpCost } from '../abilities/cost.ts';
+import { buildElevationChanges } from '../abilities/worldcraft-resolution.ts';
 import { computeAbilityRange } from '../abilities/range.ts';
 import { rangeFromHeightBonus, weaponRangeFromHeightSpec } from '../abilities/range-height.ts';
 import { isRiderCast } from './payload-helpers.ts';
@@ -502,6 +503,20 @@ function validateUseAbility(
       const occupant = unitAt(state, tilePos.x, tilePos.y, tilePos.layer);
       if (occupant !== undefined && occupant.id !== actor.id) {
         return invalid('Cannot move onto an occupied tile');
+      }
+    }
+    // Session 55: reject an elevation Worldcraft cast (Pillar/Pit/Hill/Valley)
+    // that would change no tiles — e.g. a net-lowering Valley/Pit whose whole
+    // kernel is already on the water floor (elevation floored at 0). Without
+    // this gate the cast committed silently: MP + Act spent, a queue slot
+    // consumed, zero visible effect (Chris's "returned to menu" report). Reuse
+    // the resolver's own kernel builder so validation can't drift from it; a
+    // *partial* cast (some tiles change) stays valid.
+    const elevationSpec = ability.effects.worldcraft;
+    if (elevationSpec?.kind === 'elevation') {
+      const changes = buildElevationChanges(state, tilePos, elevationSpec.deltas);
+      if (changes.length === 0) {
+        return invalid('Target area would not be affected by this ability');
       }
     }
     return VALID;

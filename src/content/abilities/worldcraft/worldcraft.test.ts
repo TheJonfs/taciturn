@@ -203,6 +203,52 @@ describe('Worldcraft — Hill / Valley (3×3 kernel)', () => {
   });
 });
 
+describe('Worldcraft — empty-cast rejection (S55)', () => {
+  // A net-lowering cast whose whole kernel is already on the deep-water floor
+  // (elevation 0) changes nothing — elevation floors at 0. Before S55 this
+  // committed silently (MP + Act spent, a queue slot consumed, zero effect:
+  // Chris's "returned to menu" Valley report). validateAction now rejects it.
+  const elevAction = (ability: string, position: { x: number; y: number }, actorId: string): Action => ({
+    type: 'use_ability', source: 'player', actorId,
+    payload: { abilityId: abilityId(ability), target: { kind: 'tile', position: { ...position, layer: 0 } } },
+    sequenceNumber: 0, seed: 1, timestamp: { tick: 0, ct: 0 }, chainDepth: 0, isReaction: false,
+  });
+
+  it('rejects a Valley whose 3×3 kernel is entirely on the water floor', () => {
+    const u = terraformer({ position: { x: 3, y: 3, layer: 0 } });
+    const state = makeGameState({ units: [u], map: landMap(7, 7, 0), turnState: activeTurnFor(u.id) });
+    const v = validateAction(state, elevAction('valley', { x: 3, y: 3 }, u.id), catalog);
+    expect(v.valid).toBe(false);
+    if (!v.valid) expect(v.reason).toMatch(/would not be affected/i);
+  });
+
+  it('rejects a Pit on a deep-water tile (single-tile no-op)', () => {
+    const u = terraformer({ position: { x: 2, y: 2, layer: 0 } });
+    const state = makeGameState({ units: [u], map: landMap(6, 6, 0), turnState: activeTurnFor(u.id) });
+    const v = validateAction(state, elevAction('pit', { x: 3, y: 2 }, u.id), catalog);
+    expect(v.valid).toBe(false);
+  });
+
+  it('allows a partial Valley when at least one kernel tile would change', () => {
+    // Deep-water floor everywhere except a single raised tile inside the kernel.
+    const tiles = [];
+    for (let y = 0; y < 7; y++) {
+      for (let x = 0; x < 7; x++) tiles.push({ x, y, elevation: x === 4 && y === 3 ? 4 : 0 });
+    }
+    const u = terraformer({ position: { x: 3, y: 3, layer: 0 } });
+    const state = makeGameState({ units: [u], map: mapWith({ width: 7, height: 7, tiles }), turnState: activeTurnFor(u.id) });
+    const v = validateAction(state, elevAction('valley', { x: 3, y: 3 }, u.id), catalog);
+    expect(v.valid).toBe(true);
+  });
+
+  it('still allows a Valley on land (the common case is unaffected)', () => {
+    const u = terraformer({ position: { x: 3, y: 3, layer: 0 } });
+    const state = makeGameState({ units: [u], map: landMap(7, 7, 4), turnState: activeTurnFor(u.id) });
+    const v = validateAction(state, elevAction('valley', { x: 3, y: 3 }, u.id), catalog);
+    expect(v.valid).toBe(true);
+  });
+});
+
 describe('Worldcraft — effect-queue cap eviction', () => {
   it('LIFO-evicts the oldest entry with a revert action when over cap (default 2)', () => {
     let state = makeGameState({ units: [terraformer({ mp: 100 })], map: landMap(8, 8) });

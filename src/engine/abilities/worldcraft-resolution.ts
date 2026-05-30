@@ -66,7 +66,11 @@ function terrainForElevation(
 // (Pillar/Pit single tile; Hill/Valley 3×3 kernel) anchored at `anchor`.
 // Offsets that fall outside the map are skipped. Elevation is floored at 0
 // (deep-water floor) — a Pit on a low tile can't dig below the water table.
-function buildElevationChanges(
+// A no-change tile (newElevation === current, e.g. a net-lowering cast on the
+// water floor) is filtered out, so this can return an empty set. Exported so
+// `validateAction` can reject a cast that would change nothing without
+// re-deriving the kernel geometry (single source of truth, S55).
+export function buildElevationChanges(
   state: GameState,
   anchor: { readonly x: number; readonly y: number; readonly layer: number },
   deltas: ReadonlyArray<{ readonly dx: number; readonly dy: number; readonly delta: number }>,
