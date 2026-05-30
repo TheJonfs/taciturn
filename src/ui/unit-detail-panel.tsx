@@ -296,6 +296,36 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
           )}
         </Section>
 
+        {unit.worldcraftEffects.length > 0 ? (
+          <Section title="Active Worldcraft Effects">
+            {unit.worldcraftEffects.map((e, i) => {
+              // Array order is eviction order (index 0 = oldest → next to
+              // revert when the effect cap is exceeded). The ability name
+              // comes from the catalog; the right column shows where the
+              // effect sits and, for barriers, the remaining TTL.
+              const name = catalog.hasAbility(e.abilityId)
+                ? catalog.getAbility(e.abilityId).name
+                : String(e.abilityId);
+              const first = e.kind === 'terrain' ? e.tileChanges[0] : e.barrierTiles[0];
+              const where = first !== undefined ? `(${first.x},${first.y})` : '—';
+              const tiles = e.kind === 'terrain' ? e.tileChanges.length : e.barrierTiles.length;
+              const right =
+                e.kind === 'barrier'
+                  ? `${where} · ${tiles} tile${tiles === 1 ? '' : 's'} · TTL ${e.ttl}`
+                  : `${where} · ${tiles} tile${tiles === 1 ? '' : 's'}`;
+              return (
+                <div key={`wc-${i}`} style={statusRowStyle}>
+                  <span style={statusNameStyle}>
+                    {name}
+                    {i === 0 && unit.worldcraftEffects.length > 1 ? ' (oldest)' : ''}
+                  </span>
+                  <span style={statusDurStyle}>{right}</span>
+                </div>
+              );
+            })}
+          </Section>
+        ) : null}
+
         <Section title="Resistances">
           {(() => {
             // Thread each damage tag through `runModifyResistance` so
