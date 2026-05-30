@@ -453,6 +453,21 @@ export class BattleRenderer {
     if (this.lastState === null) return;
     const map = this.lastState.map;
     this.tileLayer.draw(map);
+    // S55 fix: `tileLayer.draw` only repaints the colored fallback rects;
+    // the texture-sprite overlay was built once per terrain type at mount and
+    // never refreshed. A terrain change that crosses the water/land boundary
+    // (Pillar surfacing deep water to land, Pit sinking land to water) flips a
+    // tile's terrain *type*, so its stale sprite must go and the new terrain's
+    // sprite must appear — otherwise the player saw the correct color rect
+    // *under* the old texture. Re-applying every cached pool rebuilds the
+    // overlay against the current map: `applyTerrainTextures` removes a
+    // terrain's prior sprites before re-adding for current-terrain tiles, so a
+    // changed tile drops its old-type sprite and gains its new-type one. Tiles
+    // whose new terrain has no loaded pool fall back to the (correct) rect.
+    const masterSeed = this.lastState.rng.masterSeed;
+    for (const [terrainType, textures] of this.terrainTextures) {
+      this.tileLayer.applyTerrainTextures(map, terrainType, textures, masterSeed);
+    }
     this.cliffEdgeLayer.draw(map);
     this.elevationLabelLayer.draw(map);
     if (this.deploymentTeam !== null) {
