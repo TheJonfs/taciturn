@@ -208,7 +208,7 @@ describe('Worldcraft — empty-cast rejection (S55)', () => {
   // (elevation 0) changes nothing — elevation floors at 0. Before S55 this
   // committed silently (MP + Act spent, a queue slot consumed, zero effect:
   // Chris's "returned to menu" Valley report). validateAction now rejects it.
-  const elevAction = (ability: string, position: { x: number; y: number }, actorId: string): Action => ({
+  const elevAction = (ability: string, position: { x: number; y: number }, actorId: Unit['id']): Action => ({
     type: 'use_ability', source: 'player', actorId,
     payload: { abilityId: abilityId(ability), target: { kind: 'tile', position: { ...position, layer: 0 } } },
     sequenceNumber: 0, seed: 1, timestamp: { tick: 0, ct: 0 }, chainDepth: 0, isReaction: false,
