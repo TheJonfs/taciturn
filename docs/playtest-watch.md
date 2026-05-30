@@ -26,6 +26,78 @@ shouldn't drift out of memory between sessions.
 
 ## Active entries
 
+### S52 — Marshmoor + bow range-from-height
+
+- **Marshmoor setup-phase length feel.**
+  - **What to watch.** Marshmoor's two deployment corners are 26 Manhattan
+    tiles apart — the longest pre-engagement window of any v1 map. Watch
+    the first 4-6 turns: does the maneuvering window feel like meaningful
+    setup time (buffing, positioning, peak-racing) or like a drag before
+    anything happens?
+  - **Why it matters.** The long gap is intentional (room for setup and the
+    eventual Terraformer's terrain shaping), but a battlefield that's "boring
+    for six turns" is a pacing failure.
+  - **Signal for adjustment.** Players skipping/auto-passing the opening
+    turns, or engagements that never actually reach the central flats. Lever:
+    tighten zone spacing or add mid-field incentives in a future map rev.
+
+- **Marshmoor water-mobility burden on melee.**
+  - **What to watch.** A Knight (Move 3, Jump 2) crossing the marsh without
+    Tidewalker spends much of its move budget wading (water_deep 3 MP,
+    water_shallow 2 MP). Watch whether Marshmoor genuinely shifts class
+    viability — Tidewalker/Hydrologist demand spiking, heavy melee feeling
+    stuck.
+  - **Why it matters.** Intended texture (terrain-as-obstacle), but if melee
+    is simply non-functional here the map is a mage-only stage, not a
+    tactical choice.
+  - **Signal for adjustment.** Melee units consistently arriving 2+ turns
+    after the mages and contributing nothing. Lever: add more land bridges,
+    or accept Marshmoor as a deliberately mage/mobility-favoring map.
+
+- **Bow range-from-height tactical shift.**
+  - **What to watch.** A Hunter on Marshmoor's SE peak (elev 6) shooting an
+    elev-0/1 target gains +3 horizontal range (base 5 → 8) *and* ~×2 downhill
+    damage (the stacked height-delta variance). Watch how much this empowers
+    archer-led comps — does claiming a peak win the game outright?
+  - **Why it matters.** "Bow to the high ground is a real menace" is the
+    explicit design intent, but two stacked height rewards on the same shot
+    could be oppressive on elevation-rich maps.
+  - **Signal for adjustment.** Archer-on-peak comps winning ≥ ~70% on
+    Marshmoor / Stonebridge, or peaks being the only thing that matters.
+    Levers: cap the range bonus (`deltaHorizontal` ceiling), lower the SE
+    peak from 6, or decouple the range and damage rewards.
+
+- **Corner-peak claim races.**
+  - **What to watch.** Each deployment corner has a "home" peak up its own
+    edge spine (SW→NW elev 5; NE→SE elev 6), but the peaks sit *opposite* the
+    central flats. Watch whether opening play races for peaks or contests the
+    center — and whether the off-axis placement actually costs enough tempo to
+    balance the bow power above.
+  - **Why it matters.** The off-axis peak design is the counterweight to the
+    stacked bow reward; if peaks are both dominant *and* cheap to reach, the
+    counterweight failed.
+  - **Signal for adjustment.** Both teams beelining the same peak every game.
+    Lever: lengthen the spines (more water between zone and peak).
+
+- **Tidewalker valuation in AI deployment.**
+  - **What to watch.** AI role-aware deployment sorting is a standing carry;
+    Marshmoor makes it sharper because Tidewalker is materially more valuable
+    here. Watch whether AI teams under-value water mobility on this map.
+  - **Why it matters.** A symptom of the broader deployment-sort carry, but
+    Marshmoor surfaces it acutely.
+  - **Signal for adjustment.** AI Hydrologists/Tidewalker-equipped units
+    deploying as if water cost didn't exist. (Tracked carry; not fixed S52.)
+
+- **Bow genericization gaps for future ranged weapons.**
+  - **What to watch.** `rangeFromHeightBonus` is designed for genericity
+    (`perDeltaVertical` / `deltaHorizontal`). Watch whether any future ranged
+    weapon's needs reveal a field-design gap.
+  - **Why it matters.** Cheap to extend now, costly after more weapons depend
+    on the shape.
+  - **Signal for adjustment.** A new ranged weapon wanting a max-bonus cap, an
+    elevation-direction toggle, or distance-falloff the current two-field shape
+    can't express.
+
 ### S49 — Calculator + Math Skill + Level system
 
 - **Math Skill targeting UX clarity.** The Calculator's parameter ×

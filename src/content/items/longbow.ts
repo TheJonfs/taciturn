@@ -27,4 +27,9 @@ export const longbow: WeaponEquipment = {
   twoHanded: true,
   range: { min: 2, max: 5, vertical: 99 },
   physicalVariance: { kind: 'height_delta', falloffPerHeight: 0.2 },
+  // Session 52: FFT-canon range-from-height — +1 horizontal range per
+  // 2 tiles the shooter sits above the target. Stacks with the
+  // height-delta damage reward above (high ground hits harder AND
+  // farther). No bonus shooting level or uphill.
+  rangeFromHeightBonus: { perDeltaVertical: 2, deltaHorizontal: 1 },
 };

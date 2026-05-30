@@ -68,10 +68,13 @@ import {
   horizontalDistance,
   inRange,
   itemId,
+  maxRangeFromHeightBonus,
   positionKey,
+  rangeFromHeightBonus,
   runModifyAoeShape,
   runModifyAoeVerticalTolerance,
   tileAt,
+  weaponRangeFromHeightSpec,
   aoeFootprint,
   cardinalFromTo,
   type Catalog,
@@ -869,11 +872,19 @@ function positionInAbilityRange(
   if (sourceTile === undefined || targetTile === undefined) return false;
   const ruleset = catalog.getRuleset(state.ruleset.id);
   const effective = computeAbilityRange(state, catalog, actor.id, ability);
+  // Session 52: bow height-range bonus — the shooter reaches farther
+  // horizontally when above the target (no-op otherwise). Mirrors the
+  // live-validation site so AI enumeration agrees with the engine.
+  const heightBonus = rangeFromHeightBonus(
+    weaponRangeFromHeightSpec(actor, catalog, ability),
+    sourceTile.elevation,
+    targetTile.elevation,
+  );
   return inRange({
     source: endpointFrom(source, sourceTile.elevation),
     target: endpointFrom(target, targetTile.elevation),
     params: {
-      horizontalMax: effective.horizontal,
+      horizontalMax: effective.horizontal + heightBonus,
       horizontalMin: effective.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
       verticalMax: effective.vertical,
     },
@@ -903,7 +914,20 @@ function tilesInAbilityRange(
   catalog: Catalog,
 ): Tile[] {
   const out: Tile[] = [];
-  const range = computeAbilityRange(state, catalog, actor.id, ability).horizontal;
+  const baseRange = computeAbilityRange(state, catalog, actor.id, ability).horizontal;
+  // Session 52: widen the enumeration box by the maximum height-range
+  // bonus this shooter could earn (vs an elev-0 target), so the far
+  // tiles a downhill bow shot newly reaches are actually tested by the
+  // per-target `positionInAbilityRange` filter below. Without the
+  // widening, those tiles fall outside a box sized to the base range
+  // and would be silently dropped.
+  const sourceTile = tileAt(state.map, source.x, source.y, source.layer);
+  const range =
+    baseRange +
+    maxRangeFromHeightBonus(
+      weaponRangeFromHeightSpec(actor, catalog, ability),
+      sourceTile?.elevation ?? 0,
+    );
   for (let dy = -range; dy <= range; dy++) {
     for (let dx = -range; dx <= range; dx++) {
       const tx = source.x + dx;
@@ -1646,6 +1670,8 @@ export const _basicAiInternals = {
   scoreSingleUnitOffensive,
   scoreAoeOffensive,
   scoreAllyBuff,
+  targetIsInAbilityRange,
+  tilesInAbilityRange,
 };
 
 // Type re-exports needed by the test internals.

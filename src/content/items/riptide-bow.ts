@@ -25,5 +25,9 @@ export const riptideBow: WeaponEquipment = {
   twoHanded: true,
   range: { min: 2, max: 5, vertical: 99 },
   physicalVariance: { kind: 'height_delta', falloffPerHeight: 0.2 },
+  // Session 52: FFT-canon range-from-height — +1 horizontal range per
+  // 2 tiles the shooter sits above the target (same profile as the
+  // Longbow). Stacks with the height-delta damage reward.
+  rangeFromHeightBonus: { perDeltaVertical: 2, deltaHorizontal: 1 },
   attackProcs: [{ chance: 0.3, abilityId: abilityId('undertow') }],
 };

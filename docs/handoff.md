@@ -6,80 +6,70 @@ This is a transient note from one session to the next.
 
 ---
 
-## From Session 51 close (2026-05-25) — Universal off-hand opening + 6 new pieces + Wand of Depths refit + Calculator MA bump
+## From Session 52 close (2026-05-30) — Marshmoor (third map) + bow range-from-height + Terraformer substrate audit
 
-S51 was a substrate-thin, content-thick, tuning-light session. The substrate change (off-hand universalization) collapsed to **zero work** — the audit overturned the spec on the very first question, finding that per-item `classRestrictions` (Session 29 substrate) was already the gating mechanism and all classes already had `leftHand: true`. The "universal off-hand opening" was just authoring six new shield-kind items, three with no class restriction and three with a mage-class allowlist. Two real engine touches landed alongside the content work: a new `aoeVerticalToleranceModifiers` equipment surface (one contributor, parallel shape to `actionSpeedModifiers`), and the Aether Bloom queue-tower preview fix (one helper threading `runModifyAoeShape`). **1457 → 1465 tests** (+15 net in `session-51-integration.test.ts`), `tsc -b` clean, two S51 commits pushed (`bf8635e`, `6808f59`).
+Three discrete deliverables, all landed. **1465 → 1510 tests** (+45), `tsc -b` clean, `vite build` clean (Vercel pre-flight green). Not yet committed — Chris hadn't asked at the time of writing; everything is staged/working-tree and ready for a commit when he says go.
 
-### What shipped — substrate + bug fixes (Pt 1, commit `bf8635e`)
+### 1. Marshmoor — third map (content)
 
-- **Aether Bloom queue-tower preview fix.** Pre-S51 the in-flight charged-action inspector (clicking a queued charged spell to see its AoE) painted the **base** shape from `ability.effects.aoe.shape`, never running the `modifyAoeShape` chain. Live resolution always ran the chain — so the cast hit the larger AoE, only the inspector lied. Fix: thread `runModifyAoeShape` through `computeChargedAoe` in `charged-action-detail-panel.tsx`, mirroring the post-S38 fix in `aoe-preview.ts`. Helper exported for regression-test coverage.
+- `src/content/maps/marshmoor.ts` — 16×16 wetlands archipelago, grid verbatim from Chris's S52 message. Universal water-table terrain (elev 0→water_deep, 1→water_shallow, ≥2→ground); no ramparts. Deployment zones are two opposite 3×3 corners: **NE (Blue/team_a) cols 13-15 rows 0-2**, **SW (Red/team_b) cols 0-2 rows 13-15**, 9 tiles each, 26 Manhattan tiles apart. Corner peaks NW elev 5 / SE elev 6 sit *outside* the zones (off-axis). Intentional in-zone elev-4 asymmetry at (14,1) and (0,15) — documented as visual variety.
+- `src/content/battles/marshmoor-battle.ts` — derives from `riverRidgeBattle`, restages the 5v5 into the corners. `battleId: 'marshmoor_v1'`.
+- Registered in `src/app/App.tsx` (`MapId` union + `MAP_OPTIONS`).
+- Docs: `docs/maps/marshmoor.md` (full spec), `docs/content-id-registry.md` (map + battle rows; Maps count 2→3).
+- Tests: `marshmoor.test.ts` (16) + `marshmoor-battle.test.ts` (8). All deployment tiles are land (no one spawns in water); `validateMap` passes with `requiredZonesPerTeam` 5.
+- **Browser-verified:** Marshmoor appears in the battle-setup map picker; selecting it makes the action read "Start Marshmoor." (See "Browser-verification note" below for the env wrinkle.)
 
-- **New `aoeVerticalToleranceModifiers` field + equipment contributor.** Mirrors the existing `actionSpeedModifiers` shape: per-item additive deltas, optionally tag-gated, composed through `runModifyAoeVerticalTolerance` alongside Aether Bloom's existing passive-side handler. Per the established pattern at `src/engine/items/contributions.ts:EQUIPMENT_CONTRIBUTORS`.
+### 2. Bow horizontal range-from-height (mechanic)
 
-- **Wand of the Depths refit.** Pre-S51 the wand declared `deltaVertical: 1` on `abilityRangeModifiers` — dead, since every v1 spell targets at vertical 99 (effectively infinite). S51 drops the deltaVertical and reinvests the +1 elevation budget on the new `aoeVerticalToleranceModifiers` surface (+1 on water-tagged casts). Same magnitude, observable lever — elevation-rich water AoEs cover more tiles. Detail-text formatter updated to skip zero range deltas (avoids "+0V" suffix) and render the new AoE-elevation line.
+FFT-canon "shoot farther from the high ground." New optional weapon field `rangeFromHeightBonus?: { perDeltaVertical, deltaHorizontal }` on `WeaponEquipment`. Bonus = `floor((shooterElev − targetElev) / perDeltaVertical) × deltaHorizontal`, **positive-only** (no penalty shooting level/uphill). Implements brief D1–D4. **Stacks** with the existing ADR-0083 height-delta *damage* variance — high ground hits harder AND farther, by design (Chris's call).
 
-- **Escutcheon resistance per-element 10 → 20.** Conservative S51 tuning bump per Chris's Option B call (the resistance audit surfaced 8 resistance-bearing pieces, not the 3 the spec assumed — Guard Cap / War Plate / Robes / Capacitor Ring / Mantle were all at +25 or higher already). The bump applies only to the conservative tier (Escutcheon, the new Buckler at +15, the new Talisman of Warding at +20); stronger pieces left alone.
+- **New shared resolver** `src/engine/abilities/range-height.ts`: `weaponRangeFromHeightSpec` (gated on weapon-tagged physical + weapon declares the field, mirroring the S45 range/variance forks), `rangeFromHeightBonus` (per-target), `maxRangeFromHeightBonus` (vs elev 0, for box widening). Exported via `engine/abilities/index.ts`.
+- **Why a separate resolver, not a `target` param on `computeAbilityRange`:** the bonus is target-dependent, but `computeAbilityRange` is target-independent and is called *once* to size the AI/UI enumeration box. Threading a target there is awkward for enumeration. So the resolver is added at each in-range site (mirrors the `resolvePhysicalVarianceBand` precedent — one resolver, N call sites).
+- **Wired into all three resolvers + the two enumeration boxes:**
+  - Live engine: `validate.ts` unit-target (:411) and tile-target (:341) — add bonus to `horizontalMax`.
+  - AI: `basic.ts` `positionInAbilityRange` (per-target bonus) + `tilesInAbilityRange` (box widened by `maxRangeFromHeightBonus`).
+  - UI: `use-turn-flow.ts` `computeLegalTargets` tile-branch box widened. The **unit-branch needs no change** — it iterates all units through `validateAction`, so unit-targeted bow highlights extend for free once `validate.ts` is fixed.
+- **The non-obvious correctness bit (flagged at plan-review):** the enumeration boxes had to be widened, or the far tiles a downhill shot newly reaches would fall outside a base-range box and never be tested/highlighted. Done + tested.
+- Both bows declare `{ perDeltaVertical: 2, deltaHorizontal: 1 }`: `longbow.ts`, `riptide-bow.ts`. (Audit confirmed those are the *only* two bows — no "Highland Hunters' bow.")
+- UI tooltip: `detail-text.ts` weapon block now shows `+1 Rng per 2 elev down`.
+- Tests: `session-52-bow-range-from-height.test.ts` (20 — pure formula/floor/directionality/gating, live `validateAction` reach, AI parity via `_basicAiInternals`) + 1 detail-text test. Exposed `targetIsInAbilityRange`/`tilesInAbilityRange` on `_basicAiInternals` for the parity test (established test-hook pattern).
 
-- **Calculator base MA 8 → 9.** Single-line bump at `baseline-stats.ts:88`. Math Skill damage / heal / CT scale ~12.5% higher per cast. No fixture cascades — no test pinned MA = 8 (the audit confirmed this; the calculator-blueprint.md example math was updated in Pt 3 docs).
+### 3. Terraformer substrate audit (research deliverable)
 
-### What shipped — content (Pt 2, commit `6808f59`)
+`docs/decisions/draft-terraformer-substrate-audit.md` — survey-only, no engine code. 9 substrate pieces, each with current state / changes / structured-for-it / dependencies / scope, plus dependency ordering and audit-overturns-spec findings. **Headline:** the engine is much cleaner than the blueprint's "2-3 substrate sessions" framing.
+- **Mutable terrain state is half-built** (map is mutable `GameState`, not catalog-static; no delta-composition layer needed).
+- **Pathfinding & AoE: zero substrate** (both fresh-read live elevation).
+- **"System-tagged" damage already exists** — `system_damage` bypasses pipeline/resistance/Faith/reactions (ADR-0027); Spiked Mail's `'revenge'` `SystemDamageSource` is a working reflect-bypass precedent. Damage Split = one new source variant, **no new tag**.
+- **Ignore Height = one-line `modifyStatQuery('jump')`**; **fall damage** reusable (`10 × dropDistance`); **renderer** already has a redraw path and a comment anticipating this.
+- **Real new work concentrated in piece 5 (terrain objects / Barrier) and piece 6 (AI awareness)**; piece 9 (effect queue) medium.
+- **The scope-determining decision for the substrate session:** route Barrier damage through `system_damage` (no variance/Faith/resistance/reactions needed) vs. widening the `Unit`-typed pipeline. The former likely collapses Session A to one session. Recommended in the doc; **Chris's call when the arc starts.**
+- All file:line claims in the doc were spot-verified against the tree.
 
-Six new off-hand pieces, all `kind: 'shield'` (the off-hand slot's kind discriminant, despite "shield" being a slight naming mismatch for talismans / books):
+### Not done / explicitly deferred
 
-**Universal off-hand (no class restriction):**
-- **Buckler** — +10 Front evade, +5 Side evade, +15 all elemental resistance. The worst-pick baseline per Chris's intent.
-- **Talisman of Warding** — +20 all elemental resistance. Off-hand-slot counterpart to Mantle of Protection (which remains top-tier at +25 across 6 tags incl. Holy/Dark).
-- **Talisman of Conviction** — +5 Brave, +5 Faith. Dual-edged Faith intentional.
+- **No ADR.** Bow range-from-height is a straight-line extension of the S45 weapon-substrate forks (range / physicalVariance); inline comments + the test file + this handoff carry the rationale. Marshmoor is content. The audit is a design-doc draft, not an ADR. If Chris wants the bow mechanic pinned as ADR-0088, it's a 20-minute write-up — flag if desired.
+- **In-battle bow-visualization browser check (Hunter on a peak) was NOT manually staged.** Reason: the AI deploy won't deterministically perch a Hunter, and the manual human-deploy flow is many steps. The mechanic's correctness is covered by 20 tests exercising the *exact* `validateAction` reach path + AI enumeration the UI highlight flows through, and the app was confirmed error-free post-change (no console errors after HMR). If you want eyes-on confirmation: New Battle → Marshmoor → Team A human + High Ground template → deploy the Hunter on the SE peak (13/14, 15) → on its turn select Attack and confirm the highlighted set reaches downhill past 5 tiles.
+- **Marshmoor template-compliance tests** (stretch: verify Gravity Well / High Ground / Mage War deploy on Marshmoor) — not added. Zone capacity (9 ≥ 5) is proven and High Ground loaded fine in the browser; a synthetic per-template Marshmoor deploy test is a cheap follow-up if wanted.
+- **`itemSummary` (team-builder compact slot line) was intentionally left alone** — it shows only WP/Acc and omits *base* range too, so range-from-height doesn't belong there. The full `formatItemDetail` carries it.
 
-**Mage off-hand (classRestrictions: [geosage, hydrologist, pyromancer, aethurge, calculator]):**
-- **Tome of Power** — +1 MA, +10 MP. Pairs cleanly with Calculator's Math Skill.
-- **Livre of Urgency** — +1 Speed plus +5 charged action speed on magical casts (generalized Wand-of-Deepwood pattern: same `actionSpeedModifiers` shape, broader `tagFilter: ['magical']` instead of `['earth']`). Math Skill is instant-cast so the charge bonus no-ops on it; the +1 Speed contribution still raises Calculator turn cadence.
-- **Battle Dictionary** — +1 PA plus +1 horizontal range AND +1 AoE vertical tolerance on magical casts. **First non-Wand consumer of the new `aoeVerticalToleranceModifiers` field.** The +1 PA is an intentional plant for future hybrid / Alchemy-secondary builds; mages don't benefit from it today, by design.
+### Browser-verification note (environment, not a bug)
 
-Loader item count 61 → 67. Browser-verified: Lumen (Pyromancer) Left Hand picker lists all 6 alongside existing weapons / shields; Chris (Knight) Left Hand picker lists the 3 universals plus Knight shields but NOT the 3 Books — class restriction filters correctly.
-
-### What's NOT yet shipped
-
-- **No ADR.** The substrate change was effectively zero (per-item restrictions already exist; both wand-pattern hooks already exist). The Aether Bloom fix and Wand of the Depths refit are bug-fix-shaped; inline commit messages and code comments carry the rationale. The one mild ADR candidate is the new `aoeVerticalToleranceModifiers` field on EquipmentBase — but it's a straight-line extension of the Session 29 `actionSpeedModifiers` / `abilityRangeModifiers` pattern; no novel architectural call. Worth noting in the next session's CLAUDE.md / equipment-design read.
-
-- **Off-hand pieces not yet integrated into team templates.** Per Chris's D8 deferral, the templates (Gravity Well / High Ground / Mage War) continue with their current loadouts; template revisions wait for a future session that talks through all three templates together.
-
-- **Two Weapons + universal off-hand UX gap.** An Assassin with Two Weapons equipped now sees Buckler / Talismans / Books in their left-hand picker. Equipping a non-weapon there silently breaks the dual-wield. Engine behavior is correct (Two Weapons requires both hands hold weapons); team-builder picker doesn't warn. Promoted to `playtest-watch.md` (S51 section) — no fix this session.
+A **stale `guide/` dev server (PID was 21292) has held port 5173 since May 14**, so `npm run dev` for the game starts on **5174**. The preview tooling defaults to 5173 (launch.json) and initially attached to the guide handbook — had to navigate the preview to `http://localhost:5174/`. Also hit a transient preview-eval wedge after a `<select>` change during a screen transition (screenshots kept working; eval recovered after an HMR reload). Next session: either kill the stale guide server (`kill 21292`-equivalent — it's Chris's long-running process, didn't touch it) or point preview at 5174 from the start. Consider updating `.claude/launch.json` port to 5174, or stopping the guide server, to avoid the confusion.
 
 ### Engine-side notes worth carrying forward
 
-- **`aoeVerticalToleranceModifiers` parallel to `actionSpeedModifiers`.** The new contributor (`src/engine/items/contributions.ts:aoeVerticalToleranceContributor`) uses `args.ability.tags ?? []` for tag filtering, matching Aether Bloom's reference handler. The older `actionSpeedContributor` and `abilityRangeContributor` use `args.ability.effects.damage?.tags` instead — that's a pre-existing inconsistency in the codebase, not introduced by S51. The new field's choice is the more general one (top-level ability tags cover damage-less casts like Earth Blessing's Regen apply).
+- **`rangeFromHeightBonus` genericity watch.** Two-field shape (`perDeltaVertical`/`deltaHorizontal`), positive-only, no cap. If a future ranged weapon wants a max-bonus cap, an elevation-direction toggle, or distance-falloff, the field needs extending — cheap now, costly after more consumers. (Also in playtest-watch S52.)
+- **The two height rewards now stack on bows** (damage via `physicalVariance: height_delta`, range via `rangeFromHeightBonus`). This is deliberate; it's the headline balance watch-for on elevation-rich maps (Marshmoor/Stonebridge). Levers if oppressive: cap the range bonus, lower peaks, or decouple the two. (playtest-watch S52.)
+- **`_basicAiInternals` grew** `targetIsInAbilityRange` + `tilesInAbilityRange` (unstable test-only export prefix).
 
-- **`computeChargedAoe` exported for testing.** The S51 fix exports the previously file-local helper from `charged-action-detail-panel.tsx` so the regression test can exercise it directly. The helper is UI-tier but its inputs are pure engine types — exporting it is the right cost-benefit even though the test file imports across the engine/UI boundary.
+### Docs updated this session
 
-- **Wand of the Depths' "+1 horizontal" still composes through `abilityRangeContributor`.** The refit only moved `deltaVertical`; `deltaHorizontal: 1` remains in `abilityRangeModifiers`. So the wand now contributes through BOTH the existing `modifyAbilityRange` chain (horizontal) AND the new `modifyAoeVerticalTolerance` chain (vertical tolerance). Real test of the equipment-contributor map's per-hook lookup machinery.
-
-- **Browser-verification asymmetry.** Pt 1's queue-tower preview fix wasn't browser-traced end-to-end (the unit test exercises `computeChargedAoe` directly; the panel's call site is a single helper invocation). If the helper integration broke at the call site, the unit test wouldn't catch it. The fix is small enough that the risk is genuinely low, but worth flagging — a future session adding more queue-inspector affordances should drive a real Pyromancer-with-Aether-Bloom-with-Fire-Storm-in-flight check in the browser.
-
-### Test coverage delta
-
-`1457 → 1465` net (+8 in Pt 2; Pt 1 added +7 already counted in mid-session +15 total):
-- Pt 1: `aoeVerticalToleranceModifiers` substrate (3), Wand of Depths refit (2), `computeChargedAoe` modifyAoeShape threading (2).
-- Pt 2: catalog load (1), Buckler resistance (1), Talisman of Warding resistance (1), Talisman of Conviction Brave/Faith (1), Books class restriction reject (1), Tome of Power statMods (1), Livre of Urgency stat + actionSpeed (1), Battle Dictionary PA + range + AoE tolerance (1).
-
-`loadDefaultCatalog` item count assertion bumped 61 → 67.
-
-### Vercel pre-flight discipline
-
-Not yet run for the third commit (docs-only, no code changes). The two code commits (`bf8635e`, `6808f59`) ran clean against `tsc -b`. Before pushing the doc commit, will run `rm node_modules/.tmp/tsconfig.app.tsbuildinfo && rm node_modules/.tmp/tsconfig.node.tsbuildinfo && tsc -b && npm run build` per the S48–S50 carry.
+`docs/maps/marshmoor.md` (new), `docs/decisions/draft-terraformer-substrate-audit.md` (new), `docs/content-id-registry.md` (Marshmoor map+battle, Maps 2→3), `docs/playtest-watch.md` (new S52 section: 6 watch-fors), this handoff. **Roadmap not touched** — it stopped tracking per-session entries after 20b and has no Marshmoor/Terraformer line to update; nothing applicable.
 
 ### Carry-forward (longer-term)
 
-**New watch-fors promoted to `docs/playtest-watch.md`** (Session 51 section): off-hand build variety with new pieces, mage Book preferences, Calculator MA 9 calibration, Wand of the Depths AoE-vertical-tolerance refit, Aether Bloom queue-tower preview restoration, Two Weapons + universal off-hand UX gap. Each entry carries the standard What-to-watch / Why-it-matters / Signal-for-adjustment shape.
+**Standing carries, none addressed this session:** AI deployment role-aware sorting (Marshmoor makes the Tidewalker-valuation symptom sharper — see playtest-watch), Skullclamp tax balance, Parrying Sword + Shimmer Cloak evasion stack, Absolom default-Brave WP question, level cap retune signal, Speed factor /40 ceiling, Combat Focus stacking lifecycle, Bulwark replacement, Pyromancer R/S/M consolidation, Speed Save / Updraft / Cornered Focus per-swing cap codification, renderer-side multi-swing polish, ActionType-wiring smoke test, hill-height adjustment on Stonebridge, asymmetric siege scenario for Stonebridge, terrain bar mid-battle vanishing repro, larger teams beyond 5v5, team import, Calculator team-template revision (S49/50/51 D8 carry), Calculator stretch abilities (Status-debuff/Drain/Banish Math), Calculator AI personality variants, damage-pipeline catalog re-lookup cleanup, `tagFilter` source inconsistency between equipment contributors (S51 note).
 
-**All standing carries from S50 / S49 / S48** (Skullclamp tax balance, Parrying Sword + Shimmer Cloak evasion stack, Absolom default-Brave WP question, level cap retune signal, Speed factor /40 ceiling, Combat Focus stacking lifecycle, AI deployment role-aware sorting, Bulwark replacement, Pyromancer R/S/M consolidation, Speed Save / Updraft per-swing cap codification, renderer-side multi-swing polish, ActionType-wiring smoke test, hill-height adjustment on Stonebridge, asymmetric siege scenario for Stonebridge, terrain bar mid-battle vanishing repro, larger teams beyond 5v5, team import). None addressed this session.
+**Terraformer arc** (now scoped by the audit): substrate session next (likely lighter than blueprinted — settle the Barrier-damage-routing decision first), then class+abilities, then AI+UI. Blueprint at `docs/thirtyNinePlanning/terraformer-blueprint.md`; audit at `docs/decisions/draft-terraformer-substrate-audit.md`.
 
-**Calculator team template revision** (S49 / S50 / S51 D8 carry) — still deferred. Per Chris's call: Gravity Well team continues serving as the Calculator template until a future session works through all three templates together with the new off-hand options in scope.
-
-**Calculator stretch abilities** (Status-debuff Math, Drain Math, Banish Math) — still v2+ candidates.
-
-**Damage-pipeline catalog re-lookup cleanup** (S49 engine note) — still a small future refactor.
-
-**`tagFilter` source inconsistency between equipment contributors** — `actionSpeedContributor` and `abilityRangeContributor` read `args.ability.effects.damage?.tags`; the new `aoeVerticalToleranceContributor` reads `args.ability.tags ?? []`. S51's new pieces all happen to declare both (matching production content's convention), so behavior is identical in practice — but a future session that adds a damage-less magical AoE-radius-modifier ability would surface the asymmetry. Worth a one-line cleanup pass when convenient.
-
-**`guide/` subproject** may have accumulated work; not touched this session.
+**`guide/` subproject** — not touched; stale dev server on 5173 (see browser note).

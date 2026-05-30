@@ -226,6 +226,13 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
       // when the weapon overrides it (bows shoot across elevation).
       bits.push(`Rng ${w.range.min ?? 1}-${w.range.max}`);
     }
+    if (w.rangeFromHeightBonus !== undefined) {
+      // Session 52: FFT-canon range-from-height — extra horizontal reach
+      // per N tiles the shooter sits above its target. Stacks with the
+      // height-delta damage variance ("Var by elevation" below).
+      const rh = w.rangeFromHeightBonus;
+      bits.push(`+${rh.deltaHorizontal} Rng per ${rh.perDeltaVertical} elev down`);
+    }
     if (w.twoHanded === true) bits.push('Two-handed');
     if (w.physicalVariance !== undefined) {
       const pv = w.physicalVariance;

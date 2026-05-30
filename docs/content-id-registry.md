@@ -302,6 +302,7 @@ S39 Alchemist substrate. Not "equipment" in the slot sense — consumed via `com
 |---|---|---|---|
 | `riverRidge` | River Ridge | 14×14 | `src/content/maps/river-ridge.ts` |
 | `stonebridge` | Stonebridge | 16×16 | `src/content/maps/stonebridge.ts` |
+| `marshmoor` | Marshmoor | 16×16 | `src/content/maps/marshmoor.ts` |
 
 Authored battles consume these maps via per-scenario battle configs:
 
@@ -309,6 +310,7 @@ Authored battles consume these maps via per-scenario battle configs:
 |---|---|---|
 | `river_ridge_v1` | River Ridge | `src/content/battles/river-ridge-battle.ts` |
 | `stonebridge_v1` | Stonebridge | `src/content/battles/stonebridge-battle.ts` |
+| `marshmoor_v1` | Marshmoor | `src/content/battles/marshmoor-battle.ts` |
 | `demo_battle` (smoke-test fixture) | (inline 6×6) | `src/content/battles/demo.ts` |
 | `training_field` (engine smoke-test) | Training Field | `src/content/battles/training-field-battle.ts` |
 
@@ -335,7 +337,7 @@ Registered in `default.ts`'s `terrain.tags` map; see ADR-0073 (tag abstraction) 
 | Status types | 32 | — |
 | Equipment + consumables | 67 | +6 (S51: `buckler`, `talisman_of_warding`, `talisman_of_conviction`, `tome_of_power`, `livre_of_urgency`, `battle_dictionary`) |
 | Rulesets | 1 | — |
-| Maps | 2 | — |
+| Maps | 3 | +1 (S52: `marshmoor`) |
 | Terrain types | 4 | — |
 
 Pinned in `src/content/loader.test.ts`; that test fails loud if the counts drift without a corresponding registry update.

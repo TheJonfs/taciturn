@@ -25,11 +25,13 @@ import {
   computeMpCost,
   enumerateMathSkillTargets,
   getLegalMoves,
+  maxRangeFromHeightBonus,
   positionKey,
   runModifyAoeShape,
   runModifyAoeVerticalTolerance,
   tileAt,
   validateAction,
+  weaponRangeFromHeightSpec,
   ACTIVE_BUCKET_IDS,
   type AbilityId,
   type ActiveAbilityDefinition,
@@ -914,8 +916,18 @@ function computeLegalTargets(
 
   // tile-targeted. Use effective range (post-`modifyAbilityRange`) so the
   // candidate window the picker scans matches what `validateAction` will
-  // accept downstream.
-  const range = computeAbilityRange(state, catalog, actor.id, ability).horizontal;
+  // accept downstream. Session 52: widen the scanned window by the bow
+  // height-range bonus this shooter could earn (vs an elev-0 target) so
+  // tiles a downhill weapon shot newly reaches are offered; the
+  // per-tile `validateAction` below still applies the exact per-target
+  // bonus. No-op for non-bow abilities.
+  const actorTile = tileAt(state.map, actor.position.x, actor.position.y, actor.position.layer);
+  const range =
+    computeAbilityRange(state, catalog, actor.id, ability).horizontal +
+    maxRangeFromHeightBonus(
+      weaponRangeFromHeightSpec(actor, catalog, ability),
+      actorTile?.elevation ?? 0,
+    );
   for (let dy = -range; dy <= range; dy++) {
     for (let dx = -range; dx <= range; dx++) {
       const tx = actor.position.x + dx;

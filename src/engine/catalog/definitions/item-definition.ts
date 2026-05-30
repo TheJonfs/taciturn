@@ -365,6 +365,23 @@ export interface WeaponEquipment extends EquipmentBase {
     readonly max: number;
     readonly vertical?: number;
   };
+  // Session 52: horizontal range-from-height bonus (the bow class).
+  // FFT-canon "shoot farther from the high ground": when the shooter is
+  // higher than the target, horizontal range grows by `deltaHorizontal`
+  // per `perDeltaVertical` tiles of downward elevation delta. Resolved
+  // per-target (it depends on the target's elevation) at every in-range
+  // site via `weaponRangeFromHeightSpec` / `rangeFromHeightBonus` in
+  // `engine/abilities/range-height.ts`, gated on the same weapon-tagged
+  // physical condition as the `range` and `physicalVariance` forks.
+  // Shooting level or uphill yields no bonus (and no penalty). With
+  // `{ perDeltaVertical: 2, deltaHorizontal: 1 }` a shooter 6 tiles
+  // above its target gains floor(6 / 2) × 1 = +3 horizontal range.
+  // Absent → no height-range bonus (existing behavior). Genericized:
+  // any future ranged weapon opts in by declaring the field.
+  readonly rangeFromHeightBonus?: {
+    readonly perDeltaVertical: number;
+    readonly deltaHorizontal: number;
+  };
 }
 
 // Session 29: shields occupy the left-hand slot but aren't weapons —

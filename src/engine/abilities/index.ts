@@ -30,6 +30,12 @@ export {
 } from './reaction-compiler.ts';
 export { computeMpCost, getCommandSetCost, getCost } from './cost.ts';
 export { computeAbilityRange, type AbilityRangeView } from './range.ts';
+export {
+  weaponRangeFromHeightSpec,
+  rangeFromHeightBonus,
+  maxRangeFromHeightBonus,
+  type RangeFromHeightBonus,
+} from './range-height.ts';
 export { getCapacity } from './capacity.ts';
 export {
   validateLoadout,

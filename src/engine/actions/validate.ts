@@ -37,6 +37,7 @@ import { arcTargetable } from '../map/arc.ts';
 import { UnknownDefinitionError } from '../catalog/index.ts';
 import { computeMpCost } from '../abilities/cost.ts';
 import { computeAbilityRange } from '../abilities/range.ts';
+import { rangeFromHeightBonus, weaponRangeFromHeightSpec } from '../abilities/range-height.ts';
 import { isRiderCast } from './payload-helpers.ts';
 
 export interface ValidationResult {
@@ -338,11 +339,18 @@ function validateUseAbility(
     // emits against the hit target.
     if (!isRider) {
       const effectiveTileRange = computeAbilityRange(state, catalog, actor.id, ability);
+      // Session 52: add the bow height-range bonus when the shooter is
+      // above the target tile (no-op for non-bow / level / uphill shots).
+      const tileHeightBonus = rangeFromHeightBonus(
+        weaponRangeFromHeightSpec(actor, catalog, ability),
+        sourceTile.elevation,
+        destTile.elevation,
+      );
       const tileInRange = inRange({
         source: endpointFrom(actor.position, sourceTile.elevation),
         target: endpointFrom(tilePos, destTile.elevation),
         params: {
-          horizontalMax: effectiveTileRange.horizontal,
+          horizontalMax: effectiveTileRange.horizontal + tileHeightBonus,
           horizontalMin: effectiveTileRange.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
           verticalMax: effectiveTileRange.vertical,
         },
@@ -408,11 +416,18 @@ function validateUseAbility(
   // emits against the hit target.
   if (!isRider) {
     const effectiveUnitRange = computeAbilityRange(state, catalog, actor.id, ability);
+    // Session 52: add the bow height-range bonus when the shooter is
+    // above the target (no-op for non-bow / level / uphill shots).
+    const unitHeightBonus = rangeFromHeightBonus(
+      weaponRangeFromHeightSpec(actor, catalog, ability),
+      sourceTile.elevation,
+      targetTile.elevation,
+    );
     const inRangeOk = inRange({
       source: endpointFrom(actor.position, sourceTile.elevation),
       target: endpointFrom(targetUnit.position, targetTile.elevation),
       params: {
-        horizontalMax: effectiveUnitRange.horizontal,
+        horizontalMax: effectiveUnitRange.horizontal + unitHeightBonus,
         horizontalMin: effectiveUnitRange.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
         verticalMax: effectiveUnitRange.vertical,
       },

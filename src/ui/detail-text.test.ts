@@ -8,6 +8,7 @@ import { defaultTestRulesets } from '../engine/catalog/test-fixtures.ts';
 import { makeKnight } from '../engine/abilities/test-fixtures.ts';
 import { makeStatusInstance } from '../engine/status/test-fixtures.ts';
 import { boltHammer } from '../content/items/bolt-hammer.ts';
+import { longbow } from '../content/items/longbow.ts';
 import { raspPendant } from '../content/items/rasp-pendant.ts';
 import { wandOfDepths } from '../content/items/wand-of-depths.ts';
 import { sorcerersRobe } from '../content/items/sorcerers-robe.ts';
@@ -54,6 +55,17 @@ describe('formatItemDetail', () => {
     expect(joined).toContain('Var [0.90, 1.30]');
     // S40 name-update: Lightning Strike → Lightning Bolt (display only).
     expect(joined).toContain('25% chance to trigger Lightning Bolt');
+  });
+
+  it('summarizes a bow with range, two-handed, elevation variance, and range-from-height (S52)', () => {
+    const cat = makeCat();
+    const d = formatItemDetail(longbow, cat);
+    const joined = d.lines.join('\n');
+    expect(joined).toContain('Rng 2-5');
+    expect(joined).toContain('Two-handed');
+    expect(joined).toContain('Var by elevation');
+    // S52: range-from-height advertised in the weapon block.
+    expect(joined).toContain('+1 Rng per 2 elev down');
   });
 
   it('summarizes an accessory with damageMpDrainPercent', () => {
