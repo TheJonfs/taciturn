@@ -18,6 +18,7 @@ import fireMageUrl from './fire-mage.png';
 import hunterUrl from './hunter.png';
 import knightUrl from './knight.png';
 import lightningMageUrl from './lightning-mage.png';
+import terraformerUrl from './terraformer.png';
 import waterMageUrl from './water-mage.png';
 import { classId, type ClassId } from '@engine/index.ts';
 
@@ -30,6 +31,7 @@ export const PORTRAIT_URLS: ReadonlyMap<ClassId, string> = new Map([
   [classId('hunter'), hunterUrl],
   [classId('knight'), knightUrl],
   [classId('lightning_mage'), lightningMageUrl],
+  [classId('terraformer'), terraformerUrl],
   [classId('water_mage'), waterMageUrl],
 ]);
 
