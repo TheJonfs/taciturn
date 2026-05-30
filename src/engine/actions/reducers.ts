@@ -2014,8 +2014,9 @@ export function reduceTurnStart(
 ): ReduceResult<TurnStartOutcome> {
   const unitId = action.payload.unitId;
   // The actor must exist; it's the engine's contract that turn_start is
-  // only emitted when the projection queue lifts a unit.
-  const unit = getUnit(state, unitId);
+  // only emitted when the projection queue lifts a unit. `getUnit` throws
+  // if absent; the ticked copy is re-fetched after the barrier-TTL pass.
+  getUnit(state, unitId);
   if (state.turnState !== null) {
     throw new Error(
       `reduceTurnStart: a turn is already in progress for ${JSON.stringify(state.turnState.unitId)}`,
@@ -2024,15 +2025,23 @@ export function reduceTurnStart(
 
   const ruleset = catalog.getRuleset(state.ruleset.id);
 
-  // Session 53: decrement this unit's Worldcraft Barrier TTLs once per turn
-  // (piggybacks the status-duration cadence). Expired barriers are pruned
-  // from the queue and cleared from their tiles via the returned actions.
-  // No-op (same `unit` reference) for every unit without barrier effects.
-  const ttlTick = decrementBarrierTtls(unit);
-  const tickedUnit = ttlTick.unit;
-  const barrierClears = ttlTick.clearActions;
-  const stateAfterTtl =
-    tickedUnit === unit ? state : withUnit(state, tickedUnit);
+  // Session 54 (ADR-0089): decrement EVERY unit's Worldcraft Barrier TTLs
+  // once per turn_start — a global tick, independent of which unit is taking
+  // the turn. This supersedes S53's owner-turn-gated decrement: a barrier
+  // whose owner is KO'd / Stopped / removed would otherwise never tick (the
+  // owner takes no turns) and never expire. Now every barrier counts down on
+  // every turn_start regardless of owner state. Expired barriers are pruned
+  // from their owner's queue and cleared from their tiles via the returned
+  // actions. No-op for units without barrier effects (same reference back).
+  let stateAfterTtl = state;
+  const barrierClears: ProposedAction[] = [];
+  for (const u of state.units.values()) {
+    const tick = decrementBarrierTtls(u);
+    if (tick.unit !== u) stateAfterTtl = withUnit(stateAfterTtl, tick.unit);
+    for (const a of tick.clearActions) barrierClears.push(a);
+  }
+  // The turn-taking unit may itself have had barriers ticked — re-fetch.
+  const tickedUnit = getUnit(stateAfterTtl, unitId);
 
   // Turn-skip query: if any active hook (status, passive, equipment,
   // class trait) decides this unit can't act this turn, set up a
