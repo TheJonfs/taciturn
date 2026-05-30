@@ -140,6 +140,7 @@ Reaction / Support / Movement passives are equipped through their respective R/S
 | `mathematician` | Mathematician | support | 2 (S49 Calculator native — +1 SP on Math + per-target MP cost 3 → 1) | `src/content/abilities/mathematician.ts` |
 | `cornered_focus` | Cornered Focus | reaction | 1 (S49 Calculator native — +1 MA permanently on hit, stacks; Speed Save / Updraft parity) | `src/content/abilities/cornered-focus.ts` |
 | `thoughtful_pacing` | Thoughtful Pacing | movement | 1 (S49 Calculator native — restore 2 × tiles MP on Move) | `src/content/abilities/thoughtful-pacing.ts` |
+| `damage_split` | Damage Split | reaction | 2 (S53 Terraformer native — reflect damage taken to attacker + heal half; lands in catalog ahead of class wiring in S54) | `src/content/abilities/damage-split.ts` |
 
 S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive without a class home; the `modifyEvasion` hook it introduced stays for equipment-side consumers). **S50 suppressed Damage Reduction** under the same "support without a class home" pattern — `damage_reduction` is now `'hidden'` (the catalog still resolves the id for historical action-log replays; the picker just doesn't surface it).
 

@@ -27,6 +27,12 @@
 //   successful crit roll. Crit_modifier status (Lightning Buff) raises
 //   crit_chance via this hook; future Lightning content / equipment may
 //   raise either. Per ADR-0032.
+// - 'worldcraft_effect_cap' — added Session 53 (ADR-0088). The maximum
+//   number of simultaneous Worldcraft effects a unit may hold in its
+//   per-unit effect queue before the oldest is LIFO-evicted. Base 2 (passed
+//   by the enqueue helper); Expert Former Support adds +2 via this hook
+//   (composes for any equipper, Terraformer or cross-class). Computed-not-
+//   stored per CLAUDE rule 5 — the cap is re-read on every enqueue.
 
 export type StatName =
   | 'spd'
@@ -39,4 +45,5 @@ export type StatName =
   | 'brave'
   | 'faith'
   | 'crit_chance'
-  | 'crit_multiplier';
+  | 'crit_multiplier'
+  | 'worldcraft_effect_cap';

@@ -35,6 +35,10 @@ describe('Animator — no-visual action types drain cleanly (Session 32 regressi
     'status_decrement_stack',
     'status_tick',
     'wait',
+    // Session 53: terrain mutation is an instant static-layer redraw
+    // (driven by the battle-renderer's playActions), not an Animator anim —
+    // it must drain like the other no-visual action types.
+    'system_terrain_change',
   ])('drains %s without throwing and ends idle', (type) => {
     const animator = new Animator();
     // A minimal action of the given type. The animator only reads `type`

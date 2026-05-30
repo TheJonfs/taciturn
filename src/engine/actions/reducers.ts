@@ -43,6 +43,8 @@ import { enumerateMathSkillTargets } from '../targeting/index.ts';
 import { tileAt, unitAt } from '../map/accessors.ts';
 import { aoeFootprint, cardinalFromTo } from '../map/aoe.ts';
 import { applyKnockback, type KnockbackDirection } from '../map/knockback.ts';
+import { fallDamageAction } from '../map/fall-damage.ts';
+import { decrementBarrierTtls } from '../effects/queue.ts';
 import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
 import { applyStatus } from '../status/apply.ts';
 import { rollAbilityChance, rollStatusChance } from '../status/chance.ts';
@@ -85,6 +87,14 @@ import {
   type SystemKoTickOutcome,
   type SystemMpRestoreOutcome,
   type SystemUnitRemovedOutcome,
+  type SystemTerrainChangeOutcome,
+  type SystemBarrierChangeOutcome,
+  type SystemBarrierDamageOutcome,
+  type BattleMap,
+  type BarrierState,
+  type BarrierTileChange,
+  type Tile,
+  type TerrainTileChange,
   type TargetRef,
   type TurnEndOutcome,
   type TurnStartOutcome,
@@ -1860,6 +1870,16 @@ export function reduceTurnStart(
 
   const ruleset = catalog.getRuleset(state.ruleset.id);
 
+  // Session 53: decrement this unit's Worldcraft Barrier TTLs once per turn
+  // (piggybacks the status-duration cadence). Expired barriers are pruned
+  // from the queue and cleared from their tiles via the returned actions.
+  // No-op (same `unit` reference) for every unit without barrier effects.
+  const ttlTick = decrementBarrierTtls(unit);
+  const tickedUnit = ttlTick.unit;
+  const barrierClears = ttlTick.clearActions;
+  const stateAfterTtl =
+    tickedUnit === unit ? state : withUnit(state, tickedUnit);
+
   // Turn-skip query: if any active hook (status, passive, equipment,
   // class trait) decides this unit can't act this turn, set up a
   // minimal turnState (so turn_end has the structure to read), record
@@ -1871,7 +1891,7 @@ export function reduceTurnStart(
   // progress). When skipping with ticks suppressed, only the turn_end
   // is emitted. When skipping without suppression, ticks are emitted
   // *before* the turn_end so they fire first in the chain.
-  const skip = runQueryTurnSkipped(state, catalog, { unit });
+  const skip = runQueryTurnSkipped(stateAfterTtl, catalog, { unit: tickedUnit });
 
   const newTurn = {
     unitId,
@@ -1884,9 +1904,11 @@ export function reduceTurnStart(
   // status_tick fan-out — both modes tick at the unit's CT cadence; the
   // difference (decrement-vs-not) lives downstream in reduceStatusTick.
   if (skip !== null) {
-    const generated: ProposedAction[] = [];
+    // Barrier-TTL clears fire first, then this unit's status ticks, then
+    // the turn_end.
+    const generated: ProposedAction[] = [...barrierClears];
     if (!skip.suppressStatusTicks) {
-      for (const status of unit.statuses) {
+      for (const status of tickedUnit.statuses) {
         const type = catalog.getStatusType(status.typeId);
         if (ticksOnUnitCt100(type)) {
           generated.push({
@@ -1904,7 +1926,7 @@ export function reduceTurnStart(
       // the skipped turn counts down the Stop). Emit a single self-tick
       // for the winning status only; other statuses on the unit stay
       // suppressed per the flag's original intent.
-      const ticking = unit.statuses.find((s) => s.typeId === skip.statusTypeId);
+      const ticking = tickedUnit.statuses.find((s) => s.typeId === skip.statusTypeId);
       if (ticking !== undefined) {
         const type = catalog.getStatusType(ticking.typeId);
         if (ticksOnUnitCt100(type)) {
@@ -1928,18 +1950,19 @@ export function reduceTurnStart(
     // only chipped 20 off, so a Stopped unit at CT 110 came back up
     // for another fake turn every ~2 enemy turns instead of waiting
     // a full Speed cycle.
-    const drainedUnit: Unit = { ...unit, ct: 0 };
+    const drainedUnit: Unit = { ...tickedUnit, ct: 0 };
     return {
-      newState: { ...withUnit(state, drainedUnit), turnState: newTurn },
+      newState: { ...withUnit(stateAfterTtl, drainedUnit), turnState: newTurn },
       outcome: { kind: 'turn_start', unitId, skipped: true, skipReason: skip.reason },
       generatedActions: generated,
     };
   }
 
   // Generate status_tick actions for CT-cadence statuses on this unit.
-  // The chain processor runs them after this action commits.
-  const generated: ProposedAction[] = [];
-  for (const status of unit.statuses) {
+  // The chain processor runs them after this action commits. Barrier-TTL
+  // clears (if any) lead the list.
+  const generated: ProposedAction[] = [...barrierClears];
+  for (const status of tickedUnit.statuses) {
     const type = catalog.getStatusType(status.typeId);
     if (ticksOnUnitCt100(type)) {
       generated.push({
@@ -1950,7 +1973,7 @@ export function reduceTurnStart(
     }
   }
 
-  const newState: GameState = { ...state, turnState: newTurn };
+  const newState: GameState = { ...stateAfterTtl, turnState: newTurn };
   return {
     newState,
     outcome: { kind: 'turn_start', unitId, skipped: false },
@@ -3434,6 +3457,156 @@ export function reduceSystemUnitRemoved(
   return {
     newState: withUnit(state, newTarget),
     outcome: { kind: 'system_unit_removed', targetId, turnsKOdAtRemoval },
+    generatedActions: [],
+  };
+}
+
+// --- system_terrain_change ---
+//
+// Session 53 (ADR-0088). Mutates the elevation + terrain of the tiles named
+// in the payload, in lockstep, producing a structurally-shared new
+// `map.tiles` (unchanged tile objects keep their identity; only the
+// addressed tiles are replaced). One action carries a whole cast's tile-set
+// (1 tile for Pillar/Pit, 9 for Hill/Valley) or its inverse on a revert.
+//
+// Fall damage is emitted here, not by the caller: any addressed tile whose
+// elevation *drops* under a (non-removed) occupant generates a `'falling'`
+// `system_damage` via the shared helper (gated at dropDistance > 1). A tile
+// that *rises* is not a drop and emits nothing — so a Pit/Valley cast (drop)
+// and a Pillar/Hill revert (the raised tile dropping back) both punish,
+// while a Pillar/Hill cast (rise) and a Pit/Valley revert (rise back) do
+// not. The blueprint's asymmetry falls out of the physics; no per-ability
+// flagging needed.
+//
+// The `new*`/`original*` pair is supplied by the emitter (terrain is
+// elevation-derived under the water-table convention, so the emitter moves
+// them together); the reducer trusts and applies `new*`.
+function terrainKey(x: number, y: number, layer: number): string {
+  return `${x},${y},${layer}`;
+}
+
+export function reduceSystemTerrainChange(
+  state: GameState,
+  action: Extract<Action, { type: 'system_terrain_change' }>,
+): ReduceResult<SystemTerrainChangeOutcome> {
+  const { tileChanges } = action.payload;
+  const changeByKey = new Map<string, TerrainTileChange>();
+  for (const c of tileChanges) changeByKey.set(terrainKey(c.x, c.y, c.layer), c);
+
+  let appliedCount = 0;
+  const newTiles: Tile[] = state.map.tiles.map((t) => {
+    const c = changeByKey.get(terrainKey(t.x, t.y, t.layer));
+    if (c === undefined) return t;
+    appliedCount++;
+    return { ...t, elevation: c.newElevation, terrain: c.newTerrain };
+  });
+  const newMap: BattleMap = { ...state.map, tiles: newTiles };
+  const newState: GameState = { ...state, map: newMap };
+
+  // Fall damage for occupants of dropped tiles. Read occupancy off the
+  // pre-change state (positions don't move here — only the ground beneath
+  // them does); `unitAt` already skips `removed` units.
+  const generatedActions: ProposedAction[] = [];
+  const fallDamageUnitIds: UnitId[] = [];
+  for (const c of tileChanges) {
+    const dropDistance = c.originalElevation - c.newElevation;
+    if (dropDistance <= 1) continue;
+    const occupant = unitAt(state, c.x, c.y, c.layer);
+    if (occupant === undefined) continue;
+    const fall = fallDamageAction(occupant.id, dropDistance);
+    if (fall === null) continue;
+    generatedActions.push(fall);
+    fallDamageUnitIds.push(occupant.id);
+  }
+
+  return {
+    newState,
+    outcome: { kind: 'system_terrain_change', tileChanges, appliedCount, fallDamageUnitIds },
+    generatedActions,
+  };
+}
+
+// --- system_barrier_change ---
+//
+// Session 53 (ADR-0088). Sets or clears the `Tile.barrier` field on the
+// addressed tiles. A non-null `barrier` spawns (Barrier cast); a null
+// `barrier` clears (effect-queue revert or TTL expiry). Structurally-shared
+// new `map.tiles`, like `system_terrain_change`. No fall damage — barriers
+// occupy unoccupied tiles, so nothing falls.
+function clearBarrier(tile: Tile): Tile {
+  if (tile.barrier === undefined) return tile;
+  const next = { ...tile };
+  delete (next as { barrier?: BarrierState }).barrier;
+  return next;
+}
+
+export function reduceSystemBarrierChange(
+  state: GameState,
+  action: Extract<Action, { type: 'system_barrier_change' }>,
+): ReduceResult<SystemBarrierChangeOutcome> {
+  const { tileChanges } = action.payload;
+  const byKey = new Map<string, BarrierTileChange>();
+  for (const c of tileChanges) byKey.set(terrainKey(c.x, c.y, c.layer), c);
+
+  let appliedCount = 0;
+  const newTiles: Tile[] = state.map.tiles.map((t) => {
+    const c = byKey.get(terrainKey(t.x, t.y, t.layer));
+    if (c === undefined) return t;
+    appliedCount++;
+    return c.barrier === null ? clearBarrier(t) : { ...t, barrier: c.barrier };
+  });
+  const newMap: BattleMap = { ...state.map, tiles: newTiles };
+
+  return {
+    newState: { ...state, map: newMap },
+    outcome: { kind: 'system_barrier_change', appliedCount },
+    generatedActions: [],
+  };
+}
+
+// --- system_barrier_damage ---
+//
+// Session 53 (ADR-0088). Reduces the HP of the barrier on a single tile,
+// destroying it (clearing the field) at HP ≤ 0. Bypasses the Unit-typed
+// pipeline entirely — the emitter precomputed `amount`. A missing barrier
+// (already destroyed / never present) is a silent no-op, matching the
+// `system_damage` missing-target semantics.
+export function reduceSystemBarrierDamage(
+  state: GameState,
+  action: Extract<Action, { type: 'system_barrier_damage' }>,
+): ReduceResult<SystemBarrierDamageOutcome> {
+  const { x, y, layer, amount } = action.payload;
+  const tile = tileAt(state.map, x, y, layer);
+  if (tile === undefined || tile.barrier === undefined) {
+    return {
+      newState: state,
+      outcome: { kind: 'system_barrier_damage', x, y, layer, applied: 0, hpAfter: 0, destroyed: false },
+      generatedActions: [],
+    };
+  }
+  const applied = Math.max(0, Math.min(amount, tile.barrier.hp));
+  const hpAfter = tile.barrier.hp - applied;
+  const destroyed = hpAfter <= 0;
+
+  const newTiles: Tile[] = state.map.tiles.map((t) => {
+    if (t.x !== x || t.y !== y || t.layer !== layer) return t;
+    if (t.barrier === undefined) return t;
+    if (destroyed) return clearBarrier(t);
+    return { ...t, barrier: { ...t.barrier, hp: hpAfter } };
+  });
+  const newMap: BattleMap = { ...state.map, tiles: newTiles };
+
+  return {
+    newState: { ...state, map: newMap },
+    outcome: {
+      kind: 'system_barrier_damage',
+      x,
+      y,
+      layer,
+      applied,
+      hpAfter: Math.max(0, hpAfter),
+      destroyed,
+    },
     generatedActions: [],
   };
 }

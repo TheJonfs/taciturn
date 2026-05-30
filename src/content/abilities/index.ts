@@ -23,6 +23,7 @@ import { corneredFocusReaction } from './cornered-focus.ts';
 import { counter } from './counter.ts';
 import { cure } from './cure.ts';
 import { damageReduction } from './damage-reduction.ts';
+import { damageSplit } from './damage-split.ts';
 import { engineeredDefenses as engineeredDefensesAbility } from './engineered-defenses.ts';
 import { exactRhythm } from './exact-rhythm.ts';
 import { discharge } from './discharge.ts';
@@ -98,6 +99,7 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   counter,
   cure,
   damageReduction,
+  damageSplit,
   engineeredDefensesAbility,
   exactRhythm,
   discharge,

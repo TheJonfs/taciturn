@@ -102,6 +102,9 @@ export function validateAction(
     case 'system_set_ct':
     case 'system_ko_tick':
     case 'system_unit_removed':
+    case 'system_terrain_change':
+    case 'system_barrier_change':
+    case 'system_barrier_damage':
     case 'status_remove':
     case 'status_decrement_stack':
     case 'battle_end':

@@ -27,3 +27,4 @@ export * from './team.ts';
 export * from './tile.ts';
 export * from './turn-state.ts';
 export * from './unit.ts';
+export * from './worldcraft.ts';

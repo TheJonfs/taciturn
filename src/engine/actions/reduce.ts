@@ -26,6 +26,9 @@ import {
   reduceSystemMpDrain,
   reduceSystemMpRestore,
   reduceSystemUnitRemoved,
+  reduceSystemTerrainChange,
+  reduceSystemBarrierChange,
+  reduceSystemBarrierDamage,
   reduceTurnEnd,
   reduceTurnStart,
   reduceUseAbility,
@@ -77,6 +80,12 @@ export function reduce(state: GameState, action: Action, catalog: Catalog): Redu
       return reduceSystemKoTick(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_unit_removed':
       return reduceSystemUnitRemoved(state, action) as ReduceResult<ActionOutcome>;
+    case 'system_terrain_change':
+      return reduceSystemTerrainChange(state, action) as ReduceResult<ActionOutcome>;
+    case 'system_barrier_change':
+      return reduceSystemBarrierChange(state, action) as ReduceResult<ActionOutcome>;
+    case 'system_barrier_damage':
+      return reduceSystemBarrierDamage(state, action) as ReduceResult<ActionOutcome>;
     case 'system_apply_status':
       return reduceSystemApplyStatus(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_ct_push':

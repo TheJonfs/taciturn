@@ -269,6 +269,9 @@ function placementToUnit(
     vitals,
     resistances,
     statuses: placement.statuses ?? [],
+    // Session 53: fresh battle starts with an empty Worldcraft effect queue;
+    // it fills only when a unit casts a Worldcraft ability (S54).
+    worldcraftEffects: [],
     // Session 39a: fresh battle starts with no accumulated KO turns
     // and not yet removed. S39b: stockpile is populated from equipped
     // passives' `stockpileGrants` (Field Kit), computed just above.

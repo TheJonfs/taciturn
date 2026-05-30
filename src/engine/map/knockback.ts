@@ -23,9 +23,10 @@
 //   - if dropDistance > 1 → emit `system_damage` with amount = 10 × dropDistance
 //   - if dropDistance ≤ 1 → no emission
 
-import type { ProposedAction, UnitId } from '../types/index.ts';
+import type { ProposedAction } from '../types/index.ts';
 import type { BattleMap, GameState, Position, Tile, Unit } from '../types/index.ts';
 import { tileAt, tilesAt, unitAt } from './accessors.ts';
+import { fallDamageAction } from './fall-damage.ts';
 
 export type KnockbackDirection = 'N' | 'S' | 'E' | 'W';
 
@@ -60,8 +61,6 @@ const DELTAS: Record<KnockbackDirection, { dx: number; dy: number }> = {
   E: { dx: 1, dy: 0 },
   W: { dx: -1, dy: 0 },
 };
-
-const FALLING_DAMAGE_PER_LEVEL = 10;
 
 export function applyKnockback(args: KnockbackArgs): KnockbackResult {
   const { dx, dy } = DELTAS[args.direction];
@@ -121,17 +120,14 @@ export function applyKnockback(args: KnockbackArgs): KnockbackResult {
   }
 
   const dropDistance = startElevation - currentElevation;
+  const fallAction = fallDamageAction(args.unit.id, dropDistance);
   const result: KnockbackResult = {
     finalPosition: currentPos,
     path,
     stepsTaken: path.length - 1,
     cancellation,
     dropDistance,
-    ...(dropDistance > 1
-      ? {
-          fallingDamageAction: makeFallingDamageAction(args.unit.id, dropDistance),
-        }
-      : {}),
+    ...(fallAction !== null ? { fallingDamageAction: fallAction } : {}),
   };
   return result;
 }
@@ -151,19 +147,6 @@ function pickLandingTile(tiles: ReadonlyArray<Tile>, currentElevation: number): 
     if (best === null || t.elevation > best.elevation) best = t;
   }
   return best;
-}
-
-function makeFallingDamageAction(unitId: UnitId, dropDistance: number): ProposedAction {
-  return {
-    type: 'system_damage',
-    source: 'system',
-    payload: {
-      targetId: unitId,
-      amount: FALLING_DAMAGE_PER_LEVEL * dropDistance,
-      tags: ['physical'],
-      source: { kind: 'falling', unitId, dropDistance },
-    },
-  };
 }
 
 // Re-export the map accessors that callers commonly pair with knockback.

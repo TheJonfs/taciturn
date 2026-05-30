@@ -16,6 +16,7 @@ import type { DamageTag } from './damage.ts';
 import type { AbilityId, ChargedActionId, ItemId, StatusTypeId, TeamId, UnitId } from './ids.ts';
 import type { Direction, Position } from './spatial.ts';
 import type { StatusApplicationOutcome } from './status-application-outcome.ts';
+import type { BarrierState, TerrainType } from './tile.ts';
 
 export type ActionType =
   | 'move'
@@ -37,6 +38,9 @@ export type ActionType =
   | 'system_set_ct'
   | 'system_ko_tick'
   | 'system_unit_removed'
+  | 'system_terrain_change'
+  | 'system_barrier_change'
+  | 'system_barrier_damage'
   | 'status_remove'
   | 'status_decrement_stack'
   | 'battle_end';
@@ -314,7 +318,11 @@ export interface SystemHealOutcome {
 // reads the abilityId for "Field Recovery healed Beowulf for 16 HP."
 export type SystemHealSource =
   | { readonly kind: 'status_tick'; readonly statusTypeId: StatusTypeId; readonly unitId: UnitId }
-  | { readonly kind: 'movement_passive'; readonly abilityId: AbilityId; readonly unitId: UnitId };
+  | { readonly kind: 'movement_passive'; readonly abilityId: AbilityId; readonly unitId: UnitId }
+  // Session 53: Damage Split heals the reactor for half the damage it took,
+  // paired with the `'reflect'` system_damage to the attacker. `abilityId`
+  // names the reaction; `unitId` is the reactor (the heal target).
+  | { readonly kind: 'reaction'; readonly abilityId: AbilityId; readonly unitId: UnitId };
 
 // `system_damage` — engine-emitted damage-the-target action used by
 // onTick handlers (Poison) and ADR-0026 falling damage. Symmetric to
@@ -359,7 +367,16 @@ export type SystemDamageSource =
   // names the reflective item. The action log renders these as
   // `[revenge]`-tagged entries to distinguish reflect proc damage from
   // the wearer's own actions.
-  | { readonly kind: 'revenge'; readonly wearerId: UnitId; readonly itemId: ItemId };
+  | { readonly kind: 'revenge'; readonly wearerId: UnitId; readonly itemId: ItemId }
+  // Session 53: Damage Split (Terraformer native Reaction) reflects the
+  // damage it took back at the attacker as a `system_damage`, emitted from
+  // `onActionTargeted` and Brave-gated by the reaction runner. Distinct
+  // from `'revenge'` (passive equipment reflect, no Brave gate): `'reflect'`
+  // is a Reaction-triggered bounce. `reactorId` is the reacting unit (the
+  // original target); `attackerId` is the unit that gets bounced. Like all
+  // system_damage it bypasses the pipeline, so the reflect can't cascade
+  // into the attacker's own reactions.
+  | { readonly kind: 'reflect'; readonly reactorId: UnitId; readonly attackerId: UnitId };
 
 // Session 39a: `system_mp_restore` — engine-emitted MP write used by
 // Ether (and any future MP-restore consumer). Parallel to system_heal
@@ -613,6 +630,98 @@ export interface SystemUnitRemovedOutcome {
   readonly turnsKOdAtRemoval: number; // for action-log attribution
 }
 
+// Session 53 (ADR-0088): `system_terrain_change` — engine-emitted action
+// that mutates the elevation + terrain of one or more tiles in lockstep,
+// producing a structurally-shared new `map.tiles`. The Terraformer's
+// Worldcraft abilities (Pillar/Pit/Hill/Valley — S54) emit one per cast
+// carrying the whole affected tile-set; the effect-queue's LIFO revert
+// emits one carrying the inverse deltas. Per-cast granularity keeps a cast
+// and its revert atomic.
+//
+// Each change carries both the original and new values: `new*` is what the
+// reducer writes; `original*` lets a revert reconstruct the prior terrain
+// without re-deriving it. `terrain` is elevation-derived under the water-
+// table convention, so the two move together (a tile lowered into elev 0
+// becomes deep water, etc.) — the *emitter* computes both; the reducer just
+// applies them.
+//
+// Fall damage is NOT in the payload: the reducer detects occupied tiles
+// whose elevation drops and emits `'falling'` `system_damage` via the
+// shared helper (a rising tile is not a drop and emits nothing).
+export interface TerrainTileChange {
+  readonly x: number;
+  readonly y: number;
+  readonly layer: number;
+  readonly originalElevation: number;
+  readonly newElevation: number;
+  readonly originalTerrain: TerrainType;
+  readonly newTerrain: TerrainType;
+}
+export interface SystemTerrainChangePayload {
+  readonly tileChanges: ReadonlyArray<TerrainTileChange>;
+}
+export interface SystemTerrainChangeOutcome {
+  readonly kind: 'system_terrain_change';
+  readonly tileChanges: ReadonlyArray<TerrainTileChange>;
+  // How many of the requested tiles existed and were written. Normally
+  // equals `tileChanges.length`; a smaller count flags a malformed cast
+  // (a change addressing a non-existent (x,y,layer)).
+  readonly appliedCount: number;
+  // Ids of units that took fall damage from a dropped tile, for action-log
+  // attribution. The damage itself rides the generated `system_damage`
+  // actions; this is just the roster.
+  readonly fallDamageUnitIds: ReadonlyArray<UnitId>;
+}
+
+// Session 53 (ADR-0088): `system_barrier_change` — sets or clears the
+// `Tile.barrier` field on one or more tiles. Spawns barriers on a Barrier
+// cast (`barrier` = a BarrierState) and clears them on revert / TTL expiry
+// (`barrier` = null). Parallel to `system_terrain_change`; kept separate
+// because it mutates a different tile field (barrier presence, not
+// elevation/terrain). No fall damage — barriers occupy unoccupied tiles.
+export interface BarrierTileChange {
+  readonly x: number;
+  readonly y: number;
+  readonly layer: number;
+  // The barrier to place, or `null` to clear any barrier on the tile.
+  readonly barrier: BarrierState | null;
+}
+export interface SystemBarrierChangePayload {
+  readonly tileChanges: ReadonlyArray<BarrierTileChange>;
+}
+export interface SystemBarrierChangeOutcome {
+  readonly kind: 'system_barrier_change';
+  readonly appliedCount: number;
+}
+
+// Session 53 (ADR-0088): `system_barrier_damage` — reduces the HP of the
+// barrier on a single tile, destroying it (clearing `Tile.barrier`) at HP ≤ 0.
+// Bypasses the seven-stage `Unit`-typed damage pipeline entirely (no
+// variance/Faith/resistance/reactions) — barriers are inert objects, so the
+// emitter precomputes `amount`. This parallels the pipeline-bypass property
+// of `system_damage` without overloading that action's `targetId: UnitId`
+// shape; a barrier is addressed by tile coordinate, not unit id.
+export interface BarrierDamageSource {
+  readonly attackerId: UnitId;
+  readonly abilityId: AbilityId;
+}
+export interface SystemBarrierDamagePayload {
+  readonly x: number;
+  readonly y: number;
+  readonly layer: number;
+  readonly amount: number;
+  readonly source: BarrierDamageSource;
+}
+export interface SystemBarrierDamageOutcome {
+  readonly kind: 'system_barrier_damage';
+  readonly x: number;
+  readonly y: number;
+  readonly layer: number;
+  readonly applied: number; // HP actually removed (clamped at the barrier's HP)
+  readonly hpAfter: number; // barrier HP after (0 when destroyed)
+  readonly destroyed: boolean;
+}
+
 // `battle_end` is the terminal system action that commits when a
 // victory condition fires. Carries the winning team and the index of
 // the satisfied condition (back-pointer into `state.victoryConditions`
@@ -726,6 +835,21 @@ export type Action = ActionEnvelope &
         readonly outcome?: SystemUnitRemovedOutcome;
       }
     | {
+        readonly type: 'system_terrain_change';
+        readonly payload: SystemTerrainChangePayload;
+        readonly outcome?: SystemTerrainChangeOutcome;
+      }
+    | {
+        readonly type: 'system_barrier_change';
+        readonly payload: SystemBarrierChangePayload;
+        readonly outcome?: SystemBarrierChangeOutcome;
+      }
+    | {
+        readonly type: 'system_barrier_damage';
+        readonly payload: SystemBarrierDamagePayload;
+        readonly outcome?: SystemBarrierDamageOutcome;
+      }
+    | {
         readonly type: 'system_apply_status';
         readonly payload: SystemApplyStatusPayload;
         readonly outcome?: SystemApplyStatusOutcome;
@@ -777,6 +901,9 @@ export type ActionOutcome =
   | SystemSetCtOutcome
   | SystemKoTickOutcome
   | SystemUnitRemovedOutcome
+  | SystemTerrainChangeOutcome
+  | SystemBarrierChangeOutcome
+  | SystemBarrierDamageOutcome
   | StatusRemoveOutcome
   | StatusDecrementStackOutcome
   | BattleEndOutcome;
@@ -892,6 +1019,21 @@ export type ProposedAction =
       readonly type: 'system_unit_removed';
       readonly source: 'system';
       readonly payload: SystemUnitRemovedPayload;
+    }
+  | {
+      readonly type: 'system_terrain_change';
+      readonly source: 'system';
+      readonly payload: SystemTerrainChangePayload;
+    }
+  | {
+      readonly type: 'system_barrier_change';
+      readonly source: 'system';
+      readonly payload: SystemBarrierChangePayload;
+    }
+  | {
+      readonly type: 'system_barrier_damage';
+      readonly source: 'system';
+      readonly payload: SystemBarrierDamagePayload;
     }
   | {
       readonly type: 'system_apply_status';

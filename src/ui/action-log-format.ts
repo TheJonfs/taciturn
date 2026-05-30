@@ -557,6 +557,42 @@ function formatAction(
       const text = desc === '' ? `${winner} wins` : `${winner} wins — ${desc}`;
       return [row({ tag: '[end]', segments: [plain(text)], indent: false, tagKind: 'system' })];
     }
+
+    case 'system_terrain_change': {
+      // Session 53. One row per cast (or revert): how many tiles moved and
+      // how many occupants fell. The fall damage itself logs separately via
+      // the generated `[fall]` system_damage rows.
+      const n = action.outcome?.appliedCount ?? action.payload.tileChanges.length;
+      const fellCount = action.outcome?.fallDamageUnitIds.length ?? 0;
+      const tileWord = n === 1 ? 'tile' : 'tiles';
+      const base = `${n} ${tileWord} reshaped`;
+      const text = fellCount > 0 ? `${base} — ${fellCount} fell` : base;
+      return [row({ tag: '[terrain]', segments: [plain(text)], indent: true, tagKind: 'system' })];
+    }
+
+    case 'system_barrier_change': {
+      // Session 53. Barrier spawn / clear (one row per cast or revert).
+      const n = action.outcome?.appliedCount ?? action.payload.tileChanges.length;
+      const clearing = action.payload.tileChanges.every((c) => c.barrier === null);
+      const verb = clearing ? 'cleared' : 'raised';
+      const tileWord = n === 1 ? 'barrier' : 'barriers';
+      return [
+        row({
+          tag: '[barrier]',
+          segments: [plain(`${n} ${tileWord} ${verb}`)],
+          indent: true,
+          tagKind: 'system',
+        }),
+      ];
+    }
+
+    case 'system_barrier_damage': {
+      // Session 53. A barrier took (precomputed) damage; note destruction.
+      const applied = action.outcome?.applied ?? action.payload.amount;
+      const destroyed = action.outcome?.destroyed ?? false;
+      const text = destroyed ? `barrier destroyed (${applied})` : `barrier −${applied}`;
+      return [row({ tag: '[barrier]', segments: [plain(text)], indent: true, tagKind: 'system' })];
+    }
     default: {
       // Exhaustiveness check (Session 31 — same gap that crashed the UI
       // when system_mp_drain shipped to v1 content without a formatter
@@ -692,5 +728,9 @@ function formatDamageSource(source: import('@engine/index.ts').SystemDamageSourc
       // a future call site uses `formatDamageSource` without the
       // dedicated branch.
       return 'revenge';
+    case 'reflect':
+      // Damage Split's Reaction-triggered reflect (Session 53). Parallel
+      // to `revenge`; distinguished in the log as a reflect bounce.
+      return 'reflect';
   }
 }

@@ -66,6 +66,15 @@ function bresenhamCells(x0: number, y0: number, x1: number, y1: number): Readonl
 }
 
 function tileBlocksAt(tile: Tile, rayElevation: number): boolean {
+  // Session 53: a Barrier blocks line-of-sight (Chris's call). Unlike a
+  // `blocks_los` terrain column — which grazes-pass on a strict `>` floor so
+  // a level shot over a same-height wall isn't blocked — a Barrier is a solid
+  // object sitting *on* its tile surface: a wall between two same-elevation
+  // units must block the eye-level ray. So a barrier uses an inclusive lower
+  // bound (`>=`), a `blocks_los` tile keeps the strict `>`.
+  if (tile.barrier !== undefined) {
+    return rayElevation >= tile.elevation && rayElevation < tile.elevation + BLOCKER_HEIGHT;
+  }
   if (!tile.properties.includes(BLOCKS_LOS_PROPERTY)) return false;
   // Strict on both sides — a ray exactly grazing the floor or ceiling of
   // a blocking column passes (lean toward "doesn't block").

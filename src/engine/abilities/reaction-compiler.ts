@@ -71,6 +71,29 @@ export type ReactionEffect =
       // Signed CT delta applied directly. Positive = forward (toward 100
       // trigger threshold); negative = backward. Per session 18.
       readonly delta: number;
+    }
+  | {
+      // Session 53: reflect the damage just taken back at the attacker as a
+      // `system_damage` (bypasses the pipeline — no variance/Faith/resistance,
+      // and crucially can't cascade into the attacker's own reactions), and
+      // heal the reactor for a fraction of that amount via a paired
+      // `system_heal`. Damage Split is the v1 consumer.
+      //
+      // Reads the incoming damage off the enriched `onActionTargeted` args
+      // (`damageDealt`). Hard-gated on the reactor surviving the hit — the
+      // runner hands us the post-application unit, so `unit.vitals.hp > 0`
+      // distinguishes a survivor from a unit the attack KO'd. The survival
+      // gate runs before the runner's Brave roll (it suppresses the emission
+      // entirely), matching "survives, then Brave-gates."
+      readonly kind: 'reflect_damage';
+      // Tags carried on the reflected system_damage — for log/animation
+      // attribution only, since system_damage bypasses resistance. Damage
+      // Split authors `[]`.
+      readonly tags: ReadonlyArray<DamageTag>;
+      // Self-heal = floor(damageDealt × numerator / denominator). Damage
+      // Split heals half → numerator 1, denominator 2.
+      readonly selfHealNumerator: number;
+      readonly selfHealDenominator: number;
     };
 
 export type ReactionTriggerCondition =
@@ -162,6 +185,45 @@ function compileForHook(
 
         const emissions: ProposedAction[] = [];
         for (const effect of fields.effects) {
+          if (effect.kind === 'reflect_damage') {
+            // Survival gate (pre-Brave): the reactor must be alive after the
+            // hit. `args.unit` is the post-application unit (the runner reads
+            // it from workingState), so hp ≤ 0 means the attack KO'd us — no
+            // reflect. `damageDealt` is the enriched landed amount.
+            const damageDealt = args.damageDealt ?? 0;
+            if (damageDealt <= 0) continue;
+            if (args.unit.vitals.hp <= 0) continue;
+            // Reflect the full damage at the attacker, system-tagged so it
+            // bypasses the pipeline and can't cascade into the attacker's
+            // reactions.
+            emissions.push({
+              type: 'system_damage',
+              source: 'system',
+              payload: {
+                targetId: attackerId,
+                amount: damageDealt,
+                tags: effect.tags,
+                source: { kind: 'reflect', reactorId: args.unit.id, attackerId },
+              },
+            });
+            // Self-heal a fraction of the reflected amount.
+            const heal = Math.floor(
+              (damageDealt * effect.selfHealNumerator) / effect.selfHealDenominator,
+            );
+            if (heal > 0) {
+              emissions.push({
+                type: 'system_heal',
+                source: 'system',
+                payload: {
+                  targetId: args.unit.id,
+                  amount: heal,
+                  tags: [],
+                  source: { kind: 'reaction', abilityId: ctx.ability.id, unitId: args.unit.id },
+                },
+              });
+            }
+            continue;
+          }
           const targetUnitId = resolveTargetSelector(effect.targetSelector, {
             self: args.unit.id,
             attacker: attackerId,

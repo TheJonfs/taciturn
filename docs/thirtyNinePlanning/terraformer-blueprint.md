@@ -201,7 +201,9 @@ Following Calculator pattern: `freeAbilities: [attack, damage_split, expert_form
 
 ## Substrate requirements (preliminary)
 
-This is the largest substrate addition since the Math Skill substrate (S49). Expect 2-3 implementation sessions, possibly more.
+> **S53 update (ADR-0088):** the substrate is **built**. The S52 audit overturned the "2-3 sessions" framing — most of the scary pieces were pre-built — and S53 landed all of it in one focused session: `system_terrain_change` (mutable terrain, structurally-shared map), the shared fall-damage helper (one `> 1` gate across knockback + terrain), the per-unit `worldcraftEffects` LIFO queue with computed `worldcraft_effect_cap` (base 2, Expert Former +2) and Barrier-TTL turn-loop decrement, Barrier objects as a `Tile.barrier?` field (impassable + LoS-blocking) with `system_barrier_change` / `system_barrier_damage` (pipeline-bypassing), the renderer instant-redraw on terrain change, and Damage Split in the catalog. Pathfinding and AoE were verified to need zero substrate. **Deferred to S54:** the live attack/AoE → barrier-damage routing (content-coupled), and the Barrier-TTL-under-KO cadence refinement. The arc now collapses to: **S53 substrate → S54 class+abilities → S55 AI+UI.**
+
+This is the largest substrate addition since the Math Skill substrate (S49). ~~Expect 2-3 implementation sessions, possibly more.~~ **Landed in one session (S53), per the audit's revised estimate.**
 
 ### Mutable terrain state
 
@@ -310,7 +312,7 @@ Items still requiring settlement before implementation brief is written:
 4. **Range of Worldcraft casts.** Initial proposal 4 horizontal. Should it be 3? 5? Magic-uniform 4-tile range feels right.
 5. **AoE on Valley fall damage.** Per-tile delta-based, but is there a magnitude cap? E.g., does a tile lowered by -3 plus a separately-stacked -3 = -6 elevation give -6 fall damage on the unit, or is fall damage capped at the single-cast magnitude?
 6. **Multi-Terraformer team queue behavior.** Each gets their own; confirmed. Worth playtest to see if 4-Terraformer mage-war comp feels broken.
-7. **"System-tagged" damage substrate.** Audit confirms whether this exists or needs adding for Damage Split.
+7. ~~**"System-tagged" damage substrate.** Audit confirms whether this exists or needs adding for Damage Split.~~ **CLOSED (S53, ADR-0088).** No new tag or damage-type substrate is needed. `system_damage` already bypasses the pipeline (no variance/Faith/resistance/reactions; ADR-0027); Damage Split adds one `SystemDamageSource` variant (`'reflect'`, parallel to Spiked Mail's `'revenge'`) plus a paired `system_heal` for the self-heal. Shipped standalone in the catalog this session; wired onto the Terraformer's R/S/M in S54.
 8. **Naming.** Terraformer / Tectonicist / Cartomancer / Worldshaper. Terraformer is working name.
 9. **Worldcraft as command set name.** Chris floated with "?"; sticking with Worldcraft as working name.
 10. **Cross-class secondary Worldcraft + Expert Former interaction.** Functional but worth playtest watch — non-Terraformer with full 4-effect cap might be a build to watch.

@@ -26,6 +26,60 @@ shouldn't drift out of memory between sessions.
 
 ## Active entries
 
+### S53 — Terraformer substrate (no direct signal yet; watch-fors for S54+)
+
+The substrate ships no player-facing content (no ability creates terrain or
+barriers yet), so it produces no playtest signal this session. These are
+seeded for when the Worldcraft abilities land (S54).
+
+- **Worldcraft corner-tile fall damage feels like nothing.**
+  - **What to watch.** Hill/Valley corner tiles move by ±1, and Worldcraft
+    reuses the natural fall gate (`dropDistance > 1`), so a unit on a Valley
+    corner — or a reverted Hill corner — takes **zero** fall damage (edges
+    20, center 30). Watch whether "the corner did nothing" reads as intended
+    falloff or as a bug/dead zone once players cast these.
+  - **Why it matters.** Settled at S53 start (reuse the natural gate). If
+    corners feeling inert hurts the ability's read, the lever is a Worldcraft-
+    specific gate (10/level from delta ≥ 1).
+  - **Signal for adjustment.** Players consistently surprised that corner
+    occupants take no damage, or corner placement never mattering.
+
+- **Effect-queue eviction surprise (the LIFO revert tax).**
+  - **What to watch.** A Terraformer at cap (2, or 4 with Expert Former) who
+    casts again silently reverts its oldest effect — which can *drop* an ally
+    off a Pillar/Hill (fall damage) or collapse a wall. Watch whether the
+    revert-on-overflow is legible to the player or feels like a random
+    self-inflicted hit.
+  - **Why it matters.** The cap+revert is the class's structural backbone;
+    if the consequence is invisible until it hurts, it reads as a bug. UI
+    surfacing of the queue (S55) is the intended mitigation.
+  - **Signal for adjustment.** Players repeatedly evicting effects they
+    didn't mean to. Levers: clearer queue UI, a cast-time warning, or a
+    confirm prompt when a cast would evict.
+
+- **Barrier-TTL-under-KO cadence (deferred decision, ADR-0088).**
+  - **What to watch.** S53 decrements barrier TTL on the *owner's* turn start,
+    so a KO'd Terraformer's barriers pause their countdown until revival.
+    Blueprint intent is "effects persist past KO and keep ticking." Watch
+    whether KO'd-Terraformer barriers overstaying their welcome feels
+    oppressive once Barrier exists.
+  - **Why it matters.** Settling the cadence (owner-turn vs. round-cadence)
+    is explicitly deferred to S54; this is the signal that decides it.
+  - **Signal for adjustment.** Barriers from a dead Terraformer dominating
+    the back half of fights. Lever: tick TTL on a round cadence independent
+    of the owner's turns.
+
+- **Damage Split reflect economy.**
+  - **What to watch.** Once equipped (S54), Damage Split reflects the full
+    hit back (pipeline-bypassing — ignores the attacker's defenses) and heals
+    the Terraformer half. Watch whether a Brave-high Terraformer becomes a
+    punishing tank that melee simply can't profitably hit.
+  - **Why it matters.** Full-damage bypass reflect + half self-heal is a
+    strong defensive package; the blueprint priced it at 2 SP.
+  - **Signal for adjustment.** Melee refusing to engage the Terraformer, or
+    reflect swinging fights on its own. Levers: reflect a fraction rather
+    than full, drop the self-heal, or raise the SP cost.
+
 ### S52 — Marshmoor + bow range-from-height
 
 - **Marshmoor setup-phase length feel.**

@@ -142,6 +142,9 @@ function canStep(
   profile: MovementProfile,
   friendlyPassThrough: boolean,
 ): boolean {
+  // Session 53: a Barrier makes its tile impassable — nothing steps onto
+  // it (even a flying unit; the barrier is a solid object, not a height).
+  if (toTile.barrier !== undefined) return false;
   if (!profile.canEnter.has(toTile.terrain)) return false;
   if (
     profile.specialMovement !== 'fly' &&
@@ -175,6 +178,8 @@ function canLeapTo(
   profile: MovementProfile,
   friendlyPassThrough: boolean,
 ): boolean {
+  // Session 53: a Barrier on the landing tile blocks the leap, same as a step.
+  if (destTile.barrier !== undefined) return false;
   if (!profile.canEnter.has(destTile.terrain)) return false;
   if (
     profile.specialMovement !== 'fly' &&
