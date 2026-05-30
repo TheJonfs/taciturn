@@ -312,6 +312,78 @@ function validateUseAbility(
     return invalid('Source tile does not exist');
   }
 
+  // Session 54: tile_set targeting — the Worldcraft Barrier ability. A
+  // contiguous straight horizontal/vertical line of `minLength`-`maxLength`
+  // tiles, each within range of the caster. Barrier placement additionally
+  // requires every tile to exist, be unoccupied, and be barrier-free
+  // (parallel to selfMove's destination check — an effect-specific rule
+  // layered onto the generic line selection). No LoS/arc per tile: building
+  // a wall doesn't require sight.
+  if (targetingKind === 'tile_set') {
+    if (payloadTargetKind !== 'tile_set') {
+      return invalid(`Ability ${JSON.stringify(ability.id)} requires a tile_set target`);
+    }
+    const positions = action.payload.target.positions;
+    if (positions.length < ability.targeting.minLength || positions.length > ability.targeting.maxLength) {
+      return invalid(
+        `Tile-set target must be ${ability.targeting.minLength}-${ability.targeting.maxLength} contiguous tiles (got ${positions.length})`,
+      );
+    }
+    if (positions.length === 0) return invalid('Tile-set target is empty');
+    // Single layer, single straight axis, no duplicates, no gaps.
+    const layer = positions[0]!.layer;
+    if (!positions.every((p) => p.layer === layer)) {
+      return invalid('Tile-set target must lie on a single layer');
+    }
+    const seen = new Set<string>();
+    for (const p of positions) {
+      const key = positionKey(p);
+      if (seen.has(key)) return invalid('Tile-set target has duplicate tiles');
+      seen.add(key);
+    }
+    const allSameY = positions.every((p) => p.y === positions[0]!.y);
+    const allSameX = positions.every((p) => p.x === positions[0]!.x);
+    if (!allSameX && !allSameY) {
+      return invalid('Tile-set target must be a straight horizontal or vertical line');
+    }
+    const axisCoords = (allSameY ? positions.map((p) => p.x) : positions.map((p) => p.y)).sort(
+      (a, b) => a - b,
+    );
+    for (let i = 1; i < axisCoords.length; i++) {
+      if (axisCoords[i]! !== axisCoords[i - 1]! + 1) {
+        return invalid('Tile-set target must be contiguous (no gaps)');
+      }
+    }
+    // Per-tile range + existence + barrier-placement legality.
+    const effectiveRange = computeAbilityRange(state, catalog, actor.id, ability);
+    const isBarrier = ability.effects.worldcraft?.kind === 'barrier';
+    for (const p of positions) {
+      const tile = tileAt(state.map, p.x, p.y, p.layer);
+      if (tile === undefined) {
+        return invalid(`Target tile (${p.x},${p.y},${p.layer}) does not exist`);
+      }
+      const tileInRange = inRange({
+        source: endpointFrom(actor.position, sourceTile.elevation),
+        target: endpointFrom(p, tile.elevation),
+        params: {
+          horizontalMax: effectiveRange.horizontal,
+          horizontalMin: effectiveRange.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
+          verticalMax: effectiveRange.vertical,
+        },
+      });
+      if (!tileInRange) return invalid('Tile-set target is out of range');
+      if (isBarrier) {
+        if (tile.barrier !== undefined) {
+          return invalid('Cannot place a barrier on a tile that already has one');
+        }
+        if (unitAt(state, p.x, p.y, p.layer) !== undefined) {
+          return invalid('Cannot place a barrier on an occupied tile');
+        }
+      }
+    }
+    return VALID;
+  }
+
   // unit_or_tile: dispatch into the matching mode's branch below
   // based on the payload's discriminator. Reject `self` payloads —
   // the player must pick something concrete.

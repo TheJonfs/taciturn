@@ -141,9 +141,15 @@ describe('loadDefaultCatalog', () => {
     // Session 53 — Terraformer substrate:
     //   - abilities: 80 → 81 (damage_split — Terraformer native Reaction,
     //     lands in the catalog ahead of the class wiring in S54)
+    //
+    // Session 54 — Worldcraft command set (Terraformer class content):
+    //   - abilities: 81 → 86 (pillar, pit, hill, valley, barrier)
+    //   - commandSets: 11 → 12 (worldcraft)
+    //   (Terraformer class + the two native R/S/M passives — ignore_height,
+    //   expert_former — land in the next commit; counts bump again there.)
     expect(cat.statusTypes()).toHaveLength(32);
-    expect(cat.abilities()).toHaveLength(81);
-    expect(cat.commandSets()).toHaveLength(11);
+    expect(cat.abilities()).toHaveLength(86);
+    expect(cat.commandSets()).toHaveLength(12);
     expect(cat.classes()).toHaveLength(9);
     expect(cat.items()).toHaveLength(67);
     expect(cat.rulesets()).toHaveLength(1);

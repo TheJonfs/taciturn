@@ -11,6 +11,8 @@ export type {
   StatusEffectSpec,
   StockpileGrantEntry,
   TargetingSpec,
+  WorldcraftEffectSpec,
+  WorldcraftElevationDelta,
 } from './ability-definition.ts';
 export type {
   ClassDefinition,

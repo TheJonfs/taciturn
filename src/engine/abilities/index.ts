@@ -50,3 +50,4 @@ export {
   type EquipResultFail,
   type EquipResultOk,
 } from './equip.ts';
+export { resolveWorldcraftCast, type WorldcraftCast } from './worldcraft-resolution.ts';

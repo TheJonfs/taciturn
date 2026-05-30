@@ -80,6 +80,13 @@ export type AbilityTarget =
   | { readonly kind: 'self' }
   | { readonly kind: 'unit'; readonly unitId: UnitId }
   | { readonly kind: 'tile'; readonly position: Position }
+  // Session 54: a contiguous set of tiles picked as one target — the
+  // Terraformer's Worldcraft Barrier ability (a 3-5 tile straight line).
+  // The player picks an orientation + length in the UI; the resolved
+  // tile positions ride here. Validation (the `tile_set` targeting kind)
+  // enforces contiguity, a straight orientation, length bounds, range,
+  // and (for barrier placement) unoccupied/barrier-free tiles.
+  | { readonly kind: 'tile_set'; readonly positions: ReadonlyArray<Position> }
   | {
       readonly kind: 'math_skill';
       readonly parameter: MathSkillParameter;

@@ -108,6 +108,7 @@ import {
 import { expectActiveAbility } from './validate.ts';
 import { isRiderCast } from './payload-helpers.ts';
 import { computeMpCost } from '../abilities/cost.ts';
+import { resolveWorldcraftCast } from '../abilities/worldcraft-resolution.ts';
 import { getWeaponInSlot } from '../items/equipment.ts';
 import { computeBaseActionSpeed } from '../ct/speed.ts';
 
@@ -394,6 +395,20 @@ export function reduceUseAbility(
     return resolveSelfMove(workingState, action, ability, actor, mpCost);
   }
 
+  // Session 54: a Worldcraft cast (Pillar/Pit/Hill/Valley/Barrier) is a
+  // geometric change, not an attack — it resolves through a dedicated path
+  // (parallel to selfMove) that emits the terrain/barrier change and
+  // enqueues the effect-queue entry, bypassing the damage/status pipeline.
+  // All Worldcraft abilities are instant-cast, so this sits after the
+  // charge gate. MP / Act budget were handled above.
+  if (ability.effects.worldcraft !== undefined) {
+    // Use the post-deduction actor from `workingState` (MP was just spent;
+    // the local `actor` is the pre-deduction snapshot) so the queue-bearing
+    // unit we re-commit carries the correct MP.
+    const castActor = workingState.units.get(actor.id) ?? actor;
+    return resolveWorldcraft(workingState, catalog, action, ability, castActor, mpCost);
+  }
+
   const incomingProposed: ProposedAction = {
     type: 'use_ability',
     source: action.source,
@@ -483,6 +498,34 @@ function resolveSelfMove(
     casterMove: { path: [from, dest], facingAfter: actor.facing },
   };
   return { newState, outcome, generatedActions: [] };
+}
+
+// Session 54: Worldcraft cast resolution (Pillar/Pit/Hill/Valley/Barrier).
+// Builds the terrain/barrier change + effect-queue entry via the shared
+// `resolveWorldcraftCast` helper, commits the actor's queue update, and
+// emits the cast action plus any revert actions from cap eviction. The
+// terrain physically mutates (and fall damage fires) when the engine
+// reduces those system actions — not here. No per-target unit results, no
+// reactions: a Worldcraft cast is a geometric change, not an attack.
+// MP / Act budget were already applied in `reduceUseAbility`.
+function resolveWorldcraft(
+  state: GameState,
+  catalog: Catalog,
+  action: Extract<Action, { type: 'use_ability' }>,
+  ability: ActiveAbilityDefinition,
+  actor: Unit,
+  mpCost: number,
+): ReduceResult<UseAbilityOutcome> {
+  const cast = resolveWorldcraftCast(state, catalog, ability, actor, action.payload.target);
+  const newState = withUnit(state, cast.actor);
+  const outcome: UseAbilityOutcome = {
+    kind: 'use_ability',
+    abilityId: ability.id,
+    perTargetResults: [],
+    mpSpent: mpCost,
+    mpAfter: cast.actor.vitals.mp,
+  };
+  return { newState, outcome, generatedActions: [...cast.actions] };
 }
 
 // Decrement actsAvailable on the active turn; bump consumed.actsConsumed.
@@ -587,6 +630,13 @@ function buildTargetRefs(target: AbilityTarget): TargetRef[] {
       return [{ kind: 'unit', unitId: target.unitId }];
     case 'tile':
       return [{ kind: 'tile', position: target.position }];
+    case 'tile_set':
+      // Session 54: tile_set targets the Worldcraft Barrier ability, which
+      // is instant-cast — it never spawns a ChargedAction, so this path is
+      // unreachable. Mirror the math_skill guard.
+      throw new Error(
+        'buildTargetRefs: charged tile_set abilities are out of scope — Worldcraft is instant-cast',
+      );
     case 'math_skill':
       // Session 49: Math Skill is instant-cast in v1 by design (the brief
       // sells the parameter+value pick as a snap decision). Pinning a
@@ -1352,6 +1402,13 @@ function resolveSingleTargetUnit(
       throw new Error(
         `resolveSingleTargetUnit: math_skill targets must route through resolveMathSkillDispatch`,
       );
+    case 'tile_set':
+      // tile_set targets only the Worldcraft Barrier ability, which
+      // short-circuits to `resolveWorldcraft` before this path — reaching
+      // here is a routing error.
+      throw new Error(
+        `resolveSingleTargetUnit: tile_set targets must route through resolveWorldcraft`,
+      );
   }
 }
 
@@ -1694,6 +1751,12 @@ function resolveAoeAnchor(
       // error: AoE + math_skill should not coexist on the same ability.
       throw new Error(
         `resolveAoeAnchor: math_skill targets don't expand from an anchor`,
+      );
+    case 'tile_set':
+      // tile_set targets only the Worldcraft Barrier ability, which
+      // resolves through `resolveWorldcraft` and never expands an AoE.
+      throw new Error(
+        `resolveAoeAnchor: tile_set targets don't expand from an anchor`,
       );
   }
 }

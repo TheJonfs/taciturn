@@ -10,6 +10,7 @@ import { mathSkill } from './math-skill.ts';
 import { shadowArts } from './shadow-arts.ts';
 import { waterSpells } from './water-spells.ts';
 import { whiteMagic } from './white-magic.ts';
+import { worldcraft } from './worldcraft.ts';
 
 export const commandSets: ReadonlyArray<CommandSetDefinition> = [
   alchemy,
@@ -23,4 +24,5 @@ export const commandSets: ReadonlyArray<CommandSetDefinition> = [
   shadowArts,
   waterSpells,
   whiteMagic,
+  worldcraft,
 ];

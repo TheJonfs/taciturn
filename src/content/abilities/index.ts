@@ -80,6 +80,11 @@ import { wandOfDeepwoodApplyShift } from './wand-of-deepwood-apply-shift.ts';
 import { wandOfLumenApplyShift } from './wand-of-lumen-apply-shift.ts';
 import { wandOfDepthsApplyShift } from './wand-of-depths-apply-shift.ts';
 import { waterStrike } from './water-strike.ts';
+import { pillar } from './worldcraft/pillar.ts';
+import { pit } from './worldcraft/pit.ts';
+import { hill } from './worldcraft/hill.ts';
+import { valley } from './worldcraft/valley.ts';
+import { barrier } from './worldcraft/barrier.ts';
 
 export const abilities: ReadonlyArray<AbilityDefinition> = [
   aetherBloom,
@@ -163,4 +168,9 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   wandOfDepthsApplyShift,
   wandOfLumenApplyShift,
   waterStrike,
+  pillar,
+  pit,
+  hill,
+  valley,
+  barrier,
 ];

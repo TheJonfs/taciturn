@@ -103,6 +103,23 @@ export type TargetingSpec =
       readonly rangeMode: RangeMode;
     }
   | {
+      // Session 54: tile-set targeting — a contiguous straight line of
+      // tiles picked as one target. The Terraformer's Worldcraft Barrier
+      // ability is the sole v1 consumer (a 3-5 tile wall). `minLength` /
+      // `maxLength` bound the line; `range`/`rangeMode` gate each tile's
+      // reach from the caster. Validation enforces contiguity + a single
+      // straight orientation (horizontal or vertical in v1; diagonal is
+      // omitted). The barrier-specific "every tile unoccupied and
+      // barrier-free" rule rides on the worldcraft effect spec (parallel
+      // to how `selfMove` adds its own destination check), not here — this
+      // kind stays effect-agnostic.
+      readonly kind: 'tile_set';
+      readonly range: AbilityRange;
+      readonly rangeMode: RangeMode;
+      readonly minLength: number;
+      readonly maxLength: number;
+    }
+  | {
       // Session 49: Math Skill targeting — the Calculator's signature
       // mechanic. At cast time the controller picks a `parameter` (CT,
       // Height, Level, or Current HP) and a `value` (Prime, 3, 4, or 5);
@@ -367,8 +384,50 @@ export interface AoeSpec {
   readonly anchorMode?: AoeAnchorMode;
 }
 
+// Session 54 (Terraformer / Worldcraft): the terrain-mutation effect of a
+// Worldcraft ability, expressed as content data. An ability declaring
+// `effects.worldcraft` resolves through `resolveWorldcraft` (a dedicated
+// reducer path, parallel to `selfMove`) instead of the damage/status
+// pipeline: it emits a `system_terrain_change` / `system_barrier_change`
+// and enqueues an effect-queue entry (LIFO-evicting + reverting the oldest
+// when the cap is exceeded). Fall damage on raises/reverts emerges from the
+// terrain-change reducer — not declared here.
+//
+// Two kinds:
+//   - `elevation` — Pillar/Pit (single-tile ±3) and Hill/Valley (3×3
+//     kernel). The `deltas` are per-tile elevation offsets relative to the
+//     target (anchor) tile; offsets that fall outside the map are skipped.
+//     Pillar is `[{ dx: 0, dy: 0, delta: 3 }]`; Hill is the 9-offset
+//     `[1,2,1; 2,3,2; 1,2,1]` kernel; Pit/Valley negate the deltas.
+//   - `barrier` — the Barrier ability. Spawns a BarrierState on each
+//     targeted tile (HP = caster PA × MA, read computed so Battle
+//     Dictionary's +1 PA composes) with the given `ttl`. The targeted tile
+//     set + its length bounds live on the `tile_set` targeting spec.
+export interface WorldcraftElevationDelta {
+  readonly dx: number;
+  readonly dy: number;
+  readonly delta: number;
+}
+export type WorldcraftEffectSpec =
+  | {
+      readonly kind: 'elevation';
+      readonly deltas: ReadonlyArray<WorldcraftElevationDelta>;
+    }
+  | {
+      readonly kind: 'barrier';
+      // Rounds before the barrier vanishes regardless of HP (the queue
+      // entry is authoritative; the turn loop decrements it).
+      readonly ttl: number;
+    };
+
 export interface AbilityEffects {
   readonly statusEffects?: ReadonlyArray<StatusEffectSpec>;
+  // Session 54: Worldcraft terrain mutation (see WorldcraftEffectSpec).
+  // When present, the ability resolves through `resolveWorldcraft` rather
+  // than the damage/status pipeline — mutually exclusive with `damage` /
+  // `statusEffects` / `aoe` (a Worldcraft cast is a geometric change, not
+  // an attack). All v1 Worldcraft abilities are instant-cast.
+  readonly worldcraft?: WorldcraftEffectSpec;
   // Free-standing CT effects (per session 18). Each entry runs through
   // the status-application chance pipeline (Faith × MA × resistance ×
   // modifiers) and emits `system_ct_push` on success. Distinct from
