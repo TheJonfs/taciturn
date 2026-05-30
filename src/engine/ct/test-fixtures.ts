@@ -82,6 +82,7 @@ export function makeUnit(overrides: {
     vitals: { hp: overrides.hp ?? 100, mp: overrides.mp ?? 0 },
     resistances: overrides.resistances ?? new Map(),
     statuses: overrides.statuses ?? [],
+    worldcraftEffects: [],
     stockpile: overrides.stockpile ?? new Map(),
     turnsKOd: overrides.turnsKOd ?? 0,
     removed: overrides.removed ?? false,

@@ -471,6 +471,16 @@ export class Animator {
         // including it and `unitAt` filters its tile).
         return { kind: 'pause', totalMs: TURN_END_PAUSE_MS, elapsed: 0 };
 
+      case 'system_terrain_change':
+      case 'system_barrier_change':
+      case 'system_barrier_damage':
+        // No tween — terrain/barrier mutation is an instant redraw of the
+        // static tile/cliff/elevation layers, driven by the battle-renderer's
+        // `redrawStaticLayers()` path (Session 53 Piece 7), not an Animator
+        // anim. Returning null lets the renderer pull the next action; the
+        // redraw is triggered where the renderer observes committed actions.
+        return null;
+
       case 'wait':
       case 'status_tick':
       case 'system_apply_status':

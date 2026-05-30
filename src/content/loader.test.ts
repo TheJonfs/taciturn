@@ -137,8 +137,12 @@ describe('loadDefaultCatalog', () => {
     // Session 51 — universal off-hand expansion (six off-hand pieces):
     //   - items: 61 → 67 (buckler, talisman_of_warding, talisman_of_conviction,
     //     tome_of_power, livre_of_urgency, battle_dictionary)
+    //
+    // Session 53 — Terraformer substrate:
+    //   - abilities: 80 → 81 (damage_split — Terraformer native Reaction,
+    //     lands in the catalog ahead of the class wiring in S54)
     expect(cat.statusTypes()).toHaveLength(32);
-    expect(cat.abilities()).toHaveLength(80);
+    expect(cat.abilities()).toHaveLength(81);
     expect(cat.commandSets()).toHaveLength(11);
     expect(cat.classes()).toHaveLength(9);
     expect(cat.items()).toHaveLength(67);

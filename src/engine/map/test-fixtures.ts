@@ -18,6 +18,7 @@
 // need multi-layer or property-tagged tiles.
 
 import type {
+  BarrierState,
   BattleMap,
   TeamId,
   TerrainType,
@@ -37,6 +38,9 @@ export interface TileSpec {
   // "shared zone" sentinel reserved for future content. Mirrors the
   // `Tile.deploymentZone` field.
   readonly deploymentZone?: TeamId | null;
+  // Session 53: optional Barrier object on the tile, for barrier substrate
+  // tests. Omit for a normal tile.
+  readonly barrier?: BarrierState;
 }
 
 export function tileFrom(spec: TileSpec): Tile {
@@ -48,6 +52,7 @@ export function tileFrom(spec: TileSpec): Tile {
     terrain: spec.terrain ?? 'ground',
     properties: spec.properties ?? [],
     ...(spec.deploymentZone !== undefined ? { deploymentZone: spec.deploymentZone } : {}),
+    ...(spec.barrier !== undefined ? { barrier: spec.barrier } : {}),
   };
 }
 

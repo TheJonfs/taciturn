@@ -158,6 +158,12 @@ function envelopeFor(
       return { ...envelope, type: 'system_ko_tick', payload: proposed.payload };
     case 'system_unit_removed':
       return { ...envelope, type: 'system_unit_removed', payload: proposed.payload };
+    case 'system_terrain_change':
+      return { ...envelope, type: 'system_terrain_change', payload: proposed.payload };
+    case 'system_barrier_change':
+      return { ...envelope, type: 'system_barrier_change', payload: proposed.payload };
+    case 'system_barrier_damage':
+      return { ...envelope, type: 'system_barrier_damage', payload: proposed.payload };
     case 'status_remove':
       return { ...envelope, type: 'status_remove', payload: proposed.payload };
     case 'status_decrement_stack':

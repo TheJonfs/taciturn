@@ -352,6 +352,16 @@ export class BattleRenderer {
   playActions(actions: ReadonlyArray<Action>, newState: GameState): void {
     this.lastState = newState;
     this.animator.enqueue(actions);
+    // Session 53 (Piece 7): a `system_terrain_change` mutates tile
+    // elevation/terrain, which the static tile/cliff/elevation-label layers
+    // captured once at mount. Re-draw them against the new map so the
+    // changed tiles re-paint. Instant update — no transition tween (the
+    // Animator returns null for this action); animation is deferred polish.
+    // Re-drawing to `newState.map` paints the batch's final terrain, which
+    // is the correct end state for an instant redraw.
+    if (actions.some((a) => a.type === 'system_terrain_change')) {
+      this.redrawStaticLayers();
+    }
   }
 
   // True when the animator has nothing left to play. The orchestrator

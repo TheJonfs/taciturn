@@ -16,6 +16,7 @@ import type { Loadout } from './loadout.ts';
 import type { Direction, Position } from './spatial.ts';
 import type { BaseStats, Vitals } from './stats.ts';
 import type { StatusInstance } from './status.ts';
+import type { WorldcraftEffectEntry } from './worldcraft.ts';
 
 export interface UnitClassState {
   readonly currentClass: ClassId;
@@ -60,6 +61,15 @@ export interface Unit {
   readonly resistances: ReadonlyMap<DamageTag, number>;
 
   statuses: ReadonlyArray<StatusInstance>;
+
+  // Per-unit Worldcraft effect queue (Session 53, ADR-0088). The bounded,
+  // ordered list of terrain effects this unit has cast (Pillar/Pit/Hill/
+  // Valley/Barrier). Parallel to `statuses`: array order is LIFO-eviction
+  // order (index 0 = oldest), Barrier TTLs decrement on the turn loop, and
+  // the cap is the computed `worldcraft_effect_cap`. Empty for every unit
+  // until it casts a Worldcraft ability (S54). Effects persist past the
+  // caster's KO (per blueprint) — the queue is not cleared on KO.
+  readonly worldcraftEffects: ReadonlyArray<WorldcraftEffectEntry>;
 
   // Per-unit consumable stockpile (Session 39a). The Alchemist's
   // Compound action increments an entry by 1 (paying MP per item type);
