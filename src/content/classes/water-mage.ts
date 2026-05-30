@@ -2,10 +2,10 @@
 // back, brings ally CT forward, and uses positional displacement
 // (knockback) as area control.
 //
-// Movement baseline: moveRange 4, jump 3, ground-only. Faster movement
-// than Earth Mage (3/3) — fits the tempo / mobility identity. Float /
-// water-walking is left as an equipped passive choice rather than a
-// class baseline (per session 18 plaintext review).
+// Movement baseline: moveRange 3, jump 3, ground-only. More mobile than
+// the slow casters (Earth Mage 2/3) — fits the tempo / mobility identity.
+// Float / water-walking is left as an equipped passive choice rather than
+// a class baseline (per session 18 plaintext review).
 //
 // Default First Action command set: `water_spells` — the 5 active
 // abilities (strike, surge, wave, brine, maelstrom). The reaction

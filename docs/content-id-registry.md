@@ -1,6 +1,6 @@
 # Content ID Registry
 
-*Started session 16 (2026-05-06). Refreshed session 48 (2026-05-24) — full reconciliation against `loadDefaultCatalog`. Session 50 (2026-05-25) — equipment expansion + Knight Sword class. Session 51 (2026-05-25) — universal off-hand expansion (6 new off-hand pieces) + Calculator MA 8 → 9 + Wand of the Depths refit (deltaVertical moved off range onto new `aoeVerticalToleranceModifiers` surface) + Escutcheon resistance per-element 10 → 20.*
+*Started session 16 (2026-05-06). Refreshed session 48 (2026-05-24) — full reconciliation against `loadDefaultCatalog`. Session 50 (2026-05-25) — equipment expansion + Knight Sword class. Session 51 (2026-05-25) — universal off-hand expansion (6 new off-hand pieces) + Calculator MA 8 → 9 + Wand of the Depths refit (deltaVertical moved off range onto new `aoeVerticalToleranceModifiers` surface) + Escutcheon resistance per-element 10 → 20. Session 54 (2026-05-30) — Terraformer class + Worldcraft command set (5 abilities) + Ignore Height / Expert Former R/S/M + Damage Split wired onto Terraformer + Terraformer added to mage-gear classRestrictions.*
 
 A flat lookup table of every content ID currently in the catalog: `id` (used internally everywhere — command sets, hook lookups, tests, debug fixtures) ↔ `name` (display string, freely renamable).
 
@@ -28,6 +28,7 @@ The four-school mage display names are flavored (Geosage / Hydrologist / Pyroman
 | `assassin` | Assassin | `src/content/classes/assassin.ts` |
 | `hunter` | Hunter | `src/content/classes/hunter.ts` |
 | `calculator` | Calculator | `src/content/classes/calculator.ts` |
+| `terraformer` | Terraformer | `src/content/classes/terraformer.ts` |
 
 ## Command sets
 
@@ -44,6 +45,7 @@ The four-school mage display names are flavored (Geosage / Hydrologist / Pyroman
 | `fire_spells` | Fire Spells | `fire_strike`, `fire_embrace`, `fire_storm`, `spark`, `flame_lance` | `src/content/command-sets/fire-spells.ts` |
 | `lightning_spells` | Lightning Spells | `lightning_strike`, `static_embrace`, `chain_lightning`, `magnetic_mark`, `storm_caller` | `src/content/command-sets/lightning-spells.ts` |
 | `math_skill` | Math Skill | `precision_fire`, `targeted_treatment`, `exact_rhythm`, `sculpted_enhancement`, `engineered_defenses` | `src/content/command-sets/math-skill.ts` |
+| `worldcraft` | Worldcraft | `pillar`, `pit`, `hill`, `valley`, `barrier` | `src/content/command-sets/worldcraft.ts` |
 
 The `attack` ability is universal — surfaced through every class's `freeAbilities` rather than as a command-set member, so the action menu shows it alongside the player's First Action set.
 
@@ -101,6 +103,11 @@ The display names of the elemental-spell suite were re-flavored (S40 name pass a
 | `exact_rhythm` | Exact Rhythm | first_action | no (S49 Math Skill — CT push, magnitude = SP × MA × Faith; clamps at 0) | available | `src/content/abilities/exact-rhythm.ts` |
 | `sculpted_enhancement` | Sculpted Enhancement | first_action | no (S49 Math Skill — 50% Faith-gated PA Up + MA Up apply, linked roll) | available | `src/content/abilities/sculpted-enhancement.ts` |
 | `engineered_defenses` | Engineered Defenses | first_action | no (S49 Math Skill — 80% Faith-gated apply of `engineered_defenses` status) | available | `src/content/abilities/engineered-defenses.ts` |
+| `pillar` | Pillar | first_action | no (S54 Worldcraft — single-tile +3 elevation; instant; 8 MP) | available | `src/content/abilities/worldcraft/pillar.ts` |
+| `pit` | Pit | first_action | no (S54 Worldcraft — single-tile -3 elevation + fall damage; instant; 8 MP) | available | `src/content/abilities/worldcraft/pit.ts` |
+| `hill` | Hill | first_action | no (S54 Worldcraft — 3×3 [1,2,1;2,3,2;1,2,1] kernel raise; instant; 16 MP) | available | `src/content/abilities/worldcraft/hill.ts` |
+| `valley` | Valley | first_action | no (S54 Worldcraft — 3×3 negated kernel lower + fall damage; instant; 16 MP) | available | `src/content/abilities/worldcraft/valley.ts` |
+| `barrier` | Barrier | first_action | no (S54 Worldcraft — 3-5 tile wall line, HP = PA×MA, TTL 5; tile_set target; instant; 12 MP) | available | `src/content/abilities/worldcraft/barrier.ts` |
 
 ## Passive abilities
 
@@ -140,7 +147,9 @@ Reaction / Support / Movement passives are equipped through their respective R/S
 | `mathematician` | Mathematician | support | 2 (S49 Calculator native — +1 SP on Math + per-target MP cost 3 → 1) | `src/content/abilities/mathematician.ts` |
 | `cornered_focus` | Cornered Focus | reaction | 1 (S49 Calculator native — +1 MA permanently on hit, stacks; Speed Save / Updraft parity) | `src/content/abilities/cornered-focus.ts` |
 | `thoughtful_pacing` | Thoughtful Pacing | movement | 1 (S49 Calculator native — restore 2 × tiles MP on Move) | `src/content/abilities/thoughtful-pacing.ts` |
-| `damage_split` | Damage Split | reaction | 2 (S53 Terraformer native — reflect damage taken to attacker + heal half; lands in catalog ahead of class wiring in S54) | `src/content/abilities/damage-split.ts` |
+| `ignore_height` | Ignore Height | movement | 3 (S54 Terraformer native — Jump → 99, ignores elevation deltas) | `src/content/abilities/ignore-height.ts` |
+| `expert_former` | Expert Former | support | 1 (S54 Terraformer native — Worldcraft effect cap +2, base 2 → 4) | `src/content/abilities/expert-former.ts` |
+| `damage_split` | Damage Split | reaction | 2 (Terraformer native — reflect damage taken to attacker + heal half; built S53, wired onto Terraformer freeAbilities S54) | `src/content/abilities/damage-split.ts` |
 
 S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive without a class home; the `modifyEvasion` hook it introduced stays for equipment-side consumers). **S50 suppressed Damage Reduction** under the same "support without a class home" pattern — `damage_reduction` is now `'hidden'` (the catalog still resolves the id for historical action-log replays; the picker just doesn't surface it).
 
@@ -223,9 +232,9 @@ via this kind. Per-item `classRestrictions` enforces who can equip what
 | `buckler` | Buckler | S51 universal off-hand baseline — +10F/+5S evade, +15 all elemental resistance. No class restriction. | `src/content/items/buckler.ts` |
 | `talisman_of_warding` | Talisman of Warding | S51 universal off-hand — +20 all elemental resistance. Mantle of Protection (+25 across 6 tags incl. Holy/Dark) remains top-tier. | `src/content/items/talisman-of-warding.ts` |
 | `talisman_of_conviction` | Talisman of Conviction | S51 universal off-hand — +5 Brave, +5 Faith via statMods. Dual-edged Faith is intentional. | `src/content/items/talisman-of-conviction.ts` |
-| `tome_of_power` | Tome of Power | S51 Book (mage off-hand) — +1 MA, +10 MP. Class-restricted to the five mage classes (geosage / hydrologist / pyromancer / aethurge / calculator). | `src/content/items/tome-of-power.ts` |
+| `tome_of_power` | Tome of Power | S51 Book (mage off-hand) — +1 MA, +10 MP. Class-restricted to the mage-gear tier (geosage / hydrologist / pyromancer / aethurge / calculator / terraformer — S54 added Terraformer). | `src/content/items/tome-of-power.ts` |
 | `livre_of_urgency` | Livre of Urgency | S51 Book (mage off-hand) — +1 Speed plus +5 charged action speed on magical-tagged casts (generalized Wand-of-Deepwood pattern). | `src/content/items/livre-of-urgency.ts` |
-| `battle_dictionary` | Battle Dictionary | S51 Book (mage off-hand) — +1 PA plus +1 horizontal range AND +1 AoE vertical tolerance on magical casts. +1 PA plants for future hybrid / Alchemy-secondary builds. First non-Wand consumer of the new `aoeVerticalToleranceModifiers` field. | `src/content/items/battle-dictionary.ts` |
+| `battle_dictionary` | Battle Dictionary | S51 Book (mage off-hand) — +1 PA plus +1 horizontal range AND +1 AoE vertical tolerance on magical casts. +1 PA finally pays off on S54's Terraformer (Barrier HP = PA × MA). First non-Wand consumer of the new `aoeVerticalToleranceModifiers` field. | `src/content/items/battle-dictionary.ts` |
 
 ### Armor
 
@@ -328,17 +337,17 @@ Registered in `default.ts`'s `terrain.tags` map; see ADR-0073 (tag abstraction) 
 
 ---
 
-## Catalog counts (as of S51 — 2026-05-25)
+## Catalog counts (as of S54 — 2026-05-30)
 
-| Kind | Count | Δ since S50 |
+| Kind | Count | Δ since S51 |
 |---|---|---|
-| Classes | 9 | — |
-| Command sets | 11 | — |
-| Abilities (active + passive + hidden) | 80 | — |
+| Classes | 10 | +1 (S54: `terraformer`) |
+| Command sets | 12 | +1 (S54: `worldcraft`) |
+| Abilities (active + passive + hidden) | 88 | +8 (S53: `damage_split`; S54: `pillar`, `pit`, `hill`, `valley`, `barrier`, `ignore_height`, `expert_former`) |
 | Status types | 32 | — |
-| Equipment + consumables | 67 | +6 (S51: `buckler`, `talisman_of_warding`, `talisman_of_conviction`, `tome_of_power`, `livre_of_urgency`, `battle_dictionary`) |
+| Equipment + consumables | 67 | — |
 | Rulesets | 1 | — |
-| Maps | 3 | +1 (S52: `marshmoor`) |
+| Maps | 3 | — |
 | Terrain types | 4 | — |
 
 Pinned in `src/content/loader.test.ts`; that test fails loud if the counts drift without a corresponding registry update.

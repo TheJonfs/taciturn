@@ -7,11 +7,13 @@
 // Per session 20 plaintext review:
 //   - spd 12 / pa 3 / ma 8 / hp 44 / mp 44 (highest Speed among Mages)
 //   - evasion 7/4/0 (between Fire and Water)
-//   - moveRange 4, jump 3, ground-only — fast and mobile
+//   - moveRange 3, jump 3, ground-only
+//   (the spd/hp/mp figures in this S20-review snapshot are pre-retune;
+//   classBaselineStats is the source of truth)
 //
 // Movement baseline: ground-only, no float/water-walking. Lightning's
-// identity is "be where you need to be quickly" via Speed and Move 4.
-// Float / fly is left as an equipped passive for cross-classed builds.
+// identity is "be where you need to be quickly" via Speed. Float / fly
+// is left as an equipped passive for cross-classed builds.
 //
 // Default First Action command set: `lightning_spells` (Strike,
 // Embrace, Chain, Mark, Storm Caller).

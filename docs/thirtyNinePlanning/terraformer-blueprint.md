@@ -1,8 +1,41 @@
 # Terraformer Class Blueprint (Working Document)
 
-**Status:** Design-phase draft. Not committed to engine; populated through discussion and iterated before implementation sessions are scoped.
+**Status:** **BUILT (S53 substrate + S54 class). The arc is complete through class content; only AI scoring + UI polish remain (S55).** This document is now a historical design record — where it diverges from what shipped, the shipped values (below) and `docs/content-id-registry.md` are authoritative.
 
 **Position in roster:** 10th class. First hybrid PA/MA class. First class with mutable-terrain-during-battle mechanics. First terrain-object-spawning class.
+
+---
+
+## S54 — what shipped (final values)
+
+The class, Worldcraft command set, native R/S/M, barrier-damage routing, the
+barrier-TTL cadence, equipment, and portrait all landed in S54 on the S53
+substrate (ADR-0088). Final values, which **override the proposals below**:
+
+- **Stats:** HP 105 / MP 35 / PA 6 / MA 8 / SPD 8 / Move 2 / Jump 2 / evades
+  6/3/0, `dominantStat: 'ma'`. (PA/MA shifted from the proposed 7/7 to 6/8 per
+  the S54 brief — MA-leaning hybrid; Barrier HP = 6 × 8 = 48.) Move 2 places it
+  in the slow-caster tier (Calculator / Geosage / Pyromancer); see the
+  playtest-watch note on the unresolved roster-wide Move-2 question.
+- **Worldcraft (all instant-cast, range 4 / vertical-infinite, magic-uniform
+  rangeMode `arc`):** Pillar 8 MP (+3), Pit 8 MP (-3), Hill 16 MP (3×3 kernel),
+  Valley 16 MP (negated kernel), Barrier 12 MP (3-5 tile line, HP = PA × MA,
+  TTL 5). The Hill/Valley kernel is content data on `effects.worldcraft`
+  (`elevation`), not an AoE footprint. Barrier uses a new `tile_set` target.
+- **Native R/S/M:** Damage Split (Reaction 2 SP, built S53), Ignore Height
+  (Movement 3 SP, Jump → 99), Expert Former (Support 1 SP, effect cap +2).
+- **Barrier damage routing:** a damaging ability on a barrier tile emits
+  `system_barrier_damage` (base attacker offense, no variance/resistance);
+  single-target (basic Attack) + per-tile AoE both route.
+- **Barrier-TTL cadence:** ticks **globally on every `turn_start`**,
+  independent of owner KO/Stop/removal (ADR-0089) — resolves OQ on the
+  deferred S53 cadence. Cadence is per-turn; the `ttl` number is the tuning
+  knob (playtest-watch).
+- **Equipment:** mage armor + mage headgear + Books (Tome of Power, Livre of
+  Urgency, Battle Dictionary) + universal items. Battle Dictionary's +1 PA
+  feeds Barrier HP.
+- **Open question still open:** OQ#6 (multi-Terraformer team queues), AI
+  scoring (S55), Worldcraft UI polish (S55).
 
 ---
 

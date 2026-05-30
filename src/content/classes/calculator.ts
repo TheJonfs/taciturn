@@ -6,9 +6,10 @@
 // physical positioning.
 //
 // Stats (see classBaselineStats): HP 101 / MP 47 / PA 5 / MA 9 /
-// Speed 7. Movement 2 / Jump 2 — lowest tier (with Knight, Geosage,
-// Pyromancer post-S46). MP 47 is moderate; Thoughtful Pacing extends
-// sustain meaningfully on Move-heavy turns.
+// Speed 7. Movement 2 / Jump 2 — the slow-caster mobility tier (with
+// Geosage, Pyromancer, and S54's Terraformer; Knight and the rest of
+// the roster sit at Move 3). MP 47 is moderate; Thoughtful Pacing
+// extends sustain meaningfully on Move-heavy turns.
 //
 // Evasion 7 / 3 / 0: decent front (between Hunter's 6 and Assassin's 8),
 // minimal side, exposed back. Combined with 101 HP the Calculator needs

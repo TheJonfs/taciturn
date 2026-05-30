@@ -57,17 +57,11 @@ seeded for when the Worldcraft abilities land (S54).
     didn't mean to. Levers: clearer queue UI, a cast-time warning, or a
     confirm prompt when a cast would evict.
 
-- **Barrier-TTL-under-KO cadence (deferred decision, ADR-0088).**
-  - **What to watch.** S53 decrements barrier TTL on the *owner's* turn start,
-    so a KO'd Terraformer's barriers pause their countdown until revival.
-    Blueprint intent is "effects persist past KO and keep ticking." Watch
-    whether KO'd-Terraformer barriers overstaying their welcome feels
-    oppressive once Barrier exists.
-  - **Why it matters.** Settling the cadence (owner-turn vs. round-cadence)
-    is explicitly deferred to S54; this is the signal that decides it.
-  - **Signal for adjustment.** Barriers from a dead Terraformer dominating
-    the back half of fights. Lever: tick TTL on a round cadence independent
-    of the owner's turns.
+- ~~**Barrier-TTL-under-KO cadence (deferred decision, ADR-0088).**~~
+  **RESOLVED (S54, ADR-0089):** the TTL now ticks **globally on every
+  `turn_start`**, independent of owner state — a KO'd / Stopped / removed
+  owner's barriers count down normally. The open *rate* question moves to the
+  S54 entry below.
 
 - **Damage Split reflect economy.**
   - **What to watch.** Once equipped (S54), Damage Split reflects the full
@@ -79,6 +73,64 @@ seeded for when the Worldcraft abilities land (S54).
   - **Signal for adjustment.** Melee refusing to engage the Terraformer, or
     reflect swinging fights on its own. Levers: reflect a fraction rather
     than full, drop the self-heal, or raise the SP cost.
+
+### S54 — Terraformer class + Worldcraft (first real play signal)
+
+The class ships; these need real engagements to settle.
+
+- **Worldcraft MP economy / cast frequency.**
+  - **What to watch.** Pillar/Pit 8 MP, Hill/Valley 16 MP, Barrier 12 MP, off
+    MP 35. Whether a Terraformer can shape the field 3-4 times a battle as
+    intended, or runs dry too fast (or never, trivializing positioning).
+  - **Why it matters.** First terrain-mutation class in real play; the costs
+    are first-pass.
+  - **Signal for adjustment.** Terraformer either out of MP by mid-fight or
+    never constrained. Levers: per-ability MP, off MP 35.
+
+- **Barrier HP scaling (PA × MA = 48 at baseline).**
+  - **What to watch.** First class to use PA productively. Whether 48 HP feels
+    right per barrier tile — too durable (battles stall around walls) or too
+    fragile (one hit breaks the denial).
+  - **Why it matters.** The hybrid PA/MA identity and Battle Dictionary's +1 PA
+    both hinge on this formula feeling meaningful.
+  - **Signal for adjustment.** Barriers ignored (too weak) or oppressive (too
+    strong). Levers: the PA × MA formula, or a flat add.
+
+- **Effect-cap restrictiveness (2 naked / 4 with Expert Former).**
+  - **What to watch.** Whether cap 2 makes a Support-less Terraformer feel
+    starved, or cap 4 (Expert Former) enables oppressive battlefield lockdown.
+  - **Signal for adjustment.** Expert Former feeling mandatory, or cap-4 builds
+    dominating. Lever: the base cap or Expert Former's +2.
+
+- **Barrier TTL *rate* (global per-turn-start tick — ADR-0089).**
+  - **What to watch.** TTL now decrements on *every* `turn_start`, so `ttl: 5`
+    is ~5 unit-turns — roughly half a round in a 5v5, much shorter than the
+    blueprint's "~5 rounds." Watch whether barriers vanish before they can do
+    their chokepoint-denial / time-buying job.
+  - **Why it matters.** The owner-independence is correct (ADR-0089); the
+    *number* (5) is the untested knob, and the per-turn cadence makes lifetime
+    scale inversely with party size.
+  - **Signal for adjustment.** Barriers expiring uselessly fast (raise `ttl`),
+    or a per-round cadence proving worth the engine cost of a round boundary.
+
+- **Worldcraft as a cross-class secondary command set.**
+  - **What to watch.** Other classes equipping Worldcraft (+ optionally Expert
+    Former for the full cap). Knight self-Pillar perching, Calculator + terrain-
+    aware Math Skill, etc. Whether this opens a problematic build.
+  - **Signal for adjustment.** A cross-class Worldcraft build dominating. Lever:
+    secondary-command-set cost or Expert Former cross-class cost.
+
+- **Move-2 roster rebaseline question (carried from S54 audit).**
+  - **What to watch.** The "Move 2 for most classes" rebaseline Chris recalled
+    never landed: only Calculator / Geosage / Pyromancer / (now) Terraformer
+    are Move 2; Knight, both other mages, Alchemist, Assassin, Hunter are
+    Move 3. Terraformer was placed at Move 2 to match its slow-caster tier, not
+    to pre-empt a roster pass. Decide whether a deliberate roster-wide Move
+    rebaseline is wanted, or the current two-tier split (slow casters 2,
+    everyone else 3) is the intended shape.
+  - **Why it matters.** Avoids piecemeal Move drift; the brief flagged it for a
+    dedicated decision.
+  - **Signal for adjustment.** Chris's call on whether the split is intentional.
 
 ### S52 — Marshmoor + bow range-from-height
 
