@@ -48,9 +48,10 @@ in the team builder. The arc is now **S53 substrate → S54 class → S55 AI + U
   comments (calculator.ts claimed Knight was Move 2; water-/lightning-mage
   headers claimed Move 4). **Open: is the two-tier split intentional, or do you
   want a deliberate roster-wide Move pass?** (playtest-watch S54 entry).
-- **Barrier-TTL cadence is now per-turn** (ttl 5 ≈ ~half a round in a 5v5),
-  faster than the blueprint's "~5 rounds." Owner-independence is correct
-  (ADR-0089); the `ttl` number is the untested knob — flagged in playtest-watch.
+- **Barrier-TTL cadence is per-turn** (ADR-0089), so `ttl` is in turn-starts,
+  not rounds. Tuned to **`ttl: 50`** (Chris's call) ≈ 5 full rounds in a 5v5
+  (~10 turn-starts/round) — the blueprint's intended lifetime. Lifetime scales
+  inversely with party size; flagged in playtest-watch.
 - **Engine-surface additions** (within established patterns, no new hooks/system
   actions): `AbilityEffects.worldcraft`, `tile_set` AbilityTarget/TargetingSpec,
   `computeBarrierDamage`. The three exhaustive `AbilityTarget` switches

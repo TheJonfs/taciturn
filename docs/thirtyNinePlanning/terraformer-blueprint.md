@@ -20,7 +20,8 @@ substrate (ADR-0088). Final values, which **override the proposals below**:
 - **Worldcraft (all instant-cast, range 4 / vertical-infinite, magic-uniform
   rangeMode `arc`):** Pillar 8 MP (+3), Pit 8 MP (-3), Hill 16 MP (3×3 kernel),
   Valley 16 MP (negated kernel), Barrier 12 MP (3-5 tile line, HP = PA × MA,
-  TTL 5). The Hill/Valley kernel is content data on `effects.worldcraft`
+  TTL 50 turn-starts ≈ 5 rounds in a 5v5). The Hill/Valley kernel is content
+  data on `effects.worldcraft`
   (`elevation`), not an AoE footprint. Barrier uses a new `tile_set` target.
 - **Native R/S/M:** Damage Split (Reaction 2 SP, built S53), Ignore Height
   (Movement 3 SP, Jump → 99), Expert Former (Support 1 SP, effect cap +2).

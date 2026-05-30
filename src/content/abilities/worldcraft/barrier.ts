@@ -7,10 +7,13 @@
 //
 // Each barrier has HP = caster PA × MA (read computed, so Battle Dictionary's
 // +1 PA composes — the first class where the Terraformer's PA pays off) and a
-// 5-turn TTL. Barriers are impassable and block line-of-sight; they take
-// damage from basic attacks and AoE (S54 barrier-damage routing) and are
-// destroyed at HP 0. The TTL ticks each turn regardless of the owner's state
-// (KO/Stop), but the effect is still subject to cap LIFO eviction.
+// 50-turn TTL. The TTL ticks once per turn_start regardless of the owner's
+// state (KO/Stop — ADR-0089); at ~10 turn-starts per round in a 5v5, 50 ≈
+// 5 full rounds, the blueprint's intended lifetime. (Lifetime scales
+// inversely with party size — a tunable property of the per-turn cadence.)
+// Barriers are impassable and block line-of-sight; they take damage from
+// basic attacks and AoE (S54 barrier-damage routing) and are destroyed at
+// HP 0. Still subject to cap LIFO eviction.
 
 import {
   abilityId,
@@ -38,7 +41,9 @@ export const barrier: ActiveAbilityDefinition = {
   effects: {
     worldcraft: {
       kind: 'barrier',
-      ttl: 5,
+      // ~5 full rounds in a 5v5 (≈10 turn_starts/round). See ADR-0089 +
+      // playtest-watch on the per-turn cadence and party-size dependence.
+      ttl: 50,
     },
   },
 };

@@ -254,7 +254,7 @@ describe('Worldcraft — Barrier (tile_set)', () => {
     const bc = barrierChangeFrom(r.generatedActions) as Extract<Action, { type: 'system_barrier_change' }>;
     expect(bc.payload.tileChanges).toHaveLength(3);
     for (const c of bc.payload.tileChanges) {
-      expect(c.barrier).toMatchObject({ hp: 48, ttl: 5, ownerId: u.id });
+      expect(c.barrier).toMatchObject({ hp: 48, ttl: 50, ownerId: u.id });
     }
     const q = r.newState.units.get(u.id)!.worldcraftEffects;
     expect(q).toHaveLength(1);

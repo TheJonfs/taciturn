@@ -107,7 +107,7 @@ The display names of the elemental-spell suite were re-flavored (S40 name pass a
 | `pit` | Pit | first_action | no (S54 Worldcraft — single-tile -3 elevation + fall damage; instant; 8 MP) | available | `src/content/abilities/worldcraft/pit.ts` |
 | `hill` | Hill | first_action | no (S54 Worldcraft — 3×3 [1,2,1;2,3,2;1,2,1] kernel raise; instant; 16 MP) | available | `src/content/abilities/worldcraft/hill.ts` |
 | `valley` | Valley | first_action | no (S54 Worldcraft — 3×3 negated kernel lower + fall damage; instant; 16 MP) | available | `src/content/abilities/worldcraft/valley.ts` |
-| `barrier` | Barrier | first_action | no (S54 Worldcraft — 3-5 tile wall line, HP = PA×MA, TTL 5; tile_set target; instant; 12 MP) | available | `src/content/abilities/worldcraft/barrier.ts` |
+| `barrier` | Barrier | first_action | no (S54 Worldcraft — 3-5 tile wall line, HP = PA×MA, TTL 50 turn-starts ≈ 5 rounds in a 5v5; tile_set target; instant; 12 MP) | available | `src/content/abilities/worldcraft/barrier.ts` |
 
 ## Passive abilities
 

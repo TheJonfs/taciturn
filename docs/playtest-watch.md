@@ -103,15 +103,17 @@ The class ships; these need real engagements to settle.
     dominating. Lever: the base cap or Expert Former's +2.
 
 - **Barrier TTL *rate* (global per-turn-start tick — ADR-0089).**
-  - **What to watch.** TTL now decrements on *every* `turn_start`, so `ttl: 5`
-    is ~5 unit-turns — roughly half a round in a 5v5, much shorter than the
-    blueprint's "~5 rounds." Watch whether barriers vanish before they can do
-    their chokepoint-denial / time-buying job.
+  - **What to watch.** TTL decrements on *every* `turn_start`. Barrier ships at
+    `ttl: 50` ≈ 5 full rounds in a 5v5 (~10 turn-starts/round) — the blueprint's
+    intended lifetime (Chris's call S54). Watch whether 5-ish rounds feels right
+    for chokepoint denial / time-buying.
   - **Why it matters.** The owner-independence is correct (ADR-0089); the
-    *number* (5) is the untested knob, and the per-turn cadence makes lifetime
-    scale inversely with party size.
-  - **Signal for adjustment.** Barriers expiring uselessly fast (raise `ttl`),
-    or a per-round cadence proving worth the engine cost of a round boundary.
+    *number* (50) is the untested knob, and the per-turn cadence makes lifetime
+    scale **inversely with party size** (~5 rounds in a 5v5, ~6 in a 4v4, ~4 in
+    a 6v6).
+  - **Signal for adjustment.** Barriers feeling too durable or too brief — tune
+    `ttl`. If the party-size spread itself proves problematic, the lever is a
+    per-round cadence (needs a round-boundary event the engine lacks today).
 
 - **Worldcraft as a cross-class secondary command set.**
   - **What to watch.** Other classes equipping Worldcraft (+ optionally Expert
