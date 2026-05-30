@@ -937,3 +937,41 @@ The class ships; these need real engagements to settle.
 - **What to watch.** Two Weapons (Assassin's dual-wield Support) lets a wielder swing both hands' weapons as a single Attack action. With the off-hand slot now universal, an Assassin with Two Weapons could in principle equip a Buckler / Talisman / Book in the off-hand — but the slot would hold a non-weapon, breaking the dual-wield. Currently the engine permits the equipment (validateSlotItem accepts shield kind in `leftHand`), but the dual-wield logic only fires when both hands hold weapons. Watch whether players hit the expectation gap — "I have Two Weapons equipped and a Buckler in my off-hand; why am I not getting the second swing?" — and whether the team-builder communicates this clearly (the picker doesn't warn).
 - **Why it matters.** The off-hand universalization deliberately doesn't touch Two Weapons; the design intent is "Two Weapons users choose between second weapon OR universal off-hand piece, can't have both." But the UI doesn't communicate the trade-off at equip time. A player equipping a Buckler on their Assassin loses their second swing silently.
 - **Signal for adjustment.** Players consistently mis-equip Two Weapons + Buckler and lose their second swing → add a team-builder warning ("This off-hand piece replaces your dual-wield second weapon"), or restrict universal off-hand items from Two-Weapons-equipped units. No confusion → the trade-off is understood as part of build choice; leave alone.
+
+## Session 55 — Terraformer playtest fixes + UI polish + tuning
+
+### Pillar/Pit magnitude 4 — easy-prison geometries (S55)
+
+- **What to watch.** Pillar/Pit now move a tile ±4 (was ±3). A unit on a tile with an adjacent elevation delta greater than its Jump is trapped. At Pit-4 with adjacent elev 0, a unit at the bottom (elev −4) faces a vertical change of 4 to neighbors — Jump-3 classes (Knight, Hunter, Hydrologist, Aethurge, Alchemist, Assassin) and Jump-2 classes (Calculator, Geosage, Pyromancer, Terraformer) are all stuck; only Ignore-Height-equipped units escape. Pit-4 on an occupant also now deals **40** fall damage (drop 4 × 10/level), up from 30.
+- **Why it matters.** Chris explicitly wanted to test the +4 magnitude in real geometry. The question is whether it reads as tactically interesting (positional vulnerability earned through smart play) or unfair (a one-shot prison via geometry).
+- **Signal for adjustment.** Units routinely trapped with no counterplay, or Pit-4 functioning as a reliable removal → consider Pillar/Pit back to 3, a Worldcraft-specific escape affordance, or rescue mechanics. Feels like a real positional threat with counterplay (reposition, Ignore Height, ally assist) → keep at 4.
+
+### Staff of Power × 1.5 MP — Pyromancer economy (S55)
+
+- **What to watch.** Staff of Power's MP-cost multiplier rose 1.2 → 1.5. Pyromancer is already MP-constrained (28 base); with × 1.5, a 20-MP Fire Storm becomes 30 — a single cast drains most of the pool. Watch whether Staff of Power becomes a niche "nuke-once" pick or whether the +4 MA still justifies the economy hit across a battle.
+- **Why it matters.** A major MP-economy shift on a shared mage weapon. It could quietly reshape every Staff-of-Power build, not just the Terraformer's.
+- **Signal for adjustment.** Staff of Power never picked over cheaper-MP options, or Pyromancer feels gated out of its identity → walk the factor back toward 1.3–1.4. Feels like a deliberate damage-vs-casts trade → keep at 1.5.
+
+### Hill/Valley AoE preview clarity (S55)
+
+- **What to watch.** The new hover preview tints each kernel tile by delta magnitude (raise → green, lower → red, stronger alpha = bigger |delta|) with a +N / −N label. Watch whether the 3×3 reads clearly at a glance or feels cluttered/noisy, and whether the green/red + alpha convention communicates raise-vs-lower and falloff without explanation.
+- **Why it matters.** Per-tile delta visualization is novel territory; first content to use it.
+- **Signal for adjustment.** Players misread the shape or the numbers crowd the tiles → drop the numeric labels (tint only) or coarsen the alpha steps. Reads cleanly → keep.
+
+### Barrier targeting feel — click-far-end UX (S55)
+
+- **What to watch.** Barrier uses a two-stage picker: click an anchor tile (valid starts highlighted), then click the far end of a straight 3–5 line (valid far-ends highlighted, the candidate line previewed on hover). Cancel backs out one stage (extent → re-pick anchor; anchor → leave). Watch whether click-far-end feels intuitive or whether players expect orientation-then-length, and whether the two-stage cancel surprises.
+- **Why it matters.** First multi-step tile_set targeting in the game; sets the pattern for any future line/area placement abilities.
+- **Signal for adjustment.** Players repeatedly mis-aim or can't find the far-end set → reconsider orientation-then-length, or add a clearer extent prompt. Feels direct → keep.
+
+### Worldcraft tooltip density (S55)
+
+- **What to watch.** Each Worldcraft tooltip now leads with an authored effect description plus the effect-queue note ("Counts as 1 active Worldcraft effect"), ahead of the auto cost/target lines. Watch whether the combined block reads cleanly or feels overloaded (Worldcraft carries more to say than a standard ability).
+- **Why it matters.** Tooltip information density is a recurring concern (cf. S48 command-set density).
+- **Signal for adjustment.** Tooltips feel wall-of-text → trim the descriptions or move the queue note to a secondary line. Reads well → keep.
+
+### Empty-cast rejection feel (S55)
+
+- **What to watch.** A net-lowering Worldcraft cast (Valley/Pit) whose whole footprint is already on the water floor now fails validation ("Target area would not be affected") instead of silently spending MP. Watch whether players understand *why* a watery-target cast is blocked, or whether it reads as the ability being mysteriously unavailable there.
+- **Why it matters.** Fixes the silent no-op, but trades it for a rejection the player must interpret.
+- **Signal for adjustment.** Players confused why they can't Valley a lake → surface the reason more prominently, or grey-out water-floor targets during targeting. Understood as "nothing to lower there" → keep.
