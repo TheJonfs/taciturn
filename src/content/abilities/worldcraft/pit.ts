@@ -1,6 +1,6 @@
-// Pit — Worldcraft single-tile sharp lower (Session 54). Lowers the target
-// tile by -3 elevation. Instant-cast; one `terrain` queue entry. 8 MP, range
-// 4 / vertical-infinite.
+// Pit — Worldcraft single-tile sharp lower (Session 54; magnitude tuned
+// -3 → -4 in S55). Lowers the target tile by -4 elevation. Instant-cast; one
+// `terrain` queue entry. 8 MP, range 4 / vertical-infinite.
 //
 // The drop deals fall damage immediately (the terrain-change reducer emits
 // `'falling'` damage for any occupant of a tile that drops > 1). The revert
@@ -31,7 +31,7 @@ export const pit: ActiveAbilityDefinition = {
   effects: {
     worldcraft: {
       kind: 'elevation',
-      deltas: [{ dx: 0, dy: 0, delta: -3 }],
+      deltas: [{ dx: 0, dy: 0, delta: -4 }],
     },
   },
 };

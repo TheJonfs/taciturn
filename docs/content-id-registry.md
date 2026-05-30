@@ -103,8 +103,8 @@ The display names of the elemental-spell suite were re-flavored (S40 name pass a
 | `exact_rhythm` | Exact Rhythm | first_action | no (S49 Math Skill — CT push, magnitude = SP × MA × Faith; clamps at 0) | available | `src/content/abilities/exact-rhythm.ts` |
 | `sculpted_enhancement` | Sculpted Enhancement | first_action | no (S49 Math Skill — 50% Faith-gated PA Up + MA Up apply, linked roll) | available | `src/content/abilities/sculpted-enhancement.ts` |
 | `engineered_defenses` | Engineered Defenses | first_action | no (S49 Math Skill — 80% Faith-gated apply of `engineered_defenses` status) | available | `src/content/abilities/engineered-defenses.ts` |
-| `pillar` | Pillar | first_action | no (S54 Worldcraft — single-tile +3 elevation; instant; 8 MP) | available | `src/content/abilities/worldcraft/pillar.ts` |
-| `pit` | Pit | first_action | no (S54 Worldcraft — single-tile -3 elevation + fall damage; instant; 8 MP) | available | `src/content/abilities/worldcraft/pit.ts` |
+| `pillar` | Pillar | first_action | no (S54 Worldcraft — single-tile +4 elevation [S55 tune 3→4]; instant; 8 MP) | available | `src/content/abilities/worldcraft/pillar.ts` |
+| `pit` | Pit | first_action | no (S54 Worldcraft — single-tile -4 elevation [S55 tune 3→4] + fall damage; instant; 8 MP) | available | `src/content/abilities/worldcraft/pit.ts` |
 | `hill` | Hill | first_action | no (S54 Worldcraft — 3×3 [1,2,1;2,3,2;1,2,1] kernel raise; instant; 16 MP) | available | `src/content/abilities/worldcraft/hill.ts` |
 | `valley` | Valley | first_action | no (S54 Worldcraft — 3×3 negated kernel lower + fall damage; instant; 16 MP) | available | `src/content/abilities/worldcraft/valley.ts` |
 | `barrier` | Barrier | first_action | no (S54 Worldcraft — 3-5 tile wall line, HP = PA×MA, TTL 50 turn-starts ≈ 5 rounds in a 5v5; tile_set target; instant; 12 MP) | available | `src/content/abilities/worldcraft/barrier.ts` |
@@ -210,7 +210,7 @@ Equipment slots: weapon (one- or two-handed), shield, armor, headgear, accessory
 | `wand_of_depths` | Wand of the Depths | weapon | 100% on-hit `+Water/−Fire` resonance + ability range +1H on water spells + S51 refit: +1 AoE vertical tolerance on water spells (pre-S51 `deltaVertical: 1` was dead since spells target at vertical 99) | `src/content/items/wand-of-depths.ts` |
 | `wand_of_deepwood` | Wand of the Deepwood | weapon | actionSpeed mod on earth casts; tagged_resistance_shift apply-proc | `src/content/items/wand-of-deepwood.ts` |
 | `wand_of_lumen` | Wand of Lumen | weapon | S45 follow-up — `+Earth/−Water` shift on hit + ADR-0084 Burn-stack rider on fire ability apply | `src/content/items/wand-of-lumen.ts` |
-| `staff_of_power` | Staff of Power | weapon | × 1.20 MP cost · MA buff | `src/content/items/staff-of-power.ts` |
+| `staff_of_power` | Staff of Power | weapon | × 1.50 MP cost [S55 tune 1.2→1.5] · +4 MA | `src/content/items/staff-of-power.ts` |
 | `staff_of_abundance` | Staff of Abundance | weapon | MP-economy magic staff | `src/content/items/staff-of-abundance.ts` |
 | `longbow` | Longbow | weapon | S45 bow — WP 7, accuracy 33, two-handed, range 2-5/vertical-inf, height-delta variance | `src/content/items/longbow.ts` |
 | `riptide_bow` | Riptide Bow | weapon | S45 bow + 30% Undertow CT-push proc | `src/content/items/riptide-bow.ts` |
@@ -268,7 +268,7 @@ via this kind. Per-item `classRestrictions` enforces who can equip what
 | `lookouts_hood` | Lookout's Hood | mid-tier utility | `src/content/items/lookouts-hood.ts` |
 | `crusaders_helm` | Crusader's Helm | Knight-flavored heavy headgear | `src/content/items/crusaders-helm.ts` |
 | `tricorn` | Tricorn | +Brave headgear | `src/content/items/tricorn.ts` |
-| `golden_hairpin` | Golden Hairpin | S50 universal head — +10 HP, `mpCostMultipliers: [0.5]` (50% MP cost on every cast). Inverse shape of Staff of Power's × 1.20. | `src/content/items/golden-hairpin.ts` |
+| `golden_hairpin` | Golden Hairpin | S50 universal head — +10 HP, `mpCostMultipliers: [0.5]` (50% MP cost on every cast). Inverse shape of Staff of Power's × 1.50. | `src/content/items/golden-hairpin.ts` |
 | `skullclamp` | Skullclamp | S50 universal head — −20 HP, −10 MP, +1 PA, +1 MA. **First equipment to ship a negative HP/MP `statMods`** (additive composition through `modifyStatQuery`; vitals fill to post-equipment max at battle start). | `src/content/items/skullclamp.ts` |
 
 ### Accessories

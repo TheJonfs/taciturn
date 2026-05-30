@@ -672,7 +672,7 @@ describe('Session 29 movementMods — moveRange / jump on equipment', () => {
 // ===========================================================================
 
 describe('Session 29 real content — sample integrations', () => {
-  it('Staff of Power composes × 1.2 MP via computeMpCost', () => {
+  it('Staff of Power composes × 1.5 MP via computeMpCost', () => {
     const staffOfPower = session29Items.find((i) => i.id === itemId('staff_of_power'));
     expect(staffOfPower).toBeDefined();
     if (staffOfPower === undefined) return;
@@ -710,7 +710,7 @@ describe('Session 29 real content — sample integrations', () => {
       },
     });
     const state = makeGameState({ units: [u] });
-    expect(computeMpCost(state, fullCat, u.id, ability.id)).toBe(12);
+    expect(computeMpCost(state, fullCat, u.id, ability.id)).toBe(15);
   });
 
   it('Wand of Deepwood composes +5 actionSpeed on Earth-tagged spells only', () => {

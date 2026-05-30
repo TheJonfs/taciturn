@@ -1,5 +1,5 @@
-// Pillar — Worldcraft single-tile sharp raise (Session 54). Raises the
-// target tile by +3 elevation. Instant-cast; adds one `terrain` entry to the
+// Pillar — Worldcraft single-tile sharp raise (Session 54; magnitude tuned
+// +3 → +4 in S55). Raises the target tile by +4 elevation. Instant-cast; adds one `terrain` entry to the
 // Terraformer's effect queue (LIFO-evicted when over the cap, reverting with
 // a drop — and a drop deals fall damage, the blueprint's raise/revert
 // asymmetry). 8 MP, range 4 / vertical-infinite (magic-uniform per S47/S49).
@@ -31,7 +31,7 @@ export const pillar: ActiveAbilityDefinition = {
   effects: {
     worldcraft: {
       kind: 'elevation',
-      deltas: [{ dx: 0, dy: 0, delta: 3 }],
+      deltas: [{ dx: 0, dy: 0, delta: 4 }],
     },
   },
 };

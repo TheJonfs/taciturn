@@ -78,13 +78,13 @@ describe('Worldcraft — Pillar / Pit (single-tile elevation)', () => {
     expect(tc).toBeDefined();
     const changes = (tc as Extract<Action, { type: 'system_terrain_change' }>).payload.tileChanges;
     expect(changes).toHaveLength(1);
-    expect(changes[0]).toMatchObject({ x: 3, y: 2, originalElevation: 4, newElevation: 7 });
+    expect(changes[0]).toMatchObject({ x: 3, y: 2, originalElevation: 4, newElevation: 8 });
     const q = r.newState.units.get(u.id)!.worldcraftEffects;
     expect(q).toHaveLength(1);
     expect(q[0]!.kind).toBe('terrain');
   });
 
-  it('Pit lowers the target tile by -3', () => {
+  it('Pit lowers the target tile by -4', () => {
     const u = terraformer();
     const state = makeGameState({ units: [u], map: landMap(6, 6), turnState: activeTurnFor(u.id) });
     const r = reduceUseAbility(
@@ -97,7 +97,7 @@ describe('Worldcraft — Pillar / Pit (single-tile elevation)', () => {
       catalog,
     );
     const changes = (terrainChangeFrom(r.generatedActions) as Extract<Action, { type: 'system_terrain_change' }>).payload.tileChanges;
-    expect(changes[0]).toMatchObject({ originalElevation: 4, newElevation: 1, newTerrain: 'water_shallow' });
+    expect(changes[0]).toMatchObject({ originalElevation: 4, newElevation: 0, newTerrain: 'water_deep' });
   });
 
   it('deducts MP (Pillar 8) and reports mpAfter', () => {
