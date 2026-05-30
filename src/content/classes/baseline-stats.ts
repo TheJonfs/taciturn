@@ -42,6 +42,10 @@ export const classDominantStats: ReadonlyMap<ClassId, DominantStat> = new Map([
   // scale off MA × Faith, and the +1 at L≥27 / -1 at L≤23 axis is the
   // class's identity stat.
   [classId('calculator'),     'ma'],
+  // S54: Terraformer is the first hybrid PA/MA class. PA and MA sit close
+  // (6 / 8) to signal the hybrid identity, but MA takes the single
+  // dominant-stat pick — most Worldcraft casting reads as magical.
+  [classId('terraformer'),    'ma'],
 ]);
 
 export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new Map([
@@ -89,4 +93,12 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   // it). Still below a fully-equipped Mage. Speed 7 (slow; fewer turns
   // per battle). Per blueprint + S51 tuning.
   [classId('calculator'),     { maxHpBase: 101, maxMpBase: 47, pa: 5,  ma: 9,  spd: 7  }],
+  // Session 54 (Terraformer, the 10th class — first hybrid PA/MA). HP 105
+  // is moderate (above Calculator 101 / Pyromancer 97, well below Knight
+  // 144). MP 35 funds ~3-4 flat-cost Worldcraft casts (lower than
+  // Calculator's 47 — Worldcraft is flat-cost, not per-target). PA 6 / MA 8
+  // are co-close: both feed Barrier HP (PA × MA = 48 at baseline), the
+  // first class to use PA for ability scaling. Speed 8 — slow, like the
+  // Calculator tier; the Terraformer sets up the field and acts seldom.
+  [classId('terraformer'),    { maxHpBase: 105, maxMpBase: 35, pa: 6,  ma: 8,  spd: 8  }],
 ]);

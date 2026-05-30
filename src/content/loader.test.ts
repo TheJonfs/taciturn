@@ -143,14 +143,14 @@ describe('loadDefaultCatalog', () => {
     //     lands in the catalog ahead of the class wiring in S54)
     //
     // Session 54 — Worldcraft command set (Terraformer class content):
-    //   - abilities: 81 → 86 (pillar, pit, hill, valley, barrier)
+    //   - abilities: 81 → 88 (pillar, pit, hill, valley, barrier,
+    //     ignore_height, expert_former)
     //   - commandSets: 11 → 12 (worldcraft)
-    //   (Terraformer class + the two native R/S/M passives — ignore_height,
-    //   expert_former — land in the next commit; counts bump again there.)
+    //   - classes: 9 → 10 (terraformer)
     expect(cat.statusTypes()).toHaveLength(32);
-    expect(cat.abilities()).toHaveLength(86);
+    expect(cat.abilities()).toHaveLength(88);
     expect(cat.commandSets()).toHaveLength(12);
-    expect(cat.classes()).toHaveLength(9);
+    expect(cat.classes()).toHaveLength(10);
     expect(cat.items()).toHaveLength(67);
     expect(cat.rulesets()).toHaveLength(1);
   });
