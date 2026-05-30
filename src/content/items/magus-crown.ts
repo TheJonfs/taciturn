@@ -17,6 +17,7 @@ const MAGE_CLASSES = [
   classId('fire_mage'),
   classId('lightning_mage'),
   classId('calculator'),
+  classId('terraformer'),
 ];
 
 export const magusCrown: HeadgearEquipment = {

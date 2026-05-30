@@ -82,12 +82,14 @@ describe('Session 37 — items registered in the default catalog', () => {
   it('Light Robe: Mage-only body, +75 HP, +20 MP, +75 Fire/Lightning resist', () => {
     expect(lightRobe.kind).toBe('armor');
     // S49: calculator added to the Mage allowlist for body + head gear.
+    // S54: terraformer added (mage gear tier).
     expect(lightRobe.classRestrictions).toEqual([
       classId('earth_mage'),
       classId('water_mage'),
       classId('fire_mage'),
       classId('lightning_mage'),
       classId('calculator'),
+      classId('terraformer'),
     ]);
     expect(lightRobe.statMods).toEqual({ maxHpBase: 75, maxMpBase: 20 });
     expect(lightRobe.resistanceMods?.get('fire')).toBe(75);
@@ -107,12 +109,14 @@ describe('Session 37 — items registered in the default catalog', () => {
   it('Tricorn: Mage-only head, +10 HP, +10 MP, +10 Brave', () => {
     expect(tricorn.kind).toBe('headgear');
     // S49: calculator added to the Mage allowlist for body + head gear.
+    // S54: terraformer added (mage gear tier).
     expect(tricorn.classRestrictions).toEqual([
       classId('earth_mage'),
       classId('water_mage'),
       classId('fire_mage'),
       classId('lightning_mage'),
       classId('calculator'),
+      classId('terraformer'),
     ]);
     expect(tricorn.statMods).toEqual({ maxHpBase: 10, maxMpBase: 10, brave: 10 });
   });
