@@ -6,7 +6,8 @@
 // `effects.ctEffects` shape (per session 18).
 //
 // Per session 18 plaintext review:
-//   - mpCost 10, actionSpeed 25 (faster than Strike — buffs come online
+//   - mpCost 10, actionSpeed 35 (S55 tune: +10 from the original 25 so the
+//     buff comes online faster still; faster than Strike — buffs come online
 //     quicker, parallel to Earth's Blessing pattern)
 //   - baseChance 80 (Faith × MA factors at default Faith 80 / MA 7
 //     bring net hit rate to ~82%, well inside the 75-90% target band)
@@ -40,7 +41,7 @@ export const tideSurge: ActiveAbilityDefinition = {
     range: { horizontal: 4, vertical: 99 },
     rangeMode: 'arc',
   },
-  actionSpeed: 25,
+  actionSpeed: 35,
   mpCost: 10,
   effects: {
     ctEffects: [
