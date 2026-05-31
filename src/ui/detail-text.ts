@@ -121,6 +121,11 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('cornered_focus'), 'On taking enemy damage, gain +1 MA permanently. Stacks across the battle and persists through KO — the Calculator sharpens under pressure.'],
   [abilityId('mathematician'), 'Math Skill abilities gain +1 SP (damage / heal / CT push all read +1 to power), and the per-target MP cost drops from 3 to 1 per matching unit.'],
   [abilityId('thoughtful_pacing'), 'Restores MP equal to 2 × spaces moved at the end of each Move action.'],
+  // S54 — Terraformer R/S/M (descriptions added S55; S54 shipped the abilities
+  // without tooltip lines, so the builder showed the placeholder).
+  [abilityId('damage_split'), 'On taking a non-healing hit and surviving, reflect the full damage back at the attacker and heal yourself for half of it.'],
+  [abilityId('ignore_height'), 'Ignore Jump height limits entirely — climb or descend any elevation change in one step.'],
+  [abilityId('expert_former'), '+2 to the Worldcraft active-effect cap (2 → 4) — twice as many terrain changes / barriers persist at once before the oldest reverts.'],
 ]);
 
 // Authored lead-lines for active abilities whose mechanics don't read off
