@@ -141,6 +141,11 @@ export class UnitSprite {
   // at construction so portraitSprite picks it up regardless of the
   // load order vs. construction.
   private readonly isEnemyTeam: boolean;
+  // Signature of the status row currently drawn. `drawStatuses` runs every
+  // frame (via setVisualState) but the badge set rarely changes; we rebuild
+  // only on a signature change. `null` until the first draw. (S55 leak fix —
+  // see drawStatuses.)
+  private lastStatusKey: string | null = null;
 
   constructor(unit: Unit, opts?: { readonly enemyTeam?: boolean }) {
     this.teamColor = TEAM_COLORS.get(unit.team) ?? TEAM_COLOR_FALLBACK;
@@ -443,11 +448,29 @@ export class UnitSprite {
   }
 
   private drawStatuses(statuses: ReadonlyArray<StatusBadge>, ko: boolean): void {
-    // Tear down previous badges. Pixi v8 needs explicit removal — the
-    // children of statusRow are reused per-frame so a fresh build each
-    // frame is the cleanest path; sprites are cheap to recreate at
-    // this scale (max ~5 per unit).
-    this.statusRow.removeChildren();
+    // S55 memory-leak fix. This runs every frame (setVisualState → here), but
+    // the badge set only changes on status apply/remove/tick. Rebuild only on
+    // an actual change, keyed by a signature of the set.
+    //
+    // The bug it fixes: the old code called `statusRow.removeChildren()` every
+    // frame and rebuilt fresh Graphics + Text badges. In Pixi v8
+    // `removeChildren()` only DETACHES — it does not free GPU resources — so
+    // every orphaned Text (each owns a GPU texture) leaked until never, since
+    // JS GC can't reclaim WebGL textures without an explicit `destroy()`. A
+    // single buffed/charging unit leaked hundreds of textures/sec; over a
+    // battle the tab climbed toward 2 GB and Chrome dropped the WebGL context.
+    //
+    // Now: skip when unchanged; on a real change, DESTROY the old children
+    // (freeing their GPU resources) before rebuilding. Badges don't need
+    // per-frame updates — they're children of `statusRow`, which rides the
+    // unit container's position, so they follow the sprite automatically.
+    const key = ko
+      ? 'ko'
+      : statuses.map((s) => `${s.typeId}:${s.stacks}:${s.polarity}`).join('|');
+    if (key === this.lastStatusKey) return;
+    this.lastStatusKey = key;
+
+    for (const child of this.statusRow.removeChildren()) child.destroy();
     if (ko || statuses.length === 0) return;
 
     const visible = statuses.slice(0, STATUS_BADGE_VISIBLE_MAX);
