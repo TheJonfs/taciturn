@@ -267,13 +267,15 @@ export const HIGHLIGHT_OVERLAY_ALPHA = 0.6;
 // Hit flash color shown on a target when struck.
 export const HIT_FLASH_COLOR = 0xffe1a0;
 
-// Session 55: Worldcraft Barrier slab. A solid stone block occupying its
-// tile — distinct from any terrain so the player reads "wall here". Drawn as
-// a filled slab (face) with a lighter upper-left bevel and a dark outline.
-export const BARRIER_FACE_COLOR = 0x6b7280;   // slate stone
-export const BARRIER_BEVEL_COLOR = 0x9aa3b2;  // lighter top-left edge
-export const BARRIER_OUTLINE_COLOR = 0x2b2f36; // dark border
-export const BARRIER_FACE_ALPHA = 0.9;
+// Session 55: Worldcraft Barrier — an ethereal force-wall occupying its tile.
+// A luminous violet reads against all of the current terrain palette (blue
+// water, green land, grey stone) where the original slate slab blended in.
+// Translucent face + a pale luminous bevel + a bright violet glow border so it
+// reads as conjured energy, not masonry.
+export const BARRIER_FACE_COLOR = 0xa97bf0;   // ethereal violet
+export const BARRIER_BEVEL_COLOR = 0xe8d6ff;  // pale luminous upper-left edge
+export const BARRIER_OUTLINE_COLOR = 0xd9b3ff; // bright violet glow border
+export const BARRIER_FACE_ALPHA = 0.6;        // translucent — force-field, not solid
 export const BARRIER_BEVEL_PX = 3;
 export const BARRIER_OUTLINE_WIDTH = 2;
 

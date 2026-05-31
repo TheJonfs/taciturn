@@ -5,9 +5,10 @@
 // damage from attacks. Pre-S55 it had no renderer presence at all — a spawned
 // barrier was invisible, so the player couldn't see the wall they'd built.
 //
-// Each barrier tile draws as a solid stone slab: a filled face inset inside
-// the tile footprint, a lighter upper-left bevel (the upper-left-lit
-// convention shared with CliffEdgeLayer), and a dark outline. Layer placement:
+// Each barrier tile draws as an ethereal force-wall: a translucent luminous-
+// violet face, a pale upper-left bevel (the upper-left-lit convention shared
+// with CliffEdgeLayer), and a bright violet glow outline — a conjured-energy
+// read that contrasts with the blue/green/grey terrain. Layer placement:
 // above terrain / cliff / elevation labels (the wall sits "on" the tile) but
 // below the highlight + unit layers (UI overlays and sprites read on top).
 //
