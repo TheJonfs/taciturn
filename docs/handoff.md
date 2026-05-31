@@ -9,9 +9,33 @@ This is a transient note from one session to the next.
 ## From Session 55 close (2026-05-30) — Terraformer playtest fixes + UI polish + tuning
 
 S55 cleared the playtest-surfaced Terraformer items plus accumulated UI polish
-and two tuning calls, then a second round of playtest follow-ups. **1605 →
-1637 tests** (+32), `tsc -b` clean, `vite build` clean. Twelve commits to
-`main`. AI Worldcraft scoring remains deferred (future session).
+and two tuning calls, then two more rounds of playtest follow-ups. **1605 →
+1646 tests** (+41), `tsc -b` clean, `vite build` clean. AI Worldcraft scoring
+remains deferred (future session).
+
+### Third-round playtest follow-ups (Chris's second observation pass)
+
+- **Damage Split self-heal was dropped by the reaction cap (engine bug).** A
+  single reaction trigger emits two actions (reflect `system_damage` + paired
+  `system_heal`); each counted separately against the per-unit-per-turn cap
+  (default 1), so the reflect consumed the slot and the heal was silently
+  dropped on *every* hit. Fixed by grouping a trigger's emissions
+  (`reactionGroupId`): one Brave roll per trigger, one cap decision per group.
+  Also fixed a latent sibling bug (Brave was rolled per-emission). Commit-path
+  regression tests added — the S53 tests only covered emission/reducers in
+  isolation, which is why it shipped.
+- **Offensive AoEs now catch the caster (ADR-0090).** The Cataclysm "the caster
+  in the blast wasn't hit" report traced to the `excludeCaster: true` default
+  (ADR-0025 #7), documented across every AoE. Per Chris's call, the 7 offensive
+  AoEs opt out (`excludeCaster: false`); engine default stays `true` for
+  self-centered buffs. Cone/line (Maelstrom, Flame Lance) carry the flag but
+  it's a no-op (footprint starts one tile ahead). Balance watch logged.
+- **Terraformer R/S/M tooltips authored** (Damage Split / Ignore Height / Expert
+  Former had no `PASSIVE_DESCRIPTIONS` entries → builder showed the placeholder).
+- **Rapids Rush** actionSpeed 25 → 35.
+- **Mage command sets renamed:** Fire Spells → Pyromancy, Water Spells →
+  Hydrology, Lightning Spells → Aethurgy (matched the Aethurge class root; the
+  brief's "Aethrugy" read as a transposition), Earth Spells → Geosagacity.
 
 ### Second-round playtest follow-ups (Chris's observations after the first pass)
 
