@@ -67,7 +67,20 @@ export function advanceToNextEvent(
   if (state.turnState !== null) return null;
 
   const snapshot = buildSnapshot(state, catalog);
-  const advanceable = snapshot.filter((e) => e.speed > 0 || e.ct >= TRIGGER_THRESHOLD);
+  // S55 (ADR-0023 "triggered-but-paused" case): a charged action whose caster
+  // is paused (Stop → `computeActionSpeed` 0) is frozen — it neither advances
+  // nor triggers, even if it already reached the threshold. Without this, a
+  // Stop landing on a charge that is already at CT ≥ 100 (e.g. a second Shadow
+  // Stitch the tick before resolution) would still let it resolve, because the
+  // `ct >= TRIGGER_THRESHOLD` clause kept it eligible. Excluding it here both
+  // keeps it out of the trigger candidates and stops its 0-tick entry from
+  // pinning `ticksToNext` to 0 (which would stall the scheduler). The frozen
+  // charge sits at its CT until the pause clears, then resolves normally.
+  const isPausedCharge = (e: SnapshotEntry): boolean =>
+    e.entityKind === 'charged_action' && e.speed <= 0;
+  const advanceable = snapshot.filter(
+    (e) => !isPausedCharge(e) && (e.speed > 0 || e.ct >= TRIGGER_THRESHOLD),
+  );
   if (advanceable.length === 0) return null;
 
   const ticksToNext = Math.min(
@@ -81,7 +94,7 @@ export function advanceToNextEvent(
     }
   }
 
-  const candidates = snapshot.filter((e) => e.ct >= TRIGGER_THRESHOLD);
+  const candidates = snapshot.filter((e) => !isPausedCharge(e) && e.ct >= TRIGGER_THRESHOLD);
   candidates.sort(compareForTrigger);
   const winner = candidates[0];
   if (winner === undefined) return null;

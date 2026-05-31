@@ -152,7 +152,13 @@ export function projectUpcoming(
       cumulativeTicks += ticksToNext;
     }
 
-    const candidates = snapshot.filter((e) => e.ct >= TRIGGER_THRESHOLD);
+    // S55 (ADR-0023 "triggered-but-paused" case): a charged action whose caster
+    // is paused (Stop → speed 0) is frozen and must not trigger even at
+    // CT ≥ 100 — mirrors the runtime scheduler so the forecast matches. (It's
+    // already excluded from `advanceable` above by the `speed > 0` filter.)
+    const candidates = snapshot.filter(
+      (e) => e.ct >= TRIGGER_THRESHOLD && !(e.entityKind === 'charged_action' && e.speed <= 0),
+    );
     candidates.sort((a, b) =>
       compareForTrigger(
         { actualCT: a.ct, speed: a.speed, entityKind: a.entityKind, entityId: a.entityId },

@@ -20,7 +20,7 @@ import {
   DEFAULT_TEST_DAMAGE_PIPELINE,
   makeTestRuleset,
 } from '../catalog/test-fixtures.ts';
-import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
+import { makeGameState, makeUnit, makeChargedAction } from '../ct/test-fixtures.ts';
 import { advanceToNextEvent } from '../turn/scheduler.ts';
 import { flatMap } from '../map/test-fixtures.ts';
 import {
@@ -728,6 +728,59 @@ describe('charged action interruption — Stop pauses charge', () => {
     // The ChargedAction's CT did not advance (still 0). Stop pauses
     // accumulation per BMG.
     expect(s.chargedActions[0]!.ct).toBe(0);
+  });
+});
+
+// S55 playtest bug: a charge that had already reached CT >= 100 resolved even
+// after a (second) Stop landed on the caster — because the scheduler's trigger
+// filter only checked `ct >= threshold`, ignoring that the caster's pause had
+// zeroed the charge's speed. ADR-0023 flagged this "triggered-but-paused" case
+// as unhittable in v1; Shadow Stitch (Stop) landing on an at-threshold charge
+// makes it hittable. A paused charge must freeze, not fire.
+describe('charged action interruption — Stop on an already-at-threshold charge (S55)', () => {
+  function makeCat() {
+    return createCatalog({
+      statusTypes: [chargingType(), stopType()],
+      abilities: [tileBolt()],
+      commandSets: [
+        { id: commandSetId('battle_skill'), name: 'BS', members: [abilityId('bolt_test')], baseCost: 1, availability: 'hidden' },
+      ],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [ruleset()],
+    });
+  }
+
+  it('does NOT resolve a CT>=100 charge while the caster is Stopped — a live unit triggers instead', () => {
+    const cat = makeCat();
+    const caster = makeUnit({
+      id: 'caster', spd: 10, ma: 5, position: { x: 0, y: 0, layer: 0 },
+      statuses: [{ typeId: statusTypeId('stop'), source: { unitId: null, actionSeq: null }, remainingDuration: 30 }],
+    });
+    // A live enemy below threshold — it should take its turn before the frozen
+    // charge ever fires.
+    const other = makeUnit({ id: 'other', spd: 10, team: 'team_b', ct: 50, position: { x: 2, y: 0, layer: 0 } });
+    const charge = makeChargedAction({ id: 'ca1', speed: 25, ct: 100, casterId: 'caster', abilityId: 'bolt_test' });
+    const s = makeGameState({ units: [caster, other], chargedActions: [charge], map: flatMap(5, 5) });
+
+    const sched = advanceToNextEvent(s, cat);
+    expect(sched).not.toBeNull();
+    expect(sched!.proposed.type).not.toBe('charged_action_resolve');
+    // The charge is still in flight and frozen at its CT (didn't advance/fire).
+    expect(sched!.newState.chargedActions).toHaveLength(1);
+    expect(sched!.newState.chargedActions[0]!.ct).toBe(100);
+  });
+
+  it('resolves the same CT>=100 charge once the caster is NOT Stopped (control)', () => {
+    const cat = makeCat();
+    const caster = makeUnit({ id: 'caster', spd: 10, ma: 5, position: { x: 0, y: 0, layer: 0 } });
+    const other = makeUnit({ id: 'other', spd: 10, team: 'team_b', ct: 0, position: { x: 2, y: 0, layer: 0 } });
+    const charge = makeChargedAction({ id: 'ca1', speed: 25, ct: 100, casterId: 'caster', abilityId: 'bolt_test' });
+    const s = makeGameState({ units: [caster, other], chargedActions: [charge], map: flatMap(5, 5) });
+
+    const sched = advanceToNextEvent(s, cat);
+    expect(sched).not.toBeNull();
+    expect(sched!.proposed.type).toBe('charged_action_resolve');
   });
 });
 
