@@ -10,7 +10,7 @@ import { abilityId, validateAction, type BattleMap, type Unit } from '@engine/in
 import { loadDefaultCatalog } from '../content/index.ts';
 import { makeGameState, makeUnit, activeTurnFor } from '../engine/ct/test-fixtures.ts';
 import { mapWith } from '../engine/map/test-fixtures.ts';
-import { tileSetLine, validTileSetLinesFrom, validTileSetAnchors, elevationKernelCells } from './use-turn-flow.ts';
+import { tileSetLine, validTileSetLinesFrom, validTileSetAnchors, elevationKernelCells, computeLegalTargets, buildAction } from './use-turn-flow.ts';
 
 const catalog = loadDefaultCatalog();
 const barrierDef = catalog.getAbility(abilityId('barrier'));
@@ -93,9 +93,9 @@ describe('validTileSetLinesFrom — engine-valid lines from an anchor', () => {
 
   it('excludes lines that would cross an occupied tile', () => {
     const u = terraformer({ position: { x: 4, y: 4, layer: 0 } });
-    // A blocker two tiles east of the anchor — any eastward line of length ≥3
+    // A blocker one tile east of the anchor — any eastward line of length ≥3
     // from (4,4) hits it, so it must be excluded.
-    const blocker = makeUnit({ id: 'block', spd: 8, classId: 'knight', position: { x: 6, y: 4, layer: 0 } });
+    const blocker = makeUnit({ id: 'block', spd: 8, classId: 'knight', position: { x: 5, y: 4, layer: 0 } });
     const state = makeGameState({ units: [u, blocker], map: landMap(12, 12), turnState: activeTurnFor(u.id) });
     const lines = validTileSetLinesFrom(state, catalog, u, barrierAbility, { x: 4, y: 4, layer: 0 });
     for (const line of lines.values()) {
@@ -129,6 +129,46 @@ describe('elevationKernelCells — Hill/Valley/Pillar hover preview', () => {
   it('drops kernel offsets that fall off the map edge (corner anchor)', () => {
     const cells = elevationKernelCells(12, 12, deltasOf('hill'), { x: 0, y: 0, layer: 0 });
     expect(cells).toHaveLength(4); // anchor + east + south + SE
+  });
+});
+
+describe('attacking a barrier with a basic (single_unit) attack — S55 UI gap fix', () => {
+  const attack = catalog.getAbility(abilityId('attack'));
+  if (attack.kind !== 'active') throw new Error('attack must be active');
+  const barrierState = { hp: 48, ttl: 50, ownerId: 'someone' as Unit['id'] };
+
+  // A land map with a single barrier one tile east of the attacker.
+  function mapWithBarrier(): BattleMap {
+    const tiles = [];
+    for (let y = 0; y < 8; y++) {
+      for (let x = 0; x < 8; x++) {
+        tiles.push({ x, y, elevation: 4, ...(x === 5 && y === 4 ? { barrier: barrierState } : {}) });
+      }
+    }
+    return mapWith({ width: 8, height: 8, tiles });
+  }
+
+  it('computeLegalTargets offers the barrier tile to a damaging single_unit ability', () => {
+    const u = makeUnit({ id: 'attacker', spd: 8, classId: 'knight', position: { x: 4, y: 4, layer: 0 } });
+    const state = makeGameState({ units: [u], map: mapWithBarrier(), turnState: activeTurnFor(u.id) });
+    const targets = computeLegalTargets(state, catalog, u, attack, false);
+    expect(targets.tilePositions.has('5,4,0')).toBe(true);
+  });
+
+  it('buildAction builds a tile target when a damaging single_unit ability clicks an empty (barrier) tile', () => {
+    const u = makeUnit({ id: 'attacker', spd: 8, classId: 'knight', position: { x: 4, y: 4, layer: 0 } });
+    const action = buildAction(u.id, attack, { x: 5, y: 4, layer: 0 }, null, false);
+    expect(action).not.toBeNull();
+    expect(action?.type).toBe('use_ability');
+    if (action?.type === 'use_ability') expect(action.payload.target).toEqual({ kind: 'tile', position: { x: 5, y: 4, layer: 0 } });
+  });
+
+  it('the built tile-target action validates against a real barrier tile', () => {
+    const u = makeUnit({ id: 'attacker', spd: 8, classId: 'knight', position: { x: 4, y: 4, layer: 0 } });
+    const state = makeGameState({ units: [u], map: mapWithBarrier(), turnState: activeTurnFor(u.id) });
+    const action = buildAction(u.id, attack, { x: 5, y: 4, layer: 0 }, null, false);
+    expect(action).not.toBeNull();
+    expect(validateAction(state, { ...action!, actorId: u.id }, catalog).valid).toBe(true);
   });
 });
 

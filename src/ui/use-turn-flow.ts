@@ -522,10 +522,16 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       return;
     }
     if (flowState.kind === 'tile-set-target-select') {
-      // Session 55: in the extent phase, preview the full candidate line the
-      // hovered far-end would commit (gold overlay, the same idiom as AoE
-      // preview). Nothing in the anchor phase — the per-tile anchor highlight
-      // already shows where a line can start.
+      // Session 55. Anchor phase: accent the hovered tile when it's a valid
+      // anchor (a cursor-follow highlight, parallel to move-select / the AoE
+      // hover) so hovering reads as responsive. Extent phase: preview the full
+      // candidate line the hovered far-end would commit.
+      if (tileSetTargeting?.phase === 'anchor') {
+        const h = flowState.hoverTarget;
+        const onAnchor = h !== null && tileSetTargeting.anchors.some((a) => samePosition(a, h));
+        renderer.setHighlightOverlay(onAnchor ? [h] : [], onAnchor ? 'aoe' : 'none');
+        return;
+      }
       const line =
         tileSetTargeting?.phase === 'extent' && flowState.hoverTarget !== null
           ? tileSetTargeting.lines.get(positionKey(flowState.hoverTarget))
@@ -936,6 +942,38 @@ function pickAnyStockpileItem(unit: Unit): import('@engine/index.ts').ItemId | n
   return null;
 }
 
+// S55: append every in-range Barrier tile the given (damaging) ability can
+// legally hit to the target set. A barrier sits on an unoccupied tile, so the
+// unit enumeration above never surfaces it; the engine accepts a `tile` target
+// on a barrier tile (routing to system_barrier_damage) for any damaging
+// ability, so a basic Attack / single-target spell can break a wall. No-op for
+// non-damaging abilities and maps with no barriers.
+function addBarrierTargets(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  ability: ActiveAbilityDefinition,
+  positions: Position[],
+  tileKeys: Set<string>,
+): void {
+  if (ability.effects.damage === undefined) return;
+  for (const tile of state.map.tiles) {
+    if (tile.barrier === undefined) continue;
+    const pos: Position = { x: tile.x, y: tile.y, layer: tile.layer };
+    const key = positionKey(pos);
+    if (tileKeys.has(key)) continue;
+    const proposed: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: actor.id,
+      payload: { abilityId: ability.id, target: { kind: 'tile', position: pos } },
+    };
+    if (!validateAction(state, proposed, catalog).valid) continue;
+    positions.push(pos);
+    tileKeys.add(key);
+  }
+}
+
 function isHealingAbility(ability: ActiveAbilityDefinition | { kind: string }): boolean {
   if (ability.kind !== 'active') return false;
   const dmg = (ability as ActiveAbilityDefinition).effects.damage;
@@ -971,7 +1009,7 @@ function computeAbilityDisableReason(
 // legal). When true, behaves like `tile` (every reachable tile in range
 // is legal, occupant or not — the player pinned the location, not the
 // resident). `tileMode` is ignored for the other three targeting kinds.
-function computeLegalTargets(
+export function computeLegalTargets(
   state: GameState,
   catalog: Catalog,
   actor: Unit,
@@ -1034,6 +1072,12 @@ function computeLegalTargets(
       positions.push(candidate.position);
       unitIds.add(candidate.id);
     }
+    // S55: a damaging single-target ability can also swing at a Worldcraft
+    // Barrier sitting on an (otherwise empty) tile — the engine accepts a
+    // `tile` target on a barrier tile even for `single_unit` and routes it to
+    // `system_barrier_damage`. Offer those tiles so a basic Attack can break a
+    // wall. validateAction applies the same range/LoS the unit path uses.
+    addBarrierTargets(state, catalog, actor, ability, positions, tileKeys);
     return { positions, unitIds, tilePositions: tileKeys };
   }
 
@@ -1153,7 +1197,7 @@ function resolveAoeTiles(
 // Build the ProposedAction for the clicked tile/unit, based on the
 // ability's targeting kind. Returns null when the click doesn't match
 // the targeting shape (single_unit click but no occupant, etc.).
-function buildAction(
+export function buildAction(
   actorId: UnitId,
   ability: ActiveAbilityDefinition,
   pos: Position,
@@ -1169,7 +1213,13 @@ function buildAction(
     };
   }
   if (ability.targeting.kind === 'single_unit') {
-    if (occupant === null) return null;
+    if (occupant === null) {
+      // S55: a click on an empty tile is normally a no-op for single_unit —
+      // unless a damaging ability is swinging at a Barrier there. Offer a
+      // `tile` target; validateAction accepts it only when the tile bears a
+      // barrier (else the caller's canCommit check cancels the click).
+      return ability.effects.damage !== undefined ? tileTargetAction(actorId, ability, pos) : null;
+    }
     return {
       type: 'use_ability',
       source: 'player',
@@ -1180,16 +1230,14 @@ function buildAction(
   if (ability.targeting.kind === 'unit_or_tile') {
     // tileMode forces tile payload regardless of occupant. unit-mode
     // pins the occupant when present; absent occupant → null (no unit
-    // to pin, and tileMode was off, so the click is a no-op).
+    // to pin, and tileMode was off, so the click is a no-op) — except a
+    // damaging ability over a Barrier, which routes to the tile (S55).
     if (tileMode) {
-      return {
-        type: 'use_ability',
-        source: 'player',
-        actorId,
-        payload: { abilityId: ability.id, target: { kind: 'tile', position: pos } },
-      };
+      return tileTargetAction(actorId, ability, pos);
     }
-    if (occupant === null) return null;
+    if (occupant === null) {
+      return ability.effects.damage !== undefined ? tileTargetAction(actorId, ability, pos) : null;
+    }
     return {
       type: 'use_ability',
       source: 'player',
@@ -1198,6 +1246,14 @@ function buildAction(
     };
   }
   // tile
+  return tileTargetAction(actorId, ability, pos);
+}
+
+function tileTargetAction(
+  actorId: UnitId,
+  ability: ActiveAbilityDefinition,
+  pos: Position,
+): ProposedAction {
   return {
     type: 'use_ability',
     source: 'player',
