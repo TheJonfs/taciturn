@@ -9,6 +9,7 @@ import { TRAINING_FIELDS } from '../build/training-fields.ts';
 import { renderInline } from '../build/markdown.ts';
 import { armoryIntro } from '../content/items/index.ts';
 import academySealSvg from '../art/academy-seal.svg?raw';
+import gravityWellUrl from '../art/Gravity_Well_1.png';
 import { esc } from './html.ts';
 
 // Same seal resolution as spread-context: prefer art/seal.png, fall
@@ -109,9 +110,11 @@ export function specializationsHalfTitle(): string {
         the disciplines that answer the field with the body — the Knight
         at the line, the Alchemist with her satchel, the Assassin out of
         the shadow, the Hunter from the perch — the four elemental
-        Mages, who answer it with their art, and the Calculator, who
-        answers it with her arithmetic. The spreads are arranged
-        alphabetically; each is the same in form — stats imported from
+        Mages, who answer it with their art, the Calculator, who
+        answers it with her arithmetic, and the Terraformer, who
+        answers it by remaking the ground beneath them all. The spreads
+        are arranged alphabetically; each is the same in form — stats
+        imported from
         the Academy&rsquo;s records, the full repertoire annotated, the
         instructor&rsquo;s counsel at the close. Read in the order they
         are placed; or open at the discipline you mean to take, and read
@@ -167,6 +170,10 @@ export function trainingFieldsHalfTitle(): string {
       <ul class="half-title__list">
         ${fieldList}
       </ul>
+      <figure class="half-title__plate">
+        <img src="${esc(gravityWellUrl)}" alt="Cadets at rest between exercises" />
+        <figcaption>Cadets between exercises &mdash; the off-hours the Academy does not examine.</figcaption>
+      </figure>
     </section>`;
 }
 

@@ -94,6 +94,30 @@
   line-height: 2;
 }
 
+/* An optional plate beneath a half-title's text — a square in-world
+   illustration (the Training Fields divider carries the tavern scene).
+   Sized to leave the centred text block dominant and the page calm. */
+.half-title__plate {
+  margin: 1.9rem auto 0;
+  max-width: 3.5in;
+}
+
+.half-title__plate img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid #6e2b2b;
+  box-shadow: 0 1px 3px rgba(43, 38, 32, 0.35);
+}
+
+.half-title__plate figcaption {
+  margin-top: 0.55rem;
+  font-family: 'Cormorant', Georgia, serif;
+  font-style: italic;
+  font-size: 10pt;
+  color: #4a443a;
+}
+
 /* --- Title page ---------------------------------------------------- */
 
 .title-page {

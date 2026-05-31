@@ -24,6 +24,7 @@ import earthMagePortraitUrl from '../art/earth_mage_1.png';
 import waterMagePortraitUrl from '../art/water_mage_1.png';
 import fireMagePortraitUrl from '../art/fire_mage_1.png';
 import lightningMagePortraitUrl from '../art/lightning_mage_1.png';
+import terraformerPortraitUrl from '../art/terraformer_1.png';
 
 // Prefer a provided raster seal (art/seal.png) over the inline SVG.
 // import.meta.glob resolves to {} when the file is absent.
@@ -44,7 +45,8 @@ export type ElementId =
   | 'earth'
   | 'water'
   | 'fire'
-  | 'lightning';
+  | 'lightning'
+  | 'terraformer';
 
 interface ClassMeta {
   readonly element: ElementId;
@@ -57,8 +59,10 @@ interface ClassMeta {
 // the Hunter's is deep emerald / forest — distinct from Earth Mage's
 // brighter olive-green by its bluer, darker cast. The Calculator's
 // palette is parchment-ink (cool indigo over warm vellum) — a scholar's
-// kit, distinct from the elemental hues. The elemental wheel's four
-// hues finish the set.
+// kit, distinct from the elemental hues. The Terraformer's is quarried
+// slate-grey (worked stone / earthworks) — off-wheel like the
+// Calculator, and reading as the engineer she is rather than any
+// element. The elemental wheel's four hues finish the set.
 const CLASS_META: Record<string, ClassMeta> = {
   knight: { element: 'knight', portraitUrl: knightPortraitUrl },
   alchemist: { element: 'alchemist', portraitUrl: alchemistPortraitUrl },
@@ -69,6 +73,7 @@ const CLASS_META: Record<string, ClassMeta> = {
   water_mage: { element: 'water', portraitUrl: waterMagePortraitUrl },
   fire_mage: { element: 'fire', portraitUrl: fireMagePortraitUrl },
   lightning_mage: { element: 'lightning', portraitUrl: lightningMagePortraitUrl },
+  terraformer: { element: 'terraformer', portraitUrl: terraformerPortraitUrl },
 };
 
 /** Everything a variant template needs to render one class spread. */
@@ -137,6 +142,7 @@ export function spreadContextFor(id: ClassId): SpreadContext {
  *   Hydrologist    → water_mage
  *   Knight         → knight
  *   Pyromancer     → fire_mage
+ *   Terraformer    → terraformer
  */
 export const SPREAD_ORDER: ReadonlyArray<ClassId> = [
   classId('lightning_mage'), // Aethurge
@@ -148,4 +154,5 @@ export const SPREAD_ORDER: ReadonlyArray<ClassId> = [
   classId('water_mage'),     // Hydrologist
   classId('knight'),
   classId('fire_mage'),      // Pyromancer
+  classId('terraformer'),
 ];

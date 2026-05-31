@@ -16,6 +16,7 @@ import {
 } from '@content/classes/baseline-stats.ts';
 import { riverRidge } from '@content/maps/river-ridge.ts';
 import { stonebridge } from '@content/maps/stonebridge.ts';
+import { marshmoor } from '@content/maps/marshmoor.ts';
 import { classId, rulesetId } from '@engine/index.ts';
 import type {
   AbilityId,
@@ -66,6 +67,11 @@ export function riverRidgeMap(): BattleMap {
 /** Stonebridge — the Academy's second training-field map (S47). */
 export function stonebridgeMap(): BattleMap {
   return stonebridge;
+}
+
+/** Marshmoor — the Academy's third training-field map (S52). */
+export function marshmoorMap(): BattleMap {
+  return marshmoor;
 }
 
 /** One spoke of the elemental wheel, derived from a Mage class's baseline. */

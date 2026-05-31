@@ -128,6 +128,18 @@
   --band-label: #c5abdc;
 }
 
+/* The Terraformer's palette is quarried slate — a cool worked-stone grey
+   accent over a darker slate stat band, with a pale-ash label. Off the
+   elemental wheel like the Calculator's parchment-indigo, and reading as
+   the engineer she is (stone, earthworks) rather than any element;
+   distinct from the Assassin's bluer gunmetal by its warmer, greyer
+   cast. */
+.v-e--terraformer {
+  --accent: #4b5560;
+  --band: #2f363d;
+  --band-label: #b6bdc4;
+}
+
 .v-e .spread__verso {
   position: relative;
 }

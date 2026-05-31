@@ -99,6 +99,13 @@ Parrying Sword teaches its wielder to read the incoming blow and
 turn it before it lands.`,
     tactical: 'Lower WP than the Long Sword, paid back in evasion: a meaningful lift to front and a smaller one to the side. Same back as before — flanking still tells. The blade for the cadet who means to stand a long exchange, not to end it in one blow.',
   },
+  absolom: {
+    flavor: `A great two-handed blade with a name and a temper. The
+Armorer issues it to cadets who have earned a certain steadiness, and
+watches to see whether the steadiness holds — for the Absolom rewards
+conviction and punishes doubt, and does both in plain arithmetic.`,
+    tactical: 'The heaviest Weapon Power in the racks, and a two-handed grip that forbids an off-hand and collapses Two Weapons to a single blow. Its damage rides the wielder’s Brave — a default cadet under-rolls it; a Brave-stacked one (Soul Vest, Tricorn, Crusader’s Helm, Bravestrider) swings at or past full force. It carries a Reaction slot besides, which that same Brave makes fire the more often. The Knight’s sword — and a trap for the timid.',
+  },
 
   // --- Knives -------------------------------------------------------
   // A small, quick, accurate weapon class, requisitionable by any cadet
@@ -134,13 +141,13 @@ cadets it absolutely is.`,
     flavor: `A tall yew bow, requisitioned with a quiet word from the
 Armorer about wind and patience. It is the plainest of the Academy's
 ranged arms and the one that asks the most of its bearer's feet.`,
-    tactical: 'High WP, an honest two-handed shot — and an accuracy that is half what a sword’s is, so equip Eagle Eye or accept that every other arrow vanishes. The elevation-driven variance is the soul of it: from above, every level lifts the damage; from below, every level cuts it, and five levels below the target the arrow does nothing at all. Take the high ground or take a different weapon.',
+    tactical: 'High WP, an honest two-handed shot — and an accuracy that is half what a sword’s is, so equip Eagle Eye or accept that every other arrow vanishes. The elevation-driven variance is the soul of it: from above, every level lifts the damage; from below, every level cuts it, and five levels below the target the arrow does nothing at all. And height does not only sharpen the shot — it lengthens it: standing above her mark, the archer gains a tile of range for every two elevations of drop, so the high ground reaches farther as well as harder. Take the high ground or take a different weapon.',
   },
   riptide_bow: {
     flavor: `A driftwood-and-sinew bow, kept oiled against the damp. It
 hisses against the air on release, and on a hit it draws a measure of
 the target's tempo away with it.`,
-    tactical: 'Lower WP than the Longbow, but the arrows carry water with them — cross-element pressure on a kit that already wants the perch — and roughly one shot in three drags the struck foe’s CT back besides. Same accuracy caveat as its sister bow, and the same height rules.',
+    tactical: 'Lower WP than the Longbow, but the arrows carry water with them — cross-element pressure on a kit that already wants the perch — and roughly one shot in three drags the struck foe’s CT back besides. Same accuracy caveat as its sister bow, and the same height rules: damage and reach both grow with the drop, so the perch pays this bow twice as well.',
   },
 
   // --- Shields ------------------------------------------------------
@@ -159,6 +166,44 @@ from the side.`,
     flavor: `A shield that hits back. Modest cover, by the standards of
 the rack — but the arm behind it strikes the harder for carrying it.`,
     tactical: 'Lighter on evasion than its peers, but a real lift to Physical Attack. The aggressive Knight’s shield.',
+  },
+  buckler: {
+    flavor: `The plainest guard the Armorer keeps, and the one he hands
+over without ceremony. It is not, by his own admission, a good shield.
+It is the shield that means no cadet ever takes the field with an empty
+off-hand.`,
+    tactical: 'The entry-tier off-hand, open to any cadet: modest front-and-side evasion and a thin, even ward against all four elements. Every other shield in the racks improves on it — but when the build has nothing better to hang at the off-hand, the Buckler is never wrong and never nothing.',
+  },
+  talisman_of_warding: {
+    flavor: `A warding-charm worn where a shield would hang. It turns no
+blade — but the cadet who expects the engagement to come at her in fire
+and frost rather than in steel will be glad of what it does turn.`,
+    tactical: 'Off-hand, any class: a deep, even +20 ward against all four elements, and nothing else. The answer to a mage-heavy opposition without spending the body or head slot on resistance — pure elemental insurance, carried in the off-hand.',
+  },
+  talisman_of_conviction: {
+    flavor: `A small token of resolve, worn at the off-hand. It sharpens
+neither the blade nor the ward — only the cadet’s own certainty, which
+for some kits is the stat that decides the engagement.`,
+    tactical: 'Off-hand, any class: a flat +5 Brave and +5 Faith. The off-hand counterpart to the Soul Vest — for the reaction-heavy Brave build that wants its answers to fire, or the Faith-scaled caster and healer who wants her art to land and her mending to hold.',
+  },
+  tome_of_power: {
+    flavor: `The first book a Mage opens. Where the Knight hangs a shield
+at the off-hand, the caster carries a book — and this one asks only that
+she mean to hit harder and cast longer.`,
+    tactical: 'Mages and the Calculator: a flat +1 Magical Attack and +10 to the reserve, with none of the Staff of Power’s MP-cost tax. The straightforward caster’s off-hand — more force, more casts, no catch.',
+  },
+  livre_of_urgency: {
+    flavor: `The tempo book, bound for the caster who would rather act
+again than act harder. The Armorer keeps it near the Aethurge’s racks,
+and is rarely surprised by who requisitions it.`,
+    tactical: 'Mages and the Calculator: +1 Speed for turn frequency, and +5 action speed on her magical casts so each resolves sooner off the charge. The two compose — more turns, and each cast landing earlier. The off-hand for the discipline that wins on tempo.',
+  },
+  battle_dictionary: {
+    flavor: `The oddest of the three books, and the one experienced
+cadets reach for first. Its lift to the arm is wasted on most who carry
+it — but the tile of reach it lends a spell is the most coveted thing a
+caster can hang at the off-hand.`,
+    tactical: 'Mages and the Calculator: +1 horizontal range on every magical cast — the most valuable magical off-hand effect in the racks — and a tile of vertical tolerance on her area spells besides, so they catch foes a step above or below the mark. The +1 Physical Attack most casters will never use, though on the Calculator it is not wholly wasted. The reach book.',
   },
 
   // --- Armour -------------------------------------------------------

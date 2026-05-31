@@ -66,8 +66,19 @@ function restrictionText(item: ItemDefinition): string | undefined {
   if (!ids || ids.length === 0) return undefined;
   const names = ids.map((id) => catalog().getClass(id).name);
   if (ids.length === 1) return `${names[0]} only`;
+  const allMages = (subset: ReadonlyArray<unknown>) =>
+    [...MAGE_CLASS_IDS].every((m) => subset.some((id) => String(id) === m));
   if (ids.length === 4 && ids.every((id) => MAGE_CLASS_IDS.has(String(id)))) {
     return 'Mages only';
+  }
+  // The four Mages + the Calculator — the books' arcane readership. Listed
+  // out, the five display names overflow the entry's column; collapse them.
+  if (
+    ids.length === 5 &&
+    allMages(ids) &&
+    ids.some((id) => String(id) === 'calculator')
+  ) {
+    return 'Mages & Calculator only';
   }
   return `${names.join(', ')} only`;
 }
@@ -192,6 +203,14 @@ function hookEffects(item: ItemDefinition): string[] {
     if (axes.length > 0) out.push(`Ability ${axes.join(', ')}${gate}`);
   }
 
+  // AoE vertical-tolerance modifiers (S51, Battle Dictionary) — widen
+  // which elevation bands an area spell actually covers, distinct from
+  // the targeting reach above.
+  for (const mod of item.aoeVerticalToleranceModifiers ?? []) {
+    const gate = mod.tagFilter ? ` (${mod.tagFilter.join('/')})` : '';
+    out.push(`AoE elevation ${signed(mod.delta)}${gate}`);
+  }
+
   for (const mult of item.outgoingHitChanceMultipliers ?? []) {
     out.push(`Hit chance ×${mult}`);
   }
@@ -249,14 +268,19 @@ function hookEffects(item: ItemDefinition): string[] {
     }
   }
 
-  // Physical variance — discriminated union of three arms:
+  // Physical variance — discriminated union of four arms:
   //  - static: a fixed band (War Axe, Bolt Hammer).
   //  - attacker_speed (S40): band centred at Speed/10 ± spread; the
   //    wielder's Speed sets the absolute numbers, so the armory entry
   //    communicates the principle, not a fixed range.
+  //  - attacker_brave (S50, Knight Sword class): band centred at the
+  //    wielder's Brave/100 ± spread. Absolom authors this.
   //  - height_delta (S45 bow class): deterministic given positions,
   //    1 ± falloffPerHeight × (attackerHeight − targetHeight). Above
   //    target → boost; below → cut. The armory communicates the lever.
+  // Each kind is matched explicitly: an unknown arm prints nothing
+  // rather than mis-reading another arm's field (which produced a
+  // reader-facing "±NaN%" before attacker_brave was handled).
   if (item.kind === 'weapon' && item.physicalVariance) {
     const v = item.physicalVariance;
     if (v.kind === 'static') {
@@ -264,8 +288,10 @@ function hookEffects(item: ItemDefinition): string[] {
     } else if (v.kind === 'attacker_speed') {
       const pct = Math.round(v.spread * 100);
       out.push(`Variance scales with Speed (±${pct}%)`);
-    } else {
-      // height_delta
+    } else if (v.kind === 'attacker_brave') {
+      const pct = Math.round(v.spread * 100);
+      out.push(`Variance scales with Brave (±${pct}%)`);
+    } else if (v.kind === 'height_delta') {
       const pct = Math.round(v.falloffPerHeight * 100);
       out.push(`Variance scales with elevation (±${pct}% per level above/below target)`);
     }

@@ -7,9 +7,10 @@
 // and (3) the page template handles the rest.
 
 import type { BattleMap } from '@engine/index.ts';
-import { riverRidgeMap, stonebridgeMap } from './data.ts';
+import { riverRidgeMap, stonebridgeMap, marshmoorMap } from './data.ts';
 import { riverRidgeProse } from '../content/training-fields/river-ridge.ts';
 import { stonebridgeProse } from '../content/training-fields/stonebridge.ts';
+import { marshmoorProse } from '../content/training-fields/marshmoor.ts';
 import type { FieldProse } from '../content/training-fields/river-ridge.ts';
 
 export interface TrainingFieldEntry {
@@ -21,4 +22,5 @@ export interface TrainingFieldEntry {
 export const TRAINING_FIELDS: ReadonlyArray<TrainingFieldEntry> = [
   { prose: riverRidgeProse, map: riverRidgeMap() },
   { prose: stonebridgeProse, map: stonebridgeMap() },
+  { prose: marshmoorProse, map: marshmoorMap() },
 ];
