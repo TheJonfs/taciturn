@@ -51,6 +51,11 @@ export const flameLance: ActiveAbilityDefinition = {
       power_coefficient: 10,
     },
     aoe: {
+      // S55 (supersedes ADR-0025 #7 for offensive AoE): the caster CAN be caught
+      // in their own offensive blast. Target-anchored shapes now hit the caster if
+      // the footprint reaches their tile; caster-anchored cone/line footprints
+      // start one tile ahead, so this is a no-op for those two.
+      excludeCaster: false,
       shape: { kind: 'line', length: 4 },
       anchorMode: 'caster',
       verticalTolerance: 5,

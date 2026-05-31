@@ -9,7 +9,7 @@
 //   - shape: diamond radius 1 (session 26 — was `cross r1` pre-session-26;
 //     the two are identical at r1 but Aether-Bloom-enlarged diamond r2
 //     produces a 13-tile field vs cross r2's 9 tiles)
-//   - excludeCaster: true (default; FFT-canonical)
+//   - excludeCaster: false (S55: caster can be caught in their own offensive blast)
 //   - friendly fire: per ruleset (v1 default true)
 //   - vertical tolerance: 1 (default; hits adjacent layers within ±1)
 //   - debuff baseChance 50% per target, duration 24, tagged 'earth'
@@ -54,6 +54,11 @@ export const earthQuake: ActiveAbilityDefinition = {
       power_coefficient: 7,
     },
     aoe: {
+      // S55 (supersedes ADR-0025 #7 for offensive AoE): the caster CAN be caught
+      // in their own offensive blast. Target-anchored shapes now hit the caster if
+      // the footprint reaches their tile; caster-anchored cone/line footprints
+      // start one tile ahead, so this is a no-op for those two.
+      excludeCaster: false,
       shape: { kind: 'diamond', radius: 1 },
     },
     statusEffects: [

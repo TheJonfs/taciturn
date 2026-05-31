@@ -16,8 +16,7 @@
 //     Fire Storm and Earth Quake)
 //   - range horizontal 4 / vertical 2, arc (target tile)
 //   - shape diamond r1 — symmetric, no cardinal bias
-//   - excludeCaster: true (FFT-canonical default — and the Lightning
-//     Mage probably shouldn't be on top of their own AoE anyway)
+//   - excludeCaster: false (S55: caster can be caught in their own offensive blast)
 //
 // Friendly fire follows ruleset default (true in v1) — Chain Lightning
 // hits allies caught in the AoE, which actually *boosts* damage to
@@ -51,6 +50,11 @@ export const chainLightning: ActiveAbilityDefinition = {
       chainBonus: { powerPerAdditionalTarget: 1 },
     },
     aoe: {
+      // S55 (supersedes ADR-0025 #7 for offensive AoE): the caster CAN be caught
+      // in their own offensive blast. Target-anchored shapes now hit the caster if
+      // the footprint reaches their tile; caster-anchored cone/line footprints
+      // start one tile ahead, so this is a no-op for those two.
+      excludeCaster: false,
       shape: { kind: 'diamond', radius: 1 },
     },
   },

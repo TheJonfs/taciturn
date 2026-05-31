@@ -13,7 +13,7 @@
 //     next turn pass before the spell lands)
 //   - shape: diamond radius 1 (session 26 — was `cross r1` pre-session-26;
 //     identical at r1, but Aether-Bloom-enlarged diamond r2 is 13 tiles)
-//   - excludeCaster: true (default)
+//   - excludeCaster: false (S55: caster can be caught in their own offensive blast)
 //   - friendly fire: per ruleset
 //   - vertical tolerance: 1 (default)
 //   - Poison baseChance 60% (non-expiring; fundamental "do not let me
@@ -57,6 +57,11 @@ export const earthCataclysm: ActiveAbilityDefinition = {
       power_coefficient: 12,
     },
     aoe: {
+      // S55 (supersedes ADR-0025 #7 for offensive AoE): the caster CAN be caught
+      // in their own offensive blast. Target-anchored shapes now hit the caster if
+      // the footprint reaches their tile; caster-anchored cone/line footprints
+      // start one tile ahead, so this is a no-op for those two.
+      excludeCaster: false,
       shape: { kind: 'diamond', radius: 1 },
     },
     statusEffects: [

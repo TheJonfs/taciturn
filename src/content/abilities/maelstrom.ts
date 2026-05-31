@@ -29,9 +29,8 @@
 //   - range horizontal 4 / vertical 2, arc (target tile picks direction;
 //     the cone itself is anchored at the caster)
 //   - knockback distance 1, no chance gate (always knocks back)
-//   - excludeCaster: true (default; the caster sits at the cone's apex
-//     and is naturally outside the affected rows, but the flag is
-//     belt-and-suspenders)
+//   - excludeCaster: false (S55) — moot for a cone: the apex (caster tile) is
+//     never in the footprint, which starts one tile ahead
 
 import {
   abilityId,
@@ -64,6 +63,11 @@ export const maelstrom: ActiveAbilityDefinition = {
       },
     },
     aoe: {
+      // S55 (supersedes ADR-0025 #7 for offensive AoE): the caster CAN be caught
+      // in their own offensive blast. Target-anchored shapes now hit the caster if
+      // the footprint reaches their tile; caster-anchored cone/line footprints
+      // start one tile ahead, so this is a no-op for those two.
+      excludeCaster: false,
       shape: { kind: 'cone', rows: [1, 3, 3] },
       anchorMode: 'caster',
     },

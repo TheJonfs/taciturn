@@ -13,9 +13,8 @@
 //   - range horizontal 4 / vertical 2, arc (target tile)
 //   - shape diamond r1 (base, 5 tiles); Aether Bloom enlarges to diamond
 //     r2 (13 tiles, was 9 under the pre-session-26 cross-r1 base)
-//   - excludeCaster: true (FFT-canonical default) — even at base shape
-//     the caster could in principle be inside r1 of their target tile;
-//     belt-and-suspenders flag
+//   - excludeCaster: false (S55: caster can be caught in their own offensive blast
+//     when Fire Storm lands within r1 of their tile)
 //
 // Friendly fire follows ruleset default (true in v1) — Fire Storm hits
 // allies caught in the AoE. Tactical placement is part of the cast.
@@ -48,6 +47,11 @@ export const fireStorm: ActiveAbilityDefinition = {
       power_coefficient: 6,
     },
     aoe: {
+      // S55 (supersedes ADR-0025 #7 for offensive AoE): the caster CAN be caught
+      // in their own offensive blast. Target-anchored shapes now hit the caster if
+      // the footprint reaches their tile; caster-anchored cone/line footprints
+      // start one tile ahead, so this is a no-op for those two.
+      excludeCaster: false,
       shape: { kind: 'diamond', radius: 1 },
     },
   },

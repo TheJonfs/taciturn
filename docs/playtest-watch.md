@@ -975,3 +975,13 @@ The class ships; these need real engagements to settle.
 - **What to watch.** A net-lowering Worldcraft cast (Valley/Pit) whose whole footprint is already on the water floor now fails validation ("Target area would not be affected") instead of silently spending MP. Watch whether players understand *why* a watery-target cast is blocked, or whether it reads as the ability being mysteriously unavailable there.
 - **Why it matters.** Fixes the silent no-op, but trades it for a rejection the player must interpret.
 - **Signal for adjustment.** Players confused why they can't Valley a lake → surface the reason more prominently, or grey-out water-floor targets during targeting. Understood as "nothing to lower there" → keep.
+
+### Offensive AoEs now catch the caster (S55, ADR-0090)
+
+- **What to watch.** Offensive AoEs (Cataclysm, Earth Quake, Fire Storm, Tidal Wave, Chain Lightning) no longer exclude the caster — a mage caught in their own blast (point-blank cast, or a charged cast whose target moves adjacent mid-charge) now takes the damage/status. Cone/line (Maelstrom, Flame Lance) are unaffected (footprint starts one tile ahead). Watch whether self-hits feel like fair positional consequence or an accidental-suicide trap, especially with the charged-cast case where the target controls the geometry.
+- **Why it matters.** Reverses a long-standing "caster immune to own AoE" default across the mage roster; charged AoE + a mobile target is a new self-damage vector.
+- **Signal for adjustment.** Players repeatedly nuke themselves by surprise on charged casts → consider a confirm/warning when the projected footprint covers the caster, or revisit per-ability. Reads as smart positional play → keep.
+
+### Rapids Rush speed (S55)
+
+- **What to watch.** Rapids Rush actionSpeed 25 → 35 (resolves faster). Watch whether the quicker CT-bump buff overshadows other Water Mage options or feels appropriately snappy.

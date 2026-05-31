@@ -12,7 +12,7 @@
 //     knockback rider)
 //   - shape: diamond r1 (5 tiles: center + 4 cardinal neighbors;
 //     Manhattan radius). Distinct silhouette from Earth Quake's cross.
-//   - excludeCaster: true (default; FFT-canonical)
+//   - excludeCaster: false (S55: caster can be caught in their own offensive blast)
 //   - friendly fire: per ruleset (v1 default true)
 //   - vertical tolerance: 1 (default)
 //   - knockback distance 1, baseChance 50 (Faith × MA factors land at
@@ -54,6 +54,11 @@ export const tidalWave: ActiveAbilityDefinition = {
       },
     },
     aoe: {
+      // S55 (supersedes ADR-0025 #7 for offensive AoE): the caster CAN be caught
+      // in their own offensive blast. Target-anchored shapes now hit the caster if
+      // the footprint reaches their tile; caster-anchored cone/line footprints
+      // start one tile ahead, so this is a no-op for those two.
+      excludeCaster: false,
       shape: { kind: 'diamond', radius: 1 },
     },
   },
