@@ -1,44 +1,33 @@
-// High Ground — second S48-authored default template (Chris); S51
-// refresh adds Tome of Power (Eldred) and Talisman of Warding (Samuel)
-// to take advantage of the new universal-off-hand opening.
+// High Ground — second S48-authored default template (Chris); S51 refresh added
+// the off-hand books/talismans; S55 revision (this pass) reworks the roster per
+// Chris's playtest authoring — notably Cecil is now a Terraformer (was a
+// Knight), making this the first default template to field the 10th class.
 //
 // 5-unit composition that exercises the S48 5v5 unlock. Both maps
-// (River Ridge / Stonebridge) have authored 5 player-side slots; this
-// is the first template that uses all of them.
+// (River Ridge / Stonebridge) have authored 5 player-side slots.
 //
-// Concept (per Chris's authoring):
-//   - Hunter "Ajax" with the Riptide Bow + The Offering — the bow
-//     class gets the +per-weapon-swing accessory's single-weapon
-//     payoff, plus a Hunter-native R/S/M kit (Updraft / Eagle Eye /
-//     High Jump). Focus Band defuses incoming status pressure, Battle
-//     Gear is the lightweight default armor. S51: Fleet of Foot
-//     replaces Field Recovery for tempo over sustain.
-//   - Alchemist "Tina" with a Longbow (cross-class bow use — Hunter
-//     doesn't monopolize the bow class) + The Offering's sibling
-//     accessory, Augmentor (+1 Support-bucket capacity), to fit Field
-//     Kit / Martial Expertise / Eagle Eye on a Support-stacked
-//     toolkit-medic. Travel Garb + Lookout's Hood. S51: Movement
-//     reshuffled to Field Recovery + High Jump + Fleet of Foot +
-//     Thoughtful Pacing (Bravestrider dropped).
-//   - Aethurge "Eldred" with Staff of Power (× 1.20 MP cost / MA buff
-//     trade) + Tome of Power (S51 — +1 MA / +10 MP off-hand Book) +
-//     Ironfoot for the Movement-bucket headroom (4 passives fit:
-//     Quickstep + Fleet of Foot + Tidewalker + Hotfoot). Wizard's
-//     Robe + Pointy Hat. Fire Spells as the secondary command set.
-//     The Tome stacks an additional +1 MA on top of Staff of Power's
-//     multiplier — Eldred is the team's raw-MA spike.
-//   - Geosage "Samuel" with Magus Crown's +1 secondary-command-set
-//     capacity unlocking *two* secondary sets (Lightning Spells +
-//     Water Spells) — control plus a long-charge sustain back-up.
-//     Wand of the Deepwood + Sorcerer's Robe + Mantle of Protection
-//     for the elemental-resist + per-facing evasion package, plus
-//     Talisman of Warding (S51 — +20 all elemental resistance off-
-//     hand) layering another resist coat on top of Mantle's +25.
-//   - Knight "Cecil" with Bolt Hammer + Managuard (weapon + shield —
-//     no dual-wield, so basic Attack stays single-swing but the
-//     Managuard's +2 MA hybrid shield buys some magic resistance).
-//     Crusader's Helm + Silvered Vest + Diamond Bracelet. Field Kit
-//     as a cross-class Support pickup.
+// Concept (per Chris's authoring; S55 deltas noted):
+//   - Hunter "Ajax" — Riptide Bow + The Offering, Hunter-native kit (Updraft /
+//     Eagle Eye / High Jump). Worldcraft secondary (S55 — terrain control off
+//     the bow line). Focus Band + Battle Gear.
+//   - Alchemist "Tina" — cross-class Longbow + Augmentor (+1 Support capacity)
+//     to fit Field Kit / Martial Expertise / Eagle Eye. Shadow Arts secondary
+//     (S55). Lookout's Hood + Travel Garb.
+//   - Aethurge "Eldred" — Staff of Power + Tome of Power (raw-MA spike), Pointy
+//     Hat + Wizard's Robe + Boots of Haste (S55 accessory). Fire Spells
+//     secondary.
+//   - Geosage "Samuel" — Magus Crown's +1 secondary-command-set capacity
+//     unlocks *two* secondary sets (Lightning Spells + Water Spells). Wand of
+//     the Deepwood + Sorcerer's Robe + Mantle of Protection + Talisman of
+//     Warding.
+//   - Terraformer "Cecil" (S55 — replaces the Knight) — native Worldcraft with
+//     Alchemy secondary; the full native R/S/M kit (Damage Split / Expert
+//     Former / Ignore Height) plus cross-class picks. Chef's Knife + Battle
+//     Dictionary (the Book's +1 PA feeds Barrier HP) + Skullclamp + Silvered
+//     Vest + Diamond Bracelet.
+//
+// Authored unit names are personal picks; the team builder respects authored
+// values on template load (S38 naming convention).
 
 import {
   abilityId,
@@ -63,7 +52,7 @@ export const highGround: BuiltTeam = {
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('marksmanship')],
-          [bucketId('secondary_command_sets')]: [commandSetId('battle_skill')],
+          [bucketId('secondary_command_sets')]: [commandSetId('worldcraft')],
         },
         passiveBuckets: {
           [bucketId('reaction')]: [
@@ -153,7 +142,6 @@ export const highGround: BuiltTeam = {
           ],
           [bucketId('movement')]: [
             abilityId('quickstep'),
-            abilityId('fleet_of_foot'),
             abilityId('tidewalker'),
             abilityId('hotfoot'),
           ],
@@ -164,7 +152,7 @@ export const highGround: BuiltTeam = {
         rightHand: itemId('tome_of_power'),
         headgear: itemId('pointy_hat'),
         armor: itemId('wizards_robe'),
-        accessory: itemId('ironfoot'),
+        accessory: itemId('boots_of_haste'),
       },
     },
     {
@@ -175,10 +163,6 @@ export const highGround: BuiltTeam = {
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('earth_spells')],
-          // Magus Crown's +1 secondary-command-set capacity unlocks two
-          // secondary sets on this slot. Lightning is the primary
-          // cross-school pick; Water Spells is the long-charge sustain
-          // back-up.
           [bucketId('secondary_command_sets')]: [
             commandSetId('lightning_spells'),
             commandSetId('water_spells'),
@@ -199,7 +183,7 @@ export const highGround: BuiltTeam = {
             abilityId('bedrock_stride'),
             abilityId('field_recovery'),
             abilityId('fleet_of_foot'),
-            abilityId('quickstep'),
+            abilityId('thoughtful_pacing'),
           ],
         },
       },
@@ -213,37 +197,37 @@ export const highGround: BuiltTeam = {
     },
     {
       name: 'Cecil',
-      classId: classId('knight'),
-      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH, 27),
+      classId: classId('terraformer'),
+      baseStats: buildBaseStats(classId('terraformer'), BRAVE, FAITH, 27),
       level: 27,
       loadout: {
         actionBuckets: {
-          [bucketId('first_action')]: [commandSetId('battle_skill')],
+          [bucketId('first_action')]: [commandSetId('worldcraft')],
           [bucketId('secondary_command_sets')]: [commandSetId('alchemy')],
         },
         passiveBuckets: {
           [bucketId('reaction')]: [
-            abilityId('counter'),
-            abilityId('discharge'),
+            abilityId('damage_split'),
             abilityId('combat_focus'),
+            abilityId('speed_save'),
+            abilityId('counter'),
           ],
           [bucketId('support')]: [
-            abilityId('martial_expertise'),
+            abilityId('expert_former'),
             abilityId('field_kit'),
-            abilityId('eagle_eye'),
+            abilityId('martial_expertise'),
           ],
           [bucketId('movement')]: [
-            abilityId('bravestrider'),
-            abilityId('field_recovery'),
+            abilityId('ignore_height'),
+            abilityId('hotfoot'),
             abilityId('tidewalker'),
-            abilityId('quickstep'),
           ],
         },
       },
       equipment: {
-        leftHand: itemId('bolt_hammer'),
-        rightHand: itemId('managuard'),
-        headgear: itemId('crusaders_helm'),
+        leftHand: itemId('chefs_knife'),
+        rightHand: itemId('battle_dictionary'),
+        headgear: itemId('skullclamp'),
         armor: itemId('silvered_vest'),
         accessory: itemId('diamond_bracelet'),
       },

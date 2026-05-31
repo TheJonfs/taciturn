@@ -20,14 +20,14 @@ describe('High Ground template (highGround)', () => {
     expect(highGround.name).toBe('High Ground');
   });
 
-  it('fields five units (Hunter / Alchemist / Aethurge / Geosage / Knight)', () => {
+  it('fields five units (Hunter / Alchemist / Aethurge / Geosage / Terraformer)', () => {
     expect(highGround.units).toHaveLength(5);
     expect(highGround.units.map((u) => String(u.classId))).toEqual([
       'hunter',
       'alchemist',
       'lightning_mage',
       'earth_mage',
-      'knight',
+      'terraformer',
     ]);
   });
 
