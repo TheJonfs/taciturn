@@ -224,7 +224,7 @@ function ActiveUnitAnchor(props: {
   });
   const borderColor = teamColor(unit.team);
 
-  const portraitUrl = portraitUrlFor(unit.classState.currentClass);
+  const portraitUrl = portraitUrlFor(unit.classState.currentClass, unit.gender);
   // Enemy-team portrait flip per session 25 (matches canvas convention).
   const portraitTransform = unit.team === 'team_b' ? 'scaleX(-1)' : undefined;
   return (

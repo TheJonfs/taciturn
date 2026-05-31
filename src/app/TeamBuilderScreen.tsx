@@ -26,7 +26,8 @@ import {
 } from '@content/teams/index.ts';
 import { UNIT_NAME_MAX_LENGTH } from '@ui/team-builder-state.ts';
 import { TeamExportModal } from '@ui/team-export-modal.tsx';
-import type { BattleConfig, Catalog, TeamControl } from '@engine/index.ts';
+import { defaultGenderFor } from '../assets/portraits/index.ts';
+import type { BattleConfig, Catalog, ClassId, Gender, TeamControl } from '@engine/index.ts';
 import {
   TeamBuilderAbilityPicker,
   TeamBuilderClassPicker,
@@ -179,10 +180,17 @@ function EditPanel({
   builder: TeamBuilder;
   catalog: Catalog;
 }): ReactElement {
-  const { selectedIndex, selectedUnit, setBrave, setFaith, setUnitName } = builder;
+  const { selectedIndex, selectedUnit, setBrave, setFaith, setUnitName, setUnitGender } =
+    builder;
   const className =
     selectedUnit.classId !== null
       ? catalog.getClass(selectedUnit.classId).name
+      : null;
+  // Effective portrait gender: the unit's explicit choice, else the class
+  // default (the original portrait's gender). Drives the toggle's active side.
+  const effectiveGender: Gender | null =
+    selectedUnit.classId !== null
+      ? (selectedUnit.gender ?? defaultGenderFor(selectedUnit.classId as ClassId) ?? 'male')
       : null;
 
   return (
@@ -193,10 +201,18 @@ function EditPanel({
       </div>
 
       {selectedUnit.classId !== null && (
-        <NameInput
-          value={selectedUnit.name ?? ''}
-          onChange={(v) => setUnitName(selectedIndex, v)}
-        />
+        <div style={nameGenderRowStyle}>
+          <NameInput
+            value={selectedUnit.name ?? ''}
+            onChange={(v) => setUnitName(selectedIndex, v)}
+          />
+          {effectiveGender !== null && (
+            <GenderToggle
+              value={effectiveGender}
+              onChange={(g) => setUnitGender(selectedIndex, g)}
+            />
+          )}
+        </div>
       )}
 
       <TeamBuilderClassPicker builder={builder} catalog={catalog} />
@@ -241,6 +257,40 @@ function NameInput({
         style={nameInputStyle}
       />
     </label>
+  );
+}
+
+// Session 55: portrait gender toggle, sitting next to the name field. A small
+// two-button segmented control (♀ / ♂); the active side reflects the unit's
+// effective gender. Purely cosmetic in v1 — it switches the portrait variant.
+function GenderToggle({
+  value,
+  onChange,
+}: {
+  value: Gender;
+  onChange: (gender: Gender) => void;
+}): ReactElement {
+  return (
+    <div style={genderToggleStyle} role="group" aria-label="Portrait gender">
+      <button
+        type="button"
+        onClick={() => onChange('female')}
+        aria-pressed={value === 'female'}
+        title="Female portrait"
+        style={value === 'female' ? genderButtonActiveStyle : genderButtonStyle}
+      >
+        ♀
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('male')}
+        aria-pressed={value === 'male'}
+        title="Male portrait"
+        style={value === 'male' ? genderButtonActiveStyle : genderButtonStyle}
+      >
+        ♂
+      </button>
+    </div>
   );
 }
 
@@ -486,10 +536,45 @@ const sliderInputStyle: CSSProperties = {
   width: '100%',
 };
 
+// Row holding the (now narrower) name field plus the gender toggle (S55).
+const nameGenderRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+};
+
 const nameRowStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
+  // Grow within the name+gender row, leaving the toggle its intrinsic width.
+  flex: 1,
+  minWidth: 0,
+};
+
+const genderToggleStyle: CSSProperties = {
+  display: 'flex',
+  flexShrink: 0,
+  border: '1px solid #2c2f36',
+  borderRadius: 4,
+  overflow: 'hidden',
+};
+
+const genderButtonStyle: CSSProperties = {
+  padding: '6px 10px',
+  fontSize: 15,
+  lineHeight: 1,
+  background: '#1c1e23',
+  color: '#9aa0aa',
+  border: 'none',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+};
+
+const genderButtonActiveStyle: CSSProperties = {
+  ...genderButtonStyle,
+  background: '#3a6ea5',
+  color: '#ffffff',
 };
 
 const nameLabelStyle: CSSProperties = {

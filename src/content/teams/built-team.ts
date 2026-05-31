@@ -17,6 +17,7 @@
 import type {
   BaseStats,
   ClassId,
+  Gender,
   Loadout,
   UnitEquipment,
 } from '@engine/index.ts';
@@ -32,6 +33,10 @@ export interface BuiltUnit {
   readonly baseStats: BaseStats;
   readonly loadout: Loadout;
   readonly equipment: UnitEquipment;
+  // Session 55: cosmetic gender → portrait variant. Optional; absent means the
+  // class's default portrait (the original art). Templates may omit it and
+  // render unchanged; the team builder sets it when the player uses the toggle.
+  readonly gender?: Gender;
   // Session 49: slot-based level. L25 is the baseline; values away from
   // 25 modify the unit's HP/MP (±10% per ±1) and the class's dominant
   // stat (±1 at ±2 from baseline). `baseStats` is already level-adjusted

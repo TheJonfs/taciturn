@@ -34,6 +34,7 @@ import {
   type BucketId,
   type Catalog,
   type ClassId,
+  type Gender,
   type CommandSetId,
   type EquipmentSlotId,
   type ItemDefinition,
@@ -80,6 +81,9 @@ export { MAX_TEAM_SIZE, MIN_TEAM_SIZE };
 export interface DraftUnit {
   readonly classId: ClassId | null;
   readonly name?: string;
+  // Session 55: cosmetic gender → portrait variant. Optional; when unset the
+  // unit shows the class's default portrait. The toggle sets it explicitly.
+  readonly gender?: Gender;
   readonly brave: number;
   readonly faith: number;
   readonly equipment: UnitEquipment;
@@ -142,6 +146,7 @@ export function teamBuilderStateFromBuiltTeam(team: BuiltTeam): TeamBuilderState
     (unit): DraftUnit => ({
       classId: unit.classId,
       name: unit.name,
+      ...(unit.gender !== undefined ? { gender: unit.gender } : {}),
       brave: unit.baseStats.brave,
       faith: unit.baseStats.faith,
       equipment: unit.equipment,
@@ -181,6 +186,7 @@ export function teamBuilderStateToBuiltTeam(
       // a test).
       name: unit.name ?? catalog.getClass(unit.classId).name,
       classId: unit.classId,
+      ...(unit.gender !== undefined ? { gender: unit.gender } : {}),
       baseStats: buildBaseStats(unit.classId, unit.brave, unit.faith, level),
       loadout: unit.loadout,
       equipment: unit.equipment,
@@ -522,6 +528,19 @@ export function setUnitName(
   }
   const capped = trimmed.slice(0, UNIT_NAME_MAX_LENGTH);
   return withUnit(state, index, { ...unit, name: capped });
+}
+
+// Session 55: set a unit's cosmetic gender (portrait variant). Stored
+// explicitly on the draft so it persists across class changes and serializes
+// into the BuiltTeam; the portrait the renderer/builder shows is
+// `unit.gender ?? defaultGenderFor(classId)`.
+export function setUnitGender(
+  state: TeamBuilderState,
+  index: number,
+  gender: Gender,
+): TeamBuilderState {
+  const unit = state.units[index]!;
+  return withUnit(state, index, { ...unit, gender });
 }
 
 export function setEquipment(

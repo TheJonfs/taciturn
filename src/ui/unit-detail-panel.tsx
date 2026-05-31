@@ -177,7 +177,7 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
       <aside style={panelStyle} aria-label={`Detail: ${unit.name}`}>
         <header style={headerStyle}>
           <div style={headerLeftStyle}>
-            <PortraitImage classId={unit.classState.currentClass} size={64} />
+            <PortraitImage classId={unit.classState.currentClass} gender={unit.gender} size={64} />
             <div>
               <div style={nameStyle}>{unit.name}</div>
               <div style={subStyle}>
@@ -505,10 +505,11 @@ function Empty({ children }: { readonly children: React.ReactNode }): ReactEleme
 // registered for the class.
 function PortraitImage(props: {
   readonly classId: import('@engine/index.ts').ClassId;
+  readonly gender?: import('@engine/index.ts').Gender | undefined;
   readonly size: number;
 }): ReactElement {
-  const { classId, size } = props;
-  const url = portraitUrlFor(classId);
+  const { classId, gender, size } = props;
+  const url = portraitUrlFor(classId, gender);
   if (url === null) {
     return (
       <div

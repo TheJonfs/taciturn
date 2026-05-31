@@ -17,6 +17,7 @@ import type { VictoryCondition } from './battle-outcome.ts';
 import type { DamageTag } from './damage.ts';
 import type { UnitEquipment } from './equipment-slot.ts';
 import type { ClassId, RulesetId, TeamId, UnitId } from './ids.ts';
+import type { Gender } from './unit.ts';
 import type { Loadout } from './loadout.ts';
 import type { Direction, Position } from './spatial.ts';
 import type { BaseStats, Vitals } from './stats.ts';
@@ -63,6 +64,9 @@ export interface UnitPlacement {
   // perspective except where Math Skill's `parameter: 'level'`
   // predicate reads it off the resulting Unit.
   readonly level?: number;
+  // Session 55: cosmetic gender → portrait variant. Optional; absent means
+  // the class's default portrait. Threaded through to `Unit.gender`.
+  readonly gender?: Gender;
 }
 
 // Victory conditions are data-as-config. The shape lives in

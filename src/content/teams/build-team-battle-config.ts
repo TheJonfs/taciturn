@@ -60,6 +60,8 @@ export function buildTeamBattleConfig(
       baseStats: unit.baseStats,
       loadout: unit.loadout,
       equipment: unit.equipment,
+      // S55: forward cosmetic gender (portrait variant) onto the placement.
+      ...(unit.gender !== undefined ? { gender: unit.gender } : {}),
       // S49: forward the BuiltUnit's level into the placement so Math
       // Skill's `parameter: 'level'` predicate can read it off the
       // constructed `Unit`. `baseStats` is already level-adjusted

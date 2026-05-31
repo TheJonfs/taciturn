@@ -14,6 +14,7 @@ import type {
   ClassId,
   CommandSetId,
   EquipmentSlotId,
+  Gender,
   ItemId,
   RulesetId,
 } from '@engine/index.ts';
@@ -28,6 +29,7 @@ import {
   setEquipment as setEquipmentMut,
   setFaith as setFaithMut,
   setUnitName as setUnitNameMut,
+  setUnitGender as setUnitGenderMut,
   teamBuilderStateFromBuiltTeam,
   teamBuilderStateToBuiltTeam,
   togglePassive as togglePassiveMut,
@@ -71,6 +73,7 @@ export interface TeamBuilder {
   readonly setBrave: (index: number, value: number) => void;
   readonly setFaith: (index: number, value: number) => void;
   readonly setUnitName: (index: number, name: string) => void;
+  readonly setUnitGender: (index: number, gender: Gender) => void;
   readonly togglePassive: (
     index: number,
     bucketId: BucketId,
@@ -156,6 +159,10 @@ export function useTeamBuilder({
     setState((s) => setUnitNameMut(s, index, name));
   }, []);
 
+  const setUnitGender = useCallback((index: number, gender: Gender) => {
+    setState((s) => setUnitGenderMut(s, index, gender));
+  }, []);
+
   const togglePassive = useCallback(
     (index: number, bucketId: BucketId, abilityId: AbilityId) => {
       setState((s) => togglePassiveMut(s, index, bucketId, abilityId));
@@ -192,6 +199,7 @@ export function useTeamBuilder({
     setBrave,
     setFaith,
     setUnitName,
+    setUnitGender,
     togglePassive,
     toggleSecondaryCommandSet,
     loadTemplate,

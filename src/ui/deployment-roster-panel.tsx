@@ -140,7 +140,7 @@ function RosterEntry({
   const className = catalog.hasClass(unit.classState.currentClass)
     ? catalog.getClass(unit.classState.currentClass).name
     : String(unit.classState.currentClass);
-  const portraitUrl = portraitUrlFor(unit.classState.currentClass);
+  const portraitUrl = portraitUrlFor(unit.classState.currentClass, unit.gender);
   const clickable = isPlaced || isPickable;
 
   return (

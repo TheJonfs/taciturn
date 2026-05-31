@@ -24,6 +24,7 @@ import {
   type Action,
   type Catalog,
   type ClassId,
+  type Gender,
   type GameState,
   type Position,
   type TeamId,
@@ -46,7 +47,7 @@ import {
 import { Animator } from './animator.ts';
 import { CameraController, type PanInput } from './camera-controller.ts';
 import { positionCenter, type ScreenPoint } from './world.ts';
-import { PORTRAIT_URLS } from '../assets/portraits/index.ts';
+import { portraitUrlFor } from '../assets/portraits/index.ts';
 import { terrainTexturePoolFor } from '../assets/terrain/index.ts';
 
 export type TileClickHandler = (pos: Position, unit: Unit | null) => void;
@@ -95,9 +96,6 @@ export class BattleRenderer {
   // bypass the animator — the per-frame `applyVisualState` loop skips
   // any sprite without an animator snapshot, so they stay put.
   private readonly deploymentSprites: Set<UnitId> = new Set();
-  // Class of each deployment sprite — kept so an async portrait load
-  // can re-apply the texture to the matching deployment sprites.
-  private readonly deploymentUnitClass: Map<UnitId, ClassId> = new Map();
   private readonly sprites: Map<UnitId, UnitSprite> = new Map();
   private readonly animator: Animator = new Animator();
   private camera: CameraController | null = null;
@@ -114,11 +112,11 @@ export class BattleRenderer {
   // avoid setHighlightOverlay churn at 60fps — we only repaint on
   // transitions (anim starts → tiles list; anim ends → empty).
   private lastTileHighlightKey: string = '';
-  // Texture cache for class portraits, populated asynchronously after
-  // mount via `loadPortraitAssets`. Sprites created for units added
-  // after a texture is cached (mid-battle summons, future work) read
-  // from here to get the same texture.
-  private readonly portraitTextures: Map<ClassId, Texture> = new Map();
+  // Texture cache for portraits, keyed by resolved asset URL (S55: a class has
+  // a male and female portrait, so the key is the URL, not the class). Populated
+  // asynchronously after mount via `loadPortraitAssets`; sprites created later
+  // (deployment, mid-battle) read from here to reuse a loaded texture.
+  private readonly portraitTextures: Map<string, Texture> = new Map();
   // Per-terrain-type texture pool cache. Populated asynchronously by
   // `loadTerrainAssets` per ADR-0054. When a type's pool resolves,
   // `TileLayer.applyTerrainTextures` overlays sprites on the relevant
@@ -242,53 +240,45 @@ export class BattleRenderer {
     this.camera.apply(this.world);
   }
 
-  // Async portrait loader. For each class present in the initial state,
-  // load the registered PNG URL via Pixi `Assets.load` and attach the
-  // texture to every UnitSprite of that class. Errors per-class are
-  // swallowed (logged in dev) so one bad asset doesn't break the
-  // whole battle; the affected unit keeps its circle fallback.
+  // Async portrait loader. For each unit in the initial state, resolve its
+  // portrait (class + gender → URL) and attach the loaded texture to its
+  // sprite. Per-unit (S55): two units of the same class but different gender
+  // get different portraits. Errors are swallowed (logged in dev) so one bad
+  // asset doesn't break the battle; the affected unit keeps its circle fallback.
   private async loadPortraitAssets(state: GameState): Promise<void> {
-    const classesPresent = new Set<ClassId>();
-    for (const u of state.units.values()) classesPresent.add(u.classState.currentClass);
-    await Promise.all([...classesPresent].map((c) => this.loadPortraitForClass(c)));
+    await Promise.all(
+      [...state.units.values()].map((u) =>
+        this.loadPortraitForUnit(u.id, u.classState.currentClass, u.gender),
+      ),
+    );
   }
 
-  // Load (once) the portrait texture for a single class and apply it to
-  // every sprite of that class — both battle sprites in `lastState` and
-  // deployment-phase sprites (Session 35). Cached after the first load;
-  // a second call for an already-cached class re-applies synchronously.
-  // Errors per-class are swallowed (logged in dev) — a missing asset
-  // leaves the colored-circle fallback in place.
-  private async loadPortraitForClass(classId: ClassId): Promise<void> {
-    const cached = this.portraitTextures.get(classId);
+  // Resolve a unit's portrait URL (class + gender, with the class default when
+  // gender is unset), load it via Pixi `Assets.load` (cached by URL), and apply
+  // it to that unit's sprite. A second call for an already-cached URL applies
+  // synchronously. Errors swallowed (logged in dev) — missing asset leaves the
+  // colored-circle fallback in place.
+  private async loadPortraitForUnit(
+    spriteId: UnitId,
+    classId: ClassId,
+    gender: Gender | undefined,
+  ): Promise<void> {
+    const url = portraitUrlFor(classId, gender);
+    if (url === null) return;
+    const cached = this.portraitTextures.get(url);
     if (cached !== undefined) {
-      this.applyPortraitToClass(classId, cached);
+      this.sprites.get(spriteId)?.setPortrait(cached);
       return;
     }
-    const url = PORTRAIT_URLS.get(classId);
-    if (url === undefined) return;
     try {
       const texture = (await Assets.load(url)) as Texture;
-      this.portraitTextures.set(classId, texture);
-      this.applyPortraitToClass(classId, texture);
+      this.portraitTextures.set(url, texture);
+      this.sprites.get(spriteId)?.setPortrait(texture);
     } catch (err: unknown) {
       if (import.meta.env.DEV) {
         // eslint-disable-next-line no-console
-        console.warn('[renderer] portrait load failed for', String(classId), err);
+        console.warn('[renderer] portrait load failed for', String(classId), gender ?? '(default)', err);
       }
-    }
-  }
-
-  // Apply a loaded portrait texture to every current sprite of `classId`.
-  private applyPortraitToClass(classId: ClassId, texture: Texture): void {
-    for (const u of this.lastState?.units.values() ?? []) {
-      if (u.classState.currentClass === classId) {
-        this.sprites.get(u.id)?.setPortrait(texture);
-      }
-    }
-    for (const id of this.deploymentSprites) {
-      const cls = this.deploymentUnitClass.get(id);
-      if (cls === classId) this.sprites.get(id)?.setPortrait(texture);
     }
   }
 
@@ -532,12 +522,9 @@ export class BattleRenderer {
       sprite = new UnitSprite(unit, { enemyTeam });
       this.sprites.set(unit.id, sprite);
       this.unitLayer.addChild(sprite.container);
-      const cached = this.portraitTextures.get(unit.classState.currentClass);
-      if (cached !== undefined) sprite.setPortrait(cached);
-      else void this.loadPortraitForClass(unit.classState.currentClass);
+      void this.loadPortraitForUnit(unit.id, unit.classState.currentClass, unit.gender);
     }
     this.deploymentSprites.add(unit.id);
-    this.deploymentUnitClass.set(unit.id, unit.classState.currentClass);
     sprite.setVisualState({
       position: positionCenter(unit.position),
       facing: unit.facing,
@@ -565,7 +552,6 @@ export class BattleRenderer {
       this.sprites.delete(unitId);
     }
     this.deploymentSprites.delete(unitId);
-    this.deploymentUnitClass.delete(unitId);
   }
 
   destroy(): void {

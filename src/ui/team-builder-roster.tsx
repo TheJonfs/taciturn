@@ -85,7 +85,7 @@ function RosterCard({
 }: RosterCardProps): ReactElement {
   const className =
     unit.classId !== null ? catalog.getClass(unit.classId).name : null;
-  const portraitUrl = unit.classId !== null ? portraitUrlFor(unit.classId) : null;
+  const portraitUrl = unit.classId !== null ? portraitUrlFor(unit.classId, unit.gender) : null;
 
   return (
     <button

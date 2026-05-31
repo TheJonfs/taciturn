@@ -24,6 +24,14 @@ export interface UnitClassState {
   // progression session.
 }
 
+// Session 55: unit gender. Cosmetic in v1 — it selects which of the two
+// per-class portraits renders (each class ships a male and a female portrait).
+// Optional: when absent, consumers fall back to the class's default portrait
+// (the original art), so existing units/fixtures render unchanged. Modeled as
+// a first-class unit attribute (not a render-only flag) so future content can
+// gate mechanics on it without a data migration.
+export type Gender = 'male' | 'female';
+
 export interface Unit {
   readonly id: UnitId;
   readonly team: TeamId;
@@ -32,6 +40,10 @@ export interface Unit {
   readonly classState: UnitClassState;
   readonly loadout: Loadout;
   readonly equipment: UnitEquipment;
+
+  // Cosmetic gender (Session 55) — selects the male/female portrait variant.
+  // Optional; absent means "the class's default portrait." See `Gender`.
+  readonly gender?: Gender;
 
   // Slot-based level assignment (Session 49). L25 is the baseline; each
   // step away modifies HP and MP by ±10% and, at ±2 or beyond, the

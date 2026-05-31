@@ -257,6 +257,9 @@ function placementToUnit(
     classState: { currentClass: placement.classId },
     loadout: placement.loadout,
     equipment,
+    // Session 55: cosmetic gender (portrait variant). Omitted when the
+    // placement doesn't specify it — the renderer then uses the class default.
+    ...(placement.gender !== undefined ? { gender: placement.gender } : {}),
     // Session 49: level defaults to 25 when the placement omits it
     // (demo / hand-authored configs). The team-builder pipeline
     // always sets it; `baseStats` should already reflect the level

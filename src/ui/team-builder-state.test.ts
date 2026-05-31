@@ -36,6 +36,7 @@ import {
   setEquipment,
   setFaith,
   setUnitName,
+  setUnitGender,
   teamBuilderStateFromBuiltTeam,
   teamBuilderStateToBuiltTeam,
   togglePassive,
@@ -468,5 +469,32 @@ describe('team builder state — engine agreement', () => {
       );
       expect(draftValue, ability).toBe(engineValue);
     }
+  });
+});
+
+describe('team builder state — cosmetic gender (S55)', () => {
+  it('setUnitGender stores the choice and it survives the BuiltTeam round-trip', () => {
+    let s = createEmptyTeamBuilderState();
+    s = setClass(s, 0, classId('knight'), catalog);
+    // Knight's default portrait is male; the player flips to female.
+    s = setUnitGender(s, 0, 'female');
+    expect(s.units[0]!.gender).toBe('female');
+
+    const built = teamBuilderStateToBuiltTeam(s, catalog);
+    expect(built.units[0]!.gender).toBe('female');
+
+    const reloaded = teamBuilderStateFromBuiltTeam(built);
+    expect(reloaded.units[0]!.gender).toBe('female');
+  });
+
+  it('leaves gender unset by default (renders as class default) and persists it across a class change', () => {
+    let s = createEmptyTeamBuilderState();
+    s = setClass(s, 0, classId('knight'), catalog);
+    expect(s.units[0]!.gender).toBeUndefined();
+    // An explicit pick is sticky across a later class change (a deliberate
+    // preference, not reset by re-classing).
+    s = setUnitGender(s, 0, 'female');
+    s = setClass(s, 0, classId('alchemist'), catalog);
+    expect(s.units[0]!.gender).toBe('female');
   });
 });
