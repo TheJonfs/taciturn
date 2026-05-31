@@ -597,10 +597,14 @@ function resolveAbilityTags(action: ProposedAction, catalog: Catalog): ReadonlyS
 // identity today.
 //
 // Seed determinism: the per-action `seed` is folded with a sub-stream
-// constant (BRAVE_REACTION_SUB_STREAM) plus a per-reaction index. Same
+// constant (BRAVE_REACTION_SUB_STREAM) plus a per-group index. Same
 // action seed + same proposed reactions list always produce the same
-// trigger pattern. Brave is rolled per *proposed* reaction, not per
-// handler — multiple reactions from one handler each roll separately.
+// trigger pattern. Session 55: Brave is rolled once per *trigger* (per
+// handler that emits), not per emitted action — a handler emitting several
+// actions (Damage Split: reflect + self-heal) fires or whiffs as a unit, and
+// the group shares one cap slot. For the common one-emission-per-handler
+// reaction the group index equals the old flat emission index, so the roll
+// stream is unchanged.
 //
 // The reducer enqueues the surviving reactions onto the action chain.
 // Damage-bearing actions enrich the args with the final damage amount
@@ -611,6 +615,12 @@ function resolveAbilityTags(action: ProposedAction, catalog: Catalog): ReadonlyS
 // (the one that fired onActionTargeted). Stable across replay because
 // the action's seed is recorded on its envelope.
 const BRAVE_REACTION_SUB_STREAM = 2;
+// Session 55: salt for deriving a per-trigger `reactionGroupId` from the
+// incoming action's seed + group index. Distinct from the Brave sub-stream so
+// the group id never collides with a roll value; the id only needs to be
+// stable per trigger and distinct across triggers within a turn (different
+// incoming actions carry different seeds).
+const REACTION_GROUP_SALT = 0x9e3779b9;
 
 // Per-action proc-roll sub-stream (ADR-0064, Session 30). Weapon
 // `attackProcs` entries each consume `seed ^ (PROC_ROLL_SUB_STREAM +
@@ -651,7 +661,13 @@ export function runOnActionTargeted(
   }
 
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onActionTargeted');
-  const proposed: ProposedAction[] = [];
+  // Session 55: group emissions by the handler that produced them. A single
+  // reaction trigger may emit more than one action (Damage Split: reflect +
+  // self-heal), and those must Brave-roll and cap-account as ONE reaction —
+  // not as independent reactions, which previously gave them separate Brave
+  // rolls and let the per-turn cap (default 1) admit the reflect but drop the
+  // heal. Each handler that emits anything becomes one group.
+  const groups: ProposedAction[][] = [];
   for (const h of handlers) {
     const result = h.invoke({
       unit: args.unit,
@@ -659,9 +675,9 @@ export function runOnActionTargeted(
       ...(args.damageDealt !== undefined ? { damageDealt: args.damageDealt } : {}),
       ...(args.damageTags !== undefined ? { damageTags: args.damageTags } : {}),
     });
-    for (const r of result) proposed.push(r);
+    if (result.length > 0) groups.push([...result]);
   }
-  if (proposed.length === 0) return [];
+  if (groups.length === 0) return [];
 
   // Pair each surviving reaction with the reactor id (the unit whose
   // hooks fired). `commitAction` reads `.reactorId` for per-unit-per-
@@ -675,20 +691,21 @@ export function runOnActionTargeted(
     baseValue: args.unit.baseStats.brave,
   });
   const triggerChance = Math.max(0, Math.min(1, brave / 100));
-  if (triggerChance >= 1) {
-    // Deterministic at Brave 100+: every reaction proposed survives.
-    return proposed.map((action) => ({ action, reactorId }));
-  }
   if (triggerChance <= 0) return []; // deterministic at Brave 0
 
+  // One Brave roll per group (per trigger). The sub-seed indexes by group g,
+  // matching the pre-S55 stream for the common one-emission-per-handler case
+  // (group index == old flat emission index there), so existing single-action
+  // reactions keep their exact roll. A surviving group's emissions all share a
+  // stable `reactionGroupId` so the cap admits/denies them together.
   const surviving: GeneratedReaction[] = [];
-  for (let i = 0; i < proposed.length; i++) {
-    const subSeed = args.seed ^ ((BRAVE_REACTION_SUB_STREAM + i) >>> 0);
-    const r = unitFloatFromSeed(subSeed);
-    if (r < triggerChance) {
-      const reaction = proposed[i];
-      if (reaction !== undefined) surviving.push({ action: reaction, reactorId });
+  for (let g = 0; g < groups.length; g++) {
+    if (triggerChance < 1) {
+      const subSeed = args.seed ^ ((BRAVE_REACTION_SUB_STREAM + g) >>> 0);
+      if (unitFloatFromSeed(subSeed) >= triggerChance) continue;
     }
+    const groupId = (args.seed ^ ((REACTION_GROUP_SALT + g) >>> 0)) >>> 0;
+    for (const action of groups[g]!) surviving.push({ action, reactorId, reactionGroupId: groupId });
   }
   return surviving;
 }

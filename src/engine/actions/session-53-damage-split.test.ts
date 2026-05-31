@@ -14,11 +14,14 @@
 // system_damage / system_heal reducers and the non-cascade property.
 
 import { describe, expect, it } from 'vitest';
-import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
+import { makeGameState, makeUnit, activeTurnFor } from '../ct/test-fixtures.ts';
+import { flatMap } from '../map/test-fixtures.ts';
 import { runOnActionTargeted } from '../hooks/runners.ts';
+import { commitAction } from './commit.ts';
 import { reduceSystemDamage, reduceSystemHeal } from './reducers.ts';
 import { createCatalog } from '../catalog/index.ts';
 import { defaultTestRulesets } from '../catalog/test-fixtures.ts';
+import { defaultRuleset } from '../../content/rulesets/default.ts';
 import { ACTIVE_BUCKET_IDS, PASSIVE_BUCKET_IDS } from '../abilities/constants.ts';
 import { damageSplit } from '../../content/abilities/damage-split.ts';
 import { abilities as allAbilities } from '../../content/abilities/index.ts';
@@ -353,5 +356,83 @@ describe('Session 53 — Damage Split catalog registration', () => {
     expect(damageSplit.kind).toBe('passive');
     expect(damageSplit.baseCost).toBe(2);
     expect(damageSplit.bucket).toBe(bucketId('reaction'));
+  });
+});
+
+// Session 55 regression: the heal half is dropped under the per-unit-per-turn
+// reaction cap. Damage Split's trigger emits TWO actions (reflect + self-heal);
+// pre-S55 each counted as a separate reaction, so the reflect consumed the cap
+// slot (default 1) and the heal was silently dropped — the reactor took full
+// damage with no heal-back on EVERY hit. The emission-level tests above never
+// caught it because they don't drive the commit cap. These do.
+describe('Session 55 — Damage Split self-heal survives the reaction cap (commit path)', () => {
+  // Reactor at (0,0), attacker adjacent at (1,0), flat ground so a melee Attack
+  // is valid; attacker takes the turn (turnState owns reactionsUsedThisTurn).
+  // The minimal `defaultTestRulesets` doesn't wire the damage-pipeline stage
+  // list, so a committed attack computes baseDamage 0 (the emission tests above
+  // sidestep this by passing `damageDealt` directly). Use the production
+  // ruleset here so the basic Attack actually lands damage and the reaction
+  // fires through the real commit path.
+  function makeCatProd() {
+    return createCatalog({
+      statusTypes: [],
+      abilities: [attackAbilityDef(), damageSplit],
+      commandSets: [battleSkillDef()],
+      classes: [terraClassDef()],
+      items: [],
+      rulesets: [defaultRuleset],
+    });
+  }
+
+  function commitSetup(args?: { reactionsUsed?: number }) {
+    const cat = makeCatProd();
+    const reactor = makeUnit({
+      id: 'reactor', spd: 10, brave: 100, hp: 100,
+      position: { x: 0, y: 0, layer: 0 },
+      loadout: loadoutWithReaction(abilityId('damage_split')),
+    });
+    const attacker = makeUnit({ id: 'attacker', spd: 10, team: 'team_b', hp: 100, position: { x: 1, y: 0, layer: 0 } });
+    const base = activeTurnFor(attacker.id);
+    const turnState =
+      args?.reactionsUsed !== undefined
+        ? { ...base, reactionsUsedThisTurn: new Map([[reactor.id, args.reactionsUsed]]) }
+        : base;
+    const state = makeGameState({ units: [reactor, attacker], map: flatMap(4, 4), turnState });
+    const incoming: ProposedAction = {
+      type: 'use_ability', source: 'player', actorId: attacker.id,
+      payload: { abilityId: abilityId('attack'), target: { kind: 'unit', unitId: reactor.id } },
+    };
+    return { cat, state, reactor, attacker, incoming };
+  }
+
+  it('heals the reactor for half the reflected damage on a single attack', () => {
+    const { cat, state, reactor, attacker, incoming } = commitSetup();
+    const result = commitAction(state, incoming, cat);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const r = result.newState.units.get(reactor.id)!;
+    const a = result.newState.units.get(attacker.id)!;
+    // Reflect to attacker == gross damage the reactor took.
+    const gross = 100 - a.vitals.hp;
+    expect(gross).toBeGreaterThan(0);
+    const netLoss = 100 - r.vitals.hp;
+    // Heal applied → net loss is gross minus floor(gross/2) = ceil(gross/2),
+    // strictly less than gross. The pre-S55 bug left netLoss == gross.
+    expect(netLoss).toBe(gross - Math.floor(gross / 2));
+    expect(netLoss).toBeLessThan(gross);
+    // The heal landed in the log, not just the reflect.
+    expect(result.committed.some((x) => x.type === 'system_heal')).toBe(true);
+  });
+
+  it('drops the WHOLE reaction (reflect and heal) when the reactor is already at the cap', () => {
+    const { cat, state, attacker, incoming } = commitSetup({ reactionsUsed: 1 });
+    const result = commitAction(state, incoming, cat);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const a = result.newState.units.get(attacker.id)!;
+    // Capped: no reflect (attacker untouched) and no heal emitted.
+    expect(a.vitals.hp).toBe(100);
+    expect(result.committed.some((x) => x.type === 'system_heal')).toBe(false);
+    expect(result.committed.some((x) => x.type === 'system_damage')).toBe(false);
   });
 });

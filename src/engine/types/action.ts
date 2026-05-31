@@ -933,6 +933,17 @@ export type ActionOutcome =
 export interface GeneratedReaction {
   readonly action: ProposedAction;
   readonly reactorId: UnitId;
+  // Session 55: identifies the single reaction *trigger* (one handler firing)
+  // that produced this action. A reaction may emit several actions at once —
+  // Damage Split's `reflect_damage` emits a reflect (`system_damage` to the
+  // attacker) AND a paired self-heal (`system_heal`) — and they must count as
+  // ONE reaction against the per-unit-per-turn cap and share one Brave-roll
+  // admit/deny decision. `commitAction` keys the cap on this id: the first
+  // action of a group consumes (or is denied) a cap slot, and its siblings
+  // follow the same decision. Emissions from distinct triggers carry distinct
+  // ids; each still counts separately. Absent (legacy) → each action is its
+  // own group, i.e. the pre-S55 one-action-per-cap-slot behavior.
+  readonly reactionGroupId?: number;
 }
 
 // `ProposedAction` is what a controller (player UI, AI) hands the

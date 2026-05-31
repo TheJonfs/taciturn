@@ -65,6 +65,12 @@ interface QueueEntry {
   // reaction cap independent of whether the emitted action carries
   // `actorId` (system_apply_status reactions don't, per ADR-0024).
   readonly reactorId?: UnitId;
+  // Session 55: groups the emissions of a single reaction trigger so they
+  // count as ONE reaction against the cap (Damage Split's reflect + self-heal
+  // share an id). The group's first action makes the admit/deny decision;
+  // siblings follow it. Absent → the action is its own group (legacy
+  // one-action-per-slot behavior).
+  readonly reactionGroupId?: number;
 }
 
 // Thread-the-needle helper: produce the next sequence number and a
@@ -250,6 +256,12 @@ export function commitAction(
   const committed: Action[] = [];
   let state = initialState;
   let isRoot = true;
+  // Session 55: admit/deny decision per reaction-trigger group, so a single
+  // trigger's emissions (Damage Split's reflect + self-heal) share one cap
+  // decision rather than each consuming a slot. `true` = the group's first
+  // action consumed a slot (siblings ride free); `false` = the group was
+  // capped (siblings drop too).
+  const reactionGroupAdmitted = new Map<number, boolean>();
   // Per ADR-0074: the victory conditions are checked after every action
   // commits, not only at turn_end. Once a condition fires we enqueue a
   // single `battle_end`; this flag prevents a second enqueue when a
@@ -353,19 +365,36 @@ export function commitAction(
     // reactions (Earth Resilience self-buff) account correctly. Per
     // the session 17 fix to ADR-0024's noted limitation.
     if (entry.isReaction && state.turnState !== null && entry.reactorId !== undefined) {
-      const used = state.turnState.reactionsUsedThisTurn.get(entry.reactorId) ?? 0;
-      if (used >= ruleset.chainTermination.perUnitPerTurnReactions) {
-        // Capped — drop. Future: emit a `reaction_capped` system event
-        // for visibility; for now the silent drop is fine.
+      const groupId = entry.reactionGroupId;
+      // A reaction trigger may emit several actions (Session 55: Damage Split
+      // emits a reflect + a self-heal). They share a `reactionGroupId` and must
+      // count as ONE reaction: the first action makes the cap decision and the
+      // rest follow it. A group-less reaction (legacy) is its own group, so the
+      // pre-S55 one-slot-per-action behavior is preserved.
+      const priorDecision = groupId !== undefined ? reactionGroupAdmitted.get(groupId) : undefined;
+      if (priorDecision === false) {
+        // Group already capped — drop this sibling too.
         isRoot = false;
         continue;
       }
-      const updated = new Map(state.turnState.reactionsUsedThisTurn);
-      updated.set(entry.reactorId, used + 1);
-      state = {
-        ...state,
-        turnState: { ...state.turnState, reactionsUsedThisTurn: updated },
-      };
+      if (priorDecision === undefined) {
+        const used = state.turnState.reactionsUsedThisTurn.get(entry.reactorId) ?? 0;
+        if (used >= ruleset.chainTermination.perUnitPerTurnReactions) {
+          // Capped — drop. Future: emit a `reaction_capped` system event
+          // for visibility; for now the silent drop is fine.
+          if (groupId !== undefined) reactionGroupAdmitted.set(groupId, false);
+          isRoot = false;
+          continue;
+        }
+        const updated = new Map(state.turnState.reactionsUsedThisTurn);
+        updated.set(entry.reactorId, used + 1);
+        state = {
+          ...state,
+          turnState: { ...state.turnState, reactionsUsedThisTurn: updated },
+        };
+        if (groupId !== undefined) reactionGroupAdmitted.set(groupId, true);
+      }
+      // priorDecision === true → group already admitted; sibling rides free.
     }
 
     // Chain-depth cap: hard rail per the design's safety net.
@@ -417,6 +446,7 @@ export function commitAction(
         depth: entry.depth + 1,
         isReaction: true,
         reactorId: rxn.reactorId,
+        ...(rxn.reactionGroupId !== undefined ? { reactionGroupId: rxn.reactionGroupId } : {}),
       });
     }
 
