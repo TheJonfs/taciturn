@@ -9,9 +9,22 @@ This is a transient note from one session to the next.
 ## From Session 55 close (2026-05-30) — Terraformer playtest fixes + UI polish + tuning
 
 S55 cleared the playtest-surfaced Terraformer items plus accumulated UI polish
-and two tuning calls. **1605 → 1634 tests** (+29), `tsc -b` clean, `vite build`
-clean. Eight commits to `main`. AI Worldcraft scoring remains deferred (future
-session).
+and two tuning calls, then a second round of playtest follow-ups. **1605 →
+1637 tests** (+32), `tsc -b` clean, `vite build` clean. Twelve commits to
+`main`. AI Worldcraft scoring remains deferred (future session).
+
+### Second-round playtest follow-ups (Chris's observations after the first pass)
+
+- **Basic attacks can now target barriers.** The engine already routed a
+  damaging tile-target on a barrier to `system_barrier_damage` (even for
+  `single_unit`), but the UI never offered/built it — so only AoE could hit a
+  wall. `computeLegalTargets` now appends in-range barrier tiles for damaging
+  abilities; `buildAction` returns a tile target when a damaging single-target
+  ability clicks an empty barrier tile.
+- **Barrier recolored** slate-stone → translucent ethereal violet (it blended
+  into the terrain palette).
+- **Barrier anchor phase** gained a cursor-follow hover highlight (it had only
+  the static valid-anchor set, no hover accent like move/target select).
 
 ### What landed (committed to main)
 
