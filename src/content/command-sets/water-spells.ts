@@ -16,7 +16,7 @@ import {
 
 export const waterSpells: CommandSetDefinition = {
   id: commandSetId('water_spells'),
-  name: 'Water Spells',
+  name: 'Hydrology',
   members: [
     abilityId('water_strike'),
     abilityId('tide_surge'),

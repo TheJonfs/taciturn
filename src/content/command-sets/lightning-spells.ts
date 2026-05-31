@@ -17,7 +17,7 @@ import {
 
 export const lightningSpells: CommandSetDefinition = {
   id: commandSetId('lightning_spells'),
-  name: 'Lightning Spells',
+  name: 'Aethurgy',
   members: [
     abilityId('lightning_strike'),
     abilityId('static_embrace'),

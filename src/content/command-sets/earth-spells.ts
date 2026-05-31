@@ -14,7 +14,7 @@ import {
 
 export const earthSpells: CommandSetDefinition = {
   id: commandSetId('earth_spells'),
-  name: 'Earth Spells',
+  name: 'Geosagacity',
   members: [
     abilityId('earth_strike'),
     abilityId('earth_blessing'),

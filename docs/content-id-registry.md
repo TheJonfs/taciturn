@@ -40,10 +40,10 @@ The four-school mage display names are flavored (Geosage / Hydrologist / Pyroman
 | `alchemy` | Alchemy | `compound`, `throw_item` | `src/content/command-sets/alchemy.ts` |
 | `white_magic` | White Magic | `cure` | `src/content/command-sets/white-magic.ts` |
 | `arcane_skill` | Arcane Skill | `bolt` | `src/content/command-sets/arcane-skill.ts` |
-| `earth_spells` | Earth Spells | `earth_strike`, `earth_blessing`, `earth_curse`, `earth_quake`, `earth_cataclysm` | `src/content/command-sets/earth-spells.ts` |
-| `water_spells` | Water Spells | `water_strike`, `tide_surge`, `tidal_wave`, `brine`, `maelstrom` | `src/content/command-sets/water-spells.ts` |
-| `fire_spells` | Fire Spells | `fire_strike`, `fire_embrace`, `fire_storm`, `spark`, `flame_lance` | `src/content/command-sets/fire-spells.ts` |
-| `lightning_spells` | Lightning Spells | `lightning_strike`, `static_embrace`, `chain_lightning`, `magnetic_mark`, `storm_caller` | `src/content/command-sets/lightning-spells.ts` |
+| `earth_spells` | Geosagacity | `earth_strike`, `earth_blessing`, `earth_curse`, `earth_quake`, `earth_cataclysm` | `src/content/command-sets/earth-spells.ts` |
+| `water_spells` | Hydrology | `water_strike`, `tide_surge`, `tidal_wave`, `brine`, `maelstrom` | `src/content/command-sets/water-spells.ts` |
+| `fire_spells` | Pyromancy | `fire_strike`, `fire_embrace`, `fire_storm`, `spark`, `flame_lance` | `src/content/command-sets/fire-spells.ts` |
+| `lightning_spells` | Aethurgy | `lightning_strike`, `static_embrace`, `chain_lightning`, `magnetic_mark`, `storm_caller` | `src/content/command-sets/lightning-spells.ts` |
 | `math_skill` | Math Skill | `precision_fire`, `targeted_treatment`, `exact_rhythm`, `sculpted_enhancement`, `engineered_defenses` | `src/content/command-sets/math-skill.ts` |
 | `worldcraft` | Worldcraft | `pillar`, `pit`, `hill`, `valley`, `barrier` | `src/content/command-sets/worldcraft.ts` |
 
@@ -68,7 +68,7 @@ The display names of the elemental-spell suite were re-flavored (S40 name pass a
 | `earth_quake` | Earthquake | first_action | yes (actionSpeed 25, AoE cross-r1) | available | `src/content/abilities/earth-quake.ts` |
 | `earth_cataclysm` | Cataclysm | first_action | yes (actionSpeed 18, AoE cross-r1) | available | `src/content/abilities/earth-cataclysm.ts` |
 | `water_strike` | Water Lash | first_action | yes (actionSpeed 30, ctPush rider) | available | `src/content/abilities/water-strike.ts` |
-| `tide_surge` | Rapids Rush | first_action | yes (actionSpeed 25, ally CT bump) | available | `src/content/abilities/tide-surge.ts` |
+| `tide_surge` | Rapids Rush | first_action | yes (actionSpeed 35, ally CT bump) | available | `src/content/abilities/tide-surge.ts` |
 | `tidal_wave` | Tidal Wave | first_action | yes (actionSpeed 25, AoE diamond-r1, knockback rider) | available | `src/content/abilities/tidal-wave.ts` |
 | `brine` | Brine | first_action | yes (actionSpeed 30, Speed Down debuff) | available | `src/content/abilities/brine.ts` |
 | `maelstrom` | Maelstrom | first_action | yes (actionSpeed 18, cone caster-anchored, always-knockback) | available | `src/content/abilities/maelstrom.ts` |

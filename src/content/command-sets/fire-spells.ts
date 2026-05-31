@@ -16,7 +16,7 @@ import {
 
 export const fireSpells: CommandSetDefinition = {
   id: commandSetId('fire_spells'),
-  name: 'Fire Spells',
+  name: 'Pyromancy',
   members: [
     abilityId('fire_strike'),
     abilityId('fire_embrace'),
