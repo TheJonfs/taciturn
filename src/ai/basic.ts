@@ -291,6 +291,10 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
     if (worldcraft.length > 0) {
       const fall = bestWorldcraftFallCandidate(state, catalog, actor, worldcraft);
       if (fall !== null) candidates.push(fall);
+      // Tier B perch (Pillar/Hill): lift a height-seeking ally's tile for
+      // a better future shot, discounted by the temperament dial.
+      const perch = bestPerchCandidate(state, catalog, actor, enemies, worldcraft);
+      if (perch !== null) candidates.push(perch);
     }
 
     // Joint two-action offense + buff plan (move-aware). Returns its best
@@ -1421,6 +1425,104 @@ function scoreWorldcraftFall(
     }
   }
   return total;
+}
+
+// Temperament dial for perch-building (S57 Tier B). A raise is a spent
+// Terraformer turn whose payoff is a *future* ally shot, so its pool score
+// is discounted — it should win only when the height premium clearly beats
+// acting now. Raise to build perches less (favour tempo); lower to build
+// more. See docs/playtest-watch.md.
+const PERCH_DAMP = 0.5;
+
+// Apply a set of elevation changes to a hypothetical copy of the state's
+// map (mirrors `reduceSystemTerrainChange`'s tile patch). Used to project
+// an ally's shot from a tile the Terraformer is about to raise. Pure; does
+// not emit fall damage (scoring-only).
+function withElevationChanges(
+  state: GameState,
+  changes: ReturnType<typeof buildElevationChanges>,
+): GameState {
+  if (changes.length === 0) return state;
+  const byKey = new Map<string, ReturnType<typeof buildElevationChanges>[number]>();
+  for (const c of changes) byKey.set(positionKey({ x: c.x, y: c.y, layer: c.layer }), c);
+  const tiles = state.map.tiles.map((t) => {
+    const c = byKey.get(positionKey({ x: t.x, y: t.y, layer: t.layer }));
+    return c === undefined ? t : { ...t, elevation: c.newElevation, terrain: c.newTerrain };
+  });
+  return { ...state, map: { ...state.map, tiles } };
+}
+
+// Best Pillar/Hill perch cast as a scored pool candidate (S57 Tier B).
+//
+// v1 scope — **lift-in-place**: value raising a tile a height-seeking ally
+// (bow user) is *already standing on*, so the ally gains elevation without
+// moving (the strict-subset-of-the-single-move-horizon case, D2). This
+// sidesteps the reachability / jump-climb question and cannot gift an
+// unreachable perch (the brief's failure mode). "Move onto a created perch"
+// is deferred (needs hypothetical-reach + jump-climb validation, which
+// overlaps the S59 threat model). Steal-risk is ignored per D3 — only
+// allies are lifted, never enemies.
+function bestPerchCandidate(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  enemies: ReadonlyArray<Unit>,
+  works: ReadonlyArray<ActiveAbilityDefinition>,
+): ScoredAction | null {
+  if (enemies.length === 0) return null;
+  const priority = pickPriorityTarget(enemies, catalog);
+  let best: ScoredAction | null = null;
+  for (const ability of works) {
+    const spec = ability.effects.worldcraft;
+    if (spec === undefined || spec.kind !== 'elevation') continue;
+    // Pure raises only (Pillar/Hill). Pit/Valley (lowering) flow through
+    // the fall scorer; mixed casts have no v1 content.
+    if (spec.deltas.some((d) => d.delta < 0) || !spec.deltas.some((d) => d.delta > 0)) continue;
+    for (const tile of tilesInAbilityRange(state, actor, actor.position, ability, catalog)) {
+      const anchor: Position = { x: tile.x, y: tile.y, layer: tile.layer };
+      const changes = buildElevationChanges(state, anchor, spec.deltas);
+      if (changes.length === 0) continue;
+      const score = scorePerchLiftInPlace(state, catalog, actor, changes, priority);
+      if (score <= 0) continue;
+      const action: ProposedAction = {
+        type: 'use_ability',
+        source: 'player',
+        actorId: actor.id,
+        payload: { abilityId: ability.id, target: { kind: 'tile', position: anchor } },
+      };
+      if (!canCommitAction(state, catalog, actor, action)) continue;
+      const cand: ScoredAction = { score, action, key: `perch|${ability.id}|${positionKey(anchor)}` };
+      if (best === null || compareScored(cand, best) > 0) best = cand;
+    }
+  }
+  return best;
+}
+
+// Perch value = the largest improvement to a height-seeking ally's best
+// projected shot at the priority target when the tile under it rises,
+// discounted by PERCH_DAMP. Only counts allied height-seekers standing on a
+// raised tile; enemies and non-height-seekers gain nothing here.
+function scorePerchLiftInPlace(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  changes: ReturnType<typeof buildElevationChanges>,
+  priority: Unit,
+): number {
+  const hypo = withElevationChanges(state, changes);
+  let best = 0;
+  for (const c of changes) {
+    if (c.newElevation <= c.originalElevation) continue; // only raised tiles
+    const occupant = unitAt(state, c.x, c.y, c.layer);
+    if (occupant === undefined || occupant.vitals.hp <= 0) continue;
+    if (occupant.team !== actor.team) continue; // never value lifting an enemy
+    if (!isHeightSeeker(occupant, catalog)) continue;
+    const baseline = strongestDamageFollowUp(state, catalog, occupant, occupant.position, priority);
+    const lifted = strongestDamageFollowUp(hypo, catalog, occupant, occupant.position, priority);
+    const improvement = lifted - baseline;
+    if (improvement > best) best = improvement;
+  }
+  return best * PERCH_DAMP;
 }
 
 // =====================
