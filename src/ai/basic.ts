@@ -109,10 +109,50 @@ export type BasicAiDecision =
 
 const END_TURN: BasicAiDecision = { kind: 'end-turn' };
 
-// Heal threshold: an ally is "wounded enough to justify a heal" when
-// their hp / maxHpBase ratio is at or below this fraction. 0.5 means
-// "half health or less."
-const HEAL_THRESHOLD = 0.5;
+// A scored action candidate in the unified pool. Every action class
+// (attack, debuff, buff, heal, item throw, revive, cleanse, Math Skill)
+// produces one of these so they compete on a single commensurable scale.
+// `score` is expected-damage-equivalent value × target value; `key` is a
+// stable lex tiebreak (see compareScored). `action` is pre-validated
+// (canCommitAction) by its builder, so the pool winner is always
+// committable.
+interface ScoredAction {
+  readonly score: number;
+  readonly action: ProposedAction;
+  readonly key: string;
+}
+
+// --- Unified-currency value mappings (ADR-0092, S57) ------------------
+// These translate non-damage action classes into the offensive scale,
+// where an attack scores `projectedDamage × killValue(target)`. Each is a
+// playtest dial; see docs/playtest-watch.md.
+
+// Heal value = effectiveHeal × killValue(ally) × HEAL_WEIGHT. Mirrors the
+// offensive scale (HP restored to an at-risk ally ≈ HP denied to an enemy)
+// but discounted: a heal leaves the threat alive, so it should lose to a
+// comparable kill. Start at 0.7.
+const HEAL_WEIGHT = 0.7;
+
+// Revive value = ally.maxHpBase × REVIVE_WEIGHT. Deliberately NOT the
+// (tiny) on-revive heal × killValue — reviving restores a whole unit's
+// battlefield presence. Tuned to sit at "strong attack" tier: beats
+// routine attacks, can lose to finishing a key enemy. Competes as a
+// scored candidate (Chris's S57 call) rather than pre-empting.
+const REVIVE_WEIGHT = 1.5;
+
+// Cleanse value per debuff removed (Remedy). Flat, in damage-equivalent
+// units — clearing one debuff ≈ this much expected good.
+const CLEANSE_VALUE_PER_DEBUFF = 15;
+
+// MP-restore value factor (Ether). Intentionally small: an Ether throw
+// only wins when no combat/heal/buff action scores positive.
+const ETHER_VALUE_FACTOR = 0.1;
+
+// Math Skill pool-injection scale. Math's net-team-value is raw HP-swing
+// (no killValue weighting yet — see math-skill-scoring.ts); 1.0 injects it
+// as the un-weighted lower bound so a lethal attack reliably outranks a
+// marginal Math cast. A full killValue-weighted re-base is deferred.
+const MATH_SCORE_SCALE = 1.0;
 
 // Reaction-penalty constants. Tier 2 (session 20b) sharpens this to
 // ability-aware: each equipped reaction's compiled trigger condition
@@ -213,54 +253,68 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
   const healing = enumerateHealingAbilities(state, actor, catalog);
   const allyBuffs = enumerateAllyBuffAbilities(state, actor, catalog);
 
-  // Session 39b — Phase 0a: Alchemist's Compound + Throw Item. Runs
-  // before Cure-style heals because Phoenix Down revival is binary-
-  // value (lost unit comes back) and Potion stockpile heals are an
-  // efficient use of an Act on a wounded ally without paying MP at
-  // the throw site. Falls through to standard phases if the actor
-  // isn't an Alchemist (no `alchemy` command set / Compound + Throw
-  // Item available).
-  if (state.turnState.budget.actsAvailable > 0 && isAlchemistActor(actor, catalog)) {
-    const alch = pickAlchemistAction(state, catalog, actor, allies);
-    if (alch !== null) return { kind: 'commit', action: alch };
+  // === Unified candidate pool (ADR-0092, S57) =========================
+  // Every action class is scored in one commensurable currency
+  // (expected-damage-equivalent value × target value) and competes in a
+  // single pool. There is NO pre-empt cascade: a lethal attack can
+  // outrank a banking Compound or a marginal Math cast; a heal wins only
+  // when it does more good than attacking; a revive competes as a scored
+  // candidate. Compound (deferred-value crafting) and the distance-
+  // closing Move are the only true fallbacks, reached when no scored
+  // action is positive.
+  const candidates: ScoredAction[] = [];
+  const canAct = state.turnState.budget.actsAvailable > 0;
+
+  if (canAct) {
+    // Heals (Cure-style abilities) — scored, not pre-empting.
+    const heal = bestHealCandidate(state, catalog, actor, allies, healing);
+    if (heal !== null) candidates.push(heal);
+
+    // Alchemist item throws (Potion / Phoenix Down / Remedy / Ether).
+    if (isAlchemistActor(actor, catalog)) {
+      const throwCand = bestThrowCandidate(state, catalog, actor, allies);
+      if (throwCand !== null) candidates.push(throwCand);
+    }
+
+    // Math Skill (Calculator) — normalized into the pool, no threshold
+    // pre-empt (per S57: it now competes rather than firing first).
+    const math = bestMathCandidate(state, catalog, actor);
+    if (math !== null) candidates.push(math);
+
+    // Joint two-action offense + buff plan (move-aware). Returns its best
+    // plan's score and the action to commit — an Act in place, or the
+    // Move leg of a Move+Act plan (the next call commits the Act from the
+    // new position, per session-20b two-action planning).
+    if (offensive.length > 0 || allyBuffs.length > 0) {
+      const joint = pickJointActOrMove(state, catalog, actor, enemies, allies, offensive, allyBuffs);
+      if (joint !== null) candidates.push(joint);
+    }
   }
 
-  // Session 49 — Phase 0b: Math Skill scoring. The Calculator's signature
-  // mechanic; enumerates the 5 × 4 × 4 = 80 (ability × parameter × value)
-  // options and picks the highest-scoring one above MATH_SCORE_THRESHOLD.
-  // Returns null for non-Math-equipped actors and falls through to the
-  // standard phases. Math Skill abilities are instant-cast (no
-  // actionSpeed) so they slot in front of the joint plan without the
-  // multi-turn awareness deferred for charged casts.
-  if (state.turnState.budget.actsAvailable > 0) {
-    const math = pickBestMathSkill(state, catalog, actor);
-    if (math !== null) return { kind: 'commit', action: math.action };
+  // Pick the highest-scoring candidate; commit if it does positive good.
+  if (candidates.length > 0) {
+    let best = candidates[0]!;
+    for (let i = 1; i < candidates.length; i++) {
+      if (compareScored(candidates[i]!, best) > 0) best = candidates[i]!;
+    }
+    if (best.score > 0) return { kind: 'commit', action: best.action };
   }
 
-  // Phase 0: heal if an ally is wounded and in range.
-  if (state.turnState.budget.actsAvailable > 0 && healing.length > 0) {
-    const heal = pickBestHeal(state, catalog, actor, allies, healing);
-    if (heal !== null) return { kind: 'commit', action: heal };
-  }
-
-  // Phase 1: joint two-action plan — enumerate (destination, ability,
-  // target) triples across the actor's reachable destinations. The
-  // highest-scoring plan wins; if it's "act in place" we commit the
-  // Act, else we commit the Move and the next call commits the Act
-  // from the new position (per ADR-00X4 / session-20b two-action
-  // planning). Skipped when neither offensives nor buffs are available.
-  if (offensive.length > 0 || allyBuffs.length > 0) {
-    const action = pickJointActOrMove(state, catalog, actor, enemies, allies, offensive, allyBuffs);
-    if (action !== null) return { kind: 'commit', action };
-  }
-
-  // Phase 2: distance-closing move fallback — no positive-score Act
-  // exists from any reachable destination (typically: enemies all
-  // out of range, no buffable allies in range either). Close distance
-  // to the priority enemy globally so the next turn has a real plan.
+  // === Fallbacks (no positive-score action available) =================
+  // Distance-closing move: advance toward the priority enemy so the next
+  // turn has a real plan.
   if (state.turnState.budget.movesAvailable > 0 && enemies.length > 0) {
     const move = pickBestMove(state, catalog, actor, enemies, allies, offensive);
     if (move !== null) return { kind: 'commit', action: move };
+  }
+
+  // Last resort: an Alchemist that can't advance or attack crafts a
+  // needed item. Demoted from its old Phase-0a pre-empt — banking no
+  // longer blocks a kill or an advance (S57). (Watch: may now
+  // under-craft; see docs/playtest-watch.md.)
+  if (canAct && isAlchemistActor(actor, catalog)) {
+    const compound = pickCompoundFallback(state, catalog, actor, allies);
+    if (compound !== null) return { kind: 'commit', action: compound };
   }
 
   return END_TURN;
@@ -316,102 +370,101 @@ function isAlchemistActor(actor: Unit, _catalog: Catalog): boolean {
   return false;
 }
 
-interface ThrowCandidate {
-  readonly action: ProposedAction;
-  readonly priority: number;
+// Best Alchemist item-throw as a scored pool candidate (S57). Each throw
+// is valued in the unified currency so it competes against attacks rather
+// than firing as a pre-empt:
+//   - Phoenix Down (revive)  → ally.maxHpBase × REVIVE_WEIGHT.
+//   - Potion (heal, PA × 12) → effectiveHeal × killValue × HEAL_WEIGHT
+//     (same mapping as Cure).
+//   - Remedy (cleanse)       → debuffCount × CLEANSE_VALUE_PER_DEBUFF.
+//   - Ether (MP restore)     → effectiveMp × ETHER_VALUE_FACTOR (small).
+// Returns the highest-scoring committable throw, or null. Compound is no
+// longer produced here — it's a last-resort fallback (pickCompoundFallback).
+function bestThrowCandidate(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  livingAlliesList: ReadonlyArray<Unit>,
+): ScoredAction | null {
+  let best: ScoredAction | null = null;
+  const consider = (score: number, item: ItemId, targetId: import('@engine/index.ts').UnitId, key: string): void => {
+    if (score <= 0) return;
+    const action = throwAction(actor, item, targetId);
+    if (!canCommitAction(state, catalog, actor, action)) return;
+    const cand: ScoredAction = { score, action, key };
+    if (best === null || compareScored(cand, best) > 0) best = cand;
+  };
+  const pa = actor.baseStats.pa;
+
+  // Phoenix Down — revive a KO'd ally (battlefield presence restored).
+  if ((actor.stockpile.get(PHOENIX_DOWN) ?? 0) > 0) {
+    for (const ally of koAlliesInRange(state, actor)) {
+      consider(readMaxHpProxy(ally) * REVIVE_WEIGHT, PHOENIX_DOWN, ally.id, `throw|phoenix|${ally.id}`);
+    }
+  }
+
+  // Potion — heal a wounded living ally (PA × 12, capped at missing HP).
+  if ((actor.stockpile.get(POTION) ?? 0) > 0) {
+    for (const ally of livingAlliesList) {
+      if (!isInThrowRange(state, catalog, actor, ally)) continue;
+      const missing = Math.max(0, readMaxHpProxy(ally) - ally.vitals.hp);
+      if (missing <= 0) continue;
+      const heal = Math.min(missing, pa * POTION_HP_COEFFICIENT);
+      consider(heal * killValue(ally) * HEAL_WEIGHT, POTION, ally.id, `throw|potion|${ally.id}`);
+    }
+  }
+
+  // Remedy — clear debuffs from an afflicted ally.
+  if ((actor.stockpile.get(REMEDY) ?? 0) > 0) {
+    for (const ally of livingAlliesList) {
+      if (!isInThrowRange(state, catalog, actor, ally)) continue;
+      const count = countDebuffStatuses(ally, catalog);
+      if (count <= 0) continue;
+      consider(count * CLEANSE_VALUE_PER_DEBUFF, REMEDY, ally.id, `throw|remedy|${ally.id}`);
+    }
+  }
+
+  // Ether — restore MP to a depleted ally (skip low-MP-baseline units).
+  if ((actor.stockpile.get(ETHER) ?? 0) > 0) {
+    for (const ally of livingAlliesList) {
+      if (!isInThrowRange(state, catalog, actor, ally)) continue;
+      if (ally.baseStats.maxMpBase <= 20) continue;
+      const missingMp = Math.max(0, ally.baseStats.maxMpBase - ally.vitals.mp);
+      if (missingMp <= 0) continue;
+      const restored = Math.min(missingMp, pa * ETHER_MP_COEFFICIENT);
+      consider(restored * ETHER_VALUE_FACTOR, ETHER, ally.id, `throw|ether|${ally.id}`);
+    }
+  }
+
+  return best;
 }
 
-function pickAlchemistAction(
+// Potion / Ether restore coefficients, mirroring the content definitions
+// (`src/content/items/{potion,ether}.ts`). Read here so the AI's throw
+// valuation matches the engine's applied amount (PA × coefficient).
+const POTION_HP_COEFFICIENT = 12;
+const ETHER_MP_COEFFICIENT = 4;
+
+// Last-resort Compound: craft the most-needed item when no scored action
+// (combat / heal / throw) is positive and the actor can't advance. Built
+// from the existing pickCompoundItem priority cascade — crafting is a
+// deferred-value prep action with no immediate battlefield effect, so it
+// stays out of the scored pool (it would have no commensurable score).
+function pickCompoundFallback(
   state: GameState,
   catalog: Catalog,
   actor: Unit,
   livingAlliesList: ReadonlyArray<Unit>,
 ): ProposedAction | null {
-  // 1) Throw priorities: Phoenix Down on KO'd ally > Potion on wounded
-  //    ally > Remedy on debuffed ally > Ether on low-MP ally. Higher
-  //    `priority` wins (numeric for stable tie-break).
-  const candidates: ThrowCandidate[] = [];
-
-  // Phoenix Down — KO'd ally in range. Highest priority by design.
-  const havePhoenixDown = (actor.stockpile.get(PHOENIX_DOWN) ?? 0) > 0;
-  if (havePhoenixDown) {
-    for (const ally of koAlliesInRange(state, actor)) {
-      candidates.push({
-        action: throwAction(actor, PHOENIX_DOWN, ally.id),
-        priority: 100,
-      });
-    }
-  }
-
-  // Potion — most-wounded living ally in range below the wounded
-  // threshold. Score by missing HP so the lowest-HP ally is picked.
-  const havePotion = (actor.stockpile.get(POTION) ?? 0) > 0;
-  if (havePotion) {
-    for (const ally of livingAlliesList) {
-      if (!isInThrowRange(state, catalog, actor, ally)) continue;
-      const maxHp = readMaxHpProxy(ally);
-      const hpRatio = ally.vitals.hp / maxHp;
-      if (hpRatio >= WOUNDED_HP_FRACTION) continue;
-      // priority 50 + missing-HP bias so most-wounded wins ties.
-      const missing = Math.max(0, maxHp - ally.vitals.hp);
-      candidates.push({
-        action: throwAction(actor, POTION, ally.id),
-        priority: 50 + missing / Math.max(1, maxHp),
-      });
-    }
-  }
-
-  // Remedy — any living ally with a debuff-polarity status in range.
-  const haveRemedy = (actor.stockpile.get(REMEDY) ?? 0) > 0;
-  if (haveRemedy) {
-    for (const ally of livingAlliesList) {
-      if (!isInThrowRange(state, catalog, actor, ally)) continue;
-      if (!hasDebuffStatus(ally, catalog)) continue;
-      candidates.push({
-        action: throwAction(actor, REMEDY, ally.id),
-        priority: 30,
-      });
-    }
-  }
-
-  // Ether — ally with low MP in range. Heuristic: ally has < 50% MP and
-  // their class baseline MP > 20 (skip Knight-style low-MP units where
-  // a free Ether is overkill).
-  const haveEther = (actor.stockpile.get(ETHER) ?? 0) > 0;
-  if (haveEther) {
-    for (const ally of livingAlliesList) {
-      if (!isInThrowRange(state, catalog, actor, ally)) continue;
-      if (ally.baseStats.maxMpBase <= 20) continue;
-      const mpRatio = ally.vitals.mp / Math.max(1, ally.baseStats.maxMpBase);
-      if (mpRatio >= 0.5) continue;
-      candidates.push({
-        action: throwAction(actor, ETHER, ally.id),
-        priority: 20,
-      });
-    }
-  }
-
-  if (candidates.length > 0) {
-    candidates.sort((a, b) => b.priority - a.priority);
-    const best = candidates[0]!;
-    if (canCommitAction(state, catalog, actor, best.action)) {
-      return best.action;
-    }
-  }
-
-  // 2) Nothing urgent to throw → Compound the most-needed item. Skip
-  // when the actor's MP can't afford any consumable's Compound cost.
-  const compoundChoice = pickCompoundItem(state, actor, livingAlliesList, catalog);
-  if (compoundChoice !== null) {
-    const action: ProposedAction = {
-      type: 'use_compound',
-      source: 'player',
-      actorId: actor.id,
-      payload: { itemId: compoundChoice },
-    };
-    if (canCommitAction(state, catalog, actor, action)) return action;
-  }
-  return null;
+  const choice = pickCompoundItem(state, actor, livingAlliesList, catalog);
+  if (choice === null) return null;
+  const action: ProposedAction = {
+    type: 'use_compound',
+    source: 'player',
+    actorId: actor.id,
+    payload: { itemId: choice },
+  };
+  return canCommitAction(state, catalog, actor, action) ? action : null;
 }
 
 function koAlliesInRange(state: GameState, actor: Unit): Unit[] {
@@ -448,15 +501,20 @@ function isInThrowRange(
   );
 }
 
-function hasDebuffStatus(unit: Unit, catalog: Catalog): boolean {
+// Count the removable debuff-polarity statuses on a unit (Remedy clears
+// all of them). Equipment-sourced statuses are immune (ADR-0028) and
+// skipped, matching the engine's clearStatuses behavior. Undeclared
+// polarity defaults to 'debuff'.
+function countDebuffStatuses(unit: Unit, catalog: Catalog): number {
+  let count = 0;
   for (const inst of unit.statuses) {
     if (inst.source.kind === 'equipment') continue;
     if (!catalog.hasStatusType(inst.typeId)) continue;
     const type = catalog.getStatusType(inst.typeId);
     const polarity = type.aiHints?.polarity ?? 'debuff';
-    if (polarity !== 'buff') return true;
+    if (polarity !== 'buff') count += 1;
   }
-  return false;
+  return count;
 }
 
 function throwAction(actor: Unit, item: ItemId, targetId: import('@engine/index.ts').UnitId): ProposedAction {
@@ -560,7 +618,7 @@ function enumerateActiveAbilities(
 //     applying Vulnerable; future Sleep, Don't Move applied via tile
 //     AoE — all of which the AI evaluates as "softens the target").
 //   - AoE forms of either of the above.
-// Excludes healing-tagged abilities (those flow through pickBestHeal).
+// Excludes healing-tagged abilities (those flow through bestHealCandidate).
 // Filters by MP affordability — the AI doesn't propose a cast it can't
 // afford.
 function enumerateOffensiveAbilities(
@@ -1267,37 +1325,65 @@ function scoreAllyBuff(
 // Phase orchestrators
 // =====================
 
-// Pick the best heal action this turn (existing logic — simplified
-// for tier 1.5: score-based to allow extension later).
-function pickBestHeal(
+// Best heal (Cure-style ability) as a scored pool candidate (S57). For
+// each in-range ally and healing ability, value the cast as
+// `effectiveHeal × killValue(ally) × HEAL_WEIGHT`, where effectiveHeal =
+// min(projectedHeal, missingHP). The killValue weighting makes a heal on
+// a near-dead ally score high (mirroring how finishing a near-dead enemy
+// scores high) while a top-off on a near-full ally scores ~0 (missingHP
+// → 0). Returns the highest-scoring committable heal, or null.
+//
+// No HP-ratio cliff: full-HP allies fall out naturally via missingHP, so
+// the old HEAL_THRESHOLD gate is gone — the score decides.
+function bestHealCandidate(
   state: GameState,
   catalog: Catalog,
   actor: Unit,
   allies: ReadonlyArray<Unit>,
   healing: ReadonlyArray<ActiveAbilityDefinition>,
-): ProposedAction | null {
-  const wounded = allies.filter((u) => woundedRatio(u) <= HEAL_THRESHOLD);
-  if (wounded.length === 0) return null;
-
-  const sortedTargets = [...wounded].sort(compareWounded);
-
-  for (const target of sortedTargets) {
-    const sortedAbilities = [...healing].sort((a, b) => abilityScore(b) - abilityScore(a));
-    for (const ability of sortedAbilities) {
-      if (!targetIsInAbilityRange(state, actor, actor.position, target, ability, catalog)) continue;
-      const proposed: ProposedAction = {
+): ScoredAction | null {
+  if (healing.length === 0) return null;
+  let best: ScoredAction | null = null;
+  for (const ally of allies) {
+    const missing = Math.max(0, readMaxHpProxy(ally) - ally.vitals.hp);
+    if (missing <= 0) continue;
+    for (const ability of healing) {
+      if (!targetIsInAbilityRange(state, actor, actor.position, ally, ability, catalog)) continue;
+      const projectedHeal = projectExpectedDamage({ state, catalog, attacker: actor, target: ally, ability });
+      const effectiveHeal = Math.min(projectedHeal, missing);
+      if (effectiveHeal <= 0) continue;
+      const score = effectiveHeal * killValue(ally) * HEAL_WEIGHT;
+      const action: ProposedAction = {
         type: 'use_ability',
         source: 'player',
         actorId: actor.id,
-        payload: {
-          abilityId: ability.id,
-          target: { kind: 'unit', unitId: target.id },
-        },
+        payload: { abilityId: ability.id, target: { kind: 'unit', unitId: ally.id } },
       };
-      if (canCommitAction(state, catalog, actor, proposed)) return proposed;
+      if (!canCommitAction(state, catalog, actor, action)) continue;
+      const cand: ScoredAction = { score, action, key: `heal|${ability.id}|${ally.id}` };
+      if (best === null || compareScored(cand, best) > 0) best = cand;
     }
   }
-  return null;
+  return best;
+}
+
+// Best Math Skill cast as a scored pool candidate (S57). Wraps
+// `pickBestMathSkill` (which now returns its best positive option, with
+// the MATH_SCORE_THRESHOLD pre-empt removed) and injects its net-team-
+// value into the pool via MATH_SCORE_SCALE so a lethal attack can
+// outrank a marginal Math cast. Returns null for non-Math actors or when
+// the best option scores ≤ 0 / can't be committed.
+function bestMathCandidate(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+): ScoredAction | null {
+  const m = pickBestMathSkill(state, catalog, actor);
+  if (m === null) return null;
+  const score = m.score * MATH_SCORE_SCALE;
+  if (score <= 0) return null;
+  if (!canCommitAction(state, catalog, actor, m.action)) return null;
+  return { score, action: m.action, key: 'math' };
 }
 
 // Best Act candidate from `source` — a (score, action, key) triple
@@ -1409,10 +1495,12 @@ function bestActFromSource(
 // committing the Act-aware Move and trusting the next call to pick up
 // the Act it implicitly chose.
 //
-// Returns:
-//   - A Move ProposedAction when the best plan requires moving first.
-//   - A use_ability ProposedAction when the best plan is to act in
-//     place (or move budget is exhausted).
+// Returns a ScoredAction so the plan competes in the unified pool (S57):
+//   - score = the best plan's value (in the offensive currency, net of
+//     the tiny move-cost tiebreak).
+//   - action = a use_ability when the best plan is to act in place, or a
+//     Move when the best plan requires moving first (the next AI call
+//     re-plans from the new position and commits the Act).
 //   - null when no positive-score plan exists across any destination
 //     (caller falls back to `pickBestMove` for distance-closing).
 function pickJointActOrMove(
@@ -1423,7 +1511,7 @@ function pickJointActOrMove(
   allies: ReadonlyArray<Unit>,
   offensive: ReadonlyArray<ActiveAbilityDefinition>,
   buffs: ReadonlyArray<ActiveAbilityDefinition>,
-): ProposedAction | null {
+): ScoredAction | null {
   const turn = state.turnState;
   if (turn === null) return null;
   const canAct = turn.budget.actsAvailable > 0;
@@ -1469,10 +1557,10 @@ function pickJointActOrMove(
     if (compareScored(candidate, best) > 0) best = candidate;
   }
 
-  // Act in place: validate and commit the Act now.
+  // Act in place: validate and return the Act as a scored candidate.
   if (samePosition(best.destination, actor.position)) {
     if (!canCommitAction(state, catalog, actor, best.action)) return null;
-    return best.action;
+    return { score: best.score, action: best.action, key: best.key };
   }
 
   // Otherwise: commit the Move now; next AI call commits the Act from
@@ -1489,7 +1577,7 @@ function pickJointActOrMove(
     payload: { destination: best.destination },
   };
   if (!canCommitAction(state, catalog, actor, moveAction)) return null;
-  return moveAction;
+  return { score: best.score, action: moveAction, key: best.key };
 }
 
 // Per-step move-cost tiebreak. See `pickJointActOrMove`. Tuned to be
@@ -1505,27 +1593,6 @@ function compareScored(
 ): number {
   if (a.score !== b.score) return a.score - b.score;
   return a.key < b.key ? 1 : a.key > b.key ? -1 : 0;
-}
-
-// Approximation of "how wounded is this unit?" — current HP divided by
-// `baseStats.maxHpBase`.
-function woundedRatio(u: Unit): number {
-  if (u.baseStats.maxHpBase <= 0) return 1;
-  return u.vitals.hp / u.baseStats.maxHpBase;
-}
-
-// Most-wounded first, then lex-id for stable tiebreaks.
-function compareWounded(a: Unit, b: Unit): number {
-  const ra = woundedRatio(a);
-  const rb = woundedRatio(b);
-  if (ra !== rb) return ra - rb;
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-}
-
-// Score an ability for the heal phase — power coefficient as a
-// stand-in. Used only by pickBestHeal for ordering among healers.
-function abilityScore(ability: ActiveAbilityDefinition): number {
-  return ability.effects.damage?.power_coefficient ?? 1;
 }
 
 interface MoveScore {

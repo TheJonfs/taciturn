@@ -26,6 +26,52 @@ shouldn't drift out of memory between sessions.
 
 ## Active entries
 
+### S57 — unified AI scoring currency (ADR-0092)
+
+The AI's pre-empt cascade (Alchemist / Math / heal phases firing before the
+offensive scorer) was replaced by one commensurable candidate pool. The
+fix is unit-tested, but the *value-mapping dials* and the *frequency* of
+each action class in real play need human signal.
+
+- **Heal / revive / cleanse / item value dials.**
+  - **What to watch.** `HEAL_WEIGHT = 0.7`, `REVIVE_WEIGHT = 1.5` (revive ≈
+    ally maxHpBase × 1.5), `CLEANSE_VALUE_PER_DEBUFF = 15`,
+    `ETHER_VALUE_FACTOR = 0.1` (`src/ai/basic.ts`). Whether the AI heals a
+    wounded ally, revives a KO'd one, Remedies a debuff, or attacks at
+    sensible moments — or over-/under-values any of these vs a kill.
+  - **Why it matters.** First time these compete on one scale; the constants
+    are first-pass. Revive in particular is tuned to "strong attack tier"
+    (beats routine attacks, loses to a clean finish) — that balance is a
+    judgment call.
+  - **Signal for adjustment.** AI ignoring a dying ally to chip a healthy
+    enemy (raise HEAL_WEIGHT); reviving when it should finish a kill (lower
+    REVIVE_WEIGHT), or vice-versa; never throwing Remedy/Ether (raise their
+    factors).
+
+- **Compound under-crafting (Compound demoted to last resort).**
+  - **What to watch.** Compound now fires only when no scored action is
+    positive *and* the actor can't advance. A support Alchemist may bank
+    fewer Potions/Phoenix Downs than before.
+  - **Why it matters.** The fix deliberately killed over-eager banking (the
+    Knight-finishes-without-attacking bug); the opposite failure — a healer
+    that never stocks up — is the risk to watch.
+  - **Signal for adjustment.** Alchemists arriving at fights with empty
+    stockpiles, or never crafting across a whole battle. Lever: a "craft
+    when idle and safe" heuristic, or a small positive Compound score when
+    the actor is out of combat range.
+
+- **Math Skill raw (un-killValue-weighted) scoring.**
+  - **What to watch.** Math options inject raw net-team-value into the pool
+    (no killValue weighting yet; `MATH_SCORE_SCALE = 1.0`). A Calculator
+    should still cast Math when it's the best play, but lose to a lethal
+    attack.
+  - **Why it matters.** "Normalize & compete" was the chosen scope; the full
+    killValue-weighted re-base is deferred. Math may slightly under-compete
+    vs attacks on wounded clusters.
+  - **Signal for adjustment.** Calculator casting Math when a clearly better
+    attack exists, or never casting Math because it always loses. Lever: the
+    deferred killValue-weighted Math re-base, or tune `MATH_SCORE_SCALE`.
+
 ### S53 — Terraformer substrate (no direct signal yet; watch-fors for S54+)
 
 The substrate ships no player-facing content (no ability creates terrain or

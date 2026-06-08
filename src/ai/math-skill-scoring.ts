@@ -27,8 +27,14 @@
 // for damage (uses expected value instead). Variance is rolled by the
 // engine at commit time; the AI plans on the mean.
 //
-// Returns null when no option exceeds the positive threshold — caller
-// falls through to standard offensive enumeration (basic Attack).
+// Returns the best positive-scoring option, or null when none scores
+// above zero. Per S57 (ADR-0092) the standalone MATH_SCORE_THRESHOLD
+// pre-empt is gone: this scorer no longer commits on its own — the caller
+// (`bestMathCandidate`) injects the returned score into the unified
+// candidate pool, where it competes against attacks/heals/items. A lethal
+// attack (small damage × large killValue) thus outranks a marginal Math
+// cast. Note the score here is raw net-team-value (HP-swing units, no
+// killValue weighting yet); a full killValue-weighted re-base is deferred.
 
 import {
   abilityId,
@@ -45,11 +51,6 @@ import {
   type ProposedAction,
   type Unit,
 } from '@engine/index.ts';
-
-// Threshold for "this Math option is worth taking." Below this, the AI
-// falls through to standard attack enumeration. Tuned conservatively
-// for v1; playtest will surface if Math is over- or under-cast.
-const MATH_SCORE_THRESHOLD = 8;
 
 const MATH_SKILL_COMMAND_SET: CommandSetId = commandSetId('math_skill');
 
@@ -206,7 +207,7 @@ export function pickBestMathSkill(
     for (const parameter of PARAMETERS) {
       for (const value of VALUES) {
         const score = scoreOption(state, catalog, actor, ability, parameter, value);
-        if (score < MATH_SCORE_THRESHOLD) continue;
+        if (score <= 0) continue;
         // MP affordability check — Math casts have a variable per-target
         // cost. Compute the full cost (base + perTarget × matchCount)
         // and skip when the actor can't pay.

@@ -6,123 +6,135 @@ This is a transient note from one session to the next.
 
 ---
 
-## From Session 56 close (2026-06-08) — AI high-ground awareness (positional substrate)
+## From Session 57 close (2026-06-08) — AI scoring commensurability (the S8 pivot)
 
-S56 opened the AI positional/Worldcraft arc. **1646 → 1664 tests** (+18 net;
-the new file adds 7 S56 tests, the rest are pre-existing since the S55
-count), `tsc -b` clean, `vite build` clean. Committed to main.
+S57 was the brief's Worldcraft AI session, but its audit (S8 diagnostic)
+found a **structural** scorer problem and the session **pivoted** to fix it
+first, per the brief's own S8 fork and Chris's plan-review call. **1664 →
+1669 tests** (+5), `tsc -b` clean, `vite build` clean. Committed to main.
 
-### The headline: the audit overturned the brief's CORE
+### What the audit found (full results, for the deferred Worldcraft work)
 
-The brief framed Piece 2 (CORE) as building a *new* per-destination
-action-value scoring loop. **It already exists.** The joint planner
-`pickJointActOrMove` (ADR-0033, S20b) already scores every reachable
-destination by best projected action value from that tile, via
-`bestActFromSource` → `projectExpectedDamageFromActor` (which repositions
-the actor), and the projection already folds in bow height (`height_delta`
-damage S45/ADR-0083, range-from-height S52, elevation hit modifier). So for
-the **move-and-shoot-this-turn** case, the AI already takes payoff high
-ground, declines empty peaks, and preserves move-and-shoot.
+The audit surveyed all of S1–S8. Key results to carry into S58/S59:
 
-This was confirmed empirically before pivoting (Chris's call: "confirm,
-then pivot"): three characterization tests assert that headline behavior
-against the live `decideBasicAi` path and **pass against pre-S56 code**
-(committed first, as a locked-in baseline). The brief's "new loop / likely
-ADR for Piece 2" did not apply.
+- **S1 — enumeration spine largely EXISTS.** The AI already enumerates
+  tile-anchored **AoE-damage** casts via `scoreAoeOffensive` (tile
+  enumeration → footprint occupancy → signed per-occupant sum →
+  friendly-fire). The five Worldcraft works don't reach it: Pillar/Pit/Hill/
+  Valley are `targeting.kind: 'tile'` with an `effects.worldcraft` payload
+  (no `damage`/`aoe`), so `isOffensive` rejects them; Barrier is `tile_set`,
+  handled **nowhere** in `src/ai/`. So Tier A = a new payload-recognition +
+  fall-damage score function on the **existing** enumeration spine — *not*
+  the brief's worst-case from-scratch build.
+- **S4 — fall rule confirmed exactly.** `FALLING_DAMAGE_PER_LEVEL = 10`
+  ([fall-damage.ts:20]), gate strictly `> 1` (`if (dropDistance <= 1) return
+  null`), floor-clamp implicit (elevation floors at 0 →
+  `effectiveDrop = min(magnitude, startElev)`). Pit/Pillar ±4 single-tile;
+  Hill/Valley 3×3 `[1,2,1;2,3,2;1,2,1]` kernel. Engine reducer applies the
+  same gate, so the AI just mirrors it.
+- **S5 — Barrier primitives callable, hypothetical query net-new.**
+  `getLegalMoves(state, unitId, catalog)` (any unit) and
+  `hasLineOfSight(map, from, to)` (arbitrary endpoints) exist. Missing:
+  "recompute reach/LoS with a barrier inserted" — needs a shallow map-clone
+  or parameterized pathfinding (~50–100 LOC). Tier B Barrier is buildable at
+  heuristic sophistication.
+- **S6 — threat model confirmed ABSENT.** `projectUpcoming` + per-unit
+  `getLegalMoves` are building blocks, but no "which enemies can reach/hit
+  tile X next turn" aggregation / danger-map exists. **Tier C stays gated on
+  building this** (reusable: also unblocks the deferred defensive
+  above-melee-reach term + role-aware deployment).
+- **S7 — `validateAction` off-map throw confirmed live-latent.**
+  [validate.ts:406] (`tile_set`) and [validate.ts:449] (`tile`) call `tileAt`
+  with no bounds check → `OutOfBoundsError` off-map. One-line bounds check
+  each. **NOT fixed this session** (no AI yet generates tile sets); fold into
+  Tier A when the Worldcraft enumerator lands.
 
-### What actually shipped (ADR-0091)
+### What shipped (ADR-0092)
 
-The genuine remaining gap was the **approach path**: when no shot is
-available this turn, the AI falls through to `pickBestMove`, which was pure
-distance-closing with zero positional awareness — a bow unit out of range
-walked the flattest/shortest path instead of climbing toward a perch.
+Replaced `decideBasicAi`'s three **pre-empt phases** (Alchemist 0a, Math 0b,
+heal 0) with **one commensurable candidate pool**. Every action class is
+scored in `expected-damage-equivalent value × target value`; the pool's max
+(if `> 0`) is committed. Builders:
+- Heal: `effectiveHeal × killValue(ally) × HEAL_WEIGHT(0.7)`; removed the
+  `HEAL_THRESHOLD` cliff (missingHP cap zeroes full-HP allies naturally).
+- Item throws: Potion → heal map; **Phoenix Down revive →
+  `maxHpBase × REVIVE_WEIGHT(1.5)`**; Remedy → `debuffCount × 15`; Ether →
+  `mp × 0.1`.
+- Math: dropped `MATH_SCORE_THRESHOLD`; `pickBestMathSkill` returns its best
+  positive option, injected at `MATH_SCORE_SCALE(1.0)` (raw HP-swing, not
+  killValue-weighted — full re-base deferred).
+- Joint offense+buff planner unchanged, refactored to **return its best
+  plan's score** so it competes in the pool.
+- **Compound demoted to last-resort** (after the distance-move fallback) —
+  banking can no longer block a kill/advance. This fixes the reported
+  Knight-with-Alchemy "finishes a fight without attacking" bug.
 
-1. **Approach-path positional term in `pickBestMove`.** For height-seekers
-   only, each reachable destination gets a `positionalValue` = best
-   height-sensitive future shot against the priority target (range gate
-   relaxed), via the existing `strongestDamageFollowUp` (reuses the
-   projection resolver — no parallel height-scorer). Destinations rank by
-   `positionalValue − distanceCost × distanceToPriority`, where
-   `distanceCost = APPROACH_DISTANCE_FRACTION × baseShot` (scale-independent).
-   An actually-reachable shot still dominates (no passivity regression);
-   flat ground and non-height-seekers behave exactly as before.
-2. **`isHeightSeeker` derives from weapon data, not a new `ranged` tag**
-   (Chris's call). A unit is a height-seeker iff an equipped weapon
-   declares `height_delta` or `rangeFromHeightBonus` — today, exactly bows.
-   Single source of truth; the brief's `ranged` tag was redundant since the
-   offensive term is already gated by weapon data.
-3. **`APPROACH_DISTANCE_FRACTION = 0.25`** is the temperament dial (raise →
-   climb less / favour tempo; lower → climb more). Set conservatively.
+ADR-0092 supersedes the phase-ordering parts of S39b / S49 / S13+S20a
+(scoring *inputs* reused; only commit-ordering replaced).
 
 ### Decisions Chris made at plan-review
 
-- **D1 (scope):** offensive core confirmed already done → session spine
-  became the approach-path term. Defensive stretch deferred.
-- **D2 (magic offensive height):** **bows only this session.** Magic gets
-  no offensive height benefit in v1 (only bows declare the weapon fields;
-  casters get only the ±5% elevation hit modifier). Casters seek height
-  defensively only, later, when a threat model exists.
-- **Height-seeker signal:** derive from weapon data (not a `ranged` tag).
+- **Pivot to unification first** (over building Worldcraft commensurably-
+  anyway, or a narrow guard). Worldcraft Tier A+B → **S58**; Tier C + threat
+  model → **S59**.
+- **Math: normalize & compete** (not a full projection/killValue re-base).
+- **Revive: a scored candidate** that competes (can lose to a strong finish).
 
-### Audit answers (for the rest of the arc)
+### Tests
 
-- **A3 — melee vertical reach = 3** (`rangeDefaults.meleeVertical`). Sets
-  the defensive-term threshold when it's built.
-- **A4 — no incoming-threat / danger model exists.** The defensive
-  above-melee-reach term (blueprint §4.1.2) has no substrate → deferred
-  cleanly, not built speculatively. Building it needs a "which enemies can
-  reach this tile next turn" model first.
-- **A6 — Worldcraft cap eviction is FIFO confirmed.** `queue.shift()` in
-  `src/engine/effects/queue.ts:98` reverts the **oldest** work. Chris's
-  recollection was right; the carryover doc's "LIFO" was wrong. Settled
-  ahead of Tier C as the brief asked.
++5 in `src/ai/session-57-commensurability.test.ts` (the Alchemist/Math AI
+*decision* paths had **no** prior `decideBasicAi`-level coverage — the
+refactor was behavior-preserving on all 1664 prior tests precisely because
+the broken edge cases were untested). The new tests pin: Alchemy-secondary
+finishes a kill instead of banking-Compound; a strong attacker with Math
+secondary attacks instead of a marginal Math; heal wins for a dying ally;
+revive fires when nothing better; revive *loses* to a clean finish. Two
+tests required positioning the actor behind the (north-facing) target so the
+in-place attack is the best angle — otherwise the joint planner correctly
+*moves to set up a back attack* (lower target evasion), which is intended
+two-action behavior.
 
 ### Browser verification — NOT done (and why)
 
-Same constraint as S55: PixiJS's federated event system doesn't accept
-synthetic DOM pointer events, so deployment + turn + AI battle can't be
-canvas-driven through the preview harness. The S56 acceptance criteria the
-brief flagged as **browser-critical** — does a Hunter on Stonebridge take a
-payoff perch and decline a pointless one, in a real battle, without
-over-climbing — **need a human playthrough.** Logged in
-`docs/playtest-watch.md` (two entries: the approach-path climbing dial and
-the Stonebridge motivating bug). All scoring logic is covered by the 7 S56
-tests + 1664 green overall.
+Same constraint as S55/S56: PixiJS's federated events don't accept synthetic
+DOM pointer events, so AI battles can't be canvas-driven through the preview
+harness. AI behavior changes (does the AI now finish kills / heal / revive /
+craft at sensible moments) need a **human playthrough**. Three watch entries
+logged in `docs/playtest-watch.md` (value dials; Compound under-crafting;
+Math raw scoring).
 
-### Next in the arc (per the blueprint)
+### Next in the arc
 
-- **Defensive above-melee-reach term** (blueprint §4.1.2) — blocked on an
-  incoming-threat model (A4). A focused session could build the threat
-  model + the defensive term together.
-- **Worldcraft Tier A** (Pit/Valley fall damage) — largely independent of
-  the positional substrate; an early win.
-- **Worldcraft Tier B** (perch/wall/denial scoring) — now unblocked by the
-  positional substrate this session laid down.
+- **S58 — Worldcraft Tier A + B**, now onto a commensurable scorer. Tier A:
+  Pillar/Pit/Hill/Valley fall-damage scoring (recognize `effects.worldcraft`,
+  reuse the `scoreAoeOffensive` enumeration spine, mirror the S4 fall rule) +
+  the S7 `validateAction` bounds-check. Tier B: perch (S56 positional
+  substrate + temperament dial) + Barrier denial (S5 primitives, heuristic
+  sophistication first).
+- **S59 — Tier C + threat model** (+ likely the deferred defensive
+  above-melee-reach term, which shares the model).
+
+### Deferred from this session (S57)
+
+- **Math killValue-weighted re-base** — Math injects raw HP-swing; competes
+  but isn't fully weighted. Follow-on.
+- **Move-to-heal / move-to-utility** — heals/items/Math scored from current
+  position only (joint planner's move-awareness covers offense+buffs).
+  Unchanged, still deferred.
+- **Compound "craft when idle and safe"** — if playtest shows support
+  Alchemists under-stocking (see watch entry), add a small positive idle
+  Compound score.
 
 ### Standing carries (unchanged, not addressed this session)
 
-- **Default team templates with Terraformer** — content session.
-- **Roster-wide Move tier** design discussion (S54: Move 2 = slow-caster
-  tier, not a rebaseline).
-- Calculator team-template revision; Marshmoor template-compliance tests;
+- Default team templates with Terraformer; roster-wide Move tier discussion;
+  Calculator team-template revision; Marshmoor template-compliance tests;
   lightning-mage.ts stale S20 header; `draft-terraformer-substrate-audit.md`
-  archival; AI deployment role-aware sorting (note: shares "value of a
-  position" with the new approach term, but stays a separate carry — no
-  coupling introduced this session).
-- Terrain-transition animation (S55 deferred stretch; ~50–100 LOC).
-- Calculator AI personality variants (the temperament dial recurs there).
-- Math Skill SP scaling review (watch-for).
+  archival; AI deployment role-aware sorting; terrain-transition animation
+  (S55 deferred stretch); Calculator AI personality variants; Math Skill SP
+  scaling review.
 
 ### Untouched by request
 
-- **Uncommitted `guide/` working-tree changes** — left exactly as found,
-  per the standing S55 call. Every S56 commit is scoped to game code +
-  docs only.
-
-### Flag carried from S55 (still latent, not fixed)
-
-- **`validateAction` can throw on an out-of-bounds `tile_set`** (reads via
-  `tileAt`, which throws off-map rather than returning invalid). Inert
-  today (the real picker never sends off-map sets). A one-line bounds check
-  before `tileAt` in the tile_set branch would make validateAction total.
-  Left as a flag, not a reflexive change.
+- **Uncommitted `guide/` working-tree changes** — left exactly as found, per
+  the standing S55 call. Every S57 commit is scoped to game code + docs only.
