@@ -403,6 +403,12 @@ function validateUseAbility(
     const effectiveRange = computeAbilityRange(state, catalog, actor.id, ability);
     const isBarrier = ability.effects.worldcraft?.kind === 'barrier';
     for (const p of positions) {
+      // Bounds-check before `tileAt` (which throws off-map per ADR-0002).
+      // The AI enumerating Worldcraft tile sets near a map edge can produce
+      // off-map positions; treat those as invalid, not a programmer error.
+      if (p.x < 0 || p.y < 0 || p.x >= state.map.width || p.y >= state.map.height) {
+        return invalid(`Target tile (${p.x},${p.y},${p.layer}) does not exist`);
+      }
       const tile = tileAt(state.map, p.x, p.y, p.layer);
       if (tile === undefined) {
         return invalid(`Target tile (${p.x},${p.y},${p.layer}) does not exist`);
@@ -446,6 +452,14 @@ function validateUseAbility(
       return invalid(`Ability ${JSON.stringify(ability.id)} requires a tile target`);
     }
     const tilePos = (action.payload.target as Extract<AbilityTarget, { kind: 'tile' }>).position;
+    // Bounds-check before `tileAt` (which throws off-map per ADR-0002), so an
+    // off-map tile target reads as invalid rather than a thrown error.
+    if (
+      tilePos.x < 0 || tilePos.y < 0 ||
+      tilePos.x >= state.map.width || tilePos.y >= state.map.height
+    ) {
+      return invalid(`Target tile (${tilePos.x},${tilePos.y},${tilePos.layer}) does not exist`);
+    }
     const destTile = tileAt(state.map, tilePos.x, tilePos.y, tilePos.layer);
     if (destTile === undefined) {
       return invalid(`Target tile (${tilePos.x},${tilePos.y},${tilePos.layer}) does not exist`);

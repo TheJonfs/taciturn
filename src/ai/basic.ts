@@ -74,9 +74,12 @@ import {
   runModifyAoeShape,
   runModifyAoeVerticalTolerance,
   tileAt,
+  unitAt,
   weaponRangeFromHeightSpec,
   aoeFootprint,
+  buildElevationChanges,
   cardinalFromTo,
+  FALLING_DAMAGE_PER_LEVEL,
   type Catalog,
   type GameState,
   type ItemId,
@@ -280,6 +283,15 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
     // pre-empt (per S57: it now competes rather than firing first).
     const math = bestMathCandidate(state, catalog, actor);
     if (math !== null) candidates.push(math);
+
+    // Worldcraft (S57 Tier A): Pit/Valley fall damage. Tile-targeted casts
+    // scored in the unified currency (signed fall damage × killValue), so a
+    // Pit competes with attacks and declines flat ground.
+    const worldcraft = enumerateWorldcraftWorks(state, actor, catalog);
+    if (worldcraft.length > 0) {
+      const fall = bestWorldcraftFallCandidate(state, catalog, actor, worldcraft);
+      if (fall !== null) candidates.push(fall);
+    }
 
     // Joint two-action offense + buff plan (move-aware). Returns its best
     // plan's score and the action to commit — an Act in place, or the
@@ -1322,6 +1334,96 @@ function scoreAllyBuff(
 }
 
 // =====================
+// Worldcraft scoring (S57 Tier A — Pit/Valley fall damage)
+// =====================
+
+// Worldcraft works the actor can afford (Pillar/Pit/Hill/Valley/Barrier),
+// recognized by `effects.worldcraft`. The candidate builders split them by
+// payload: net-lowering elevation → fall damage (Tier A); net-raising
+// elevation → perch (Tier B); barrier → denial (Tier B).
+function enumerateWorldcraftWorks(
+  state: GameState,
+  actor: Unit,
+  catalog: Catalog,
+): ActiveAbilityDefinition[] {
+  return enumerateActiveAbilities(actor, catalog)
+    .filter((a) => a.effects.worldcraft !== undefined)
+    .filter((a) => canAfford(state, catalog, actor, a));
+}
+
+// Best Pit/Valley cast as a scored pool candidate (S57 Tier A). A
+// Worldcraft elevation cast is scored as an AoE *fall-damage* ability:
+// reuse the engine's own `buildElevationChanges` (single source of truth —
+// no drift from the terrain-change reducer) to resolve per-tile drops at a
+// candidate anchor, then sum signed fall damage over the footprint's
+// occupants. Enemies score positive (× killValue); allies and the caster
+// itself are penalized (friendly fire). Flat ground / corners (drop ≤ 1)
+// contribute 0, so the AI declines a pointless Pit naturally. Cast from the
+// actor's current position only — bounded enumeration, no move-then-cast in
+// v1 (a deliberate boundary; see docs/handoff.md).
+function bestWorldcraftFallCandidate(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  works: ReadonlyArray<ActiveAbilityDefinition>,
+): ScoredAction | null {
+  let best: ScoredAction | null = null;
+  for (const ability of works) {
+    const spec = ability.effects.worldcraft;
+    if (spec === undefined || spec.kind !== 'elevation') continue;
+    // Only net-lowering works deal immediate fall damage; a raise punishes
+    // only on revert (Tier C) and creates a perch now (Tier B).
+    if (!spec.deltas.some((d) => d.delta < 0)) continue;
+    for (const tile of tilesInAbilityRange(state, actor, actor.position, ability, catalog)) {
+      const anchor: Position = { x: tile.x, y: tile.y, layer: tile.layer };
+      const score = scoreWorldcraftFall(state, actor, anchor, spec.deltas);
+      if (score <= 0) continue;
+      const action: ProposedAction = {
+        type: 'use_ability',
+        source: 'player',
+        actorId: actor.id,
+        payload: { abilityId: ability.id, target: { kind: 'tile', position: anchor } },
+      };
+      if (!canCommitAction(state, catalog, actor, action)) continue;
+      const cand: ScoredAction = {
+        score,
+        action,
+        key: `worldcraft-fall|${ability.id}|${positionKey(anchor)}`,
+      };
+      if (best === null || compareScored(cand, best) > 0) best = cand;
+    }
+  }
+  return best;
+}
+
+// Signed fall-damage value of an elevation cast anchored at `anchor`.
+// Mirrors `reduceSystemTerrainChange` exactly: per footprint tile, the
+// pre-change occupant takes `FALLING_DAMAGE_PER_LEVEL × dropDistance` when
+// dropDistance > 1. Enemy drops are good (× killValue); ally/self drops are
+// bad (× FRIENDLY_FIRE_PENALTY_FACTOR). KO'd occupants are ignored.
+function scoreWorldcraftFall(
+  state: GameState,
+  actor: Unit,
+  anchor: Position,
+  deltas: ReadonlyArray<{ readonly dx: number; readonly dy: number; readonly delta: number }>,
+): number {
+  let total = 0;
+  for (const c of buildElevationChanges(state, anchor, deltas)) {
+    const dropDistance = c.originalElevation - c.newElevation;
+    if (dropDistance <= 1) continue; // mirrors fallDamageAction's > 1 gate
+    const occupant = unitAt(state, c.x, c.y, c.layer);
+    if (occupant === undefined || occupant.vitals.hp <= 0) continue;
+    const dmg = FALLING_DAMAGE_PER_LEVEL * dropDistance;
+    if (occupant.team !== actor.team) {
+      total += dmg * killValue(occupant);
+    } else {
+      total -= FRIENDLY_FIRE_PENALTY_FACTOR * dmg * killValue(occupant);
+    }
+  }
+  return total;
+}
+
+// =====================
 // Phase orchestrators
 // =====================
 
@@ -1827,6 +1929,7 @@ export const _basicAiInternals = {
   scoreSingleUnitOffensive,
   scoreAoeOffensive,
   scoreAllyBuff,
+  scoreWorldcraftFall,
   targetIsInAbilityRange,
   tilesInAbilityRange,
 };
