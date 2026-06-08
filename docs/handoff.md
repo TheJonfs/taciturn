@@ -6,133 +6,90 @@ This is a transient note from one session to the next.
 
 ---
 
-## From Session 57 close (2026-06-08) — AI scoring commensurability (the S8 pivot)
+## From Session 57 close (2026-06-08) — scorer unification + Worldcraft Tier A & B-perch
 
-S57 was the brief's Worldcraft AI session, but its audit (S8 diagnostic)
-found a **structural** scorer problem and the session **pivoted** to fix it
-first, per the brief's own S8 fork and Chris's plan-review call. **1664 →
-1669 tests** (+5), `tsc -b` clean, `vite build` clean. Committed to main.
+S57 pivoted (per the audit's S8 finding) to fix the scorer foundation, then —
+context budget permitting — went on to build Worldcraft Tier A and Tier B
+perch on the now-commensurable scorer. **1664 → 1680 tests** (+16), `tsc -b`
+clean, `vite build` clean. Three commits to main:
 
-### What the audit found (full results, for the deferred Worldcraft work)
+1. `def2c76` — unify AI scoring currency (ADR-0092)
+2. `1761301` — Tier A: Pit/Valley fall-damage scoring + S7 fix
+3. `7d3202e` — Tier B (perch): Pillar/Hill lift-in-place
 
-The audit surveyed all of S1–S8. Key results to carry into S58/S59:
+### What shipped
 
-- **S1 — enumeration spine largely EXISTS.** The AI already enumerates
-  tile-anchored **AoE-damage** casts via `scoreAoeOffensive` (tile
-  enumeration → footprint occupancy → signed per-occupant sum →
-  friendly-fire). The five Worldcraft works don't reach it: Pillar/Pit/Hill/
-  Valley are `targeting.kind: 'tile'` with an `effects.worldcraft` payload
-  (no `damage`/`aoe`), so `isOffensive` rejects them; Barrier is `tile_set`,
-  handled **nowhere** in `src/ai/`. So Tier A = a new payload-recognition +
-  fall-damage score function on the **existing** enumeration spine — *not*
-  the brief's worst-case from-scratch build.
-- **S4 — fall rule confirmed exactly.** `FALLING_DAMAGE_PER_LEVEL = 10`
-  ([fall-damage.ts:20]), gate strictly `> 1` (`if (dropDistance <= 1) return
-  null`), floor-clamp implicit (elevation floors at 0 →
-  `effectiveDrop = min(magnitude, startElev)`). Pit/Pillar ±4 single-tile;
-  Hill/Valley 3×3 `[1,2,1;2,3,2;1,2,1]` kernel. Engine reducer applies the
-  same gate, so the AI just mirrors it.
-- **S5 — Barrier primitives callable, hypothetical query net-new.**
-  `getLegalMoves(state, unitId, catalog)` (any unit) and
-  `hasLineOfSight(map, from, to)` (arbitrary endpoints) exist. Missing:
-  "recompute reach/LoS with a barrier inserted" — needs a shallow map-clone
-  or parameterized pathfinding (~50–100 LOC). Tier B Barrier is buildable at
-  heuristic sophistication.
-- **S6 — threat model confirmed ABSENT.** `projectUpcoming` + per-unit
-  `getLegalMoves` are building blocks, but no "which enemies can reach/hit
-  tile X next turn" aggregation / danger-map exists. **Tier C stays gated on
-  building this** (reusable: also unblocks the deferred defensive
-  above-melee-reach term + role-aware deployment).
-- **S7 — `validateAction` off-map throw confirmed live-latent.**
-  [validate.ts:406] (`tile_set`) and [validate.ts:449] (`tile`) call `tileAt`
-  with no bounds check → `OutOfBoundsError` off-map. One-line bounds check
-  each. **NOT fixed this session** (no AI yet generates tile sets); fold into
-  Tier A when the Worldcraft enumerator lands.
+- **Unification (ADR-0092):** `decideBasicAi` builds one scored candidate
+  pool; the three pre-empt phases (Alchemist / Math / heal) are gone;
+  Compound demoted to last resort. Fixes the "Alchemy-Knight never attacks"
+  bug. Dials: `HEAL_WEIGHT 0.7`, `REVIVE_WEIGHT 1.5`,
+  `CLEANSE_VALUE_PER_DEBUFF 15`, `ETHER_VALUE_FACTOR 0.1`,
+  `MATH_SCORE_SCALE 1.0`.
+- **Tier A (ADR-0093):** `bestWorldcraftFallCandidate` scores Pit/Valley as
+  fall-damage casts, reusing the engine's exported `buildElevationChanges` +
+  `FALLING_DAMAGE_PER_LEVEL`/`>1` gate (zero drift). Current-position
+  candidates only (no move-then-cast — bounds enumeration cost). + the S7
+  `validateAction` off-map bounds check (tile/tile_set).
+- **Tier B perch (ADR-0093):** `bestPerchCandidate` values raising the tile a
+  height-seeking ally already stands on ("lift-in-place"), via a new
+  `withElevationChanges` hypothetical-state helper + range-relaxed
+  `strongestDamageFollowUp`, discounted by `PERCH_DAMP 0.5`.
 
-### What shipped (ADR-0092)
+### Decisions ratified at plan-review (Chris)
 
-Replaced `decideBasicAi`'s three **pre-empt phases** (Alchemist 0a, Math 0b,
-heal 0) with **one commensurable candidate pool**. Every action class is
-scored in `expected-damage-equivalent value × target value`; the pool's max
-(if `> 0`) is committed. Builders:
-- Heal: `effectiveHeal × killValue(ally) × HEAL_WEIGHT(0.7)`; removed the
-  `HEAL_THRESHOLD` cliff (missingHP cap zeroes full-HP allies naturally).
-- Item throws: Potion → heal map; **Phoenix Down revive →
-  `maxHpBase × REVIVE_WEIGHT(1.5)`**; Remedy → `debuffCount × 15`; Ether →
-  `mp × 0.1`.
-- Math: dropped `MATH_SCORE_THRESHOLD`; `pickBestMathSkill` returns its best
-  positive option, injected at `MATH_SCORE_SCALE(1.0)` (raw HP-swing, not
-  killValue-weighted — full re-base deferred).
-- Joint offense+buff planner unchanged, refactored to **return its best
-  plan's score** so it competes in the pool.
-- **Compound demoted to last-resort** (after the distance-move fallback) —
-  banking can no longer block a kill/advance. This fixes the reported
-  Knight-with-Alchemy "finishes a fight without attacking" bug.
+- **S8 pivot:** unify first (S57), Worldcraft A+B this session, **Tier C +
+  threat model → S59**.
+- **Math:** normalize & compete (full killValue re-base deferred).
+- **Revive:** scored candidate (competes, can lose to a finish).
+- **D1/D2:** Tier A immediate-fall-only; perch single-move horizon — narrowed
+  to **lift-in-place** for v1.
+- **D3:** ignore perch steal-risk.
+- **D4:** updated mid-build from "heuristic first" to **defer Barrier to
+  S59** — grounding showed Barrier denial scoring *is* threat-model logic
+  ("which enemies can reach/hit ally A"), so a heuristic now would be
+  throwaway work S59 replaces.
 
-ADR-0092 supersedes the phase-ordering parts of S39b / S49 / S13+S20a
-(scoring *inputs* reused; only commit-ordering replaced).
+### Audit results still relevant for S59
 
-### Decisions Chris made at plan-review
+- **Threat model is ABSENT (A4).** Building blocks exist (`projectUpcoming`,
+  per-unit `getLegalMoves`, the `withElevationChanges` hypothetical-state
+  pattern shipped this session generalizes to barrier-inserted states), but
+  no "which enemies can reach/hit tile X next turn" aggregation. This gates
+  **Tier C, Barrier denial, the deferred defensive above-melee-reach term,
+  and role-aware deployment** — build it once, reuse across all four.
+- **Worldcraft enumeration cost** is the headline perf risk (flagged in
+  playtest-watch). Current-position-only casting bounds it for now.
 
-- **Pivot to unification first** (over building Worldcraft commensurably-
-  anyway, or a narrow guard). Worldcraft Tier A+B → **S58**; Tier C + threat
-  model → **S59**.
-- **Math: normalize & compete** (not a full projection/killValue re-base).
-- **Revive: a scored candidate** that competes (can lose to a strong finish).
+### Next session (S59) — threat model + its consumers
 
-### Tests
-
-+5 in `src/ai/session-57-commensurability.test.ts` (the Alchemist/Math AI
-*decision* paths had **no** prior `decideBasicAi`-level coverage — the
-refactor was behavior-preserving on all 1664 prior tests precisely because
-the broken edge cases were untested). The new tests pin: Alchemy-secondary
-finishes a kill instead of banking-Compound; a strong attacker with Math
-secondary attacks instead of a marginal Math; heal wins for a dying ally;
-revive fires when nothing better; revive *loses* to a clean finish. Two
-tests required positioning the actor behind the (north-facing) target so the
-in-place attack is the best angle — otherwise the joint planner correctly
-*moves to set up a back attack* (lower target evasion), which is intended
-two-action behavior.
+- Build the reusable incoming-threat / danger model.
+- **Barrier denial** scoring (Tier B's remaining half) on top of it.
+- **Tier C** revert-traps: FIFO queue lookahead (`queue.shift()` is the
+  oldest-evicts confirmed FIFO, `src/engine/effects/queue.ts`) + threat model
+  — value a raise whose revert drops an enemy rider, never an ally.
+- Likely also the **defensive above-melee-reach term** (shares the model).
+- Smaller deferred items: perch "move onto a created perch" (hypothetical-
+  reach + jump-climb), Worldcraft move-then-cast planning, the full
+  killValue-weighted Math re-base.
 
 ### Browser verification — NOT done (and why)
 
-Same constraint as S55/S56: PixiJS's federated events don't accept synthetic
-DOM pointer events, so AI battles can't be canvas-driven through the preview
-harness. AI behavior changes (does the AI now finish kills / heal / revive /
-craft at sensible moments) need a **human playthrough**. Three watch entries
-logged in `docs/playtest-watch.md` (value dials; Compound under-crafting;
-Math raw scoring).
-
-### Next in the arc
-
-- **S58 — Worldcraft Tier A + B**, now onto a commensurable scorer. Tier A:
-  Pillar/Pit/Hill/Valley fall-damage scoring (recognize `effects.worldcraft`,
-  reuse the `scoreAoeOffensive` enumeration spine, mirror the S4 fall rule) +
-  the S7 `validateAction` bounds-check. Tier B: perch (S56 positional
-  substrate + temperament dial) + Barrier denial (S5 primitives, heuristic
-  sophistication first).
-- **S59 — Tier C + threat model** (+ likely the deferred defensive
-  above-melee-reach term, which shares the model).
-
-### Deferred from this session (S57)
-
-- **Math killValue-weighted re-base** — Math injects raw HP-swing; competes
-  but isn't fully weighted. Follow-on.
-- **Move-to-heal / move-to-utility** — heals/items/Math scored from current
-  position only (joint planner's move-awareness covers offense+buffs).
-  Unchanged, still deferred.
-- **Compound "craft when idle and safe"** — if playtest shows support
-  Alchemists under-stocking (see watch entry), add a small positive idle
-  Compound score.
+Same constraint as S55/S56: PixiJS federated events reject synthetic DOM
+pointer events, so AI battles can't be canvas-driven through the preview
+harness. All S57 AI behavior (does the AI finish kills / heal / revive /
+craft / drop clusters / lift archers at sensible moments) needs a **human
+playthrough**. Watch entries logged in `docs/playtest-watch.md` (unification
+dials; Compound under-crafting; Math raw scoring; Pit/Valley target feel;
+PERCH_DAMP tempo; enumeration cost).
 
 ### Standing carries (unchanged, not addressed this session)
 
 - Default team templates with Terraformer; roster-wide Move tier discussion;
   Calculator team-template revision; Marshmoor template-compliance tests;
   lightning-mage.ts stale S20 header; `draft-terraformer-substrate-audit.md`
-  archival; AI deployment role-aware sorting; terrain-transition animation
-  (S55 deferred stretch); Calculator AI personality variants; Math Skill SP
-  scaling review.
+  archival; AI deployment role-aware sorting (now explicitly shares the S59
+  threat model); terrain-transition animation (S55 deferred stretch);
+  Calculator AI personality variants; Math Skill SP scaling review.
 
 ### Untouched by request
 

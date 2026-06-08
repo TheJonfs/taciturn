@@ -72,6 +72,50 @@ each action class in real play need human signal.
     attack exists, or never casting Math because it always loses. Lever: the
     deferred killValue-weighted Math re-base, or tune `MATH_SCORE_SCALE`.
 
+### S57 — Worldcraft AI scoring, Tier A + B perch (ADR-0093)
+
+The AI now casts Pit/Valley (fall damage) and Pillar/Hill (lift-in-place
+perch). Unit-tested, but **browser verification is human-only** (the harness
+can't drive AI battles) — these need a real Terraformer playthrough.
+
+- **Pit/Valley target selection feel.**
+  - **What to watch.** Does the AI drop genuinely worthwhile clusters /
+    high-ground enemies and decline pointless flat-ground casts? Does it
+    avoid Valleys that catch its own line (friendly-fire penalty)?
+  - **Why it matters.** First time the AI uses the destructive works; the
+    scoring mirrors the engine's fall rule exactly, but *target choice* in
+    real fights is the open question.
+  - **Signal for adjustment.** AI casting Pit/Valley for trivial damage when
+    an attack was better (it should lose in the unified pool — flag as a
+    commensurability issue, not Worldcraft-specific), or dropping its own
+    units. Lever: `FRIENDLY_FIRE_PENALTY_FACTOR`, or the fall scorer.
+
+- **Perch (PERCH_DAMP) tempo.**
+  - **What to watch.** `PERCH_DAMP = 0.5` (`src/ai/basic.ts`). Does the AI
+    raise an archer's tile at sensible moments, or over-build perches
+    (passivity / tempo bleed) — or never build them?
+  - **Why it matters.** A perch is a spent Terraformer turn for a future ally
+    shot; the dial guards over-eagerness, same failure mode as over-climbing.
+  - **Signal for adjustment.** Terraformer perching when attacking/Pitting was
+    better (raise PERCH_DAMP), or never perching for a well-placed archer
+    (lower it).
+  - **v1 scope note:** perch is **lift-in-place only** (raise the tile the
+    archer already stands on). "Archer moves onto a created perch" is deferred
+    to S59 — watch whether the lift-in-place case alone reads as too narrow.
+
+- **Worldcraft enumeration cost.**
+  - **What to watch.** Tile-targeted enumeration (every in-range tile × works
+    × footprint occupancy) on top of the existing per-destination projection.
+    Cast from current position only (no move-then-cast) to bound it.
+  - **Why it matters.** The brief flagged evaluation time as the headline
+    risk. Watch AI turn latency on a Terraformer in a full battle.
+  - **Signal for adjustment.** Noticeable AI think-time. Lever: prune
+    low-elevation tiles / tiles with no nearby units before scoring.
+
+- **Barrier denial — DEFERRED to S59.** Barrier scoring needs the threat
+  model (which enemies can reach/hit a tile); folded into S59 rather than
+  shipping a throwaway heuristic. No Barrier behavior to watch yet.
+
 ### S53 — Terraformer substrate (no direct signal yet; watch-fors for S54+)
 
 The substrate ships no player-facing content (no ability creates terrain or
