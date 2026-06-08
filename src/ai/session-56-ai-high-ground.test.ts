@@ -291,3 +291,84 @@ describe('S56 characterization — move+shoot high-ground (already works)', () =
     expect(expectMoveTo(state, catalog)).toEqual({ x: 1, y: 1, layer: 0 });
   });
 });
+
+// The new S56 work: the approach path. When no shot is available from any
+// reachable tile this turn, pickBestMove used to close distance with zero
+// positional awareness. It now gives height-seekers a future-shot term so
+// they advance toward a payoff perch — while still closing on flat ground,
+// declining wrong-way peaks, and leaving melee approach untouched. All
+// scenarios place the enemy far enough (x=12, moveRange 4) that no shot is
+// reachable this turn even with the downhill range bonus, forcing the
+// approach path.
+describe('S56 approach-path positional term (the new work)', () => {
+  it('positive: a bow unit advances toward a reachable perch on the way', () => {
+    // Enemy far east at (12,0). Best flat advance is (4,0) (distance 8).
+    // A perch at (2,1) elev 6 is reachable (cost 3 ≤ moveRange 4) — from it
+    // the future shot is ×2.2 (downhill 6), enough to outweigh the extra
+    // distance. The unit should step onto the perch rather than the flat
+    // tile that closes more directly.
+    const { state, catalog } = buildBattle({
+      width: 13,
+      height: 5,
+      elevations: [{ x: 2, y: 1, elevation: 6 }],
+      placements: [
+        { id: 'hunter_a', team: 'team_a', x: 0, y: 0, equipment: bowEquip() },
+        { id: 'enemy_b', team: 'team_b', x: 12, y: 0 },
+      ],
+      activeId: 'hunter_a',
+    });
+    expect(expectMoveTo(state, catalog)).toEqual({ x: 2, y: 1, layer: 0 });
+  });
+
+  it('over-climbing guard: a tall peak in the wrong direction is declined', () => {
+    // Same enemy at (12,0), but the only perch (1,3) elev 6 sits away from
+    // the line of advance (distance 14 from it). Even ×2.2 future damage
+    // can't pay for the detour, so the unit keeps closing to (4,0) instead
+    // of chasing the peak. Guards the over-climbing / tempo-loss watch-for.
+    const { state, catalog } = buildBattle({
+      width: 13,
+      height: 5,
+      elevations: [{ x: 1, y: 3, elevation: 6 }],
+      placements: [
+        { id: 'hunter_a', team: 'team_a', x: 0, y: 0, equipment: bowEquip() },
+        { id: 'enemy_b', team: 'team_b', x: 12, y: 0 },
+      ],
+      activeId: 'hunter_a',
+    });
+    expect(expectMoveTo(state, catalog)).toEqual({ x: 4, y: 0, layer: 0 });
+  });
+
+  it('gating: a non-height-seeker (unarmed) ignores the perch and closes', () => {
+    // Identical map to the positive case, but the unit has no height-
+    // rewarding weapon. The positional term must not fire — it closes
+    // distance to (4,0) exactly as before.
+    const { state, catalog } = buildBattle({
+      width: 13,
+      height: 5,
+      elevations: [{ x: 2, y: 1, elevation: 6 }],
+      placements: [
+        { id: 'fighter_a', team: 'team_a', x: 0, y: 0 }, // EMPTY_EQUIP → no bow
+        { id: 'enemy_b', team: 'team_b', x: 12, y: 0 },
+      ],
+      activeId: 'fighter_a',
+    });
+    expect(expectMoveTo(state, catalog)).toEqual({ x: 4, y: 0, layer: 0 });
+  });
+
+  it('regression: a bow unit on flat terrain still closes distance normally', () => {
+    // No elevation anywhere. The future-shot term is constant across tiles,
+    // so distance decides — the unit advances to (4,0) just like the
+    // pre-S56 distance-closing behavior.
+    const { state, catalog } = buildBattle({
+      width: 13,
+      height: 5,
+      elevations: [],
+      placements: [
+        { id: 'hunter_a', team: 'team_a', x: 0, y: 0, equipment: bowEquip() },
+        { id: 'enemy_b', team: 'team_b', x: 12, y: 0 },
+      ],
+      activeId: 'hunter_a',
+    });
+    expect(expectMoveTo(state, catalog)).toEqual({ x: 4, y: 0, layer: 0 });
+  });
+});

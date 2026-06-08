@@ -832,6 +832,27 @@ function procTargetSynergyMultiplier(
   return multiplier;
 }
 
+// True when the actor wields a weapon that rewards high ground — i.e. one
+// declaring `height_delta` damage variance or `rangeFromHeightBonus`
+// (today: bows). The approach-path positional term (see `pickBestMove`)
+// only fires for these units, so a melee fighter still closes distance
+// the same way it always did. Per S56's "derive from weapon data, don't
+// add a `ranged` tag" decision — the weapon fields are the single source
+// of truth for who benefits from elevation, the same gate the offensive
+// height term already uses via `weaponRangeFromHeightSpec`.
+function isHeightSeeker(actor: Unit, catalog: Catalog): boolean {
+  for (const slot of ['rightHand', 'leftHand'] as const) {
+    const itemRef = actor.equipment[slot];
+    if (itemRef === null) continue;
+    if (!catalog.hasItem(itemRef)) continue;
+    const item = catalog.getItem(itemRef);
+    if (item.kind !== 'weapon') continue;
+    if (item.physicalVariance?.kind === 'height_delta') return true;
+    if (item.rangeFromHeightBonus !== undefined) return true;
+  }
+  return false;
+}
+
 // Predicate for "this procced ability applied to this target is
 // particularly valuable." Inspects the procced ability's status effects
 // and matches against the target's profile. v1: Silence vs mage class.
@@ -1515,6 +1536,14 @@ interface MoveScore {
   // Distance (horizontal) to the best-kill-value enemy. Tiebreak when
   // no destination puts anyone in offensive range.
   readonly distanceToPriority: number;
+  // Height-seeker approach term (S56): the best damage this unit could
+  // project against the priority target *from this destination*, range
+  // gate relaxed, via the shared projection resolver. Height-sensitive
+  // for free (the longbow's `height_delta` reward folds in), so an
+  // elevated approach tile scores higher than a flat one. 0 for
+  // non-height-seekers (the term is inert and pure distance-closing
+  // applies). See `pickBestMove`.
+  readonly positionalValue: number;
   // Stable lex key for final tiebreak.
   readonly key: string;
 }
@@ -1539,6 +1568,22 @@ function pickBestMove(
   // When no enemy yields a meaningful score, fall back to lowest-HP.
   const priorityTarget = pickPriorityTarget(enemies, catalog);
 
+  // S56 approach-path positional term. For a height-seeker (bow user),
+  // value an elevated approach tile by the better future shot it unlocks
+  // against the priority target — reusing the projection resolver, so
+  // height folds in for free. `baseShot` (the shot from where the actor
+  // stands now) sets the scale: the per-tile distance cost is a fraction
+  // of it, so the tradeoff is damage-scale-independent. When `baseShot`
+  // is 0 (no projectable shot) the term is inert and we fall straight
+  // back to pure distance-closing — and non-height-seekers never enter
+  // this branch at all, so melee approach is unchanged.
+  const heightSeeker = isHeightSeeker(actor, catalog);
+  const baseShot = heightSeeker
+    ? strongestDamageFollowUp(state, catalog, actor, actor.position, priorityTarget)
+    : 0;
+  const positionalActive = heightSeeker && baseShot > 0;
+  const distanceCost = APPROACH_DISTANCE_FRACTION * baseShot;
+
   let best: MoveScore | null = null;
 
   for (const [key, path] of moves.reachable) {
@@ -1549,16 +1594,21 @@ function pickBestMove(
       state, catalog, actor, dest, enemies, allies, offensive,
     );
     const distanceToPriority = horizontalDistance(dest, priorityTarget.position);
+    const positionalValue = positionalActive
+      ? strongestDamageFollowUp(state, catalog, actor, dest, priorityTarget)
+      : 0;
     const candidate: MoveScore = {
       destination: dest,
       bestOffensiveScore,
       distanceToPriority,
+      positionalValue,
       key,
     };
 
-    if (best === null || compareMoves(candidate, best) > 0) {
-      best = candidate;
-    }
+    const better = positionalActive
+      ? compareMovesPositional(candidate, best, distanceCost)
+      : compareMoves(candidate, best);
+    if (better > 0) best = candidate;
   }
 
   if (best === null) return null;
@@ -1605,7 +1655,9 @@ function samePosition(a: Position, b: Position): boolean {
 // Higher score is better; longer distance is worse; lex-id stable
 // tiebreak. (The orientation differs from compareScored — this returns
 // >0 when a is better, so callers use `compareMoves(candidate, best) > 0`.)
-function compareMoves(a: MoveScore, b: MoveScore): number {
+// A null `b` means "no incumbent yet" — `a` always wins.
+function compareMoves(a: MoveScore, b: MoveScore | null): number {
+  if (b === null) return 1;
   if (a.bestOffensiveScore !== b.bestOffensiveScore) {
     return a.bestOffensiveScore - b.bestOffensiveScore;
   }
@@ -1615,6 +1667,44 @@ function compareMoves(a: MoveScore, b: MoveScore): number {
   }
   return a.key < b.key ? 1 : a.key > b.key ? -1 : 0;
 }
+
+// S56 — height-seeker approach comparator. Used only when the actor
+// benefits from elevation and has a projectable shot (see `pickBestMove`).
+//
+// An actually-reachable shot still dominates (a destination that puts an
+// enemy in offensive range beats any amount of positioning — no passivity
+// regression). Below that, destinations compete on a blended rank:
+//
+//   rank = positionalValue − distanceCost × distanceToPriority
+//
+// `positionalValue` is the height-sensitive future shot from the tile;
+// `distanceCost` (= APPROACH_DISTANCE_FRACTION × baseShot) prices each
+// tile of detour as a fraction of the unit's own shot. So the unit still
+// advances on flat ground (positionalValue is constant there → distance
+// decides), but will step a few tiles aside onto a perch when the height
+// premium outweighs the detour. The fraction is the temperament dial:
+// raise it to climb less (favour tempo), lower it to climb more.
+function compareMovesPositional(
+  a: MoveScore,
+  b: MoveScore | null,
+  distanceCost: number,
+): number {
+  if (b === null) return 1;
+  if (a.bestOffensiveScore !== b.bestOffensiveScore) {
+    return a.bestOffensiveScore - b.bestOffensiveScore;
+  }
+  const rankA = a.positionalValue - distanceCost * a.distanceToPriority;
+  const rankB = b.positionalValue - distanceCost * b.distanceToPriority;
+  if (rankA !== rankB) return rankA - rankB;
+  return a.key < b.key ? 1 : a.key > b.key ? -1 : 0;
+}
+
+// The temperament dial for the height-seeker approach term: each tile of
+// detour toward a perch must buy at least this fraction of the unit's
+// base shot in extra projected (height-boosted) damage to be worth it.
+// Conservative by default to guard against the over-climbing / tempo-loss
+// watch-for; tune against live play. See `compareMovesPositional`.
+const APPROACH_DISTANCE_FRACTION = 0.25;
 
 // Best offensive score reachable from `from`. Mirrors pickBestOffensive
 // but doesn't construct ProposedActions — just returns the max score.
