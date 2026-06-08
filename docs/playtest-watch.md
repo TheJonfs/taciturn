@@ -985,3 +985,17 @@ The class ships; these need real engagements to settle.
 ### Rapids Rush speed (S55)
 
 - **What to watch.** Rapids Rush actionSpeed 25 → 35 (resolves faster). Watch whether the quicker CT-bump buff overshadows other Water Mage options or feels appropriately snappy.
+
+## Session 56 — AI approach-path high-ground awareness
+
+### AI approach-path high-ground climbing (S56, ADR-0091)
+
+- **What to watch.** A bow user that can't shoot anything this turn now advances toward an elevated perch (height-sensitive future-shot value via the projection resolver) instead of pure distance-closing. Two failure modes to watch in real battles: (a) **over-climbing / tempo loss** — the unit detours uphill or sideways to a perch instead of pressing the attack, arriving late or never engaging; (b) **passivity** — a bow unit that has a strong shot *now* climbs first instead of taking it. (b) is guarded by the joint planner + the dominant `bestOffensiveScore` tier and should not occur; (a) is the live risk.
+- **Why it matters.** The positional term is first-class (it can pull a unit off the straight line of advance) and `positionalValue` is range-relaxed (it values a perch's shot *potential* regardless of whether the unit advances). The conservative `APPROACH_DISTANCE_FRACTION = 0.25` is meant to keep this in check, but only real engagements show whether the blend feels right.
+- **Signal for adjustment.** Bow units visibly dawdling toward hills instead of fighting → **raise** `APPROACH_DISTANCE_FRACTION` (favour tempo). Bow units ignoring obviously good nearby high ground on the approach → **lower** it. The conditional/gating is correct (tests cover it); the *coefficient* is the dial to turn.
+
+### AI Hunter on Stonebridge — the motivating bug (S56)
+
+- **What to watch.** Does a Hunter (or any bow user) on a map with real high ground (e.g. Stonebridge) take an advantageous perch in actual play — both the move-and-shoot case (already worked pre-S56, now pinned by tests) and the multi-turn approach case (the S56 term)? And does it *decline* a perch that pays nothing?
+- **Why it matters.** The unit tests assert the scoring math; only a real battle confirms the AI *feels* right. This is the acceptance criterion the brief flagged as browser-critical and that the automated harness can't drive (PixiJS federated events don't accept synthetic pointer events — see S55 handoff; deployment + turn + cast can't be canvas-driven through the preview).
+- **Signal for adjustment.** Hunter still hugs low ground on approach → revisit `APPROACH_DISTANCE_FRACTION`, or confirm the perch is actually reachable within its move budget. Hunter climbs sensibly and shoots downhill, and ignores pointless peaks → close this item.
