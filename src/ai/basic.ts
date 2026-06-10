@@ -57,6 +57,7 @@
 //     doesn't model "I'll be skipped next turn while this resolves").
 
 import {
+  arcTargetable,
   canCommitAction,
   classId,
   commandSetId,
@@ -1065,15 +1066,33 @@ function positionInAbilityRange(
     sourceTile.elevation,
     targetTile.elevation,
   );
-  return inRange({
-    source: endpointFrom(source, sourceTile.elevation),
-    target: endpointFrom(target, targetTile.elevation),
+  const sourceEndpoint = endpointFrom(source, sourceTile.elevation);
+  const targetEndpoint = endpointFrom(target, targetTile.elevation);
+  const within = inRange({
+    source: sourceEndpoint,
+    target: targetEndpoint,
     params: {
       horizontalMax: effective.horizontal + heightBonus,
       horizontalMin: effective.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
       verticalMax: effective.vertical,
     },
   });
+  if (!within) return false;
+  // S60 (B2): the rangeMode LoS/arc gate, mirroring validate.ts and the
+  // coverage map's canReachAndHit. Without it the AI valued a blocked
+  // straight_line shot as if it landed, then dropped its whole offence
+  // plan when the winner failed canCommitAction (basic.ts pickJointActOrMove)
+  // instead of falling back to a reachable shot. Melee carries no LoS check;
+  // straight_line needs an unbroken sightline (terrain/units/barriers break
+  // it); arc lobs over intermediate obstructions.
+  const mode = 'rangeMode' in ability.targeting ? ability.targeting.rangeMode : undefined;
+  if (mode === 'straight_line') {
+    return hasLineOfSight(state.map, sourceEndpoint, targetEndpoint);
+  }
+  if (mode === 'arc') {
+    return arcTargetable(state.map, source, target);
+  }
+  return true; // melee / no rangeMode — range gate only
 }
 
 function targetIsInAbilityRange(
