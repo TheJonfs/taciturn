@@ -79,6 +79,7 @@ import {
   aoeFootprint,
   buildElevationChanges,
   cardinalFromTo,
+  computeWorldcraftEffectCap,
   FALLING_DAMAGE_PER_LEVEL,
   type Catalog,
   type GameState,
@@ -97,6 +98,7 @@ import {
   type StatusInstance,
   type StatusTypeId,
   type UnitId,
+  type WorldcraftEffectEntry,
   statusTypeId,
 } from '@engine/index.ts';
 import { projectExpectedDamage } from './projection.ts';
@@ -379,6 +381,10 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
       // a better future shot, discounted by the temperament dial.
       const perch = bestPerchCandidate(state, catalog, actor, enemies, worldcraft);
       if (perch !== null) candidates.push(perch);
+      // Tier C (S59): spring a loaded revert-trap — a new cast evicts an
+      // older raise, dropping an enemy currently riding its footprint.
+      const trap = bestRevertTrapCandidate(state, catalog, actor, worldcraft);
+      if (trap !== null) candidates.push(trap);
     }
 
     // Joint two-action offense + buff plan (move-aware). Returns its best
@@ -1609,6 +1615,99 @@ function scorePerchLiftInPlace(
   return best * PERCH_DAMP;
 }
 
+// Best revert-trap cast as a scored pool candidate (S59 Tier C, ADR-0096).
+//
+// When the actor is at its Worldcraft effect cap, the *next* cast evicts
+// (reverts) the oldest queued effect. Reverting a raise (Pillar/Hill) drops
+// whoever rides its footprint — the fall the engine deals on eviction. This
+// values triggering that revert when an *enemy* currently stands on the
+// evicted raise's footprint, springing a loaded trap. It NEVER drops an ally:
+// an ally on any dropping footprint tile is a hard veto. No speculative
+// trap-laying (the trap must already be loaded and ridden by an enemy *now*)
+// and no movement prediction — current footprint occupancy only (D4).
+//
+// The trigger is a harmless raise (raises deal no fall on cast — the
+// "same-turn raise-then-evict" path): casting it springs the older loaded
+// raise via the FIFO eviction. Independent of the coverage map.
+function bestRevertTrapCandidate(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  works: ReadonlyArray<ActiveAbilityDefinition>,
+): ScoredAction | null {
+  const queue = actor.worldcraftEffects;
+  if (queue.length === 0) return null;
+  // Mirror enqueueWorldcraftEffect: a new cast evicts oldest-first while
+  // `length + 1 > cap`. evictCount ≤ 0 → the next cast fits, nothing reverts.
+  const cap = computeWorldcraftEffectCap(state, catalog, actor);
+  const evictCount = queue.length + 1 - cap;
+  if (evictCount <= 0) return null;
+
+  const value = scoreRevertDrop(state, actor, queue.slice(0, evictCount));
+  if (value === null) return null; // ally on a dropping footprint → hard veto
+  if (value <= 0) return null; // no enemy dropped → no value (no speculative laying)
+
+  const trigger = firstValidRaiseCast(state, catalog, actor, works);
+  if (trigger === null) return null; // no harmless raise available to spring it
+  return { score: value, action: trigger.action, key: `revert-trap|${trigger.key}` };
+}
+
+// Signed fall value of reverting `entries` over their *current* footprint
+// occupants. Reverting a raised tile drops its occupant by
+// `newElevation − originalElevation`. Enemies dropped (drop > 1, the engine's
+// damage gate) score `dmg × killValue`; an ally on *any* dropping tile (drop
+// ≥ 1) returns null — a hard veto, never an own-goal. Barrier entries carry
+// no fall.
+function scoreRevertDrop(
+  state: GameState,
+  actor: Unit,
+  entries: ReadonlyArray<WorldcraftEffectEntry>,
+): number | null {
+  let value = 0;
+  for (const entry of entries) {
+    if (entry.kind !== 'terrain') continue;
+    for (const c of entry.tileChanges) {
+      const drop = c.newElevation - c.originalElevation; // revert lowers the raised tile
+      if (drop <= 0) continue; // not a raise (e.g. a Pit revert raises — no drop)
+      const occupant = unitAt(state, c.x, c.y, c.layer);
+      if (occupant === undefined || occupant.vitals.hp <= 0) continue;
+      if (occupant.team === actor.team) return null; // never drop an ally — hard veto
+      if (drop <= 1) continue; // enemy, but below the fall-damage gate
+      value += FALLING_DAMAGE_PER_LEVEL * drop * killValue(occupant);
+    }
+  }
+  return value;
+}
+
+// The first valid pure-raise cast (Pillar/Hill) the actor can commit, used to
+// trigger a revert harmlessly (raises deal no fall on cast). Pure raises only
+// — a Pit/Valley trigger would itself drop occupants and could harm allies.
+// null when none is affordable/legal.
+function firstValidRaiseCast(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  works: ReadonlyArray<ActiveAbilityDefinition>,
+): { action: ProposedAction; key: string } | null {
+  for (const ability of works) {
+    const spec = ability.effects.worldcraft;
+    if (spec === undefined || spec.kind !== 'elevation') continue;
+    if (spec.deltas.some((d) => d.delta < 0) || !spec.deltas.some((d) => d.delta > 0)) continue;
+    for (const tile of tilesInAbilityRange(state, actor, actor.position, ability, catalog)) {
+      const anchor: Position = { x: tile.x, y: tile.y, layer: tile.layer };
+      const action: ProposedAction = {
+        type: 'use_ability',
+        source: 'player',
+        actorId: actor.id,
+        payload: { abilityId: ability.id, target: { kind: 'tile', position: anchor } },
+      };
+      if (!canCommitAction(state, catalog, actor, action)) continue;
+      return { action, key: `${ability.id}|${positionKey(anchor)}` };
+    }
+  }
+  return null;
+}
+
 // =====================
 // Phase orchestrators
 // =====================
@@ -2174,6 +2273,8 @@ export const _basicAiInternals = {
   tilesInAbilityRange,
   residualDangerForPlan,
   planKoTargetId,
+  bestRevertTrapCandidate,
+  scoreRevertDrop,
 };
 
 // Type re-exports needed by the test internals.

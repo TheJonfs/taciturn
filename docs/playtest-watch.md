@@ -26,6 +26,32 @@ shouldn't drift out of memory between sessions.
 
 ## Active entries
 
+### S59 — Tier C revert-traps (ADR-0096)
+
+The AI now springs Worldcraft revert-traps: at cap, it casts a harmless raise
+to evict an older Pillar/Hill that an enemy is riding, dropping it. Never
+drops an ally (hard veto). Unit-tested; needs a human Terraformer playthrough.
+
+- **Revert-trap opportunism / frequency.**
+  - **What to watch.** Does the AI spring traps at sensible moments — an enemy
+    has wandered onto a raised tile the Terraformer built earlier, and it's at
+    cap? Or does it rarely trigger (the precondition — at cap + enemy on an old
+    raise *now* — is narrow), or trigger awkwardly (casting a stray raise just
+    to evict)?
+  - **Why it matters.** v1 is opportunistic-only (no speculative laying, no
+    prediction); the precondition may make it a rare flourish rather than a
+    real tactic.
+  - **Signal for adjustment.** If revert-traps essentially never fire in real
+    play, the lever is speculative laying / movement prediction (deferred
+    Layer 2) — a deliberate scope expansion, not a tuning tweak.
+
+- **Never-drop-ally veto holds.**
+  - **What to watch.** The hard veto must never let the AI drop its own unit —
+    including a Hill 3×3 footprint catching a mixed friend/enemy cluster.
+  - **Why it matters.** A revert that drops an ally is a serious own-goal; the
+    veto is a hard gate, but real boards are messier than tests.
+  - **Signal for adjustment.** Any observed self-drop → bug, not tuning.
+
 ### S59 — defensive above-melee-reach term (ADR-0095)
 
 The AI now reads a per-turn threat coverage map (ADR-0094) and prefers safe
