@@ -1,0 +1,67 @@
+# Guide Changelog
+
+A one-way handoff channel from **implementer sessions** (this lineage — game
+code, in this repo) to the **guide-writing sessions** (a parallel set of Claude
+Code sessions maintaining the player guide). Implementer sessions **append**;
+guide sessions **read**. The guide sessions don't need to diff the whole repo or
+wait for Chris to point at changes — they read this file top-down until they hit
+the last session they've already processed.
+
+## What goes here (the filter)
+
+**Only player-facing changes** — anything a player reading the guide would need
+to know:
+
+- Ability behavior, mechanics, rules (e.g. a targeting/trajectory change).
+- Numbers a player would care about (damage, range, cost, durations) when the
+  change is meaningful, not incidental.
+- New/removed/renamed content (abilities, classes, items, maps, statuses).
+- UX the player interacts with (targeting flows, HUD, tooltips) when behavior —
+  not just polish — changes.
+
+**Not** here (invisible to players, so out of scope):
+
+- Internal refactors, type changes, module moves.
+- **AI behavior / scoring changes** — the AI playing better or worse is not a
+  rules change. (Watch for the subtle case: a *content* change that also touches
+  AI — log only the content half.)
+- Test changes, tooling, build, docs.
+
+When in doubt: *would this change a sentence in the player guide?* If no, skip it.
+
+## Format
+
+- **Newest session on top.** Guide sessions read down until they reach their
+  last-processed session, then stop.
+- Each session is a `##` heading: `## Session NN (YYYY-MM-DD)`.
+- Lead with the **commit hashes** that carry the player-facing change — the
+  guide session's cursor and its way back to the diff/notes.
+- Bullet the changes in **player-facing terms** ("what changed for the player"),
+  grouped by ability/system. Point to the ADR for mechanical depth.
+- If a session has **no** player-facing changes, still add a one-line entry
+  saying so (`_No player-facing changes._`) — it tells the guide side the
+  session was processed and skippable, not missed.
+
+---
+
+## Session 60 (2026-06-10)
+
+Commits: `9f44013` (the cut). See ADR-0097.
+
+- **Seven spells now require line of sight.** **Lightning Bolt**, **Scorch**,
+  **Water Lash**, **Megavolt**, **Chain Lightning**, **Fireball**, and **Flame
+  Lance** changed from arcing to straight-line trajectories. They can now be
+  **blocked by terrain, units, and barriers** between caster and target — cover
+  matters for these attacks for the first time. Previously they lobbed over any
+  obstruction.
+  - For the three area attacks among these (**Chain Lightning**, **Fireball**,
+    **Flame Lance**), line of sight is required only to **reach the target
+    point**; the blast/area still spreads from there normally, even behind cover.
+- **What did NOT change:** **bows** (basic shots and Charged Attack) and the
+  lobbed/area attacks — **Rock Toss**, **Earthquake**, **Cataclysm**, **Tidal
+  Wave**, **Maelstrom**, **Discharge Strike** — still arc over obstructions and
+  ignore line of sight. An archer can still shoot over a low wall; a thrown/
+  detonating attack still lands behind cover.
+- **Player takeaway:** cover (including a Terraformer's Barrier) now breaks those
+  seven bolt/beam spells but not bows or lobbed attacks. Positioning behind
+  terrain is a real defense against the affected mages.

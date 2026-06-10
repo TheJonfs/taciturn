@@ -124,6 +124,7 @@ When ending a session:
 - If work is incomplete, leave a clear note (in commit message or `WIP.md`) about state and next steps.
 - Update `docs/roadmap.md` if items completed, scope shifted, or sequencing changed.
 - Update `docs/handoff.md` with notes for the next session (see below).
+- Append any **player-facing** changes to `docs/guide-changelog.md` (a one-way feed the parallel guide-writing sessions read). Player-facing only — mechanics, content, player-visible UX; *not* internal refactors, AI scoring, or tests. If none this session, add the one-line "no player-facing changes" entry. See the file's header for the filter and format.
 
 When starting a session:
 - Read this file.
