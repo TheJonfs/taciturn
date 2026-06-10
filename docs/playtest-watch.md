@@ -1158,3 +1158,22 @@ The class ships; these need real engagements to settle.
 - **What to watch.** Does a Hunter (or any bow user) on a map with real high ground (e.g. Stonebridge) take an advantageous perch in actual play — both the move-and-shoot case (already worked pre-S56, now pinned by tests) and the multi-turn approach case (the S56 term)? And does it *decline* a perch that pays nothing?
 - **Why it matters.** The unit tests assert the scoring math; only a real battle confirms the AI *feels* right. This is the acceptance criterion the brief flagged as browser-critical and that the automated harness can't drive (PixiJS federated events don't accept synthetic pointer events — see S55 handoff; deployment + turn + cast can't be canvas-driven through the preview).
 - **Signal for adjustment.** Hunter still hugs low ground on approach → revisit `APPROACH_DISTANCE_FRACTION`, or confirm the perch is actually reachable within its move budget. Hunter climbs sensibly and shoots downhill, and ignores pointless peaks → close this item.
+
+## Session 60 — arc→straight_line cut + offence-side LoS (ADR-0097)
+
+### Ranged combat under cover — the meta change (S60, ADR-0097)
+
+- **What to watch.** Seven single-target/AoE-anchor spells (Lightning Bolt, Scorch, Water Lash, Megavolt, Chain Lightning, Fireball, Flame Lance) now require **line-of-sight** — terrain, units, and barriers can break the shot. Bows and the area detonators (Earthquake, Cataclysm, Tidal Wave, Maelstrom, Rock Toss, Discharge Strike) still lob over (`arc`). Watch the *feel*: does cover read as meaningful counterplay, or does it just make mages feel unreliable/fiddly? Does the split (these gate, those lob) make intuitive sense at the table, or do players expect e.g. Fireball to arc?
+- **Why it matters.** First time LoS matters to ranged damage in v1 — a roster-wide change to how mage positioning plays. It's the substrate the S61 Barrier-denial AI builds on, so its feel gates that work too.
+- **Signal for adjustment.** Cover feels punishing/finicky → narrow the cut (pull an AoE member back to `arc`) or revisit. Reads as smart positional play → keep, and widen later if wanted.
+
+### AoE-anchor LoS — burst still spreads through cover (S60)
+
+- **What to watch.** For Chain Lightning / Fireball / Flame Lance, LoS gates only **reaching the anchor**; the burst then spreads from the anchor unobstructed. Watch whether "I can't lob it over the wall, but if I can see the anchor tile it still bursts behind cover" reads as consistent or surprising.
+- **Signal for adjustment.** Players confused that the AoE ignores cover once anchored → consider per-tile LoS for AoE spread (a larger change), or pull these back to `arc`. Reads fine → keep.
+
+### AI respects cover on offence (S60, B2 fix)
+
+- **What to watch.** The AI no longer values a `straight_line` shot through a wall, and — the regression that prompted the fix — no longer **collapses its whole offence plan** when its top-scored target is blocked: it now fires at the best *reachable* target or repositions to open a lane. Watch in real battles: does a mage behind/around cover pick sensible targets and firing tiles, or does it dither/waste turns near barriers? Per-turn AI think-time should be unchanged (the LoS gate is cheap; no new projection).
+- **Why it matters.** Unit-tested (`session-60-offence-los.test.ts`), but the harness can't drive AI battles (PixiJS) — only a human playthrough confirms the AI *feels* right under cover.
+- **Signal for adjustment.** AI fires into walls (shouldn't — gate is in place) or freezes near barriers → investigate. Picks reachable targets and kites for lanes sensibly → close.
