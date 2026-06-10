@@ -13,7 +13,8 @@
 //     Strike tier across Earth/Water/Fire bread-and-butter casts)
 //   - PA Down + MA Down on a single 60% Faith × MA roll, magnitude 1,
 //     permanent for the battle (no expiration)
-//   - range horizontal 4 / vertical 2, arc
+//   - range horizontal 4 / vertical 99, straight_line (S60 arc→LoS cut,
+//     ADR-0097): single-target bolt now requires line-of-sight
 //
 // Linked-roll mechanics: the resolver shares the previous effect's
 // `effectIndex` so `rollStatusChance` produces the same `roll` value;
@@ -41,7 +42,7 @@ export const fireStrike: ActiveAbilityDefinition = {
   targeting: {
     kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 99 },
-    rangeMode: 'arc',
+    rangeMode: 'straight_line',
   },
   actionSpeed: 30,
   mpCost: 10,

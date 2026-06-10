@@ -10,7 +10,10 @@
 // Per session 20 plaintext review:
 //   - power_coefficient 12, mpCost 10, actionSpeed 30 (matches the
 //     Strike tier across Earth/Water/Fire bread-and-butter casts)
-//   - range horizontal 4 / vertical 2, arc — parity with Fire Strike
+//   - range horizontal 4 / vertical 99, straight_line — parity with Fire
+//     Strike. S60 arc→straight_line cut (ADR-0097): this single-target
+//     bolt now requires line-of-sight, so terrain/units/barriers can break
+//     the shot. Lobbed/area attacks stayed arc.
 //
 // Crit interaction: Lightning Strike is the natural payload for the
 // kit's Static Embrace + Magnetic Mark setup — a crit through Vulnerable
@@ -35,7 +38,7 @@ export const lightningStrike: ActiveAbilityDefinition = {
   targeting: {
     kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 99 },
-    rangeMode: 'arc',
+    rangeMode: 'straight_line',
   },
   actionSpeed: 30,
   mpCost: 10,

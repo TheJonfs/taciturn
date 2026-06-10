@@ -14,7 +14,9 @@
 //     chainBonus.powerPerAdditionalTarget
 //   - mpCost 14, actionSpeed 25 (mid-tier AoE — parity with
 //     Fire Storm and Earth Quake)
-//   - range horizontal 4 / vertical 2, arc (target tile)
+//   - range horizontal 4 / vertical 99, straight_line (S60 arc→LoS cut,
+//     ADR-0097): the cast-to-anchor sightline now requires line-of-sight;
+//     the diamond-r1 AoE still spreads from the anchor unobstructed
 //   - shape diamond r1 — symmetric, no cardinal bias
 //   - excludeCaster: false (S55: caster can be caught in their own offensive blast)
 //
@@ -39,7 +41,7 @@ export const chainLightning: ActiveAbilityDefinition = {
   targeting: {
     kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 99 },
-    rangeMode: 'arc',
+    rangeMode: 'straight_line',
   },
   actionSpeed: 25,
   mpCost: 14,

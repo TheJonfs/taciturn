@@ -10,6 +10,9 @@
 // Per session 19 plaintext review:
 //   - power_coefficient 6, mpCost 28, actionSpeed 18 (slowest tier;
 //     parity with Maelstrom and Earth Cataclysm Ultimates)
+//   - S60 arc→LoS cut (ADR-0097): rangeMode straight_line — the caster
+//     must have line-of-sight to the direction-picking target tile; the
+//     line's own kinematic-stop (verticalTolerance) is unchanged
 //   - shape line length 4 (4 tiles forward from caster), anchorMode
 //     'caster' (caster's tile is the projection origin; targeted tile
 //     picks the cardinal direction via cardinalFromTo)
@@ -41,7 +44,7 @@ export const flameLance: ActiveAbilityDefinition = {
   targeting: {
     kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 99 },
-    rangeMode: 'arc',
+    rangeMode: 'straight_line',
   },
   actionSpeed: 18,
   mpCost: 28,

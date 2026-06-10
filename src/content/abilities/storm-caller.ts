@@ -13,7 +13,8 @@
 //   - selfDamage.fraction 0.25 → 25% of caster's maxHpBase, emitted as
 //     `system_damage` with source `{ kind: 'ability_self_cost',
 //     abilityId, casterId }`
-//   - range horizontal 4 / vertical 2, arc — parity with Lightning Strike
+//   - range horizontal 4 / vertical 99, straight_line — parity with
+//     Lightning Strike. S60 arc→LoS cut (ADR-0097): requires line-of-sight
 //
 // Self-cost design (per ADR-0032):
 //   - Untyped (`tags: []`) — bypasses resistance and reactions; it's a
@@ -49,7 +50,7 @@ export const stormCaller: ActiveAbilityDefinition = {
   targeting: {
     kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 99 },
-    rangeMode: 'arc',
+    rangeMode: 'straight_line',
   },
   actionSpeed: 18,
   mpCost: 28,

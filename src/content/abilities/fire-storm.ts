@@ -10,7 +10,9 @@
 // Per session 19 plaintext review (shape revised session 26):
 //   - power_coefficient 4, mpCost 16, actionSpeed 25 (lower power than
 //     non-AoE casts since shape is wider; mid-tier charge)
-//   - range horizontal 4 / vertical 2, arc (target tile)
+//   - range horizontal 4 / vertical 99, straight_line (S60 arc→LoS cut,
+//     ADR-0097): the cast-to-anchor sightline now requires line-of-sight;
+//     the diamond AoE still spreads from the anchor unobstructed
 //   - shape diamond r1 (base, 5 tiles); Aether Bloom enlarges to diamond
 //     r2 (13 tiles, was 9 under the pre-session-26 cross-r1 base)
 //   - excludeCaster: false (S55: caster can be caught in their own offensive blast
@@ -37,7 +39,7 @@ export const fireStorm: ActiveAbilityDefinition = {
   targeting: {
     kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 99 },
-    rangeMode: 'arc',
+    rangeMode: 'straight_line',
   },
   actionSpeed: 25,
   mpCost: 16,

@@ -9,7 +9,8 @@
 // Per session 18 plaintext review:
 //   - power_coefficient 5, mpCost 10, actionSpeed 30 (parity with Earth
 //     Strike's tier — bread-and-butter cast charges quickly)
-//   - range horizontal 4 / vertical 2, arc
+//   - range horizontal 4 / vertical 99, straight_line (S60 arc→LoS cut,
+//     ADR-0097): single-target bolt now requires line-of-sight
 //   - ctPush factor 2.0 (target CT -= 2 × MA on hit)
 //
 // Tactical comparison vs. Earth Strike: lower power (5 vs 6) because
@@ -35,7 +36,7 @@ export const waterStrike: ActiveAbilityDefinition = {
   targeting: {
     kind: 'unit_or_tile',
     range: { horizontal: 4, vertical: 99 },
-    rangeMode: 'arc',
+    rangeMode: 'straight_line',
   },
   actionSpeed: 30,
   mpCost: 10,
