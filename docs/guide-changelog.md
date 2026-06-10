@@ -44,6 +44,11 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 61 (2026-06-10)
+
+_No player-facing changes._ (Barrier denial — an AI behavior so a Terraformer
+walls off threats to its allies — is invisible to game rules. ADR-0098.)
+
 ## Session 60 (2026-06-10)
 
 Commits: `9f44013` (the cut). See ADR-0097.

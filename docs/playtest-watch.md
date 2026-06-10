@@ -1177,3 +1177,17 @@ The class ships; these need real engagements to settle.
 - **What to watch.** The AI no longer values a `straight_line` shot through a wall, and — the regression that prompted the fix — no longer **collapses its whole offence plan** when its top-scored target is blocked: it now fires at the best *reachable* target or repositions to open a lane. Watch in real battles: does a mage behind/around cover pick sensible targets and firing tiles, or does it dither/waste turns near barriers? Per-turn AI think-time should be unchanged (the LoS gate is cheap; no new projection).
 - **Why it matters.** Unit-tested (`session-60-offence-los.test.ts`), but the harness can't drive AI battles (PixiJS) — only a human playthrough confirms the AI *feels* right under cover.
 - **Signal for adjustment.** AI fires into walls (shouldn't — gate is in place) or freezes near barriers → investigate. Picks reachable targets and kites for lanes sensibly → close.
+
+## Session 61 — Barrier denial (ADR-0098)
+
+### AI Terraformer walls to protect a threatened ally (S61, ADR-0098)
+
+- **What to watch.** A Terraformer now casts Barrier to screen its most-threatened ally when the net protection is positive — scored as the reduction in incoming damage to the ally *minus* the barrier's cost to the AI team's own offense (a wall blocks both teams). Watch in real battles: does it wall sensibly (a wall that actually shields a squishy from a `straight_line` mage / an approaching melee), and does it *avoid self-walling* — never trapping its own units or blocking its own kill shots? Does it correctly *not* wall against bow/arc attackers (which lob over)?
+- **Why it matters.** First reactive use of Barrier by the AI, and the fourth/last coverage-map consumer. The net-benefit scoring (vs. ally-protection-only) is the guard against the AI fortifying itself into uselessness — only a real battle confirms the balance of gain vs. self-obstruction feels right.
+- **Signal for adjustment.** AI walls itself in / blocks its own offense → the cost term is under-weighted (revisit the net formula or killValue weighting). AI never walls even when an ally is plainly exposed → the gain is under-valued, or the cardinal-screen enumeration is missing the right wall (consider offset-2 / diagonal screens). Walls sensibly and declines bad walls → close.
+
+### Barrier denial — candidate bounding & think-time (S61, perf)
+
+- **What to watch.** Barrier denial is bounded (protect top-1 ally; ≤12 cardinal-screen candidates; lazy gain-then-cost on the top-3). Measured ~2 ms/decide on a 4v4 in tests — but the per-candidate `threatsToTile` recomputes are the cost centre, and a *full Terraformer battle map* (larger, more units) is the real test. Watch per-turn AI think-time when a Terraformer with Barrier MP is acting.
+- **Why it matters.** Perf was the headline risk for this consumer; the bound holds in tests but the harness can't drive a real battle.
+- **Signal for adjustment.** Noticeable think-time spike on a Terraformer's turn → add the team-keyed Dijkstra cache (the known redundancy: the cost loop rebuilds the AI-team Dijkstra per enemy for a fixed hypothetical), or tighten the shortlist/candidate count. Snappy → keep.
