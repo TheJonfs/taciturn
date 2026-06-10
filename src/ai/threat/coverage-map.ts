@@ -21,10 +21,15 @@
 //
 // Damage is projected via the shared `projectExpectedDamage` resolver
 // against a specific potential occupant (the moving unit itself for the
-// defensive term, or a protected ally for Barrier denial) with the
-// attacker hypothetically standing on its firing tile and the occupant on
-// the queried tile — so elevation (downhill bonus, height-range) folds in,
-// and the value is in the same currency as the offensive scorer.
+// defensive term, or a protected ally for Barrier denial), in the same
+// currency as the offensive scorer. It is computed **once per (enemy,
+// attack)** from the units' current positions and reused for every tile that
+// attack can reach — a fixed danger estimate, not re-projected per tile. The
+// per-tile work is the exact reach geometry (which preserves the elevation
+// gate); folding per-tile elevation into the damage magnitude was dropped as
+// a deliberate perf trade (projection is the costly stage and the headline
+// S59 risk), and it keeps the damage consistent with Layer 1's "enemy
+// evaluated where it stands."
 //
 // **melee vs. ranged.** Tagged by *effective horizontal reach*, not by
 // `rangeMode`: a true melee swing reaches 1 (adjacency), vertical 3, so
@@ -98,21 +103,45 @@ const EMPTY: ReadonlyArray<ThreatEntry> = [];
 interface EnemyThreatData {
   readonly enemy: Unit;
   readonly sources: ReadonlyArray<Position>;
-  readonly attacks: ReadonlyArray<ActiveAbilityDefinition>;
+  readonly attacks: ReadonlyArray<EnemyAttack>;
 }
 
-// Build the full per-turn coverage map of threats to `occupant` (every
-// tile → the enemies that can reach-and-hit it). For the defensive term,
-// which queries many candidate move destinations.
+// One of an enemy's damage attacks, with its melee/ranged tag, effective
+// range, and expected damage to the occupant precomputed once per build.
+// The expected damage is projected from the enemy's and occupant's *current*
+// positions — a fixed per-attack danger estimate reused for every tile this
+// attack can reach, rather than re-projecting per (source, tile). That keeps
+// the build cheap (projection is O(enemies × attacks), not × tiles ×
+// sources) and is consistent with Layer 1 (the enemy is evaluated where it
+// stands); tile reachability is still computed exactly per-tile from the
+// real board geometry. See ADR-0094.
+interface EnemyAttack {
+  readonly ability: ActiveAbilityDefinition;
+  readonly kind: ThreatKind;
+  readonly effective: ReturnType<typeof computeAbilityRange>;
+  readonly expectedDamage: number;
+}
+
+// Build the per-turn coverage map of threats to `occupant` (tile → the
+// enemies that can reach-and-hit it). For the defensive term, which queries
+// many candidate move destinations.
+//
+// `tiles` optionally bounds which tiles are computed — the defensive term
+// passes only the actor's reachable move destinations (plus its current
+// tile), so the expensive per-tile projection sweep runs over ~move-range
+// tiles rather than the whole board (perf: the headline S59 risk). Omitted
+// → the full board (a tile not in the computed set queries as no-threat).
 export function buildCoverageMap(
   state: GameState,
   catalog: Catalog,
   occupant: Unit,
+  tiles?: ReadonlyArray<Position>,
 ): CoverageMap {
   const enemyData = enemyThreatData(state, catalog, occupant);
+  const targets: ReadonlyArray<Position> =
+    tiles ?? state.map.tiles.map((t) => ({ x: t.x, y: t.y, layer: t.layer }));
   const byTile = new Map<string, ThreatEntry[]>();
-  for (const tile of state.map.tiles) {
-    const pos: Position = { x: tile.x, y: tile.y, layer: tile.layer };
+  for (const pos of targets) {
     const entries = threatsToTileFrom(state, catalog, occupant, pos, enemyData);
     if (entries.length > 0) byTile.set(positionKey(pos), entries);
   }
@@ -152,7 +181,21 @@ function enemyThreatData(state: GameState, catalog: Catalog, occupant: Unit): En
     for (const path of getLegalMoves(state, enemy.id, catalog).reachable.values()) {
       sources.push(path.destination);
     }
-    out.push({ enemy, sources, attacks: enemyAttacks(state, catalog, enemy) });
+    const attacks: EnemyAttack[] = [];
+    for (const ability of enemyAttacks(state, catalog, enemy)) {
+      // Effective horizontal reach is source-independent (the bow
+      // height-range bonus is applied per-source inside canReachAndHit),
+      // so it doubles as the melee/ranged tag: reach 1 = elevation-defeatable
+      // melee. Expected damage is projected once here (current positions).
+      const effective = computeAbilityRange(state, catalog, enemy.id, ability);
+      attacks.push({
+        ability,
+        kind: effective.horizontal <= 1 ? 'melee' : 'ranged',
+        effective,
+        expectedDamage: projectExpectedDamage({ state, catalog, attacker: enemy, target: occupant, ability }),
+      });
+    }
+    out.push({ enemy, sources, attacks });
   }
   return out;
 }
@@ -160,31 +203,24 @@ function enemyThreatData(state: GameState, catalog: Catalog, occupant: Unit): En
 function threatsToTileFrom(
   state: GameState,
   catalog: Catalog,
-  occupant: Unit,
+  _occupant: Unit,
   tile: Position,
   enemyData: ReadonlyArray<EnemyThreatData>,
 ): ThreatEntry[] {
   const out: ThreatEntry[] = [];
   for (const { enemy, sources, attacks } of enemyData) {
-    for (const ability of attacks) {
-      // Effective horizontal reach is source-independent (the bow
-      // height-range bonus is applied per-source inside canReachAndHit),
-      // so compute it once per (enemy, ability) and use it for the
-      // melee/ranged tag: reach 1 = elevation-defeatable melee.
-      const effective = computeAbilityRange(state, catalog, enemy.id, ability);
-      const kind: ThreatKind = effective.horizontal <= 1 ? 'melee' : 'ranged';
-      let bestDmg = -1;
-      for (const source of sources) {
-        if (!canReachAndHit(state, catalog, enemy, source, tile, ability, effective)) continue;
-        const dmg = projectDamageAt(state, catalog, enemy, source, occupant, tile, ability);
-        if (dmg > bestDmg) bestDmg = dmg;
-      }
-      if (bestDmg < 0) continue; // ability reaches the tile from no firing position
+    for (const attack of attacks) {
+      // Geometry only: can the enemy reach a firing tile from which `attack`
+      // hits this tile? Damage was precomputed in enemyThreatData.
+      const reaches = sources.some((source) =>
+        canReachAndHit(state, catalog, enemy, source, tile, attack.ability, attack.effective),
+      );
+      if (!reaches) continue;
       out.push({
         enemyId: enemy.id,
-        abilityId: ability.id,
-        kind,
-        expectedDamage: Math.max(0, bestDmg),
+        abilityId: attack.ability.id,
+        kind: attack.kind,
+        expectedDamage: Math.max(0, attack.expectedDamage),
       });
     }
   }
@@ -277,30 +313,4 @@ function canReachAndHit(
     return arcTargetable(state.map, source, targetPos);
   }
   return true; // melee — range gate only
-}
-
-// Expected damage of `ability` cast by `attacker` (hypothetically on
-// `source`) at `occupant` (hypothetically on `targetPos`). Repositioning
-// both endpoints makes elevation-driven effects (downhill damage,
-// height-range, evasion's elevation modifier) reflect the hypothetical
-// engagement rather than the units' current tiles. EV folds in hit chance
-// (no `noEvasion`).
-function projectDamageAt(
-  state: GameState,
-  catalog: Catalog,
-  attacker: Unit,
-  source: Position,
-  occupant: Unit,
-  targetPos: Position,
-  ability: ActiveAbilityDefinition,
-): number {
-  const attackerAt = samePosition(attacker.position, source) ? attacker : { ...attacker, position: source };
-  const occupantAt = samePosition(occupant.position, targetPos)
-    ? occupant
-    : { ...occupant, position: targetPos };
-  return projectExpectedDamage({ state, catalog, attacker: attackerAt, target: occupantAt, ability });
-}
-
-function samePosition(a: Position, b: Position): boolean {
-  return a.x === b.x && a.y === b.y && a.layer === b.layer;
 }

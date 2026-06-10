@@ -665,9 +665,13 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
       actionBuckets: { [bucketId('first_action')]: [commandSetId('lightning_spells')] },
       passiveBuckets: {},
     } });
-    const e1 = makeUnit({ id: 'e1', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 3, y: 2, layer: 0 } });
-    const e2 = makeUnit({ id: 'e2', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 3, y: 3, layer: 0 } });
-    const e3 = makeUnit({ id: 'e3', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 4, y: 3, layer: 0 } });
+    // pa 0: these enemies are AoE *targets*, not threats — zeroing their
+    // melee output keeps the S59 defensive term (ADR-0095) inert (incoming
+    // danger 0) so this test isolates the anchor-selection logic from the
+    // positioning the defensive term would otherwise introduce.
+    const e1 = makeUnit({ id: 'e1', team: 'team_b', spd: 10, pa: 0, hp: 60, classId: 'knight', position: { x: 3, y: 2, layer: 0 } });
+    const e2 = makeUnit({ id: 'e2', team: 'team_b', spd: 10, pa: 0, hp: 60, classId: 'knight', position: { x: 3, y: 3, layer: 0 } });
+    const e3 = makeUnit({ id: 'e3', team: 'team_b', spd: 10, pa: 0, hp: 60, classId: 'knight', position: { x: 4, y: 3, layer: 0 } });
     const state = makeGameState({
       units: [attacker, e1, e2, e3],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },
@@ -978,9 +982,11 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
       actionBuckets: { [bucketId('first_action')]: [commandSetId('water_spells')] },
       passiveBuckets: {},
     } });
-    const e1 = makeUnit({ id: 'e1', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 1, y: 3, layer: 0 } });
-    const e2 = makeUnit({ id: 'e2', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 2, y: 3, layer: 0 } });
-    const e3 = makeUnit({ id: 'e3', team: 'team_b', spd: 10, hp: 60, classId: 'knight', position: { x: 3, y: 3, layer: 0 } });
+    // pa 0: AoE targets, not threats — keeps the S59 defensive term
+    // (ADR-0095) inert so this test isolates cone-direction selection.
+    const e1 = makeUnit({ id: 'e1', team: 'team_b', spd: 10, pa: 0, hp: 60, classId: 'knight', position: { x: 1, y: 3, layer: 0 } });
+    const e2 = makeUnit({ id: 'e2', team: 'team_b', spd: 10, pa: 0, hp: 60, classId: 'knight', position: { x: 2, y: 3, layer: 0 } });
+    const e3 = makeUnit({ id: 'e3', team: 'team_b', spd: 10, pa: 0, hp: 60, classId: 'knight', position: { x: 3, y: 3, layer: 0 } });
     const state = makeGameState({
       units: [attacker, e1, e2, e3],
       map: { width: 6, height: 6, tiles: flatGround(6, 6) },

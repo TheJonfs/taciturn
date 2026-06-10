@@ -26,6 +26,49 @@ shouldn't drift out of memory between sessions.
 
 ## Active entries
 
+### S59 — defensive above-melee-reach term (ADR-0095)
+
+The AI now reads a per-turn threat coverage map (ADR-0094) and prefers safe
+attacking tiles. Unit-tested + integration-clean, but the *feel* needs a
+human Terraformer/mixed-roster playthrough.
+
+- **Safety as a tie-break vs. tempo.**
+  - **What to watch.** The defensive term is a **tie-break** (offence decides
+    whether/what to attack; residual danger only chooses between equal-offence
+    tiles). Does the AI take safe high ground / kite out of melee to cast at
+    sensible moments — or does it look like it's ignoring obvious danger
+    because the tie-break is too weak to bite?
+  - **Why it matters.** A score-reducing form caused the AI to stop engaging
+    (symmetric stalemates), so v1 deliberately ships the conservative
+    tie-break. The risk now is the opposite — safety being effectively
+    invisible because exact-offence ties are rare.
+  - **Signal for adjustment.** AI mages repeatedly eating avoidable melee when
+    an equally-good safe cast tile existed → promote the term from a tie-break
+    to a weighted score reduction (the deferred dial in ADR-0095). Conversely,
+    any sign of dithering/kiting-without-progress → keep it a tie-break / add
+    inertia.
+
+- **Neutralised-threat discount scope.**
+  - **What to watch.** A plan's danger excludes only a *single unit-targeted*
+    enemy it would KO. An AoE that wipes a cluster, or a hard-disable (Stop)
+    that neutralises a threat, still counts that threat's danger — so the AI
+    might over-avoid a tile that an AoE would actually make safe.
+  - **Why it matters.** v1 scoped the discount narrowly; AoE/disable
+    neutralisation is deferred.
+  - **Signal for adjustment.** AI declining a good AoE position for "safety"
+    from enemies the AoE would kill → extend the discount to AoE footprints /
+    disables.
+
+- **Coverage-map turn latency (perf — headline risk).**
+  - **What to watch.** The map is built per AI decision (bounded to reachable
+    tiles; each enemy attack projected once). Watch AI think-time on a full
+    6-unit battle, especially stacked with Worldcraft enumeration.
+  - **Why it matters.** Projection is the costly stage; the integration test
+    already brushed vitest's 5 s timeout before the once-per-attack precompute.
+  - **Signal for adjustment.** Noticeable AI think-time. Levers: memoise the
+    map across the Move→Act re-call (WeakMap by state), or prune enemies/tiles
+    further before projecting.
+
 ### S57 — unified AI scoring currency (ADR-0092)
 
 The AI's pre-empt cascade (Alchemist / Math / heal phases firing before the

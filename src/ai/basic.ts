@@ -96,10 +96,12 @@ import {
   type ReactionTriggerCondition,
   type StatusInstance,
   type StatusTypeId,
+  type UnitId,
   statusTypeId,
 } from '@engine/index.ts';
 import { projectExpectedDamage } from './projection.ts';
 import { pickBestMathSkill } from './math-skill-scoring.ts';
+import { buildCoverageMap, type CoverageMap } from './threat/coverage-map.ts';
 
 // AI's answer for a single decision step. Mirrors the orchestrator's
 // `ControllerDecision` minus the `pending` case — the AI always has an
@@ -239,6 +241,74 @@ const MAGE_CLASS_IDS: ReadonlyArray<ReturnType<typeof classId>> = [
   classId('lightning_mage'),
 ];
 
+// S59 defensive above-melee-reach term (ADR-0095). The threat coverage map
+// (ADR-0094) gives the expected incoming damage a tile exposes the actor to.
+// Because the map's reach honours melee vertical range (3), a destination
+// above a melee threat's reach carries no melee entry — so the "safe high
+// ground" preference falls out of the geometry, and ranged threat (never
+// elevation-escapable) still counts.
+//
+// **Applied as a tie-break, not a score penalty.** Offence decides *whether*
+// and *what* to attack (and how the attack competes against heals / items /
+// Worldcraft in the unified pool); residual danger only chooses *which
+// equal-offence tile* to attack from. A score-subtraction form was tried
+// first and made the AI cower — in the symmetric demo both sides declined to
+// engage and battles never decided (the brief's passivity watch-for, made
+// concrete). The tie-break can never push an attack below the commit
+// threshold, so engagement is preserved while the AI still prefers safe
+// ground (e.g. a mage backing out of melee to cast). A stronger weighted
+// form is the future lever if playtest shows safety being ignored; see
+// docs/playtest-watch.md.
+
+// Residual expected incoming damage if the actor commits `action` from
+// `source`: the coverage-map danger at that tile, **excluding any enemy the
+// action would KO** (a neutralised threat poses no danger — the AI won't
+// "dodge" an enemy it is about to kill). 0 when there's no coverage map or
+// the tile is unthreatened. Lower is safer; used only to break ties between
+// equal-offence plans.
+function residualDangerForPlan(
+  state: GameState,
+  catalog: Catalog,
+  coverage: CoverageMap | null,
+  actor: Unit,
+  source: Position,
+  action: ProposedAction,
+): number {
+  if (coverage === null) return 0;
+  const entries = coverage.query(source);
+  if (entries.length === 0) return 0;
+  const koTarget = planKoTargetId(state, catalog, actor, source, action);
+  let danger = 0;
+  for (const e of entries) {
+    if (koTarget !== null && e.enemyId === koTarget) continue;
+    danger += e.expectedDamage;
+  }
+  return danger;
+}
+
+// The single enemy this plan's action would KO (expected damage ≥ its HP),
+// or null. v1 scope: a single unit-targeted attack only — AoE / tile plans
+// take no discount (the multi-target neutralisation case is deferred). Uses
+// expected damage so only a confident kill earns the discount.
+function planKoTargetId(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  source: Position,
+  action: ProposedAction,
+): UnitId | null {
+  if (action.type !== 'use_ability') return null;
+  const target = action.payload.target;
+  if (target.kind !== 'unit') return null;
+  const enemy = state.units.get(target.unitId);
+  if (enemy === undefined || enemy.vitals.hp <= 0 || enemy.team === actor.team) return null;
+  const ability = catalog.getAbility(action.payload.abilityId);
+  if (ability.kind !== 'active') return null;
+  const attackerAt = samePosition(actor.position, source) ? actor : { ...actor, position: source };
+  const projected = projectExpectedDamage({ state, catalog, attacker: attackerAt, target: enemy, ability });
+  return projected >= enemy.vitals.hp ? enemy.id : null;
+}
+
 export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecision {
   if (state.turnState === null) return END_TURN;
   const actor = state.units.get(state.turnState.unitId);
@@ -255,6 +325,20 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
   const offensive = enumerateOffensiveAbilities(state, actor, catalog);
   const healing = enumerateHealingAbilities(state, actor, catalog);
   const allyBuffs = enumerateAllyBuffAbilities(state, actor, catalog);
+
+  // S59 incoming-threat model (ADR-0094): danger to the actor at each tile
+  // it could move to this turn, used by the defensive term in the
+  // move-aware scorers below. Bounded to the actor's reachable destinations
+  // (+ its current tile) so the per-tile projection sweep stays cheap —
+  // one extra actor-Dijkstra here vs. projecting the whole board.
+  let coverage: CoverageMap | null = null;
+  if (enemies.length > 0) {
+    const reachable: Position[] = [actor.position];
+    for (const path of getLegalMoves(state, actor.id, catalog).reachable.values()) {
+      reachable.push(path.destination);
+    }
+    coverage = buildCoverageMap(state, catalog, actor, reachable);
+  }
 
   // === Unified candidate pool (ADR-0092, S57) =========================
   // Every action class is scored in one commensurable currency
@@ -302,7 +386,7 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
     // Move leg of a Move+Act plan (the next call commits the Act from the
     // new position, per session-20b two-action planning).
     if (offensive.length > 0 || allyBuffs.length > 0) {
-      const joint = pickJointActOrMove(state, catalog, actor, enemies, allies, offensive, allyBuffs);
+      const joint = pickJointActOrMove(state, catalog, actor, enemies, allies, offensive, allyBuffs, coverage);
       if (joint !== null) candidates.push(joint);
     }
   }
@@ -320,7 +404,7 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
   // Distance-closing move: advance toward the priority enemy so the next
   // turn has a real plan.
   if (state.turnState.budget.movesAvailable > 0 && enemies.length > 0) {
-    const move = pickBestMove(state, catalog, actor, enemies, allies, offensive);
+    const move = pickBestMove(state, catalog, actor, enemies, allies, offensive, coverage);
     if (move !== null) return { kind: 'commit', action: move };
   }
 
@@ -1715,6 +1799,7 @@ function pickJointActOrMove(
   allies: ReadonlyArray<Unit>,
   offensive: ReadonlyArray<ActiveAbilityDefinition>,
   buffs: ReadonlyArray<ActiveAbilityDefinition>,
+  coverage: CoverageMap | null,
 ): ScoredAction | null {
   const turn = state.turnState;
   if (turn === null) return null;
@@ -1724,11 +1809,31 @@ function pickJointActOrMove(
 
   // Enumerate sources: actor.position is always a candidate (the
   // "act in place" plan); other destinations only if Move budget allows.
-  type Plan = { score: number; action: ProposedAction; key: string; destination: Position };
+  // Each plan carries its raw offensive value, its move cost, and the S59
+  // residual danger at its firing tile. Plans are ranked offence-first; the
+  // defensive term is a tie-break (below offence, above move cost) so the
+  // planner prefers acting from safe ground (e.g. above melee reach) only
+  // when the offence is genuinely equal — it never trades offence for
+  // safety, which is what keeps the AI engaging (see `residualDangerForPlan`).
+  type Plan = {
+    rawOffense: number;
+    danger: number;
+    moveCost: number;
+    action: ProposedAction;
+    key: string;
+    destination: Position;
+  };
   const plans: Plan[] = [];
   const here = bestActFromSource(state, catalog, actor, actor.position, enemies, allies, offensive, buffs);
   if (here !== null) {
-    plans.push({ ...here, destination: actor.position });
+    plans.push({
+      rawOffense: here.score,
+      danger: residualDangerForPlan(state, catalog, coverage, actor, actor.position, here.action),
+      moveCost: 0,
+      action: here.action,
+      key: here.key,
+      destination: actor.position,
+    });
   }
 
   if (canMove) {
@@ -1738,13 +1843,13 @@ function pickJointActOrMove(
       if (samePosition(dest, actor.position)) continue;
       const fromHere = bestActFromSource(state, catalog, actor, dest, enemies, allies, offensive, buffs);
       if (fromHere === null) continue;
-      // Move-cost dampening: tiny shave per step encourages "stay put
-      // when a same-score Act exists here." Without it, the AI might
-      // detour for cosmetic reasons. Tuned to 0.001 — enough to break
-      // ties, far too small to swing decisions.
-      const moveCost = MOVE_TIE_BREAK_PENALTY * (path.cost ?? 0);
       plans.push({
-        score: fromHere.score - moveCost,
+        rawOffense: fromHere.score,
+        danger: residualDangerForPlan(state, catalog, coverage, actor, dest, fromHere.action),
+        // Move-cost dampening: tiny shave per step encourages "stay put
+        // when a same-score Act exists here." Ranked below the safety
+        // tie-break so escaping melee outranks a cosmetic short move.
+        moveCost: MOVE_TIE_BREAK_PENALTY * (path.cost ?? 0),
         action: fromHere.action,
         key: `${moveKey}|${fromHere.key}`,
         destination: dest,
@@ -1754,17 +1859,22 @@ function pickJointActOrMove(
 
   if (plans.length === 0) return null;
 
-  // Pick highest score; lex-id tiebreak on the composite key.
+  // Rank: higher offence wins; ties broken toward lower danger (safer
+  // ground), then lower move cost, then lex-id.
   let best: Plan = plans[0]!;
   for (let i = 1; i < plans.length; i++) {
-    const candidate = plans[i]!;
-    if (compareScored(candidate, best) > 0) best = candidate;
+    if (compareJointPlans(plans[i]!, best) > 0) best = plans[i]!;
   }
+
+  // The pool score is the undiscounted offence (minus the tiny move-cost
+  // tiebreak) — the defensive term shaped *which tile*, but the attack
+  // competes against heals / items / Worldcraft on its true offensive value.
+  const poolScore = best.rawOffense - best.moveCost;
 
   // Act in place: validate and return the Act as a scored candidate.
   if (samePosition(best.destination, actor.position)) {
     if (!canCommitAction(state, catalog, actor, best.action)) return null;
-    return { score: best.score, action: best.action, key: best.key };
+    return { score: poolScore, action: best.action, key: best.key };
   }
 
   // Otherwise: commit the Move now; next AI call commits the Act from
@@ -1781,7 +1891,21 @@ function pickJointActOrMove(
     payload: { destination: best.destination },
   };
   if (!canCommitAction(state, catalog, actor, moveAction)) return null;
-  return { score: best.score, action: moveAction, key: best.key };
+  return { score: poolScore, action: moveAction, key: best.key };
+}
+
+// Joint-plan ranking: offence first (higher wins), then the S59 safety
+// tie-break (lower residual danger), then move cost (shorter wins), then
+// lex-id. Offence dominates so the planner never trades damage for safety —
+// danger only chooses between equal-offence tiles. Returns >0 when `a` beats `b`.
+function compareJointPlans(
+  a: { rawOffense: number; danger: number; moveCost: number; key: string },
+  b: { rawOffense: number; danger: number; moveCost: number; key: string },
+): number {
+  if (a.rawOffense !== b.rawOffense) return a.rawOffense - b.rawOffense;
+  if (a.danger !== b.danger) return b.danger - a.danger; // lower danger wins
+  if (a.moveCost !== b.moveCost) return b.moveCost - a.moveCost; // lower cost wins
+  return a.key < b.key ? 1 : a.key > b.key ? -1 : 0;
 }
 
 // Per-step move-cost tiebreak. See `pickJointActOrMove`. Tuned to be
@@ -1815,6 +1939,12 @@ interface MoveScore {
   // non-height-seekers (the term is inert and pure distance-closing
   // applies). See `pickBestMove`.
   readonly positionalValue: number;
+  // S59 expected incoming damage at this destination (from the coverage
+  // map). Applied only as a tiebreak *below* distance/positional rank — the
+  // fallback move's job is to advance, and it is reached only when no attack
+  // is possible this turn (so danger is usually ~0 anyway); safety must not
+  // override closing the distance, only break ties toward the safer tile.
+  readonly incomingDanger: number;
   // Stable lex key for final tiebreak.
   readonly key: string;
 }
@@ -1833,6 +1963,7 @@ function pickBestMove(
   enemies: ReadonlyArray<Unit>,
   allies: ReadonlyArray<Unit>,
   offensive: ReadonlyArray<ActiveAbilityDefinition>,
+  coverage: CoverageMap | null,
 ): ProposedAction | null {
   const moves = getLegalMoves(state, actor.id, catalog);
   // Priority target: highest kill-value (with Vulnerable bonus).
@@ -1873,6 +2004,7 @@ function pickBestMove(
       bestOffensiveScore,
       distanceToPriority,
       positionalValue,
+      incomingDanger: coverage === null ? 0 : coverage.expectedIncoming(dest),
       key,
     };
 
@@ -1936,6 +2068,10 @@ function compareMoves(a: MoveScore, b: MoveScore | null): number {
     // Lower distance is better — invert.
     return b.distanceToPriority - a.distanceToPriority;
   }
+  // S59 safety tiebreak: among equal-offence, equal-distance tiles, prefer
+  // the one that exposes the actor to less incoming damage. Below distance
+  // so advancing is never sacrificed for safety.
+  if (a.incomingDanger !== b.incomingDanger) return b.incomingDanger - a.incomingDanger;
   return a.key < b.key ? 1 : a.key > b.key ? -1 : 0;
 }
 
@@ -1967,6 +2103,8 @@ function compareMovesPositional(
   const rankA = a.positionalValue - distanceCost * a.distanceToPriority;
   const rankB = b.positionalValue - distanceCost * b.distanceToPriority;
   if (rankA !== rankB) return rankA - rankB;
+  // S59 safety tiebreak (below the positional rank — see compareMoves).
+  if (a.incomingDanger !== b.incomingDanger) return b.incomingDanger - a.incomingDanger;
   return a.key < b.key ? 1 : a.key > b.key ? -1 : 0;
 }
 
@@ -2034,6 +2172,8 @@ export const _basicAiInternals = {
   scoreWorldcraftFall,
   targetIsInAbilityRange,
   tilesInAbilityRange,
+  residualDangerForPlan,
+  planKoTargetId,
 };
 
 // Type re-exports needed by the test internals.

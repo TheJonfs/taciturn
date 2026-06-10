@@ -121,9 +121,14 @@ describe('S57 unified scoring — non-damage actions no longer pre-empt attacks'
       id: 'low', team: 'team_b', spd: 10, classId: 'knight',
       maxHpBase: 60, hp: 5, position: { x: 3, y: 1, layer: 0 },
     });
+    // Placed in the far corner, out of melee reach of the caster and its
+    // attack tiles, so the S59 defensive term (ADR-0095) stays inert and
+    // this test isolates the attack-vs-Math choice. It exists only to
+    // provide a positive Math match (current_hp prime); Math Skill is
+    // battlefield-wide so its position doesn't affect that.
     const otherEnemy = makeUnit({
       id: 'other', team: 'team_b', spd: 10, classId: 'knight',
-      maxHpBase: 60, hp: 23, position: { x: 1, y: 4, layer: 0 },
+      maxHpBase: 60, hp: 23, position: { x: 5, y: 5, layer: 0 },
     });
     const state = makeGameState({
       units: [actor, lowEnemy, otherEnemy], map: { width: 6, height: 6, tiles: flatGround(6, 6) },
