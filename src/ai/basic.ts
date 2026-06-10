@@ -104,7 +104,7 @@ import {
 } from '@engine/index.ts';
 import { projectExpectedDamage } from './projection.ts';
 import { pickBestMathSkill } from './math-skill-scoring.ts';
-import { buildCoverageMap, type CoverageMap } from './threat/coverage-map.ts';
+import { buildCoverageMap, threatsToTile, type CoverageMap, type ThreatEntry } from './threat/coverage-map.ts';
 
 // AI's answer for a single decision step. Mirrors the orchestrator's
 // `ControllerDecision` minus the `pending` case — the AI always has an
@@ -386,6 +386,11 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
       // older raise, dropping an enemy currently riding its footprint.
       const trap = bestRevertTrapCandidate(state, catalog, actor, worldcraft);
       if (trap !== null) candidates.push(trap);
+      // Tier B Barrier denial (S61): screen the most-threatened ally with a
+      // wall, scored as net protection minus the barrier's cost to the AI's
+      // own offense (it blocks both teams).
+      const barrier = bestBarrierDenialCandidate(state, catalog, actor, allies, enemies, worldcraft);
+      if (barrier !== null) candidates.push(barrier);
     }
 
     // Joint two-action offense + buff plan (move-aware). Returns its best
@@ -1725,6 +1730,169 @@ function firstValidRaiseCast(
     }
   }
   return null;
+}
+
+// =====================
+// Worldcraft Tier B — Barrier denial (S61)
+// =====================
+
+// Sum of expected incoming damage across a tile's threat entries.
+function sumIncoming(entries: ReadonlyArray<ThreatEntry>): number {
+  return entries.reduce((s, e) => s + e.expectedDamage, 0);
+}
+
+// Insert a barrier on each tile of `line` in a hypothetical copy of the map —
+// the `withBarrier` substrate the S59 brief assumed existed but didn't. Only
+// *presence* matters to the threat model (`hasLineOfSight` reads
+// `tile.barrier !== undefined`; pathfinding treats a barrier tile as
+// impassable), so a minimal BarrierState suffices for scoring — hp/ttl/owner
+// don't affect reach geometry. Pure; mirrors `withElevationChanges`.
+function withBarrier(
+  state: GameState,
+  actor: Unit,
+  line: ReadonlyArray<Position>,
+  ttl: number,
+): GameState {
+  const keys = new Set(line.map((p) => positionKey(p)));
+  const barrier = { hp: 1, ttl, ownerId: actor.id };
+  const tiles = state.map.tiles.map((t) =>
+    keys.has(positionKey({ x: t.x, y: t.y, layer: t.layer })) ? { ...t, barrier } : t,
+  );
+  return { ...state, map: { ...state.map, tiles } };
+}
+
+// The AI's most-threatened living ally (the actor included), by live incoming
+// expected damage. The single protected unit for v1 Barrier denial (D5 —
+// bounded). null when no ally faces any incoming threat (so the AI never builds
+// a speculative wall — Barrier is purely reactive in v1).
+function mostThreatenedAlly(
+  state: GameState,
+  catalog: Catalog,
+  allies: ReadonlyArray<Unit>,
+): { ally: Unit; incoming: number } | null {
+  let best: { ally: Unit; incoming: number } | null = null;
+  for (const ally of allies) {
+    const incoming = sumIncoming(threatsToTile(state, catalog, ally, ally.position));
+    if (incoming <= 0) continue;
+    if (best === null || incoming > best.incoming) best = { ally, incoming };
+  }
+  return best;
+}
+
+// Candidate barrier lines: four cardinal "screens" around `ally` — a line one
+// tile beyond it on N/S/E/W, oriented perpendicular and centred on the ally's
+// cross-axis — at each length in `lengths`. 4 × |lengths| candidates; legality
+// (range / occupancy / barrier-free / on-map) is left to `canCommitAction`.
+// Intentional walls that actually screen the ally, not a full in-range sweep
+// (D5 — the perf bound).
+function barrierScreenLines(ally: Unit, lengths: ReadonlyArray<number>): Position[][] {
+  const { x: ax, y: ay, layer } = ally.position;
+  const out: Position[][] = [];
+  for (const len of lengths) {
+    const half = Math.floor((len - 1) / 2);
+    // Vertical screens (East x=ax+1, West x=ax-1): vary y around the ally.
+    for (const sx of [ax + 1, ax - 1]) {
+      const line: Position[] = [];
+      for (let i = 0; i < len; i++) line.push({ x: sx, y: ay - half + i, layer });
+      out.push(line);
+    }
+    // Horizontal screens (South y=ay+1, North y=ay-1): vary x around the ally.
+    for (const sy of [ay + 1, ay - 1]) {
+      const line: Position[] = [];
+      for (let i = 0; i < len; i++) line.push({ x: ax - half + i, y: sy, layer });
+      out.push(line);
+    }
+  }
+  return out;
+}
+
+// How many of the highest-gain screen candidates pay for the expensive
+// self-obstruction (cost) recompute. The two-stage lazy bound (D5): every legal
+// screen gets a cheap gain pass; only the top few get the per-enemy cost pass.
+const BARRIER_COST_SHORTLIST = 3;
+
+// Best Barrier cast as a scored pool candidate (S61 Tier B — the deferred half).
+//
+// Net coverage-delta: the reduction in expected incoming damage to the AI's
+// most-threatened ally (`threatsToTile` live vs. `withBarrier`) MINUS the
+// barrier's cost to the AI team's own offense — because a barrier blocks both
+// teams, a wall that mostly severs the AI's own shots/approach must not be
+// chosen (D4 — net benefit, not ally-protection only). Self-obstruction is
+// measured by the same resolver with `occupant` flipped to each enemy, so
+// "enemies-of-occupant" is the AI team: the drop in the AI team's reach-and-hit
+// to an enemy is the AI's lost offense. A barrier can only reduce reach (it's
+// impassable + sight-blocking), so both deltas are one-signed.
+function bestBarrierDenialCandidate(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  allies: ReadonlyArray<Unit>,
+  enemies: ReadonlyArray<Unit>,
+  works: ReadonlyArray<ActiveAbilityDefinition>,
+): ScoredAction | null {
+  if (enemies.length === 0) return null;
+  const barrierAbility = works.find((a) => a.effects.worldcraft?.kind === 'barrier');
+  if (barrierAbility === undefined) return null;
+  const spec = barrierAbility.effects.worldcraft;
+  if (spec === undefined || spec.kind !== 'barrier') return null;
+  const ttl = spec.ttl;
+
+  const protectedAlly = mostThreatenedAlly(state, catalog, allies);
+  if (protectedAlly === null) return null; // nothing to screen → no speculative wall
+  const ally = protectedAlly.ally;
+  const liveIncoming = protectedAlly.incoming;
+
+  // Stage 1 — gain for every legal screen line (cheap relative to the cost pass:
+  // one `withBarrier` threat recompute against the single protected ally).
+  interface GainCand {
+    line: Position[];
+    action: ProposedAction;
+    gain: number;
+    hypo: GameState;
+  }
+  const gains: GainCand[] = [];
+  for (const line of barrierScreenLines(ally, [3, 4, 5])) {
+    const action: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: actor.id,
+      payload: { abilityId: barrierAbility.id, target: { kind: 'tile_set', positions: line } },
+    };
+    if (!canCommitAction(state, catalog, actor, action)) continue;
+    const hypo = withBarrier(state, actor, line, ttl);
+    const after = sumIncoming(threatsToTile(hypo, catalog, ally, ally.position));
+    const gain = Math.max(0, liveIncoming - after) * killValue(ally);
+    if (gain <= 0) continue; // wall screens nothing for this ally
+    gains.push({ line, action, gain, hypo });
+  }
+  if (gains.length === 0) return null;
+
+  // Stage 2 — net = gain − self-obstruction, for the top-K gainers only. The AI
+  // team's live offense to each enemy is computed once and reused.
+  gains.sort((a, b) => b.gain - a.gain);
+  const liveOffense = new Map<UnitId, number>();
+  for (const enemy of enemies) {
+    liveOffense.set(enemy.id, sumIncoming(threatsToTile(state, catalog, enemy, enemy.position)));
+  }
+
+  let best: ScoredAction | null = null;
+  for (const cand of gains.slice(0, BARRIER_COST_SHORTLIST)) {
+    let cost = 0;
+    for (const enemy of enemies) {
+      const live = liveOffense.get(enemy.id) ?? 0;
+      const after = sumIncoming(threatsToTile(cand.hypo, catalog, enemy, enemy.position));
+      cost += Math.max(0, live - after) * killValue(enemy);
+    }
+    const net = cand.gain - cost;
+    if (net <= 0) continue; // self-obstruction outweighs the protection
+    const scored: ScoredAction = {
+      score: net,
+      action: cand.action,
+      key: `barrier-denial|${barrierAbility.id}|${positionKey(cand.line[0]!)}|${cand.line.length}`,
+    };
+    if (best === null || compareScored(scored, best) > 0) best = scored;
+  }
+  return best;
 }
 
 // =====================
