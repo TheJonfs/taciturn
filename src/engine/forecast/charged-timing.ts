@@ -39,7 +39,7 @@ import {
   type UnitId,
 } from '../types/index.ts';
 import { projectUpcoming } from '../ct/projection.ts';
-import { computeBaseActionSpeed } from '../ct/speed.ts';
+import { computeChargedActionSpeed } from '../ct/speed.ts';
 
 // Sentinel id for the hypothetical charged action in the dry-run state.
 // Unique enough that it won't collide with `ca:<actor>:<seq>` ids from
@@ -104,12 +104,14 @@ export function estimateChargedTiming(
   if (args.ability.actionSpeed <= 0) return null;
 
   // Hypothetical chargedAction matching what `reduceUseAbility` would
-  // produce on commit (`ct: 0, speed: computeBaseActionSpeed(...)`).
-  // Routing the speed through `computeBaseActionSpeed` keeps the
-  // forecast accurate when equipment / status `modifyActionSpeed`
-  // contributors apply at commit time (per ADR-0056). Targets are
-  // derived from the anchor + ability targeting kind so that a future
-  // schedule-walking change that reads action.targets (e.g.,
+  // produce on commit (`ct: 0, speed: computeChargedActionSpeed(...)`).
+  // Sharing `computeChargedActionSpeed` keeps the forecast accurate for
+  // both the fixed-actionSpeed path (with equipment / status
+  // `modifyActionSpeed` contributors, per ADR-0056) AND Dragoon Jump's
+  // Speed-derived rate (`chargeSpeedFromUnitSpeed`, ADR-0103) — without
+  // which the projection used actionSpeed (24) instead of 3 × Speed.
+  // Targets are derived from the anchor + ability targeting kind so that a
+  // future schedule-walking change that reads action.targets (e.g.,
   // target-died invalidation) gets a realistic shape; today the walk
   // doesn't read them.
   const targets: TargetRef[] = buildSyntheticTargets(args);
@@ -117,7 +119,7 @@ export function estimateChargedTiming(
     id: SENTINEL_ID,
     casterId: args.caster.id,
     ct: 0,
-    speed: computeBaseActionSpeed(args.state, args.catalog, args.caster, args.ability),
+    speed: computeChargedActionSpeed(args.state, args.catalog, args.caster, args.ability),
     abilityId: args.ability.id,
     targets,
     sourceSequenceNumber: -1,

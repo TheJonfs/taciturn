@@ -31,6 +31,8 @@ import {
 } from '@engine/index.ts';
 import { commitAction } from './commit.ts';
 import { validateAction } from './validate.ts';
+import { estimateChargedTiming } from '../forecast/charged-timing.ts';
+import { computeChargedActionSpeed } from '../ct/speed.ts';
 import type { GameState } from '../types/index.ts';
 import { jump } from '../../content/abilities/jump.ts';
 import { attack } from '../../content/abilities/attack.ts';
@@ -197,6 +199,22 @@ describe('Dragoon Jump — resolve', () => {
     s = resolveCharge(ended.newState, c);
     expect(s.units.get(enemy.id)!.vitals.hp).toBe(200); // untouched
     expect(s.units.get(j.id)!.airborne).toBe(false);
+  });
+});
+
+describe('Dragoon Jump — timing forecast uses 3 × Speed', () => {
+  it('the pre-commit projection matches the committed Speed-derived rate, not actionSpeed', () => {
+    const c = cat();
+    const j = makeUnit({ id: 'j', spd: 10, mp: 10, equipment: weapon(lance.id), loadout: loadout(), position: { x: 0, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [j], map: flatMap(6, 6), turnState: turnFor('j') });
+    // The forecast must use the same rate commitCharged bakes in: 3 × 10 = 30
+    // (NOT the fixed actionSpeed 24). Both route through computeChargedActionSpeed.
+    expect(computeChargedActionSpeed(state, c, j, jump)).toBe(30);
+    const est = estimateChargedTiming({ state, catalog: c, caster: j, ability: jump, anchor: { x: 2, y: 0, layer: 0 } });
+    expect(est).not.toBeNull();
+    // At rate 30 the charge resolves in ceil(100/30) = 4 ticks; the old bug
+    // (actionSpeed 24) would have projected ceil(100/24) = 5.
+    expect(est!.ticksToResolve).toBe(4);
   });
 });
 

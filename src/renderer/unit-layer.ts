@@ -56,6 +56,11 @@ import {
 import { positionCenter, type ScreenPoint } from './world.ts';
 
 const UNIT_RADIUS = TILE_SIZE * 0.34;
+// Dragoon Jump (S62, ADR-0103): how far an airborne unit hovers above its
+// tile (px) and its translucency — more present than KO_ALPHA so it reads as
+// "in the air mid-leap", not downed.
+const AIRBORNE_LIFT = TILE_SIZE * 0.5;
+const AIRBORNE_ALPHA = 0.55;
 const HP_BAR_WIDTH = TILE_SIZE * 0.6;
 const HP_BAR_HEIGHT = 4;
 const HP_BAR_OFFSET_Y = UNIT_RADIUS + 6;
@@ -100,6 +105,10 @@ export interface UnitVisualState {
   readonly mp: number;
   readonly maxMp: number;
   readonly ko: boolean;
+  // Dragoon Jump (S62, ADR-0103): the unit is mid off-field leap —
+  // untargetable and "off" the board. Rendered lifted + translucent so the
+  // player sees it's airborne, not grounded. Optional (defaults false).
+  readonly airborne?: boolean;
   readonly active: boolean;
   // 0..1 — the renderer overlays a hit-flash tint at this strength.
   readonly flash: number;
@@ -222,11 +231,15 @@ export class UnitSprite {
   }
 
   setVisualState(state: UnitVisualState): void {
-    this.container.position.set(state.position.x, state.position.y);
+    // Dragoon Jump (S62, ADR-0103): an airborne unit hovers above its tile,
+    // rendered lifted (one unit-radius up) + translucent — distinct from the
+    // grounded KO fade (which keeps its position and draws an X marker).
+    const lift = state.airborne === true ? AIRBORNE_LIFT : 0;
+    this.container.position.set(state.position.x, state.position.y - lift);
     // KO'd units fade rather than recolor — the team color stays
     // visible so allegiance still reads at a glance, but the unit is
     // clearly inert.
-    this.container.alpha = state.ko ? KO_ALPHA : 1;
+    this.container.alpha = state.ko ? KO_ALPHA : state.airborne === true ? AIRBORNE_ALPHA : 1;
     this.drawBody(state.flash);
     this.drawTeamRing();
     this.drawFacing(state.facing, state.ko);

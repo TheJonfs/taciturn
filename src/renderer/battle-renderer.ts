@@ -778,6 +778,10 @@ export class BattleRenderer {
         mp,
         maxMp,
         ko: snap.ko,
+        // Dragoon Jump (S62, ADR-0103): live airborne state (set on Jump
+        // commit, cleared on land) — read from current engine state, not the
+        // animator snapshot. Renders the jumper lifted + translucent.
+        airborne: unit !== undefined && unit.airborne,
         flash: snap.flash,
         active: activeId === unitId,
         statuses,

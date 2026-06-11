@@ -54,6 +54,27 @@ export function computeBaseActionSpeed(
   return Math.max(0, modified);
 }
 
+// The CT climb-rate a ChargedAction is committed with — the single source
+// of truth shared by `commitCharged` and the pre-commit forecast
+// (`estimateChargedTiming`), so the projected resolve time matches the real
+// one. For Dragoon Jump (`chargeSpeedFromUnitSpeed`, ADR-0103) the rate is
+// `round(multiplier × the caster's computed Speed)` (Haste composes), floored
+// at 1; every other charged ability uses the fixed-actionSpeed path.
+export function computeChargedActionSpeed(
+  state: GameState,
+  catalog: Catalog,
+  unit: Unit,
+  ability: ActiveAbilityDefinition,
+): number {
+  if (ability.chargeSpeedFromUnitSpeed !== undefined) {
+    return Math.max(
+      1,
+      Math.round(ability.chargeSpeedFromUnitSpeed * computeSpeed(state, unit.id, catalog)),
+    );
+  }
+  return computeBaseActionSpeed(state, catalog, unit, ability);
+}
+
 // Action Speed is stored on the ChargedAction (ADR-0003) and modified
 // by abilities that mutate it directly (Hasten Charge, Slow Action).
 // No hook chain at read time — the field is the canonical value baked
