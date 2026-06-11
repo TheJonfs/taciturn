@@ -97,15 +97,36 @@ watch-items (now live):
   raider gets Jump along with the healing — intended (it's the "Knight + Lance + Jump"
   watch-item).
 
+### Carry-forward design questions from playtest (Chris flagged; NOT yet decided)
+
+- **Jump triggers reactions (Counter / on-damage retaliation).** Playtest: a Templar
+  jumped a target on high ground, hit it, and the target's bow Counter fired back and
+  killed the Templar. Mechanically correct — the jumper lands (airborne cleared) and
+  deals damage, so the target's `onDamageReceived` reactions fire at the now-grounded
+  Templar. It's real counterplay (a bow user punishing a Jump) but surprising. **Open
+  question: should a telegraphed Jump grant counter-immunity, or is reaction-counterplay
+  intended?** Chris: carry forward, decide later. (If immunity: the resolution would need
+  to suppress reaction triggers for jumpLeap damage.)
+- **Two-weapon Jump uses the RIGHT-hand weapon (#3 answered).** `getEquippedWeapon`
+  prefers right, falls back to left; Jump isn't `multiWeapon`, so `attackingWeaponSlot`
+  is undefined → it reads the right-hand-preferred weapon for **WP and the Lance bonus**.
+  Consequences: a Two-Weapons Jumper still strikes **once** (no dual-swing); the **off-hand
+  weapon is ignored** (so a Lance in the *off* hand + a non-Lance in the right gets **no**
+  Lance double); and Jump is `'physical'` but NOT `'weapon'`-tagged, so **weapon on-hit
+  procs / tag riders don't fire** through it (the Lance bonus is special — it reads the
+  weapon directly, not via tag merge). Deterministic and sensible; flag only if you'd want
+  Jump to pick the higher-WP / Lance weapon regardless of hand.
+
 ### Deferred / known-incomplete (not blocking; noted in ADRs)
 
-- **Jump rendering (ADR-0103):** the renderer draws the airborne jumper on its tile
-  during the charge — it won't visually "lift off." Mechanically correct (untargetable);
-  a sprite-lift/shadow is future polish.
+- **Jump rendering (ADR-0103): DONE (S62 playtest pass 2).** The airborne jumper now
+  renders lifted half a tile + translucent (`UnitVisualState.airborne`). A
+  shadow/arc-trajectory animation remains future polish.
 - **Jump airborne-clear** only happens in `finalizeResolution`; a future charge-cancel
   path outside it must also clear `airborne`.
 - **Pierce v1 limits (ADR-0102):** pierce takes precedence over multi-weapon dual-swing
-  (one line, not two); cardinal-only direction; vertical tolerance 1.
+  (one line, not two); **cardinal-only — off-axis targets fall back to a single-target hit
+  (S62 fix)**; vertical tolerance 1.
 - **Unified Calling uses base PA** (emission hooks get only the unit snapshot); effective-PA
   scaling is a possible refinement.
 - **Regen excluded** from both on-heal hooks (structural; per the one-time-source scope).
