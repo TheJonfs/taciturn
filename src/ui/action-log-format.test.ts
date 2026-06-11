@@ -15,7 +15,7 @@ import {
 import { activeTurnFor, makeGameState, makeUnit } from '../engine/ct/test-fixtures.ts';
 import { flatMap } from '../engine/map/test-fixtures.ts';
 import { makeAbilitiesCatalog, knightLoadout } from '../engine/abilities/test-fixtures.ts';
-import { formatActionLog } from './action-log-format.ts';
+import { buildLogView, formatActionLog } from './action-log-format.ts';
 
 function env(overrides: Partial<ActionEnvelope> & { sequenceNumber: number }): ActionEnvelope {
   return {
@@ -562,5 +562,211 @@ describe('formatActionLog', () => {
     const rows = formatActionLog(log, makeBaseState(), emptyCatalog());
     expect(rows[0]!.actionSeq).toBe(7);
     expect(rows[0]!.participants.actorId).toBe(unitId('u1'));
+  });
+});
+
+describe('buildLogView (Session 63 events view)', () => {
+  it('groups rows by turn and splits events from the ledger', () => {
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, actorId: unitId('u1') }),
+        type: 'turn_start',
+        payload: { unitId: unitId('u1') },
+      },
+      {
+        ...env({ sequenceNumber: 2, actorId: unitId('u1') }),
+        type: 'move',
+        payload: { destination: { x: 4, y: 5, layer: 0 } },
+      },
+      {
+        // A non-damaging status countdown — bookkeeping → ledger.
+        ...env({ sequenceNumber: 3, source: 'system' }),
+        type: 'status_tick',
+        payload: { unitId: unitId('u1'), statusTypeId: statusTypeId('poison') },
+        outcome: {
+          kind: 'status_tick',
+          unitId: unitId('u1'),
+          statusTypeId: statusTypeId('poison'),
+          removed: false,
+        },
+      },
+    ];
+    const view = buildLogView(log, makeBaseState(), emptyCatalog());
+    expect(view.groups).toHaveLength(1);
+    const g = view.groups[0]!;
+    expect(g.tLabel).toBe('T0001');
+    expect(g.events).toHaveLength(1);
+    expect(g.events[0]!.text).toContain('(4, 5)');
+    expect(g.events[0]!.icon).toBe('arrow');
+    expect(g.ledger).toHaveLength(1);
+    expect(g.ledger[0]!.text).toContain('ticked');
+  });
+
+  it('renders a damaging status tick as one Burn event; the bare tick lands in the ledger', () => {
+    const victim = makeUnit({ id: 'victim', spd: 10, maxHpBase: 100 });
+    const state = makeGameState({
+      units: [victim],
+      map: flatMap(3, 3),
+      turnState: activeTurnFor(victim.id),
+    });
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, actorId: victim.id }),
+        type: 'turn_start',
+        payload: { unitId: victim.id },
+      },
+      {
+        ...env({ sequenceNumber: 2, source: 'system' }),
+        type: 'status_tick',
+        payload: { unitId: victim.id, statusTypeId: statusTypeId('burn') },
+        outcome: {
+          kind: 'status_tick',
+          unitId: victim.id,
+          statusTypeId: statusTypeId('burn'),
+          removed: false,
+        },
+      },
+      {
+        ...env({ sequenceNumber: 3, source: 'system' }),
+        type: 'system_damage',
+        payload: {
+          targetId: victim.id,
+          amount: 9,
+          source: { kind: 'status_tick', statusTypeId: statusTypeId('burn'), unitId: victim.id },
+          tags: [],
+        },
+        outcome: {
+          kind: 'system_damage',
+          targetId: victim.id,
+          amount: 9,
+          applied: 9,
+          hpAfter: 60,
+        },
+      },
+    ];
+    const view = buildLogView(log, state, emptyCatalog());
+    const g = view.groups[0]!;
+    // One Burn DoT event (flame), text "burn → victim 9".
+    const burn = g.events.find((e) => e.icon === 'flame');
+    expect(burn).toBeDefined();
+    expect(burn!.text).toContain('→');
+    expect(burn!.text).toContain('9');
+    // The bare "ticked" row is demoted to the ledger.
+    expect(g.events.some((e) => e.text.includes('ticked'))).toBe(false);
+    expect(g.ledger.some((e) => e.text.includes('ticked'))).toBe(true);
+  });
+
+  it('folds a KO into its killing-blow row (emphasis + marker), dropping the standalone [ko] row', () => {
+    const killer = makeUnit({ id: 'killer', spd: 10, maxHpBase: 100 });
+    const victim = makeUnit({ id: 'victim', spd: 10, maxHpBase: 100 });
+    const state = makeGameState({
+      units: [killer, victim],
+      map: flatMap(3, 3),
+      turnState: activeTurnFor(killer.id),
+    });
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, actorId: killer.id }),
+        type: 'turn_start',
+        payload: { unitId: killer.id },
+      },
+      {
+        ...env({ sequenceNumber: 2, actorId: killer.id }),
+        type: 'use_ability',
+        payload: { abilityId: abilityId('strike'), target: { kind: 'unit', unitId: victim.id } },
+        outcome: {
+          kind: 'use_ability',
+          abilityId: abilityId('strike'),
+          mpSpent: 0,
+          perTargetResults: [
+            { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 181, hpAfter: 0 },
+          ],
+        },
+      },
+    ];
+    const g = buildLogView(log, state, emptyCatalog()).groups[0]!;
+    // No standalone [ko] row survives; the attack row carries it.
+    expect(g.events.some((e) => e.tagKind === 'ko')).toBe(false);
+    const blow = g.events.find((e) => e.text.includes('181'));
+    expect(blow).toBeDefined();
+    expect(blow!.emphasis).toBe(true);
+    expect(blow!.text).toContain('KO');
+  });
+
+  it('keeps a system-dealt KO (Burn tick) as a standalone skull event', () => {
+    const victim = makeUnit({ id: 'victim', spd: 10, maxHpBase: 100 });
+    const state = makeGameState({
+      units: [victim],
+      map: flatMap(3, 3),
+      turnState: activeTurnFor(victim.id),
+    });
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, actorId: victim.id }),
+        type: 'turn_start',
+        payload: { unitId: victim.id },
+      },
+      {
+        ...env({ sequenceNumber: 2, source: 'system' }),
+        type: 'system_damage',
+        payload: {
+          targetId: victim.id,
+          amount: 120,
+          source: { kind: 'status_tick', statusTypeId: statusTypeId('burn'), unitId: victim.id },
+          tags: [],
+        },
+        outcome: {
+          kind: 'system_damage',
+          targetId: victim.id,
+          amount: 120,
+          applied: 120,
+          hpAfter: 0,
+        },
+      },
+    ];
+    const g = buildLogView(log, state, emptyCatalog()).groups[0]!;
+    // The Burn damage event + a standalone skull KO event (not folded into
+    // the system row).
+    expect(g.events.some((e) => e.icon === 'flame')).toBe(true);
+    expect(g.events.some((e) => e.tagKind === 'ko' && e.icon === 'skull')).toBe(true);
+  });
+
+  it('routes battle_end to the outro and pre-first-turn rows to the preamble', () => {
+    const log: Action[] = [
+      {
+        // Pre-battle init grant — before any turn → preamble (state).
+        ...env({ sequenceNumber: 1, source: 'system' }),
+        type: 'status_tick',
+        payload: { unitId: unitId('u1'), statusTypeId: statusTypeId('regen') },
+        outcome: {
+          kind: 'status_tick',
+          unitId: unitId('u1'),
+          statusTypeId: statusTypeId('regen'),
+          removed: false,
+        },
+      },
+      {
+        ...env({ sequenceNumber: 2, actorId: unitId('u1') }),
+        type: 'turn_start',
+        payload: { unitId: unitId('u1') },
+      },
+      {
+        ...env({ sequenceNumber: 3, source: 'system' }),
+        type: 'battle_end',
+        payload: { winner: teamId('team_a'), conditionIndex: 0 },
+        outcome: {
+          kind: 'battle_end',
+          winner: teamId('team_a'),
+          conditionIndex: 0,
+          description: 'all enemies KO',
+        },
+      },
+    ];
+    const view = buildLogView(log, makeBaseState(), emptyCatalog());
+    expect(view.preamble).toHaveLength(1);
+    expect(view.groups).toHaveLength(1);
+    expect(view.outro).toHaveLength(1);
+    expect(view.outro[0]!.icon).toBe('trophy');
+    expect(view.outro[0]!.text).toContain('team_a wins');
   });
 });

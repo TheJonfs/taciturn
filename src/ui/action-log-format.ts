@@ -61,10 +61,29 @@ function classifyStatusOutcome(
   }
 }
 
+// Session 63 action-log redesign. The small icon vocabulary that replaces
+// the `[tick]/[end]/[ko]` text tags in the events view. Kept deliberately
+// small (per the brief's icon-discipline watch-for); rare events stay
+// textual with `icon: null`.
+export type LogIcon =
+  | 'sword' // basic attack
+  | 'spark' // ability / charged resolve / reaction / item
+  | 'flame' // status landing / damaging status tick (Burn)
+  | 'arrow' // move / falling damage
+  | 'skull' // KO / fade
+  | 'trophy'; // victory
+
+// Session 63: the events-vs-state cut. `event` rows show on the top line by
+// default; `state` rows are bookkeeping that already lives on the unit
+// cards / queue / status badges, collapsed into the per-turn ledger.
+export type LogCategory = 'event' | 'state';
+
 export interface LogRow {
   // Stable key for React reconciliation.
   readonly key: string;
-  // Optional left-side tag (T####, [tick], etc).
+  // Optional left-side tag (T####, [tick], etc). Retained for the flat
+  // `formatActionLog` API + its tests; the grouped events view
+  // (`buildLogView`) renders icons/weight instead of these text tags.
   readonly tag: string | null;
   // Structured text — an array of segments. Unit-name segments carry a
   // `team` field for renderer-side team coloring. Per ADR-0051.
@@ -88,6 +107,16 @@ export interface LogRow {
     readonly actorId: UnitId | null;
     readonly targetIds: ReadonlyArray<UnitId>;
   };
+  // Session 63: events-vs-state classification. `state` rows default-hide
+  // into the per-turn ledger; `event` rows stay on the top line.
+  readonly category: LogCategory;
+  // Session 63: icon-gutter glyph for the events view. `null` → no icon
+  // (rare/textual events, ledger rows).
+  readonly icon: LogIcon | null;
+  // Session 63: visual emphasis for the climax of a turn — set on a kill
+  // line (large weight + danger tint). The renderer reads it; the flat
+  // API leaves it `false` for non-kill rows.
+  readonly emphasis: boolean;
 }
 
 // Format every visible action in the log, interleaving `[ko]` rows at
@@ -187,6 +216,12 @@ export function formatActionLog(
             actorId: ev.killingActor,
             targetIds: [ev.unitId],
           },
+          // Session 63: a KO is the climax of a turn — event, skull icon,
+          // emphasized. `buildLogView` folds this into the killing-blow row
+          // when one shares its sequence; otherwise it stands alone.
+          category: 'event',
+          icon: 'skull',
+          emphasis: true,
         });
       }
     }
@@ -239,12 +274,19 @@ function formatAction(
   const key = String(action.sequenceNumber);
   const seq = action.sequenceNumber;
   const participants = deriveActionParticipants(action);
+  // Session 63: default events-vs-state class + icon for this action type.
+  // A row() call may override either (e.g. a status-tick `system_damage`
+  // promotes itself to a Burn event); otherwise it inherits these.
+  const cls = categorize(action, catalog);
 
   function row(opts: {
     readonly tag: string | null;
     readonly segments: ReadonlyArray<LogSegment>;
     readonly indent: boolean;
     readonly tagKind: LogRow['tagKind'];
+    readonly category?: LogCategory;
+    readonly icon?: LogIcon | null;
+    readonly emphasis?: boolean;
   }): LogRow {
     return {
       key,
@@ -255,6 +297,9 @@ function formatAction(
       tagKind: opts.tagKind,
       actionSeq: seq,
       participants,
+      category: opts.category ?? cls.category,
+      icon: 'icon' in opts ? opts.icon ?? null : cls.icon,
+      emphasis: opts.emphasis ?? false,
     };
   }
 
@@ -409,6 +454,18 @@ function formatAction(
           plain(`'s ${itemName}`),
         ];
         return [row({ tag: '[revenge]', segments, indent: true, tagKind: 'system' })];
+      }
+      if (source.kind === 'status_tick') {
+        // Session 63: consolidated DoT event — "Burn → Tina 9". The bare
+        // "Burn ticked / cleared" status_tick row (and any stack decrement)
+        // stays in the ledger, so the damage reads as a single event.
+        const statusName = safeStatusName(catalog, source.statusTypeId);
+        const segments: LogSegment[] = [
+          plain(`${statusName} → `),
+          unitSeg(state, action.payload.targetId),
+          plain(` ${applied}`),
+        ];
+        return [row({ tag: '[tick]', segments, indent: false, tagKind: 'system' })];
       }
       const segments: LogSegment[] = [
         unitSeg(state, action.payload.targetId),
@@ -682,6 +739,90 @@ function formatT(n: number): string {
   return `T${String(n).padStart(4, '0')}`;
 }
 
+function isBasicAttack(catalog: Catalog, id: AbilityId): boolean {
+  try {
+    const ab = catalog.getAbility(id);
+    return ab.kind === 'active' && ab.basicAttack === true;
+  } catch {
+    return false;
+  }
+}
+
+// Session 63: the events-vs-state cut + icon selection, keyed on action
+// type (and a few payload details). Pure classification — `formatAction`
+// applies this as the default for every row it produces, overriding only
+// where a single action type splits (e.g. a status-tick `system_damage`
+// promotes to a Burn event; a pre-battle equipment grant demotes to
+// state). See the brief's authoritative events-vs-state mapping.
+function categorize(action: Action, catalog: Catalog): {
+  readonly category: LogCategory;
+  readonly icon: LogIcon | null;
+} {
+  switch (action.type) {
+    case 'turn_start':
+      // Rendered as the group header, not an event row.
+      return { category: 'event', icon: null };
+    case 'move':
+      return { category: 'event', icon: 'arrow' };
+    case 'wait':
+      return { category: 'event', icon: null };
+    case 'use_ability':
+      return {
+        category: 'event',
+        icon: isBasicAttack(catalog, action.payload.abilityId) ? 'sword' : 'spark',
+      };
+    case 'use_compound':
+    case 'use_throw_item':
+    case 'charged_action_resolve':
+      return { category: 'event', icon: 'spark' };
+    case 'system_apply_status': {
+      // Pre-battle equipment grants are setup bookkeeping; an in-battle
+      // status landing is a tactical event.
+      const ctx = action.payload.context;
+      if (ctx !== undefined && ctx.kind === 'pre_battle_equipment') {
+        return { category: 'state', icon: null };
+      }
+      return { category: 'event', icon: 'flame' };
+    }
+    case 'system_damage': {
+      const kind = action.payload.source.kind;
+      if (kind === 'status_tick') return { category: 'event', icon: 'flame' };
+      if (kind === 'revenge' || kind === 'reflect') return { category: 'event', icon: 'spark' };
+      if (kind === 'falling') return { category: 'event', icon: 'arrow' };
+      // ability_self_cost — the caster paying HP; bookkeeping.
+      return { category: 'state', icon: null };
+    }
+    case 'system_unit_removed':
+      return { category: 'event', icon: 'skull' };
+    case 'battle_end':
+      return { category: 'event', icon: 'trophy' };
+    case 'system_terrain_change':
+    case 'system_barrier_change':
+    case 'system_barrier_damage':
+      // Battlefield-shape changes are tactical events.
+      return { category: 'event', icon: null };
+    // --- state: bookkeeping already shown on the unit cards / queue /
+    // status badges. Default-hidden in the per-turn ledger. ---
+    case 'status_tick':
+    case 'status_decrement_stack':
+    case 'status_remove':
+    case 'system_ct_push':
+    case 'system_heal':
+    case 'system_mp_restore':
+    case 'system_mp_drain':
+    case 'system_ko_tick':
+    case 'system_set_ct':
+    case 'turn_end':
+    case 'set_facing':
+      return { category: 'state', icon: null };
+    default: {
+      const _exhaustive: never = action;
+      void _exhaustive;
+      return { category: 'state', icon: null };
+    }
+  }
+}
+
 function safeClassName(catalog: Catalog, classId: import('@engine/index.ts').ClassId): string {
   try {
     return catalog.getClass(classId).name;
@@ -733,4 +874,139 @@ function formatDamageSource(source: import('@engine/index.ts').SystemDamageSourc
       // to `revenge`; distinguished in the log as a reflect bounce.
       return 'reflect';
   }
+}
+
+// ===== Session 63: grouped events view =====
+
+// A turn's worth of log, split for the events-vs-state display. `events`
+// is the top-line stream; `ledger` is the default-hidden bookkeeping
+// (CT/MP/HP regen, status countdowns, KO timers, non-firing reactions).
+export interface TurnGroup {
+  readonly key: string;
+  // "T0089"; '' for the pre-battle setup group.
+  readonly tLabel: string;
+  // The group header: a turn's actor (+ class), or a charged spell's
+  // resolution line. Team-tagged like any segment list.
+  readonly headerSegments: ReadonlyArray<LogSegment>;
+  readonly events: ReadonlyArray<LogRow>;
+  readonly ledger: ReadonlyArray<LogRow>;
+}
+
+// The full grouped view the panel renders.
+export interface LogView {
+  // Pre-first-turn setup rows ([init] grants, initial CT) — all state,
+  // shown as a collapsed "Setup" group. Empty once a battle is underway.
+  readonly preamble: ReadonlyArray<LogRow>;
+  readonly groups: ReadonlyArray<TurnGroup>;
+  // Trailing standalone events with no owning turn — the victory line.
+  readonly outro: ReadonlyArray<LogRow>;
+}
+
+interface MutableGroup {
+  key: string;
+  tLabel: string;
+  headerSegments: ReadonlyArray<LogSegment>;
+  events: LogRow[];
+  ledger: LogRow[];
+}
+
+// Wrap the flat `formatActionLog` rows into per-turn groups, each split
+// into top-line `events` and a default-hidden `ledger`. Nothing is
+// dropped — every flat row lands in exactly one bucket, so the ledger
+// preserves the full mechanical trace for replay/audit. Consolidation:
+// DoT damage already renders as a single "Burn → X 9" event (its bare
+// tick / decrement rows go to the ledger), and a KO is folded into its
+// killing-blow row when one shares its sequence (see `foldKills`).
+export function buildLogView(
+  log: ReadonlyArray<Action>,
+  state: GameState,
+  catalog: Catalog,
+): LogView {
+  const flat = formatActionLog(log, state, catalog);
+  const actionsBySeq = new Map<number, Action>();
+  for (const a of log) actionsBySeq.set(a.sequenceNumber, a);
+
+  const preamble: LogRow[] = [];
+  const outro: LogRow[] = [];
+  const groups: MutableGroup[] = [];
+  let current: MutableGroup | null = null;
+
+  const flush = (): void => {
+    if (current !== null) groups.push(current);
+    current = null;
+  };
+
+  for (const r of flat) {
+    const type = r.actionSeq !== null ? actionsBySeq.get(r.actionSeq)?.type : undefined;
+    // A turn header: turn_start, or a charged-action resolve (its own
+    // T-number). `tagKind === 'turn'` excludes a [ko] row that happens to
+    // share a resolve's sequence (it carries tagKind 'ko').
+    if (r.tagKind === 'turn' && (type === 'turn_start' || type === 'charged_action_resolve')) {
+      flush();
+      current = {
+        key: `g-${r.actionSeq ?? r.key}`,
+        tLabel: r.tag ?? '',
+        headerSegments: r.segments,
+        events: [],
+        ledger: [],
+      };
+      continue;
+    }
+    if (type === 'battle_end') {
+      outro.push(r);
+      continue;
+    }
+    if (current === null) {
+      preamble.push(r); // pre-first-turn setup (all state)
+      continue;
+    }
+    (r.category === 'event' ? current.events : current.ledger).push(r);
+  }
+  flush();
+
+  return {
+    preamble,
+    groups: groups.map((g) => ({
+      key: g.key,
+      tLabel: g.tLabel,
+      headerSegments: g.headerSegments,
+      events: foldKills(g.events),
+      ledger: g.ledger,
+    })),
+    outro,
+  };
+}
+
+// Fold each [ko] row into the killing-blow event that shares its sequence
+// (an ability/attack/reaction row naming the same victim), emphasizing it
+// and appending a "— KO" marker. A KO with no such sibling (system-dealt:
+// a Burn tick, falling damage) stays as its own skull event, in place.
+function foldKills(events: ReadonlyArray<LogRow>): ReadonlyArray<LogRow> {
+  const koRows = events.filter((r) => r.tagKind === 'ko');
+  if (koRows.length === 0) return events;
+  const folded = new Set<string>();
+  const out: LogRow[] = [];
+  for (const r of events) {
+    if (r.tagKind === 'ko') {
+      if (!folded.has(r.key)) out.push(r); // unfolded → standalone skull
+      continue;
+    }
+    const isBlow = r.tagKind === null || r.tagKind === 'reaction';
+    const ko = isBlow
+      ? koRows.find(
+          (k) =>
+            !folded.has(k.key) &&
+            k.actionSeq === r.actionSeq &&
+            k.participants.targetIds.some((t) => r.participants.targetIds.includes(t)),
+        )
+      : undefined;
+    if (ko !== undefined) {
+      folded.add(ko.key);
+      const segments: LogSegment[] = [...r.segments, plain('  — KO')];
+      out.push({ ...r, segments, text: joinSegments(segments), emphasis: true });
+    } else {
+      out.push(r);
+    }
+  }
+  return out;
 }
