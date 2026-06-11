@@ -126,6 +126,11 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('damage_split'), 'On taking a non-healing hit and surviving, reflect the full damage back at the attacker and heal yourself for half of it.'],
   [abilityId('ignore_height'), 'Ignore Jump height limits entirely — climb or descend any elevation change in one step.'],
   [abilityId('expert_former'), '+2 to the Worldcraft active-effect cap (2 → 4) — twice as many terrain changes / barriers persist at once before the oldest reverts.'],
+  // S62 — Templar R/S/M (the four innates).
+  [abilityId('faithstrider'), '+1 Move Range and +10 Faith — stronger healing and revival, but more magical damage taken (Faith cuts both ways).'],
+  [abilityId('monkeygrip'), 'Two-handed weapons need only one hand — pair a two-hander with a shield, or (with Two Weapons) a second two-hander.'],
+  [abilityId('emissary'), '+25% to all healing this unit applies — boosts Cure, Raise, and any healing item it throws. Does not affect Regen.'],
+  [abilityId('unified_calling'), 'On receiving a one-time heal (a healing spell, or a Potion / Phoenix Down used on you), recover MP equal to your PA. Not from Regen.'],
 ]);
 
 // Authored lead-lines for active abilities whose mechanics don't read off
@@ -142,6 +147,10 @@ const ACTIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('hill'), 'Raise a 3×3 area — center +3, edges +2, corners +1. Counts as 1 active Worldcraft effect.'],
   [abilityId('valley'), 'Lower a 3×3 area — center −3, edges −2, corners −1 — dealing fall damage to occupants. Counts as 1 active Worldcraft effect.'],
   [abilityId('barrier'), 'Spawn a line of 3–5 barrier tiles. Barriers block movement and line of sight, persist ~5 rounds, and take damage from attacks. Counts as 1 active Worldcraft effect.'],
+  // S62 — Templar Arts.
+  [abilityId('cure'), 'Heal a 1-square cross (≈ MA × 8 × Faith). Friendly fire is on — it heals allies AND any enemies in the cross, and the caster too.'],
+  [abilityId('raise'), 'Revive a KO’d ally and heal them (≈ MA × 10 × Faith). On a living target it simply heals.'],
+  [abilityId('jump'), 'Leap off-field — untargetable while charging — then land on a tile for PA × WP, doubled with a Lance. Reaches far and high; the target can dodge by leaving the tile. Charges faster the higher your Speed.'],
 ]);
 
 // Tiny formatting helpers — kept inline rather than a regex zoo so the

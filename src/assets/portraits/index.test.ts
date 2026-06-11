@@ -9,7 +9,7 @@ import { portraitUrlFor, defaultGenderFor } from './index.ts';
 
 const CLASSES: ReadonlyArray<ClassId> = [
   'alchemist', 'assassin', 'calculator', 'earth_mage', 'fire_mage',
-  'hunter', 'knight', 'lightning_mage', 'terraformer', 'water_mage',
+  'hunter', 'knight', 'lightning_mage', 'templar', 'terraformer', 'water_mage',
 ].map(classId);
 
 describe('portraitUrlFor — class + gender resolution', () => {
@@ -42,6 +42,7 @@ describe('portraitUrlFor — class + gender resolution', () => {
     expect(defaultGenderFor(classId('earth_mage'))).toBe('male');
     expect(defaultGenderFor(classId('lightning_mage'))).toBe('male');
     expect(defaultGenderFor(classId('hunter'))).toBe('male');
+    expect(defaultGenderFor(classId('templar'))).toBe('male');
     expect(defaultGenderFor(classId('terraformer'))).toBe('male');
     expect(defaultGenderFor(classId('alchemist'))).toBe('female');
     expect(defaultGenderFor(classId('assassin'))).toBe('female');

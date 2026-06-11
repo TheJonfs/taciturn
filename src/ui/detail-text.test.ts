@@ -29,6 +29,13 @@ import { pillar } from '../content/abilities/worldcraft/pillar.ts';
 import { hill } from '../content/abilities/worldcraft/hill.ts';
 import { valley } from '../content/abilities/worldcraft/valley.ts';
 import { barrier } from '../content/abilities/worldcraft/barrier.ts';
+import { faithstrider } from '../content/abilities/faithstrider.ts';
+import { monkeygrip } from '../content/abilities/monkeygrip.ts';
+import { emissary } from '../content/abilities/emissary.ts';
+import { unifiedCalling } from '../content/abilities/unified-calling.ts';
+import { cure } from '../content/abilities/cure.ts';
+import { raise } from '../content/abilities/raise.ts';
+import { jump } from '../content/abilities/jump.ts';
 import {
   formatAbilityDetail,
   formatCommandSetDetail,
@@ -201,6 +208,41 @@ describe('formatAbilityDetail', () => {
       expect(d.lines[0]).toMatch(/3–5 barrier tiles/);
       expect(d.lines[0]).toMatch(/block movement and line of sight/i);
       expect(d.lines.join('\n')).toContain('MP 12');
+    });
+  });
+
+  // S62: the Templar kit (four innates + Templar Arts) ships authored
+  // tooltip descriptions — regression against the "not yet authored"
+  // placeholder the picker showed when a new ability lacked a description.
+  describe('Templar tooltips', () => {
+    function templarCat() {
+      return createCatalog({
+        statusTypes: [],
+        abilities: [faithstrider, monkeygrip, emissary, unifiedCalling, cure, raise, jump],
+        commandSets: [],
+        classes: [makeKnight()],
+        items: [],
+        rulesets: defaultTestRulesets,
+      });
+    }
+
+    it('authors descriptions for the four innates and Templar Arts (no placeholder)', () => {
+      const cat = templarCat();
+      const cases: ReadonlyArray<readonly [Parameters<typeof formatAbilityDetail>[0], RegExp]> = [
+        [faithstrider, /\+1 Move Range and \+10 Faith/i],
+        [monkeygrip, /two-handed weapons need only one hand/i],
+        [emissary, /\+25% to all healing/i],
+        [unifiedCalling, /recover MP equal to your PA/i],
+        [cure, /1-square cross/i],
+        [raise, /revive/i],
+        [jump, /leap off-field/i],
+      ];
+      for (const [ability, pattern] of cases) {
+        const d = formatAbilityDetail(ability, cat);
+        const joined = d.lines.join('\n');
+        expect(joined, `${ability.name} description`).toMatch(pattern);
+        expect(joined, `${ability.name} not placeholder`).not.toMatch(/not yet authored/i);
+      }
     });
   });
 });

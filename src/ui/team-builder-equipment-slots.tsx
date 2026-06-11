@@ -34,6 +34,24 @@ function unitHasDualWield(unit: DraftUnit, catalog: Catalog): boolean {
   return false;
 }
 
+// True when the unit has a passive that relaxes the two-handed grip
+// (Monkeygrip) — so a two-hander may share a hand with an off-hand item.
+// Mirrors the engine's `validateEquipmentPlacement` (ADR-0100): reads the
+// declarative `relaxesTwoHandedGrip` flag off the loadout's passives,
+// content-agnostic. `passiveBuckets` already folds in the class's free
+// abilities, so the Templar's native Monkeygrip resolves here.
+function unitRelaxesTwoHandedGrip(unit: DraftUnit, catalog: Catalog): boolean {
+  for (const abilityIds of Object.values(unit.loadout.passiveBuckets)) {
+    for (const aid of abilityIds) {
+      const ability = catalog.getAbility(aid);
+      if (ability.kind === 'passive' && ability.relaxesTwoHandedGrip === true) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 const SLOT_LABELS: ReadonlyMap<EquipmentSlotId, string> = new Map([
   ['rightHand', 'Right Hand'],
   ['leftHand', 'Left Hand'],
@@ -83,6 +101,8 @@ export function TeamBuilderEquipmentSlots({
   // includes the class's free abilities (merged at class assignment), so
   // the native-Assassin and cross-class-equipped cases both resolve here.
   const dualWieldEnabled = unitHasDualWield(selectedUnit, catalog);
+  // Monkeygrip (ADR-0100): a two-hander may share a hand with an off-hand item.
+  const gripRelaxed = unitRelaxesTwoHandedGrip(selectedUnit, catalog);
 
   // Items used anywhere on the team — the unique-per-team pool. An item
   // equipped by another unit (or in another slot of this unit) is
@@ -125,8 +145,10 @@ export function TeamBuilderEquipmentSlots({
             if (item.id === currentItemId) return true;
             if (usedByOthers.has(item.id)) return false;
             // Two-handed gate: the off-hand of a two-handed weapon takes
-            // nothing.
-            if (otherHandTwoHanded) return false;
+            // nothing — UNLESS Monkeygrip (relaxesTwoHandedGrip) lifts it, in
+            // which case the off-hand can hold a shield (or, with Two Weapons,
+            // a second weapon — still gated below). Mirrors the engine.
+            if (otherHandTwoHanded && !gripRelaxed) return false;
             // Dual-wield gate: don't offer a second weapon for the
             // off-hand slot unless the unit has Two Weapons.
             if (otherHandHasWeapon && item.kind === 'weapon' && !dualWieldEnabled) return false;
