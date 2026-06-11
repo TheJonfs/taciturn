@@ -10,9 +10,10 @@ This is a transient note from one session to the next.
 
 S62 opened the Templar arc (hybrid White Mage + Dragoon for the Glabados Church;
 spec: `docs/thirtyNinePlanning/templar-concept-notes.md`). It was audit-first, then
-shipped well past the foundation: **Step 1 + all of Step 2** of the ratified build
-order. **1721 → 1740 tests (+19)**, `tsc -b` + `vite build` clean. Two ADRs: **0099**
-(Raise), **0100** (Monkeygrip).
+shipped **Steps 1–3** of the ratified build order. **1721 → 1746 tests (+25)**,
+`tsc -b` + `vite build` clean. Three ADRs: **0099** (Raise), **0100** (Monkeygrip),
+**0101** (on-heal hooks: Unified Calling + Emissary). **All four Templar innates are
+now built** (Faithstrider, Monkeygrip, Emissary, Unified Calling).
 
 ### The substrate audit (T1–T9) — current verdicts
 
@@ -28,16 +29,16 @@ arc is shorter than the brief budgeted. Updated status after this session's work
 | T5 | Lance pierce | 🟡 mixed | Line/multi-target/friendly-fire exist (Flame Lance); pierce on a *basic* attack is net-new. |
 | T6 | Auto-Protect | ✅ EXISTS → SHIPPED | `protect` status + statusGrants. Defender ships it (S62). |
 | T7 | Monkeygrip | 🟢 **DONE (S62, ADR-0100)** | Declarative `relaxesTwoHandedGrip` flag read by the equip validator. |
-| T8 | Unified Calling (on-heal reaction) | 🔴 NET-NEW hook | Needs `onHealingReceived` + ADR. |
-| T9 | Smaller pieces | ✅ COMPOSE | Faithstrider shipped (S62); class scaffold + gear permission pending. |
+| T8 | Unified Calling (on-heal reaction) | 🟢 **DONE (S62, ADR-0101)** | New `onHealingReceived` hook; Emissary's `modifyOutgoingHealing` shipped same ADR. |
+| T9 | Smaller pieces | ✅ COMPOSE | Faithstrider shipped (S62); class scaffold + gear permission pending (Step 5). |
 
 ### Ratified 5-step build order — progress
 
 1. **Foundation** — ✅ Defender, Faithstrider, portraits. *(Pending: class scaffold + Knight gear permission — held until the class has a command set.)*
 2. **Monkeygrip + Cure rework + Raise wire** — ✅ **COMPLETE** (Cure, Raise/ADR-0099, Monkeygrip/ADR-0100).
-3. On-heal reaction hook (T8) + ADR + Unified Calling + Emissary — **next.**
-4. **Jump leap (T4)** — the big one, gated by D3.
-5. Class assembly (stat block, command set, four innates, three weapons) → polish/playtest.
+3. **On-heal reaction hook + Unified Calling + Emissary** — ✅ **COMPLETE** (ADR-0101).
+4. **Jump leap (T4)** — the big one, gated by D3. **NEXT** (or T5 Lance pierce first — see below).
+5. Class assembly (stat block, command set, four innates [all built], three weapons, gear permission) → polish/playtest.
 
 ### What shipped this session (commits to main — Chris is sole worker)
 
@@ -57,33 +58,41 @@ arc is shorter than the brief budgeted. Updated status after this session's work
   equip validator now reads loadout passives and skips the two-handed-occupies-both-hands
   throw when a passive declares the flag. Declarative (not a hook): equip legality is a
   static setup-time property. Support, cost 2, available. Player-facing (got a guide entry).
+- `3747a82` — **Step 3 on-heal hooks** (**ADR-0101**): two new closed-surface hooks.
+  `onHealingReceived` (recipient-side, emits actions) → **Unified Calling** (Reaction, +PA
+  MP on a one-time heal). `modifyOutgoingHealing` (healer-side multiplier) → **Emissary**
+  (Support, +25% outgoing healing). Both apply to one-time-source heals (Cure/Raise +
+  Potion/Phoenix Down), NOT Regen (structural exclusion — no firing in `system_heal`).
+  Both `available`, player-facing (guide entries). All four Templar innates now built.
 
-### NEXT ITEM — Step 3: on-heal reaction hook (T8) + Unified Calling + Emissary
+### NEXT — Step 4 (Jump leap, T4) and/or Step 5 leftover (Lance pierce, T5)
 
-This is the next net-new substrate, and it carries **two genuine design decisions** to
-ratify before building (both are "ask before proceeding" items):
+Two offensive-pillar pieces remain before class assembly (Step 5). Both are net-new:
 
-1. **`onHealingReceived` hook (T8) — extends the CLOSED hook surface (ground rule 8).**
-   Unified Calling = "on receiving healing, recover MP equal to self's PA." There is no
-   on-heal reaction trigger today (audited S62). Adding one is a deliberate engine change +
-   ADR. Decide: a new dedicated hook fired from the heal-application site
-   (`applyDamageToTarget` / the healing branch), vs. some reuse of an existing reaction
-   trigger. The audit found no reuse candidate, so it's likely a genuine new hook.
-2. **Emissary (+25% healing) — also a NEW hook (audited S62-close: no healing-output
-   modifier exists).** The hook list has no `modifyHealing`/healing-output multiplier. It
-   can't ride `modifyStatQuery` on MA either: that would wrongly boost the unit's magical
-   *damage* too (Emissary is healing-only). So Emissary needs a new healing-output-multiplier
-   hook fired in the healing branch of the damage pipeline (shape like the existing
-   `ctx.multipliers` sources crit/vulnerable, but passive-driven). So **Step 3 introduces TWO
-   new hooks** (`onHealingReceived` for Unified Calling + a healing-output multiplier for
-   Emissary) — likely one combined ADR. Both are deliberate closed-surface extensions.
+1. **Jump leap (T4) — the headline unknown, with design call D3.** Charged-action infra is
+   solid, but the off-field "leave the tile / land later for damage" leap has no precedent;
+   `actionSpeed = 3 × Speed` needs a `modifyActionSpeed`-style formula (today actionSpeed is a
+   fixed per-ability number). **D3 (Chris):** full off-field leap (unit leaves the board during
+   the charge, lands for `PA × WP × (1 + isLance)` at H6/V6) vs. a simpler charged-strike v1
+   (no off-field state; a big telegraphed charged hit). Flag early if the off-field state
+   balloons. This is the one piece with real scope uncertainty — get D3 before building.
+2. **Lance pierce (T5) — enables the Lance + Imp Halberd weapons.** Line shape + multi-target +
+   friendly-fire all exist (Flame Lance), but the *basic attack* is single-target. Net-new:
+   make a weapon's basic attack pierce a 2-tile line (hitting both units, friendly-firing an
+   intervening ally). Once pierce exists, the **Lance (WP 10) + Imp Halberd (WP 8, MA +1)**
+   weapons ship (they were held from Step 1 to avoid shipping pierce-less). More contained than
+   Jump; no big design gate.
 
-Both Unified Calling and Emissary then compose on existing faith/heal substrate once their
-hooks exist. Surface decisions 1 + 2 to Chris at plan-review.
+Recommendation: take **Lance pierce (T5) next** (contained, unblocks two weapons, no design
+gate), then **Jump (T4)** with D3 ratified, then **class assembly (Step 5)** — at which point
+all innates (built), Cure/Raise, Jump, and the three weapons exist, plus the stat block + Knight
+head/body gear permission (`classRestrictions += templar`). Or jump straight to Jump if Chris
+wants the headline resolved first.
 
-*(Alternative next item if preferred: the class scaffold (Step 1 leftover) — stat block +
-Knight gear permission + wiring the now-built innates. But it can't fully assemble until the
-command set exists and Jump/the on-heal innates land, so Step 3 is the cleaner forward move.)*
+**Class-assembly readiness:** the four innates are built; Cure + Raise exist (hidden, need the
+Templar command set to surface them — wiring Raise into a command set will want the session-57
+AI heal-choice re-checked, since the healer would then have both Cure and Raise). Defender ships
+now; Lance/Imp Halberd need T5.
 
 ### Decisions banked from Chris (S62)
 

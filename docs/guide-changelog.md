@@ -46,9 +46,10 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ## Session 62 (2026-06-10)
 
-Commits: `e2cc34f` (Defender, Faithstrider), `c159426` (Monkeygrip). (First
-content of the Templar class arc; the class itself isn't playable yet — these
-pieces are universal/cross-class and usable now.)
+Commits: `e2cc34f` (Defender, Faithstrider), `c159426` (Monkeygrip), `3747a82`
+(Emissary, Unified Calling). (First content of the Templar class arc; the class
+itself isn't playable yet — these pieces are universal/cross-class and usable
+now.)
 
 - **New weapon — Defender (Knight Sword).** A two-handed sword (WP 11, accuracy
   95) that grants **Auto-Protect**: while wielded, the bearer permanently takes
@@ -68,6 +69,18 @@ pieces are universal/cross-class and usable now.)
   off-hand only gives a *second attack* if you also have **Two Weapons**;
   Monkeygrip alone just makes the loadout legal. Free on the Templar (when it
   ships).
+- **New support ability — Emissary of Murond.** A Support passive (cost 1):
+  **all healing the bearer applies is boosted +25%**. Works on healing spells
+  and on healing items the bearer throws (e.g. a Potion or Phoenix Down). Does
+  **not** affect Regen (recurring-status healing). Stacks multiplicatively with
+  Faith and MA bonuses, so an invested healer compounds noticeably. Free on the
+  Templar (when it ships).
+- **New reaction ability — Unified Calling.** A Reaction passive (cost 1): when
+  the bearer **receives a one-time heal** (a healing spell, or a Potion/Phoenix
+  Down used on them), they **recover MP equal to their PA**. Does not trigger on
+  Regen. Lets a healer who heals (or is healed) keep their MP topped up — on the
+  Templar, healing yourself helps pay for the next cast. Free on the Templar
+  (when it ships).
 
 ## Session 61 (2026-06-10)
 
