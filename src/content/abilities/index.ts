@@ -6,6 +6,7 @@ import { attack } from './attack.ts';
 import { chargedAttack } from './charged-attack.ts';
 import { eagleEye } from './eagle-eye.ts';
 import { highJump } from './high-jump.ts';
+import { jump } from './jump.ts';
 import { pinDown } from './pin-down.ts';
 import { scramble } from './scramble.ts';
 import { undertow } from './undertow.ts';
@@ -188,4 +189,5 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   raise,
   emissary,
   unifiedCalling,
+  jump,
 ];

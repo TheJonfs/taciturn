@@ -105,4 +105,15 @@ export interface Unit {
   // (which reads `hp > 0`) naturally treats them as defeated. Cannot be
   // revived; Phoenix Down validates against `removed` and refuses.
   readonly removed: boolean;
+
+  // Airborne (Session 62, Dragoon Jump / ADR-0103). Transient: set when a
+  // unit commits the off-field Jump leap (charged), cleared when the leap
+  // resolves. An airborne unit is UNTARGETABLE — excluded from target
+  // eligibility and AoE affected-sets (it's mid-air, can't be hit) — but
+  // keeps its takeoff position (the tile stays reserved; `unitAt` /
+  // occupancy are unchanged, so it lands back home with no conflict).
+  // Turn-skipping is handled by the Charging status, as for any charge, so
+  // this flag does NOT touch the scheduler. Unlike `removed` (permadeath),
+  // it is temporary and the unit is alive throughout.
+  readonly airborne: boolean;
 }

@@ -113,7 +113,7 @@ import { computeMpCost } from '../abilities/cost.ts';
 import { resolveWorldcraftCast } from '../abilities/worldcraft-resolution.ts';
 import { computeBarrierDamage } from '../damage/barrier-damage.ts';
 import { getEquippedWeapon, getWeaponInSlot } from '../items/equipment.ts';
-import { computeBaseActionSpeed } from '../ct/speed.ts';
+import { computeBaseActionSpeed, computeSpeed } from '../ct/speed.ts';
 
 export interface ReduceResult<O> {
   readonly newState: GameState;
@@ -627,7 +627,16 @@ function commitCharged(
     casterId: actor.id,
     abilityId: ability.id,
     ct: 0,
-    speed: computeBaseActionSpeed(state, catalog, actor, ability),
+    // Dragoon Jump (S62, ADR-0103): a Speed-derived charge rate (3 × Speed).
+    // Uses computed Speed so Haste composes; floors at 1. Other charged
+    // abilities keep the fixed-actionSpeed path (bit-identical).
+    speed:
+      ability.chargeSpeedFromUnitSpeed !== undefined
+        ? Math.max(
+            1,
+            Math.round(ability.chargeSpeedFromUnitSpeed * computeSpeed(state, actor.id, catalog)),
+          )
+        : computeBaseActionSpeed(state, catalog, actor, ability),
     targets,
     sourceSequenceNumber: action.sequenceNumber,
   };
@@ -653,6 +662,18 @@ function commitCharged(
     catalog,
   );
   workingState = applied.newState;
+
+  // Dragoon Jump (S62, ADR-0103): the leap takes the caster off-field —
+  // `airborne` (untargetable) for the duration of the charge. Cleared at
+  // resolution (finalizeResolution), which lands it back on its (reserved)
+  // takeoff tile. Charging already skips its turns; this only affects
+  // targetability.
+  if (ability.effects.jumpLeap === true) {
+    const airborneActor = workingState.units.get(actor.id);
+    if (airborneActor !== undefined) {
+      workingState = withUnit(workingState, { ...airborneActor, airborne: true });
+    }
+  }
 
   // ADR-0074 amendment: a charged cast deducts MP at this commit (the
   // `workingState` above already has it removed). Record the absolute so
@@ -1646,6 +1667,9 @@ function resolveAoeDispatch(
     if (unit === undefined) continue;
     if (seen.has(unit.id)) continue;
     if (unit.vitals.hp <= 0) continue;
+    // Airborne units (Dragoon Jump mid-leap, S62 / ADR-0103) are off-field
+    // and can't be caught in an AoE.
+    if (unit.airborne) continue;
     if (excludeCaster && unit.id === args.attacker.id) continue;
     if (respectFriendlyFire && unit.team === args.attacker.team && unit.id !== args.attacker.id) {
       continue;
@@ -3294,6 +3318,15 @@ function finalizeResolution(
         { targetId: caster.id, typeId: chargingTypeId },
         catalog,
       ).newState;
+    }
+    // Dragoon Jump (S62, ADR-0103): land the leap — clearing `airborne`
+    // returns the caster to targetable on its (reserved, unchanged) takeoff
+    // tile. Runs on resolve AND on the caster-KO fizzle path (both reach
+    // here), so a leap never leaves a unit stuck off-field. No-op for any
+    // non-Jump charge.
+    const landed = newState.units.get(caster.id);
+    if (landed !== undefined && landed.airborne) {
+      newState = withUnit(newState, { ...landed, airborne: false });
     }
   }
 

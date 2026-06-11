@@ -149,14 +149,15 @@ describe('loadDefaultCatalog', () => {
     //   - classes: 9 → 10 (terraformer)
     //
     // Session 62 — Templar arc foundation + Step 3 innates:
-    //   - abilities: 88 → 93 (faithstrider — Movement passive; raise — spell
+    //   - abilities: 88 → 94 (faithstrider — Movement passive; raise — spell
     //     revival; monkeygrip — Support, relaxes the two-handed equip rule;
     //     emissary — Support, +25% outgoing healing; unified_calling —
-    //     Reaction, +PA MP on receiving a one-time heal)
+    //     Reaction, +PA MP on receiving a one-time heal; jump — Dragoon Jump
+    //     off-field leap)
     //   - items: 67 → 70 (defender — second Knight Sword, Auto-Protect;
     //     lance + imp_halberd — the Lance weapon class, pierces)
     expect(cat.statusTypes()).toHaveLength(32);
-    expect(cat.abilities()).toHaveLength(93);
+    expect(cat.abilities()).toHaveLength(94);
     expect(cat.commandSets()).toHaveLength(12);
     expect(cat.classes()).toHaveLength(10);
     expect(cat.items()).toHaveLength(70);

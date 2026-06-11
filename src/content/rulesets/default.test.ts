@@ -59,7 +59,7 @@ describe('defaultRuleset', () => {
 
   it('damage pipeline ships the v1 stage handlers (physical, magical, healing; elemental amplification lands later)', () => {
     const stages = defaultRuleset.damagePipeline.stages;
-    expect(stages.base).toEqual(['physical_pa_wp', 'magical_ma_power', 'healing_base']);
+    expect(stages.base).toEqual(['physical_pa_wp', 'lance_bonus', 'magical_ma_power', 'healing_base']);
     // Session 31.5 / ADR-0069: `fire_on_damage_dealt` moved from
     // `attacker` to the target stage post-`evasion_check` so the proc
     // gate (`ctx.hit === true` in Bolt Hammer's contributor) reads the

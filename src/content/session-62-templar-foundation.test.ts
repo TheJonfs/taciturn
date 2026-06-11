@@ -39,6 +39,7 @@ import {
 import { loadDefaultCatalog } from './index.ts';
 import { cure } from './abilities/cure.ts';
 import { raise } from './abilities/raise.ts';
+import { jump } from './abilities/jump.ts';
 import { faithstrider } from './abilities/faithstrider.ts';
 import { monkeygrip } from './abilities/monkeygrip.ts';
 import { emissary } from './abilities/emissary.ts';
@@ -337,5 +338,26 @@ describe('Lance + Imp Halberd (Lance weapon class — S62)', () => {
     expect(impHalberd.wp).toBe(8);
     expect(impHalberd.pierces).toBe(true);
     expect(impHalberd.statMods).toEqual({ ma: 1 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Jump — the Dragoon off-field leap. Behavior is in
+// src/engine/actions/session-62-jump.test.ts; here: the spec fields.
+// ---------------------------------------------------------------------------
+
+describe('Jump (Dragoon off-field leap — S62)', () => {
+  it('is a charged tile-targeted leap: jumpLeap, 3×Speed rate, lanceBonus, H6/V6, MP 6', () => {
+    if (jump.kind !== 'active') return;
+    expect(jump.effects.jumpLeap).toBe(true);
+    expect(jump.chargeSpeedFromUnitSpeed).toBe(3);
+    expect(jump.actionSpeed).toBeGreaterThan(0); // charged
+    expect(jump.mpCost).toBe(6);
+    expect(jump.targeting.kind).toBe('tile'); // dodge window
+    if (jump.targeting.kind === 'tile') {
+      expect(jump.targeting.range).toEqual({ horizontal: 6, vertical: 6 });
+    }
+    expect(jump.effects.damage?.lanceBonus).toBe(true);
+    expect(jump.effects.damage?.power_coefficient).toBe(1);
   });
 });

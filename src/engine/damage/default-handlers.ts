@@ -13,6 +13,7 @@ import {
   fireOnFinalDamage,
   fireOnFinalDamageReceived,
   healingBase,
+  lanceBonus,
   magicalMaPower,
   physicalPaWp,
   resistanceCheck,
@@ -23,6 +24,7 @@ import type { DamageHandler, DamageHandlerRegistry } from './registry.ts';
 export const defaultDamageHandlers: DamageHandlerRegistry = new Map<string, DamageHandler>([
   // base
   ['physical_pa_wp', physicalPaWp],
+  ['lance_bonus', lanceBonus],
   ['healing_base', healingBase],
   ['magical_ma_power', magicalMaPower],
   // attacker

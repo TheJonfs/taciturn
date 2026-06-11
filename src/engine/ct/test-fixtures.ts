@@ -56,6 +56,7 @@ export function makeUnit(overrides: {
   readonly stockpile?: ReadonlyMap<ItemId, number>;
   readonly turnsKOd?: number;
   readonly removed?: boolean;
+  readonly airborne?: boolean;
 }): Unit {
   return {
     id: mkUnitId(overrides.id),
@@ -86,6 +87,7 @@ export function makeUnit(overrides: {
     stockpile: overrides.stockpile ?? new Map(),
     turnsKOd: overrides.turnsKOd ?? 0,
     removed: overrides.removed ?? false,
+    airborne: overrides.airborne ?? false,
   };
 }
 

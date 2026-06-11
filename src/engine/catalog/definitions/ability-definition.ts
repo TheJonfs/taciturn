@@ -270,6 +270,11 @@ export interface DamageSpec {
   // Variance band as [min, max] on the unit-multiplier scale. Omitted
   // → use the pipeline default (no variance, i.e., { min: 1, max: 1 }).
   readonly variance?: { readonly min: number; readonly max: number };
+  // Session 62 (Dragoon Jump, ADR-0103): when true, the damage is doubled
+  // if the attacker wields a Lance — `PA × WP × (1 + isLance)`, the
+  // canonical Dragoon/Lance reward. A ×2 multiplier pushed by the
+  // `lance_bonus` handler when the equipped weapon is `'lance'`-tagged.
+  readonly lanceBonus?: boolean;
   // CT-push damage rider — deterministic on-hit CT adjustment. When set,
   // a successful damage application emits a `system_ct_push` against the
   // target with `delta = -floor(factor × caster.MA)` (signed: a positive
@@ -465,6 +470,13 @@ export interface AbilityEffects {
   // non-KO'd or `removed` target (a living target just takes the heal,
   // matching Phoenix Down). Per ADR-0099.
   readonly removeKO?: boolean;
+  // Session 62 (Dragoon Jump, ADR-0103): the off-field leap. When true, the
+  // caster goes `airborne` (untargetable, off-field) at charged-action
+  // commit and clears it when the leap resolves — landing back on its
+  // takeoff tile (no relocation). Pairs with a `damage` effect (the leap's
+  // strike on the target tile) and `chargeSpeedFromUnitSpeed`. Charged-only
+  // (an instant jumpLeap would have no airborne window).
+  readonly jumpLeap?: boolean;
 }
 
 export interface ActiveAbilityDefinition extends AbilityCommon {
@@ -477,6 +489,13 @@ export interface ActiveAbilityDefinition extends AbilityCommon {
   // the caster. Session 7 wires the actionSpeed: 0 path; the > 0 path
   // lands its full plumbing in session 15 alongside ChargedAction.
   readonly actionSpeed: number;
+  // Session 62 (Dragoon Jump, ADR-0103): a Speed-derived charge rate. When
+  // set, the spawned ChargedAction's `speed` is `round(this × the caster's
+  // current Speed)` instead of the fixed `actionSpeed` — so Jump's telegraph
+  // shrinks as Speed is invested (3 × Speed). Uses computed Speed, so Haste
+  // composes. `actionSpeed` must still be > 0 (the ability is charged); it's
+  // the floor/instant-flag, this overrides the rate.
+  readonly chargeSpeedFromUnitSpeed?: number;
   readonly mpCost: number;
   // Hit-determination spec for physical attacks. Absent → auto-hit
   // (the convention: omit for "no roll"). Present → physical hit chance

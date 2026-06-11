@@ -56,7 +56,7 @@ const DEFAULT_BUCKET_CAPACITIES: ReadonlyMap<BucketId, number> = new Map([
 // band), then `crit_roll` layered on top — crit is a separate
 // multiplier, not a replacement for variance.
 const DEFAULT_DAMAGE_PIPELINE: Readonly<Record<DamageStage, ReadonlyArray<DamageHandlerRef>>> = {
-  base: ['physical_pa_wp', 'magical_ma_power', 'healing_base'],
+  base: ['physical_pa_wp', 'lance_bonus', 'magical_ma_power', 'healing_base'],
   // `attacker` stage retained for future handlers that need to fire
   // pre-evasion against the attacker (none in v1).
   attacker: [],

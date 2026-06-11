@@ -281,6 +281,7 @@ function placementToUnit(
     stockpile,
     turnsKOd: 0,
     removed: false,
+    airborne: false,
   };
 }
 

@@ -547,6 +547,11 @@ function validateUseAbility(
   } catch {
     return invalid(`Target unit ${JSON.stringify(targetUnitId)} does not exist`);
   }
+  // Airborne units (Dragoon Jump mid-leap, S62 / ADR-0103) are untargetable
+  // — they're off-field until the leap resolves.
+  if (targetUnit.airborne) {
+    return invalid(`Target unit ${JSON.stringify(targetUnitId)} is airborne and cannot be targeted`);
+  }
 
   // Range + targeting-mode checks. Resolve target tile for elevation
   // lookups; tile-not-found is an inconsistency caught here.
@@ -726,6 +731,10 @@ function validateUseThrowItem(
   // still are — Phoenix Down revives, other items fizzle.
   if (targetUnit.removed) {
     return invalid(`Target unit ${JSON.stringify(targetUnitId)} has been removed from battle`);
+  }
+  // Airborne units (Dragoon Jump mid-leap, S62 / ADR-0103) are untargetable.
+  if (targetUnit.airborne) {
+    return invalid(`Target unit ${JSON.stringify(targetUnitId)} is airborne and cannot be targeted`);
   }
 
   // Range + arc-targetability against the throw-item constant. Per

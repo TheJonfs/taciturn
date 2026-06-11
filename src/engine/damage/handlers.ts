@@ -252,6 +252,19 @@ export const healingBase: DamageHandler = (ctx, env) => {
   };
 };
 
+// Lance bonus (S62, ADR-0103): Dragoon Jump's `× (1 + isLance)`. When the
+// ability's damage declares `lanceBonus` and the attacker wields a Lance
+// (a `'lance'`-tagged weapon), push a ×2 multiplier — composing with WP /
+// crit / variance at the finalize fold. No-op otherwise, so a Jump with a
+// non-Lance weapon deals the base `PA × WP`.
+export const lanceBonus: DamageHandler = (ctx, env) => {
+  const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
+  if (ability.effects.damage?.lanceBonus !== true) return ctx;
+  const weapon = getEquippedWeapon(ctx.attacker, env.catalog);
+  if (weapon === null || !(weapon.tags ?? []).includes('lance')) return ctx;
+  return { ...ctx, multipliers: [...ctx.multipliers, { source: 'lance_jump', factor: 2 }] };
+};
+
 // Magical damage: MA × power × Faith_factor. Gated on the 'magical'
 // tag. Per Battle Mechanics Guide "Magical damage": magical attacks
 // always land for damage (no hit roll); resistance modifies damage
