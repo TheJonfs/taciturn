@@ -43,6 +43,11 @@ export const precisionFire: ActiveAbilityDefinition = {
     damage: {
       tags: ['magical', 'fire'],
       power_coefficient: 3,
+      // S63: Faith removed from the magnitude (deliberate buff — Math Skill
+      // reads as a deterministic instrument, not a Faith-gated spell). Damage
+      // is `SP × MA`; ~2× prior output at default Faith. SP unchanged. The
+      // Burn proc below still runs the standard Faith × MA apply gate.
+      noFaithScaling: true,
     },
     statusEffects: [
       {

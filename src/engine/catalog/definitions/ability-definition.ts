@@ -270,6 +270,18 @@ export interface DamageSpec {
   // Variance band as [min, max] on the unit-multiplier scale. Omitted
   // → use the pipeline default (no variance, i.e., { min: 1, max: 1 }).
   readonly variance?: { readonly min: number; readonly max: number };
+  // Session 63: opt this magical/healing effect out of Faith scaling.
+  // The 'magical' / 'healing' base handlers normally fold a symmetric
+  // Faith_factor into `MA × power_coefficient × Faith`. When true, the
+  // Faith term is forced to 1, so the magnitude is the deterministic
+  // `MA × power_coefficient`. First consumers are the Calculator's
+  // Precision Fire and Targeted Treatment (Math Skill targets by formula,
+  // not aim — Chris's call that these read as deterministic instruments,
+  // not Faith-gated spells). A deliberate buff: at default Faith (~0.49)
+  // dropping the factor roughly doubles output; `power_coefficient` is
+  // left unchanged. Does NOT affect status-application chances on the
+  // same ability (those run the separate Faith × MA gate).
+  readonly noFaithScaling?: boolean;
   // Session 62 (Dragoon Jump, ADR-0103): when true, the damage is doubled
   // if the attacker wields a Lance — `PA × WP × (1 + isLance)`, the
   // canonical Dragoon/Lance reward. A ×2 multiplier pushed by the

@@ -457,6 +457,7 @@ function basicSpell(args: {
   readonly tags?: ReadonlyArray<DamageTag>;
   readonly power_coefficient?: number;
   readonly mpCost?: number;
+  readonly noFaithScaling?: boolean;
 } = {}): ActiveAbilityDefinition {
   return {
     id: abilityId(args.id ?? 'spell'),
@@ -468,7 +469,13 @@ function basicSpell(args: {
     targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'arc' },
     actionSpeed: 0,
     mpCost: args.mpCost ?? 0,
-    effects: { damage: { tags: args.tags ?? ['magical'], power_coefficient: args.power_coefficient ?? 5 } },
+    effects: {
+      damage: {
+        tags: args.tags ?? ['magical'],
+        power_coefficient: args.power_coefficient ?? 5,
+        ...(args.noFaithScaling === true ? { noFaithScaling: true } : {}),
+      },
+    },
   };
 }
 
@@ -556,6 +563,40 @@ describe('runDamagePipeline — magical (MA × power × Faith_factor)', () => {
     expect(damageAt(50, 100)).toBe(10);
     // Faith 50 / 50 → factor 0.25 → 5.
     expect(damageAt(50, 50)).toBe(5);
+  });
+
+  it('noFaithScaling forces Faith to 1 — magnitude is MA × power regardless of either side (S63)', () => {
+    // Precision Fire / Targeted Treatment opt out of Faith. The factor is
+    // pinned to 1, so MA 5 × power 4 = 20 at every Faith pairing — a
+    // deliberate buff (a faith-scaled spell at 50/50 deals only 5).
+    const spell = basicSpell({ power_coefficient: 4, noFaithScaling: true });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [spell],
+      commandSets: [],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [ruleset],
+    });
+    function damageAt(faithA: number, faithB: number): number {
+      const attacker = makeUnit({ id: 'a', spd: 10, ma: 5, faith: faithA });
+      const target = makeUnit({ id: 'b', spd: 10, hp: 100, faith: faithB });
+      const state = makeGameState({ units: [attacker, target] });
+      return runDamagePipeline({
+        state,
+        catalog: cat,
+        attacker,
+        target,
+        ability: spell,
+        sourceActionSeq: 0,
+        seed: 0,
+        registry: defaultDamageHandlers,
+      }).finalDamage ?? 0;
+    }
+    expect(damageAt(100, 100)).toBe(20);
+    expect(damageAt(50, 50)).toBe(20);
+    expect(damageAt(20, 100)).toBe(20);
   });
 
   it("does not run the magical formula when the 'magical' tag is absent", () => {

@@ -38,6 +38,10 @@ export const targetedTreatment: ActiveAbilityDefinition = {
       // base handler so MA × power × Faith composes naturally.
       tags: ['magical', 'healing'],
       power_coefficient: 4,
+      // S63: Faith removed from the magnitude (deliberate buff, paired with
+      // Precision Fire). Heal is `SP × MA`; ~2× prior output at default Faith.
+      // SP unchanged. Emissary's outgoing-healing multiplier still composes.
+      noFaithScaling: true,
     },
   },
 };

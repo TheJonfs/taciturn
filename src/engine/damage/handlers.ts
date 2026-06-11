@@ -229,12 +229,16 @@ export const healingBase: DamageHandler = (ctx, env) => {
     statName: 'ma',
     baseValue: ctx.attacker.baseStats.ma,
   });
-  const faithFactor = computeFaithFactor({
-    state: env.state,
-    catalog: env.catalog,
-    attacker: ctx.attacker,
-    target: ctx.target,
-  });
+  // S63: `noFaithScaling` forces the Faith term to 1 (deterministic
+  // `MA × power`). Targeted Treatment opts out; standard heals keep Faith.
+  const faithFactor = ability.effects.damage?.noFaithScaling === true
+    ? 1
+    : computeFaithFactor({
+        state: env.state,
+        catalog: env.catalog,
+        attacker: ctx.attacker,
+        target: ctx.target,
+      });
   // Emissary (S62, ADR-0101): caster-side outgoing-healing multiplier,
   // pushed as a multiplier so it composes multiplicatively with faith / MA
   // / variance at the finalize fold. Skipped when the factor is 1 (no
@@ -282,12 +286,16 @@ export const magicalMaPower: DamageHandler = (ctx, env) => {
     statName: 'ma',
     baseValue: ctx.attacker.baseStats.ma,
   });
-  const faithFactor = computeFaithFactor({
-    state: env.state,
-    catalog: env.catalog,
-    attacker: ctx.attacker,
-    target: ctx.target,
-  });
+  // S63: `noFaithScaling` forces the Faith term to 1 (deterministic
+  // `MA × power`). Precision Fire opts out; standard spells keep Faith.
+  const faithFactor = ability.effects.damage?.noFaithScaling === true
+    ? 1
+    : computeFaithFactor({
+        state: env.state,
+        catalog: env.catalog,
+        attacker: ctx.attacker,
+        target: ctx.target,
+      });
   return { ...ctx, baseDamage: ma * power * faithFactor };
 };
 
