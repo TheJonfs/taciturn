@@ -114,6 +114,102 @@ describe('DemoOrchestrator', () => {
     expect(blockedOrch.getState()).toBe(state);
   });
 
+  // Soft-lock guard (S63). A blocked action returns a rejection with no
+  // state change; a deterministic controller (the AI) re-proposes the
+  // identical action every tick, which would spin the pump forever. The
+  // guard force-ends the turn on the *repeat* so the battle advances.
+  // Shared setup: advance to an active turn, pin the unit with Don't Move,
+  // and build a zero-distance Move that will hook_block. Returns the live
+  // state plus a controller-map builder for the active team's controller.
+  function setupBlockedTurn() {
+    const catalog = loadDefaultCatalog();
+    let state = createInitialState(demoBattle, catalog);
+    const noopController: Controller = () => ({ kind: 'pending' });
+    const controllers = new Map([
+      [demoBattle.teams[0]!.id, noopController],
+      [demoBattle.teams[1]!.id, noopController],
+    ]);
+    const orchestrator = new DemoOrchestrator(state, catalog, controllers);
+    let safety = 0;
+    while (orchestrator.getState().turnState === null && safety < 100) {
+      orchestrator.step();
+      safety++;
+    }
+    state = orchestrator.getState();
+    const activeId = state.turnState!.unitId;
+    state = applyStatus(
+      state,
+      {
+        targetId: activeId,
+        typeId: statusTypeId('dont_move'),
+        sourceUnitId: null,
+        sourceActionSeq: null,
+        duration: 100,
+      },
+      catalog,
+    ).newState;
+    const activeTeam = state.units.get(activeId)!.team;
+    const moveAction: ProposedAction = {
+      type: 'move',
+      source: 'player',
+      actorId: activeId,
+      payload: { destination: state.units.get(activeId)!.position },
+    };
+    // Build a controller map: the active team uses `active`, every other
+    // team noops (returns pending).
+    const withActive = (active: Controller): Map<typeof activeTeam, Controller> => {
+      const map = new Map<typeof activeTeam, Controller>([[activeTeam, active]]);
+      for (const team of demoBattle.teams) {
+        if (team.id !== activeTeam) map.set(team.id, noopController);
+      }
+      return map;
+    };
+    return { catalog, state, moveAction, withActive };
+  }
+
+  it('force-ends the turn when a controller re-submits the same blocked action', () => {
+    const { catalog, state, moveAction, withActive } = setupBlockedTurn();
+    const submitting: Controller = () => ({ kind: 'commit', action: moveAction });
+    const orch = new DemoOrchestrator(state, catalog, withActive(submitting));
+
+    // First submission: rejected, no progress (the guard arms here).
+    const first = orch.step();
+    expect(first.committed).toEqual([]);
+    expect(first.rejection!.stage).toBe('hook_blocked');
+    expect(orch.getState()).toBe(state);
+
+    // Second identical submission: the guard breaks the loop with a
+    // forced turn_end, still surfacing the rejection reason.
+    const second = orch.step();
+    expect(second.committed.some((a) => a.type === 'turn_end')).toBe(true);
+    expect(second.rejection).toBeDefined();
+    expect(orch.getState()).not.toBe(state);
+  });
+
+  it('does not force-end when a pending step intervenes (human-retry exemption)', () => {
+    const { catalog, state, moveAction, withActive } = setupBlockedTurn();
+    // Mimics a human: submit (blocked) → return to menu (pending) →
+    // submit the same thing again. The pending step clears the guard, so
+    // the second submission is treated as a fresh attempt, not a loop.
+    let n = 0;
+    const humanish: Controller = () => {
+      n += 1;
+      if (n === 2) return { kind: 'pending' };
+      return { kind: 'commit', action: moveAction };
+    };
+    const orch = new DemoOrchestrator(state, catalog, withActive(humanish));
+
+    const first = orch.step(); // commit → rejected
+    expect(first.rejection).toBeDefined();
+    const middle = orch.step(); // pending → clears the guard
+    expect(middle.committed).toEqual([]);
+    expect(middle.rejection).toBeUndefined();
+    const third = orch.step(); // commit again → rejected, NOT force-ended
+    expect(third.committed).toEqual([]);
+    expect(third.rejection).toBeDefined();
+    expect(third.committed.some((a) => a.type === 'turn_end')).toBe(false);
+  });
+
   // Session 32 / ADR-0071 — orchestrator pre-battle phase. Equipment
   // auto-status grants and ruleset-derived initial-CT randomization
   // commit through `commitAction` before the first scheduler advance.

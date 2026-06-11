@@ -24,6 +24,7 @@ import {
   type ProposedAction,
   type TeamId,
   type Unit,
+  type UnitId,
 } from '@engine/index.ts';
 
 // A controller's decision for the active unit's next step. One of three:
@@ -105,6 +106,19 @@ export class DemoOrchestrator {
   // scheduler-advance branch.
   private preBattleQueue: ProposedAction[];
 
+  // Soft-lock guard (S63). Records the last controller-submitted root
+  // action that the engine *rejected*, keyed by the active unit. If the
+  // same unit re-submits the byte-identical action with no intervening
+  // progress, `step()` forces a `turn_end` to break the loop rather than
+  // re-rejecting forever. A deterministic controller (the AI) re-proposes
+  // its single best action every tick, so a permanently-blocked action
+  // (e.g. a Taunted unit whose top choice stays blocked — see the S63
+  // Taunt audit) would otherwise spin the pump indefinitely. Human
+  // controllers are immune: their decision drains to `pending` between
+  // submissions, which clears this field, so a human may freely retry a
+  // blocked action without being force-ended.
+  private pendingRejection: { readonly unitId: UnitId; readonly signature: string } | null = null;
+
   constructor(
     initialState: GameState,
     catalog: Catalog,
@@ -149,6 +163,9 @@ export class DemoOrchestrator {
     }
 
     if (this.state.turnState === null) {
+      // Turn boundary — drop any stale rejection memory from the unit
+      // whose turn just ended.
+      this.pendingRejection = null;
       // Between turns: advance the CT scheduler to the next trigger and
       // commit the resulting `turn_start` (or `charged_action_resolve`).
       const sched = advanceToNextEvent(this.state, this.catalog);
@@ -188,7 +205,11 @@ export class DemoOrchestrator {
 
     if (decision.kind === 'pending') {
       // Controller has no decision yet (UI awaiting input). Commit
-      // nothing; pump will re-ask next tick.
+      // nothing; pump will re-ask next tick. A `pending` step is genuine
+      // progress for the soft-lock guard — it means the controller is
+      // waiting on fresh input rather than re-asserting a blocked action —
+      // so clear the rejection memory (this is what exempts human retries).
+      this.pendingRejection = null;
       return { newState: this.state, committed: [], done: false };
     }
 
@@ -206,17 +227,50 @@ export class DemoOrchestrator {
       // `animationEnded` rAF poll handles the menu-return recovery
       // (the renderer stays idle, so `isIdle()` is true on the next
       // tick).
+      const rejection = { action, stage: result.stage, reason: result.reason };
+      // Soft-lock guard (S63): if this is the same unit re-submitting the
+      // byte-identical action it was just rejected for, the controller is
+      // stuck in a deterministic loop (no state changed, so it will keep
+      // proposing the same blocked action). Force a `turn_end` to break it.
+      const signature = `${String(actor.id)}|${JSON.stringify(action)}`;
+      const looping =
+        this.pendingRejection !== null &&
+        this.pendingRejection.unitId === actor.id &&
+        this.pendingRejection.signature === signature;
+      if (looping) {
+        this.pendingRejection = null;
+        const forcedEnd: ProposedAction = {
+          type: 'turn_end',
+          source: 'system',
+          payload: { unitId: actor.id },
+        };
+        const endResult = commitAction(this.state, forcedEnd, this.catalog);
+        if (!endResult.ok) {
+          // turn_end should always validate for the active unit; a failure
+          // here is an engine bug, not a runtime refusal — stay loud.
+          throw new Error(
+            `DemoOrchestrator: forced turn_end after repeated rejection of ${action.type} failed: ${endResult.reason}`,
+          );
+        }
+        this.state = endResult.newState;
+        // Surface the originating rejection (the reason the turn was cut)
+        // alongside the forced turn_end's commits.
+        return {
+          newState: this.state,
+          committed: endResult.committed,
+          done: this.state.outcome !== undefined,
+          rejection,
+        };
+      }
+      this.pendingRejection = { unitId: actor.id, signature };
       return {
         newState: this.state,
         committed: [],
         done: this.state.outcome !== undefined,
-        rejection: {
-          action,
-          stage: result.stage,
-          reason: result.reason,
-        },
+        rejection,
       };
     }
+    this.pendingRejection = null;
     this.state = result.newState;
     return {
       newState: this.state,
