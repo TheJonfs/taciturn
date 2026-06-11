@@ -455,6 +455,16 @@ export interface AbilityEffects {
   // 1-tile, jump-delta-5 hop) — no parallel pathfinding. Validation adds
   // a terrain-enterable + unoccupied check on the destination.
   readonly selfMove?: boolean;
+  // Session 62: explicit revive (the Templar's Raise). When true,
+  // resolving this ability against a KO'd target revives it (HP 0 → 1,
+  // turnsKOd → 0, CT → 0) *before* the damage/heal pipeline runs — the
+  // spell analogue of Phoenix Down's `removeKO` on the consumable path.
+  // A co-declared healing `damage` effect then lands on the just-revived
+  // unit (HP > 0), clearing `applyDamageToTarget`'s KO heal-gate, so the
+  // unit comes back at 1 + (MA × power × faithFactor). No-op on a
+  // non-KO'd or `removed` target (a living target just takes the heal,
+  // matching Phoenix Down). Per ADR-0099.
+  readonly removeKO?: boolean;
 }
 
 export interface ActiveAbilityDefinition extends AbilityCommon {

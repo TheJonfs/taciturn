@@ -38,6 +38,7 @@ import {
 } from '../engine/abilities/constants.ts';
 import { loadDefaultCatalog } from './index.ts';
 import { cure } from './abilities/cure.ts';
+import { raise } from './abilities/raise.ts';
 import { faithstrider } from './abilities/faithstrider.ts';
 import { defender } from './items/defender.ts';
 import { protect } from './statuses/protect.ts';
@@ -221,5 +222,52 @@ describe('Cure (Templar AoE heal — S62 rework)', () => {
       registry: defaultDamageHandlers,
     });
     expect(ctx.baseDamage).toBeCloseTo(30.72);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Raise — single-target spell revival (S62). End-to-end charged revive is
+// covered in src/engine/actions/session-62-raise.test.ts; here: the spec
+// fields and the heal-amount formula.
+// ---------------------------------------------------------------------------
+
+describe('Raise (Templar spell revival — S62)', () => {
+  it('is a charged single-target revive: removeKO, power 10, SP 30, MP 12', () => {
+    expect(raise.kind).toBe('active');
+    if (raise.kind !== 'active') return;
+    expect(raise.effects.removeKO).toBe(true);
+    expect(raise.effects.damage?.power_coefficient).toBe(10);
+    expect(raise.effects.damage?.tags).toContain('healing');
+    expect(raise.actionSpeed).toBe(30);
+    expect(raise.mpCost).toBe(12);
+    expect(raise.targeting.kind).toBe('single_unit');
+    // No AoE — scope is a single ally, matching Phoenix Down.
+    expect(raise.effects.aoe).toBeUndefined();
+  });
+
+  it('heals MA × 10 × faithFactor on top of the revive (power 10 > Cure 8)', () => {
+    // faith 80 / 80 → 0.64; MA 6 → 6 × 10 × 0.64 = 38.4.
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [raise],
+      commandSets: [],
+      classes: [knightClass(['raise'])],
+      items: [],
+      rulesets: [makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE })],
+    });
+    const healer = makeUnit({ id: 'h', spd: 8, ma: 6 });
+    const ally = makeUnit({ id: 'a', spd: 8, hp: 10, maxHpBase: 100 });
+    const state = makeGameState({ units: [healer, ally] });
+    const ctx = runDamagePipeline({
+      state,
+      catalog: cat,
+      attacker: healer,
+      target: ally,
+      ability: raise,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    });
+    expect(ctx.baseDamage).toBeCloseTo(38.4);
   });
 });

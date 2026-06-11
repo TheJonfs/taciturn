@@ -788,6 +788,33 @@ function resolveAbilityEffect(
 ): ResolveAbilityEffectResult {
   let workingState = state;
 
+  // Explicit revive (Session 62 / ADR-0099). An ability with `removeKO`
+  // (the Templar's Raise) revives a KO'd target BEFORE the damage/heal
+  // pipeline — the spell analogue of Phoenix Down's removeKO. Reviving
+  // into `workingState` first means `applyDamageToTarget` (which re-reads
+  // the live unit) sees HP > 0 and its KO heal-gate no longer blocks the
+  // co-declared healing effect, so the unit returns at 1 + the heal. No-op
+  // on a non-KO'd or `removed` target. Mirrors the consumable path's
+  // revive-before-hpRestore ordering exactly.
+  if (
+    args.ability.effects.removeKO === true &&
+    args.targetUnit !== null &&
+    args.targetUnit.vitals.hp <= 0 &&
+    !args.targetUnit.removed
+  ) {
+    const live = workingState.units.get(args.targetUnit.id);
+    if (live !== undefined && live.vitals.hp <= 0 && !live.removed) {
+      workingState = withUnit(workingState, {
+        ...live,
+        vitals: { ...live.vitals, hp: 1 },
+        turnsKOd: 0,
+        // Resume from CT 0 — the revived unit re-enters the queue at the
+        // bottom, matching Phoenix Down (S39 "resume from 0").
+        ct: 0,
+      });
+    }
+  }
+
   // Damage / healing pipeline.
   let damageContext: DamageContext | null = null;
   let damageDealt: number | undefined;
@@ -3081,7 +3108,16 @@ export function reduceChargedActionResolve(
     // even on empty anchor tiles — the AoE expansion may find nearby
     // units even when the anchor itself is empty.
     if (targetRef.kind === 'unit' && resolvedUnit === null) continue;
-    if (targetRef.kind === 'unit' && resolvedUnit !== null && resolvedUnit.vitals.hp <= 0) {
+    if (
+      targetRef.kind === 'unit' &&
+      resolvedUnit !== null &&
+      resolvedUnit.vitals.hp <= 0 &&
+      // Explicit revive (Raise, ADR-0099) is the one charged ability that
+      // SHOULD resolve against a KO'd unit — that's its whole purpose. A
+      // `removed` (permadeath) target is never revivable, so it still
+      // fizzles.
+      !(ability.effects.removeKO === true && !resolvedUnit.removed)
+    ) {
       continue;
     }
     if (

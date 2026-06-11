@@ -149,10 +149,11 @@ describe('loadDefaultCatalog', () => {
     //   - classes: 9 → 10 (terraformer)
     //
     // Session 62 — Templar arc foundation:
-    //   - abilities: 88 → 89 (faithstrider — Templar Movement passive)
+    //   - abilities: 88 → 90 (faithstrider — Templar Movement passive;
+    //     raise — Templar spell revival)
     //   - items: 67 → 68 (defender — second Knight Sword, Auto-Protect)
     expect(cat.statusTypes()).toHaveLength(32);
-    expect(cat.abilities()).toHaveLength(89);
+    expect(cat.abilities()).toHaveLength(90);
     expect(cat.commandSets()).toHaveLength(12);
     expect(cat.classes()).toHaveLength(10);
     expect(cat.items()).toHaveLength(68);
