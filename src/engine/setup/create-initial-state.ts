@@ -326,18 +326,35 @@ function validateEquipmentPlacement(
   // in the other. Because the off-hand is necessarily empty, a Two-Weapons
   // dual-wielder holding a bow collapses to a single swing (the swing loop
   // requires weapons in both hands).
-  for (const [hand, other] of [
-    ['rightHand', 'leftHand'],
-    ['leftHand', 'rightHand'],
-  ] as const) {
-    const id = equipment[hand];
-    if (id === null) continue;
-    const item = catalog.getItem(id);
-    if (item.kind === 'weapon' && item.twoHanded === true && equipment[other] !== null) {
-      throw new BattleConfigError(
-        `Unit ${JSON.stringify(placement.id)}: two-handed weapon ${JSON.stringify(id)} in ${hand} ` +
-          `forbids an item in ${other}`,
-      );
+  //
+  // Session 62 (Monkeygrip, ADR-0100): a passive carrying
+  // `relaxesTwoHandedGrip` lifts that rule — two-handers may share a hand
+  // with an off-hand item (a shield, or with Two Weapons a second
+  // two-hander). Read declaratively off the loadout's passives: equip
+  // legality is a static property settled here at setup, not a runtime
+  // behavior, so the validator reads the flag rather than the catalog
+  // referencing any specific ability id (engine/content boundary).
+  const relaxesTwoHandedGrip = Object.values(placement.loadout.passiveBuckets)
+    .flat()
+    .some((abId) => {
+      if (!catalog.hasAbility(abId)) return false;
+      const ab = catalog.getAbility(abId);
+      return ab.kind === 'passive' && ab.relaxesTwoHandedGrip === true;
+    });
+  if (!relaxesTwoHandedGrip) {
+    for (const [hand, other] of [
+      ['rightHand', 'leftHand'],
+      ['leftHand', 'rightHand'],
+    ] as const) {
+      const id = equipment[hand];
+      if (id === null) continue;
+      const item = catalog.getItem(id);
+      if (item.kind === 'weapon' && item.twoHanded === true && equipment[other] !== null) {
+        throw new BattleConfigError(
+          `Unit ${JSON.stringify(placement.id)}: two-handed weapon ${JSON.stringify(id)} in ${hand} ` +
+            `forbids an item in ${other}`,
+        );
+      }
     }
   }
 }

@@ -569,6 +569,14 @@ export interface PassiveAbilityDefinition extends AbilityCommon {
   // helper) lack this decoration and the AI treats them as
   // always-firing (safe default).
   readonly reactionFields?: ReactionAbilityFields;
+  // Session 62 (Monkeygrip, ADR-0100): when true, a unit carrying this
+  // passive may equip a two-handed weapon alongside an off-hand item —
+  // the equip validator (`validateEquipmentPlacement`) reads this flag off
+  // the loadout's passives and relaxes the two-handed-occupies-both-hands
+  // rule. A declarative equip-legality capability, NOT a runtime hook:
+  // equip legality is a static property settled at setup, so the validator
+  // reads the flag rather than firing the closed runtime hook surface.
+  readonly relaxesTwoHandedGrip?: boolean;
 }
 
 export type AbilityDefinition = ActiveAbilityDefinition | PassiveAbilityDefinition;

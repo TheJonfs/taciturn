@@ -40,6 +40,7 @@ import { loadDefaultCatalog } from './index.ts';
 import { cure } from './abilities/cure.ts';
 import { raise } from './abilities/raise.ts';
 import { faithstrider } from './abilities/faithstrider.ts';
+import { monkeygrip } from './abilities/monkeygrip.ts';
 import { defender } from './items/defender.ts';
 import { protect } from './statuses/protect.ts';
 
@@ -269,5 +270,26 @@ describe('Raise (Templar spell revival — S62)', () => {
       registry: defaultDamageHandlers,
     });
     expect(ctx.baseDamage).toBeCloseTo(38.4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Monkeygrip — Support passive that relaxes the two-handed equip rule.
+// The real createInitialState behavior is in
+// src/engine/setup/session-62-monkeygrip.test.ts; here: the declarative
+// capability flag and the budget shape.
+// ---------------------------------------------------------------------------
+
+describe('Monkeygrip (Templar Support passive — S62)', () => {
+  it('declares relaxesTwoHandedGrip and carries no runtime hook', () => {
+    expect(monkeygrip.kind).toBe('passive');
+    if (monkeygrip.kind !== 'passive') return;
+    expect(monkeygrip.relaxesTwoHandedGrip).toBe(true);
+    expect(monkeygrip.hooks).toHaveLength(0); // declarative, not a runtime hook
+  });
+
+  it('is a cost-2 Support passive', () => {
+    expect(monkeygrip.bucket).toBe(bucketId('support'));
+    expect(monkeygrip.baseCost).toBe(2);
   });
 });

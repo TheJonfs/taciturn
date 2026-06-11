@@ -28,6 +28,7 @@ import { engineeredDefenses as engineeredDefensesAbility } from './engineered-de
 import { exactRhythm } from './exact-rhythm.ts';
 import { expertFormer } from './expert-former.ts';
 import { faithstrider } from './faithstrider.ts';
+import { monkeygrip } from './monkeygrip.ts';
 import { raise } from './raise.ts';
 import { ignoreHeight } from './ignore-height.ts';
 import { discharge } from './discharge.ts';
@@ -181,5 +182,6 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   expertFormer,
   // Session 62 — Templar arc foundation.
   faithstrider,
+  monkeygrip,
   raise,
 ];
