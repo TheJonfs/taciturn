@@ -73,9 +73,10 @@ describe('Session 37 — items registered in the default catalog', () => {
     expect(lookoutsHood.statMods).toEqual({ maxHpBase: 20, spd: 1 });
   });
 
-  it("Crusader's Helm: Knight-only head, +20 HP, +10 MP, +10 Faith", () => {
+  it("Crusader's Helm: Knight/Templar head, +20 HP, +10 MP, +10 Faith", () => {
     expect(crusadersHelm.kind).toBe('headgear');
-    expect(crusadersHelm.classRestrictions).toEqual([classId('knight')]);
+    // S62: Templar shares Knight head/body gear.
+    expect(crusadersHelm.classRestrictions).toEqual([classId('knight'), classId('templar')]);
     expect(crusadersHelm.statMods).toEqual({ maxHpBase: 20, maxMpBase: 10, faith: 10 });
   });
 

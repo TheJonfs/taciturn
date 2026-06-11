@@ -18,7 +18,7 @@ export const steelHelm: HeadgearEquipment = {
   name: 'Steel Helm',
   availability: 'available',
   kind: 'headgear',
-  classRestrictions: [classId('knight')],
+  classRestrictions: [classId('knight'), classId('templar')], // S62: Templar shares Knight head/body gear
   statMods: { maxHpBase: 40 },
   bucketCapacityMods: new Map([[bucketId('reaction'), 1]]),
   evasionMods: { side: -20, back: -20 },

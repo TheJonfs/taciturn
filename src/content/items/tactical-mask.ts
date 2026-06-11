@@ -8,6 +8,6 @@ export const tacticalMask: HeadgearEquipment = {
   name: 'Tactical Mask',
   availability: 'available',
   kind: 'headgear',
-  classRestrictions: [classId('knight')],
+  classRestrictions: [classId('knight'), classId('templar')], // S62: Templar shares Knight head/body gear
   statMods: { maxHpBase: 20, pa: 1, spd: 1 },
 };

@@ -46,6 +46,9 @@ export const classDominantStats: ReadonlyMap<ClassId, DominantStat> = new Map([
   // (6 / 8) to signal the hybrid identity, but MA takes the single
   // dominant-stat pick — most Worldcraft casting reads as magical.
   [classId('terraformer'),    'ma'],
+  // S62: Templar is a PA/MA hybrid (6/6). MA takes the single dominant pick
+  // — its headline kit (Cure / Raise) is magical (Terraformer precedent).
+  [classId('templar'),        'ma'],
 ]);
 
 export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new Map([
@@ -101,4 +104,8 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   // first class to use PA for ability scaling. Speed 8 — slow, like the
   // Calculator tier; the Terraformer sets up the field and acts seldom.
   [classId('terraformer'),    { maxHpBase: 105, maxMpBase: 35, pa: 6,  ma: 8,  spd: 8  }],
+  // S62: Templar — hybrid White Mage + Dragoon. HP between the Knight (144)
+  // and the mages; MP 36 for the spell kit; PA 6 / MA 6 (well below the
+  // Knight's functional 12 and the mages' MA); Speed 8 (slow-caster tier).
+  [classId('templar'),        { maxHpBase: 132, maxMpBase: 36, pa: 6,  ma: 6,  spd: 8  }],
 ]);

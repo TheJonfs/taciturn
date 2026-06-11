@@ -30,7 +30,7 @@ export const spikedMail: ArmorEquipment = {
   name: 'Spiked Mail',
   availability: 'available',
   kind: 'armor',
-  classRestrictions: [classId('knight')],
+  classRestrictions: [classId('knight'), classId('templar')], // S62: Templar shares Knight head/body gear
   statMods: { maxHpBase: 100 },
   physicalReflectPercent: 20,
 };

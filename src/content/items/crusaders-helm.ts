@@ -13,6 +13,6 @@ export const crusadersHelm: HeadgearEquipment = {
   name: "Crusader's Helm",
   availability: 'available',
   kind: 'headgear',
-  classRestrictions: [classId('knight')],
+  classRestrictions: [classId('knight'), classId('templar')], // S62: Templar shares Knight head/body gear
   statMods: { maxHpBase: 20, maxMpBase: 10, faith: 10 },
 };

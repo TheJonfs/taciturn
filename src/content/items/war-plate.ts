@@ -10,7 +10,7 @@ export const warPlate: ArmorEquipment = {
   name: 'War Plate',
   availability: 'available',
   kind: 'armor',
-  classRestrictions: [classId('knight')],
+  classRestrictions: [classId('knight'), classId('templar')], // S62: Templar shares Knight head/body gear
   statMods: { maxHpBase: 150, spd: -1 },
   resistanceMods: new Map([
     ['fire', 25],

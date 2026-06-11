@@ -156,10 +156,12 @@ describe('loadDefaultCatalog', () => {
     //     off-field leap)
     //   - items: 67 → 70 (defender — second Knight Sword, Auto-Protect;
     //     lance + imp_halberd — the Lance weapon class, pierces)
+    //   - commandSets: 12 → 13 (templar_arts — Cure / Raise / Jump)
+    //   - classes: 10 → 11 (templar — class assembly)
     expect(cat.statusTypes()).toHaveLength(32);
     expect(cat.abilities()).toHaveLength(94);
-    expect(cat.commandSets()).toHaveLength(12);
-    expect(cat.classes()).toHaveLength(10);
+    expect(cat.commandSets()).toHaveLength(13);
+    expect(cat.classes()).toHaveLength(11);
     expect(cat.items()).toHaveLength(70);
     expect(cat.rulesets()).toHaveLength(1);
   });

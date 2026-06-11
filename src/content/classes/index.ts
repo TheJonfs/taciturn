@@ -7,6 +7,7 @@ import { fireMage } from './fire-mage.ts';
 import { hunter } from './hunter.ts';
 import { knight } from './knight.ts';
 import { lightningMage } from './lightning-mage.ts';
+import { templar } from './templar.ts';
 import { terraformer } from './terraformer.ts';
 import { waterMage } from './water-mage.ts';
 
@@ -19,6 +20,7 @@ export const classes: ReadonlyArray<ClassDefinition> = [
   hunter,
   knight,
   lightningMage,
+  templar,
   terraformer,
   waterMage,
 ];

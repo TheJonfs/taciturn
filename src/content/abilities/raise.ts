@@ -34,7 +34,7 @@ export const raise: ActiveAbilityDefinition = {
   kind: 'active',
   bucket: bucketId('secondary_command_sets'),
   baseCost: 1,
-  availability: 'hidden',
+  availability: 'available', // S62: surfaced via the Templar's command set
   tags: ['magical', 'holy', 'healing'],
   targeting: {
     kind: 'single_unit',

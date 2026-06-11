@@ -8,6 +8,6 @@ export const soldiersLeathers: ArmorEquipment = {
   name: "Soldier's Leathers",
   availability: 'available',
   kind: 'armor',
-  classRestrictions: [classId('knight')],
+  classRestrictions: [classId('knight'), classId('templar')], // S62: Templar shares Knight head/body gear
   statMods: { maxHpBase: 90, spd: 1, pa: 1 },
 };
