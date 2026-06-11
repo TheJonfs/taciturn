@@ -12,6 +12,7 @@ import { earthMageProse } from './earth-mage.ts';
 import { waterMageProse } from './water-mage.ts';
 import { fireMageProse } from './fire-mage.ts';
 import { lightningMageProse } from './lightning-mage.ts';
+import { templarProse } from './templar.ts';
 import { terraformerProse } from './terraformer.ts';
 
 export const classProse: Record<string, ClassProse> = {
@@ -24,5 +25,6 @@ export const classProse: Record<string, ClassProse> = {
   water_mage: waterMageProse,
   fire_mage: fireMageProse,
   lightning_mage: lightningMageProse,
+  templar: templarProse,
   terraformer: terraformerProse,
 };

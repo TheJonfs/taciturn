@@ -140,6 +140,17 @@
   --band-label: #b6bdc4;
 }
 
+/* The Templar's palette is deep amethyst — a royal violet accent over a
+   darker grape stat band, with a pale-gold label drawn from the holy
+   knight's gilt trim. Richer and bluer than the Aethurge's grayer
+   electric purple (#5b3a78), so the two purples read as distinct
+   disciplines when the book is flipped between them. */
+.v-e--templar {
+  --accent: #4f2d7f;
+  --band: #38215c;
+  --band-label: #d8c79b;
+}
+
 .v-e .spread__verso {
   position: relative;
 }

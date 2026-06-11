@@ -111,9 +111,10 @@ export function specializationsHalfTitle(): string {
         at the line, the Alchemist with her satchel, the Assassin out of
         the shadow, the Hunter from the perch — the four elemental
         Mages, who answer it with their art, the Calculator, who
-        answers it with her arithmetic, and the Terraformer, who
-        answers it by remaking the ground beneath them all. The spreads
-        are arranged alphabetically; each is the same in form — stats
+        answers it with her arithmetic, the Templar, who answers it with
+        mending and the holy leap, and the Terraformer, who answers it
+        by remaking the ground beneath them all. The spreads are
+        arranged alphabetically; each is the same in form — stats
         imported from
         the Academy&rsquo;s records, the full repertoire annotated, the
         instructor&rsquo;s counsel at the close. Read in the order they

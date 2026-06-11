@@ -36,11 +36,12 @@ but a wand can nonetheless shift resistances to her allies' advantage.`,
       compact: 'A weak melee blow — but the right wand turns it into a resistance shift for her allies to exploit.',
     },
     water_strike: {
-      full: `Honest magical damage at arc range — and, on a hit, the
-target's own turn is shoved further down the queue. The Hydrologist
+      full: `Honest magical damage in a straight line — and, on a hit,
+the target's own turn is shoved further down the queue. The Hydrologist
 rarely needs the damage to be large. She needs the enemy to be *late*,
-and Water Lash makes them late.`,
-      compact: 'Arc-range damage that pushes the target’s CT back. The enemy, made late.',
+and Water Lash makes them late — provided a clear line runs to her
+mark, for terrain or a body between will now stop the bolt.`,
+      compact: 'Straight-line damage that pushes the target’s CT back. The enemy, made late — if cover allows.',
     },
     tide_surge: {
       full: `The mirror of that idea, turned toward a friend: Rapids

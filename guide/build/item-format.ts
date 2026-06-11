@@ -80,6 +80,9 @@ function restrictionText(item: ItemDefinition): string | undefined {
   ) {
     return 'Mages & Calculator only';
   }
+  // Two classes — the Knight & Templar shared-gear case (S62). Read as
+  // prose with "&", not a bare comma list.
+  if (ids.length === 2) return `${names[0]} & ${names[1]} only`;
   return `${names.join(', ')} only`;
 }
 

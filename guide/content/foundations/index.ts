@@ -115,6 +115,17 @@ avoiding. And the field can be made to move a cadet against her will:
 knockback, the displacing force of certain spells, which a careless
 caster spends on damage and a careful one spends on *position*.
 
+Ground also *blocks*. A class of attacks — the bolt and the beam, the
+straight-line spell that travels from caster to mark — requires a clear
+line between the two: terrain, an interposed body, or a conjured
+barrier will stop it cold. These are the engagement's aimed strikes,
+and cover is the answer to them. Mark the distinction, for it does not
+hold everywhere: the lobbed and the arcing attacks — a bow's high shot,
+a spell that falls upon its target from above rather than flying at it —
+ignore the obstruction and reach over the wall. A cadet behind cover is
+safe from the one and exposed to the other, and reading which is which
+is reading the ground.
+
 Read the terrain as carefully as you read your opponent. More often
 than the cadet expects, the two are the same reading.`,
   },

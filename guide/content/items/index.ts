@@ -106,6 +106,32 @@ watches to see whether the steadiness holds — for the Absolom rewards
 conviction and punishes doubt, and does both in plain arithmetic.`,
     tactical: 'The heaviest Weapon Power in the racks, and a two-handed grip that forbids an off-hand and collapses Two Weapons to a single blow. Its damage rides the wielder’s Brave — a default cadet under-rolls it; a Brave-stacked one (Soul Vest, Tricorn, Crusader’s Helm, Bravestrider) swings at or past full force. It carries a Reaction slot besides, which that same Brave makes fire the more often. The Knight’s sword — and a trap for the timid.',
   },
+  defender: {
+    flavor: `A broad ward-blade of the old Church pattern, graven down
+the fuller with a prayer against harm. The Armorer issues it with the
+remark that it is, in truth, a shield that happens to take an edge —
+and the cadets who carry it tend to agree.`,
+    tactical: 'A Knight Sword that halves every physical blow the bearer takes, from the first tick of the engagement — Auto-Protect, standing and free. Heavy WP and Brave-scaled like Absolom, but the aura is the point, and weapons are universal, so *any* discipline can requisition that protection. Two-handed: pairing the guard it grants with an actual shield wants Monkeygrip.',
+  },
+
+  // --- Lances -------------------------------------------------------
+  // The Lance weapon class (S62, the Templar arc): two-handed reach
+  // weapons that strike at two tiles and pierce the tile beyond the
+  // target. Universal, like every weapon; the Templar's Jump reads the
+  // 'lance' tag for its damage-doubling, but no class is gated from them.
+  lance: {
+    flavor: `A long ash-shafted spear with a leaf of bright steel at its
+head. The Armorer keeps the Lances on a rack of their own, away from
+the swords, because a cadet who turns with one in a crowded line tends
+to learn the reach the hard way.`,
+    tactical: 'Reach where a sword has none: it strikes at two tiles and up four in height, and it *pierces* — the basic attack runs through the target into whoever stands directly behind, friend or foe, so mind your line. High WP, two-handed. The Templar’s Jump lands at double damage with a Lance in hand, but any discipline may carry one for the reach and the pierce.',
+  },
+  imp_halberd: {
+    flavor: `A darker cousin of the Lance, its head wrought in a barbed
+and faintly wicked pattern that sits oddly in a holy knight's grip. The
+Armorer has opinions about the name and keeps them to himself.`,
+    tactical: 'The Lance traded toward the spirit: two points of Weapon Power surrendered for a point of Magical Attack — the same two-tile reach and the same pierce, but cut for the healer who also means to leap. On a Templar the +1 MA compounds her Cure and Raise; on a striker the vanilla Lance hits harder. Choose by which half of the kit you are feeding.',
+  },
 
   // --- Knives -------------------------------------------------------
   // A small, quick, accurate weapon class, requisitionable by any cadet

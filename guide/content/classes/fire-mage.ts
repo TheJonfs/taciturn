@@ -41,11 +41,12 @@ wrong.`,
       compact: 'A weak melee blow. For the Pyromancer, an admission of a wasted turn.',
     },
     fire_strike: {
-      full: `Honest magical damage at arc range, and on a hit Scorch
-may sap both the target's arms — Physical and Magical Attack alike —
-as a single, linked stroke. Fire's signature: the debuff lands whole
-or not at all.`,
-      compact: 'Arc-range damage; a linked chance to drop the target’s PA and MA together.',
+      full: `Honest magical damage in a straight line, and on a hit
+Scorch may sap both the target's arms — Physical and Magical Attack
+alike — as a single, linked stroke. Fire's signature: the debuff lands
+whole or not at all. The bolt now needs a clear line to its mark;
+terrain or a body between will stop it.`,
+      compact: 'Straight-line damage; a linked chance to drop the target’s PA and MA together. Cover blocks it.',
     },
     fire_embrace: {
       full: `The same idea turned toward a friend. Inner Warmth lays a
