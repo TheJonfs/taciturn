@@ -11,6 +11,7 @@ import { capacitorRing } from './capacitor-ring.ts';
 import { chefsKnife } from './chefs-knife.ts';
 import { crusadersHelm } from './crusaders-helm.ts';
 import { darkRobe } from './dark-robe.ts';
+import { defender } from './defender.ts';
 import { diamondBracelet } from './diamond-bracelet.ts';
 import { escutcheon } from './escutcheon.ts';
 import { ether } from './ether.ts';
@@ -164,4 +165,7 @@ export const items: ReadonlyArray<ItemDefinition> = [
   phoenixDown,
   remedy,
   ether,
+  // Session 62 — Templar arc foundation. Defender: second Knight Sword,
+  // grants Auto-Protect via statusGrants (universal weapon — any class).
+  defender,
 ];

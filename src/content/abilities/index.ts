@@ -27,6 +27,7 @@ import { damageSplit } from './damage-split.ts';
 import { engineeredDefenses as engineeredDefensesAbility } from './engineered-defenses.ts';
 import { exactRhythm } from './exact-rhythm.ts';
 import { expertFormer } from './expert-former.ts';
+import { faithstrider } from './faithstrider.ts';
 import { ignoreHeight } from './ignore-height.ts';
 import { discharge } from './discharge.ts';
 import { dischargeStrike } from './discharge-strike.ts';
@@ -177,4 +178,6 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   barrier,
   ignoreHeight,
   expertFormer,
+  // Session 62 — Templar arc foundation.
+  faithstrider,
 ];
