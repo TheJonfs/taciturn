@@ -3182,6 +3182,7 @@ export function reduceChargedActionResolve(
     const { resolvedUnit, payloadTargetForResult } = resolveTargetAtResolve(
       workingState,
       targetRef,
+      ability.effects.aoe !== undefined,
     );
 
     // Pre-flight silent fizzles. The dispatcher itself is willing to
@@ -3291,6 +3292,7 @@ function synthesizeProposed(ca: ChargedAction, caster: Unit): ProposedAction {
 function resolveTargetAtResolve(
   state: GameState,
   ref: TargetRef,
+  isAoe: boolean,
 ): { resolvedUnit: Unit | null; payloadTargetForResult: AbilityTarget } {
   if (ref.kind === 'unit') {
     const unit = state.units.get(ref.unitId);
@@ -3302,6 +3304,22 @@ function resolveTargetAtResolve(
   // Tile-anchored: search every layer at (x,y) for an occupant; v1 uses
   // `unitAt(state, x, y, layer)` keyed on the recorded layer.
   const tileUnit = unitAt(state, ref.position.x, ref.position.y, ref.position.layer);
+  // S63 fix: a non-AoE tile hit that lands on an occupant must key its
+  // per-target result to that *unit*, not the tile. Downstream consumers
+  // — KO detection, the action log's [ko] row, the renderer's HP/KO
+  // settle, and the end-of-battle KO recap — all read unit-kind results
+  // and silently skip tile-kind ones. Dragoon Jump (the only non-AoE
+  // tile-anchored charged action) recorded a tile result even on a direct
+  // hit, so a fatal Jump was invisible to all four while the engine HP /
+  // turn-order updated correctly. The occupant's position equals the tile,
+  // so the single-target anchor is unchanged. AoE keeps the tile anchor —
+  // its expansion already emits unit-keyed results per affected unit.
+  if (tileUnit !== undefined && !isAoe) {
+    return {
+      resolvedUnit: tileUnit,
+      payloadTargetForResult: { kind: 'unit', unitId: tileUnit.id },
+    };
+  }
   return {
     resolvedUnit: tileUnit ?? null,
     payloadTargetForResult: { kind: 'tile', position: ref.position },

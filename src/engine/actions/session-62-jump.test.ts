@@ -181,6 +181,55 @@ describe('Dragoon Jump — resolve', () => {
     expect(s.chargedActions).toHaveLength(0);
   });
 
+  it('keys the resolve result to the struck unit, not the tile, so a fatal Jump is visible (S63 fix)', () => {
+    const c = cat();
+    const j = makeUnit({ id: 'j', spd: 10, pa: 6, mp: 10, brave: 100, equipment: weapon(lance.id), loadout: loadout(), position: { x: 0, y: 0, layer: 0 } });
+    // Low-HP enemy so the Jump is lethal.
+    const enemy = makeUnit({ id: 'e', team: 'team_b', spd: 10, hp: 30, maxHpBase: 30, position: { x: 2, y: 0, layer: 0 } });
+    let s = makeGameState({ units: [j, enemy], map: flatMap(6, 6), turnState: turnFor('j') });
+    const cast = commitAction(s, {
+      type: 'use_ability', source: 'player', actorId: j.id,
+      payload: { abilityId: abilityId('jump'), target: { kind: 'tile', position: { x: 2, y: 0, layer: 0 } } },
+    }, c);
+    expect(cast.ok).toBe(true);
+    if (!cast.ok) return;
+    const ended = commitAction(cast.newState, { type: 'turn_end', source: 'system', payload: { unitId: j.id } }, c);
+    expect(ended.ok).toBe(true);
+    if (!ended.ok) return;
+    // Advance to the resolve and capture its committed action.
+    s = ended.newState;
+    let resolveProposed: ProposedAction | null = null;
+    for (let i = 0; i < 60 && resolveProposed === null; i++) {
+      const sched = advanceToNextEvent(s, c);
+      if (sched === null) break;
+      s = sched.newState;
+      if (sched.proposed.type === 'charged_action_resolve') {
+        resolveProposed = sched.proposed;
+        break;
+      }
+      const r = commitAction(s, sched.proposed, c);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      s = r.newState;
+    }
+    expect(resolveProposed).not.toBeNull();
+    const resolved = commitAction(s, resolveProposed!, c);
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+    // The struck enemy is down.
+    expect(resolved.newState.units.get(enemy.id)!.vitals.hp).toBeLessThanOrEqual(0);
+    // The per-target result is keyed to the UNIT (not the tile) and carries
+    // the post-application HP — the shape KO detection / the [ko] log row /
+    // the renderer's HP-KO settle / the end-of-battle recap all consume.
+    const resolveAction = resolved.committed.find((a) => a.type === 'charged_action_resolve');
+    expect(resolveAction).toBeDefined();
+    if (resolveAction === undefined || resolveAction.type !== 'charged_action_resolve') return;
+    const results = resolveAction.outcome?.perTargetResults ?? [];
+    expect(results).toHaveLength(1);
+    expect(results[0]!.target).toEqual({ kind: 'unit', unitId: enemy.id });
+    expect(results[0]!.hpAfter).toBeLessThanOrEqual(0);
+  });
+
   it('whiffs when the target tile is empty at resolution (the dodge window)', () => {
     const c = cat();
     const j = makeUnit({ id: 'j', spd: 10, pa: 6, mp: 10, equipment: weapon(lance.id), loadout: loadout(), position: { x: 0, y: 0, layer: 0 } });
