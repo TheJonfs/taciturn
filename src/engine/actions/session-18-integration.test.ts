@@ -281,6 +281,40 @@ describe('Speed Down status', () => {
     });
     expect(ma).toBe(7);
   });
+
+  it('Brine applies a -2 Speed stack (S63 tuning — scoped magnitude override)', () => {
+    const brine = catalog.getAbility(abilityId('brine'));
+    if (brine.kind !== 'active') throw new Error('brine should be an active ability');
+    const speedEffect = brine.effects.statusEffects?.find(
+      (e) => e.typeId === speedDownTypeId,
+    );
+    const magnitude = speedEffect?.magnitude;
+    // The override lives on the ability, not the shared status default
+    // (which stays -1, so Slow is untouched).
+    expect(magnitude).toBe(2);
+
+    // And it flows through to a -2 Speed reduction per landed cast.
+    const target = makeUnit({ id: 'unit_a', spd: 10, hp: 100 });
+    const state = makeGameState({ units: [target] });
+    const applied = applyStatus(
+      state,
+      {
+        targetId: target.id,
+        typeId: speedDownTypeId,
+        sourceUnitId: target.id,
+        sourceActionSeq: 0,
+        magnitude: magnitude ?? 1,
+      },
+      catalog,
+    );
+    const afterTarget = applied.newState.units.get(target.id)!;
+    const speed = runModifyStatQuery(applied.newState, catalog, {
+      unit: afterTarget,
+      statName: 'spd',
+      baseValue: afterTarget.baseStats.spd,
+    });
+    expect(speed).toBe(8); // 10 - 2
+  });
 });
 
 // ===== rollAbilityChance =====

@@ -48,6 +48,12 @@ export const brine: ActiveAbilityDefinition = {
         typeId: statusTypeId('speed_down'),
         target: 'primary_target',
         baseChance: 50,
+        // S63: bumped from the status default of -1 to -2 Speed per cast —
+        // Brine went unused, and Speed is high-leverage (it drives CT accrual
+        // and turn frequency). Scoped to Brine via this per-instance override;
+        // the shared `speed_down` default (and Slow, which also rides it) is
+        // untouched. Two casts now reach -4. baseChance unchanged.
+        magnitude: 2,
       },
     ],
   },
