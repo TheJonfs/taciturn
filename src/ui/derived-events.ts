@@ -111,21 +111,27 @@ export function deriveKoEvents(
   const chargedActor = buildChargedActorMap(log);
 
   const koEvents: KoEvent[] = [];
-  const koed = new Set<UnitId>();
   let tNumber = 0;
 
   for (const action of log) {
     if (action.type === 'turn_start') tNumber += 1;
     const effects = damageDealtByAction(action);
     for (const { targetId, hpAfter } of effects) {
-      if (koed.has(targetId)) continue;
       const before = runningHp.get(targetId) ?? 0;
       // ADR-0074 (+ S33.5A amendment): every HP-changing action reports
       // its engine-absolute `hpAfter`. Anchor to it — no reconstruction.
       const after = Math.max(0, hpAfter);
       runningHp.set(targetId, after);
+      // S63: emit a KO event on *every* positive→≤0 crossing, not just the
+      // first per unit. With Templar Raise / Phoenix Down a unit can be
+      // downed, revived (running HP returns >0), and downed again — each
+      // fall is its own KO event. The crossing test alone prevents
+      // double-counting while a unit stays at 0 (subsequent hits have
+      // `before === 0`); a revival heal lifts running HP back above 0,
+      // re-arming the next crossing. (Pre-S63 a permanent `koed` set
+      // recorded only the first KO and froze running HP, so the
+      // end-of-battle summary undercounted re-KOs.)
       if (before > 0 && after <= 0) {
-        koed.add(targetId);
         koEvents.push({
           unitId: targetId,
           atSequence: action.sequenceNumber,

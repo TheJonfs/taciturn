@@ -96,8 +96,9 @@ describe('deriveKoEvents', () => {
           kind: 'use_ability',
           abilityId: abilityId('a'),
           mpSpent: 0,
-          // Post-KO hit — gated; `hpAfter` stays 0. The walker skips it
-          // anyway (already in `koed`), but the contract still holds.
+          // Post-KO hit — gated; `hpAfter` stays 0. The walker emits no
+          // second event because the crossing test needs `before > 0`, and
+          // the victim's running HP is already 0.
           perTargetResults: [
             { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 50, hpAfter: 0 },
           ],
@@ -107,6 +108,70 @@ describe('deriveKoEvents', () => {
     const ko = deriveKoEvents(log, state, catalog);
     expect(ko).toHaveLength(1);
     expect(ko[0]!.atSequence).toBe(1);
+  });
+
+  it('emits a second KO event when a revived unit is downed again (S63 re-KO)', () => {
+    // Templar Raise / Phoenix Down let a unit fall, return, and fall again.
+    // Each positive→0 crossing is its own KO event; a revival heal that
+    // lifts running HP back above 0 re-arms the next crossing.
+    const killer = makeUnit({ id: 'killer', spd: 10, maxHpBase: 100 });
+    const healer = makeUnit({ id: 'healer', spd: 10, maxHpBase: 100 });
+    const victim = makeUnit({ id: 'victim', spd: 10, maxHpBase: 100 });
+    const state = makeGameState({ units: [killer, healer, victim] });
+    const log: Action[] = [
+      { ...envelope(1), type: 'turn_start', payload: { unitId: killer.id } },
+      {
+        ...envelope(2, { actor: 'killer' }),
+        type: 'use_ability',
+        payload: { abilityId: abilityId('strike'), target: { kind: 'unit', unitId: victim.id } },
+        outcome: {
+          kind: 'use_ability',
+          abilityId: abilityId('strike'),
+          mpSpent: 0,
+          perTargetResults: [
+            { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 120, hpAfter: 0 },
+          ],
+        },
+      },
+      // Next turn — a revive lifts the victim back to 40 HP.
+      { ...envelope(3), type: 'turn_start', payload: { unitId: healer.id } },
+      {
+        ...envelope(4, { actor: 'healer' }),
+        type: 'use_ability',
+        payload: { abilityId: abilityId('raise'), target: { kind: 'unit', unitId: victim.id } },
+        outcome: {
+          kind: 'use_ability',
+          abilityId: abilityId('raise'),
+          mpSpent: 0,
+          perTargetResults: [
+            { target: { kind: 'unit', unitId: victim.id }, hit: true, healing: 40, hpAfter: 40 },
+          ],
+        },
+      },
+      // Killer's next turn — downs the revived victim a second time.
+      { ...envelope(5), type: 'turn_start', payload: { unitId: killer.id } },
+      {
+        ...envelope(6, { actor: 'killer' }),
+        type: 'use_ability',
+        payload: { abilityId: abilityId('strike'), target: { kind: 'unit', unitId: victim.id } },
+        outcome: {
+          kind: 'use_ability',
+          abilityId: abilityId('strike'),
+          mpSpent: 0,
+          perTargetResults: [
+            { target: { kind: 'unit', unitId: victim.id }, hit: true, damage: 120, hpAfter: 0 },
+          ],
+        },
+      },
+    ];
+    const ko = deriveKoEvents(log, state, catalog);
+    expect(ko).toHaveLength(2);
+    expect(ko.map((e) => e.atSequence)).toEqual([2, 6]);
+    expect(ko.map((e) => e.tNumber)).toEqual([1, 3]);
+    expect(ko.every((e) => e.killingActor === killer.id)).toBe(true);
+    // Both KOs credit the killer in per-unit stats (count of KO events).
+    const stats = derivePerUnitStats(log, state, catalog);
+    expect(stats.get(killer.id)!.kosScored).toBe(2);
   });
 
   it('attributes a charged_action_resolve KO to the original caster', () => {
