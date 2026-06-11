@@ -44,6 +44,23 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 62 (2026-06-10)
+
+Commit: `e2cc34f`. (First content of the Templar class arc; the class itself
+isn't playable yet — these two pieces are universal/cross-class and usable now.)
+
+- **New weapon — Defender (Knight Sword).** A two-handed sword (WP 11, accuracy
+  95) that grants **Auto-Protect**: while wielded, the bearer permanently takes
+  **50% less physical damage**. Weapons are universal, so **any class can equip
+  Defender** for that defensive aura — but it's two-handed, so no shield or
+  off-hand alongside it (yet). Its damage variance scales with **Brave** (like
+  Absolom), rewarding high-Brave wielders.
+- **New movement ability — Faithstrider.** A Movement passive (cost 2) granting
+  **+1 Move and +10 Faith**. The Faith boost cuts both ways: it strengthens the
+  bearer's own healing/revival spells **and** makes them take more magical
+  damage. Free on the Templar (when it ships); any class can slot it for the
+  Move+Faith trade.
+
 ## Session 61 (2026-06-10)
 
 _No player-facing changes._ (Barrier denial — an AI behavior so a Terraformer
