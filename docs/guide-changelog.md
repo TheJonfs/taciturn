@@ -47,8 +47,27 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 ## Session 63 (2026-06-11)
 
 Commits: `96b3d5f` (Calculator Faith removal), `96195ab` (Brine), `a50ba1d`
-(KO summary). A small tuning + fix batch; the action-log redesign is a separate
-piece still pending.
+(KO summary), `b3bd121` (action-log redesign).
+
+### Action log — redesigned as an events view with a per-turn ledger
+
+- The log now shows **events only** by default — the meaningful beats of a turn
+  (moves, attacks, abilities, status landings, damaging DoT ticks, KOs,
+  reactions that fire). The bookkeeping it used to re-narrate — CT changes,
+  MP/HP regen, status countdowns, KO timers, non-firing reactions — is collapsed
+  into a per-turn **ledger**. Click a turn's header (or the global "Show ledger"
+  toggle) to reveal it. Nothing is lost — it's default-hidden, not deleted.
+- The `[tick] / [end] / [ko]` text tags are gone, replaced by a small icon
+  gutter + weight/color: a **kill line is emphasized** (large, red-tinted, with
+  a "— KO" marker folded onto the killing blow).
+- A damaging status tick now reads as **one line** (e.g. `Burn → Tina 9`)
+  instead of a separate "ticked" + "took 9 dmg" pair; the tick/expiry detail
+  lives in the ledger.
+- **KO countdowns no longer appear as log lines** — they already show on the
+  unit (map sprite + detail panel), so the per-tick rows moved to the ledger.
+- Guide note: the old per-row click-to-expand (raw action dump) is gone; the
+  turn ledger replaces it. Exact icons/colors are not final — visual polish may
+  shift after a playthrough.
 
 ### Calculator — Precision Fire & Targeted Treatment now scale on SP × MA (no Faith)
 

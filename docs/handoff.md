@@ -11,12 +11,12 @@ been processed.
 
 ---
 
-## From Session 63 close (2026-06-11) — small-items batch done; log redesign pending
+## From Session 63 close (2026-06-11) — full brief shipped; log redesign needs a visual pass
 
 S63 brief was a package: the **action-log redesign** (big rock) + **four small
-items** (A–D). The four items are **done and committed to main**; the log
-redesign is **not started** and is the natural next session. **1770 → 1775 tests
-(+5)**, `tsc -b` + `vite build` clean.
+items** (A–D). **All shipped and committed to main.** **1770 → 1780 tests (+10)**,
+`tsc -b` + `vite build` clean. The log redesign (`b3bd121`) is the one piece whose
+**pixel-level visual is unverified** — see below.
 
 ### The four items (all DONE, committed)
 
@@ -40,23 +40,32 @@ needs a new attacker-side hit-chance hook + AI target-preference work, and Chris
 must pin the intended effect first (don't invent intent). Pointers in the audit
 doc.
 
-### NEXT — the action-log redesign (the big rock, not yet started)
+### Action-log redesign — SHIPPED (`b3bd121`); needs Chris's in-battle visual pass
 
-Brief: `docs/thirtyNinePlanning/session-action-log-brief.md`. Concept:
-`docs/thirtyNinePlanning/action-log-concept.html` (placeholder palette — do not
-copy its colors). **Audit finding (the brief's pivotal structured-vs-strings
-question): the log is already STRUCTURED, not baked strings.** The log *is* the
-engine `Action[]` stream; `src/ui/action-log-format.ts` is a pure
-`Action[] → LogRow[]` render transform, and `src/ui/derived-events.ts` already
-does shared single-walk synthesis. So this is **render-layer / Medium, not a
-substrate change.** The one wrinkle is **consolidation** (Burn tick + its damage +
-its expiry → one line): the data exists in the Action stream but the actions
-aren't explicitly parented, so the formatter needs a **grouping pass** (still
-render-layer, no engine change). Other pieces: events-vs-state classification,
-icon gutter + weight/color (drop `[tick]/[end]/[ko]` text tags), per-turn
-collapse/expand, and **KO-timer relocation onto the unit badge** (crosses into
-`src/renderer/` unit layer — the one cross-layer bit). **Per the brief, run the
-plaintext-review/plan gate with Chris before building.**
+Built render-layer only (the audit confirmed the log was already structured —
+engine `Action[]` → pure formatter — so no engine change). What landed:
+`buildLogView()` groups flat rows per turn, splits **events** (top line) from a
+default-hidden **ledger** (CT/MP/HP regen, status countdowns, KO timers,
+non-firing reactions). Consolidation: a DoT `system_damage` renders as one
+`Burn → X 9` event (its bare tick/decrement rows go to the ledger); a KO folds
+into its killing-blow row (emphasis + "— KO") or stands alone as a skull event
+when system-dealt. The panel gained an icon gutter + weight/color (the
+`[tick]/[end]/[ko]` text tags are gone), per-turn collapse/expand, and a global
+"Show ledger" toggle. KO timers just moved to the ledger (the unit map sprite +
+detail panel already show the countdown — no renderer change).
+
+**Watch-items for the visual pass (harness can't drive PixiJS battles, so these
+are unverified at the pixel level):**
+- The three sample turns vs the concept (`action-log-concept.html`) — events-only
+  default, the kill line dominant, ledgers collapsed.
+- Icon/color choices (sword/spark/flame/arrow/skull/trophy; team-tinted icons).
+  Not final — easy to retune.
+- **Decisions to confirm:** (1) the per-row click-to-expand (raw action dump) was
+  **removed** — the turn ledger replaces it; restore if you miss it. (2) Burn's
+  ", expired" inline annotation from the concept was **dropped** (aggressive-
+  consolidation call — the expiry lives in the ledger); pop it back to the event
+  line if wanted. (3) charged-action resolves open their own group (own
+  T-number) — confirm that reads well.
 
 ### Playtest follow-ups from this session (need Chris's human playthrough)
 
