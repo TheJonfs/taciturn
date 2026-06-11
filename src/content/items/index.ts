@@ -12,6 +12,8 @@ import { chefsKnife } from './chefs-knife.ts';
 import { crusadersHelm } from './crusaders-helm.ts';
 import { darkRobe } from './dark-robe.ts';
 import { defender } from './defender.ts';
+import { impHalberd } from './imp-halberd.ts';
+import { lance } from './lance.ts';
 import { diamondBracelet } from './diamond-bracelet.ts';
 import { escutcheon } from './escutcheon.ts';
 import { ether } from './ether.ts';
@@ -168,4 +170,7 @@ export const items: ReadonlyArray<ItemDefinition> = [
   // Session 62 — Templar arc foundation. Defender: second Knight Sword,
   // grants Auto-Protect via statusGrants (universal weapon — any class).
   defender,
+  // Session 62 — Lance weapon class (two-handed, pierces; ADR-0102).
+  lance,
+  impHalberd,
 ];

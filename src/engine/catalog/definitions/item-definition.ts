@@ -382,6 +382,13 @@ export interface WeaponEquipment extends EquipmentBase {
     readonly perDeltaVertical: number;
     readonly deltaHorizontal: number;
   };
+  // Session 62 (Lance pierce, ADR-0102): when `true`, a basic Attack made
+  // with this weapon resolves as a caster-anchored 2-tile line (both tiles
+  // in front, direction = cardinal toward the target per ADR-0031) instead
+  // of a single hit — so it strikes a unit and the one behind it, and
+  // friendly-fires an intervening ally (ruleset friendlyFire). The Lance
+  // weapon class. Absent → single-target (existing behavior).
+  readonly pierces?: boolean;
 }
 
 // Session 29: shields occupy the left-hand slot but aren't weapons —

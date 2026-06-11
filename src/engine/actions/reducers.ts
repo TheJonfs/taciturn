@@ -112,7 +112,7 @@ import { isRiderCast } from './payload-helpers.ts';
 import { computeMpCost } from '../abilities/cost.ts';
 import { resolveWorldcraftCast } from '../abilities/worldcraft-resolution.ts';
 import { computeBarrierDamage } from '../damage/barrier-damage.ts';
-import { getWeaponInSlot } from '../items/equipment.ts';
+import { getEquippedWeapon, getWeaponInSlot } from '../items/equipment.ts';
 import { computeBaseActionSpeed } from '../ct/speed.ts';
 
 export interface ReduceResult<O> {
@@ -1278,6 +1278,25 @@ interface ResolveAbilityTargetsResult {
   readonly generatedActions: ReadonlyArray<ProposedAction>;
 }
 
+// Lance pierce (S62, ADR-0102): the caster-anchored 2-tile line a basic
+// Attack expands into when the wielder's equipped weapon `pierces`. Returns
+// undefined for non-basic-attacks or non-piercing weapons, leaving the
+// single-target path bit-identical. Direction is derived from the target at
+// dispatch (cardinalFromTo, like Flame Lance); length 2 = the two tiles in
+// front; excludeCaster true (a caster-anchored line starts one tile ahead
+// anyway). Friendly fire is the ruleset's global mode, so the line clips an
+// intervening ally per the Templar's "lines and clusters" identity.
+function pierceAoeFor(
+  catalog: Catalog,
+  attacker: Unit,
+  ability: ActiveAbilityDefinition,
+): AoeSpec | undefined {
+  if (ability.basicAttack !== true) return undefined;
+  const weapon = getEquippedWeapon(attacker, catalog);
+  if (weapon?.pierces !== true) return undefined;
+  return { shape: { kind: 'line', length: 2 }, anchorMode: 'caster', excludeCaster: true };
+}
+
 function resolveAbilityTargets(
   state: GameState,
   catalog: Catalog,
@@ -1288,7 +1307,15 @@ function resolveAbilityTargets(
   // AoE-shape expansion. The dispatcher reads matching units from
   // `enumerateMathSkillTargets` and runs the standard per-target body.
   const targetingKind = args.ability.targeting.kind;
-  const aoe = args.ability.effects.aoe;
+  // Lance pierce (S62, ADR-0102): a basic Attack made with a piercing weapon
+  // resolves as a caster-anchored 2-tile line instead of a single hit. The
+  // injected AoE composes with the existing line machinery (direction via
+  // cardinalFromTo, friendly-fire via ruleset, per-target seeds) and the
+  // damage pipeline reads the equipped Lance's WP (no slot → getEquippedWeapon).
+  // Only fires for the basic Attack with no authored AoE — spells / Worldcraft
+  // are untouched, and a non-piercing weapon leaves the single-target path
+  // bit-identical.
+  const aoe = args.ability.effects.aoe ?? pierceAoeFor(catalog, args.attacker, args.ability);
   if (targetingKind === 'math_skill' && aoe !== undefined) {
     // AoE + math_skill is a content-authoring error: math_skill
     // already enumerates a target set; layering AoE on top would

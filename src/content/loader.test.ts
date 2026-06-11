@@ -153,12 +153,13 @@ describe('loadDefaultCatalog', () => {
     //     revival; monkeygrip — Support, relaxes the two-handed equip rule;
     //     emissary — Support, +25% outgoing healing; unified_calling —
     //     Reaction, +PA MP on receiving a one-time heal)
-    //   - items: 67 → 68 (defender — second Knight Sword, Auto-Protect)
+    //   - items: 67 → 70 (defender — second Knight Sword, Auto-Protect;
+    //     lance + imp_halberd — the Lance weapon class, pierces)
     expect(cat.statusTypes()).toHaveLength(32);
     expect(cat.abilities()).toHaveLength(93);
     expect(cat.commandSets()).toHaveLength(12);
     expect(cat.classes()).toHaveLength(10);
-    expect(cat.items()).toHaveLength(68);
+    expect(cat.items()).toHaveLength(70);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

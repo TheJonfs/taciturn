@@ -52,6 +52,7 @@ export type DamageTag =
   | 'axe'      // Added S44 — weapon-category tag (War Axe, Bolt Hammer) mirroring 'sword'/'knife'.
   | 'staff'    // Added S44 — weapon-category tag (Staff of Power, Staff of Abundance).
   | 'wand'     // Added S44 — weapon-category tag (Wand of Deepwood, Wand of Depths).
+  | 'lance'    // Added S62 — weapon-category tag (Lance, Imp Halberd); marks the two-handed piercing Lance class (Jump's ×2 reads it).
   | 'healing';
 
 // Per-source labelled multiplier applied at finalize. The product of

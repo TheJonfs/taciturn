@@ -44,6 +44,8 @@ import { monkeygrip } from './abilities/monkeygrip.ts';
 import { emissary } from './abilities/emissary.ts';
 import { unifiedCalling } from './abilities/unified-calling.ts';
 import { defender } from './items/defender.ts';
+import { lance } from './items/lance.ts';
+import { impHalberd } from './items/imp-halberd.ts';
 import { protect } from './statuses/protect.ts';
 
 // ---------------------------------------------------------------------------
@@ -310,5 +312,30 @@ describe('Emissary + Unified Calling (Step 3 innates — S62)', () => {
   it('Unified Calling is a cost-1 Reaction passive', () => {
     expect(unifiedCalling.bucket).toBe(bucketId('reaction'));
     expect(unifiedCalling.baseCost).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lance + Imp Halberd — the Lance weapon class (pierces). Pierce behavior is
+// in src/engine/actions/session-62-lance-pierce.test.ts; here: the stat lines.
+// ---------------------------------------------------------------------------
+
+describe('Lance + Imp Halberd (Lance weapon class — S62)', () => {
+  it('Lance: WP 10, two-handed, H2/V4, pierces, static variance', () => {
+    if (lance.kind !== 'weapon') return;
+    expect(lance.wp).toBe(10);
+    expect(lance.twoHanded).toBe(true);
+    expect(lance.accuracy).toBe(95);
+    expect(lance.pierces).toBe(true);
+    expect(lance.range).toEqual({ min: 1, max: 2, vertical: 4 });
+    expect(lance.tags).toContain('lance');
+    expect(lance.physicalVariance).toEqual({ kind: 'static', min: 0.9, max: 1.1 });
+  });
+
+  it('Imp Halberd: WP 8, pierces, MA +1 (the variant trade)', () => {
+    if (impHalberd.kind !== 'weapon') return;
+    expect(impHalberd.wp).toBe(8);
+    expect(impHalberd.pierces).toBe(true);
+    expect(impHalberd.statMods).toEqual({ ma: 1 });
   });
 });
