@@ -4,7 +4,21 @@
 // innates as free abilities, and Knight head/body gear permission.
 
 import { describe, expect, it } from 'vitest';
-import { abilityId, classId, commandSetId } from '@engine/index.ts';
+import {
+  abilityId,
+  bucketId,
+  classId,
+  commandSetId,
+  rulesetId,
+  teamId,
+  unitId,
+  runModifyStatQuery,
+  type BattleConfig,
+  type Loadout,
+} from '@engine/index.ts';
+import { createInitialState } from '../engine/setup/create-initial-state.ts';
+import { ACTIVE_BUCKET_IDS, PASSIVE_BUCKET_IDS } from '../engine/abilities/constants.ts';
+import { flatMap } from '../engine/map/test-fixtures.ts';
 import { loadDefaultCatalog } from './index.ts';
 import { templar } from './classes/templar.ts';
 import { templarArts } from './command-sets/templar-arts.ts';
@@ -82,5 +96,59 @@ describe('Templar class — gear permission', () => {
 
   it('does NOT gain Knight shields (head/body only — shields stay Knight-only)', () => {
     expect(escutcheon.classRestrictions ?? []).not.toContain(TEMPLAR);
+  });
+});
+
+describe('Templar class — battle construction (smoke)', () => {
+  // A real Templar build slots its four innates — each free (cost 0, so they
+  // don't eat the 3-point reaction/support/movement budgets, per the
+  // concept-notes "innate is free, separate from the budgets"). `freeAbilities`
+  // zeroes the cost; the abilities are still slotted to be active (the Knight's
+  // free passives work the same way).
+  function templarLoadout(): Loadout {
+    const actionBuckets: Record<string, ReadonlyArray<ReturnType<typeof commandSetId>>> = {};
+    for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = [];
+    actionBuckets[bucketId('first_action')] = [commandSetId('templar_arts')];
+    const passiveBuckets: Record<string, ReadonlyArray<ReturnType<typeof abilityId>>> = {};
+    for (const b of PASSIVE_BUCKET_IDS) passiveBuckets[b] = [];
+    passiveBuckets[bucketId('movement')] = [abilityId('faithstrider')];
+    passiveBuckets[bucketId('support')] = [abilityId('emissary'), abilityId('monkeygrip')];
+    passiveBuckets[bucketId('reaction')] = [abilityId('unified_calling')];
+    return { actionBuckets, passiveBuckets };
+  }
+
+  it('a Templar unit constructs with its stat block and its (free) innates active', () => {
+    const cat = loadDefaultCatalog();
+    const stats = classBaselineStats.get(TEMPLAR)!;
+    const config: BattleConfig = {
+      battleId: 'templar-smoke',
+      rulesetId: rulesetId('default'),
+      map: flatMap(6, 6),
+      teams: [{ id: teamId('team_a'), name: 'team_a', control: 'human' }],
+      units: [
+        {
+          id: unitId('t'),
+          name: 'Templar',
+          team: teamId('team_a'),
+          classId: TEMPLAR,
+          position: { x: 0, y: 0, layer: 0 },
+          facing: 'N',
+          baseStats: { ...stats, brave: 70, faith: 70, crit_chance: 5, crit_multiplier: 1.5 },
+          loadout: templarLoadout(),
+        },
+      ],
+      victoryConditions: [{ kind: 'defeat_all', side: teamId('team_b'), description: 'x' }],
+      masterSeed: 1,
+    };
+    const state = createInitialState(config, cat);
+    const u = state.units.get(unitId('t'))!;
+    expect(u).toBeDefined();
+    // Stat block applied: vitals filled from computed max HP (132, no gear).
+    expect(u.vitals.hp).toBe(132);
+    // The slotted (free) Faithstrider is live → +1 moveRange (2 → 3) and
+    // +10 faith (70 → 80) — proving the innate kit is wired and the loadout
+    // validated with all four innates at zero cost.
+    expect(runModifyStatQuery(state, cat, { unit: u, statName: 'moveRange', baseValue: 2 })).toBe(3);
+    expect(runModifyStatQuery(state, cat, { unit: u, statName: 'faith', baseValue: 70 })).toBe(80);
   });
 });
