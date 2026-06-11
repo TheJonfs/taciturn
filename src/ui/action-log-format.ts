@@ -776,10 +776,17 @@ function categorize(action: Action, catalog: Catalog): {
     case 'charged_action_resolve':
       return { category: 'event', icon: 'spark' };
     case 'system_apply_status': {
-      // Pre-battle equipment grants are setup bookkeeping; an in-battle
-      // status landing is a tactical event.
+      // Pre-battle equipment grants are setup bookkeeping.
       const ctx = action.payload.context;
       if (ctx !== undefined && ctx.kind === 'pre_battle_equipment') {
+        return { category: 'state', icon: null };
+      }
+      // Only a status that actually *landed* is a tactical event. A failed
+      // application (rejected / resisted / missed) is bookkeeping — notably
+      // a reaction that didn't fire (e.g. "Updraft rejected" on a KO'd
+      // unit). Route those to the ledger.
+      const result = action.outcome?.result;
+      if (result !== undefined && !classifyStatusOutcome(result).applied) {
         return { category: 'state', icon: null };
       }
       return { category: 'event', icon: 'flame' };

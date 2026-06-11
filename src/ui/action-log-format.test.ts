@@ -13,6 +13,7 @@ import {
   type GameState,
 } from '@engine/index.ts';
 import { activeTurnFor, makeGameState, makeUnit } from '../engine/ct/test-fixtures.ts';
+import { makeStatusInstance } from '../engine/status/test-fixtures.ts';
 import { flatMap } from '../engine/map/test-fixtures.ts';
 import { makeAbilitiesCatalog, knightLoadout } from '../engine/abilities/test-fixtures.ts';
 import { buildLogView, formatActionLog } from './action-log-format.ts';
@@ -768,5 +769,45 @@ describe('buildLogView (Session 63 events view)', () => {
     expect(view.outro).toHaveLength(1);
     expect(view.outro[0]!.icon).toBe('trophy');
     expect(view.outro[0]!.text).toContain('team_a wins');
+  });
+
+  it('routes a failed status application (a non-firing reaction) to the ledger; a landing stays an event', () => {
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, actorId: unitId('u1') }),
+        type: 'turn_start',
+        payload: { unitId: unitId('u1') },
+      },
+      {
+        // A reaction that didn't fire — "Updraft rejected on u1".
+        ...env({ sequenceNumber: 2, source: 'system' }),
+        type: 'system_apply_status',
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('updraft'), sourceUnitId: null },
+        outcome: {
+          kind: 'system_apply_status',
+          targetId: unitId('u1'),
+          statusTypeId: statusTypeId('updraft'),
+          result: { kind: 'rejected', reason: 'stacking_rule' },
+        },
+      },
+      {
+        // A status that actually landed — a tactical event.
+        ...env({ sequenceNumber: 3, source: 'system' }),
+        type: 'system_apply_status',
+        payload: { targetId: unitId('u1'), statusTypeId: statusTypeId('burn'), sourceUnitId: null },
+        outcome: {
+          kind: 'system_apply_status',
+          targetId: unitId('u1'),
+          statusTypeId: statusTypeId('burn'),
+          result: { kind: 'applied', instance: makeStatusInstance({ typeId: 'burn' }) },
+        },
+      },
+    ];
+    const g = buildLogView(log, makeBaseState(), emptyCatalog()).groups[0]!;
+    // The rejected reaction is bookkeeping → ledger, not a top-line event.
+    expect(g.ledger.some((e) => e.text.includes('rejected'))).toBe(true);
+    expect(g.events.some((e) => e.text.includes('rejected'))).toBe(false);
+    // The landed status is a flame event.
+    expect(g.events.some((e) => e.icon === 'flame')).toBe(true);
   });
 });

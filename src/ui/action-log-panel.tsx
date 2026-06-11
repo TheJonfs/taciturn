@@ -147,16 +147,24 @@ export function ActionLogPanel({
                 onToggle={() => toggleGroup('setup')}
               />
             )}
-            {view.groups.map((g) => (
-              <TurnBlock
-                key={g.key}
-                group={g}
-                state={state}
-                open={showAllLedgers || expandedGroups.has(g.key)}
-                onToggle={() => toggleGroup(g.key)}
-                onHoverRow={handleHover}
-              />
-            ))}
+            {view.groups.map((g) => {
+              // ABAB turn striping keyed on the turn counter's parity, so
+              // consecutive turns alternate background for a clean visual
+              // break. Non-numeric labels (none in practice) fall to even.
+              const n = Number.parseInt(g.tLabel.replace(/\D/g, ''), 10);
+              const odd = Number.isFinite(n) && n % 2 === 1;
+              return (
+                <TurnBlock
+                  key={g.key}
+                  group={g}
+                  state={state}
+                  stripe={odd}
+                  open={showAllLedgers || expandedGroups.has(g.key)}
+                  onToggle={() => toggleGroup(g.key)}
+                  onHoverRow={handleHover}
+                />
+              );
+            })}
             {view.outro.map((r) => (
               <EventRowView key={r.key} row={r} state={state} onHover={handleHover} />
             ))}
@@ -170,14 +178,15 @@ export function ActionLogPanel({
 function TurnBlock(props: {
   readonly group: TurnGroup;
   readonly state: GameState | null;
+  readonly stripe: boolean;
   readonly open: boolean;
   readonly onToggle: () => void;
   readonly onHoverRow: (row: LogRow | null) => void;
 }): ReactElement {
-  const { group, state, open, onToggle, onHoverRow } = props;
+  const { group, state, stripe, open, onToggle, onHoverRow } = props;
   const hasLedger = group.ledger.length > 0;
   return (
-    <div style={turnBlockStyle}>
+    <div style={turnBlockStyle(stripe)}>
       <div
         style={turnHeadStyle(hasLedger)}
         onClick={hasLedger ? onToggle : undefined}
@@ -206,7 +215,7 @@ function SetupGroup(props: {
 }): ReactElement {
   const { rows, open, onToggle } = props;
   return (
-    <div style={turnBlockStyle}>
+    <div style={turnBlockStyle(false)}>
       <div style={turnHeadStyle(true)} onClick={onToggle}>
         <span style={chevronStyle(open, true)}>▾</span>
         <span style={headerTextStyle}>
@@ -392,11 +401,16 @@ const emptyStyle: CSSProperties = {
   fontStyle: 'italic',
 };
 
-const turnBlockStyle: CSSProperties = {
+// ABAB striping: alternating subtle backgrounds give a clean visual break
+// between turns. Both shades are faint so the events stay the focus.
+const turnBlockStyle = (stripe: boolean): CSSProperties => ({
   display: 'flex',
   flexDirection: 'column',
   gap: 1,
-};
+  padding: '2px 6px 5px',
+  borderRadius: 8,
+  background: stripe ? 'rgba(255,255,255,0.055)' : 'rgba(255,255,255,0.02)',
+});
 
 const turnHeadStyle = (clickable: boolean): CSSProperties => ({
   display: 'flex',
