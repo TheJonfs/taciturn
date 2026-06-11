@@ -14,10 +14,10 @@
 // Move to 3 — no base-4, per the Move-tier principle.
 //
 // Equipment: all five slots open. Second class (after the Knight) with
-// Knight head/body armor access — gated per-item via `classRestrictions`
-// (the six Knight headgear/body pieces list `templar`). Weapons are
-// universal. Knight shields stay Knight-only; the Templar pairs a universal
-// shield with a two-hander via innate Monkeygrip.
+// Knight gear access — the six Knight headgear/body pieces AND the three
+// Knight shields list `templar` in `classRestrictions` (Chris, S62). Weapons
+// are universal. With innate Monkeygrip the Templar pairs a shield (Knight or
+// universal) with a two-handed weapon.
 //
 // Innate kit (free; costed in the pool for others): Emissary of Murond
 // (Support, +25% healing), Monkeygrip (Support, two-handers one-handed),

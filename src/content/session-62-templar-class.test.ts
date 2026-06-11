@@ -33,6 +33,8 @@ import { soldiersLeathers } from './items/soldiers-leathers.ts';
 import { spikedMail } from './items/spiked-mail.ts';
 import { warPlate } from './items/war-plate.ts';
 import { escutcheon } from './items/escutcheon.ts';
+import { warriorsAegis } from './items/warriors-aegis.ts';
+import { managuard } from './items/managuard.ts';
 
 const TEMPLAR = classId('templar');
 
@@ -94,8 +96,11 @@ describe('Templar class — gear permission', () => {
     }
   });
 
-  it('does NOT gain Knight shields (head/body only — shields stay Knight-only)', () => {
-    expect(escutcheon.classRestrictions ?? []).not.toContain(TEMPLAR);
+  it('also gains the Knight shields (Chris, S62 — Knight head/body + shields)', () => {
+    for (const shield of [escutcheon, warriorsAegis, managuard]) {
+      expect(shield.classRestrictions).toContain(TEMPLAR);
+      expect(shield.classRestrictions).toContain(classId('knight'));
+    }
   });
 });
 

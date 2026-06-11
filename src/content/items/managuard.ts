@@ -10,7 +10,7 @@ export const managuard: ShieldEquipment = {
   name: 'Managuard',
   availability: 'available',
   kind: 'shield',
-  classRestrictions: [classId('knight')],
+  classRestrictions: [classId('knight'), classId('templar')], // S62: Templar shares Knight shields too
   evasionMods: { front: 10, side: 5 },
   statMods: { ma: 2 },
 };

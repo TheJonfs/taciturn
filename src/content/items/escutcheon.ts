@@ -15,7 +15,7 @@ export const escutcheon: ShieldEquipment = {
   name: 'Escutcheon',
   availability: 'available',
   kind: 'shield',
-  classRestrictions: [classId('knight')],
+  classRestrictions: [classId('knight'), classId('templar')], // S62: Templar shares Knight shields too
   evasionMods: { front: 20, side: 10 },
   resistanceMods: new Map([
     ['fire', 20],

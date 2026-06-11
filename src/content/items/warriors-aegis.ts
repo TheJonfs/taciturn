@@ -9,7 +9,7 @@ export const warriorsAegis: ShieldEquipment = {
   name: "Warrior's Aegis",
   availability: 'available',
   kind: 'shield',
-  classRestrictions: [classId('knight')],
+  classRestrictions: [classId('knight'), classId('templar')], // S62: Templar shares Knight shields too
   evasionMods: { front: 5, side: 5 },
   statMods: { pa: 2 },
 };

@@ -554,8 +554,14 @@ export function setEquipment(
   let equipment = { ...unit.equipment, [slot]: itemId };
   // Session 45: a two-handed weapon (the bow class) occupies both hands —
   // placing one clears the off-hand so the equipment never lands in the
-  // illegal "two-handed + off-hand item" state the engine rejects.
-  if ((slot === 'leftHand' || slot === 'rightHand') && itemId !== null) {
+  // illegal "two-handed + off-hand item" state the engine rejects. S62: skip
+  // the clear when the unit has Monkeygrip (relaxesTwoHandedGrip) — then a
+  // two-hander + off-hand item is legal, so keep whatever's in the off-hand.
+  if (
+    (slot === 'leftHand' || slot === 'rightHand') &&
+    itemId !== null &&
+    !unitGrantsTwoHandedGrip(unit, catalog)
+  ) {
     const item = catalog.getItem(itemId);
     if (item.kind === 'weapon' && item.twoHanded === true) {
       const otherHand: EquipmentSlotId = slot === 'leftHand' ? 'rightHand' : 'leftHand';
@@ -760,6 +766,10 @@ function isDualWielding(unit: DraftUnit, catalog: Catalog): boolean {
 // off-hand item (weapon or shield) — the engine's slotting validation
 // rejects this. Mirrors `validateEquipmentPlacement`'s two-handed rule.
 function isTwoHandedConflict(unit: DraftUnit, catalog: Catalog): boolean {
+  // Monkeygrip (relaxesTwoHandedGrip, ADR-0100) lifts the rule — a two-hander
+  // may share a hand with an off-hand item. Mirrors the engine validator and
+  // the equipment picker's gate, so the validity panel agrees with both.
+  if (unitGrantsTwoHandedGrip(unit, catalog)) return false;
   const left = unit.equipment.leftHand;
   const right = unit.equipment.rightHand;
   const isTwoHanded = (id: ItemId | null): boolean => {
@@ -769,6 +779,19 @@ function isTwoHandedConflict(unit: DraftUnit, catalog: Catalog): boolean {
   };
   if (isTwoHanded(right) && left !== null) return true;
   if (isTwoHanded(left) && right !== null) return true;
+  return false;
+}
+
+// True when any equipped passive declares `relaxesTwoHandedGrip` (Monkeygrip).
+function unitGrantsTwoHandedGrip(unit: DraftUnit, catalog: Catalog): boolean {
+  for (const abilityIds of Object.values(unit.loadout.passiveBuckets)) {
+    for (const aid of abilityIds) {
+      const ability = catalog.getAbility(aid);
+      if (ability.kind === 'passive' && ability.relaxesTwoHandedGrip === true) {
+        return true;
+      }
+    }
+  }
   return false;
 }
 
