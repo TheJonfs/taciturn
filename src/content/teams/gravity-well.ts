@@ -1,29 +1,28 @@
 // Gravity Well — Chris-authored default template. S50 added a Calculator
-// (Thessaly) to reach 5; S51 added the off-hand books + the Knight-Alchemy
-// rework; S55 revision (this pass) reworks equipment and a few bucket picks per
-// Chris's playtest authoring.
+// (Thessaly) to reach 5; S51/S55 reworked equipment and bucket picks; S63 (this
+// pass) re-authors per Chris's playtest export — most notably Chris swaps Knight
+// → Templar.
 //
 // 5-unit composition under the variable-length BuiltTeam shape. Slot levels
 // follow the alternating-outward pattern (25 / 24 / 26 / 23 / 27) for slots
 // 0–4; per-unit `level` matches its slot.
 //
-// Concept (per Chris's authoring; S55 deltas noted):
-//   - Sera (Assassin) leads at slot 0. Sai + Chef's Knife dual-wield under
-//     Two Weapons (S62 — both Speed-variance knives now); Worldcraft secondary
-//     (S55 — terrain control off the Assassin's mobility). Golden Hairpin +
-//     Soul Vest (S62) + Boots of Haste.
+// Concept (per Chris's S63 authoring):
+//   - Sera (Assassin) leads at slot 0 (L25). Sai + Chef's Knife dual-wield under
+//     Two Weapons; Worldcraft secondary. Golden Hairpin + Soul Vest + Boots of
+//     Haste. (Unchanged this pass.)
 //   - Thessaly (Calculator) at slot 1 (L24) — Math Skill + Earth Spells
 //     secondary. Mathematician + Conductor + Earth Communion; Staff of Power +
-//     Tome of Power + Focus Band + Silvered Vest + Mantle of Protection.
-//   - Lumen (Pyromancer) at slot 2 (L26). Fire Spells + Water Spells secondary.
-//     Wand of Lumen + Livre of Urgency + Pointy Hat + Wizard's Robe + Lightfoot
-//     (S55 — accessory swap).
-//   - Chris (Knight) at slot 3 (L23). Battle Skill + Alchemy secondary. S55:
-//     Parrying Sword + Warrior's Aegis (sword-and-board) replace the two-handed
-//     Absolom; Tactical Mask + Soldier's Leathers + The Offering.
-//   - Clio (Hydrologist) at slot 4 (L27). Magus Crown unlocks dual secondary —
-//     Math Skill + Fire Spells — atop native Water Spells. Wand of the Depths +
-//     Battle Dictionary + Sorcerer's Robe + Augmentor.
+//     Tome of Power + Focus Band + Silvered Vest + Ironfoot.
+//   - Lumen (Pyromancer) at slot 2 (L26). Fire Spells + Templar Arts secondary.
+//     Wand of Lumen + Livre of Urgency + Pointy Hat + Wizard's Robe + Lightfoot.
+//   - Chris (Templar) at slot 3 (L23) — was a Knight. Templar Arts + Shadow Arts
+//     secondary. Monkeygrip + Emissary support; Managuard off-hand alongside the
+//     two-handed Imp Halberd (legal via Monkeygrip). Tactical Mask + Soldier's
+//     Leathers + Diamond Bracelet.
+//   - Clio (Hydrologist) at slot 4 (L27). Water Spells + Math Skill secondary.
+//     Wand of the Depths + Battle Dictionary + Guard Cap + Sorcerer's Robe +
+//     Augmentor.
 //
 // Authored unit names are personal picks; the team builder respects authored
 // values on template load (S38 naming convention).
@@ -93,9 +92,8 @@ export const gravityWell: BuiltTeam = {
         passiveBuckets: {
           [bucketId('reaction')]: [
             abilityId('cornered_focus'),
-            abilityId('speed_save'),
             abilityId('tidal_pull'),
-            abilityId('earth_resilience'),
+            abilityId('smolder'),
           ],
           [bucketId('support')]: [
             abilityId('mathematician'),
@@ -106,6 +104,7 @@ export const gravityWell: BuiltTeam = {
             abilityId('thoughtful_pacing'),
             abilityId('quickstep'),
             abilityId('hotfoot'),
+            abilityId('fleet_of_foot'),
           ],
         },
       },
@@ -114,7 +113,7 @@ export const gravityWell: BuiltTeam = {
         rightHand: itemId('tome_of_power'),
         headgear: itemId('focus_band'),
         armor: itemId('silvered_vest'),
-        accessory: itemId('mantle_of_protection'),
+        accessory: itemId('ironfoot'),
       },
     },
     {
@@ -125,13 +124,13 @@ export const gravityWell: BuiltTeam = {
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('fire_spells')],
-          [bucketId('secondary_command_sets')]: [commandSetId('water_spells')],
+          [bucketId('secondary_command_sets')]: [commandSetId('templar_arts')],
         },
         passiveBuckets: {
           [bucketId('reaction')]: [
             abilityId('smolder'),
             abilityId('discharge'),
-            abilityId('cornered_focus'),
+            abilityId('unified_calling'),
           ],
           [bucketId('support')]: [
             abilityId('ignition'),
@@ -141,9 +140,8 @@ export const gravityWell: BuiltTeam = {
           ],
           [bucketId('movement')]: [
             abilityId('hotfoot'),
-            abilityId('thoughtful_pacing'),
-            abilityId('tidewalker'),
             abilityId('quickstep'),
+            abilityId('faithstrider'),
           ],
         },
       },
@@ -157,40 +155,40 @@ export const gravityWell: BuiltTeam = {
     },
     {
       name: 'Chris',
-      classId: classId('knight'),
-      baseStats: buildBaseStats(classId('knight'), BRAVE, FAITH, 23),
+      classId: classId('templar'),
+      baseStats: buildBaseStats(classId('templar'), BRAVE, FAITH, 23),
       level: 23,
       loadout: {
         actionBuckets: {
-          [bucketId('first_action')]: [commandSetId('battle_skill')],
-          [bucketId('secondary_command_sets')]: [commandSetId('alchemy')],
+          [bucketId('first_action')]: [commandSetId('templar_arts')],
+          [bucketId('secondary_command_sets')]: [commandSetId('shadow_arts')],
         },
         passiveBuckets: {
           [bucketId('reaction')]: [
+            abilityId('unified_calling'),
             abilityId('counter'),
-            abilityId('combat_focus'),
-            abilityId('speed_save'),
-            abilityId('tidal_pull'),
+            abilityId('damage_split'),
           ],
           [bucketId('support')]: [
+            abilityId('emissary'),
+            abilityId('monkeygrip'),
             abilityId('martial_expertise'),
-            abilityId('field_kit'),
             abilityId('earth_communion'),
           ],
           [bucketId('movement')]: [
-            abilityId('bravestrider'),
-            abilityId('field_recovery'),
-            abilityId('thoughtful_pacing'),
+            abilityId('faithstrider'),
             abilityId('fleet_of_foot'),
+            abilityId('thoughtful_pacing'),
+            abilityId('quickstep'),
           ],
         },
       },
       equipment: {
-        leftHand: itemId('parrying_sword'),
-        rightHand: itemId('warriors_aegis'),
+        leftHand: itemId('managuard'),
+        rightHand: itemId('imp_halberd'),
         headgear: itemId('tactical_mask'),
         armor: itemId('soldiers_leathers'),
-        accessory: itemId('the_offering'),
+        accessory: itemId('diamond_bracelet'),
       },
     },
     {
@@ -201,16 +199,13 @@ export const gravityWell: BuiltTeam = {
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('water_spells')],
-          [bucketId('secondary_command_sets')]: [
-            commandSetId('math_skill'),
-            commandSetId('fire_spells'),
-          ],
+          [bucketId('secondary_command_sets')]: [commandSetId('math_skill')],
         },
         passiveBuckets: {
           [bucketId('reaction')]: [
             abilityId('tidal_pull'),
             abilityId('smolder'),
-            abilityId('cornered_focus'),
+            abilityId('unified_calling'),
           ],
           [bucketId('support')]: [
             abilityId('flow_state'),
@@ -227,7 +222,7 @@ export const gravityWell: BuiltTeam = {
       equipment: {
         leftHand: itemId('wand_of_depths'),
         rightHand: itemId('battle_dictionary'),
-        headgear: itemId('magus_crown'),
+        headgear: itemId('guard_cap'),
         armor: itemId('sorcerers_robe'),
         accessory: itemId('augmentor'),
       },

@@ -19,13 +19,13 @@ describe('Gravity Well template (gravityWell)', () => {
     expect(gravityWell.name).toBe('Gravity Well');
   });
 
-  it('fields five units (Assassin / Calculator / Pyromancer / Knight / Hydrologist)', () => {
+  it('fields five units (Assassin / Calculator / Pyromancer / Templar / Hydrologist)', () => {
     expect(gravityWell.units).toHaveLength(5);
     expect(gravityWell.units.map((u) => String(u.classId))).toEqual([
       'assassin',
       'calculator',
       'fire_mage',
-      'knight',
+      'templar',
       'water_mage',
     ]);
   });
