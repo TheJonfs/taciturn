@@ -10,10 +10,11 @@ This is a transient note from one session to the next.
 
 S62 opened the Templar arc (hybrid White Mage + Dragoon for the Glabados Church;
 spec: `docs/thirtyNinePlanning/templar-concept-notes.md`). It was audit-first, then
-shipped **Steps 1–3** of the ratified build order. **1721 → 1746 tests (+25)**,
-`tsc -b` + `vite build` clean. Three ADRs: **0099** (Raise), **0100** (Monkeygrip),
-**0101** (on-heal hooks: Unified Calling + Emissary). **All four Templar innates are
-now built** (Faithstrider, Monkeygrip, Emissary, Unified Calling).
+shipped **Steps 1–3 + Lance pierce (the Step-5 weapon substrate)**. **1721 → 1751
+tests (+30)**, `tsc -b` + `vite build` clean. Four ADRs: **0099** (Raise), **0100**
+(Monkeygrip), **0101** (on-heal hooks: Unified Calling + Emissary), **0102** (Lance
+pierce). **All four Templar innates built**; Cure, Raise, Defender, Lance, Imp
+Halberd all exist. **Only Jump (T4) and class assembly remain.**
 
 ### The substrate audit (T1–T9) — current verdicts
 
@@ -26,7 +27,7 @@ arc is shorter than the brief budgeted. Updated status after this session's work
 | T2 | Raise (spell revive) | 🟢 **DONE (S62, ADR-0099)** | `removeKO` ability effect + revive-before-heal + charged-resolve KO bypass. |
 | T3 | Cure AoE | 🟢 **DONE (S62)** | Stub → charged AoE-cross heal, friendly-fire, vert-tol 1. Composed; no engine change. |
 | T4 | Jump leap | 🔴 NET-NEW (headline) | Off-field leap; 3×Speed hook; D3 (full leap vs charged-strike v1) still open. |
-| T5 | Lance pierce | 🟡 mixed | Line/multi-target/friendly-fire exist (Flame Lance); pierce on a *basic* attack is net-new. |
+| T5 | Lance pierce | 🟢 **DONE (S62, ADR-0102)** | Basic-attack pierce = caster-anchored 2-tile line; Lance + Imp Halberd shipped. |
 | T6 | Auto-Protect | ✅ EXISTS → SHIPPED | `protect` status + statusGrants. Defender ships it (S62). |
 | T7 | Monkeygrip | 🟢 **DONE (S62, ADR-0100)** | Declarative `relaxesTwoHandedGrip` flag read by the equip validator. |
 | T8 | Unified Calling (on-heal reaction) | 🟢 **DONE (S62, ADR-0101)** | New `onHealingReceived` hook; Emissary's `modifyOutgoingHealing` shipped same ADR. |
@@ -37,8 +38,9 @@ arc is shorter than the brief budgeted. Updated status after this session's work
 1. **Foundation** — ✅ Defender, Faithstrider, portraits. *(Pending: class scaffold + Knight gear permission — held until the class has a command set.)*
 2. **Monkeygrip + Cure rework + Raise wire** — ✅ **COMPLETE** (Cure, Raise/ADR-0099, Monkeygrip/ADR-0100).
 3. **On-heal reaction hook + Unified Calling + Emissary** — ✅ **COMPLETE** (ADR-0101).
-4. **Jump leap (T4)** — the big one, gated by D3. **NEXT** (or T5 Lance pierce first — see below).
-5. Class assembly (stat block, command set, four innates [all built], three weapons, gear permission) → polish/playtest.
+4. **Jump leap (T4)** — the big one, gated by D3. **NEXT** (the only remaining substrate).
+5. Class assembly — stat block, command set, four innates [all built], three weapons
+   [all built: Defender, Lance, Imp Halberd], gear permission. Then polish/playtest.
 
 ### What shipped this session (commits to main — Chris is sole worker)
 
@@ -64,35 +66,39 @@ arc is shorter than the brief budgeted. Updated status after this session's work
   (Support, +25% outgoing healing). Both apply to one-time-source heals (Cure/Raise +
   Potion/Phoenix Down), NOT Regen (structural exclusion — no firing in `system_heal`).
   Both `available`, player-facing (guide entries). All four Templar innates now built.
+- `bddf3df` — **Lance pierce** (**ADR-0102**): `WeaponEquipment.pierces`; a basic Attack
+  with a piercing weapon injects a caster-anchored 2-tile line (`pierceAoeFor` in
+  `resolveAbilityTargets`) — strikes target + the unit behind, friendly-fires an
+  intervening ally. `'lance'` added to `DamageTag`. **Lance** (WP 10) + **Imp Halberd**
+  (WP 8, +1 MA) shipped, both two-handed/universal. v1 limits: pierce > dual-swing;
+  cardinal-only; vert-tolerance 1. Player-facing (guide entry).
 
-### NEXT — Step 4 (Jump leap, T4) and/or Step 5 leftover (Lance pierce, T5)
+### NEXT — Step 4: Jump leap (T4), the last substrate, with design call D3
 
-Two offensive-pillar pieces remain before class assembly (Step 5). Both are net-new:
+Jump is the only remaining net-new substrate, and it carries **design call D3 (Chris)**:
 
-1. **Jump leap (T4) — the headline unknown, with design call D3.** Charged-action infra is
-   solid, but the off-field "leave the tile / land later for damage" leap has no precedent;
-   `actionSpeed = 3 × Speed` needs a `modifyActionSpeed`-style formula (today actionSpeed is a
-   fixed per-ability number). **D3 (Chris):** full off-field leap (unit leaves the board during
-   the charge, lands for `PA × WP × (1 + isLance)` at H6/V6) vs. a simpler charged-strike v1
-   (no off-field state; a big telegraphed charged hit). Flag early if the off-field state
-   balloons. This is the one piece with real scope uncertainty — get D3 before building.
-2. **Lance pierce (T5) — enables the Lance + Imp Halberd weapons.** Line shape + multi-target +
-   friendly-fire all exist (Flame Lance), but the *basic attack* is single-target. Net-new:
-   make a weapon's basic attack pierce a 2-tile line (hitting both units, friendly-firing an
-   intervening ally). Once pierce exists, the **Lance (WP 10) + Imp Halberd (WP 8, MA +1)**
-   weapons ship (they were held from Step 1 to avoid shipping pierce-less). More contained than
-   Jump; no big design gate.
+- **D3 — leap fidelity:** *full off-field leap* (unit leaves the board during the charge,
+  lands for `PA × WP × (1 + isLance)` at H6/V6 — the lance ×2 reads the new `'lance'` tag) vs.
+  a *simpler charged-strike v1* (a big telegraphed charged hit, no off-field state). Flag
+  early if the off-field state balloons; it's the one piece with real scope uncertainty.
+- **`actionSpeed = 3 × Speed`** — today `actionSpeed` is a fixed per-ability number; Jump
+  needs a Speed-derived charge rate. Likely a `modifyActionSpeed`-style formula or a special
+  case at charged-action creation. Confirm the charge infra supports it.
+- Charged-action infra is solid (Cure/Raise/all charged spells run through it); the leap
+  effect + the off-field state (if D3 = full leap) are the new parts.
 
-Recommendation: take **Lance pierce (T5) next** (contained, unblocks two weapons, no design
-gate), then **Jump (T4)** with D3 ratified, then **class assembly (Step 5)** — at which point
-all innates (built), Cure/Raise, Jump, and the three weapons exist, plus the stat block + Knight
-head/body gear permission (`classRestrictions += templar`). Or jump straight to Jump if Chris
-wants the headline resolved first.
+Get D3 from Chris before building. After Jump → **Step 5 class assembly.**
 
-**Class-assembly readiness:** the four innates are built; Cure + Raise exist (hidden, need the
-Templar command set to surface them — wiring Raise into a command set will want the session-57
-AI heal-choice re-checked, since the healer would then have both Cure and Raise). Defender ships
-now; Lance/Imp Halberd need T5.
+**Class-assembly readiness (Step 5) — everything except Jump is built:**
+- Four innates ✅ (Faithstrider, Monkeygrip, Emissary, Unified Calling) — wire as free.
+- Cure ✅ + Raise ✅ (hidden) — need the **Templar command set** to surface them. **Wiring
+  Raise into a command set will want the session-57 AI heal-choice re-checked** (the healer
+  would then have both Cure and Raise; Raise heals more single-target, could flip the
+  "picks Cure" assertion — update the test to reflect correct behavior).
+- Three weapons ✅ (Defender, Lance, Imp Halberd).
+- Remaining: stat block (HP 132 / MP 36 / PA 6 / MA 6 / Speed 8 / Move 2 / Jump 3, evade
+  10/6/2), the command set (Cure + Raise + Jump + weapon basic), Knight head/body gear
+  permission (`classRestrictions += templar` on the Knight armor), Jump (Step 4).
 
 ### Decisions banked from Chris (S62)
 

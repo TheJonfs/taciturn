@@ -47,9 +47,9 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 ## Session 62 (2026-06-10)
 
 Commits: `e2cc34f` (Defender, Faithstrider), `c159426` (Monkeygrip), `3747a82`
-(Emissary, Unified Calling). (First content of the Templar class arc; the class
-itself isn't playable yet — these pieces are universal/cross-class and usable
-now.)
+(Emissary, Unified Calling), `bddf3df` (Lance, Imp Halberd + pierce). (First
+content of the Templar class arc; the class itself isn't playable yet — these
+pieces are universal/cross-class and usable now.)
 
 - **New weapon — Defender (Knight Sword).** A two-handed sword (WP 11, accuracy
   95) that grants **Auto-Protect**: while wielded, the bearer permanently takes
@@ -81,6 +81,14 @@ now.)
   Regen. Lets a healer who heals (or is healed) keep their MP topped up — on the
   Templar, healing yourself helps pay for the next cast. Free on the Templar
   (when it ships).
+- **New weapon class — Lance (Lance + Imp Halberd).** Two-handed reach weapons
+  (range **2 tiles, up to 4 in height** — longer than a sword's 1) that **pierce**:
+  a basic attack hits the target **and the unit directly behind it** along the
+  line. If an **ally** stands between you and your target, the pierce **hits them
+  too** — mind your lines. The **Lance** (WP 10) is the striker; the **Imp
+  Halberd** (WP 8, **+1 MA**) trades raw power for magic, favouring a healer build.
+  Both are universal (any class can wield them). Pierce only triggers on the basic
+  attack; targeting snaps to the nearest cardinal direction.
 
 ## Session 61 (2026-06-10)
 
