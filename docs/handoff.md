@@ -40,9 +40,19 @@ along the way. Guide-changelog has the full player-facing writeup (class + each 
 
 ### NEXT — this is a PLAYTEST phase, not a build phase
 
-The class is assembled and unit-tested, but its *feel* is unverified. The harness
-can't drive PixiJS battles, so this needs **Chris's human playthrough**. The
-concept-notes' explicit playtest watch-items (now live):
+**First playtest pass (Chris, team-builder) already surfaced + fixed three UI bugs**
+(`705fa33`): the Templar portrait wasn't registered in the portrait map; the
+team-builder's equip-slot filter didn't consult Monkeygrip (it had its own
+two-handed gate, separate from the engine validator — now mirrors `relaxesTwoHandedGrip`);
+and the new abilities lacked tooltip descriptions (`detail-text.ts` maps). All three
+verified fixed in the browser. **Takeaway for future class work: the team-builder UI
+duplicates several engine rules (off-hand gating) and has its own registries (portraits,
+ability descriptions, class taglines) — a new class needs all of them, not just the
+engine content.**
+
+The class's *balance/feel* is still unverified — the harness can't drive PixiJS battles,
+so it needs **Chris's human playthrough**. The concept-notes' explicit playtest
+watch-items (now live):
 
 - **Tanky self-sustainer (Chris's planned degenerate test):** Defender's Auto-Protect
   (50% physical) + Monkeygrip shield + Knight head/body + self-Cure + the Unified
