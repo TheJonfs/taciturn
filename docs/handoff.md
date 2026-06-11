@@ -10,8 +10,9 @@ This is a transient note from one session to the next.
 
 S62 opened the Templar arc (hybrid White Mage + Dragoon for the Glabados Church;
 spec: `docs/thirtyNinePlanning/templar-concept-notes.md`). It was audit-first, then
-shipped well past the foundation: **Steps 1 + most of Step 2** of the ratified build
-order. **1721 → 1736 tests (+15)**, `tsc -b` + `vite build` clean. One ADR: **0099**.
+shipped well past the foundation: **Step 1 + all of Step 2** of the ratified build
+order. **1721 → 1740 tests (+19)**, `tsc -b` + `vite build` clean. Two ADRs: **0099**
+(Raise), **0100** (Monkeygrip).
 
 ### The substrate audit (T1–T9) — current verdicts
 
@@ -26,15 +27,15 @@ arc is shorter than the brief budgeted. Updated status after this session's work
 | T4 | Jump leap | 🔴 NET-NEW (headline) | Off-field leap; 3×Speed hook; D3 (full leap vs charged-strike v1) still open. |
 | T5 | Lance pierce | 🟡 mixed | Line/multi-target/friendly-fire exist (Flame Lance); pierce on a *basic* attack is net-new. |
 | T6 | Auto-Protect | ✅ EXISTS → SHIPPED | `protect` status + statusGrants. Defender ships it (S62). |
-| T7 | Monkeygrip | 🔴 NET-NEW | **Next item — see design decision below.** |
+| T7 | Monkeygrip | 🟢 **DONE (S62, ADR-0100)** | Declarative `relaxesTwoHandedGrip` flag read by the equip validator. |
 | T8 | Unified Calling (on-heal reaction) | 🔴 NET-NEW hook | Needs `onHealingReceived` + ADR. |
 | T9 | Smaller pieces | ✅ COMPOSE | Faithstrider shipped (S62); class scaffold + gear permission pending. |
 
 ### Ratified 5-step build order — progress
 
 1. **Foundation** — ✅ Defender, Faithstrider, portraits. *(Pending: class scaffold + Knight gear permission — held until the class has a command set.)*
-2. **Monkeygrip + Cure rework + Raise wire** — Cure ✅, Raise ✅. **Monkeygrip is what's left.**
-3. On-heal reaction hook (T8) + ADR + Unified Calling + Emissary.
+2. **Monkeygrip + Cure rework + Raise wire** — ✅ **COMPLETE** (Cure, Raise/ADR-0099, Monkeygrip/ADR-0100).
+3. On-heal reaction hook (T8) + ADR + Unified Calling + Emissary — **next.**
 4. **Jump leap (T4)** — the big one, gated by D3.
 5. Class assembly (stat block, command set, four innates, three weapons) → polish/playtest.
 
@@ -52,23 +53,34 @@ arc is shorter than the brief budgeted. Updated status after this session's work
   Revive-before-heal in `resolveAbilityEffect`; the charged-resolve KO fizzle now exempts
   `removeKO` (a `removed` target still fizzles). Power 10, MP 12, SP 30, ≈37 HP. Authored
   hidden, NOT in a command set yet (see below).
+- `c159426` — **Monkeygrip** + the `relaxesTwoHandedGrip` capability (**ADR-0100**). The
+  equip validator now reads loadout passives and skips the two-handed-occupies-both-hands
+  throw when a passive declares the flag. Declarative (not a hook): equip legality is a
+  static setup-time property. Support, cost 2, available. Player-facing (got a guide entry).
 
-### NEXT ITEM — Monkeygrip (T7), and the design decision it needs
+### NEXT ITEM — Step 3: on-heal reaction hook (T8) + Unified Calling + Emissary
 
-Monkeygrip = "two-handed weapons require only one hand" (two-hander + shield, or half of
-the dual-two-hander combo with Two Weapons). The enforcement today is a hard throw at
-**setup**: `validateEquipmentPlacement` (`create-initial-state.ts:~316`) rejects a
-two-hander sharing a hand with any off-hand item.
+This is the next net-new substrate, and it carries **two genuine design decisions** to
+ratify before building (both are "ask before proceeding" items):
 
-**Design decision for Chris (asked, pending answer):** Chris asked how Monkeygrip differs
-from the Two Weapons validation. Finding: **it differs**. The equip validator **never
-consults passives** — equipping two weapons is *always* legal; Two Weapons only grants the
-**second swing at attack time** (`modifyDualWield`, runtime). So there is **no precedent**
-for "a passive legalizes a loadout." Monkeygrip would be the **first** case where setup
-validation reads the unit's loadout/passives. It's a modest, pure extension (the validator
-already reads class data — `equipmentSlots`, `classRestrictions`), but it is a new pattern.
-**Ratify the shape before building** (validator consults loadout for Monkeygrip vs. some
-other framing). This is the open gate for resuming.
+1. **`onHealingReceived` hook (T8) — extends the CLOSED hook surface (ground rule 8).**
+   Unified Calling = "on receiving healing, recover MP equal to self's PA." There is no
+   on-heal reaction trigger today (audited S62). Adding one is a deliberate engine change +
+   ADR. Decide: a new dedicated hook fired from the heal-application site
+   (`applyDamageToTarget` / the healing branch), vs. some reuse of an existing reaction
+   trigger. The audit found no reuse candidate, so it's likely a genuine new hook.
+2. **Emissary (+25% healing) — confirm a `modifyHealing`-style hook exists FIRST.** Emissary
+   ("all healing applied boosted +25%") was NOT audited for its hook. If there's no healing-
+   output modifier hook, Emissary is itself a small net-new (a `modifyHealing` multiplier on
+   the healer side, shape like Conductor's `modifyStatQuery` ×1.25 but on heal output). Audit
+   this before wiring Emissary; it may want its own small ADR or fold into the T8 ADR.
+
+Both Unified Calling and Emissary then compose on existing faith/heal substrate once their
+hooks exist. Surface decisions 1 + 2 to Chris at plan-review.
+
+*(Alternative next item if preferred: the class scaffold (Step 1 leftover) — stat block +
+Knight gear permission + wiring the now-built innates. But it can't fully assemble until the
+command set exists and Jump/the on-heal innates land, so Step 3 is the cleaner forward move.)*
 
 ### Decisions banked from Chris (S62)
 

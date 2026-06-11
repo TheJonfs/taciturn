@@ -46,8 +46,9 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ## Session 62 (2026-06-10)
 
-Commit: `e2cc34f`. (First content of the Templar class arc; the class itself
-isn't playable yet — these two pieces are universal/cross-class and usable now.)
+Commits: `e2cc34f` (Defender, Faithstrider), `c159426` (Monkeygrip). (First
+content of the Templar class arc; the class itself isn't playable yet — these
+pieces are universal/cross-class and usable now.)
 
 - **New weapon — Defender (Knight Sword).** A two-handed sword (WP 11, accuracy
   95) that grants **Auto-Protect**: while wielded, the bearer permanently takes
@@ -60,6 +61,13 @@ isn't playable yet — these two pieces are universal/cross-class and usable now
   bearer's own healing/revival spells **and** makes them take more magical
   damage. Free on the Templar (when it ships); any class can slot it for the
   Move+Faith trade.
+- **New support ability — Monkeygrip.** A Support passive (cost 2) that lets
+  **two-handed weapons be held in one hand** — so the bearer can carry a
+  two-hander **and** an off-hand item (a shield, or a second weapon). Lets any
+  class pair, e.g., **Defender + a shield**. Note: holding a weapon in the
+  off-hand only gives a *second attack* if you also have **Two Weapons**;
+  Monkeygrip alone just makes the loadout legal. Free on the Templar (when it
+  ships).
 
 ## Session 61 (2026-06-10)
 
