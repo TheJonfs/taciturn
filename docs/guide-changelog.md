@@ -47,9 +47,35 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 ## Session 62 (2026-06-10)
 
 Commits: `e2cc34f` (Defender, Faithstrider), `c159426` (Monkeygrip), `3747a82`
-(Emissary, Unified Calling), `bddf3df` (Lance, Imp Halberd + pierce). (First
-content of the Templar class arc; the class itself isn't playable yet — these
-pieces are universal/cross-class and usable now.)
+(Emissary, Unified Calling), `bddf3df` (Lance, Imp Halberd + pierce), `5d75929`
+(Jump), `0435d04` (the **Templar class**). The full arc shipped this session —
+**the Templar is now a playable class.**
+
+### The Templar — a new playable class (hybrid healer/Dragoon)
+
+A slow, balanced holy knight of the Glabados Church: **HP 132 / MP 36 / PA 6 /
+MA 6 / Speed 8**, Move 2 (→ 3 with its innate Faithstrider), Jump 3. It wields
+any weapon, and is the **second class that can wear Knight head and body armour**
+(not Knight shields). Its command set — **Templar Arts** — is three abilities:
+
+- **Cure** — a charged **area heal** (1-square cross, ~MA × 8 × Faith). Friendly
+  fire is on: the cross heals allies *and* any enemies caught in it, and the
+  caster too. Fast to land (so placement is a fair reactive puzzle). MP 8.
+- **Raise** — a charged **revive** spell: brings a KO'd ally back and heals them
+  (~MA × 10 × Faith; ≈ 37 HP at base with Emissary). MP 12.
+- **Jump** — the **off-field leap**: the Templar vaults off the board (becoming
+  **untargetable** while it charges), then comes down on a target tile for
+  **PA × WP, doubled with a Lance**. Reaches far and high (range 6, up to 6 in
+  height — it can strike units perched out of melee's reach). The target can
+  **dodge by leaving the tile** before it lands. The charge is faster the higher
+  the Templar's Speed. MP 6.
+
+Its four **innate** abilities (free on the Templar; cost points for other
+classes): **Emissary of Murond**, **Monkeygrip**, **Unified Calling**, and
+**Faithstrider** — all detailed in their own entries below.
+
+Other classes can raid Templar Arts (for the healing — and, with a Lance, the
+Jump) or take Monkeygrip, just like any secondary command set / passive.
 
 - **New weapon — Defender (Knight Sword).** A two-handed sword (WP 11, accuracy
   95) that grants **Auto-Protect**: while wielded, the bearer permanently takes
