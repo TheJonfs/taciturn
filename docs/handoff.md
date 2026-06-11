@@ -14,9 +14,9 @@ been processed.
 ## From Session 63 close (2026-06-11) — full brief shipped; log redesign needs a visual pass
 
 S63 brief was a package: the **action-log redesign** (big rock) + **four small
-items** (A–D). **All shipped and committed to main.** **1770 → 1780 tests (+10)**,
-`tsc -b` + `vite build` clean. The log redesign (`b3bd121`) is the one piece whose
-**pixel-level visual is unverified** — see below.
+items** (A–D). **All shipped and committed to main.** **1770 → 1781 tests (+11)**,
+`tsc -b` + `vite build` clean. The log redesign (`b3bd121`, refined in `8a712dc`)
+is the one piece whose **pixel-level visual is unverified** — see below.
 
 ### The four items (all DONE, committed)
 
@@ -52,7 +52,10 @@ into its killing-blow row (emphasis + "— KO") or stands alone as a skull event
 when system-dealt. The panel gained an icon gutter + weight/color (the
 `[tick]/[end]/[ko]` text tags are gone), per-turn collapse/expand, and a global
 "Show ledger" toggle. KO timers just moved to the ledger (the unit map sprite +
-detail panel already show the countdown — no renderer change).
+detail panel already show the countdown — no renderer change). Post-review
+refinements (`8a712dc`): failed status applications (rejected/resisted/missed —
+incl. non-firing reactions like "Updraft rejected") demote to the ledger; turn
+blocks alternate a subtle ABAB background by turn-counter parity.
 
 **Watch-items for the visual pass (harness can't drive PixiJS battles, so these
 are unverified at the pixel level):**
