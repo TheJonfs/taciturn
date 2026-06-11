@@ -19,6 +19,7 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -70,7 +71,15 @@ export function ActionLogPanel({
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(new Set());
   const [showAllLedgers, setShowAllLedgers] = useState<boolean>(false);
 
-  const view = state === null ? null : buildLogView(state.actionLog, state, catalog);
+  // Memoized on `state` (which changes only when a new action commits) so
+  // the full-log walk + KO derivation runs once per action, not on every
+  // render. Expanding a turn, hovering a row, or a parent re-render no
+  // longer re-walks the entire (growing) action log — that per-render
+  // recompute was O(log length) garbage that compounded over long battles.
+  const view = useMemo(
+    () => (state === null ? null : buildLogView(state.actionLog, state, catalog)),
+    [state, catalog],
+  );
 
   // Auto-scroll on append when the user is parked at the bottom. Keyed on
   // the raw log length so a new action (event or ledger) re-pins.
