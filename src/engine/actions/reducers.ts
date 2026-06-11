@@ -113,7 +113,7 @@ import { computeMpCost } from '../abilities/cost.ts';
 import { resolveWorldcraftCast } from '../abilities/worldcraft-resolution.ts';
 import { computeBarrierDamage } from '../damage/barrier-damage.ts';
 import { getEquippedWeapon, getWeaponInSlot } from '../items/equipment.ts';
-import { computeBaseActionSpeed, computeSpeed } from '../ct/speed.ts';
+import { computeChargedActionSpeed } from '../ct/speed.ts';
 
 export interface ReduceResult<O> {
   readonly newState: GameState;
@@ -627,16 +627,10 @@ function commitCharged(
     casterId: actor.id,
     abilityId: ability.id,
     ct: 0,
-    // Dragoon Jump (S62, ADR-0103): a Speed-derived charge rate (3 × Speed).
-    // Uses computed Speed so Haste composes; floors at 1. Other charged
-    // abilities keep the fixed-actionSpeed path (bit-identical).
-    speed:
-      ability.chargeSpeedFromUnitSpeed !== undefined
-        ? Math.max(
-            1,
-            Math.round(ability.chargeSpeedFromUnitSpeed * computeSpeed(state, actor.id, catalog)),
-          )
-        : computeBaseActionSpeed(state, catalog, actor, ability),
+    // Shared with the pre-commit forecast so the projected resolve matches.
+    // Dragoon Jump (ADR-0103) derives its rate from Speed; others use the
+    // fixed actionSpeed. See `computeChargedActionSpeed`.
+    speed: computeChargedActionSpeed(state, catalog, actor, ability),
     targets,
     sourceSequenceNumber: action.sequenceNumber,
   };
@@ -1307,15 +1301,43 @@ interface ResolveAbilityTargetsResult {
 // front; excludeCaster true (a caster-anchored line starts one tile ahead
 // anyway). Friendly fire is the ruleset's global mode, so the line clips an
 // intervening ally per the Templar's "lines and clusters" identity.
+//
+// The line is CARDINAL (cardinalFromTo snaps to an axis). So pierce only fires
+// when the target is cardinally aligned with the attacker (same row/column) —
+// for a diagonal/off-axis target the snapped line would miss the target
+// entirely, so we fall back to a normal single-target hit. `validateAction`
+// already accepts off-axis targets in range; without this, a Lance attack on a
+// diagonal enemy committed but whiffed (the line didn't cover it). Per the
+// ADR-0102 cardinal-only note.
 function pierceAoeFor(
+  state: GameState,
   catalog: Catalog,
   attacker: Unit,
   ability: ActiveAbilityDefinition,
+  payloadTarget: AbilityTarget,
 ): AoeSpec | undefined {
   if (ability.basicAttack !== true) return undefined;
   const weapon = getEquippedWeapon(attacker, catalog);
   if (weapon?.pierces !== true) return undefined;
+  const tp = pierceTargetPosition(state, payloadTarget);
+  if (tp === null) return undefined;
+  const dx = tp.x - attacker.position.x;
+  const dy = tp.y - attacker.position.y;
+  // Cardinally aligned iff exactly one of dx/dy is zero (same row XOR same
+  // column). Diagonal or same-tile → no pierce (single-target fallback).
+  if ((dx === 0) === (dy === 0)) return undefined;
   return { shape: { kind: 'line', length: 2 }, anchorMode: 'caster', excludeCaster: true };
+}
+
+// Resolve a basic-attack payload target to a board position for the pierce
+// cardinal-alignment check. Unit → its tile; tile → the tile; otherwise null.
+function pierceTargetPosition(state: GameState, target: AbilityTarget): Position | null {
+  if (target.kind === 'unit') {
+    const u = state.units.get(target.unitId);
+    return u !== undefined ? u.position : null;
+  }
+  if (target.kind === 'tile') return target.position;
+  return null;
 }
 
 function resolveAbilityTargets(
@@ -1336,7 +1358,9 @@ function resolveAbilityTargets(
   // Only fires for the basic Attack with no authored AoE — spells / Worldcraft
   // are untouched, and a non-piercing weapon leaves the single-target path
   // bit-identical.
-  const aoe = args.ability.effects.aoe ?? pierceAoeFor(catalog, args.attacker, args.ability);
+  const aoe =
+    args.ability.effects.aoe ??
+    pierceAoeFor(state, catalog, args.attacker, args.ability, args.payloadTarget);
   if (targetingKind === 'math_skill' && aoe !== undefined) {
     // AoE + math_skill is a content-authoring error: math_skill
     // already enumerates a target set; layering AoE on top would

@@ -119,6 +119,36 @@ describe('Lance pierce — basic Attack hits a 2-tile line', () => {
     expect(r.newState.units.get(ally.id)!.vitals.hp).toBeLessThan(100); // clipped
   });
 
+  it('hits a single cardinally-aligned target (no second unit needed)', () => {
+    const cat = catalog();
+    const atk = attacker(lance.id);
+    const lone = makeUnit({ id: 'lone', team: 'team_b', spd: 10, hp: 100, maxHpBase: 100, position: { x: 2, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [atk, lone], map: flatMap(6, 6), turnState: turnFor('atk'), masterSeed: 7 });
+    const r = commitAction(state, {
+      type: 'use_ability', source: 'player', actorId: atk.id,
+      payload: { abilityId: abilityId('attack'), target: { kind: 'unit', unitId: lone.id } },
+    }, cat);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.newState.units.get(lone.id)!.vitals.hp).toBeLessThan(100);
+  });
+
+  it('hits a diagonal target via single-target fallback (the line would miss it)', () => {
+    // Regression: pierce snaps to a cardinal line, so a diagonal target must
+    // fall back to a normal single hit rather than whiffing.
+    const cat = catalog();
+    const atk = attacker(lance.id);
+    const diag = makeUnit({ id: 'diag', team: 'team_b', spd: 10, hp: 100, maxHpBase: 100, position: { x: 1, y: 1, layer: 0 } });
+    const state = makeGameState({ units: [atk, diag], map: flatMap(6, 6), turnState: turnFor('atk'), masterSeed: 7 });
+    const r = commitAction(state, {
+      type: 'use_ability', source: 'player', actorId: atk.id,
+      payload: { abilityId: abilityId('attack'), target: { kind: 'unit', unitId: diag.id } },
+    }, cat);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.newState.units.get(diag.id)!.vitals.hp).toBeLessThan(100); // hit, not whiffed
+  });
+
   it('a non-piercing weapon (Long Sword) hits only the target', () => {
     const cat = catalog();
     const atk = attacker(longSword.id); // range 1, no pierce
