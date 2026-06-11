@@ -45,10 +45,26 @@ along the way. Guide-changelog has the full player-facing writeup (class + each 
 team-builder's equip-slot filter didn't consult Monkeygrip (it had its own
 two-handed gate, separate from the engine validator — now mirrors `relaxesTwoHandedGrip`);
 and the new abilities lacked tooltip descriptions (`detail-text.ts` maps). All three
-verified fixed in the browser. **Takeaway for future class work: the team-builder UI
-duplicates several engine rules (off-hand gating) and has its own registries (portraits,
-ability descriptions, class taglines) — a new class needs all of them, not just the
-engine content.**
+verified fixed in the browser.
+
+**Second playtest pass fixed five more** (commits after `705fa33`): (1) **Lance pierce
+whiffed on diagonal targets** — the cardinal-snapped line missed off-axis targets that
+validateAction still accepted; pierce now falls back to single-target when the target
+isn't cardinally aligned. (2) **Jump timing projection was wrong** — the forecast used the
+fixed actionSpeed (24) not 3×Speed; extracted a shared `computeChargedActionSpeed` used by
+both commit and forecast. (3) **Jump airborne unit now renders lifted + translucent** (was
+the deferred ADR-0103 render-polish — the unit looked grounded mid-leap). (4) **Monkeygrip
+off-hand still flagged the team invalid** — the team-builder's `isTwoHandedConflict` +
+equip auto-clear had their *own* two-handed gates not consulting Monkeygrip (a SECOND
+duplicate of the engine rule, beyond the picker filter). (5) **Templar now equips Knight
+shields** too (Chris's revised intent: Knight head/body + shields). Plus portraits
+downsampled 2048→512. **In-battle detail-panel tooltips (#1): same `detail-text.ts` source
+as the team-builder, so the description fix should cover them — Chris to confirm in a battle.**
+
+**Takeaway, reinforced: the team-builder/renderer duplicate engine rules in MULTIPLE places
+(the off-hand gate lives in 3 spots: engine validator, picker filter, validity check) and
+has its own registries (portraits, ability descriptions, taglines). A new class/weapon needs
+a sweep of all of them. Worth a shared helper for the two-handed-grip rule someday.**
 
 The class's *balance/feel* is still unverified — the harness can't drive PixiJS battles,
 so it needs **Chris's human playthrough**. The concept-notes' explicit playtest
