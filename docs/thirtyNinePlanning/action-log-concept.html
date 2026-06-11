@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taciturn — action log redesign (concept)</title>
+<!--
+  CONCEPT REFERENCE for the action-log redesign. Not production styling.
+  Colors and icons here are placeholders to communicate STRUCTURE and HIERARCHY;
+  implement with the game's existing log components/theme.
+
+  The cut: EVENTS vs STATE.
+  The log should narrate events. State (CT, HP/MP, status counts, KO timers)
+  already lives in the turn queue, unit cards, and status badges, so the log
+  re-narrating it is both noise and a duplicate. Top line = events only;
+  state collapses into a per-turn ledger (default hidden, preserved for replay).
+-->
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121922; --text:#e6edf3; --dim:#6b7785; --sec:#9aa7b4;
+    --ally:#58a6ff; --enemy:#ef7a5a; --gold:#e3b341; --heal:#5fb87a;
+    --ko:#f0635a; --ko-bg:rgba(240,99,90,0.12); --status:#e3a14a;
+    --border:rgba(255,255,255,0.09);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;padding:28px 20px;}
+  .wrap{max-width:900px;margin:0 auto;}
+  h1{font-size:20px;font-weight:600;margin:0 0 4px;}
+  .cap{color:var(--sec);font-size:13px;margin:0 0 24px;}
+  .cols{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;}
+  .notes{flex:1 1 280px;min-width:260px;font-size:13.5px;color:var(--sec);}
+  .notes h2{font-size:14px;color:var(--text);font-weight:600;margin:0 0 6px;}
+  .notes p{margin:0 0 14px;}
+  .notes b{color:var(--text);font-weight:600;}
+  .rail-wrap{flex:0 0 380px;background:var(--panel);border:1px solid var(--border);
+    border-radius:12px;padding:16px;}
+  .rail{font-size:13px;}
+  .barhead{display:flex;align-items:center;justify-content:space-between;
+    padding:0 4px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;}
+  .barhead span{font-size:12px;letter-spacing:.06em;color:var(--sec);text-transform:uppercase;}
+  button{font:inherit;font-size:12px;color:var(--text);background:transparent;
+    border:1px solid var(--border);border-radius:8px;padding:4px 10px;cursor:pointer;}
+  button:hover{background:rgba(255,255,255,0.05);}
+  .turn-head{display:flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;
+    padding:10px 4px 4px;}
+  .turn-head .chev{width:14px;height:14px;color:var(--dim);transition:transform .15s;flex:none;}
+  .turn.collapsed .chev{transform:rotate(-90deg);}
+  .ev{display:flex;gap:9px;align-items:flex-start;font-size:13px;
+    padding:3px 4px 3px 6px;color:var(--text);}
+  .ev .ic{width:15px;height:15px;flex:none;position:relative;top:2px;}
+  .ledger{font-size:11.5px;color:var(--dim);padding:3px 6px 8px 29px;line-height:1.65;}
+  .turn.collapsed .ledger{display:none;}
+  .ally{color:var(--ally);} .enemy{color:var(--enemy);} .heal{color:var(--heal);}
+  .num{font-weight:600;} .gold{color:var(--gold);}
+  .ko-line{background:var(--ko-bg);border-radius:8px;}
+  .bignum{font-size:18px;font-weight:600;color:var(--ko);}
+  .legend{margin-top:14px;padding-top:10px;border-top:1px solid var(--border);
+    display:flex;flex-wrap:wrap;gap:13px;font-size:11px;color:var(--dim);align-items:center;}
+  .legend .ic{width:14px;height:14px;position:relative;top:2px;margin-right:3px;}
+  .legend span{display:inline-flex;align-items:center;}
+  svg.ic use,svg.chev use{fill:none;stroke:currentColor;stroke-width:2;
+    stroke-linecap:round;stroke-linejoin:round;}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-sword" viewBox="0 0 24 24"><path d="M14.5 17.5 L3 6 V3 H6 L17.5 14.5"/><path d="M13 19 L19 13"/><path d="M16 16 L20.5 20.5"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3 L13.7 9.3 L20 11 L13.7 12.7 L12 19 L10.3 12.7 L4 11 L10.3 9.3 Z"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3 c1.5 3.5 5 5 5 9 a5 5 0 0 1 -10 0 c0 -2 1 -3.5 2.2 -4.3 c-.2 1.8 .6 2.8 1.8 3.3 c-.6 -3 -1.5 -4.5 1 -8 Z"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12 H20"/><path d="M14 6 L20 12 L14 18"/></symbol>
+    <symbol id="i-skull" viewBox="0 0 24 24"><path d="M12 3 a8 8 0 0 0 -8 8 c0 3 1.8 5 3.8 6 v3 h8.4 v-3 c2 -1 3.8 -3 3.8 -6 a8 8 0 0 0 -8 -8 Z"/><circle cx="9" cy="11.5" r="1.5"/><circle cx="15" cy="11.5" r="1.5"/><path d="M11 17 v2.6 M13 17 v2.6"/></symbol>
+    <symbol id="i-stack" viewBox="0 0 24 24"><path d="M12 3 L21 8 L12 13 L3 8 Z"/><path d="M3.5 13 L12 17.5 L20.5 13"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4 H16 V9 a4 4 0 0 1 -8 0 Z"/><path d="M8 5.5 H5.2 a1.8 1.8 0 0 0 0 3.6 H8.5"/><path d="M16 5.5 H18.8 a1.8 1.8 0 0 1 0 3.6 H15.5"/><path d="M12 13 V16.5"/><path d="M9.5 20 H14.5"/><path d="M10 16.5 H14 V20 H10 Z"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9 L12 15 L18 9"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <h1>Action log redesign — concept</h1>
+  <p class="cap">Concept reference for the implementer. Placeholder colors/icons — build with the game's existing log components, not this palette.</p>
+
+  <div class="cols">
+    <div class="notes">
+      <h2>The cut: events vs. state</h2>
+      <p>The log should narrate <b>events</b>. <b>State</b> — CT, HP/MP, status counts, KO timers — already lives in the turn queue, unit cards, and status badges, so the log re-narrating it is both noise and a duplicate. Top line shows events only; state collapses into a per-turn ledger.</p>
+      <h2>Three levers</h2>
+      <p><b>Consolidate</b> — multi-line mechanical sequences become one event (Burn tick + its damage + its expiry → one line).</p>
+      <p><b>Relocate</b> — the KO timer (<i>KO 1 / 2 / 3 — fading</i>) leaves the log entirely and shows on the unit.</p>
+      <p><b>Encode</b> — an icon gutter plus weight and color replace the <i>[tick] / [end] / [ko]</i> text tags, restoring the significance hierarchy the flat log lost.</p>
+      <h2>Default view</h2>
+      <p>Events only. Click a turn header, or <b>Show ledger</b>, to reveal the full mechanical detail — kept for replay/debug completeness, not deleted.</p>
+    </div>
+
+    <div class="rail-wrap">
+      <div class="rail">
+        <div class="barhead"><span>Action log</span><button id="toggleAll">Show ledger</button></div>
+        <div id="turns">
+
+          <div class="turn">
+            <div class="turn-head"><svg class="chev"><use href="#i-chev"/></svg><span class="num gold">T0089</span><span class="enemy num">Tina</span><span style="color:var(--dim)">Alchemist</span></div>
+            <div class="events">
+              <div class="ev"><svg class="ic" style="color:var(--status)"><use href="#i-flame"/></svg><span>Burn &rarr; <span class="enemy">Tina</span> <span class="num">9</span>, expired</span></div>
+              <div class="ev"><svg class="ic" style="color:var(--dim)"><use href="#i-arrow"/></svg><span>moves to (4,14)</span></div>
+              <div class="ev"><svg class="ic" style="color:var(--enemy)"><use href="#i-sword"/></svg><span><span class="enemy">Tina</span> &rarr; <span class="ally">Chris</span> <span style="color:var(--dim)">&mdash; miss</span></span></div>
+            </div>
+            <div class="ledger">Taunted &minus;1 (2 left) &middot; Earthen Resolve &minus;1 &middot; +4 HP regen</div>
+          </div>
+
+          <div class="turn">
+            <div class="turn-head"><svg class="chev"><use href="#i-chev"/></svg><span class="num gold">T0090</span><span class="ally num">Thessaly</span><span style="color:var(--dim)">Calculator</span></div>
+            <div class="events">
+              <div class="ev"><svg class="ic" style="color:var(--ally)"><use href="#i-spark"/></svg><span><span class="ally">Thessaly</span> &rarr; Precision Fire <span class="enemy">Tina</span> <span class="num">43</span></span></div>
+              <div class="ev"><svg class="ic" style="color:var(--status)"><use href="#i-stack"/></svg><span>Combat Focus &times;5 &rarr; <span class="enemy">Tina</span></span></div>
+              <div class="ev"><svg class="ic" style="color:var(--dim)"><use href="#i-arrow"/></svg><span>moves to (5,6)</span></div>
+              <div class="ev"><svg class="ic" style="color:var(--dim)"><use href="#i-skull"/></svg><span style="color:var(--dim)"><span style="color:var(--enemy);opacity:.7">Ajax</span> fades from battle</span></div>
+            </div>
+            <div class="ledger">+6 MP &middot; CT +22</div>
+          </div>
+
+          <div class="turn">
+            <div class="turn-head"><svg class="chev"><use href="#i-chev"/></svg><span class="num gold">T0091</span><span class="ally num">Chris</span><span style="color:var(--dim)">Knight</span></div>
+            <div class="events">
+              <div class="ev"><svg class="ic" style="color:var(--dim)"><use href="#i-arrow"/></svg><span>moves to (3,14)</span></div>
+              <div class="ev ko-line"><svg class="ic" style="color:var(--ally)"><use href="#i-sword"/></svg><span><span class="ally">Chris</span> &rarr; <span class="enemy">Tina</span> &nbsp;<span class="bignum">181</span> &nbsp;<svg class="ic" style="color:var(--ko);width:14px;height:14px"><use href="#i-skull"/></svg> <span style="color:var(--ko);font-weight:600">KO</span></span></div>
+            </div>
+            <div class="ledger">Protect &minus;1 &middot; +9 HP &middot; +6 MP &middot; Taunted / Earthen Resolve cleared (death) &middot; Speed Save rejected</div>
+          </div>
+
+          <div class="ev" style="margin-top:6px;padding-top:10px;border-top:1px solid var(--border)"><svg class="ic" style="color:var(--gold)"><use href="#i-trophy"/></svg><span class="num"><span class="ally">team_a</span> wins &mdash; all enemies defeated</span></div>
+
+        </div>
+        <div class="legend">
+          <span><svg class="ic"><use href="#i-sword"/></svg>attack</span>
+          <span><svg class="ic"><use href="#i-spark"/></svg>ability</span>
+          <span><svg class="ic"><use href="#i-flame"/></svg>status</span>
+          <span><svg class="ic"><use href="#i-arrow"/></svg>move</span>
+          <span><svg class="ic"><use href="#i-skull"/></svg>KO / fade</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var turns = Array.prototype.slice.call(document.querySelectorAll('.turn'));
+  turns.forEach(function(t){ t.classList.add('collapsed'); });
+  turns.forEach(function(t){
+    t.querySelector('.turn-head').addEventListener('click', function(){ t.classList.toggle('collapsed'); });
+  });
+  var btn = document.getElementById('toggleAll');
+  var open = false;
+  btn.addEventListener('click', function(){
+    open = !open;
+    turns.forEach(function(t){ t.classList.toggle('collapsed', !open); });
+    btn.textContent = open ? 'Events only' : 'Show ledger';
+  });
+})();
+</script>
+</body>
+</html>

@@ -44,6 +44,44 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 63 (2026-06-11)
+
+Commits: `96b3d5f` (Calculator Faith removal), `96195ab` (Brine), `a50ba1d`
+(KO summary). A small tuning + fix batch; the action-log redesign is a separate
+piece still pending.
+
+### Calculator — Precision Fire & Targeted Treatment now scale on SP × MA (no Faith)
+
+- Both Math Skill abilities **dropped their Faith term**. Damage (Precision Fire)
+  and healing (Targeted Treatment) are now `SP × MA` — **deterministic** (no
+  Faith swing) and roughly **double** their previous output at typical Faith. A
+  deliberate buff; SP values are unchanged.
+- Precision Fire's **Burn proc is unaffected** — its chance to apply still rolls
+  the normal Faith × MA gate. Only the up-front damage/heal number changed.
+- Note this is specific to these two abilities; all other Faith-scaled spells
+  (the Templar's Cure/Raise, the mages' strikes, etc.) are untouched.
+
+### Brine (Hydrologist) — Speed debuff doubled to −2 per cast
+
+- A landed Brine now applies **−2 Speed** (was −1), permanent and stacking, so
+  two casts reach −4. Cast cost, range, and ~51% land chance are unchanged. Speed
+  drives turn frequency, so this is a meaningful tempo debuff now worth a slot.
+
+### End-of-battle summary — counts every KO
+
+- The post-battle KO timeline and MVP tally now record **every** knockout,
+  including a unit downed again after a Raise / Phoenix Down revival (previously
+  only the first KO per unit was counted). The in-battle action log likewise
+  shows a fresh KO line on each re-down.
+
+### Taunt — flagged for redesign (no change yet)
+
+- An audit found Taunt's "40% chance to ignore the Knight" doesn't behave as
+  described (it's effectively all-or-nothing per ability, and the AI doesn't
+  respond to it). **Behavior is unchanged this session** — it's slated for a
+  ground-up redesign. Treat the current Taunt write-up as provisional; don't
+  build new guide detail on its exact percentages until the redesign lands.
+
 ## Session 62 (2026-06-10)
 
 Commits: `e2cc34f` (Defender, Faithstrider), `c159426` (Monkeygrip), `3747a82`

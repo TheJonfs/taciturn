@@ -2,150 +2,98 @@
 
 This is a transient note from one session to the next.
 
-**Discipline:** This document is *overwritten* each session, not appended. When starting a session, read this file and process every item — act on it, promote it elsewhere (ADR, design-doc edit, GitHub issue), or explicitly drop it with a reason. Items do not accumulate. If there are no notes to leave, replace the contents with `_No handoff this session._` so the next session knows the file has been processed.
+**Discipline:** This document is *overwritten* each session, not appended. When
+starting a session, read this file and process every item — act on it, promote it
+elsewhere (ADR, design-doc edit, GitHub issue), or explicitly drop it with a
+reason. Items do not accumulate. If there are no notes to leave, replace the
+contents with `_No handoff this session._` so the next session knows the file has
+been processed.
 
 ---
 
-## From Session 62 close (2026-06-11) — TEMPLAR ARC COMPLETE
+## From Session 63 close (2026-06-11) — small-items batch done; log redesign pending
 
-S62 opened *and finished* the Templar arc — a hybrid White Mage + Dragoon for the
-Glabados Church. Audit-first, then **all five build-order steps** in one session.
-**1721 → 1765 tests (+44)**, `tsc -b` + `vite build` clean. **Five ADRs: 0099–0103.**
-**The Templar is a registered, playable class.**
+S63 brief was a package: the **action-log redesign** (big rock) + **four small
+items** (A–D). The four items are **done and committed to main**; the log
+redesign is **not started** and is the natural next session. **1770 → 1775 tests
+(+5)**, `tsc -b` + `vite build` clean.
 
-### The arc, end to end (all DONE)
+### The four items (all DONE, committed)
 
-| Step | What | ADR |
-|------|------|-----|
-| Audit | T1–T9 exists/compose/net-new; faith + Auto-Protect found pre-existing | — |
-| 1 Foundation | Faithstrider (Move passive), Defender (Knight Sword + Auto-Protect), portraits | — |
-| 2 | Cure rework (charged AoE heal), Raise (revive substrate), Monkeygrip | 0099, 0100 |
-| 3 | On-heal hooks → Unified Calling + Emissary | 0101 |
-| 5-sub | Lance pierce + Lance / Imp Halberd weapons | 0102 |
-| 4 | **Dragoon Jump** — off-field leap, 3×Speed charge, lance ×2 | 0103 |
-| 5 | **Class assembly** — stat block, Templar Arts command set, 4 innates, gear permission | — |
+| Item | What | Commit | Notes |
+|------|------|--------|-------|
+| B | Remove Faith from Precision Fire & Targeted Treatment (buff) | `96b3d5f` | New `noFaithScaling` DamageSpec flag; ~2× + deterministic; SP unchanged |
+| C | Brine Speed debuff −1 → −2 per cast | `96195ab` | Scoped per-ability magnitude override; Slow untouched |
+| D | End-of-battle summary counts every KO (re-KOs included) | `a50ba1d` | Shared walker fix → results screen + MVP + log [ko] rows |
+| A | Taunt audit (report-only) + soft-lock guard | `152e842` | Redesign deferred; guard is ADR-0104 |
 
-Substrate net-new this arc: `removeKO` ability effect (Raise), `relaxesTwoHandedGrip`
-(Monkeygrip), two on-heal hooks (`onHealingReceived` + `modifyOutgoingHealing`), the
-`airborne` unit state + `chargeSpeedFromUnitSpeed` + `lanceBonus`/`jumpLeap` (Jump),
-`pierces` weapon flag + `'lance'` tag (pierce). Everything else composed on existing
-faith / healing / charged-action / AoE substrate.
+### Item A — Taunt: redesign deferred, guard shipped
 
-### Commits (all to main — Chris is sole worker)
+Full audit in `docs/thirtyNinePlanning/taunt-audit.md`. Headline: Taunt's block is
+deterministic-not-probabilistic, target-blind, never reflips; the AI is fully
+taunt-blind; and a Taunted AI unit whose best action stays blocked **hung the
+battle** (stateless AI re-proposes the same rejected action forever). Chris chose
+**redesign-later + guard-now**. The guard (ADR-0104, app-layer only) force-ends a
+turn when a controller re-submits the byte-identical rejected action; humans are
+exempt via their `pending` step. **The Taunt redesign is a future session** — it
+needs a new attacker-side hit-chance hook + AI target-preference work, and Chris
+must pin the intended effect first (don't invent intent). Pointers in the audit
+doc.
 
-`5343219` portraits · `e2cc34f` Faithstrider+Defender · `b4b99b1` Cure · `991450c`
-Raise/0099 · `c159426` Monkeygrip/0100 · `3747a82` on-heal hooks/0101 · `bddf3df`
-Lance pierce/0102 · `5d75929` Jump/0103 · `0435d04` class assembly. Plus doc commits
-along the way. Guide-changelog has the full player-facing writeup (class + each piece).
+### NEXT — the action-log redesign (the big rock, not yet started)
 
-### NEXT — this is a PLAYTEST phase, not a build phase
+Brief: `docs/thirtyNinePlanning/session-action-log-brief.md`. Concept:
+`docs/thirtyNinePlanning/action-log-concept.html` (placeholder palette — do not
+copy its colors). **Audit finding (the brief's pivotal structured-vs-strings
+question): the log is already STRUCTURED, not baked strings.** The log *is* the
+engine `Action[]` stream; `src/ui/action-log-format.ts` is a pure
+`Action[] → LogRow[]` render transform, and `src/ui/derived-events.ts` already
+does shared single-walk synthesis. So this is **render-layer / Medium, not a
+substrate change.** The one wrinkle is **consolidation** (Burn tick + its damage +
+its expiry → one line): the data exists in the Action stream but the actions
+aren't explicitly parented, so the formatter needs a **grouping pass** (still
+render-layer, no engine change). Other pieces: events-vs-state classification,
+icon gutter + weight/color (drop `[tick]/[end]/[ko]` text tags), per-turn
+collapse/expand, and **KO-timer relocation onto the unit badge** (crosses into
+`src/renderer/` unit layer — the one cross-layer bit). **Per the brief, run the
+plaintext-review/plan gate with Chris before building.**
 
-**First playtest pass (Chris, team-builder) already surfaced + fixed three UI bugs**
-(`705fa33`): the Templar portrait wasn't registered in the portrait map; the
-team-builder's equip-slot filter didn't consult Monkeygrip (it had its own
-two-handed gate, separate from the engine validator — now mirrors `relaxesTwoHandedGrip`);
-and the new abilities lacked tooltip descriptions (`detail-text.ts` maps). All three
-verified fixed in the browser.
+### Playtest follow-ups from this session (need Chris's human playthrough)
 
-**Second playtest pass fixed five more** (commits after `705fa33`): (1) **Lance pierce
-whiffed on diagonal targets** — the cardinal-snapped line missed off-axis targets that
-validateAction still accepted; pierce now falls back to single-target when the target
-isn't cardinally aligned. (2) **Jump timing projection was wrong** — the forecast used the
-fixed actionSpeed (24) not 3×Speed; extracted a shared `computeChargedActionSpeed` used by
-both commit and forecast. (3) **Jump airborne unit now renders lifted + translucent** (was
-the deferred ADR-0103 render-polish — the unit looked grounded mid-leap). (4) **Monkeygrip
-off-hand still flagged the team invalid** — the team-builder's `isTwoHandedConflict` +
-equip auto-clear had their *own* two-handed gates not consulting Monkeygrip (a SECOND
-duplicate of the engine rule, beyond the picker filter). (5) **Templar now equips Knight
-shields** too (Chris's revised intent: Knight head/body + shields). Plus portraits
-downsampled 2048→512. **In-battle detail-panel tooltips (#1): same `detail-text.ts` source
-as the team-builder, so the description fix should cover them — Chris to confirm in a battle.**
+- **Item B (Calculator buff):** the AI's valuation of Precision Fire / Targeted
+  Treatment is re-based **upward (~2×)** since both share `runDamagePipeline`.
+  The brief asked to confirm the AI now uses the buffed versions **sensibly** and
+  doesn't overcommit. Watch in a battle.
+- **Item C (Brine):** −2 Speed is permanent + stacking; eyeball whether the tempo
+  swing feels right or wants dialing back toward −1/−2.
 
-**Takeaway, reinforced: the team-builder/renderer duplicate engine rules in MULTIPLE places
-(the off-hand gate lives in 3 spots: engine validator, picker filter, validity check) and
-has its own registries (portraits, ability descriptions, taglines). A new class/weapon needs
-a sweep of all of them. Worth a shared helper for the two-handed-grip rule someday.**
+### Carried forward from S62 (Templar — still open, NOT acted on this session)
 
-The class's *balance/feel* is still unverified — the harness can't drive PixiJS battles,
-so it needs **Chris's human playthrough**. The concept-notes' explicit playtest
-watch-items (now live):
+These are Chris design/playtest calls, untouched by S63:
 
-- **Tanky self-sustainer (Chris's planned degenerate test):** Defender's Auto-Protect
-  (50% physical) + Monkeygrip shield + Knight head/body + self-Cure + the Unified
-  Calling MP loop = a very durable, self-refuelling, low-threat wall. Levers:
-  Auto-Protect magnitude (currently 50%, tunable via a magnitude-carrying statusGrants
-  variant) and HP 132. **Sanity-check HP 132 vs the Knight given this stack.**
-- **Multiplicative healing stack:** Emissary (×1.25) × Faithstrider (faith ↑) × Imp
-  Halberd (MA +1) × high-faith targets compound (~1.5–1.7× a fully-invested heal).
-  Eyeball the ceiling.
-- **Knight + Lance + Jump** (PA 12 × WP × 2, H6/V6) — the Jump damage ceiling. Raidable:
-  any class can take Templar Arts. Telegraphed/dodgeable/MP-costed, but the number to watch.
-- **Knight + Lance pierce** — two-target efficiency at PA 12.
-- **Roster sustain:** a second full heal+revive package (alongside Alchemist) trends
-  games toward attrition; interacts with the AI item-vs-kill scoring.
-- **Cure range/SP, Jump H6/V6** — concept-notes flag both as "likely tune down."
+- **Jump triggers reactions** (a bow Counter killed a jumping Templar). Open:
+  should a telegraphed Jump grant counter-immunity, or is reaction-counterplay
+  intended? (If immunity: suppress reaction triggers for `jumpLeap` damage.)
+- **Evasion back-2** — Templar is the first non-zero back-evade (10/6/2); every
+  other class is back-0. Authored to concept-spec; flag if you'd rather 10/6/0.
+- **Dominant stat = 'ma'** (PA/MA 6/6 hybrid) — could be 'pa'; ±1 at L23/L27.
+- **Concept "likely tune down":** Cure range/SP and Jump H6/V6.
+- **Two-weapon Jump uses the right-hand weapon** (off-hand ignored; no dual-swing;
+  no weapon on-hit procs through Jump). Deterministic/sensible; flag only if you'd
+  want Jump to pick the higher-WP / Lance weapon regardless of hand.
+- Templar balance/feel (tanky self-sustainer stack, multiplicative healing
+  ceiling, Knight+Lance+Jump damage) still needs a human playthrough — the harness
+  can't drive PixiJS battles.
 
-### Decisions made this session that Chris may want to revisit (flagged, not silent)
+### Standing carries (from S61, unchanged — not S63 work)
 
-- **Evasion back-2.** The Templar's evasion is 10/6/2 per the concept-notes — but
-  **every other class has back-0** ("uniform back-zero" per the Knight). The Templar is
-  the first non-zero back evade. Authored to spec; flag if you'd rather it be 10/6/0.
-- **Dominant stat = 'ma'.** PA/MA hybrid (6/6); MA took the single dominant-stat pick
-  (Terraformer precedent, healing identity). Could be 'pa' if you prefer the Dragoon
-  half to drive level scaling. Minor (±1 at L23/L27).
-- **Command set = one set (Templar Arts = Cure/Raise/Jump).** Per concept-notes. So a
-  raider gets Jump along with the healing — intended (it's the "Knight + Lance + Jump"
-  watch-item).
-
-### Carry-forward design questions from playtest (Chris flagged; NOT yet decided)
-
-- **Jump triggers reactions (Counter / on-damage retaliation).** Playtest: a Templar
-  jumped a target on high ground, hit it, and the target's bow Counter fired back and
-  killed the Templar. Mechanically correct — the jumper lands (airborne cleared) and
-  deals damage, so the target's `onDamageReceived` reactions fire at the now-grounded
-  Templar. It's real counterplay (a bow user punishing a Jump) but surprising. **Open
-  question: should a telegraphed Jump grant counter-immunity, or is reaction-counterplay
-  intended?** Chris: carry forward, decide later. (If immunity: the resolution would need
-  to suppress reaction triggers for jumpLeap damage.)
-- **Two-weapon Jump uses the RIGHT-hand weapon (#3 answered).** `getEquippedWeapon`
-  prefers right, falls back to left; Jump isn't `multiWeapon`, so `attackingWeaponSlot`
-  is undefined → it reads the right-hand-preferred weapon for **WP and the Lance bonus**.
-  Consequences: a Two-Weapons Jumper still strikes **once** (no dual-swing); the **off-hand
-  weapon is ignored** (so a Lance in the *off* hand + a non-Lance in the right gets **no**
-  Lance double); and Jump is `'physical'` but NOT `'weapon'`-tagged, so **weapon on-hit
-  procs / tag riders don't fire** through it (the Lance bonus is special — it reads the
-  weapon directly, not via tag merge). Deterministic and sensible; flag only if you'd want
-  Jump to pick the higher-WP / Lance weapon regardless of hand.
-
-### Deferred / known-incomplete (not blocking; noted in ADRs)
-
-- **Jump rendering (ADR-0103): DONE (S62 playtest pass 2).** The airborne jumper now
-  renders lifted half a tile + translucent (`UnitVisualState.airborne`). A
-  shadow/arc-trajectory animation remains future polish.
-- **Jump airborne-clear** only happens in `finalizeResolution`; a future charge-cancel
-  path outside it must also clear `airborne`.
-- **Pierce v1 limits (ADR-0102):** pierce takes precedence over multi-weapon dual-swing
-  (one line, not two); **cardinal-only — off-axis targets fall back to a single-target hit
-  (S62 fix)**; vertical tolerance 1.
-- **Unified Calling uses base PA** (emission hooks get only the unit snapshot); effective-PA
-  scaling is a possible refinement.
-- **Regen excluded** from both on-heal hooks (structural; per the one-time-source scope).
-
-### Roadmap
-
-`docs/roadmap.md`'s per-session log was abandoned ~S20b; the Templar arc is captured
-in the `thirtyNinePlanning/` brief + concept-notes + these 5 ADRs + the guide-changelog.
-The arc falls under the existing "Class/ability/equipment catalog expansion" content-pass
-— no roadmap edit made.
-
-### Standing carries (from S61, unchanged — not Templar work)
-
-- **Role-aware deployment sorting** — the 4th/last coverage-map consumer (ADR-0094),
-  deferred behind the Templar arc. Substrate (`threatsToTile`/`buildCoverageMap`) in place.
-  Now the clean next non-content item.
-- Barrier denial dials (ADR-0098); Layer-2 positional prediction; Worldcraft move-then-cast;
-  killValue-weighted Math re-base; Perch move-onto-created-perch; default team templates with
-  Terraformer; roster-wide Move-tier discussion; Calculator team-template revision + AI
-  personality variants; Marshmoor template-compliance tests; lightning-mage.ts stale S20
-  header; `draft-terraformer-substrate-audit.md` archival; terrain-transition animation;
+- **Role-aware deployment sorting** — the last coverage-map consumer (ADR-0094),
+  substrate (`threatsToTile`/`buildCoverageMap`) in place. The clean next
+  non-content item.
+- Barrier denial dials (ADR-0098); Layer-2 positional prediction; Worldcraft
+  move-then-cast; killValue-weighted Math re-base; Perch move-onto-created-perch;
+  default team templates with Terraformer; roster-wide Move-tier discussion;
+  Calculator team-template revision + AI personality variants; Marshmoor
+  template-compliance tests; lightning-mage.ts stale S20 header;
+  `draft-terraformer-substrate-audit.md` archival; terrain-transition animation;
   Math Skill SP scaling review.
