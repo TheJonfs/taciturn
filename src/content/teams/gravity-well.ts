@@ -8,9 +8,10 @@
 // 0–4; per-unit `level` matches its slot.
 //
 // Concept (per Chris's authoring; S55 deltas noted):
-//   - Sera (Assassin) leads at slot 0. Sai + Staff of Abundance dual-wield
-//     under Two Weapons; Worldcraft secondary (S55 — terrain control off the
-//     Assassin's mobility). Golden Hairpin + Shimmer Cloak + Boots of Haste.
+//   - Sera (Assassin) leads at slot 0. Sai + Chef's Knife dual-wield under
+//     Two Weapons (S62 — both Speed-variance knives now); Worldcraft secondary
+//     (S55 — terrain control off the Assassin's mobility). Golden Hairpin +
+//     Soul Vest (S62) + Boots of Haste.
 //   - Thessaly (Calculator) at slot 1 (L24) — Math Skill + Earth Spells
 //     secondary. Mathematician + Conductor + Earth Communion; Staff of Power +
 //     Tome of Power + Focus Band + Silvered Vest + Mantle of Protection.
@@ -73,9 +74,9 @@ export const gravityWell: BuiltTeam = {
       },
       equipment: {
         leftHand: itemId('sai'),
-        rightHand: itemId('staff_of_abundance'),
+        rightHand: itemId('chefs_knife'),
         headgear: itemId('golden_hairpin'),
-        armor: itemId('shimmer_cloak'),
+        armor: itemId('soul_vest'),
         accessory: itemId('boots_of_haste'),
       },
     },
