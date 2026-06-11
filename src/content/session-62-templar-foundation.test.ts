@@ -41,6 +41,8 @@ import { cure } from './abilities/cure.ts';
 import { raise } from './abilities/raise.ts';
 import { faithstrider } from './abilities/faithstrider.ts';
 import { monkeygrip } from './abilities/monkeygrip.ts';
+import { emissary } from './abilities/emissary.ts';
+import { unifiedCalling } from './abilities/unified-calling.ts';
 import { defender } from './items/defender.ts';
 import { protect } from './statuses/protect.ts';
 
@@ -291,5 +293,22 @@ describe('Monkeygrip (Templar Support passive — S62)', () => {
   it('is a cost-2 Support passive', () => {
     expect(monkeygrip.bucket).toBe(bucketId('support'));
     expect(monkeygrip.baseCost).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Emissary + Unified Calling — Step 3 innates (ADR-0101). Behavior is in
+// src/engine/actions/session-62-heal-hooks.test.ts; here: the budget shapes.
+// ---------------------------------------------------------------------------
+
+describe('Emissary + Unified Calling (Step 3 innates — S62)', () => {
+  it('Emissary is a cost-1 Support passive', () => {
+    expect(emissary.bucket).toBe(bucketId('support'));
+    expect(emissary.baseCost).toBe(1);
+  });
+
+  it('Unified Calling is a cost-1 Reaction passive', () => {
+    expect(unifiedCalling.bucket).toBe(bucketId('reaction'));
+    expect(unifiedCalling.baseCost).toBe(1);
   });
 });

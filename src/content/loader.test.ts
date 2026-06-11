@@ -148,13 +148,14 @@ describe('loadDefaultCatalog', () => {
     //   - commandSets: 11 → 12 (worldcraft)
     //   - classes: 9 → 10 (terraformer)
     //
-    // Session 62 — Templar arc foundation:
-    //   - abilities: 88 → 91 (faithstrider — Templar Movement passive;
-    //     raise — Templar spell revival; monkeygrip — Templar Support
-    //     passive, relaxes the two-handed equip rule)
+    // Session 62 — Templar arc foundation + Step 3 innates:
+    //   - abilities: 88 → 93 (faithstrider — Movement passive; raise — spell
+    //     revival; monkeygrip — Support, relaxes the two-handed equip rule;
+    //     emissary — Support, +25% outgoing healing; unified_calling —
+    //     Reaction, +PA MP on receiving a one-time heal)
     //   - items: 67 → 68 (defender — second Knight Sword, Auto-Protect)
     expect(cat.statusTypes()).toHaveLength(32);
-    expect(cat.abilities()).toHaveLength(91);
+    expect(cat.abilities()).toHaveLength(93);
     expect(cat.commandSets()).toHaveLength(12);
     expect(cat.classes()).toHaveLength(10);
     expect(cat.items()).toHaveLength(68);

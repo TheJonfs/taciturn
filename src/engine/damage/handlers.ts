@@ -21,6 +21,7 @@ import { collectActiveHandlers } from '../hooks/collector.ts';
 import {
   runModifyEvasion,
   runModifyHitChance,
+  runModifyOutgoingHealing,
   runModifyOutgoingHitChance,
   runModifyStatQuery,
   runOnDamageDealt,
@@ -234,7 +235,21 @@ export const healingBase: DamageHandler = (ctx, env) => {
     attacker: ctx.attacker,
     target: ctx.target,
   });
-  return { ...ctx, baseDamage: ma * power * faithFactor };
+  // Emissary (S62, ADR-0101): caster-side outgoing-healing multiplier,
+  // pushed as a multiplier so it composes multiplicatively with faith / MA
+  // / variance at the finalize fold. Skipped when the factor is 1 (no
+  // healing-boost passive present).
+  const healMult = runModifyOutgoingHealing(env.state, env.catalog, {
+    unit: ctx.attacker,
+    baseValue: 1,
+  });
+  return {
+    ...ctx,
+    baseDamage: ma * power * faithFactor,
+    ...(healMult !== 1
+      ? { multipliers: [...ctx.multipliers, { source: 'emissary', factor: healMult }] }
+      : {}),
+  };
 };
 
 // Magical damage: MA × power × Faith_factor. Gated on the 'magical'

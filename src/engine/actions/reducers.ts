@@ -27,7 +27,9 @@ import {
   runModifyDualWield,
   runModifyMathSkillPerTargetMpCost,
   runModifyMathSkillSpBonus,
+  runModifyOutgoingHealing,
   runModifyStatQuery,
+  runOnHealingReceived,
   runModifySwingsPerWeapon,
   runModifyStatusTickAmount,
   runModifySystemDamage,
@@ -854,6 +856,21 @@ function resolveAbilityEffect(
       // 12 HP" from "Cure healed for 12 HP" in the action log.
       const nativelyHealing = args.ability.effects.damage.tags.includes('healing');
       absorbed = !nativelyHealing;
+      // Unified Calling (S62, ADR-0101): the recipient's onHealingReceived
+      // handlers fire on a one-time native ability heal (Cure / Raise).
+      // Gated on HP actually applied (finalDamage is post-cap) and native
+      // healing — an absorption-flipped hit is not "received healing".
+      if (healingDealt > 0 && nativelyHealing && args.targetUnit !== null) {
+        const recipient = workingState.units.get(args.targetUnit.id);
+        if (recipient !== undefined) {
+          for (const a of runOnHealingReceived(workingState, catalog, {
+            unit: recipient,
+            amount: healingDealt,
+          })) {
+            pipelineEmissions.push(a);
+          }
+        }
+      }
     } else {
       damageDealt = damageContext.finalDamage ?? 0;
     }
@@ -3471,7 +3488,14 @@ function applyConsumableEffects(
         statName: 'pa',
         baseValue: caster.baseStats.pa,
       });
-      const requested = pa * item.effects.hpRestore.coefficient;
+      // Emissary (S62, ADR-0101): caster-side outgoing-healing multiplier
+      // also boosts one-time consumable heals (Potion / Phoenix Down).
+      // Floored so HP stays integer (pa × coeff is integer; ×1.25 isn't).
+      const healMult = runModifyOutgoingHealing(workingState, catalog, {
+        unit: caster,
+        baseValue: 1,
+      });
+      const requested = Math.floor(pa * item.effects.hpRestore.coefficient * healMult);
       const maxHp = runModifyStatQuery(workingState, catalog, {
         unit: target,
         statName: 'maxHp',
@@ -3497,6 +3521,15 @@ function applyConsumableEffects(
   // Item doesn't have a renderer MP-bar consumer yet. Emit as a system
   // action so future MP-restore consumers reuse the same plumbing.
   let generatedActions: ProposedAction[] = [];
+  // Unified Calling (S62, ADR-0101): a one-time consumable heal (Potion /
+  // Phoenix Down) also fires the recipient's onHealingReceived handlers.
+  // `target` is the post-heal unit; `healingTotal` is the HP applied.
+  if (healingTotal > 0) {
+    generatedActions = [
+      ...generatedActions,
+      ...runOnHealingReceived(workingState, catalog, { unit: target, amount: healingTotal }),
+    ];
+  }
   if (item.effects.mpRestore !== undefined) {
     if (target.vitals.hp > 0 && !target.removed) {
       const pa = runModifyStatQuery(workingState, catalog, {

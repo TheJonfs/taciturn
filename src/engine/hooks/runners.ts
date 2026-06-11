@@ -249,6 +249,23 @@ export function runModifyResistance(
   return value;
 }
 
+// Outgoing-healing multiplier (Session 62, Emissary / ADR-0101). Queried
+// against the healer for a multiplicative factor on healing they apply;
+// `baseValue` is the running multiplier (caller seeds 1.0). Mirrors
+// `runModifyResistance`'s fold shape but composes multiplicatively.
+export function runModifyOutgoingHealing(
+  state: GameState,
+  catalog: Catalog,
+  args: { unit: Unit; baseValue: number },
+): number {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyOutgoingHealing');
+  let value = args.baseValue;
+  for (const h of handlers) {
+    value = h.invoke({ unit: args.unit, baseValue: value });
+  }
+  return value;
+}
+
 export function runModifyCanEnter(
   state: GameState,
   catalog: Catalog,
@@ -858,6 +875,25 @@ export function runOnMoveCompleted(
   const emissions: ProposedAction[] = [];
   for (const h of handlers) {
     const result = h.invoke({ unit: args.unit, tilesMoved: args.tilesMoved });
+    if (result !== undefined) {
+      for (const a of result) emissions.push(a);
+    }
+  }
+  return emissions;
+}
+
+// On-healing-received reaction (Session 62, Unified Calling / ADR-0101).
+// Fires against the recipient's hooks after a one-time heal lands.
+// Emission-only — mirrors `runOnMoveCompleted`.
+export function runOnHealingReceived(
+  state: GameState,
+  catalog: Catalog,
+  args: { unit: Unit; amount: number },
+): ReadonlyArray<ProposedAction> {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onHealingReceived');
+  const emissions: ProposedAction[] = [];
+  for (const h of handlers) {
+    const result = h.invoke({ unit: args.unit, amount: args.amount });
     if (result !== undefined) {
       for (const a of result) emissions.push(a);
     }

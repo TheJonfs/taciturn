@@ -372,6 +372,19 @@ export interface HookSignatures {
     return: number;
   };
 
+  // Outgoing-healing multiplier — queried against the HEALER (caster /
+  // thrower) for a multiplicative factor on healing they apply. Session 62
+  // (Emissary, ADR-0101). `baseValue` is the running multiplier (1.0
+  // default); a handler returns `baseValue × factor` (Emissary × 1.25).
+  // Applied to one-time-source healing only: the ability-heal pipeline
+  // (pushed as a `ctx.multipliers` factor so it composes multiplicatively
+  // with faith / MA) and the consumable hpRestore (Potion / Phoenix Down).
+  // NOT applied to recurring-status healing (Regen `system_heal`).
+  modifyOutgoingHealing: {
+    args: { unit: Unit; baseValue: number };
+    return: number;
+  };
+
   // Bucket-capacity modifier — additive on the unit's effective capacity
   // for a single bucket. Equipment / status / passive contributors
   // (Steel Helm +1 reaction, Augmentor +1 support, Magus Crown +1 active)
@@ -699,6 +712,19 @@ export interface HookSignatures {
   // only; handlers may return an array of ProposedActions.
   onMoveCompleted: {
     args: { unit: Unit; tilesMoved: number };
+    return: ReadonlyArray<ProposedAction>;
+  };
+
+  // On-healing-received reaction — fired against the RECIPIENT's hooks
+  // after a one-time heal lands on them (positive HP applied). Session 62
+  // (Unified Calling, ADR-0101). Fires for ability heals (Cure / Raise, at
+  // `resolveAbilityEffect`) and consumables (Potion / Phoenix Down, at
+  // `applyConsumableEffects`), but NOT for recurring-status healing (Regen
+  // `system_heal`) — per the S62 "one-time source" scope. Emission-only;
+  // handlers return ProposedActions (Unified Calling emits a
+  // `system_mp_restore` of the recipient's PA). `amount` is the HP applied.
+  onHealingReceived: {
+    args: { unit: Unit; amount: number };
     return: ReadonlyArray<ProposedAction>;
   };
 

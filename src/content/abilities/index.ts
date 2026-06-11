@@ -27,9 +27,11 @@ import { damageSplit } from './damage-split.ts';
 import { engineeredDefenses as engineeredDefensesAbility } from './engineered-defenses.ts';
 import { exactRhythm } from './exact-rhythm.ts';
 import { expertFormer } from './expert-former.ts';
+import { emissary } from './emissary.ts';
 import { faithstrider } from './faithstrider.ts';
 import { monkeygrip } from './monkeygrip.ts';
 import { raise } from './raise.ts';
+import { unifiedCalling } from './unified-calling.ts';
 import { ignoreHeight } from './ignore-height.ts';
 import { discharge } from './discharge.ts';
 import { dischargeStrike } from './discharge-strike.ts';
@@ -184,4 +186,6 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   faithstrider,
   monkeygrip,
   raise,
+  emissary,
+  unifiedCalling,
 ];
