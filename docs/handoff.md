@@ -69,11 +69,14 @@ ratify before building (both are "ask before proceeding" items):
    ADR. Decide: a new dedicated hook fired from the heal-application site
    (`applyDamageToTarget` / the healing branch), vs. some reuse of an existing reaction
    trigger. The audit found no reuse candidate, so it's likely a genuine new hook.
-2. **Emissary (+25% healing) — confirm a `modifyHealing`-style hook exists FIRST.** Emissary
-   ("all healing applied boosted +25%") was NOT audited for its hook. If there's no healing-
-   output modifier hook, Emissary is itself a small net-new (a `modifyHealing` multiplier on
-   the healer side, shape like Conductor's `modifyStatQuery` ×1.25 but on heal output). Audit
-   this before wiring Emissary; it may want its own small ADR or fold into the T8 ADR.
+2. **Emissary (+25% healing) — also a NEW hook (audited S62-close: no healing-output
+   modifier exists).** The hook list has no `modifyHealing`/healing-output multiplier. It
+   can't ride `modifyStatQuery` on MA either: that would wrongly boost the unit's magical
+   *damage* too (Emissary is healing-only). So Emissary needs a new healing-output-multiplier
+   hook fired in the healing branch of the damage pipeline (shape like the existing
+   `ctx.multipliers` sources crit/vulnerable, but passive-driven). So **Step 3 introduces TWO
+   new hooks** (`onHealingReceived` for Unified Calling + a healing-output multiplier for
+   Emissary) — likely one combined ADR. Both are deliberate closed-surface extensions.
 
 Both Unified Calling and Emissary then compose on existing faith/heal substrate once their
 hooks exist. Surface decisions 1 + 2 to Chris at plan-review.
