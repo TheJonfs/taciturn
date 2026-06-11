@@ -23,14 +23,21 @@ import {
   type Loadout,
 } from '@engine/index.ts';
 import { createCatalog } from '../engine/catalog/index.ts';
-import { defaultTestRulesets } from '../engine/catalog/test-fixtures.ts';
+import {
+  DEFAULT_TEST_DAMAGE_PIPELINE,
+  defaultTestRulesets,
+  makeTestRuleset,
+} from '../engine/catalog/test-fixtures.ts';
 import { makeGameState, makeUnit } from '../engine/ct/test-fixtures.ts';
 import { applyStatus } from '../engine/status/apply.ts';
+import { runDamagePipeline } from '../engine/damage/pipeline.ts';
+import { defaultDamageHandlers } from '../engine/damage/default-handlers.ts';
 import {
   ACTIVE_BUCKET_IDS,
   PASSIVE_BUCKET_IDS,
 } from '../engine/abilities/constants.ts';
 import { loadDefaultCatalog } from './index.ts';
+import { cure } from './abilities/cure.ts';
 import { faithstrider } from './abilities/faithstrider.ts';
 import { defender } from './items/defender.ts';
 import { protect } from './statuses/protect.ts';
@@ -164,5 +171,55 @@ describe('Defender (second Knight Sword, Auto-Protect)', () => {
     expect(target.statuses[0]?.magnitude).toBe(50);
     expect(runModifyResistance(state, cat, { unit: target, tag: 'physical', baseValue: 0 })).toBe(50);
     expect(runModifyResistance(state, cat, { unit: target, tag: 'magical', baseValue: 0 })).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cure — S62 rework of the S13 placeholder into the spec'd AoE heal
+// ---------------------------------------------------------------------------
+
+describe('Cure (Templar AoE heal — S62 rework)', () => {
+  it('is a charged AoE heal: actionSpeed 40, MP 8, power 8', () => {
+    expect(cure.kind).toBe('active');
+    if (cure.kind !== 'active') return;
+    expect(cure.actionSpeed).toBe(40); // > 0 ⇒ charged
+    expect(cure.mpCost).toBe(8);
+    expect(cure.effects.damage?.power_coefficient).toBe(8);
+    expect(cure.tags).toEqual(expect.arrayContaining(['magical', 'holy', 'healing']));
+  });
+
+  it('targets a unit or tile and blooms a 1-square cross that includes the caster', () => {
+    if (cure.kind !== 'active') return;
+    expect(cure.targeting.kind).toBe('unit_or_tile');
+    expect(cure.effects.aoe?.shape).toEqual({ kind: 'cross', radius: 1 });
+    // excludeCaster false → self-Cure loop; vertical tolerance 1 (Chris, S62).
+    expect(cure.effects.aoe?.excludeCaster).toBe(false);
+    expect(cure.effects.aoe?.verticalTolerance).toBe(1);
+  });
+
+  it('heals MA × 8 × faithFactor (symmetric caster×target faith)', () => {
+    // faith 80 / 80 → factor 0.64; MA 6 → 6 × 8 × 0.64 = 30.72.
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [cure],
+      commandSets: [],
+      classes: [knightClass(['cure'])],
+      items: [],
+      rulesets: [makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE })],
+    });
+    const healer = makeUnit({ id: 'h', spd: 8, ma: 6 });
+    const ally = makeUnit({ id: 'a', spd: 8, hp: 10, maxHpBase: 100 });
+    const state = makeGameState({ units: [healer, ally] });
+    const ctx = runDamagePipeline({
+      state,
+      catalog: cat,
+      attacker: healer,
+      target: ally,
+      ability: cure,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    });
+    expect(ctx.baseDamage).toBeCloseTo(30.72);
   });
 });
