@@ -89,7 +89,7 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('bedrock_stride'), '+1 Move Range. Falling damage is suppressed.'],
   [abilityId('tidal_pull'), 'On taking damage, the attacker is pulled toward the reactor (Water Mage CT push back on hit).'],
   [abilityId('flow_state'), 'On committing a magical action, refund some CT to the caster.'],
-  [abilityId('tidewalker'), '+1 Move Range. Water tiles cost 1 move instead of full terrain cost.'],
+  [abilityId('tidewalker'), 'Water tiles cost 1 less to move through (minimum 1) — shallow water 2→1, deep water 3→2. Does not change Move Range.'],
   [abilityId('smolder'), 'On taking damage, apply 1 stack of Burn to the attacker (uses reactor MA).'],
   [abilityId('ignition'), 'Fire-tagged casts also apply 1 stack of Burn at the proc rate.'],
   [abilityId('aether_bloom'), 'AoE casts gain +1 tile to their area shape.'],

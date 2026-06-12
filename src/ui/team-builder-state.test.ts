@@ -26,6 +26,7 @@ import { ivalicianNames } from '@content/names/index.ts';
 import {
   buildDefaultLoadout,
   classCanEquip,
+  computeDraftUnitStats,
   computeTeamValidity,
   createEmptyTeamBuilderState,
   draftAbilityCost,
@@ -569,5 +570,22 @@ describe('team builder state — equipmentOptionsForSlot (Pass 2 picker)', () =>
   it('returns nothing for a classless slot', () => {
     const s = createEmptyTeamBuilderState();
     expect(equipmentOptionsForSlot(s, s.units[0]!, 'rightHand', catalog)).toHaveLength(0);
+  });
+
+  // The card's gear-hover preview reprojects the unit's stats through the
+  // engine resolver for a hypothetical equip. This pins the projection
+  // math the `projectEquipmentStats` hook surfaces: swapping Chef's Knife
+  // (+1 PA) for the Sai (+1 SPD) shifts PA down 1 and SPD up 1.
+  it('reprojects effective stats for a hypothetical gear swap', () => {
+    let s = createEmptyTeamBuilderState();
+    s = setClass(s, 0, classId('assassin'), catalog);
+    s = setEquipment(s, 0, 'rightHand', itemId('chefs_knife'), catalog);
+    const before = computeDraftUnitStats(s.units[0]!, catalog, riverRidgeBattle, 25);
+    s = setEquipment(s, 0, 'rightHand', itemId('sai'), catalog);
+    const after = computeDraftUnitStats(s.units[0]!, catalog, riverRidgeBattle, 25);
+    expect(before).not.toBeNull();
+    expect(after).not.toBeNull();
+    expect(after!.spd - before!.spd).toBe(1); // Sai grants +1 SPD
+    expect(after!.pa - before!.pa).toBe(-1); // lost Chef's Knife's +1 PA
   });
 });

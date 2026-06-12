@@ -74,6 +74,13 @@ export function TeamBuilderUnitCard({
   const classMode = changingClass || !hasClass;
 
   const stats = unitStats[selectedIndex] ?? null;
+  // When hovering an equipment candidate, preview the unit's stats as if
+  // it were equipped — the stat block highlights what changes (green up /
+  // red down). Other focus kinds don't reproject the stat line.
+  const projected =
+    focus !== null && focus.kind === 'equipment'
+      ? builder.projectEquipmentStats(focus.slot, focus.itemId)
+      : null;
   const level = slotLevel(state, selectedIndex);
   const className = classId !== null ? catalog.getClass(classId).name : null;
   const effectiveGender: Gender | null =
@@ -139,7 +146,7 @@ export function TeamBuilderUnitCard({
         </div>
       </div>
 
-      {hasClass && <StatBlock stats={stats} />}
+      {hasClass && <StatBlock stats={stats} projected={projected} />}
 
       {hasClass && (
         <div style={braveFaithRowStyle}>
@@ -158,6 +165,7 @@ export function TeamBuilderUnitCard({
 
       <div style={dividerStyle} />
 
+      <div style={scrollBodyStyle}>
       {classMode ? (
         <div style={classModeStyle}>
           <div style={classModeHeaderStyle}>
@@ -188,6 +196,7 @@ export function TeamBuilderUnitCard({
         </div>
       )}
       </div>
+      </div>
 
       <TeamBuilderInspector focus={classMode ? null : focus} builder={builder} catalog={catalog} />
     </>
@@ -201,7 +210,28 @@ export function TeamBuilderUnitCard({
 // it now includes Move and Jump, which the old roster readout omitted.
 // `null` stats mean the loadout is mid-edit-invalid (over-capacity); the
 // validity footer carries the reason, here we show a quiet placeholder.
-function StatBlock({ stats }: { stats: DraftUnitStats | null }): ReactElement {
+//
+// When `projected` is supplied (the player is hovering an equipment
+// candidate), each cell shows the *projected* value and highlights the
+// change — green for an increase, red for a decrease — so the trade-off
+// of a gear swap reads at a glance off the unit's own stats.
+const STAT_CELLS: ReadonlyArray<readonly [string, keyof DraftUnitStats]> = [
+  ['HP', 'maxHp'],
+  ['MP', 'maxMp'],
+  ['PA', 'pa'],
+  ['MA', 'ma'],
+  ['SPD', 'spd'],
+  ['Move', 'moveRange'],
+  ['Jump', 'jump'],
+];
+
+function StatBlock({
+  stats,
+  projected,
+}: {
+  stats: DraftUnitStats | null;
+  projected: DraftUnitStats | null;
+}): ReactElement {
   if (stats === null) {
     return (
       <div style={statBlockStyle}>
@@ -213,22 +243,53 @@ function StatBlock({ stats }: { stats: DraftUnitStats | null }): ReactElement {
   }
   return (
     <div style={statBlockStyle}>
-      <StatCell label="HP" value={stats.maxHp} />
-      <StatCell label="MP" value={stats.maxMp} />
-      <StatCell label="PA" value={stats.pa} />
-      <StatCell label="MA" value={stats.ma} />
-      <StatCell label="SPD" value={stats.spd} />
-      <StatCell label="Move" value={stats.moveRange} />
-      <StatCell label="Jump" value={stats.jump} />
+      {STAT_CELLS.map(([label, key]) => {
+        const current = stats[key];
+        const value = projected !== null ? projected[key] : current;
+        const delta = projected !== null ? projected[key] - current : 0;
+        return <StatCell key={label} label={label} value={value} delta={delta} />;
+      })}
     </div>
   );
 }
 
-function StatCell({ label, value }: { label: string; value: number }): ReactElement {
+function StatCell({
+  label,
+  value,
+  delta,
+}: {
+  label: string;
+  value: number;
+  delta: number;
+}): ReactElement {
+  const tone = delta > 0 ? 'up' : delta < 0 ? 'down' : null;
   return (
-    <div style={statCellStyle}>
+    <div
+      style={{
+        ...statCellStyle,
+        ...(tone === 'up'
+          ? statCellUpStyle
+          : tone === 'down'
+            ? statCellDownStyle
+            : {}),
+      }}
+    >
       <span style={statCellLabelStyle}>{label}</span>
-      <span style={statCellValueStyle}>{value}</span>
+      <span
+        style={{
+          ...statCellValueStyle,
+          ...(tone === 'up'
+            ? { color: '#6dc66d' }
+            : tone === 'down'
+              ? { color: '#e07a7a' }
+              : {}),
+        }}
+      >
+        {value}
+        {delta !== 0 && (
+          <span style={statDeltaStyle}>{delta > 0 ? `+${delta}` : delta}</span>
+        )}
+      </span>
     </div>
   );
 }
@@ -326,10 +387,25 @@ const cardStyle: CSSProperties = {
   flexDirection: 'column',
   gap: 14,
   width: '100%',
+  // Fill the available column height and never overflow the frame — the
+  // header/stats stay fixed and the body scrolls (see scrollBodyStyle),
+  // so the inspector below the card stays in view on short windows.
+  flex: 1,
+  minHeight: 0,
+  overflow: 'hidden',
   background: 'rgba(28, 30, 35, 0.96)',
   border: '1px solid #2c2f36',
   borderRadius: 10,
   padding: 18,
+};
+
+// The scrollable region of the card: identity/stats/Brave/Faith stay
+// pinned above; the equipment picker + abilities accordion (or the class
+// grid) scroll here when they outgrow the window.
+const scrollBodyStyle: CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+  overflowY: 'auto',
 };
 
 const headerRowStyle: CSSProperties = {
@@ -456,6 +532,17 @@ const statCellStyle: CSSProperties = {
   flex: 1,
 };
 
+// Up/down tints for a projected stat change (gear-hover preview). Tint
+// the background only — not the border — so React never sees a
+// shorthand/longhand `border` mix when the projection toggles on/off.
+const statCellUpStyle: CSSProperties = {
+  background: 'rgba(109, 198, 109, 0.13)',
+};
+
+const statCellDownStyle: CSSProperties = {
+  background: 'rgba(224, 122, 122, 0.13)',
+};
+
 const statCellLabelStyle: CSSProperties = {
   fontSize: 9,
   letterSpacing: '0.08em',
@@ -467,6 +554,15 @@ const statCellValueStyle: CSSProperties = {
   fontSize: 18,
   fontWeight: 700,
   fontVariantNumeric: 'tabular-nums',
+};
+
+// The small +N / −N badge beside a changed stat; inherits the cell
+// value's green/red color.
+const statDeltaStyle: CSSProperties = {
+  marginLeft: 3,
+  fontSize: 10,
+  fontWeight: 700,
+  verticalAlign: 'top',
 };
 
 const statPlaceholderStyle: CSSProperties = {

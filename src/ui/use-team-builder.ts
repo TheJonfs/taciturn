@@ -23,6 +23,7 @@ import {
   computeDraftUnitStats,
   computeTeamValidity,
   createEmptyTeamBuilderState,
+  slotLevel,
   selectUnit as selectUnitMut,
   setBrave as setBraveMut,
   setClass as setClassMut,
@@ -84,6 +85,16 @@ export interface TeamBuilder {
     commandSetId: CommandSetId,
   ) => void;
   readonly loadTemplate: (team: BuiltTeam) => void;
+  // Projected effective stats for the selected unit if `itemId` were
+  // equipped in `slot` — the engine-resolver numbers the card previews
+  // when the player hovers an equipment candidate. `null` if the
+  // hypothetical loadout is invalid (mirrors `unitStats`). Reuses the
+  // real `setEquipment` mutation so the projection includes hand-slot
+  // side effects (a two-hander clears the off-hand).
+  readonly projectEquipmentStats: (
+    slot: EquipmentSlotId,
+    itemId: ItemId | null,
+  ) => DraftUnitStats | null;
   // Build the output `BuiltTeam`. Throws if any unit is classless — the
   // caller gates on `validity.valid` first.
   readonly toBuiltTeam: () => BuiltTeam;
@@ -181,6 +192,17 @@ export function useTeamBuilder({
     setState(teamBuilderStateFromBuiltTeam(team));
   }, []);
 
+  const projectEquipmentStats = useCallback(
+    (slot: EquipmentSlotId, itemId: ItemId | null): DraftUnitStats | null => {
+      const idx = state.selectedIndex;
+      const hypothetical = setEquipmentMut(state, idx, slot, itemId, catalog);
+      const unit = hypothetical.units[idx]!;
+      const level = slotLevel(hypothetical, idx) ?? 25;
+      return computeDraftUnitStats(unit, catalog, mapTemplate, level);
+    },
+    [state, catalog, mapTemplate],
+  );
+
   const toBuiltTeam = useCallback(
     () => teamBuilderStateToBuiltTeam(state, catalog),
     [state, catalog],
@@ -203,6 +225,7 @@ export function useTeamBuilder({
     togglePassive,
     toggleSecondaryCommandSet,
     loadTemplate,
+    projectEquipmentStats,
     toBuiltTeam,
   };
 }

@@ -498,8 +498,9 @@ const listStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 4,
-  maxHeight: 320,
-  overflowY: 'auto',
+  // No inner max-height: the card body (scrollBodyStyle) is the single
+  // scroll region, so the candidate list flows and scrolls with it rather
+  // than nesting a second scrollbar.
 };
 
 const groupStyle: CSSProperties = {

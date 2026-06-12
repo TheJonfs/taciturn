@@ -241,18 +241,25 @@ function OptionRow({
   onFocus,
   onBlurFocus,
 }: OptionRowProps): ReactElement {
+  // Over-budget unequipped options can't be added — but stay *hoverable*
+  // (no HTML `disabled`, which would also block hover) so the inspector
+  // can still explain the ability and show why its cost doesn't fit. The
+  // click is guarded instead.
+  const blocked = disabled && !isEquipped;
   return (
     <button
       type="button"
-      disabled={disabled && !isEquipped}
-      onClick={onToggle}
+      aria-disabled={blocked || undefined}
+      onClick={() => {
+        if (!blocked) onToggle();
+      }}
       onMouseEnter={onFocus}
       onMouseLeave={onBlurFocus}
       onFocus={onFocus}
       style={{
         ...optionStyle,
         ...(isEquipped ? optionEquippedStyle : {}),
-        ...(disabled && !isEquipped ? optionDisabledStyle : {}),
+        ...(blocked ? optionDisabledStyle : {}),
       }}
     >
       <span style={optionMarkStyle}>

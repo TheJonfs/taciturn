@@ -326,6 +326,9 @@ function DetailLines({ lines }: { lines: ReadonlyArray<string> }): ReactElement 
 
 const rootStyle: CSSProperties = {
   minHeight: 96,
+  // Pinned below the card (the card scrolls internally), so the inspector
+  // stays in view on short windows.
+  flexShrink: 0,
   display: 'flex',
   flexDirection: 'column',
   gap: 7,

@@ -74,6 +74,15 @@ piece of new player-visible reference (weapon families).
   guide ever lists weapon types, these are the canonical names (knight swords are
   their own family, distinct from regular swords; axes and hammers share one).
 
+### Tidewalker — description corrected (no mechanics change)
+
+- The builder's Tidewalker text wrongly claimed **"+1 Move Range."** Tidewalker
+  has **never** granted Move Range — it only makes **water tiles cost 1 less to
+  move through (minimum 1)**: shallow water 2→1, deep water 3→2. The mechanic is
+  unchanged; only the wrong description was fixed. If the guide describes
+  Tidewalker as a Move-Range buff, correct it — it's a water-terrain cost
+  reducer, full stop.
+
 ## Session 63 (2026-06-11)
 
 Commits: `96b3d5f` (Calculator Faith removal), `96195ab` (Brine), `a50ba1d`

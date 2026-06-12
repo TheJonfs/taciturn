@@ -326,17 +326,20 @@ const mainStyle: CSSProperties = {
   minHeight: 0,
 };
 
-// The central column holds the unit card and the inspector region. It
-// scrolls independently of the lineup; the card is centered with a cap
-// so it reads as a single object rather than stretching edge-to-edge
-// (Chris's target: roughly 0.8 view-width, with the lineup taking the
-// rest).
+// The central column holds the unit card and the inspector. It does NOT
+// scroll as a whole — the card scrolls internally and the inspector stays
+// pinned below it, so the builder never falls out of view on a short
+// window. The card is centered with a cap so it reads as a single object
+// rather than stretching edge-to-edge (Chris's target: roughly 0.8
+// view-width, with the lineup taking the rest).
 const centerColumnStyle: CSSProperties = {
   flex: 1,
   minWidth: 0,
-  overflowY: 'auto',
+  minHeight: 0,
+  overflow: 'hidden',
   display: 'flex',
-  justifyContent: 'center',
+  flexDirection: 'column',
+  alignItems: 'center',
   padding: 20,
 };
 
@@ -346,6 +349,10 @@ const cardSlotStyle: CSSProperties = {
   gap: 14,
   width: '100%',
   maxWidth: 960,
+  // Fill the column height so the card (flex:1) and pinned inspector
+  // divide it; the card's body is what scrolls.
+  flex: 1,
+  minHeight: 0,
 };
 
 const footerStyle: CSSProperties = {
