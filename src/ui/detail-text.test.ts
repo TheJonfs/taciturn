@@ -11,6 +11,7 @@ import { boltHammer } from '../content/items/bolt-hammer.ts';
 import { longbow } from '../content/items/longbow.ts';
 import { raspPendant } from '../content/items/rasp-pendant.ts';
 import { wandOfDepths } from '../content/items/wand-of-depths.ts';
+import { wandOfLumen } from '../content/items/wand-of-lumen.ts';
 import { sorcerersRobe } from '../content/items/sorcerers-robe.ts';
 import { magusCrown } from '../content/items/magus-crown.ts';
 import { lightningStrike } from '../content/abilities/lightning-strike.ts';
@@ -45,11 +46,11 @@ import {
 
 function makeCat() {
   return createCatalog({
-    statusTypes: [],
+    statusTypes: [burn],
     abilities: [lightningStrike, counter, movePlus1, tidalWave, maelstrom],
     commandSets: [],
     classes: [makeKnight()],
-    items: [boltHammer, raspPendant, wandOfDepths, sorcerersRobe, magusCrown],
+    items: [boltHammer, raspPendant, wandOfDepths, sorcerersRobe, magusCrown, wandOfLumen],
     rulesets: defaultTestRulesets,
   });
 }
@@ -66,6 +67,13 @@ describe('formatItemDetail', () => {
     expect(joined).toContain('Var [0.90, 1.30]');
     // S40 name-update: Lightning Strike → Lightning Bolt (display only).
     expect(joined).toContain('25% chance to trigger Lightning Bolt');
+  });
+
+  it('surfaces the Wand of Lumen extra-Burn-stack effect on fire casts', () => {
+    const cat = makeCat();
+    const d = formatItemDetail(wandOfLumen, cat);
+    const joined = d.lines.join('\n');
+    expect(joined).toContain('On fire-tagged casts: Burn applies with +1 stack');
   });
 
   it('summarizes a bow with range, two-handed, elevation variance, and range-from-height (S52)', () => {

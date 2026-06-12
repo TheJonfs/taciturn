@@ -424,6 +424,32 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
     }
   }
 
+  // Status-application stack-count modifiers (Wand of Lumen — fire casts
+  // land Burn with one extra stack).
+  if (
+    item.statusApplicationStackCountModifiers !== undefined &&
+    item.statusApplicationStackCountModifiers.length > 0
+  ) {
+    for (const mod of item.statusApplicationStackCountModifiers) {
+      const subject =
+        mod.statusTypeId !== undefined
+          ? catalog.hasStatusType(mod.statusTypeId)
+            ? catalog.getStatusType(mod.statusTypeId).name
+            : String(mod.statusTypeId)
+          : mod.statusTag !== undefined
+            ? `${String(mod.statusTag)}-tagged statuses`
+            : 'statuses';
+      const gate =
+        mod.sourceAbilityTagAll !== undefined && mod.sourceAbilityTagAll.length > 0
+          ? `${mod.sourceAbilityTagAll.map(String).join('+')}-tagged casts`
+          : 'all casts';
+      const stacks = Math.abs(mod.delta) === 1 ? 'stack' : 'stacks';
+      lines.push(
+        `On ${gate}: ${subject} applies with ${mod.delta >= 0 ? '+' : ''}${mod.delta} ${stacks}`,
+      );
+    }
+  }
+
   // attackProcs (Bolt Hammer, Flametongue, wands).
   if (item.attackProcs !== undefined && item.attackProcs.length > 0) {
     for (const proc of item.attackProcs) {
