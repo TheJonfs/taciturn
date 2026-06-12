@@ -11,101 +11,72 @@ been processed.
 
 ---
 
-## From Session 63 close (2026-06-11) — full brief shipped; log redesign needs a visual pass
+## From the team-builder redesign session (2026-06-11) — both passes shipped
 
-S63 brief was a package: the **action-log redesign** (big rock) + **four small
-items** (A–D). **All shipped and committed to main.** **1770 → 1781 tests (+11)**,
-`tsc -b` + `vite build` clean. The log redesign (`b3bd121`, refined in `8a712dc`)
-is the one piece whose **pixel-level visual is unverified** — see below.
+The team-builder brief (`docs/thirtyNinePlanning/session-team-builder-brief.md`)
+shipped in full, committed to main. **1781 → 1793 tests; tsc -b + vite build
+clean; browser-verified end to end.**
 
-### The four items (all DONE, committed)
+- **Pass 1** (`3f6cdc5`): the frame — central unit card (larger portrait + level
+  pin; identity/Brave/Faith consolidated; complete live stat line *including
+  Move and Jump*, read from the engine resolver); class-picker-as-mode (the rich
+  grid reopens on "Change class", collapses on pick); leveled lineup (already
+  existed). Audit found the deepest risk pre-solved — stats were already
+  engine-computed; item 1 was a pure display gap.
+- **Pass 2** (`6f31e11`): the editors — grouped/sorted/**searchable** equipment
+  picker (slot pills → open candidate list by weapon family); **abilities
+  accordion** (one category open at a time; collapsed = picks + budget; open =
+  budget meter + cost pips); shared **context inspector** (equipment delta vs
+  equipped / ability budget-fit); hand-rolled inline-SVG icon set. New
+  `weaponType` field on weapons (**ADR-0105**). Content-integration sweep:
+  lifted the triplicated two-handed/dual-wield/Monkeygrip predicates into shared
+  `team-builder-state` helpers (`unitGrantsDualWield`, `unitGrantsTwoHandedGrip`,
+  `equipmentOptionsForSlot`); the per-component copies are gone.
 
-| Item | What | Commit | Notes |
-|------|------|--------|-------|
-| B | Remove Faith from Precision Fire & Targeted Treatment (buff) | `96b3d5f` | New `noFaithScaling` DamageSpec flag; ~2× + deterministic; SP unchanged |
-| C | Brine Speed debuff −1 → −2 per cast | `96195ab` | Scoped per-ability magnitude override; Slow untouched |
-| D | End-of-battle summary counts every KO (re-KOs included) | `a50ba1d` | Shared walker fix → results screen + MVP + log [ko] rows |
-| A | Taunt audit (report-only) + soft-lock guard | `152e842` | Redesign deferred; guard is ADR-0104 |
+### Team-builder follow-ups (Chris's calls)
 
-### Item A — Taunt: redesign deferred, guard shipped
+- **Parchment reskin is still its own future pass.** Built against the dark
+  theme per the brief; the Ivalician skin was explicitly out of scope.
+- **Inspector is mechanical-only** (Chris's call). The concept's authored flavor
+  prose ("Deepwood-strung and tide-blessed…") has no shared home — it lives only
+  in the Guide's `guide/content/prose.ts` (a separate Vite project). A future
+  "single-source flavor" content pass would lift item/ability flavor into
+  `src/content` so the inspector and Guide read one source. Not started.
+- **`weaponType` has no engine consumer yet** (ADR-0105) — display/classification
+  only. It's the designated hook if a future mechanic keys on weapon family
+  (a class that only equips knives, a per-family passive).
+- **Icons are placeholder-quality.** Hand-rolled inline SVGs, wayfinding-only.
+  Easy to retune; not final art.
+- **Visual review for Chris:** click through the rebuilt builder. The two concept
+  states are reproduced (unit card + accordion; opened equipment slot with the
+  grouped/searchable list + delta inspector). The console shows stale Vite HMR
+  reload errors from the *editing* session — they are not current; the page
+  loads clean on a hard reload (verified).
 
-Full audit in `docs/thirtyNinePlanning/taunt-audit.md`. Headline: Taunt's block is
-deterministic-not-probabilistic, target-blind, never reflips; the AI is fully
-taunt-blind; and a Taunted AI unit whose best action stays blocked **hung the
-battle** (stateless AI re-proposes the same rejected action forever). Chris chose
-**redesign-later + guard-now**. The guard (ADR-0104, app-layer only) force-ends a
-turn when a controller re-submits the byte-identical rejected action; humans are
-exempt via their `pending` step. **The Taunt redesign is a future session** — it
-needs a new attacker-side hit-chance hook + AI target-preference work, and Chris
-must pin the intended effect first (don't invent intent). Pointers in the audit
-doc.
+### Still open, NOT touched this session (carried from S63 — Chris design/playtest)
 
-### Action-log redesign — SHIPPED (`b3bd121`); needs Chris's in-battle visual pass
+These were noted at session start as Chris-side calls that don't block the
+team-builder work; left untouched, so they carry forward:
 
-Built render-layer only (the audit confirmed the log was already structured —
-engine `Action[]` → pure formatter — so no engine change). What landed:
-`buildLogView()` groups flat rows per turn, splits **events** (top line) from a
-default-hidden **ledger** (CT/MP/HP regen, status countdowns, KO timers,
-non-firing reactions). Consolidation: a DoT `system_damage` renders as one
-`Burn → X 9` event (its bare tick/decrement rows go to the ledger); a KO folds
-into its killing-blow row (emphasis + "— KO") or stands alone as a skull event
-when system-dealt. The panel gained an icon gutter + weight/color (the
-`[tick]/[end]/[ko]` text tags are gone), per-turn collapse/expand, and a global
-"Show ledger" toggle. KO timers just moved to the ledger (the unit map sprite +
-detail panel already show the countdown — no renderer change). Post-review
-refinements (`8a712dc`): failed status applications (rejected/resisted/missed —
-incl. non-firing reactions like "Updraft rejected") demote to the ledger; turn
-blocks alternate a subtle ABAB background by turn-counter parity.
-
-**Watch-items for the visual pass (harness can't drive PixiJS battles, so these
-are unverified at the pixel level):**
-- The three sample turns vs the concept (`action-log-concept.html`) — events-only
-  default, the kill line dominant, ledgers collapsed.
-- Icon/color choices (sword/spark/flame/arrow/skull/trophy; team-tinted icons).
-  Not final — easy to retune.
-- **Decisions to confirm:** (1) the per-row click-to-expand (raw action dump) was
-  **removed** — the turn ledger replaces it; restore if you miss it. (2) Burn's
-  ", expired" inline annotation from the concept was **dropped** (aggressive-
-  consolidation call — the expiry lives in the ledger); pop it back to the event
-  line if wanted. (3) charged-action resolves open their own group (own
-  T-number) — confirm that reads well.
-
-### Playtest follow-ups from this session (need Chris's human playthrough)
-
-- **Item B (Calculator buff):** the AI's valuation of Precision Fire / Targeted
-  Treatment is re-based **upward (~2×)** since both share `runDamagePipeline`.
-  The brief asked to confirm the AI now uses the buffed versions **sensibly** and
-  doesn't overcommit. Watch in a battle.
-- **Item C (Brine):** −2 Speed is permanent + stacking; eyeball whether the tempo
-  swing feels right or wants dialing back toward −1/−2.
-
-### Carried forward from S62 (Templar — still open, NOT acted on this session)
-
-These are Chris design/playtest calls, untouched by S63:
-
-- **Jump triggers reactions** (a bow Counter killed a jumping Templar). Open:
-  should a telegraphed Jump grant counter-immunity, or is reaction-counterplay
-  intended? (If immunity: suppress reaction triggers for `jumpLeap` damage.)
-- **Evasion back-2** — Templar is the first non-zero back-evade (10/6/2); every
-  other class is back-0. Authored to concept-spec; flag if you'd rather 10/6/0.
-- **Dominant stat = 'ma'** (PA/MA 6/6 hybrid) — could be 'pa'; ±1 at L23/L27.
-- **Concept "likely tune down":** Cure range/SP and Jump H6/V6.
-- **Two-weapon Jump uses the right-hand weapon** (off-hand ignored; no dual-swing;
-  no weapon on-hit procs through Jump). Deterministic/sensible; flag only if you'd
-  want Jump to pick the higher-WP / Lance weapon regardless of hand.
-- Templar balance/feel (tanky self-sustainer stack, multiplicative healing
-  ceiling, Knight+Lance+Jump damage) still needs a human playthrough — the harness
-  can't drive PixiJS battles.
-
-### Standing carries (from S61, unchanged — not S63 work)
-
-- **Role-aware deployment sorting** — the last coverage-map consumer (ADR-0094),
-  substrate (`threatsToTile`/`buildCoverageMap`) in place. The clean next
-  non-content item.
-- Barrier denial dials (ADR-0098); Layer-2 positional prediction; Worldcraft
-  move-then-cast; killValue-weighted Math re-base; Perch move-onto-created-perch;
-  default team templates with Terraformer; roster-wide Move-tier discussion;
-  Calculator team-template revision + AI personality variants; Marshmoor
-  template-compliance tests; lightning-mage.ts stale S20 header;
-  `draft-terraformer-substrate-audit.md` archival; terrain-transition animation;
-  Math Skill SP scaling review.
+- **Action-log redesign** (`b3bd121`, S63) — shipped but its pixel-level visual
+  is unverified (harness can't drive PixiJS). Needs Chris's in-battle pass vs
+  `action-log-concept.html`; decisions to confirm in the S63 close notes (git log
+  `be7540e`/`8a712dc`): per-row click-to-expand removed, Burn ", expired"
+  annotation dropped, charged-action resolves open their own T-number group.
+- **Taunt redesign** — deferred; soft-lock guard shipped (ADR-0104). Needs a new
+  attacker-side hit-chance hook + AI taunt-awareness; Chris must pin the intended
+  effect first. Full audit in `docs/thirtyNinePlanning/taunt-audit.md`.
+- **Calculator buff (Item B) + Brine (Item C)** playtest feel — need a human
+  playthrough (AI re-valuation of Precision Fire/Targeted Treatment ~2× up;
+  Brine −2 Speed permanent + stacking).
+- **Templar (S62)** open design/feel calls: Jump-triggers-reactions counterplay,
+  back-2 evasion, dominant stat ma vs pa, Cure range/SP + Jump H6/V6 tune-down,
+  two-weapon Jump right-hand rule, overall tanky-self-sustainer balance.
+- **S61 standing carries:** role-aware deployment sorting (last coverage-map
+  consumer, ADR-0094 substrate in place — the clean next non-content item);
+  Barrier denial dials; Layer-2 positional prediction; Worldcraft move-then-cast;
+  killValue-weighted Math re-base; Perch move-onto-created-perch; default team
+  templates with Terraformer; roster-wide Move-tier discussion; Calculator
+  team-template revision + AI personality variants; Marshmoor template-compliance
+  tests; lightning-mage.ts stale S20 header; `draft-terraformer-substrate-audit.md`
+  archival; terrain-transition animation; Math Skill SP scaling review.

@@ -44,6 +44,36 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Team builder redesign (2026-06-11)
+
+Commits: `3f6cdc5` (Pass 1 — unit card), `6f31e11` (Pass 2 — pickers + inspector).
+
+A structural redesign of the **pre-battle team builder** — a player-facing
+screen, but **no game mechanics, stats, or content behavior changed**. Mostly
+out of scope for the guide; logged so the cursor is complete and for the one
+piece of new player-visible reference (weapon families).
+
+### Team builder — rebuilt around a single unit card
+
+- Each unit is now one large card: bigger portrait, identity (name, gender,
+  Brave, Faith) in one place, the **complete live stat line now including Move
+  and Jump** (the old readout stopped at Speed), and the class shown compactly
+  with a "Change class" control that reopens the full class grid.
+- Equipment is now a **grouped, searchable picker** (by weapon family) instead
+  of flat dropdowns; abilities are a **budgeted accordion** (one category open at
+  a time). A single **inspector** shows a hovered item's detail and its change
+  vs. what's equipped, or an ability's effect and how its cost fits the budget.
+  These are presentation changes — the budgets, costs, and equip rules are the
+  same as before.
+
+### Weapons now grouped into families (reference only)
+
+- Weapons carry a family used to group the picker: **Swords, Knight Swords,
+  Knives, Axes & Hammers, Polearms, Bows, Wands, Staves**. This is new
+  *reference* vocabulary — no weapon's stats, range, or behavior changed. If the
+  guide ever lists weapon types, these are the canonical names (knight swords are
+  their own family, distinct from regular swords; axes and hammers share one).
+
 ## Session 63 (2026-06-11)
 
 Commits: `96b3d5f` (Calculator Faith removal), `96195ab` (Brine), `a50ba1d`
