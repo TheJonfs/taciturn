@@ -45,22 +45,15 @@ function weaponSortKey(item: ItemDefinition): number {
   return familyIdx;
 }
 
-// Armour Stores: armour first, then headgear; within each, universal
-// items first, then Knight-only, then Mages-only, then any other
-// (currently empty) restriction.
-const MAGE_CLASS_IDS = new Set(['earth_mage', 'water_mage', 'fire_mage', 'lightning_mage']);
-
-function restrictionRank(item: ItemDefinition): number {
-  const ids = item.classRestrictions;
-  if (!ids || ids.length === 0) return 0; // universal
-  if (ids.length === 1 && String(ids[0]) === 'knight') return 1;
-  if (ids.length === 4 && ids.every((id) => MAGE_CLASS_IDS.has(String(id)))) return 2;
-  return 3;
-}
+// Armour Stores: armour first, then headgear; within each, by gear tier
+// — Universal, then Heavy, then Magical — so a cadet scanning the page
+// finds the open pieces first and the line-restricted ones grouped after.
+const TIER_RANK: Record<string, number> = { universal: 0, heavy: 1, magical: 2 };
 
 function armourSortKey(item: ItemDefinition): number {
   const kindRank = item.kind === 'armor' ? 0 : item.kind === 'headgear' ? 1 : 2;
-  return kindRank * 10 + restrictionRank(item);
+  const tier = describeItem(item).tier ?? 'universal';
+  return kindRank * 10 + (TIER_RANK[tier] ?? 9);
 }
 
 const SECTIONS: ReadonlyArray<ArmorySection> = [
@@ -90,8 +83,8 @@ function itemEntry(item: ItemDefinition): string {
   const f: ItemFacts = describeItem(item);
   const note = itemNotes[item.id];
 
-  const kindLine = f.restriction
-    ? `${esc(f.kindLabel)} &middot; ${esc(f.restriction)}`
+  const kindLine = f.tierLabel
+    ? `${esc(f.kindLabel)} &middot; ${esc(f.tierLabel)}`
     : esc(f.kindLabel);
 
   const weaponLine = f.weaponLine

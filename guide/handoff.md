@@ -4,8 +4,58 @@
 class spread), the Templar arc's new equipment, and the S60
 line-of-sight change. This was the first pass driven by the new
 `docs/guide-changelog.md` feed (the implementer-writes / guide-reads
-channel) rather than a hand walk of git history.*
+channel) rather than a hand walk of git history. A follow-on
+Armory-tiers refactor (below) landed in the same session, after the
+S60–S62 commit `562eb9e`.*
 *Overwritten each session — read every item, then act / promote / drop.*
+
+## Armory gear tiers — follow-on refactor (uncommitted at time of writing)
+
+Chris's call: the Armory's class-restriction lines were enumerating
+disciplines (e.g. "Geosage, Hydrologist, Pyromancer, Aethurge,
+Calculator, Terraformer only"), which spilled the column and grew with
+every new class. Replaced the enumerations with **three gear tiers** for
+the armour slots (off-hand/shield, body, head):
+
+- **Universal** — open to all (renders no restriction line, as before).
+- **Heavy** — the armoured line: Knight plate + true shields; currently
+  Knight + Templar.
+- **Magical** — the casting line: robes, mage headgear, the Books;
+  currently the four elemental Mages + Calculator + Terraformer.
+
+Weapons and accessories are all universal, so the tiers touch only
+shield/armor/headgear. Entries now read e.g. "Shield · Heavy",
+"Armour · Magical".
+
+**Implementation (`build/item-format.ts`):** replaced `restrictionText`
+(and the brittle length-based special cases — `length===4` Mages,
+`===5` Mages+Calculator, `===2` Knight&Templar) with a single
+`gearTier(item)` classifier. It works by **anchor membership**, not
+exact-roster match: a restriction listing the Knight → Heavy; one
+listing any caster (`HEAVY_ANCHOR_IDS` / `MAGICAL_ANCHOR_IDS`) →
+Magical. **So a future class added to either family is picked up with no
+guide edit** — which is the whole point of Chris's framing ("future
+classes get Universal plus one of Heavy/Magical"). To add a class to a
+line, add its id to the relevant anchor set. The classifier throws
+loudly if a restriction spans both lines or fits neither (no silent
+mislabel, per CLAUDE.md).
+
+- `ItemFacts.restriction` (string) → replaced by `ItemFacts.tier`
+  (`'heavy'|'magical'|undefined`) + `tierLabel` ("Heavy"/"Magical").
+- `pages/armory.ts`: kind line renders `tierLabel`; `armourSortKey`
+  now sorts by tier rank (Universal → Heavy → Magical) via `describeItem`,
+  replacing the old `restrictionRank` + its duplicate `MAGE_CLASS_IDS`.
+- In-world explainer added to the **armour** section intro (defines the
+  three classes in the instructor's voice, and notes the off-hand
+  shields/books catalogued in the weapon racks share the system); a
+  one-line forward-pointer added to the **weapons** intro since a reader
+  meets "Shield · Heavy" there first.
+
+Verified: all 19 restricted armour-slot items classify correctly (3+4
+armour, 3+3 headgear, 3+3 shields), zero throws, no enumerated class
+lists remain on any kind line, no dangling references to the removed
+symbols. 53 pages, clean build. **Not yet committed** — commit this
+separately from `562eb9e` (it's a distinct, self-contained change).
 
 ## Changelog cursor
 

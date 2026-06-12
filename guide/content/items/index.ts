@@ -24,12 +24,25 @@ overthought. Weapon Power is not the whole of a weapon — accuracy, the
 work a blade does *after* the swing, the reserve a staff asks in
 return: all of it composes. The cadet who requisitions by the largest
 number alone will spend a term learning why the racks hold more than
-one.`,
+one. Every weapon is open to every discipline; the off-hand shields and
+books at the rack's end are not, and carry their class — *Heavy*,
+*Magical*, or *Universal* — beside the name, as the armour stores
+explain in full.`,
   armour: `Armour and headgear are where an engagement is quietly won
 or lost. None of it announces itself the way a weapon does; all of it
 decides how long the cadet remains on the field to use the weapon at
 all. Requisition for the engagement you expect — and a measure more for
-the one you do not.`,
+the one you do not.
+
+The Academy issues protective gear — head, body, and the off-hand
+shields and books catalogued among the weapon racks — in three classes,
+and an entry's class is marked beside its name. *Universal* gear is open
+to every discipline. *Heavy* gear is the armoured line's — the Knight's
+plate and true shields, which the Templar is also cleared to bear.
+*Magical* gear is the casting line's — the robes, the mage's headgear,
+and the off-hand books, requisitionable by the four elemental Mages, the
+Calculator, and the Terraformer. A cadet need only know her own
+discipline's classes to read the racks at a glance.`,
   accessories: `The accessory slot is small and its contents are not.
 A single band may decide a cadet's tempo, her reserve, her resilience
 against a whole element. The Armorer keeps the cases by the door for a

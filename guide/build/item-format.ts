@@ -8,14 +8,41 @@
 import { catalog } from './data.ts';
 import type { ItemDefinition } from '@engine/index.ts';
 
+/**
+ * The Academy's three classes of requisitionable gear, for the armour
+ * slots (off-hand / body / head). Rather than enumerate the eligible
+ * disciplines on every entry — a list that spills the column and grows
+ * with every new class — each restricted piece is sorted into a tier a
+ * cadet reads at a glance:
+ *
+ *  - 'universal' — open to every discipline.
+ *  - 'heavy'     — the Knight's line: heavy armour and the true shields.
+ *                  Currently the Knight and the Templar.
+ *  - 'magical'   — the casting line: robes, mage headgear, the Books.
+ *                  Currently the four elemental Mages, the Calculator,
+ *                  and the Terraformer.
+ *
+ * Future classes join a tier rather than minting a new restriction set;
+ * the tier is computed by *membership* (does the restriction include the
+ * Knight? a caster?), not by an exact roster match, so a new discipline
+ * added to either family is picked up without a guide edit.
+ */
+export type GearTier = 'universal' | 'heavy' | 'magical';
+
 /** Structured, display-ready facts about one item. */
 export interface ItemFacts {
   readonly id: string;
   readonly name: string;
   /** 'Weapon' | 'Shield' | 'Armour' | 'Headgear' | 'Accessory'. */
   readonly kindLabel: string;
-  /** Class restriction, e.g. "Knight only" / "Mages only"; undefined = any. */
-  readonly restriction: string | undefined;
+  /**
+   * Gear tier for restricted armour-slot pieces — 'heavy' or 'magical'.
+   * undefined for universal items and for kinds the tiers don't apply to
+   * (weapons, accessories), which carry no restriction line.
+   */
+  readonly tier: GearTier | undefined;
+  /** Display label for the tier — "Heavy" / "Magical"; undefined = universal/n.a. */
+  readonly tierLabel: string | undefined;
   /** Weapons only: "WP 8 · 95% accuracy · sword". */
   readonly weaponLine: string | undefined;
   /** Every other modifier the item carries, as short human-readable bits. */
@@ -51,7 +78,28 @@ const MULT_STAT_LABELS: Record<string, string> = {
 };
 
 const WEAPON_FAMILIES = new Set(['sword', 'axe', 'knife', 'staff', 'wand', 'bow', 'spear']);
-const MAGE_CLASS_IDS = new Set(['earth_mage', 'water_mage', 'fire_mage', 'lightning_mage']);
+
+// Tier anchors. The 'heavy' line is anchored by the Knight; the
+// 'magical' line by any caster discipline. Membership, not exact match,
+// decides the tier — so a future class added to either family is picked
+// up automatically. The two anchor sets must stay disjoint (no class is
+// both heavy and magical); a restriction touching both would be a
+// content contradiction and is failed loudly below.
+const HEAVY_ANCHOR_IDS = new Set(['knight']);
+const MAGICAL_ANCHOR_IDS = new Set([
+  'earth_mage',
+  'water_mage',
+  'fire_mage',
+  'lightning_mage',
+  'calculator',
+  'terraformer',
+]);
+
+const TIER_LABELS: Record<GearTier, string> = {
+  universal: 'Universal',
+  heavy: 'Heavy',
+  magical: 'Magical',
+};
 
 function signed(n: number): string {
   return n >= 0 ? `+${n}` : `−${Math.abs(n)}`;
@@ -61,29 +109,31 @@ function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function restrictionText(item: ItemDefinition): string | undefined {
+/**
+ * Sort an item's class restriction into a gear tier. Universal items
+ * (no restriction) return 'universal'. Restricted pieces are classified
+ * by membership: a restriction listing the Knight reads 'heavy'; one
+ * listing a caster reads 'magical'. A restriction touching *both* anchor
+ * families — or *neither* — is a content contradiction the tier model
+ * doesn't describe, so it fails loudly rather than mislabelling (per
+ * CLAUDE.md: no silent fallbacks).
+ */
+function gearTier(item: ItemDefinition): GearTier {
   const ids = item.classRestrictions;
-  if (!ids || ids.length === 0) return undefined;
-  const names = ids.map((id) => catalog().getClass(id).name);
-  if (ids.length === 1) return `${names[0]} only`;
-  const allMages = (subset: ReadonlyArray<unknown>) =>
-    [...MAGE_CLASS_IDS].every((m) => subset.some((id) => String(id) === m));
-  if (ids.length === 4 && ids.every((id) => MAGE_CLASS_IDS.has(String(id)))) {
-    return 'Mages only';
+  if (!ids || ids.length === 0) return 'universal';
+  const keys = ids.map((id) => String(id));
+  const isHeavy = keys.some((k) => HEAVY_ANCHOR_IDS.has(k));
+  const isMagical = keys.some((k) => MAGICAL_ANCHOR_IDS.has(k));
+  if (isHeavy && isMagical) {
+    throw new Error(
+      `Item "${item.id}" restriction spans both the heavy and magical lines (${keys.join(', ')}) — the gear-tier model assumes the two are disjoint. Reconcile the content or extend the tiers.`,
+    );
   }
-  // The four Mages + the Calculator — the books' arcane readership. Listed
-  // out, the five display names overflow the entry's column; collapse them.
-  if (
-    ids.length === 5 &&
-    allMages(ids) &&
-    ids.some((id) => String(id) === 'calculator')
-  ) {
-    return 'Mages & Calculator only';
-  }
-  // Two classes — the Knight & Templar shared-gear case (S62). Read as
-  // prose with "&", not a bare comma list.
-  if (ids.length === 2) return `${names[0]} & ${names[1]} only`;
-  return `${names.join(', ')} only`;
+  if (isHeavy) return 'heavy';
+  if (isMagical) return 'magical';
+  throw new Error(
+    `Item "${item.id}" has a class restriction (${keys.join(', ')}) that fits no gear tier. Add the discipline to an anchor set in item-format.ts.`,
+  );
 }
 
 function weaponLine(item: ItemDefinition): string | undefined {
@@ -319,11 +369,13 @@ function hookEffects(item: ItemDefinition): string[] {
 
 /** Describe one item as structured, display-ready facts. */
 export function describeItem(item: ItemDefinition): ItemFacts {
+  const tier = gearTier(item);
   return {
     id: item.id,
     name: item.name,
     kindLabel: KIND_LABELS[item.kind] ?? item.kind,
-    restriction: restrictionText(item),
+    tier: tier === 'universal' ? undefined : tier,
+    tierLabel: tier === 'universal' ? undefined : TIER_LABELS[tier],
     weaponLine: weaponLine(item),
     effects: [
       ...statEffects(item),
