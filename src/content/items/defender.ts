@@ -11,11 +11,12 @@
 // variant carrying an explicit magnitude) without re-architecting.
 //
 // Weapons are universal — any class may wield Defender (and so reach
-// Auto-Protect); only armor is class-gated. Two-handed, so a Two Weapons
-// wielder collapses to one swing, and pairing Defender with a shield needs
-// Monkeygrip (two-handers in one hand). Like Absolom, the `'knight_sword'`
-// taxonomy is implicit in the name; tags carry `['sword']` so weapon-tag
-// composition matches the other swords.
+// Auto-Protect); only armor is class-gated. Two-handed, so pairing Defender
+// with a second weapon or a shield needs Monkeygrip (two-handers in one
+// hand). Under Two Weapons it swings normally as the off-hand weapon —
+// being two-handed does not suppress the dual-wield swing (ADR-0107).
+// Like Absolom, the `'knight_sword'` taxonomy is implicit in the name; tags
+// carry `['sword']` so weapon-tag composition matches the other swords.
 //
 // Variance: `attacker_brave`, spread 0.05 — the same Brave-rewards band as
 // Absolom (at Brave 70: [0.65, 0.75]; rising with Brave-stacking gear).

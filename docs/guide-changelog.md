@@ -44,9 +44,22 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Dual-wield + piercing weapon fix (2026-06-12)
+
+Commit: `40ed7dc` (pierce × dual-wield). See ADR-0107.
+
+- **A dual-wielder whose main-hand weapon pierces now swings both weapons.**
+  Previously, equipping a piercing weapon (Lance, Imp Halberd) in the dominant
+  hand alongside Two Weapons silently dropped the off-hand swing — the unit hit
+  once instead of twice. Now both swing: the **piercing weapon pierces the line**
+  (hits the target and the tile behind), and the **off-hand weapon hits the
+  primary target**. A lone piercing weapon, two non-piercing weapons, and all
+  spells are unchanged. If the guide ever says a piercing weapon can't dual-wield
+  a second swing, drop that caveat.
+
 ## Damage Split rebalance (2026-06-12)
 
-Commit: `_pending_` (Damage Split half-reflect). See ADR-0106.
+Commit: `746610c` (Damage Split half-reflect). See ADR-0106.
 
 - **Damage Split now reflects HALF the damage, not the full amount.** When a unit
   with Damage Split survives a hit for X, it now deals **X/2** back to the

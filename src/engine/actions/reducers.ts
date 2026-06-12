@@ -17,6 +17,7 @@ import type {
   Catalog,
   ConsumableDefinition,
   StatusEffectType,
+  WeaponEquipment,
 } from '../catalog/index.ts';
 import { defaultDamageHandlers } from '../damage/default-handlers.ts';
 import { computeFaithFactor } from '../damage/handlers.ts';
@@ -1309,15 +1310,19 @@ interface ResolveAbilityTargetsResult {
 // already accepts off-axis targets in range; without this, a Lance attack on a
 // diagonal enemy committed but whiffed (the line didn't cover it). Per the
 // ADR-0102 cardinal-only note.
-function pierceAoeFor(
+// The pierce footprint for a *specific* weapon (a given swing's weapon),
+// rather than always the dominant one. Lets a dual-wield basic Attack
+// pierce per-swing: the Lance swing expands to the line, a non-piercing
+// off-hand swing stays single-target. `weapon` is the swinging weapon (or
+// null for an empty/non-weapon slot → no pierce).
+function pierceAoeForWeapon(
   state: GameState,
-  catalog: Catalog,
+  weapon: WeaponEquipment | null,
   attacker: Unit,
   ability: ActiveAbilityDefinition,
   payloadTarget: AbilityTarget,
 ): AoeSpec | undefined {
   if (ability.basicAttack !== true) return undefined;
-  const weapon = getEquippedWeapon(attacker, catalog);
   if (weapon?.pierces !== true) return undefined;
   const tp = pierceTargetPosition(state, payloadTarget);
   if (tp === null) return undefined;
@@ -1327,6 +1332,23 @@ function pierceAoeFor(
   // column). Diagonal or same-tile → no pierce (single-target fallback).
   if ((dx === 0) === (dy === 0)) return undefined;
   return { shape: { kind: 'line', length: 2 }, anchorMode: 'caster', excludeCaster: true };
+}
+
+// The pierce footprint for the weapon in a given swing slot. `undefined`
+// slot means the default/dominant swing (`getEquippedWeapon`); a hand slot
+// reads that hand's weapon. Used by the per-swing dispatch to decide each
+// swing's footprint independently.
+function pierceAoeForSlot(
+  state: GameState,
+  catalog: Catalog,
+  args: ResolveAbilityTargetsArgs,
+  slot: EquipmentSlotId | undefined,
+): AoeSpec | undefined {
+  const weapon =
+    slot !== undefined
+      ? getWeaponInSlot(args.attacker, slot, catalog)
+      : getEquippedWeapon(args.attacker, catalog);
+  return pierceAoeForWeapon(state, weapon, args.attacker, args.ability, args.payloadTarget);
 }
 
 // Resolve a basic-attack payload target to a board position for the pierce
@@ -1358,14 +1380,13 @@ function resolveAbilityTargets(
   // Only fires for the basic Attack with no authored AoE — spells / Worldcraft
   // are untouched, and a non-piercing weapon leaves the single-target path
   // bit-identical.
-  const aoe =
-    args.ability.effects.aoe ??
-    pierceAoeFor(state, catalog, args.attacker, args.ability, args.payloadTarget);
-  if (targetingKind === 'math_skill' && aoe !== undefined) {
+  const authoredAoe = args.ability.effects.aoe;
+  if (targetingKind === 'math_skill' && authoredAoe !== undefined) {
     // AoE + math_skill is a content-authoring error: math_skill
     // already enumerates a target set; layering AoE on top would
     // double-expand. Surface the violation here so authoring fails
-    // loud.
+    // loud. (Pierce never applies to math_skill abilities — they're not
+    // basic Attacks — so only an authored AoE can collide here.)
     throw new Error(
       `resolveAbilityTargets: ability ${JSON.stringify(args.ability.id)} declares math_skill targeting AND AoE — these are mutually exclusive`,
     );
@@ -1373,9 +1394,12 @@ function resolveAbilityTargets(
   const result =
     targetingKind === 'math_skill'
       ? resolveMathSkillDispatch(state, catalog, args)
-      : aoe === undefined
-        ? resolveSingleTargetDispatch(state, catalog, args)
-        : resolveAoeDispatch(state, catalog, args, aoe);
+      : authoredAoe !== undefined
+        ? resolveAoeDispatch(state, catalog, args, authoredAoe)
+        : // No authored AoE: a basic Attack / single-target ability. Pierce is
+          // resolved per swing (so a dual-wielder's off-hand swing isn't lost
+          // when the dominant weapon pierces — ADR-0107).
+          resolveAttackWithSwings(state, catalog, args);
 
   // Per-cast self-damage cost (ADR-0032). Fires once per resolved cast,
   // independent of cluster size or hit/miss. Emitted as a labeled
@@ -1460,6 +1484,105 @@ function attackingWeaponSlots(
     for (let k = 0; k < perWeapon; k++) expanded.push(slot);
   }
   return expanded;
+}
+
+// Resolve a basic Attack / single-target ability, honoring per-swing pierce
+// (ADR-0107). Three cases, ordered to keep every pre-existing path
+// bit-identical for replay:
+//
+//  1. Single default swing (the overwhelming common case — every single-
+//     weapon attack and every non-dual-wielder): pierce via the dominant
+//     weapon, else single-target. Unchanged from before.
+//  2. Dual-wield with NO piercing swing (two knives, sword + sword): routed
+//     to `resolveSingleTargetDispatch`, which owns the bit-identical
+//     multi-swing loop.
+//  3. Dual-wield where a swing's weapon pierces (Lance + off-hand under Two
+//     Weapons + Monkeygrip): each swing resolves its OWN footprint, so the
+//     off-hand swing is no longer silently dropped.
+function resolveAttackWithSwings(
+  state: GameState,
+  catalog: Catalog,
+  args: ResolveAbilityTargetsArgs,
+): ResolveAbilityTargetsResult {
+  const swings = attackingWeaponSlots(
+    state,
+    catalog,
+    args.attacker,
+    args.ability,
+    args.isReaction === true,
+  );
+
+  // Case 1 — single default swing.
+  if (swings.length === 1 && swings[0] === undefined) {
+    const aoe = pierceAoeForSlot(state, catalog, args, undefined);
+    return aoe === undefined
+      ? resolveSingleTargetDispatch(state, catalog, args)
+      : resolveAoeDispatch(state, catalog, args, aoe);
+  }
+
+  // Case 2 — multi-swing, no piercing weapon: existing multi-swing loop.
+  const anyPierce = swings.some(
+    (slot) => pierceAoeForSlot(state, catalog, args, slot) !== undefined,
+  );
+  if (!anyPierce) return resolveSingleTargetDispatch(state, catalog, args);
+
+  // Case 3 — multi-swing with a piercing weapon.
+  return resolveMixedSwings(state, catalog, args, swings);
+}
+
+// Multi-swing dispatch where at least one swing's weapon pierces. Loops the
+// swing slots in order (dominant first), resolving each swing's own footprint
+// against a per-swing branched seed (`perTargetSeed(seed, i)`, matching the
+// single-target multi-swing loop) and threading that swing's weapon slot so it
+// reads its own WP. A piercing swing expands to its line; a non-piercing swing
+// hits the primary target. Stops early once the primary target dies.
+function resolveMixedSwings(
+  state: GameState,
+  catalog: Catalog,
+  args: ResolveAbilityTargetsArgs,
+  swings: ReadonlyArray<EquipmentSlotId | undefined>,
+): ResolveAbilityTargetsResult {
+  const primary = resolveSingleTargetUnit(state, args.payloadTarget, args.attacker);
+  const anchor = resolveAoeAnchor(state, args.payloadTarget, args.attacker);
+
+  let workingState = state;
+  const perTargetResults: AbilityTargetResult[] = [];
+  const generatedReactions: GeneratedReaction[] = [];
+  const generatedActions: ProposedAction[] = [];
+
+  for (let i = 0; i < swings.length; i++) {
+    if (primary !== null) {
+      const cur = workingState.units.get(primary.id);
+      if (cur === undefined || cur.vitals.hp <= 0) break;
+    }
+    const slot = swings[i];
+    const swingSeed = perTargetSeed(args.seed, i);
+    const pierce = pierceAoeForSlot(workingState, catalog, args, slot);
+
+    const r =
+      pierce !== undefined
+        ? resolveAoeDispatch(workingState, catalog, { ...args, seed: swingSeed }, pierce, slot)
+        : resolveAbilityEffect(workingState, catalog, {
+            ability: args.ability,
+            attacker: workingState.units.get(args.attacker.id) ?? args.attacker,
+            targetUnit: primary !== null ? workingState.units.get(primary.id) ?? primary : null,
+            payloadTargetForResult: args.payloadTarget,
+            effectAnchorPosition: anchor,
+            incomingProposed: args.incomingProposed,
+            sourceActionSeq: args.sourceActionSeq,
+            seed: swingSeed,
+            applyCasterEffects: i === 0,
+            ...(slot !== undefined ? { attackingWeaponSlot: slot } : {}),
+            ...(args.isReaction === true ? { isReaction: true } : {}),
+          });
+
+    workingState = r.newState;
+    for (const x of r.perTargetResults) perTargetResults.push(x);
+    for (const x of r.generatedReactions) generatedReactions.push(x);
+    for (const x of r.generatedActions) generatedActions.push(x);
+  }
+
+  return { newState: workingState, perTargetResults, generatedReactions, generatedActions };
 }
 
 // Single-target dispatch. For ordinary attacks this resolves the payload
@@ -1594,6 +1717,11 @@ function resolveAoeDispatch(
   catalog: Catalog,
   args: ResolveAbilityTargetsArgs,
   aoe: AoeSpec,
+  // ADR-0107: the swinging weapon's slot, supplied when this AoE is one
+  // swing of a dual-wield pierce (so each per-tile hit reads that weapon's
+  // WP). Omitted for ordinary AoE casts and single-weapon pierce, which use
+  // the dominant weapon via `getEquippedWeapon` — bit-identical to before.
+  weaponSlot?: EquipmentSlotId,
 ): ResolveAbilityTargetsResult {
   // v1 constraint: AoE abilities cannot have caster-target status
   // effects. The dispatcher would need to fire them once before the
@@ -1737,6 +1865,7 @@ function resolveAoeDispatch(
       // ADR-0032: pass the cluster size so chainBonus-scaled power
       // reads uniformly across the cluster.
       targetCount: affected.length,
+      ...(weaponSlot !== undefined ? { attackingWeaponSlot: weaponSlot } : {}),
       ...(args.isReaction === true ? { isReaction: true } : {}),
     });
     workingState = resolved.newState;
