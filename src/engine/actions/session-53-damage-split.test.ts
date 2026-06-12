@@ -128,7 +128,7 @@ function setup(args: { reactorHp?: number; brave?: number }) {
 }
 
 describe('Session 53 — Damage Split reaction emission', () => {
-  it('reflects full damage to attacker and heals half to reactor', () => {
+  it('reflects half the damage to attacker and heals half to reactor', () => {
     const { cat, state, reactor, attacker, incoming } = setup({});
     const reactions = runOnActionTargeted(state, cat, {
       unit: reactor,
@@ -145,7 +145,7 @@ describe('Session 53 — Damage Split reaction emission', () => {
     if (dmg?.type !== 'system_damage' || heal?.type !== 'system_heal') return;
 
     expect(dmg.payload.targetId).toBe(attacker.id);
-    expect(dmg.payload.amount).toBe(50);
+    expect(dmg.payload.amount).toBe(25); // floor(50 / 2)
     expect(dmg.payload.source.kind).toBe('reflect');
     if (dmg.payload.source.kind === 'reflect') {
       expect(dmg.payload.source.reactorId).toBe(reactor.id);
@@ -161,7 +161,7 @@ describe('Session 53 — Damage Split reaction emission', () => {
     }
   });
 
-  it('floors the self-heal on odd damage (51 → 25)', () => {
+  it('floors both halves on odd damage (51 → 25 each)', () => {
     const { cat, state, reactor, incoming } = setup({});
     const reactions = runOnActionTargeted(state, cat, {
       unit: reactor,
@@ -175,7 +175,7 @@ describe('Session 53 — Damage Split reaction emission', () => {
     if (dmg?.type !== 'system_damage' || heal?.type !== 'system_heal') {
       throw new Error('expected both emissions');
     }
-    expect(dmg.payload.amount).toBe(51);
+    expect(dmg.payload.amount).toBe(25); // floor(51 / 2)
     expect(heal.payload.amount).toBe(25); // floor(51 / 2)
   });
 
@@ -412,14 +412,14 @@ describe('Session 55 — Damage Split self-heal survives the reaction cap (commi
     if (!result.ok) return;
     const r = result.newState.units.get(reactor.id)!;
     const a = result.newState.units.get(attacker.id)!;
-    // Reflect to attacker == gross damage the reactor took.
-    const gross = 100 - a.vitals.hp;
-    expect(gross).toBeGreaterThan(0);
+    // Half/half split: the attacker loses floor(D/2) (the reflected half),
+    // and the reactor heals the same floor(D/2). The reactor's net loss is
+    // therefore ceil(D/2) = D − floor(D/2), i.e. the reflect amount or one
+    // more (odd D). The pre-S55 bug left the heal off entirely (netLoss == D).
+    const reflect = 100 - a.vitals.hp;
+    expect(reflect).toBeGreaterThan(0);
     const netLoss = 100 - r.vitals.hp;
-    // Heal applied → net loss is gross minus floor(gross/2) = ceil(gross/2),
-    // strictly less than gross. The pre-S55 bug left netLoss == gross.
-    expect(netLoss).toBe(gross - Math.floor(gross / 2));
-    expect(netLoss).toBeLessThan(gross);
+    expect(netLoss === reflect || netLoss === reflect + 1).toBe(true);
     // The heal landed in the log, not just the reflect.
     expect(result.committed.some((x) => x.type === 'system_heal')).toBe(true);
   });

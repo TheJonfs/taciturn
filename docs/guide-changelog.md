@@ -44,6 +44,18 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Damage Split rebalance (2026-06-12)
+
+Commit: `_pending_` (Damage Split half-reflect). See ADR-0106.
+
+- **Damage Split now reflects HALF the damage, not the full amount.** When a unit
+  with Damage Split survives a hit for X, it now deals **X/2** back to the
+  attacker and heals **X/2** on itself (previously: full X back, X/2 healed). The
+  reaction is still Brave-gated, still bypasses defenses, and still won't trigger
+  the attacker's own reactions — only the **reflected number changed**, from full
+  to half. If the guide describes Damage Split as a full-damage counter, correct
+  it to a half/half split.
+
 ## Team builder redesign — follow-ups (2026-06-12)
 
 Commits: `58c4c72` (Wand of Lumen detail), `a373017` (Chain Reaction team).

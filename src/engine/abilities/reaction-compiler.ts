@@ -90,6 +90,12 @@ export type ReactionEffect =
       // attribution only, since system_damage bypasses resistance. Damage
       // Split authors `[]`.
       readonly tags: ReadonlyArray<DamageTag>;
+      // Reflected damage = floor(damageDealt × numerator / denominator).
+      // Damage Split splits the hit in two — half back, half healed — so it
+      // authors numerator 1, denominator 2. A `1/1` author reflects the full
+      // amount (the original blueprint behavior).
+      readonly reflectNumerator: number;
+      readonly reflectDenominator: number;
       // Self-heal = floor(damageDealt × numerator / denominator). Damage
       // Split heals half → numerator 1, denominator 2.
       readonly selfHealNumerator: number;
@@ -193,19 +199,24 @@ function compileForHook(
             const damageDealt = args.damageDealt ?? 0;
             if (damageDealt <= 0) continue;
             if (args.unit.vitals.hp <= 0) continue;
-            // Reflect the full damage at the attacker, system-tagged so it
-            // bypasses the pipeline and can't cascade into the attacker's
-            // reactions.
-            emissions.push({
-              type: 'system_damage',
-              source: 'system',
-              payload: {
-                targetId: attackerId,
-                amount: damageDealt,
-                tags: effect.tags,
-                source: { kind: 'reflect', reactorId: args.unit.id, attackerId },
-              },
-            });
+            // Reflect a fraction of the damage at the attacker, system-tagged
+            // so it bypasses the pipeline and can't cascade into the
+            // attacker's own reactions. Damage Split reflects half.
+            const reflectAmount = Math.floor(
+              (damageDealt * effect.reflectNumerator) / effect.reflectDenominator,
+            );
+            if (reflectAmount > 0) {
+              emissions.push({
+                type: 'system_damage',
+                source: 'system',
+                payload: {
+                  targetId: attackerId,
+                  amount: reflectAmount,
+                  tags: effect.tags,
+                  source: { kind: 'reflect', reactorId: args.unit.id, attackerId },
+                },
+              });
+            }
             // Self-heal a fraction of the reflected amount.
             const heal = Math.floor(
               (damageDealt * effect.selfHealNumerator) / effect.selfHealDenominator,

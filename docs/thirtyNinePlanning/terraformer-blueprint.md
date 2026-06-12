@@ -211,7 +211,7 @@ Per the Calculator pattern, Terraformer ships with class-specific R/S/M free in 
 
 - **Trigger:** Terraformer takes damaging attack and survives (HP > 0 after damage).
 - **Trigger gate:** Brave-gated, standard reaction roll.
-- **Effect:** Terraformer heals for half the damage dealt; attacker takes equal damage to original, **system-tagged** (bypasses defenses; doesn't trigger attacker's reactions; tagged for animation/logging).
+- **Effect:** Splits the surviving hit in two — Terraformer heals for half the damage dealt and the attacker takes the other half, **system-tagged** (bypasses defenses; doesn't trigger attacker's reactions; tagged for animation/logging). _(Amended 2026-06-12, ADR-0106: originally reflected the **full** amount; halved after playtest.)_
 - **Substrate note:** "System-tagged" damage may be a new concept. Audit confirms whether existing damage types support this or substrate needs extension.
 - **Borrowed from FFT** (Demi Salamander / Reraise lineage; also similar to FF games' Reflect mechanics).
 
