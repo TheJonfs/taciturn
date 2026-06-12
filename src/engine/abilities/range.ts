@@ -9,7 +9,11 @@
 // handler. `minHorizontal` carries through unchanged (no v1 hook
 // modifies the minimum-range floor).
 
-import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
+import type {
+  ActiveAbilityDefinition,
+  Catalog,
+  WeaponEquipment,
+} from '../catalog/index.ts';
 import { runModifyAbilityRange } from '../hooks/index.ts';
 import { getEquippedWeapon } from '../items/equipment.ts';
 import {
@@ -29,6 +33,11 @@ export function computeAbilityRange(
   catalog: Catalog,
   unitId: UnitId,
   ability: ActiveAbilityDefinition,
+  // ADR-0107: the specific weapon whose reach to use, when a dual-wield
+  // attack checks each swing against its OWN weapon's range (the off-hand
+  // Defender's melee 1 vs the dominant Lance's 2). Omitted → the dominant
+  // weapon via `getEquippedWeapon`, the default for validation/targeting.
+  weaponOverride?: WeaponEquipment,
 ): AbilityRangeView {
   const unit = getUnit(state, unitId);
   const targeting = ability.targeting;
@@ -53,7 +62,7 @@ export function computeAbilityRange(
   let baseVertical = targeting.range.vertical;
   let minHorizontal = targeting.range.minHorizontal;
   if (ability.effects.damage?.tags.includes('weapon') === true) {
-    const weapon = getEquippedWeapon(unit, catalog);
+    const weapon = weaponOverride ?? getEquippedWeapon(unit, catalog);
     if (weapon?.range !== undefined) {
       baseHorizontal = weapon.range.max;
       minHorizontal = weapon.range.min ?? minHorizontal;

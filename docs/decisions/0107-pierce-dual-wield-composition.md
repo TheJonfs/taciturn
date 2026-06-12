@@ -52,11 +52,36 @@ Worked example (Lance right, Defender left, Two Weapons + Monkeygrip; enemy in
 front with a second enemy behind): the Lance swing pierces both, the Defender
 swing hits the front enemy — front takes two hits, the one behind takes one.
 
+## Follow-up: per-swing range gating
+
+A second playtest surfaced the opposite asymmetry: an Assassin with Lance
+(range 2) + Defender (melee 1) attacked a **diagonal 2-away** target and hit with
+**both** — the Defender rode the Lance's reach. `validateAction` gates the target
+on the *dominant* weapon's range (`computeAbilityRange` → `getEquippedWeapon`), so
+a long-reach dominant weapon authorized a target the short off-hand couldn't
+actually reach, and the multi-swing loop swung both regardless.
+
+Decision: **each off-hand swing is gated on its own weapon's range.** Before an
+off-hand (left-hand) swing resolves — in both the plain multi-swing loop and the
+pierce loop — `swingReachesTarget` checks the target against that weapon's range
+(`computeAbilityRange` gained an optional `weaponOverride`). Out of reach → the
+swing is skipped. The **right-hand / dominant** swing is *not* re-checked: it's
+the weapon `validateAction` already gated with, so it always reaches, and
+re-checking it would risk dropping a validated downhill-bow shot whose height
+bonus this plain check omits.
+
+Result: an adjacent target is hit by both weapons; a diagonal/2-away target only
+by the longer-reach weapon. Same-range dual-wield (two knives) is unaffected.
+Known minor limit: the off-hand check omits the bow height-range bonus — a niche
+(bow as a dual-wielded off-hand on a downhill shot) that, if it ever matters, is
+conservative (it under-reaches, never over-reaches).
+
 ## Consequences
 
 - Only the previously-broken combination (dual-wield + a piercing swing) changes
   behavior; it never worked before, so there is no replay to preserve. Every
-  other path is bit-identical.
+  other path is bit-identical. The range gate likewise only affects dual-wield
+  with mismatched-reach weapons — same-range dual-wield is untouched.
 - Each swing reads its own weapon's WP and pierce; a non-piercing off-hand swing
   no longer inherits the dominant weapon's line.
 - Known minor edge: barrier damage inside a per-swing pierce still reads the

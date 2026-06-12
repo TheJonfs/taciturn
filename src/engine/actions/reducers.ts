@@ -44,6 +44,7 @@ import {
 } from '../hooks/runners.ts';
 import { enumerateMathSkillTargets } from '../targeting/index.ts';
 import { tileAt, unitAt } from '../map/accessors.ts';
+import { endpointFrom, inRange } from '../map/range.ts';
 import { aoeFootprint, cardinalFromTo } from '../map/aoe.ts';
 import { applyKnockback, type KnockbackDirection } from '../map/knockback.ts';
 import { fallDamageAction } from '../map/fall-damage.ts';
@@ -111,6 +112,7 @@ import {
 import { expectActiveAbility } from './validate.ts';
 import { isRiderCast } from './payload-helpers.ts';
 import { computeMpCost } from '../abilities/cost.ts';
+import { computeAbilityRange } from '../abilities/range.ts';
 import { resolveWorldcraftCast } from '../abilities/worldcraft-resolution.ts';
 import { computeBarrierDamage } from '../damage/barrier-damage.ts';
 import { getEquippedWeapon, getWeaponInSlot } from '../items/equipment.ts';
@@ -1351,6 +1353,64 @@ function pierceAoeForSlot(
   return pierceAoeForWeapon(state, weapon, args.attacker, args.ability, args.payloadTarget);
 }
 
+// ADR-0107: does a dual-wield swing's OWN weapon reach the target? A swing
+// is gated on its weapon's range, so a long-reach dominant weapon (Lance,
+// range 2) no longer lets its short off-hand partner (Defender, melee 1)
+// connect on a target only the Lance could reach. Applied to the OFF-HAND
+// swing only — the dominant (right-hand) weapon is the one `validateAction`
+// already gated the target with, so it always reaches (and re-checking it
+// could wrongly drop a validated downhill-bow shot's height bonus, which
+// this plain check omits). `weapon` null (empty slot) never reaches.
+function swingReachesTarget(
+  state: GameState,
+  catalog: Catalog,
+  attacker: Unit,
+  ability: ActiveAbilityDefinition,
+  weapon: WeaponEquipment | null,
+  target: Unit,
+): boolean {
+  if (weapon === null) return false;
+  const sourceTile = tileAt(
+    state.map,
+    attacker.position.x,
+    attacker.position.y,
+    attacker.position.layer,
+  );
+  const targetTile = tileAt(
+    state.map,
+    target.position.x,
+    target.position.y,
+    target.position.layer,
+  );
+  if (sourceTile === undefined || targetTile === undefined) return false;
+  const range = computeAbilityRange(state, catalog, attacker.id, ability, weapon);
+  const ruleset = catalog.getRuleset(state.ruleset.id);
+  return inRange({
+    source: endpointFrom(attacker.position, sourceTile.elevation),
+    target: endpointFrom(target.position, targetTile.elevation),
+    params: {
+      horizontalMax: range.horizontal,
+      horizontalMin: range.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
+      verticalMax: range.vertical,
+    },
+  });
+}
+
+// True when this swing should be range-gated on its own weapon: an
+// off-hand (left-hand) swing in a dual-wield attack. Right-hand / default
+// swings were already gated by `validateAction`'s dominant-weapon range.
+function offHandSwingOutOfReach(
+  state: GameState,
+  catalog: Catalog,
+  args: ResolveAbilityTargetsArgs,
+  slot: EquipmentSlotId | undefined,
+  target: Unit | null,
+): boolean {
+  if (slot !== 'leftHand' || target === null) return false;
+  const weapon = getWeaponInSlot(args.attacker, slot, catalog);
+  return !swingReachesTarget(state, catalog, args.attacker, args.ability, weapon, target);
+}
+
 // Resolve a basic-attack payload target to a board position for the pierce
 // cardinal-alignment check. Unit → its tile; tile → the tile; otherwise null.
 function pierceTargetPosition(state: GameState, target: AbilityTarget): Position | null {
@@ -1556,6 +1616,11 @@ function resolveMixedSwings(
       if (cur === undefined || cur.vitals.hp <= 0) break;
     }
     const slot = swings[i];
+    // ADR-0107: off-hand swing connects only if its own weapon reaches the
+    // primary target (whether it would pierce or hit single-target).
+    if (offHandSwingOutOfReach(workingState, catalog, args, slot, primary)) {
+      continue;
+    }
     const swingSeed = perTargetSeed(args.seed, i);
     const pierce = pierceAoeForSlot(workingState, catalog, args, slot);
 
@@ -1648,6 +1713,11 @@ function resolveSingleTargetDispatch(
       targetUnit !== null ? workingState.units.get(targetUnit.id) ?? targetUnit : null;
     const swingAttacker = workingState.units.get(args.attacker.id) ?? args.attacker;
     const slot = swings[i];
+    // ADR-0107: an off-hand swing only connects if its own weapon reaches
+    // the target — a short off-hand doesn't ride the dominant weapon's reach.
+    if (offHandSwingOutOfReach(workingState, catalog, args, slot, swingTarget)) {
+      continue;
+    }
     const resolved = resolveAbilityEffect(workingState, catalog, {
       ability: args.ability,
       attacker: swingAttacker,

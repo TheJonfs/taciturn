@@ -126,6 +126,37 @@ describe('ADR-0107 — pierce + dual-wield composition', () => {
     expect(outcome.perTargetResults.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('off-hand swing is gated on its OWN range: a diagonal 2-away target is hit by the Lance only', () => {
+    // Target at (1,1): Manhattan distance 2 (in Lance range 2, out of the
+    // Defender's melee 1), and off-axis so the Lance doesn't pierce. Only the
+    // dominant Lance swing connects — the Defender no longer rides its reach.
+    const atk = dualWielder(LANCE_RIGHT_DEFENDER_LEFT);
+    const target = makeUnit({ id: 'def', spd: 8, hp: 400, maxHpBase: 400, position: { x: 1, y: 1, layer: 0 } });
+    const state = gameStateWith([atk, target]);
+    const { outcome } = reduceUseAbility(state, attackAction(target.id), catalog);
+    expect(outcome.perTargetResults).toHaveLength(1);
+  });
+
+  it('off-hand swing is gated on its own range: a cardinal 2-away target is hit by the Lance pierce only', () => {
+    // Target at (2,0): cardinal, so the Lance pierces — but distance 2 is out
+    // of the Defender's melee 1, so the off-hand swing is dropped. One hit.
+    const atk = dualWielder(LANCE_RIGHT_DEFENDER_LEFT);
+    const target = makeUnit({ id: 'def', spd: 8, hp: 400, maxHpBase: 400, position: { x: 2, y: 0, layer: 0 } });
+    const state = gameStateWith([atk, target]);
+    const { outcome } = reduceUseAbility(state, attackAction(target.id), catalog);
+    expect(outcome.perTargetResults).toHaveLength(1);
+  });
+
+  it('adjacent target is still hit by both weapons (both in range)', () => {
+    // Target at (1,0): distance 1, in range of both the Lance and the
+    // Defender. The Lance pierces the line; the Defender hits the primary.
+    const atk = dualWielder(LANCE_RIGHT_DEFENDER_LEFT);
+    const target = makeUnit({ id: 'def', spd: 8, hp: 400, maxHpBase: 400, position: { x: 1, y: 0, layer: 0 } });
+    const state = gameStateWith([atk, target]);
+    const { outcome } = reduceUseAbility(state, attackAction(target.id), catalog);
+    expect(outcome.perTargetResults).toHaveLength(2); // Lance + Defender, both on the primary
+  });
+
   it('regression: a lone piercing weapon (no dual-wield) still pierces once', () => {
     const atk = makeUnit({
       id: 'atk',

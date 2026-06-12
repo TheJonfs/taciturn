@@ -44,6 +44,17 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Dual-wield reach is now per-weapon (2026-06-12)
+
+Commit: `87e57a4` (per-swing range gating). See ADR-0107.
+
+- **In a dual-wield attack, each weapon only hits if the target is in THAT
+  weapon's range.** Pairing a long-reach weapon (Lance, range 2) with a short one
+  (a melee sword, range 1) no longer lets the short weapon ride the long one's
+  reach. An **adjacent** target is hit by both; a target **2 tiles away** (e.g.
+  diagonally) is hit only by the longer weapon. Two equal-range weapons (two
+  knives) are unchanged — they always both reach the targets you can pick.
+
 ## Dual-wield + piercing weapon fix (2026-06-12)
 
 Commit: `40ed7dc` (pierce × dual-wield). See ADR-0107.
