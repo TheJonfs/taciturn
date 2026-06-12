@@ -34,6 +34,7 @@ import { shadowAndSteel } from './shadow-and-steel.ts';
 import { gravityWell } from './gravity-well.ts';
 import { highGround } from './high-ground.ts';
 import { mageWar } from './mage-war.ts';
+import { chainReaction } from './chain-reaction.ts';
 
 export { currentTestTeam } from './current-test-team.ts';
 export { defensiveFront } from './defensive-front.ts';
@@ -43,6 +44,7 @@ export { shadowAndSteel } from './shadow-and-steel.ts';
 export { gravityWell } from './gravity-well.ts';
 export { highGround } from './high-ground.ts';
 export { mageWar } from './mage-war.ts';
+export { chainReaction } from './chain-reaction.ts';
 
 // A loadable template: a stable id (for React keys / selection state)
 // paired with its `BuiltTeam`. The display label is the team's `name`.
@@ -59,6 +61,7 @@ export const defaultTeamTemplates: ReadonlyArray<TeamTemplate> = [
   { id: 'gravity-well', team: gravityWell },
   { id: 'high-ground', team: highGround },
   { id: 'mage-war', team: mageWar },
+  { id: 'chain-reaction', team: chainReaction },
 ];
 
 // S38 templates retained for tests + scenario configs that reference
