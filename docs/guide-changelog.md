@@ -44,6 +44,29 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Team builder redesign — follow-ups (2026-06-12)
+
+Commits: `58c4c72` (Wand of Lumen detail), `a373017` (Chain Reaction team).
+Continued polish on the rebuilt team builder; one item-detail correction worth
+the guide's attention.
+
+### Wand of Lumen — its bonus Burn effect now shows in the item detail
+
+- The Wand of Lumen's detail used to list only WP/accuracy and its on-hit
+  resistance-shift proc. It also has a **bonus effect that was never displayed**:
+  when its wielder casts a **fire-tagged** ability that applies Burn, the Burn
+  lands with **one extra stack**. This is an existing mechanic (nothing changed
+  about the wand) — only the builder now surfaces it. If the guide's Wand of
+  Lumen entry omits the extra-Burn-stack effect, add it.
+
+### New default team — "Chain Reaction"
+
+- A fourth bundled team in the builder's "Load Default" picker (alongside Gravity
+  Well, High Ground, Mage War): Assassin / Calculator / Hunter / Terraformer /
+  Lightning Mage. Default teams are convenience presets, not new mechanics —
+  noted only so the picker's roster is accurate if the guide lists the bundled
+  teams.
+
 ## Team builder redesign (2026-06-11)
 
 Commits: `3f6cdc5` (Pass 1 — unit card), `6f31e11` (Pass 2 — pickers + inspector).
