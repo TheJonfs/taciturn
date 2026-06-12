@@ -27,6 +27,7 @@ import {
   type Catalog,
   type ChargedActionId,
   type ClassId,
+  type Gender,
   type GameState,
   type ProjectedEvent,
   type TeamId,
@@ -148,7 +149,7 @@ function MiniCard(props: {
     onOpenUnitDetail,
     onOpenChargedActionDetail,
   } = props;
-  const { label, sublabel, teamId, isCharged, primaryUnitId, classId } = describeEvent(event, state, catalog);
+  const { label, sublabel, teamId, isCharged, primaryUnitId, classId, gender } = describeEvent(event, state, catalog);
   const borderColor = teamColor(teamId);
   // Charged mini-cards route to the charged-action detail panel
   // (target / AoE preview / timing). Unit mini-cards route to the
@@ -186,7 +187,7 @@ function MiniCard(props: {
     >
       <div style={miniCardPositionStyle}>{position}</div>
       <div style={miniCardPortraitStyle}>
-        <MiniPortrait classId={classId} isCharged={isCharged} fallbackColor={borderColor} teamId={teamId} />
+        <MiniPortrait classId={classId} gender={gender} isCharged={isCharged} fallbackColor={borderColor} teamId={teamId} />
       </div>
       <div style={miniCardLabelColStyle}>
         <div style={miniCardNameStyle}>{label}</div>
@@ -324,6 +325,10 @@ interface EventDescription {
   // Used for the portrait `<img>` lookup. `null` when the entity
   // doesn't map to a class (e.g., un-resolvable charged action).
   readonly classId: ClassId | null;
+  // The unit's (or caster's) chosen portrait gender, so the mini-card
+  // matches the battlefield/detail portrait instead of always showing the
+  // class default. `null` falls back to the class default in the lookup.
+  readonly gender: Gender | null;
 }
 
 function describeEvent(
@@ -341,6 +346,7 @@ function describeEvent(
         isCharged: false,
         primaryUnitId: null,
         classId: null,
+        gender: null,
       };
     }
     const cls = catalog.getClass(unit.classState.currentClass);
@@ -351,6 +357,7 @@ function describeEvent(
       isCharged: false,
       primaryUnitId: unit.id,
       classId: unit.classState.currentClass,
+      gender: unit.gender ?? null,
     };
   }
   // charged_action — find the in-flight charged action and read its
@@ -366,6 +373,7 @@ function describeEvent(
       isCharged: true,
       primaryUnitId: null,
       classId: null,
+      gender: null,
     };
   }
   const ability = catalog.getAbility(charged.abilityId);
@@ -381,6 +389,7 @@ function describeEvent(
     isCharged: true,
     primaryUnitId: caster?.id ?? null,
     classId: caster?.classState.currentClass ?? null,
+    gender: caster?.gender ?? null,
   };
 }
 
@@ -394,12 +403,13 @@ function describeEvent(
 // portraits (team_a) render unflipped.
 function MiniPortrait(props: {
   readonly classId: ClassId | null;
+  readonly gender: Gender | null;
   readonly isCharged: boolean;
   readonly fallbackColor: string;
   readonly teamId: TeamId | null;
 }): ReactElement {
-  const { classId, isCharged, fallbackColor, teamId } = props;
-  const url = classId !== null ? portraitUrlFor(classId) : null;
+  const { classId, gender, isCharged, fallbackColor, teamId } = props;
+  const url = classId !== null ? portraitUrlFor(classId, gender ?? undefined) : null;
   const transform = teamId === 'team_b' ? 'scaleX(-1)' : undefined;
   if (url === null) {
     return <div style={miniCardPortraitFillStyle(fallbackColor, isCharged)} />;
