@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taciturn — team builder redesign (concept)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/dist/tabler-icons.min.css">
+<!--
+  CONCEPT REFERENCE for the team builder redesign. Not production styling.
+  Colors/icons are placeholders to communicate STRUCTURE and INFORMATION
+  ARCHITECTURE; implement against the game's existing dark theme. The Ivalician
+  old-paper reskin is a SEPARATE later pass.
+
+  Two problems being solved:
+    1. Decisions without decision-information — the builder asks for budgeted
+       tradeoffs but hides what each option does. Fixed by one context inspector
+       that explains whatever is under consideration (equipment: stat delta vs
+       equipped; ability: effect + budget fit), fed by the same description
+       source as the tooltips and the Player's Guide.
+    2. The build can't be seen as a whole — a long top-to-bottom scroll. Fixed by
+       a single large unit card holding the complete unit, with abilities in an
+       accordion (one category open at a time) and the class collapsed once chosen.
+
+  Ability lists below are representative; real content comes from game modules.
+-->
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121922; --inset:#0e141b; --text:#e6edf3; --dim:#6b7785;
+    --sec:#9aa7b4; --info:#58a6ff; --info-bg:rgba(88,166,255,0.13); --gold:#e3b341;
+    --green:#5fb87a; --border:rgba(255,255,255,0.09);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;padding:28px 22px;}
+  .wrap{max-width:1000px;margin:0 auto;}
+  h1{font-size:20px;font-weight:600;margin:0 0 4px;}
+  h2{font-size:14px;font-weight:600;margin:30px 0 12px;color:var(--sec);}
+  .cap{color:var(--sec);font-size:13px;margin:0 0 22px;}
+  .notes{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 22px;font-size:13px;color:var(--sec);margin-bottom:8px;}
+  .notes b{color:var(--text);font-weight:600;}
+  .frame{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;}
+  .row{display:flex;gap:12px;}
+  .lbl{font-size:11px;color:var(--dim);}
+  .runit{border:1px solid var(--border);border-radius:8px;padding:7px 5px;text-align:center;}
+  .runit.active{border-color:var(--info);background:var(--info-bg);}
+  .runit.active .n{color:var(--info);} .runit.active .s{color:var(--info);}
+  .runit .n{font-size:12px;font-weight:600;} .runit .s{font-size:11px;color:var(--dim);}
+  .card{flex:1;min-width:0;background:var(--inset);border:1px solid var(--border);border-radius:10px;padding:13px;}
+  .portrait{height:90px;border-radius:8px;background:var(--panel);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);font-size:32px;color:var(--dim);}
+  .pin{font-size:11px;border:1px solid var(--border);border-radius:8px;padding:3px 8px;}
+  .stat{background:var(--panel);border-radius:8px;padding:6px 2px;text-align:center;}
+  .stat .k{font-size:11px;color:var(--dim);} .stat .v{display:block;font-size:15px;font-weight:600;}
+  .nameinput{flex:1;min-width:0;height:30px;background:var(--panel);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:0 10px;font-size:13px;}
+  .sec{font-size:11px;color:var(--dim);margin:0 0 7px;}
+  .pill{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:12px;margin-bottom:6px;}
+  .pill .ti{font-size:15px;color:var(--sec);}
+  .pill.empty{color:var(--dim);}
+  .acc-open{border:1px solid var(--border);border-radius:8px;margin-bottom:6px;overflow:hidden;}
+  .acc-hd{display:flex;align-items:center;gap:6px;padding:7px 9px;background:var(--panel);}
+  .acc-hd .ti{font-size:14px;color:var(--gold);}
+  .acch{display:flex;align-items:center;gap:6px;padding:8px 9px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:12px;}
+  .acch .ti{font-size:14px;color:var(--gold);}
+  .opt{display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 6px;border-radius:8px;}
+  .opt .ic{font-size:14px;color:var(--sec);width:16px;flex:none;}
+  .opt.on{background:var(--info-bg);} .opt.on .nm{color:var(--info);}
+  .opt.focus{background:var(--panel);outline:1px solid var(--info);outline-offset:-1px;}
+  .dots{display:inline-flex;gap:3px;align-items:center;}
+  .dot{width:5px;height:5px;border-radius:50%;background:var(--dim);}
+  .meter{flex:1;height:3px;background:var(--panel);border-radius:3px;overflow:hidden;}
+  .mfill{height:100%;background:var(--gold);}
+  .insp{background:var(--inset);border:1px solid var(--info);border-radius:10px;padding:11px 13px;margin-top:12px;}
+  .ghead{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--gold);font-weight:600;margin:9px 0 4px;}
+  .ghead .ti{font-size:14px;}
+  .prow{display:flex;align-items:center;gap:9px;font-size:12px;padding:5px 7px;border-radius:8px;}
+  .prow .ic{font-size:15px;color:var(--sec);width:16px;flex:none;} .prow .nm{flex:1;}
+  .prow.focus{background:var(--panel);outline:1px solid var(--info);outline-offset:-1px;}
+  .ms{font-size:11px;color:var(--dim);}
+  .tagk{font-size:11px;color:var(--sec);border:1px solid var(--border);border-radius:8px;padding:2px 8px;display:inline-flex;align-items:center;gap:4px;}
+  .search{height:30px;width:120px;background:var(--panel);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:0 10px;font-size:12px;}
+  i.ti{line-height:1;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Team builder redesign — concept</h1>
+  <p class="cap">Concept reference for the implementer. Placeholder colors/icons against the game's dark theme — the Ivalician parchment skin is a separate later pass. Ability lists are representative.</p>
+
+  <div class="notes">
+    <p><b>One big card.</b> The unit's whole identity — larger portrait, complete stats including Move and Jump, name/gender/Brave/Faith — lives on one card; the class collapses to a "change" control once chosen.</p>
+    <p><b>One inspector, both sides.</b> A single context box explains whatever's under consideration — an equipment candidate (stat delta vs equipped) or an ability (effect + budget fit) — fed by the same source as the tooltips and the Player's Guide.</p>
+    <p><b>Abilities as an accordion.</b> Budgeted multi-select per category; one category opens to its full hoverable list at a time, the rest collapse to a summary line of picks + budget.</p>
+    <p><b>Equipment grouped, not dumped.</b> A slot opens to a list grouped by type and sorted, key stats inline, with search and sort — replacing the flat creation-ordered dropdown. The lineup shows each unit's level.</p>
+  </div>
+
+  <h2>1 · The unit card</h2>
+  <div class="frame">
+    <div class="row">
+      <div style="flex:0 0 84px;display:flex;flex-direction:column;gap:6px;">
+        <div class="lbl" style="margin-bottom:1px;">Team A</div>
+        <div class="runit active"><div class="n">Valeria</div><div class="s">L25 · Assassin</div></div>
+        <div class="runit"><div class="n">L24</div><div class="s">pick a class</div></div>
+        <div class="runit"><div class="n">L26</div><div class="s">pick a class</div></div>
+        <div class="runit"><div class="n">L23</div><div class="s">pick a class</div></div>
+        <div class="runit"><div class="n">L27</div><div class="s">pick a class</div></div>
+      </div>
+
+      <div style="flex:1;min-width:0;">
+        <div class="card">
+          <div class="row" style="gap:13px;">
+            <div style="flex:0 0 84px;">
+              <div class="portrait"><i class="ti ti-user"></i></div>
+              <div style="text-align:center;margin-top:5px;font-size:13px;font-weight:600;">Assassin</div>
+              <div style="text-align:center;font-size:11px;color:var(--info);">change class</div>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px;">
+                <input class="nameinput" value="Valeria">
+                <span class="pin">L25</span>
+                <span class="pin"><i class="ti ti-venus" style="font-size:13px"></i></span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-bottom:10px;">
+                <div class="stat"><span class="k">HP</span><span class="v">96</span></div>
+                <div class="stat"><span class="k">MP</span><span class="v">24</span></div>
+                <div class="stat"><span class="k">PA</span><span class="v">4</span></div>
+                <div class="stat"><span class="k">MA</span><span class="v">3</span></div>
+                <div class="stat"><span class="k">SPD</span><span class="v">13</span></div>
+                <div class="stat"><span class="k">Move</span><span class="v">4</span></div>
+                <div class="stat"><span class="k">Jump</span><span class="v">3</span></div>
+              </div>
+              <div style="display:flex;gap:16px;">
+                <div style="flex:1;"><span class="lbl">Brave · 70</span><input type="range" min="0" max="100" value="70" style="width:100%"></div>
+                <div style="flex:1;"><span class="lbl">Faith · 70</span><input type="range" min="0" max="100" value="70" style="width:100%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="border-top:1px solid var(--border);margin:12px 0;"></div>
+
+          <div class="row" style="gap:16px;">
+            <div style="flex:0 0 192px;">
+              <p class="sec">Equipment</p>
+              <div class="pill"><i class="ti ti-bow"></i><span style="flex:1">Riptide Bow</span></div>
+              <div class="pill empty"><i class="ti ti-hand-off"></i><span style="flex:1">left hand — empty</span></div>
+              <div class="pill"><i class="ti ti-shield"></i><span style="flex:1">Circlet</span></div>
+              <div class="pill"><i class="ti ti-shirt"></i><span style="flex:1">Silk Robe</span></div>
+              <div class="pill empty"><i class="ti ti-diamond"></i><span style="flex:1">accessory — empty</span></div>
+            </div>
+
+            <div style="flex:1;min-width:0;">
+              <p class="sec">Abilities</p>
+              <div class="acc-open">
+                <div class="acc-hd"><i class="ti ti-arrow-back-up"></i><span style="font-size:12px;font-weight:600;flex:1">Reaction</span><span class="lbl">1 / 3</span><i class="ti ti-chevron-up" style="font-size:13px;color:var(--dim)"></i></div>
+                <div style="padding:4px 7px;">
+                  <div class="opt on"><i class="ti ti-clock ic"></i><span class="nm" style="flex:1">Speed Save</span><span class="lbl">free</span><i class="ti ti-check" style="font-size:13px;color:var(--info)"></i></div>
+                  <div class="opt on"><i class="ti ti-swords ic"></i><span class="nm" style="flex:1">Counter</span><span class="dots"><span class="dot"></span></span><i class="ti ti-check" style="font-size:13px;color:var(--info)"></i></div>
+                  <div class="opt focus"><i class="ti ti-target ic"></i><span style="flex:1">Combat Focus</span><span class="dots"><span class="dot"></span></span></div>
+                  <div class="opt"><i class="ti ti-focus-2 ic"></i><span style="flex:1">Cornered Focus</span><span class="dots"><span class="dot"></span></span></div>
+                  <div class="opt"><i class="ti ti-arrows-split ic"></i><span style="flex:1">Damage Split</span><span class="dots"><span class="dot"></span><span class="dot"></span></span></div>
+                  <div class="opt" style="justify-content:center;color:var(--dim);font-size:11px;">+ 6 more</div>
+                </div>
+              </div>
+              <div class="acch"><i class="ti ti-cards"></i>Command sets<span class="lbl" style="margin-left:auto">0 / 1</span><i class="ti ti-chevron-down" style="font-size:13px;color:var(--dim)"></i></div>
+              <div class="acch"><i class="ti ti-shield"></i><span>Support</span><span style="color:var(--dim);font-size:11px">· Martial Expertise</span><span class="lbl" style="margin-left:auto">2 / 3</span><i class="ti ti-chevron-down" style="font-size:13px;color:var(--dim)"></i></div>
+              <div class="acch" style="margin-bottom:0"><i class="ti ti-run"></i>Movement<span class="lbl" style="margin-left:auto">0 / 3</span><i class="ti ti-chevron-down" style="font-size:13px;color:var(--dim)"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="insp">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+            <i class="ti ti-target" style="font-size:18px;color:var(--sec)"></i>
+            <span style="font-size:15px;font-weight:600;">Combat Focus</span>
+            <span class="tagk"><i class="ti ti-arrow-back-up" style="font-size:11px"></i> Reaction</span>
+            <span class="dots" style="margin-left:2px"><span class="dot" style="background:var(--sec)"></span></span>
+            <span class="lbl" style="margin-left:auto">considering</span>
+          </div>
+          <p style="font-size:12px;color:var(--sec);margin:0 0 8px;">On taking a hit, gain a Combat Focus stack — +1 PA each, up to five. Stacks hold until the unit next acts.</p>
+          <div style="font-size:12px;color:var(--green);"><i class="ti ti-check" style="font-size:13px;vertical-align:-2px"></i> costs 1 point · 2 of 3 reaction points still free</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>2 · Opening an equipment slot</h2>
+  <div class="frame">
+    <div style="background:var(--inset);border:1px solid var(--border);border-radius:10px;padding:12px 13px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <i class="ti ti-bow" style="font-size:16px;color:var(--sec)"></i>
+        <span style="font-size:13px;font-weight:600;">Right hand</span>
+        <span class="lbl">— choose equipment</span>
+        <div style="flex:1"></div>
+        <input class="search" placeholder="Search">
+        <span class="tagk"><i class="ti ti-arrows-sort" style="font-size:12px"></i> by type</span>
+      </div>
+
+      <div class="ghead"><i class="ti ti-sword"></i>Swords</div>
+      <div class="prow"><i class="ti ti-sword ic"></i><span class="nm">Absolom</span><span class="ms">WP 10</span></div>
+      <div class="prow"><i class="ti ti-sword ic"></i><span class="nm">Flametongue</span><span class="ms">WP 9 · fire</span></div>
+      <div class="prow"><i class="ti ti-sword ic"></i><span class="nm">Magebane</span><span class="ms">WP 7 · vs mages</span></div>
+      <div class="prow"><i class="ti ti-sword ic"></i><span class="nm">Parrying Sword</span><span class="ms">WP 6 · +evade</span></div>
+
+      <div class="ghead"><i class="ti ti-bow"></i>Bows</div>
+      <div class="prow"><i class="ti ti-bow ic"></i><span class="nm">Longbow</span><span class="ms">WP 8 · rng 4</span><span style="font-size:11px;color:var(--green)">equipped</span></div>
+      <div class="prow focus"><i class="ti ti-bow ic"></i><span class="nm">Riptide Bow</span><span class="ms">WP 9 · rng 4 · Brine</span><span class="lbl">considering</span></div>
+
+      <div class="ghead"><i class="ti ti-wand"></i>Wands &amp; staves</div>
+      <div class="prow"><i class="ti ti-wand ic"></i><span class="nm">Staff of Power</span><span class="ms">MA +3</span></div>
+      <div class="prow"><i class="ti ti-wand ic"></i><span class="nm">Wand of the Depths</span><span class="ms">MA +2 · water</span></div>
+
+      <div class="ghead" style="color:var(--dim);opacity:.7"><i class="ti ti-dots"></i>Axes · Shields · Talismans</div>
+    </div>
+
+    <div class="insp">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+        <i class="ti ti-bow" style="font-size:18px;color:var(--sec)"></i>
+        <span style="font-size:15px;font-weight:600;">Riptide Bow</span>
+        <span class="tagk">Bow · two-handed</span>
+        <span class="lbl" style="margin-left:auto">considering · right hand</span>
+      </div>
+      <div style="display:flex;gap:18px;font-size:12px;margin-bottom:8px;flex-wrap:wrap;">
+        <span><span class="lbl">WP</span> 9</span>
+        <span><span class="lbl">Range</span> 4</span>
+        <span><span class="lbl">Shot</span> arc</span>
+        <span><span class="lbl">On hit</span> Brine · −2 SPD</span>
+      </div>
+      <div style="display:flex;gap:12px;font-size:12px;margin-bottom:8px;align-items:center;flex-wrap:wrap;">
+        <span style="color:var(--green)"><i class="ti ti-arrow-up" style="font-size:12px"></i> 1 WP</span>
+        <span style="color:var(--dim)">range unchanged</span>
+        <span style="color:var(--dim)">two-handed — leaves left hand empty</span>
+        <span class="lbl">vs. equipped Longbow</span>
+      </div>
+      <p style="font-size:12px;color:var(--sec);margin:0;">Deepwood-strung and tide-blessed — its arrows drag at a foe's footing.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>
