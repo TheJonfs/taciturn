@@ -37,6 +37,7 @@ import {
   setFaith,
   setUnitName,
   setUnitGender,
+  slotLevel,
   teamBuilderStateFromBuiltTeam,
   teamBuilderStateToBuiltTeam,
   togglePassive,
@@ -496,5 +497,33 @@ describe('team builder state — cosmetic gender (S55)', () => {
     s = setUnitGender(s, 0, 'female');
     s = setClass(s, 0, classId('alchemist'), catalog);
     expect(s.units[0]!.gender).toBe('female');
+  });
+});
+
+describe('team builder state — slot level (Pass 1 lineup/card)', () => {
+  it('maps filled slots to the alternating-outward level sequence', () => {
+    let s = createEmptyTeamBuilderState();
+    s = setClass(s, 0, classId('knight'), catalog);
+    s = setClass(s, 1, classId('assassin'), catalog);
+    s = setClass(s, 2, classId('hunter'), catalog);
+    s = setClass(s, 3, classId('templar'), catalog);
+    s = setClass(s, 4, classId('water_mage'), catalog);
+    // Slot 0 captain L25; outward alternating per `slotLevelFor`.
+    expect([0, 1, 2, 3, 4].map((i) => slotLevel(s, i))).toEqual([
+      25, 24, 26, 23, 27,
+    ]);
+  });
+
+  it('skips empty slots so level tracks active-unit position, not raw index', () => {
+    let s = createEmptyTeamBuilderState();
+    // Leave slot 0 empty; fill slots 1 and 3. The first *filled* slot is
+    // the captain at L25 regardless of its raw index — matching the
+    // export walk in `teamBuilderStateToBuiltTeam`.
+    s = setClass(s, 1, classId('knight'), catalog);
+    s = setClass(s, 3, classId('assassin'), catalog);
+    expect(slotLevel(s, 0)).toBeNull(); // empty slot → no level
+    expect(slotLevel(s, 1)).toBe(25); // first filled → captain
+    expect(slotLevel(s, 2)).toBeNull(); // empty slot → no level
+    expect(slotLevel(s, 3)).toBe(24); // second filled → L24
   });
 });

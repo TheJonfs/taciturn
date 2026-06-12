@@ -5,9 +5,13 @@
 
 import type { CSSProperties, ReactElement } from 'react';
 import type { Catalog } from '@engine/index.ts';
-import { slotLevelFor } from '@content/teams/index.ts';
 import { portraitUrlFor } from '../assets/portraits/index.ts';
-import type { DraftUnit, DraftUnitStats, UnitValidity } from './team-builder-state.ts';
+import {
+  slotLevel,
+  type DraftUnit,
+  type DraftUnitStats,
+  type UnitValidity,
+} from './team-builder-state.ts';
 import type { TeamBuilder } from './use-team-builder.ts';
 
 export interface TeamBuilderRosterProps {
@@ -28,32 +32,19 @@ export function TeamBuilderRoster({
         <div style={teamNameStyle}>{state.name}</div>
       </div>
       <div style={listStyle}>
-        {(() => {
-          // S49: level is the active-unit's post-filter position. The
-          // first filled slot is the captain at L25; outward filled
-          // slots step ±1 per `slotLevelFor`. Empty slots get no level.
-          // We track activeCount as we walk so the level reads the same
-          // sequence the team-builder export uses when assembling the
-          // `BuiltTeam`.
-          let activeCount = 0;
-          return state.units.map((unit, index) => {
-            const level = unit.classId !== null ? slotLevelFor(activeCount) : null;
-            if (unit.classId !== null) activeCount += 1;
-            return (
-              <RosterCard
-                key={index}
-                index={index}
-                unit={unit}
-                level={level}
-                stats={unitStats[index] ?? null}
-                unitValidity={validity.units[index]!}
-                isSelected={index === selectedIndex}
-                onClick={() => selectUnit(index)}
-                catalog={catalog}
-              />
-            );
-          });
-        })()}
+        {state.units.map((unit, index) => (
+          <RosterCard
+            key={index}
+            index={index}
+            unit={unit}
+            level={slotLevel(state, index)}
+            stats={unitStats[index] ?? null}
+            unitValidity={validity.units[index]!}
+            isSelected={index === selectedIndex}
+            onClick={() => selectUnit(index)}
+            catalog={catalog}
+          />
+        ))}
       </div>
     </div>
   );

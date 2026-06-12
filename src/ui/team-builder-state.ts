@@ -434,6 +434,23 @@ export function computeDraftUnitStats(
   };
 }
 
+// The assigned level for the unit in slot `index`, or `null` if that
+// slot is empty (classless). Mirrors the export walk in
+// `teamBuilderStateToBuiltTeam`: level is the unit's position among the
+// *filled* slots — the first filled slot is the captain at L25, outward
+// filled slots step ±1 via `slotLevelFor`. Empty slots are skipped, so
+// the sequence the roster + card display matches the assembled
+// `BuiltTeam`. Shared by the roster cards and the unit card so they
+// can't disagree.
+export function slotLevel(state: TeamBuilderState, index: number): number | null {
+  if (state.units[index]?.classId == null) return null;
+  let activeCount = 0;
+  for (let i = 0; i < index; i += 1) {
+    if (state.units[i]!.classId !== null) activeCount += 1;
+  }
+  return slotLevelFor(activeCount);
+}
+
 // ---------------------------------------------------------------------
 // Mutations — each returns a new state; the input is never modified.
 // ---------------------------------------------------------------------

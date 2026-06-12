@@ -123,6 +123,10 @@ export {
   type TeamBuilderAbilityPickerProps,
 } from './team-builder-ability-picker.tsx';
 export {
+  TeamBuilderUnitCard,
+  type TeamBuilderUnitCardProps,
+} from './team-builder-unit-card.tsx';
+export {
   TeamBuilderDefaultLoader,
   type TeamBuilderDefaultLoaderProps,
 } from './team-builder-default-loader.tsx';

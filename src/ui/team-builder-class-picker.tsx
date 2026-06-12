@@ -30,11 +30,22 @@ const CLASS_TAGLINES: ReadonlyMap<string, string> = new Map([
 export interface TeamBuilderClassPickerProps {
   readonly builder: TeamBuilder;
   readonly catalog: Catalog;
+  // Fired after a class is committed (S-team-builder Pass 1). The unit
+  // card uses it to collapse the picker mode back to the class chip once
+  // a pick lands. Optional — callers that render the grid inline (none
+  // today) can omit it.
+  readonly onPicked?: () => void;
+  // Hide the component's own "Class" section label when the host already
+  // labels the picker (the unit card's "Change class" header). Defaults
+  // to showing the label for standalone use.
+  readonly showLabel?: boolean;
 }
 
 export function TeamBuilderClassPicker({
   builder,
   catalog,
+  onPicked,
+  showLabel = true,
 }: TeamBuilderClassPickerProps): ReactElement {
   const { selectedIndex, selectedUnit, state, setClass } = builder;
 
@@ -50,7 +61,7 @@ export function TeamBuilderClassPicker({
 
   return (
     <div style={rootStyle}>
-      <div style={sectionLabelStyle}>Class</div>
+      {showLabel && <div style={sectionLabelStyle}>Class</div>}
       <div style={cardGridStyle}>
         {classes.map((classDef) => {
           const isSelected = selectedUnit.classId === classDef.id;
@@ -66,6 +77,7 @@ export function TeamBuilderClassPicker({
               onClick={() => {
                 if (isTaken) return;
                 setClass(selectedIndex, classDef.id);
+                onPicked?.();
               }}
               catalog={catalog}
             />
@@ -74,6 +86,12 @@ export function TeamBuilderClassPicker({
       </div>
     </div>
   );
+}
+
+// The role tagline for a class id — exported so the unit card's compact
+// class chip shows the same flavor line the picker cards use.
+export function classTagline(classId: ClassId): string {
+  return CLASS_TAGLINES.get(String(classId)) ?? '';
 }
 
 interface ClassCardProps {

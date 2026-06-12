@@ -20,20 +20,12 @@ import {
 import { loadDefaultCatalog } from '@content/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import type { BuiltTeam } from '@content/teams/index.ts';
-import {
-  BRAVE_FAITH_MAX,
-  BRAVE_FAITH_MIN,
-} from '@content/teams/index.ts';
-import { UNIT_NAME_MAX_LENGTH } from '@ui/team-builder-state.ts';
 import { TeamExportModal } from '@ui/team-export-modal.tsx';
-import { defaultGenderFor } from '../assets/portraits/index.ts';
-import type { BattleConfig, Catalog, ClassId, Gender, TeamControl } from '@engine/index.ts';
+import type { BattleConfig, Catalog, TeamControl } from '@engine/index.ts';
 import {
-  TeamBuilderAbilityPicker,
-  TeamBuilderClassPicker,
   TeamBuilderDefaultLoader,
-  TeamBuilderEquipmentSlots,
   TeamBuilderRoster,
+  TeamBuilderUnitCard,
   useTeamBuilder,
   type TeamBuilder,
   type TeamBuilderState,
@@ -151,7 +143,12 @@ export function TeamBuilderScreen({
 
       <div style={mainStyle}>
         <TeamBuilderRoster builder={builder} catalog={catalog} />
-        <EditPanel builder={builder} catalog={catalog} />
+        <div style={centerColumnStyle}>
+          <div style={cardSlotStyle}>
+            <TeamBuilderUnitCard builder={builder} catalog={catalog} />
+            <InspectorPlaceholder />
+          </div>
+        </div>
       </div>
 
       <FooterBar
@@ -171,153 +168,20 @@ export function TeamBuilderScreen({
   );
 }
 
-// ---- edit panel ----
+// ---- inspector region ----
 
-function EditPanel({
-  builder,
-  catalog,
-}: {
-  builder: TeamBuilder;
-  catalog: Catalog;
-}): ReactElement {
-  const { selectedIndex, selectedUnit, setBrave, setFaith, setUnitName, setUnitGender } =
-    builder;
-  const className =
-    selectedUnit.classId !== null
-      ? catalog.getClass(selectedUnit.classId).name
-      : null;
-  // Effective portrait gender: the unit's explicit choice, else the class
-  // default (the original portrait's gender). Drives the toggle's active side.
-  const effectiveGender: Gender | null =
-    selectedUnit.classId !== null
-      ? (selectedUnit.gender ?? defaultGenderFor(selectedUnit.classId as ClassId) ?? 'male')
-      : null;
-
+// The context inspector sits below the card and (in Pass 2) tracks the
+// hovered equipment candidate or ability — showing full detail plus the
+// delta-vs-equipped / budget-fit. Pass 1 reserves the region with a
+// neutral placeholder so the layout doesn't reflow when the live
+// inspector swaps in next pass.
+function InspectorPlaceholder(): ReactElement {
   return (
-    <div style={editPanelStyle}>
-      <div style={editHeaderStyle}>
-        Editing Unit {selectedIndex + 1}
-        {className !== null && ` — ${className}`}
-      </div>
-
-      {selectedUnit.classId !== null && (
-        <div style={nameGenderRowStyle}>
-          <NameInput
-            value={selectedUnit.name ?? ''}
-            onChange={(v) => setUnitName(selectedIndex, v)}
-          />
-          {effectiveGender !== null && (
-            <GenderToggle
-              value={effectiveGender}
-              onChange={(g) => setUnitGender(selectedIndex, g)}
-            />
-          )}
-        </div>
-      )}
-
-      <TeamBuilderClassPicker builder={builder} catalog={catalog} />
-
-      <div style={braveFaithRowStyle}>
-        <SliderControl
-          label="Brave"
-          value={selectedUnit.brave}
-          onChange={(v) => setBrave(selectedIndex, v)}
-        />
-        <SliderControl
-          label="Faith"
-          value={selectedUnit.faith}
-          onChange={(v) => setFaith(selectedIndex, v)}
-        />
-      </div>
-
-      <div style={twoColumnStyle}>
-        <TeamBuilderEquipmentSlots builder={builder} catalog={catalog} />
-        <TeamBuilderAbilityPicker builder={builder} catalog={catalog} />
-      </div>
+    <div style={inspectorStyle}>
+      <span style={inspectorHintStyle}>
+        Hover an ability or a piece of equipment to inspect it here.
+      </span>
     </div>
-  );
-}
-
-function NameInput({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}): ReactElement {
-  return (
-    <label style={nameRowStyle}>
-      <span style={nameLabelStyle}>Name</span>
-      <input
-        type="text"
-        value={value}
-        maxLength={UNIT_NAME_MAX_LENGTH}
-        placeholder="Unit name"
-        onChange={(e) => onChange(e.target.value)}
-        style={nameInputStyle}
-      />
-    </label>
-  );
-}
-
-// Session 55: portrait gender toggle, sitting next to the name field. A small
-// two-button segmented control (♀ / ♂); the active side reflects the unit's
-// effective gender. Purely cosmetic in v1 — it switches the portrait variant.
-function GenderToggle({
-  value,
-  onChange,
-}: {
-  value: Gender;
-  onChange: (gender: Gender) => void;
-}): ReactElement {
-  return (
-    <div style={genderToggleStyle} role="group" aria-label="Portrait gender">
-      <button
-        type="button"
-        onClick={() => onChange('female')}
-        aria-pressed={value === 'female'}
-        title="Female portrait"
-        style={value === 'female' ? genderButtonActiveStyle : genderButtonStyle}
-      >
-        ♀
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange('male')}
-        aria-pressed={value === 'male'}
-        title="Male portrait"
-        style={value === 'male' ? genderButtonActiveStyle : genderButtonStyle}
-      >
-        ♂
-      </button>
-    </div>
-  );
-}
-
-function SliderControl({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-}): ReactElement {
-  return (
-    <label style={sliderControlStyle}>
-      <div style={sliderHeaderStyle}>
-        <span style={sliderLabelStyle}>{label}</span>
-        <span style={sliderValueStyle}>{value}</span>
-      </div>
-      <input
-        type="range"
-        min={BRAVE_FAITH_MIN}
-        max={BRAVE_FAITH_MAX}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={sliderInputStyle}
-      />
-    </label>
   );
 }
 
@@ -480,120 +344,43 @@ const mainStyle: CSSProperties = {
   minHeight: 0,
 };
 
-const editPanelStyle: CSSProperties = {
-  flex: 1,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 16,
-  padding: 18,
-  overflowY: 'auto',
-};
-
-const editHeaderStyle: CSSProperties = {
-  fontSize: 14,
-  fontWeight: 600,
-  color: '#cfd2da',
-};
-
-const braveFaithRowStyle: CSSProperties = {
-  display: 'flex',
-  gap: 16,
-};
-
-const twoColumnStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 20,
-  alignItems: 'start',
-};
-
-const sliderControlStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-  flex: 1,
-};
-
-const sliderHeaderStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-};
-
-const sliderLabelStyle: CSSProperties = {
-  fontSize: 11,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-  opacity: 0.55,
-};
-
-const sliderValueStyle: CSSProperties = {
-  fontSize: 12,
-  fontWeight: 600,
-  fontVariantNumeric: 'tabular-nums',
-};
-
-const sliderInputStyle: CSSProperties = {
-  width: '100%',
-};
-
-// Row holding the (now narrower) name field plus the gender toggle (S55).
-const nameGenderRowStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-};
-
-const nameRowStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  // Grow within the name+gender row, leaving the toggle its intrinsic width.
+// The central column holds the unit card and the inspector region. It
+// scrolls independently of the lineup; the card is centered with a cap
+// so it reads as a single object rather than stretching edge-to-edge
+// (Chris's target: roughly 0.8 view-width, with the lineup taking the
+// rest).
+const centerColumnStyle: CSSProperties = {
   flex: 1,
   minWidth: 0,
-};
-
-const genderToggleStyle: CSSProperties = {
+  overflowY: 'auto',
   display: 'flex',
-  flexShrink: 0,
-  border: '1px solid #2c2f36',
-  borderRadius: 4,
-  overflow: 'hidden',
+  justifyContent: 'center',
+  padding: 20,
 };
 
-const genderButtonStyle: CSSProperties = {
-  padding: '6px 10px',
-  fontSize: 15,
-  lineHeight: 1,
-  background: '#1c1e23',
-  color: '#9aa0aa',
-  border: 'none',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
+const cardSlotStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 14,
+  width: '100%',
+  maxWidth: 960,
 };
 
-const genderButtonActiveStyle: CSSProperties = {
-  ...genderButtonStyle,
-  background: '#3a6ea5',
-  color: '#ffffff',
+const inspectorStyle: CSSProperties = {
+  minHeight: 96,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'rgba(22, 24, 29, 0.9)',
+  border: '1px dashed #2c2f36',
+  borderRadius: 10,
+  padding: 16,
 };
 
-const nameLabelStyle: CSSProperties = {
-  fontSize: 11,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-  opacity: 0.55,
-  flexShrink: 0,
-};
-
-const nameInputStyle: CSSProperties = {
-  flex: 1,
-  padding: '6px 10px',
-  fontSize: 13,
-  background: '#1c1e23',
-  color: '#e7e9ee',
-  border: '1px solid #2c2f36',
-  borderRadius: 4,
-  fontFamily: 'inherit',
+const inspectorHintStyle: CSSProperties = {
+  fontSize: 12,
+  fontStyle: 'italic',
+  opacity: 0.45,
 };
 
 const footerStyle: CSSProperties = {

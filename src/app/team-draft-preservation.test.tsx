@@ -5,8 +5,12 @@
 // (a) return-to-title and (b) battle start (deployment commit).
 //
 // Driven by the `Load Default…` select — the simplest mutation surface
-// in the team builder that puts known classes onto every unit and
-// becomes visible in the "Editing Unit N — <ClassName>" header.
+// in the team builder that puts known classes onto every unit. The
+// focused unit's class surfaces on the central unit card: a classless
+// slot shows the "Choose a class" picker mode, while a class-bearing
+// slot shows its chip + role tagline (e.g. the Assassin's "Swift
+// debilitating skirmisher"). The tagline renders only on the selected
+// card, not the lineup, so it's a clean probe for the focused unit.
 
 import { describe, expect, it } from 'vitest';
 import { act } from 'react';
@@ -59,15 +63,19 @@ describe('Session 37 — team-build draft preservation', () => {
 
     gotoTeamBuilder(container);
 
-    // Fresh draft — no class on Unit 1.
-    expect(container.textContent).toContain('Editing Unit 1');
-    expect(container.textContent).not.toContain('Editing Unit 1 — Assassin');
+    // Fresh draft — no class on the focused Unit 1 (card in pick mode).
+    // The pick-mode grid lists every class's tagline, so probe the card
+    // state instead: classless shows "Choose a class" and offers no
+    // "Change class" chip control (the latter only appears once a class
+    // is set).
+    expect(container.textContent).toContain('Choose a class');
+    expect(container.textContent).not.toContain('Change class');
 
     // Load the Gravity Well template — Unit 1 is the Assassin.
     act(() => {
       selectOption(findSelect(container), 'gravity-well');
     });
-    expect(container.textContent).toContain('Editing Unit 1 — Assassin');
+    expect(container.textContent).toContain('Swift debilitating skirmisher');
 
     // Back to Setup, then forward into Team Builder again.
     act(() => {
@@ -77,8 +85,8 @@ describe('Session 37 — team-build draft preservation', () => {
       findButton(container, 'Start River Ridge').click();
     });
 
-    // The draft was preserved — Unit 1 is still the Knight.
-    expect(container.textContent).toContain('Editing Unit 1 — Assassin');
+    // The draft was preserved — Unit 1 is still the Assassin.
+    expect(container.textContent).toContain('Swift debilitating skirmisher');
 
     act(() => root.unmount());
     container.remove();
@@ -96,7 +104,7 @@ describe('Session 37 — team-build draft preservation', () => {
     act(() => {
       selectOption(findSelect(container), 'gravity-well');
     });
-    expect(container.textContent).toContain('Editing Unit 1 — Assassin');
+    expect(container.textContent).toContain('Swift debilitating skirmisher');
 
     // Back to Setup, then Back (to Title).
     act(() => {
@@ -110,8 +118,8 @@ describe('Session 37 — team-build draft preservation', () => {
 
     // Forward again to a fresh Team Builder.
     gotoTeamBuilder(container);
-    expect(container.textContent).toContain('Editing Unit 1');
-    expect(container.textContent).not.toContain('Editing Unit 1 — Assassin');
+    expect(container.textContent).toContain('Choose a class');
+    expect(container.textContent).not.toContain('Change class');
 
     act(() => root.unmount());
     container.remove();
