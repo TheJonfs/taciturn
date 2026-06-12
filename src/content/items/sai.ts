@@ -28,6 +28,7 @@ export const sai: WeaponEquipment = {
   name: 'Sai',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'knife',
   wp: 4,
   accuracy: 95,
   tags: ['knife'],

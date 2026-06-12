@@ -31,6 +31,10 @@ import type { TeamBuilder } from './use-team-builder.ts';
 import { classTagline, TeamBuilderClassPicker } from './team-builder-class-picker.tsx';
 import { TeamBuilderEquipmentSlots } from './team-builder-equipment-slots.tsx';
 import { TeamBuilderAbilityPicker } from './team-builder-ability-picker.tsx';
+import {
+  TeamBuilderInspector,
+  type InspectorFocus,
+} from './team-builder-inspector.tsx';
 
 export interface TeamBuilderUnitCardProps {
   readonly builder: TeamBuilder;
@@ -56,8 +60,13 @@ export function TeamBuilderUnitCard({
   // for a still-classless slot (you must pick before anything else is
   // meaningful). Collapses on pick or when switching to another unit.
   const [changingClass, setChangingClass] = useState(false);
+  // What the context inspector is showing — driven by hover in the
+  // equipment picker / abilities accordion below. Cleared when switching
+  // units (the old focus refers to a different unit's loadout).
+  const [focus, setFocus] = useState<InspectorFocus | null>(null);
   useEffect(() => {
     setChangingClass(false);
+    setFocus(null);
   }, [selectedIndex]);
 
   const hasClass = selectedUnit.classId !== null;
@@ -75,7 +84,8 @@ export function TeamBuilderUnitCard({
     classId !== null ? portraitUrlFor(classId, selectedUnit.gender) : null;
 
   return (
-    <div style={cardStyle}>
+    <>
+      <div style={cardStyle}>
       <div style={headerRowStyle}>
         <div style={portraitWrapStyle}>
           {portraitUrl !== null ? (
@@ -173,11 +183,14 @@ export function TeamBuilderUnitCard({
         </div>
       ) : (
         <div style={bodyRowStyle}>
-          <TeamBuilderEquipmentSlots builder={builder} catalog={catalog} />
-          <TeamBuilderAbilityPicker builder={builder} catalog={catalog} />
+          <TeamBuilderEquipmentSlots builder={builder} catalog={catalog} onFocus={setFocus} />
+          <TeamBuilderAbilityPicker builder={builder} catalog={catalog} onFocus={setFocus} />
         </div>
       )}
-    </div>
+      </div>
+
+      <TeamBuilderInspector focus={classMode ? null : focus} builder={builder} catalog={catalog} />
+    </>
   );
 }
 

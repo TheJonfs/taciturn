@@ -21,6 +21,7 @@ export const longbow: WeaponEquipment = {
   name: 'Longbow',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'bow',
   wp: 7,
   accuracy: 33,
   tags: ['bow'],

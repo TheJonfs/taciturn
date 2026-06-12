@@ -40,6 +40,7 @@ export {
   type TargetingSpec,
   type WeaponEquipment,
   type WeaponPhysicalVariance,
+  type WeaponType,
   type WorldcraftEffectSpec,
   type WorldcraftElevationDelta,
 } from './definitions/index.ts';

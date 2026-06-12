@@ -19,6 +19,7 @@ export const lance: WeaponEquipment = {
   name: 'Lance',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'polearm',
   wp: 10,
   accuracy: 95,
   tags: ['lance'],

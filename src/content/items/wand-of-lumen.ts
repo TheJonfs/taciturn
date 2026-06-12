@@ -27,6 +27,7 @@ export const wandOfLumen: WeaponEquipment = {
   name: 'Wand of Lumen',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'wand',
   wp: 2,
   accuracy: 90,
   tags: ['wand'],

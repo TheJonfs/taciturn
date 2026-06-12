@@ -19,6 +19,7 @@ export const riptideBow: WeaponEquipment = {
   name: 'Riptide Bow',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'bow',
   wp: 5,
   accuracy: 33,
   tags: ['bow', 'water'],

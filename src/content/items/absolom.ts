@@ -38,6 +38,7 @@ export const absolom: WeaponEquipment = {
   name: 'Absolom',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'knight_sword',
   wp: 13,
   accuracy: 95,
   tags: ['sword'],

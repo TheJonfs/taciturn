@@ -323,8 +323,36 @@ export type WeaponPhysicalVariance =
   | { readonly kind: 'attacker_brave'; readonly spread: number }
   | { readonly kind: 'height_delta'; readonly falloffPerHeight: number };
 
+// A weapon's mechanical class — its family. Each class behaves
+// differently (the variance arms above are authored per-class: knives
+// use `attacker_speed`, bows `height_delta`, knight swords
+// `attacker_brave`; bows/knight swords are two-handed; polearms pierce).
+// The team-builder equipment picker groups and sorts candidates by this
+// field. Distinct from the damage `tags` array (which drives tag
+// composition): `'knight_sword'` can't be derived from tags alone —
+// regular swords and knight swords both tag `'sword'` — so the class is
+// declared explicitly. Axes and hammers share one class.
+export type WeaponType =
+  | 'sword'
+  | 'knife'
+  | 'knight_sword'
+  | 'axe' // axes and hammers
+  | 'polearm' // spears and lances
+  | 'bow'
+  | 'wand'
+  | 'staff';
+
 export interface WeaponEquipment extends EquipmentBase {
   readonly kind: 'weapon';
+  // The weapon's mechanical class (see `WeaponType`). Read by the
+  // team-builder equipment picker for grouping/sorting. Optional at the
+  // type level so the engine's throwaway test-fixture weapons (which
+  // never reach the picker) don't have to carry it — but every *real*
+  // content weapon declares it, and a loader test enforces that
+  // (`every available weapon has a weaponType`). The picker buckets a
+  // missing value under an "Other" group, so an unclassified weapon
+  // surfaces loudly rather than vanishing.
+  readonly weaponType?: WeaponType;
   // Weapon power — fed into the physical base stage formula
   // (`PA × WP × power_coefficient`) per ADR-0028. The first physical
   // damage handler reads this value when the action's attacker has a

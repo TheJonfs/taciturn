@@ -36,6 +36,7 @@ import {
   type ClassId,
   type Gender,
   type CommandSetId,
+  type EquipmentDefinition,
   type EquipmentSlotId,
   type ItemDefinition,
   type ItemId,
@@ -44,6 +45,7 @@ import {
   type UnitEquipment,
   type UnitPlacement,
 } from '@engine/index.ts';
+import { items } from '@content/index.ts';
 import {
   buildBaseStats,
   slotLevelFor,
@@ -799,8 +801,13 @@ function isTwoHandedConflict(unit: DraftUnit, catalog: Catalog): boolean {
   return false;
 }
 
-// True when any equipped passive declares `relaxesTwoHandedGrip` (Monkeygrip).
-function unitGrantsTwoHandedGrip(unit: DraftUnit, catalog: Catalog): boolean {
+// True when any equipped passive declares `relaxesTwoHandedGrip`
+// (Monkeygrip) — a two-hander may then share a hand with an off-hand
+// item. Mirrors the engine's `validateEquipmentPlacement` (ADR-0100).
+// Exported as the single UI-side source: the validity checker, the
+// equipment picker, and `equipmentOptionsForSlot` all read it (the old
+// per-component copies are gone).
+export function unitGrantsTwoHandedGrip(unit: DraftUnit, catalog: Catalog): boolean {
   for (const abilityIds of Object.values(unit.loadout.passiveBuckets)) {
     for (const aid of abilityIds) {
       const ability = catalog.getAbility(aid);
@@ -813,8 +820,10 @@ function unitGrantsTwoHandedGrip(unit: DraftUnit, catalog: Catalog): boolean {
 }
 
 // True when any equipped passive registers a `modifyDualWield` hook
-// (Two Weapons). Mirrors the equipment picker's gate.
-function unitGrantsDualWield(unit: DraftUnit, catalog: Catalog): boolean {
+// (Two Weapons) — both hands may then hold a weapon. Content-agnostic
+// (no hard-coded id). The single UI-side source, shared by the validity
+// checker, the picker, and `equipmentOptionsForSlot`.
+export function unitGrantsDualWield(unit: DraftUnit, catalog: Catalog): boolean {
   for (const abilityIds of Object.values(unit.loadout.passiveBuckets)) {
     for (const aid of abilityIds) {
       const ability = catalog.getAbility(aid);
@@ -824,6 +833,69 @@ function unitGrantsDualWield(unit: DraftUnit, catalog: Catalog): boolean {
     }
   }
   return false;
+}
+
+// All equipment the picker can ever offer: available, equippable items
+// (consumables and hidden items excluded). `classCanEquip` narrows
+// further per slot/class at enumeration time.
+const AVAILABLE_EQUIPMENT: ReadonlyArray<EquipmentDefinition> = items.filter(
+  (item): item is EquipmentDefinition =>
+    isEquipment(item) && item.availability === 'available',
+);
+
+// The legal equipment options for one slot of one unit — the picker's
+// candidate list. Encapsulates every gate the old per-slot dropdown
+// applied inline: class eligibility, unique-per-team (an item equipped
+// anywhere on the team is dropped, except this slot's own current item,
+// which stays selectable), the two-handed off-hand lock (relaxed by
+// Monkeygrip), and the dual-wield off-hand gate (lifted by Two Weapons).
+// Mirrors the engine's `validateEquipmentPlacement`; the new grouped
+// picker and any future caller read this one function instead of
+// re-deriving the rules. Returns creation order; the picker sorts.
+export function equipmentOptionsForSlot(
+  state: TeamBuilderState,
+  unit: DraftUnit,
+  slot: EquipmentSlotId,
+  catalog: Catalog,
+): ReadonlyArray<EquipmentDefinition> {
+  const classId = unit.classId;
+  if (classId === null) return [];
+
+  const dualWieldEnabled = unitGrantsDualWield(unit, catalog);
+  const gripRelaxed = unitGrantsTwoHandedGrip(unit, catalog);
+  const currentItemId = unit.equipment[slot];
+
+  // Every item equipped anywhere on the team (unique-per-team pool).
+  const usedByOthers = new Set<ItemId>();
+  for (const u of state.units) {
+    for (const s of EQUIPMENT_SLOT_IDS) {
+      const id = u.equipment[s];
+      if (id !== null) usedByOthers.add(id);
+    }
+  }
+
+  // The off-hand's contents gate this hand (two-handed lock / dual-wield).
+  const otherHand: EquipmentSlotId | null =
+    slot === 'leftHand' ? 'rightHand' : slot === 'rightHand' ? 'leftHand' : null;
+  const otherHandItemId = otherHand !== null ? unit.equipment[otherHand] : null;
+  const otherHandItem =
+    otherHandItemId !== null ? catalog.getItem(otherHandItemId) : null;
+  const otherHandHasWeapon = otherHandItem?.kind === 'weapon';
+  const otherHandTwoHanded =
+    otherHandItem?.kind === 'weapon' && otherHandItem.twoHanded === true;
+
+  return AVAILABLE_EQUIPMENT.filter((item) => {
+    if (!classCanEquip(classId, slot, item, catalog)) return false;
+    // Keep the slot's current item; drop anything used elsewhere.
+    if (item.id === currentItemId) return true;
+    if (usedByOthers.has(item.id)) return false;
+    // Two-handed off-hand lock — nothing fits beside a two-hander unless
+    // Monkeygrip relaxes it.
+    if (otherHandTwoHanded && !gripRelaxed) return false;
+    // Dual-wield gate — no second weapon for the off-hand without Two Weapons.
+    if (otherHandHasWeapon && item.kind === 'weapon' && !dualWieldEnabled) return false;
+    return true;
+  });
 }
 
 // Items appearing on more than one unit — the unique-per-team rule's

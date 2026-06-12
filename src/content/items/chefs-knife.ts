@@ -23,6 +23,7 @@ export const chefsKnife: WeaponEquipment = {
   name: "Chef's Knife",
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'knife',
   wp: 4,
   accuracy: 95,
   tags: ['knife'],

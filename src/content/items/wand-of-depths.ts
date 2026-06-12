@@ -32,6 +32,7 @@ export const wandOfDepths: WeaponEquipment = {
   name: 'Wand of the Depths',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'wand',
   wp: 2,
   accuracy: 90,
   tags: ['wand'],

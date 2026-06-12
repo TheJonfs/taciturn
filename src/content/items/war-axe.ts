@@ -21,6 +21,7 @@ export const warAxe: WeaponEquipment = {
   name: 'War Axe',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'axe',
   wp: 12,
   accuracy: 75,
   tags: ['axe'],

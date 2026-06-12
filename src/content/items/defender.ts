@@ -27,6 +27,7 @@ export const defender: WeaponEquipment = {
   name: 'Defender',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'knight_sword',
   wp: 11,
   accuracy: 95,
   tags: ['sword'],

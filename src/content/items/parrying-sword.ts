@@ -21,6 +21,7 @@ export const parryingSword: WeaponEquipment = {
   name: 'Parrying Sword',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'sword',
   wp: 6,
   accuracy: 95,
   tags: ['sword'],

@@ -146,7 +146,6 @@ export function TeamBuilderScreen({
         <div style={centerColumnStyle}>
           <div style={cardSlotStyle}>
             <TeamBuilderUnitCard builder={builder} catalog={catalog} />
-            <InspectorPlaceholder />
           </div>
         </div>
       </div>
@@ -164,23 +163,6 @@ export function TeamBuilderScreen({
           onClose={() => setExportOpen(false)}
         />
       )}
-    </div>
-  );
-}
-
-// ---- inspector region ----
-
-// The context inspector sits below the card and (in Pass 2) tracks the
-// hovered equipment candidate or ability — showing full detail plus the
-// delta-vs-equipped / budget-fit. Pass 1 reserves the region with a
-// neutral placeholder so the layout doesn't reflow when the live
-// inspector swaps in next pass.
-function InspectorPlaceholder(): ReactElement {
-  return (
-    <div style={inspectorStyle}>
-      <span style={inspectorHintStyle}>
-        Hover an ability or a piece of equipment to inspect it here.
-      </span>
     </div>
   );
 }
@@ -364,23 +346,6 @@ const cardSlotStyle: CSSProperties = {
   gap: 14,
   width: '100%',
   maxWidth: 960,
-};
-
-const inspectorStyle: CSSProperties = {
-  minHeight: 96,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'rgba(22, 24, 29, 0.9)',
-  border: '1px dashed #2c2f36',
-  borderRadius: 10,
-  padding: 16,
-};
-
-const inspectorHintStyle: CSSProperties = {
-  fontSize: 12,
-  fontStyle: 'italic',
-  opacity: 0.45,
 };
 
 const footerStyle: CSSProperties = {

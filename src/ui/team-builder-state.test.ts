@@ -38,6 +38,7 @@ import {
   setUnitName,
   setUnitGender,
   slotLevel,
+  equipmentOptionsForSlot,
   teamBuilderStateFromBuiltTeam,
   teamBuilderStateToBuiltTeam,
   togglePassive,
@@ -525,5 +526,48 @@ describe('team builder state — slot level (Pass 1 lineup/card)', () => {
     expect(slotLevel(s, 1)).toBe(25); // first filled → captain
     expect(slotLevel(s, 2)).toBeNull(); // empty slot → no level
     expect(slotLevel(s, 3)).toBe(24); // second filled → L24
+  });
+});
+
+describe('team builder state — equipmentOptionsForSlot (Pass 2 picker)', () => {
+  it('offers only class-eligible equipment for the slot', () => {
+    let s = createEmptyTeamBuilderState();
+    s = setClass(s, 0, classId('knight'), catalog);
+    const unit = s.units[0]!;
+    const options = equipmentOptionsForSlot(s, unit, 'rightHand', catalog);
+    const ids = options.map((i) => String(i.id));
+    // The Knight's signature weapon is offered…
+    expect(ids).toContain('long_sword');
+    // …every option is a hand-slot item (weapon or shield)…
+    expect(options.every((i) => i.kind === 'weapon' || i.kind === 'shield')).toBe(true);
+    // …and consumables / armor / headgear never leak into the hand.
+    expect(ids).not.toContain('potion');
+    expect(ids).not.toContain('iron_mail');
+    expect(ids).not.toContain('iron_helm');
+  });
+
+  it('excludes an item already equipped on another unit (unique-per-team)', () => {
+    let s = createEmptyTeamBuilderState();
+    s = setClass(s, 0, classId('knight'), catalog);
+    s = setClass(s, 1, classId('knight'), catalog);
+    // Unit 1 takes the Long Sword; it must drop out of unit 0's options.
+    s = setEquipment(s, 1, 'rightHand', itemId('long_sword'), catalog);
+    const options = equipmentOptionsForSlot(s, s.units[0]!, 'rightHand', catalog);
+    expect(options.map((i) => String(i.id))).not.toContain('long_sword');
+  });
+
+  it('locks the off-hand shut behind a two-handed weapon (no Monkeygrip)', () => {
+    let s = createEmptyTeamBuilderState();
+    s = setClass(s, 0, classId('knight'), catalog);
+    // Equip a two-handed weapon (Absolom, a knight sword) in the right hand.
+    s = setEquipment(s, 0, 'rightHand', itemId('absolom'), catalog);
+    // Without Monkeygrip the left hand takes nothing.
+    const left = equipmentOptionsForSlot(s, s.units[0]!, 'leftHand', catalog);
+    expect(left).toHaveLength(0);
+  });
+
+  it('returns nothing for a classless slot', () => {
+    const s = createEmptyTeamBuilderState();
+    expect(equipmentOptionsForSlot(s, s.units[0]!, 'rightHand', catalog)).toHaveLength(0);
   });
 });

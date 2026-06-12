@@ -17,6 +17,7 @@ export const impHalberd: WeaponEquipment = {
   name: 'Imp Halberd',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'polearm',
   wp: 8,
   accuracy: 95,
   tags: ['lance'],

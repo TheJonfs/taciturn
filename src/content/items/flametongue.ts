@@ -19,6 +19,7 @@ export const flametongue: WeaponEquipment = {
   name: 'Flametongue',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'sword',
   wp: 6,
   accuracy: 90,
   tags: ['sword', 'fire'],

@@ -30,6 +30,7 @@ export const boltHammer: WeaponEquipment = {
   name: 'Bolt Hammer',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'axe',
   wp: 10,
   accuracy: 75,
   tags: ['axe'],

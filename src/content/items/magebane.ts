@@ -30,6 +30,7 @@ export const magebane: WeaponEquipment = {
   name: 'Magebane',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'knife',
   wp: 5,
   accuracy: 95,
   tags: ['knife'],

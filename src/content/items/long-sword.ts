@@ -23,6 +23,7 @@ export const longSword: WeaponEquipment = {
   name: 'Long Sword',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'sword',
   wp: 8,
   accuracy: 95,
   tags: ['sword'],

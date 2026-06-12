@@ -17,6 +17,7 @@ export const wandOfDeepwood: WeaponEquipment = {
   name: 'Wand of the Deepwood',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'wand',
   wp: 2,
   accuracy: 90,
   tags: ['wand'],

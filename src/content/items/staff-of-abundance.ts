@@ -17,6 +17,7 @@ export const staffOfAbundance: WeaponEquipment = {
   name: 'Staff of Abundance',
   availability: 'available',
   kind: 'weapon',
+  weaponType: 'staff',
   wp: 4,
   accuracy: 80,
   tags: ['staff'],

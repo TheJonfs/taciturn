@@ -1,17 +1,16 @@
-// TeamBuilderAbilityPicker — ability + secondary-command-set selection
-// for the unit being edited (plan decision 6).
+// TeamBuilderAbilityPicker — the abilities region of the unit card
+// (Pass 2 redesign). An accordion over the four budgeted categories
+// (Command sets / Reaction / Support / Movement): one category open at a
+// time to its full hoverable list; the rest collapse to a summary line
+// showing the picks + the budget meter. Selection is budgeted
+// multi-select (unchanged); hovering an option routes it to the context
+// inspector, which shows the effect + how the cost fits the remaining
+// budget.
 //
-// Class-default passives show as "Free" and are locked (they come with
-// the class). Cross-class passives and secondary command sets cost
-// budget; each section shows a live used/capacity indicator that
-// reflects equipment (Steel Helm / Augmentor / Magus Crown) as gear
-// changes. An option that would overflow its bucket is disabled.
-//
-// First Action is class-pinned and never appears here — only the
-// Reaction / Support / Movement passive buckets and the
-// secondary-command-set bucket are player-editable.
+// Class-default passives show as "free" and are locked (they come with
+// the class). First Action is class-pinned and never appears here.
 
-import type { CSSProperties, ReactElement } from 'react';
+import { useState, type CSSProperties, type ReactElement } from 'react';
 import {
   BUCKET_MOVEMENT,
   BUCKET_REACTION,
@@ -23,39 +22,46 @@ import {
   type CommandSetId,
 } from '@engine/index.ts';
 import { abilities, commandSets } from '@content/index.ts';
-import { DetailHover } from './detail-hover.tsx';
-import {
-  formatAbilityDetail,
-  formatCommandSetDetail,
-  type DetailContent,
-} from './detail-text.ts';
 import {
   draftAbilityCost,
   draftBucketUsage,
   draftCommandSetCost,
+  type BucketUsage,
 } from './team-builder-state.ts';
 import type { TeamBuilder } from './use-team-builder.ts';
+import type { SetInspectorFocus } from './team-builder-inspector.tsx';
+import { Icon, type IconName } from './team-builder-icons.tsx';
 
-const PASSIVE_BUCKETS: ReadonlyArray<{ id: BucketId; label: string }> = [
-  { id: BUCKET_REACTION, label: 'Reaction' },
-  { id: BUCKET_SUPPORT, label: 'Support' },
-  { id: BUCKET_MOVEMENT, label: 'Movement' },
+interface Category {
+  readonly id: BucketId;
+  readonly label: string;
+  readonly icon: IconName;
+  readonly kind: 'commandSet' | 'passive';
+}
+
+const CATEGORIES: ReadonlyArray<Category> = [
+  { id: BUCKET_SECONDARY_COMMAND_SETS, label: 'Command sets', icon: 'command-set', kind: 'commandSet' },
+  { id: BUCKET_REACTION, label: 'Reaction', icon: 'reaction', kind: 'passive' },
+  { id: BUCKET_SUPPORT, label: 'Support', icon: 'support', kind: 'passive' },
+  { id: BUCKET_MOVEMENT, label: 'Movement', icon: 'movement', kind: 'passive' },
 ];
 
 export interface TeamBuilderAbilityPickerProps {
   readonly builder: TeamBuilder;
   readonly catalog: Catalog;
+  readonly onFocus: SetInspectorFocus;
 }
 
 export function TeamBuilderAbilityPicker({
   builder,
   catalog,
+  onFocus,
 }: TeamBuilderAbilityPickerProps): ReactElement {
-  const { selectedIndex, selectedUnit, rulesetId, togglePassive, toggleSecondaryCommandSet } =
-    builder;
-  const classId = selectedUnit.classId;
+  // One category open at a time (null = all collapsed); the most
+  // build-defining (the secondary command set) opens by default.
+  const [open, setOpen] = useState<BucketId | null>(BUCKET_SECONDARY_COMMAND_SETS);
 
-  if (classId === null) {
+  if (builder.selectedUnit.classId === null) {
     return (
       <div style={rootStyle}>
         <div style={sectionLabelStyle}>Abilities</div>
@@ -64,163 +70,209 @@ export function TeamBuilderAbilityPicker({
     );
   }
 
-  const classDef = catalog.getClass(classId);
-
-  // Secondary Command Sets section — surfaced first per S38 follow-up.
-  // The cross-class secondary is the most build-defining ability slot
-  // (Knight + Earth Spells, Earth Mage + Water Spells, etc.) and the
-  // capacity it consumes is the smallest, so the player wants to set
-  // it before sizing R/S/M passives against the remaining budget.
-  const secondaryUsage = draftBucketUsage(
-    selectedUnit,
-    BUCKET_SECONDARY_COMMAND_SETS,
-    catalog,
-    rulesetId,
-  );
-  const secondaryEquipped =
-    selectedUnit.loadout.actionBuckets[BUCKET_SECONDARY_COMMAND_SETS] ?? [];
-
   return (
     <div style={rootStyle}>
       <div style={sectionLabelStyle}>Abilities</div>
-
-      <div style={bucketSectionStyle}>
-        <BucketHeader label="Secondary Command Sets" usage={secondaryUsage} />
-        {commandSets
-          .filter(
-            (cs) =>
-              cs.availability === 'available' &&
-              cs.id !== classDef.firstActionCommandSet,
-          )
-          .map((cs) => {
-            const isEquipped = secondaryEquipped.includes(cs.id);
-            const cost = draftCommandSetCost(cs.id, catalog);
-            const wouldOverflow =
-              !isEquipped && secondaryUsage.used + cost > secondaryUsage.capacity;
-            return (
-              <OptionRow
-                key={String(cs.id)}
-                name={cs.name}
-                isFree={false}
-                isEquipped={isEquipped}
-                cost={cost}
-                disabled={wouldOverflow}
-                detail={formatCommandSetDetail(cs, catalog)}
-                onToggle={() =>
-                  toggleSecondaryCommandSet(selectedIndex, cs.id as CommandSetId)
-                }
-              />
-            );
-          })}
-      </div>
-
-      {PASSIVE_BUCKETS.map(({ id: bucketId, label }) => {
-        const usage = draftBucketUsage(selectedUnit, bucketId, catalog, rulesetId);
-        const equipped = selectedUnit.loadout.passiveBuckets[bucketId] ?? [];
-        const bucketAbilities = abilities.filter(
-          (ability) =>
-            ability.kind === 'passive' &&
-            ability.bucket === bucketId &&
-            ability.availability === 'available',
-        );
-        return (
-          <div key={String(bucketId)} style={bucketSectionStyle}>
-            <BucketHeader label={label} usage={usage} />
-            {bucketAbilities.map((ability) => {
-              const isFree = classDef.freeAbilities.has(ability.id);
-              const isEquipped = equipped.includes(ability.id);
-              const cost = draftAbilityCost(classId, ability.id, catalog);
-              // Class defaults are locked on; cross-class options are
-              // disabled when adding them would overflow the bucket.
-              const wouldOverflow =
-                !isEquipped && usage.used + cost > usage.capacity;
-              return (
-                <OptionRow
-                  key={String(ability.id)}
-                  name={ability.name}
-                  isFree={isFree}
-                  isEquipped={isEquipped || isFree}
-                  cost={cost}
-                  disabled={isFree || wouldOverflow}
-                  detail={formatAbilityDetail(ability, catalog)}
-                  onToggle={() =>
-                    togglePassive(selectedIndex, bucketId, ability.id as AbilityId)
-                  }
-                />
-              );
-            })}
-          </div>
-        );
-      })}
+      {CATEGORIES.map((cat) => (
+        <CategorySection
+          key={String(cat.id)}
+          category={cat}
+          isOpen={open === cat.id}
+          onToggle={() => setOpen((cur) => (cur === cat.id ? null : cat.id))}
+          builder={builder}
+          catalog={catalog}
+          onFocus={onFocus}
+        />
+      ))}
     </div>
   );
 }
 
-function BucketHeader({
-  label,
-  usage,
+function CategorySection({
+  category,
+  isOpen,
+  onToggle,
+  builder,
+  catalog,
+  onFocus,
 }: {
-  label: string;
-  usage: { used: number; capacity: number };
+  category: Category;
+  isOpen: boolean;
+  onToggle: () => void;
+  builder: TeamBuilder;
+  catalog: Catalog;
+  onFocus: SetInspectorFocus;
 }): ReactElement {
+  const { selectedIndex, selectedUnit, rulesetId, togglePassive, toggleSecondaryCommandSet } =
+    builder;
+  const classId = selectedUnit.classId!;
+  const classDef = catalog.getClass(classId);
+  const usage = draftBucketUsage(selectedUnit, category.id, catalog, rulesetId);
+
+  // The equipped picks in this category (for the collapsed summary).
+  const equippedNames: string[] =
+    category.kind === 'commandSet'
+      ? (selectedUnit.loadout.actionBuckets[BUCKET_SECONDARY_COMMAND_SETS] ?? []).map((id) =>
+          catalog.getCommandSet(id).name,
+        )
+      : (selectedUnit.loadout.passiveBuckets[category.id] ?? []).map((id) =>
+          catalog.getAbility(id).name,
+        );
+
+  return (
+    <div style={isOpen ? sectionOpenStyle : sectionStyle}>
+      <button type="button" style={headerStyle} onClick={onToggle}>
+        <Icon name={category.icon} size={15} style={{ opacity: 0.8 }} />
+        <span style={headerLabelStyle}>{category.label}</span>
+        {!isOpen && equippedNames.length > 0 && (
+          <span style={summaryStyle}>· {equippedNames.join(', ')}</span>
+        )}
+        <BudgetMeter usage={usage} />
+        <Icon
+          name={isOpen ? 'chevron-up' : 'chevron-down'}
+          size={13}
+          style={{ opacity: 0.4 }}
+        />
+      </button>
+
+      {isOpen && (
+        <div style={optionListStyle}>
+          {category.kind === 'commandSet'
+            ? commandSets
+                .filter(
+                  (cs) =>
+                    cs.availability === 'available' &&
+                    cs.id !== classDef.firstActionCommandSet,
+                )
+                .map((cs) => {
+                  const isEquipped = (
+                    selectedUnit.loadout.actionBuckets[BUCKET_SECONDARY_COMMAND_SETS] ?? []
+                  ).includes(cs.id);
+                  const cost = draftCommandSetCost(cs.id, catalog);
+                  const wouldOverflow =
+                    !isEquipped && usage.used + cost > usage.capacity;
+                  return (
+                    <OptionRow
+                      key={String(cs.id)}
+                      name={cs.name}
+                      cost={cost}
+                      isFree={false}
+                      isEquipped={isEquipped}
+                      disabled={wouldOverflow}
+                      onToggle={() =>
+                        toggleSecondaryCommandSet(selectedIndex, cs.id as CommandSetId)
+                      }
+                      onFocus={() => onFocus({ kind: 'commandSet', commandSetId: cs.id })}
+                      onBlurFocus={() => onFocus(null)}
+                    />
+                  );
+                })
+            : abilities
+                .filter(
+                  (ability) =>
+                    ability.kind === 'passive' &&
+                    ability.bucket === category.id &&
+                    ability.availability === 'available',
+                )
+                .map((ability) => {
+                  const isFree = classDef.freeAbilities.has(ability.id);
+                  const isEquipped =
+                    (selectedUnit.loadout.passiveBuckets[category.id] ?? []).includes(
+                      ability.id,
+                    ) || isFree;
+                  const cost = draftAbilityCost(classId, ability.id, catalog);
+                  const wouldOverflow =
+                    !isEquipped && usage.used + cost > usage.capacity;
+                  return (
+                    <OptionRow
+                      key={String(ability.id)}
+                      name={ability.name}
+                      cost={cost}
+                      isFree={isFree}
+                      isEquipped={isEquipped}
+                      disabled={isFree || wouldOverflow}
+                      onToggle={() =>
+                        togglePassive(selectedIndex, category.id, ability.id as AbilityId)
+                      }
+                      onFocus={() =>
+                        onFocus({
+                          kind: 'ability',
+                          bucketId: category.id,
+                          abilityId: ability.id,
+                        })
+                      }
+                      onBlurFocus={() => onFocus(null)}
+                    />
+                  );
+                })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BudgetMeter({ usage }: { usage: BucketUsage }): ReactElement {
   const over = usage.used > usage.capacity;
   return (
-    <div style={bucketHeaderStyle}>
-      <span style={bucketLabelStyle}>{label}</span>
-      <span style={{ ...budgetStyle, ...(over ? budgetOverStyle : {}) }}>
-        {usage.used} / {usage.capacity}
-      </span>
-    </div>
+    <span style={{ ...meterStyle, ...(over ? meterOverStyle : {}) }}>
+      {usage.used} / {usage.capacity}
+    </span>
   );
 }
 
 interface OptionRowProps {
   readonly name: string;
+  readonly cost: number;
   readonly isFree: boolean;
   readonly isEquipped: boolean;
-  readonly cost: number;
   readonly disabled: boolean;
-  // S48: optional auto-generated detail content for the hover tooltip.
-  // Passive ability picker passes `formatAbilityDetail(ability, ...)`;
-  // command-set picker passes `formatCommandSetDetail(cs, ...)`.
-  readonly detail?: DetailContent;
   readonly onToggle: () => void;
+  readonly onFocus: () => void;
+  readonly onBlurFocus: () => void;
 }
 
 function OptionRow({
   name,
+  cost,
   isFree,
   isEquipped,
-  cost,
   disabled,
-  detail,
   onToggle,
+  onFocus,
+  onBlurFocus,
 }: OptionRowProps): ReactElement {
-  const row = (
-    <label
+  return (
+    <button
+      type="button"
+      disabled={disabled && !isEquipped}
+      onClick={onToggle}
+      onMouseEnter={onFocus}
+      onMouseLeave={onBlurFocus}
+      onFocus={onFocus}
       style={{
-        ...optionRowStyle,
+        ...optionStyle,
         ...(isEquipped ? optionEquippedStyle : {}),
         ...(disabled && !isEquipped ? optionDisabledStyle : {}),
       }}
     >
-      <input
-        type="checkbox"
-        checked={isEquipped}
-        disabled={disabled}
-        onChange={onToggle}
-        style={checkboxStyle}
-      />
+      <span style={optionMarkStyle}>
+        {isEquipped ? <Icon name="check" size={13} style={{ color: '#6dc66d' }} /> : null}
+      </span>
       <span style={optionNameStyle}>{name}</span>
-      <span style={costTagStyle}>{isFree ? 'Free' : `Cost ${cost}`}</span>
-    </label>
+      <CostPips cost={cost} isFree={isFree} />
+    </button>
   );
-  if (detail === undefined) return row;
-  // S48: wrap the row in DetailHover so a player can read the ability /
-  // command-set's mechanical detail by hovering it in the builder. The
-  // tooltip renders to a portal so the label's cursor + click semantics
-  // are unaffected.
-  return <DetailHover content={detail}>{row}</DetailHover>;
+}
+
+function CostPips({ cost, isFree }: { cost: number; isFree: boolean }): ReactElement {
+  if (isFree) return <span style={freeTagStyle}>free</span>;
+  return (
+    <span style={pipsStyle} title={`Cost ${cost}`}>
+      {Array.from({ length: cost }, (_, i) => (
+        <span key={i} style={pipStyle} />
+      ))}
+    </span>
+  );
 }
 
 // ---- styles ----
@@ -228,7 +280,8 @@ function OptionRow({
 const rootStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 10,
+  gap: 6,
+  minWidth: 0,
 };
 
 const sectionLabelStyle: CSSProperties = {
@@ -244,66 +297,125 @@ const emptyHintStyle: CSSProperties = {
   fontStyle: 'italic',
 };
 
-const bucketSectionStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 3,
+const sectionStyle: CSSProperties = {
+  border: '1px solid #2c2f36',
+  borderRadius: 7,
+  background: '#191b20',
 };
 
-const bucketHeaderStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'baseline',
-  marginBottom: 2,
+const sectionOpenStyle: CSSProperties = {
+  ...sectionStyle,
+  // Full `border` shorthand (not just borderColor) so React never sees a
+  // shorthand/longhand mix when toggling open ↔ closed.
+  border: '1px solid #3a4150',
+  background: '#1c1f25',
 };
 
-const bucketLabelStyle: CSSProperties = {
+const headerStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  width: '100%',
+  padding: '8px 10px',
+  background: 'transparent',
+  border: 'none',
+  color: '#e7e9ee',
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+  textAlign: 'left',
+};
+
+const headerLabelStyle: CSSProperties = {
   fontSize: 12,
   fontWeight: 600,
-  color: '#cfd2da',
+  flexShrink: 0,
 };
 
-const budgetStyle: CSSProperties = {
+const summaryStyle: CSSProperties = {
+  fontSize: 11,
+  opacity: 0.5,
+  flex: 1,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
+const meterStyle: CSSProperties = {
+  marginLeft: 'auto',
   fontSize: 11,
   opacity: 0.7,
   fontVariantNumeric: 'tabular-nums',
+  flexShrink: 0,
 };
 
-const budgetOverStyle: CSSProperties = {
+const meterOverStyle: CSSProperties = {
   color: '#e07a7a',
   opacity: 1,
   fontWeight: 600,
 };
 
-const optionRowStyle: CSSProperties = {
+const optionListStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 1,
+  padding: '2px 6px 7px',
+};
+
+const optionStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
-  padding: '4px 6px',
-  borderRadius: 4,
+  gap: 7,
+  width: '100%',
+  padding: '5px 7px',
+  background: 'transparent',
+  border: '1px solid transparent',
+  borderRadius: 5,
+  color: '#e7e9ee',
+  fontFamily: 'inherit',
   fontSize: 12,
   cursor: 'pointer',
+  textAlign: 'left',
 };
 
 const optionEquippedStyle: CSSProperties = {
-  background: '#23252b',
+  background: '#23262d',
 };
 
 const optionDisabledStyle: CSSProperties = {
-  opacity: 0.4,
+  opacity: 0.38,
   cursor: 'not-allowed',
 };
 
-const checkboxStyle: CSSProperties = {
-  margin: 0,
+const optionMarkStyle: CSSProperties = {
+  width: 14,
+  display: 'flex',
+  flexShrink: 0,
 };
 
 const optionNameStyle: CSSProperties = {
   flex: 1,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 };
 
-const costTagStyle: CSSProperties = {
+const pipsStyle: CSSProperties = {
+  display: 'flex',
+  gap: 3,
+  alignItems: 'center',
+  flexShrink: 0,
+};
+
+const pipStyle: CSSProperties = {
+  width: 6,
+  height: 6,
+  borderRadius: '50%',
+  background: '#7e8aa0',
+};
+
+const freeTagStyle: CSSProperties = {
   fontSize: 10,
-  opacity: 0.6,
   letterSpacing: '0.04em',
+  opacity: 0.55,
+  flexShrink: 0,
 };

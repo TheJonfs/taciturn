@@ -1,5 +1,5 @@
 import { abilityId, classId, itemId, rulesetId, statusTypeId } from '@engine/index.ts';
-import { loadDefaultCatalog } from './index.ts';
+import { loadDefaultCatalog, items } from './index.ts';
 
 describe('loadDefaultCatalog', () => {
   const cat = loadDefaultCatalog();
@@ -26,6 +26,24 @@ describe('loadDefaultCatalog', () => {
   it('exposes the stub Item', () => {
     expect(cat.hasItem(itemId('long_sword'))).toBe(true);
     expect(cat.getItem(itemId('long_sword')).name).toBe('Long Sword');
+  });
+
+  // The team-builder equipment picker groups weapons by `weaponType`.
+  // The field is optional at the type level (engine test fixtures skip
+  // it), so this is the fail-loud guard for *real* content: every
+  // available weapon must declare its class or it falls into the
+  // picker's catch-all "Other" group. A new weapon that forgets the
+  // field trips this, not a silent mis-group at runtime.
+  it('every available weapon declares a weaponType', () => {
+    const unclassified = items
+      .filter(
+        (i) =>
+          i.kind === 'weapon' &&
+          i.availability === 'available' &&
+          i.weaponType === undefined,
+      )
+      .map((i) => String(i.id));
+    expect(unclassified).toEqual([]);
   });
 
   it('exposes the default Ruleset', () => {
