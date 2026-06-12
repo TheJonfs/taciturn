@@ -103,37 +103,54 @@ export function TeamBuilderUnitCard({
           {level !== null && <span style={levelPinStyle}>L{level}</span>}
         </div>
 
+        {/* Beside the portrait: three compact rows within the portrait's
+            vertical extent — (1) the customizable identity controls,
+            (2) a thin class line, (3) the full stat line. Buys back the
+            vertical space the old stacked header wasted. */}
         <div style={identityColStyle}>
-          {hasClass ? (
-            <div style={nameGenderRowStyle}>
-              <NameInput
-                value={selectedUnit.name ?? ''}
-                onChange={(v) => setUnitName(selectedIndex, v)}
-              />
-              {effectiveGender !== null && (
-                <GenderToggle
-                  value={effectiveGender}
-                  onChange={(g) => setUnitGender(selectedIndex, g)}
+          {/* Row 1 — name, Brave, Faith, gender (the editable identity). */}
+          <div style={identityRowStyle}>
+            {hasClass ? (
+              <>
+                <input
+                  type="text"
+                  value={selectedUnit.name ?? ''}
+                  maxLength={UNIT_NAME_MAX_LENGTH}
+                  placeholder="Unit name"
+                  onChange={(e) => setUnitName(selectedIndex, e.target.value)}
+                  style={nameInputStyle}
                 />
-              )}
-            </div>
-          ) : (
-            <div style={newUnitTitleStyle}>
-              New unit · slot {selectedIndex + 1}
-            </div>
-          )}
-
-          {/* Class chip + change control, shown only when a class is set
-              and the grid isn't open. In class-mode the grid section
-              below carries its own header. */}
-          {hasClass && !classMode && (
-            <div style={classChipRowStyle}>
-              <div style={classChipStyle}>
-                <span style={classChipNameStyle}>{className}</span>
-                {classId !== null && (
-                  <span style={classChipTaglineStyle}>{classTagline(classId)}</span>
+                <CompactSlider
+                  label="Brave"
+                  value={selectedUnit.brave}
+                  onChange={(v) => setBrave(selectedIndex, v)}
+                />
+                <CompactSlider
+                  label="Faith"
+                  value={selectedUnit.faith}
+                  onChange={(v) => setFaith(selectedIndex, v)}
+                />
+                {effectiveGender !== null && (
+                  <GenderToggle
+                    value={effectiveGender}
+                    onChange={(g) => setUnitGender(selectedIndex, g)}
+                  />
                 )}
-              </div>
+              </>
+            ) : (
+              <div style={newUnitTitleStyle}>New unit · slot {selectedIndex + 1}</div>
+            )}
+          </div>
+
+          {/* Row 2 — thin class line (the class is also implicit in the
+              portrait). Hidden in class-mode; the grid carries its own
+              header below. */}
+          {hasClass && !classMode && (
+            <div style={classLineStyle}>
+              <span style={classLineNameStyle}>{className}</span>
+              {classId !== null && (
+                <span style={classLineBlurbStyle}>{classTagline(classId)}</span>
+              )}
               <button
                 type="button"
                 style={changeClassButtonStyle}
@@ -143,25 +160,11 @@ export function TeamBuilderUnitCard({
               </button>
             </div>
           )}
+
+          {/* Row 3 — the full stat line, fit across the column. */}
+          {hasClass && <StatBlock stats={stats} projected={projected} />}
         </div>
       </div>
-
-      {hasClass && <StatBlock stats={stats} projected={projected} />}
-
-      {hasClass && (
-        <div style={braveFaithRowStyle}>
-          <SliderControl
-            label="Brave"
-            value={selectedUnit.brave}
-            onChange={(v) => setBrave(selectedIndex, v)}
-          />
-          <SliderControl
-            label="Faith"
-            value={selectedUnit.faith}
-            onChange={(v) => setFaith(selectedIndex, v)}
-          />
-        </div>
-      )}
 
       <div style={dividerStyle} />
 
@@ -297,28 +300,6 @@ function StatCell({
 // ---- identity controls (moved here from TeamBuilderScreen so the card
 // owns its identity section) ----
 
-function NameInput({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}): ReactElement {
-  return (
-    <label style={nameRowStyle}>
-      <span style={fieldLabelStyle}>Name</span>
-      <input
-        type="text"
-        value={value}
-        maxLength={UNIT_NAME_MAX_LENGTH}
-        placeholder="Unit name"
-        onChange={(e) => onChange(e.target.value)}
-        style={nameInputStyle}
-      />
-    </label>
-  );
-}
-
 // Portrait gender toggle (S55) — a small two-button segmented control
 // (♀ / ♂); the active side reflects the unit's effective gender. Purely
 // cosmetic in v1 — it switches the portrait variant.
@@ -353,7 +334,10 @@ function GenderToggle({
   );
 }
 
-function SliderControl({
+// Compact Brave/Faith slider — label, slider, and value inline on one
+// row so two of them plus the name field and gender toggle fit a single
+// identity row beside the portrait.
+function CompactSlider({
   label,
   value,
   onChange,
@@ -363,19 +347,17 @@ function SliderControl({
   onChange: (value: number) => void;
 }): ReactElement {
   return (
-    <label style={sliderControlStyle}>
-      <div style={sliderHeaderStyle}>
-        <span style={fieldLabelStyle}>{label}</span>
-        <span style={sliderValueStyle}>{value}</span>
-      </div>
+    <label style={compactSliderStyle}>
+      <span style={compactSliderLabelStyle}>{label}</span>
       <input
         type="range"
         min={BRAVE_FAITH_MIN}
         max={BRAVE_FAITH_MAX}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        style={sliderInputStyle}
+        style={compactSliderInputStyle}
       />
+      <span style={compactSliderValueStyle}>{value}</span>
     </label>
   );
 }
@@ -411,7 +393,9 @@ const scrollBodyStyle: CSSProperties = {
 const headerRowStyle: CSSProperties = {
   display: 'flex',
   gap: 16,
-  alignItems: 'flex-start',
+  // Stretch so the identity column spans the portrait's height; its three
+  // rows distribute across that extent (space-between below).
+  alignItems: 'stretch',
 };
 
 const portraitWrapStyle: CSSProperties = {
@@ -459,15 +443,60 @@ const levelPinStyle: CSSProperties = {
 const identityColStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 8,
+  justifyContent: 'space-between',
+  gap: 6,
   flex: 1,
   minWidth: 0,
 };
 
-const nameGenderRowStyle: CSSProperties = {
+// Row 1 — the editable identity controls, inline.
+const identityRowStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
+  gap: 10,
+};
+
+const nameInputStyle: CSSProperties = {
+  flex: '0 1 180px',
+  minWidth: 90,
+  padding: '4px 9px',
+  fontSize: 13,
+  fontWeight: 600,
+  background: '#16181d',
+  color: '#e7e9ee',
+  border: '1px solid #2c2f36',
+  borderRadius: 4,
+  fontFamily: 'inherit',
+};
+
+const compactSliderStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 7,
+  flex: 1,
+  minWidth: 108,
+};
+
+const compactSliderLabelStyle: CSSProperties = {
+  fontSize: 10,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  opacity: 0.55,
+  flexShrink: 0,
+};
+
+const compactSliderInputStyle: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+};
+
+const compactSliderValueStyle: CSSProperties = {
+  fontSize: 12,
+  fontWeight: 600,
+  fontVariantNumeric: 'tabular-nums',
+  width: 18,
+  textAlign: 'right',
+  flexShrink: 0,
 };
 
 const newUnitTitleStyle: CSSProperties = {
@@ -476,33 +505,33 @@ const newUnitTitleStyle: CSSProperties = {
   color: '#cfd2da',
 };
 
-const classChipRowStyle: CSSProperties = {
+// Row 2 — thin class line (name + blurb + change control).
+const classLineStyle: CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
-  gap: 10,
+  alignItems: 'baseline',
+  gap: 9,
 };
 
-const classChipStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 1,
-  minWidth: 0,
-};
-
-const classChipNameStyle: CSSProperties = {
+const classLineNameStyle: CSSProperties = {
   fontSize: 14,
   fontWeight: 600,
   color: '#f6e5a8',
+  flexShrink: 0,
 };
 
-const classChipTaglineStyle: CSSProperties = {
+const classLineBlurbStyle: CSSProperties = {
   fontSize: 11,
-  opacity: 0.6,
+  opacity: 0.55,
+  flex: 1,
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 };
 
 const changeClassButtonStyle: CSSProperties = {
   marginLeft: 'auto',
-  padding: '5px 11px',
+  padding: '3px 10px',
   fontSize: 12,
   background: '#1c1e23',
   color: '#b9bcc4',
@@ -513,45 +542,46 @@ const changeClassButtonStyle: CSSProperties = {
   flexShrink: 0,
 };
 
+// Row 3 — the seven stat cells across the column, inline and no-wrap so
+// they all fit between the portrait's right edge and the card edge.
 const statBlockStyle: CSSProperties = {
   display: 'flex',
-  gap: 6,
-  flexWrap: 'wrap',
+  gap: 5,
 };
 
 const statCellStyle: CSSProperties = {
   display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: 2,
-  minWidth: 52,
-  padding: '7px 4px',
+  alignItems: 'baseline',
+  justifyContent: 'center',
+  gap: 5,
+  padding: '4px 5px',
   background: '#16181d',
   border: '1px solid #2c2f36',
-  borderRadius: 6,
+  borderRadius: 5,
   flex: 1,
+  minWidth: 0,
 };
 
 // Up/down tints for a projected stat change (gear-hover preview). Tint
 // the background only — not the border — so React never sees a
 // shorthand/longhand `border` mix when the projection toggles on/off.
 const statCellUpStyle: CSSProperties = {
-  background: 'rgba(109, 198, 109, 0.13)',
+  background: 'rgba(109, 198, 109, 0.14)',
 };
 
 const statCellDownStyle: CSSProperties = {
-  background: 'rgba(224, 122, 122, 0.13)',
+  background: 'rgba(224, 122, 122, 0.14)',
 };
 
 const statCellLabelStyle: CSSProperties = {
   fontSize: 9,
-  letterSpacing: '0.08em',
+  letterSpacing: '0.06em',
   textTransform: 'uppercase',
   opacity: 0.5,
 };
 
 const statCellValueStyle: CSSProperties = {
-  fontSize: 18,
+  fontSize: 15,
   fontWeight: 700,
   fontVariantNumeric: 'tabular-nums',
 };
@@ -559,8 +589,8 @@ const statCellValueStyle: CSSProperties = {
 // The small +N / −N badge beside a changed stat; inherits the cell
 // value's green/red color.
 const statDeltaStyle: CSSProperties = {
-  marginLeft: 3,
-  fontSize: 10,
+  marginLeft: 2,
+  fontSize: 9,
   fontWeight: 700,
   verticalAlign: 'top',
 };
@@ -569,12 +599,7 @@ const statPlaceholderStyle: CSSProperties = {
   fontSize: 12,
   fontStyle: 'italic',
   opacity: 0.5,
-  padding: '7px 2px',
-};
-
-const braveFaithRowStyle: CSSProperties = {
-  display: 'flex',
-  gap: 16,
+  padding: '4px 2px',
 };
 
 const dividerStyle: CSSProperties = {
@@ -619,34 +644,6 @@ const bodyRowStyle: CSSProperties = {
   alignItems: 'start',
 };
 
-const nameRowStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  flex: 1,
-  minWidth: 0,
-};
-
-const fieldLabelStyle: CSSProperties = {
-  fontSize: 11,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-  opacity: 0.55,
-  flexShrink: 0,
-};
-
-const nameInputStyle: CSSProperties = {
-  flex: 1,
-  padding: '6px 10px',
-  fontSize: 13,
-  background: '#16181d',
-  color: '#e7e9ee',
-  border: '1px solid #2c2f36',
-  borderRadius: 4,
-  fontFamily: 'inherit',
-  minWidth: 0,
-};
-
 const genderToggleStyle: CSSProperties = {
   display: 'flex',
   flexShrink: 0,
@@ -656,8 +653,8 @@ const genderToggleStyle: CSSProperties = {
 };
 
 const genderButtonStyle: CSSProperties = {
-  padding: '6px 10px',
-  fontSize: 15,
+  padding: '4px 9px',
+  fontSize: 13,
   lineHeight: 1,
   background: '#16181d',
   color: '#9aa0aa',
@@ -670,26 +667,4 @@ const genderButtonActiveStyle: CSSProperties = {
   ...genderButtonStyle,
   background: '#3a6ea5',
   color: '#ffffff',
-};
-
-const sliderControlStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-  flex: 1,
-};
-
-const sliderHeaderStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-};
-
-const sliderValueStyle: CSSProperties = {
-  fontSize: 12,
-  fontWeight: 600,
-  fontVariantNumeric: 'tabular-nums',
-};
-
-const sliderInputStyle: CSSProperties = {
-  width: '100%',
 };
