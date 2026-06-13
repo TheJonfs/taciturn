@@ -407,12 +407,15 @@ export interface SystemMpRestoreOutcome {
 //   - throw_item (Ether)
 //   - movement_passive (Session 49: Calculator's Thoughtful Pacing emits
 //     2 × tilesMoved MP restore on each Move completion).
+//   - status_tick (Session 65: the Circlet's per-turn MA/2 MP regen rides a
+//     granted status's onTick, mirroring Regen's system_heal provenance).
 export type SystemMpRestoreSource =
   | { readonly kind: 'throw_item'; readonly itemId: ItemId; readonly casterId: UnitId }
   | { readonly kind: 'movement_passive'; readonly abilityId: AbilityId; readonly unitId: UnitId }
   // Session 62 (Unified Calling, ADR-0101): on receiving a one-time heal, a
   // reaction passive restores MP equal to the recipient's PA.
-  | { readonly kind: 'heal_reaction'; readonly abilityId: AbilityId; readonly unitId: UnitId };
+  | { readonly kind: 'heal_reaction'; readonly abilityId: AbilityId; readonly unitId: UnitId }
+  | { readonly kind: 'status_tick'; readonly statusTypeId: StatusTypeId; readonly unitId: UnitId };
 
 // `system_mp_drain` — engine-emitted MP transfer used by Rasp Pendant
 // (Session 31) and any future damage-to-MP-drain effects. Distinct from

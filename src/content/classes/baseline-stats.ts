@@ -55,10 +55,15 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   // S46 tuning: PA 11 → 10. Knight's raw output read a touch too high
   // alongside Battle Skill + Martial Expertise's ×1.25.
   [classId('knight'),         { maxHpBase: 144, maxMpBase: 20, pa: 10, ma: 4,  spd: 9  }],
-  [classId('earth_mage'),     { maxHpBase: 112, maxMpBase: 60, pa: 4,  ma: 12, spd: 8  }],
-  [classId('water_mage'),     { maxHpBase: 102, maxMpBase: 60, pa: 4,  ma: 12, spd: 10 }],
-  [classId('fire_mage'),      { maxHpBase: 97,  maxMpBase: 60, pa: 4,  ma: 13, spd: 9  }],
-  [classId('lightning_mage'), { maxHpBase: 87,  maxMpBase: 60, pa: 4,  ma: 14, spd: 9  }],
+  // S65 MP rebaseline: the four elemental mages 60 → 48. MP shifts from a
+  // non-constraint into a managed resource — sustain options (Circlet's
+  // MA/2 per-turn regen, Thoughtful Pacing, Ethers, Rasp Pendant) become
+  // real choices rather than redundant. Tuned alongside the Circlet (the
+  // regen only earns its slot because MP is now scarce).
+  [classId('earth_mage'),     { maxHpBase: 112, maxMpBase: 48, pa: 4,  ma: 12, spd: 8  }],
+  [classId('water_mage'),     { maxHpBase: 102, maxMpBase: 48, pa: 4,  ma: 12, spd: 10 }],
+  [classId('fire_mage'),      { maxHpBase: 97,  maxMpBase: 48, pa: 4,  ma: 13, spd: 9  }],
+  [classId('lightning_mage'), { maxHpBase: 87,  maxMpBase: 48, pa: 4,  ma: 14, spd: 9  }],
   // Session 39b. HP between Knight (144) and Earth Mage (112); MP
   // between Knight (20) and Mages (60) — enough to Compound a few
   // items per battle without being unlimited; PA second-highest of v1
@@ -95,7 +100,12 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   // payoff as undersized relative to the action-economy cost of casting
   // it). Still below a fully-equipped Mage. Speed 7 (slow; fewer turns
   // per battle). Per blueprint + S51 tuning.
-  [classId('calculator'),     { maxHpBase: 101, maxMpBase: 47, pa: 5,  ma: 9,  spd: 7  }],
+  // S65 MP rebaseline: Calculator 47 → 37. Watch (per playtest): the −10
+  // MP composes with the recent faith buff (harder per cast, fewer casts) —
+  // it may quietly resolve the "slightly strong" flag without a separate
+  // nerf. Terraformer below deliberately stays at 35 (its flat-cost
+  // Worldcraft loop is the intended MP sink; rebaselining would starve it).
+  [classId('calculator'),     { maxHpBase: 101, maxMpBase: 37, pa: 5,  ma: 9,  spd: 7  }],
   // Session 54 (Terraformer, the 10th class — first hybrid PA/MA). HP 105
   // is moderate (above Calculator 101 / Pyromancer 97, well below Knight
   // 144). MP 35 funds ~3-4 flat-cost Worldcraft casts (lower than

@@ -69,6 +69,10 @@ import { warAxe } from './war-axe.ts';
 import { warPlate } from './war-plate.ts';
 import { warriorsAegis } from './warriors-aegis.ts';
 import { wizardsRobe } from './wizards-robe.ts';
+// Session 65 — equipment expansion (control sub-game + MP economy)
+import { battlemagesChain } from './battlemages-chain.ts';
+import { barbut } from './barbut.ts';
+import { circlet } from './circlet.ts';
 
 export const items: ReadonlyArray<ItemDefinition> = [
   // Session 17c / 19 originals
@@ -127,6 +131,8 @@ export const items: ReadonlyArray<ItemDefinition> = [
   shimmerCloak,
   // Session 50 — Brave/Faith hybrid body
   soulVest,
+  // Session 65 — universal hybrid body (HP +80 / MP +10 / MA +1)
+  battlemagesChain,
   // Head armor
   guardCap,
   focusBand,
@@ -142,6 +148,11 @@ export const items: ReadonlyArray<ItemDefinition> = [
   goldenHairpin,
   // Session 50 — hybrid offense head with HP/MP tax (-20 HP / -10 MP / +1 PA / +1 MA)
   skullclamp,
+  // Session 65 — control sub-game + MP economy heads:
+  //   Barbut (heavy; Knight/Templar): HP +30 + Stop/Don't Move/Don't Act resist
+  //   Circlet (mage): HP +10 / MP +10 + MA/2 per-turn MP regen (mana_font grant)
+  barbut,
+  circlet,
   // Accessories
   capacitorRing,
   tintinibar,

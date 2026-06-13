@@ -13,6 +13,7 @@ import { faithDown } from './faith-down.ts';
 import { haste } from './haste.ts';
 import { maDown } from './ma-down.ts';
 import { maUp } from './ma-up.ts';
+import { manaFont } from './mana-font.ts';
 import { movementDebuff } from './movement-debuff.ts';
 import { movementSelfBuff } from './movement-self-buff.ts';
 import { paDown } from './pa-down.ts';
@@ -47,6 +48,7 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   haste,
   maDown,
   maUp,
+  manaFont,
   movementDebuff,
   movementSelfBuff,
   paDown,
