@@ -63,8 +63,20 @@ the changelog scope allowed.
 automatically: **Circlet** (Magical headgear — HP/MP + per-turn MP regen
 = MA÷2; the sustain answer to the MP rebaseline), **Barbut** (Heavy
 headgear — HP +30 + halves incoming Stop/Don't-Move/Don't-Act), and
-**Battlemage's Chain** (Universal armour — HP +80/MP +10/MA +1, the
-hybrid body).
+**Battlemage's Chain** (Heavy armour — HP +80/MP +10/MA +1, the
+Knight/Templar hybrid body).
+
+*Follow-up (post-S65 commit `20bd222`):* Battlemage's Chain first
+shipped *without* its class restriction — source had no
+`classRestrictions`, so the guide correctly rendered it **Universal**.
+Chris flagged it was meant to be Heavy; the implementer added
+`[knight, templar]` to the source, and the guide re-read picked up the
+**Heavy** tier automatically (no formatter change — `gearTier()`
+classifies by membership). Its note was rewritten from the old
+universal framing to the Heavy-line / Templar-first story (and made
+honest that the MA+1 is inert on a Knight). A clean demonstration that
+the tier system tracks source data without a guide edit — only the
+hand-authored note needed touching.
 
 **Flowed in automatically, no edit:** the **MP rebaseline** (mages
 60→48, Calculator 47→37; Terraformer unchanged at 35) — pure stat-band

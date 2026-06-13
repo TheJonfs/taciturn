@@ -324,10 +324,10 @@ to ask.`,
   },
   battlemages_chain: {
     flavor: `A coat of fine ring-mail with a few links struck from a
-queerer metal, worn by the cadet who casts as readily as she stands.
-The Armorer keeps it between the plate and the robes, which is exactly
-where it belongs.`,
-    tactical: 'Unrestricted: a heavy HP gain, useful MP, and a point of Magical Attack — a robe’s reserves and a soldier’s bulk in one body, trading the robes’ elemental resistance for raw durability. The body for the hybrid, and for any cadet who casts but would rather not be made of paper to do it.',
+queerer metal, worn by the armoured cadet who casts as readily as she
+stands. The Armorer keeps it at the heavy end of the rack, a soldier's
+weight with a mage's thread run through it.`,
+    tactical: 'Heavy: a heavy HP gain, useful MP, and a point of Magical Attack. Cut for the Templar above all — the front-line bulk a robe cannot give, with the reserve and the touch of art her healing wants; on a Knight it reads as a plain, generous HP body with caster stats she will not use. The heavy line’s answer to a cadet who fights and casts in the same breath.',
   },
 
   // --- Headgear -----------------------------------------------------
