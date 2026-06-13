@@ -9,6 +9,7 @@ export type {
   PassiveAbilityDefinition,
   RangeMode,
   StatusEffectSpec,
+  StatusFormulaFactors,
   StockpileGrantEntry,
   TargetingSpec,
   WorldcraftEffectSpec,

@@ -21,6 +21,13 @@ export {
 } from './range.ts';
 export { hasLineOfSight } from './line-of-sight.ts';
 export { FALLING_DAMAGE_PER_LEVEL, fallDamageAction } from './fall-damage.ts';
+export {
+  applyKnockback,
+  type KnockbackArgs,
+  type KnockbackCancellation,
+  type KnockbackDirection,
+  type KnockbackResult,
+} from './knockback.ts';
 export { arcTargetable, type ArcEndpoint } from './arc.ts';
 export {
   addTerrainsWithTag,

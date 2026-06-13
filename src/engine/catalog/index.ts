@@ -37,6 +37,7 @@ export {
   type StatusAiHints,
   type StatusEffectSpec,
   type StatusEffectType,
+  type StatusFormulaFactors,
   type TargetingSpec,
   type WeaponEquipment,
   type WeaponPhysicalVariance,

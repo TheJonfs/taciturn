@@ -284,7 +284,15 @@ export interface AbilityChanceResult {
   readonly applied: boolean;
 }
 
-export function rollAbilityChance(args: AbilityChanceArgs): AbilityChanceResult {
+// Pure ability-chance compute — same formula as `rollAbilityChance` but
+// without the random draw. Used by `rollAbilityChance` (the runtime, which
+// then rolls) and by the AI scorer (S66 knockback valuation, which folds
+// the expected knockback chance into an action's score). Sharing the body
+// keeps the runtime and the AI's expected-value path in lockstep — the same
+// discipline as `computeStatusChance`/`rollStatusChance`.
+export function computeAbilityChance(
+  args: Omit<AbilityChanceArgs, 'seed' | 'effectIndex'>,
+): number {
   const factors: Required<StatusFormulaFactors> =
     args.factors === undefined
       ? DEFAULT_FACTORS
@@ -340,7 +348,11 @@ export function rollAbilityChance(args: AbilityChanceArgs): AbilityChanceResult 
     factorProduct *= 0.9 + pa / 10;
   }
 
-  const chance = Math.max(0, Math.min(1, baseFraction * factorProduct));
+  return Math.max(0, Math.min(1, baseFraction * factorProduct));
+}
+
+export function rollAbilityChance(args: AbilityChanceArgs): AbilityChanceResult {
+  const chance = computeAbilityChance(args);
   const subIndex = ABILITY_CHANCE_SUB_STREAM + (args.effectIndex ?? 0);
   const roll = unitFloatFromSeed(args.seed, subIndex);
   return { chance, roll, applied: roll < chance };

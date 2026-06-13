@@ -23,7 +23,11 @@ export type { StatusApplicationResult } from './result.ts';
 export {
   computeStatusChance,
   rollStatusChance,
+  computeAbilityChance,
+  rollAbilityChance,
   NotYetImplementedError,
   type StatusChanceArgs,
   type StatusChanceResult,
+  type AbilityChanceArgs,
+  type AbilityChanceResult,
 } from './chance.ts';

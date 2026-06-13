@@ -78,10 +78,13 @@ import {
   unitAt,
   weaponRangeFromHeightSpec,
   aoeFootprint,
+  applyKnockback,
   buildElevationChanges,
   cardinalFromTo,
+  computeAbilityChance,
   computeWorldcraftEffectCap,
   FALLING_DAMAGE_PER_LEVEL,
+  type KnockbackDirection,
   type Catalog,
   type GameState,
   type ItemId,
@@ -1194,6 +1197,14 @@ function scoreSingleUnitOffensive(
     if (ability.selfDamage !== undefined && ability.selfDamage.fraction > 0) {
       score *= SELF_COST_DAMPING_FACTOR;
     }
+    // S66 chunk 1: fold in expected knock-into-hazard fall damage. The
+    // target is the knockback anchor (single-target); it survives the
+    // direct hit when expected damage is below its current HP. Adds 0 on
+    // flat ground / shoves into a wall (consequence-only, D1).
+    score += expectedKnockbackFallValue(
+      state, catalog, actor, source, target.position, target, ability,
+      projected < target.vitals.hp,
+    );
     return score;
   }
 
@@ -1319,6 +1330,13 @@ function scoreAoeOffensive(
       let perTarget = projected * killValue(enemy);
       perTarget *= 1 - reactionPenalty(enemy, ability, catalog);
       total += perTarget;
+      // S66 chunk 1: knock-into-hazard fall for each caught enemy. AoE
+      // knockback direction is uniform (caster→anchor), matching the
+      // reducer; project each enemy's landing independently.
+      total += expectedKnockbackFallValue(
+        state, catalog, actor, source, anchor, enemy, ability,
+        projected < enemy.vitals.hp,
+      );
     } else {
       // Status-only AoE (Earth Cataclysm-style debuff applier). Coarse
       // proxy: weight by enemy hpRatio so applying e.g. Don't Move is
@@ -1336,6 +1354,13 @@ function scoreAoeOffensive(
       state, catalog, attacker: repositioned, target: ally, ability, targetCount,
     });
     total -= FRIENDLY_FIRE_PENALTY_FACTOR * projected * killValue(ally);
+    // S66 chunk 1: a caught ally shoved into a hazard is a cost — the
+    // fall value is signed negative for own-team occupants, so this
+    // deters AoE knockbacks that would drop an ally off a ledge.
+    total += expectedKnockbackFallValue(
+      state, catalog, actor, source, anchor, ally, ability,
+      projected < ally.vitals.hp,
+    );
   }
   return total;
 }
@@ -1528,17 +1553,80 @@ function scoreWorldcraftFall(
   let total = 0;
   for (const c of buildElevationChanges(state, anchor, deltas)) {
     const dropDistance = c.originalElevation - c.newElevation;
-    if (dropDistance <= 1) continue; // mirrors fallDamageAction's > 1 gate
     const occupant = unitAt(state, c.x, c.y, c.layer);
-    if (occupant === undefined || occupant.vitals.hp <= 0) continue;
-    const dmg = FALLING_DAMAGE_PER_LEVEL * dropDistance;
-    if (occupant.team !== actor.team) {
-      total += dmg * killValue(occupant);
-    } else {
-      total -= FRIENDLY_FIRE_PENALTY_FACTOR * dmg * killValue(occupant);
-    }
+    if (occupant === undefined) continue;
+    total += fallValueForOccupant(actor, occupant, dropDistance);
   }
   return total;
+}
+
+// Signed fall-damage value of a single occupant dropping `dropDistance`
+// tiles. Shared by the Worldcraft fall scorer (Pit/Valley terrain drops)
+// and the S66 knockback-fall valuation (shove-into-hazard), so both read
+// the same currency from the same gate. Mirrors `fallDamageAction`'s
+// `dropDistance > 1` threshold and `reduceSystemTerrainChange`'s damage
+// formula exactly. Enemy drops score positive (× killValue); ally/self
+// drops are penalized (× FRIENDLY_FIRE_PENALTY_FACTOR). KO'd occupants
+// contribute nothing (a corpse can't fall). Returns 0 for drops ≤ 1.
+function fallValueForOccupant(actor: Unit, occupant: Unit, dropDistance: number): number {
+  if (dropDistance <= 1) return 0; // mirrors fallDamageAction's > 1 gate
+  if (occupant.vitals.hp <= 0) return 0;
+  const dmg = FALLING_DAMAGE_PER_LEVEL * dropDistance;
+  return occupant.team !== actor.team
+    ? dmg * killValue(occupant)
+    : -FRIENDLY_FIRE_PENALTY_FACTOR * dmg * killValue(occupant);
+}
+
+// Expected knockback-fall value of a `damage.knockback` rider when it
+// shoves `victim` from `victimPos` (S66, chunk 1). Projects the post-
+// knockback landing tile via the engine's own `applyKnockback` primitive
+// (single source of truth — no drift from the reducer's resolution), then
+// values the resulting fall through `fallValueForOccupant`, weighted by
+// the expected knockback chance (`computeAbilityChance`, the same formula
+// the reducer rolls). The direction mirrors the reducer:
+// `cardinalFromTo(attacker, anchor)` — the target is pushed directly away
+// from the caster (single-target) or uniformly away from the AoE anchor.
+//
+// Consequence-only (D1): a shove onto flat ground / into a wall yields
+// dropDistance ≤ 1 and scores 0, so the AI values displacement only when
+// it triggers a fall. Pure repositioning is deferred to a later beat.
+//
+// `victimSurvivesDirect` gates the term: knockback fires only when the
+// direct hit leaves the target alive (reducer requires hp > 0 post-damage),
+// so a shove valued on an expected-lethal hit would be phantom value.
+function expectedKnockbackFallValue(
+  state: GameState,
+  catalog: Catalog,
+  attacker: Unit,
+  attackerPos: Position,
+  anchor: Position,
+  victim: Unit,
+  ability: ActiveAbilityDefinition,
+  victimSurvivesDirect: boolean,
+): number {
+  const damage = ability.effects.damage;
+  if (damage === undefined || damage.knockback === undefined) return 0;
+  if (!victimSurvivesDirect) return 0;
+  const knockback = damage.knockback;
+  // Direction is uniform caster→anchor (matches the reducer). Same
+  // tile → no derivable direction; the reducer guards this upstream.
+  if (samePosition(attackerPos, anchor)) return 0;
+  const direction: KnockbackDirection = cardinalFromTo(attackerPos, anchor);
+  const result = applyKnockback({ state, unit: victim, direction, distance: knockback.distance });
+  const fall = fallValueForOccupant(attacker, victim, result.dropDistance);
+  if (fall === 0) return 0;
+  const chance =
+    knockback.chance === undefined
+      ? 1
+      : computeAbilityChance({
+          state,
+          catalog,
+          caster: attacker,
+          target: victim,
+          baseChance: knockback.chance,
+          ...(knockback.factors !== undefined ? { factors: knockback.factors } : {}),
+        });
+  return chance * fall;
 }
 
 // Temperament dial for perch-building (S57 Tier B). A raise is a spent
@@ -2456,6 +2544,8 @@ export const _basicAiInternals = {
   scoreAoeOffensive,
   scoreAllyBuff,
   scoreWorldcraftFall,
+  fallValueForOccupant,
+  expectedKnockbackFallValue,
   targetIsInAbilityRange,
   tilesInAbilityRange,
   residualDangerForPlan,
