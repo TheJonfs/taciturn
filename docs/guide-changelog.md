@@ -70,8 +70,9 @@ ADR-0108.
     turn**. A sustain option for the tighter MP economy below.
   - **Barbut** (heavy head; Knight / Templar): HP +30, and **halves the chance of
     incoming Stop / Don't Move / Don't Act**. A counter to disable-heavy enemies.
-  - **Battlemage's Chain** (body, any class): HP +80, MP +10, MA +1 — a durable
-    hybrid body that trades a robe's elemental resistance for raw bulk.
+  - **Battlemage's Chain** (heavy body; Knight / Templar): HP +80, MP +10, MA +1
+    — a durable hybrid body sharing the Knight/Templar heavy-armor slot, aimed at
+    the Templar's martial-caster build.
 - **MP rebaseline (caster classes have less MP):** the four elemental mages —
   **Geosage, Hydrologist, Pyromancer, Aethurge** — drop from 60 to **48** base
   MP, and the **Calculator** from 47 to **37**. The **Terraformer stays at 35**;

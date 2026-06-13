@@ -80,9 +80,9 @@ dropped. All unit-tested; the *feel* needs human engagements.
     only); cover-dodging never comes up → the change is invisible (fine).
 
 - **Battlemage's Chain on the tanky-self-sustainer Templar.**
-  - **What to watch.** +80 HP / +10 MP / +1 MA universal body stacked on the
-    Templar (still on the S62 balance watch). Does it tip the Templar into an
-    un-killable sustainer?
+  - **What to watch.** +80 HP / +10 MP / +1 MA Heavy body (Knight/Templar)
+    stacked on the Templar (still on the S62 balance watch). Does it tip the
+    Templar into an un-killable sustainer?
   - **Signal for adjustment.** Templar + Chain dominating attrition → revisit
     Templar sustain or the Chain's HP.
 

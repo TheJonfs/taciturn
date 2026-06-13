@@ -33,7 +33,7 @@ Shipped the full S65 brief to main across four commits. **1804 → 1819 tests; t
 - **Equipment ×3:** Circlet (mage head; +10/+10, grants new `mana_font` status =
   per-turn MA/2 MP regen via onTick → system_mp_restore), Barbut (heavy head,
   Knight/Templar; +30 HP + Stop/Don't Move/Don't Act ×0.5), Battlemage's Chain
-  (universal body; +80 HP / +10 MP / +1 MA).
+  (Heavy body, Knight/Templar; +80 HP / +10 MP / +1 MA).
 - **MP rebaseline:** four elemental mages 60→48, Calculator 47→37, Terraformer 35
   (unchanged), martials unchanged.
 

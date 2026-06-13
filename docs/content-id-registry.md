@@ -255,7 +255,7 @@ via this kind. Per-item `classRestrictions` enforces who can equip what
 | `iron_mail` | Iron Mail | +30 maxHpBase | `src/content/items/iron-mail.ts` |
 | `shimmer_cloak` | Shimmer Cloak | S50 universal armor — +75 HP, +10 F/S/B evade. First evasion-bias body slot. | `src/content/items/shimmer-cloak.ts` |
 | `soul_vest` | Soul Vest | S50 universal armor — +50 HP, +10 Brave, +10 Faith. First universal Brave/Faith piece (Tricorn = Mage-only; Crusader's Helm = Knight-only). | `src/content/items/soul-vest.ts` |
-| `battlemages_chain` | Battlemage's Chain | S65 universal hybrid body — +80 HP, +10 MP, +1 MA | `src/content/items/battlemages-chain.ts` |
+| `battlemages_chain` | Battlemage's Chain | S65 Heavy body (Knight/Templar) — +80 HP, +10 MP, +1 MA | `src/content/items/battlemages-chain.ts` |
 
 ### Headgear
 

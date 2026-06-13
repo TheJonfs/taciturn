@@ -271,9 +271,12 @@ describe('Circlet — grants mana_font (S65)', () => {
 });
 
 describe("Battlemage's Chain — pure stat block (S65)", () => {
-  it('is universal armor adding HP +80 / MP +10 / MA +1', () => {
+  it('is Knight/Templar Heavy armor adding HP +80 / MP +10 / MA +1', () => {
     expect(battlemagesChain.kind).toBe('armor');
-    expect(battlemagesChain.classRestrictions).toBeUndefined();
+    expect(battlemagesChain.classRestrictions).toEqual([
+      classId('knight'),
+      classId('templar'),
+    ]);
     expect(battlemagesChain.statMods).toEqual({ maxHpBase: 80, maxMpBase: 10, ma: 1 });
   });
 });

@@ -1,20 +1,22 @@
-// Battlemage's Chain — Session 65 body armor. A pure stat block for the
-// hybrid line: HP +80, MP +10, MA +1. No class restriction — it's the
-// flexible body option that trades a robe's elemental resistance (Light /
-// Dark / Sorcerer's Robe) for raw durability plus a thin caster bump.
+// Battlemage's Chain — Session 65 Heavy body armor (Knight / Templar). A
+// pure stat block for the martial-caster hybrid line: HP +80, MP +10,
+// MA +1. Shares the Knight/Templar "Heavy" body slot with War Plate /
+// Soldier's Leathers / Spiked Mail.
 //
-// Universal by design: a mage can field it as a tankier alternative to a
-// robe; the Templar (the tanky-self-sustainer on the S65 balance watch)
-// can stack its HP under the existing Knight/Templar body line. The MA +1
-// is near-inert on a pure martial, so the soft filter is "do you cast at
-// all" rather than a hard `classRestrictions` gate.
+// The +10 MP / +1 MA bump is aimed at the Templar (the
+// tanky-self-sustainer on the S65 balance watch): it funds its spell kit
+// while stacking the front-line HP a robe can't match. On a pure Knight
+// it reads as a fat +80 HP body with inert caster stats — a fine bulk
+// option. Restricted to Knight / Templar like the rest of the Heavy line
+// (mages have their own robe slot; this isn't a robe substitute for them).
 
-import { itemId, type ArmorEquipment } from '@engine/index.ts';
+import { classId, itemId, type ArmorEquipment } from '@engine/index.ts';
 
 export const battlemagesChain: ArmorEquipment = {
   id: itemId('battlemages_chain'),
   name: "Battlemage's Chain",
   availability: 'available',
   kind: 'armor',
+  classRestrictions: [classId('knight'), classId('templar')],
   statMods: { maxHpBase: 80, maxMpBase: 10, ma: 1 },
 };

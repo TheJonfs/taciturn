@@ -131,7 +131,7 @@ export const items: ReadonlyArray<ItemDefinition> = [
   shimmerCloak,
   // Session 50 — Brave/Faith hybrid body
   soulVest,
-  // Session 65 — universal hybrid body (HP +80 / MP +10 / MA +1)
+  // Session 65 — Heavy hybrid body, Knight/Templar (HP +80 / MP +10 / MA +1)
   battlemagesChain,
   // Head armor
   guardCap,
