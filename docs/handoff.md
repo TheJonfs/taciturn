@@ -11,72 +11,66 @@ been processed.
 
 ---
 
-## From the team-builder redesign session (2026-06-11) — both passes shipped
+## From Session 65 (2026-06-13) — Knight content + equipment + MP economy + Barrier audit
 
-The team-builder brief (`docs/thirtyNinePlanning/session-team-builder-brief.md`)
-shipped in full, committed to main. **1781 → 1793 tests; tsc -b + vite build
-clean; browser-verified end to end.**
+Shipped the full S65 brief to main across four commits. **1804 → 1819 tests; tsc -b
++ vite build clean.** ADR-0108 captures the decisions.
 
-- **Pass 1** (`3f6cdc5`): the frame — central unit card (larger portrait + level
-  pin; identity/Brave/Faith consolidated; complete live stat line *including
-  Move and Jump*, read from the engine resolver); class-picker-as-mode (the rich
-  grid reopens on "Change class", collapses on pick); leveled lineup (already
-  existed). Audit found the deepest risk pre-solved — stats were already
-  engine-computed; item 1 was a pure display gap.
-- **Pass 2** (`6f31e11`): the editors — grouped/sorted/**searchable** equipment
-  picker (slot pills → open candidate list by weapon family); **abilities
-  accordion** (one category open at a time; collapsed = picks + budget; open =
-  budget meter + cost pips); shared **context inspector** (equipment delta vs
-  equipped / ability budget-fit); hand-rolled inline-SVG icon set. New
-  `weaponType` field on weapons (**ADR-0105**). Content-integration sweep:
-  lifted the triplicated two-handed/dual-wield/Monkeygrip predicates into shared
-  `team-builder-state` helpers (`unitGrantsDualWield`, `unitGrantsTwoHandedGrip`,
-  `equipmentOptionsForSlot`); the per-component copies are gone.
+- **Barrier remedy A (widened):** all four Assassin darts (Blowdart, Shadow Stitch,
+  Undermine, Sow Doubt) flipped arc → straight_line. The audit confirmed bows and
+  lobbed/area attacks are deliberately arc and stay; the darts were the genuine
+  mis-fit (Chris chose the whole family over Blow-Dart-only). Remedies B/C
+  (categorical / height-aware arc) parked — not needed.
+- **Knight:** Taunt suppressed off the Battle Skill set (ADR-0104 guard stays;
+  Taunt still catalog-registered, cross-class). Bull Rush added — weapon attack,
+  6 MP, 1.0× damage, Brave×PA-gated one-tile knockback (baseChance 85 → ≈0.79 on a
+  baseline Knight). Rides the existing knockback substrate, so knock-into-hazard
+  fall damage works.
+- **PA_factor** (`0.9 + PA/10`) shipped at both chance-compute sites — the
+  ADR-0028 deferral, Bull Rush is the first consumer. **Lightning Stab** moved to
+  the same `{ brave, pa }` shape (was `{ brave, ma }`), baseChance recalibrated
+  50 → 34 to **hold** its prior Silence rate (formula consistency, not a buff).
+- **Equipment ×3:** Circlet (mage head; +10/+10, grants new `mana_font` status =
+  per-turn MA/2 MP regen via onTick → system_mp_restore), Barbut (heavy head,
+  Knight/Templar; +30 HP + Stop/Don't Move/Don't Act ×0.5), Battlemage's Chain
+  (universal body; +80 HP / +10 MP / +1 MA).
+- **MP rebaseline:** four elemental mages 60→48, Calculator 47→37, Terraformer 35
+  (unchanged), martials unchanged.
 
-### Team-builder follow-ups (Chris's calls)
+### Things noticed / for Chris
 
-- **Parchment reskin is still its own future pass.** Built against the dark
-  theme per the brief; the Ivalician skin was explicitly out of scope.
-- **Inspector is mechanical-only** (Chris's call). The concept's authored flavor
-  prose ("Deepwood-strung and tide-blessed…") has no shared home — it lives only
-  in the Guide's `guide/content/prose.ts` (a separate Vite project). A future
-  "single-source flavor" content pass would lift item/ability flavor into
-  `src/content` so the inspector and Guide read one source. Not started.
-- **`weaponType` has no engine consumer yet** (ADR-0105) — display/classification
-  only. It's the designated hook if a future mechanic keys on weapon family
-  (a class that only equips knives, a per-family passive).
-- **Icons are placeholder-quality.** Hand-rolled inline SVGs, wayfinding-only.
-  Easy to retune; not final art.
-- **Visual review for Chris:** click through the rebuilt builder. The two concept
-  states are reproduced (unit card + accordion; opened equipment slot with the
-  grouped/searchable list + delta inspector). The console shows stale Vite HMR
-  reload errors from the *editing* session — they are not current; the page
-  loads clean on a hard reload (verified).
+- **Barbut and Focus Band are both head slot → they never co-stack on one unit.**
+  The brief asked how the resists stack (engine answer: multiplicatively, ×0.5 ×
+  ×0.75 = ×0.375), but in practice they're mutually exclusive alternatives. The
+  engine composition is correct; just won't co-occur via these two items. Logged
+  in playtest-watch so a future "stacking looks off" report isn't chased.
+- **All S65 verification is unit-test-only.** The harness can't drive PixiJS
+  battles, so the *feel* of Bull Rush knockback, the dart LoS change, Circlet
+  sustain under the tighter MP economy, and the Barbut earning its slot all need
+  Chris's in-battle pass. See the new S65 block in `docs/playtest-watch.md`.
+- **Roadmap unchanged** — S65 is a content/tuning pass under the standing
+  "class/ability/equipment expansion" track; no sequencing or scope shift.
 
-### Still open, NOT touched this session (carried from S63 — Chris design/playtest)
+### Still open, NOT touched this session (carried)
 
-These were noted at session start as Chris-side calls that don't block the
-team-builder work; left untouched, so they carry forward:
-
-- **Action-log redesign** (`b3bd121`, S63) — shipped but its pixel-level visual
-  is unverified (harness can't drive PixiJS). Needs Chris's in-battle pass vs
-  `action-log-concept.html`; decisions to confirm in the S63 close notes (git log
-  `be7540e`/`8a712dc`): per-row click-to-expand removed, Burn ", expired"
-  annotation dropped, charged-action resolves open their own T-number group.
-- **Taunt redesign** — deferred; soft-lock guard shipped (ADR-0104). Needs a new
-  attacker-side hit-chance hook + AI taunt-awareness; Chris must pin the intended
-  effect first. Full audit in `docs/thirtyNinePlanning/taunt-audit.md`.
-- **Calculator buff (Item B) + Brine (Item C)** playtest feel — need a human
-  playthrough (AI re-valuation of Precision Fire/Targeted Treatment ~2× up;
-  Brine −2 Speed permanent + stacking).
-- **Templar (S62)** open design/feel calls: Jump-triggers-reactions counterplay,
-  back-2 evasion, dominant stat ma vs pa, Cure range/SP + Jump H6/V6 tune-down,
-  two-weapon Jump right-hand rule, overall tanky-self-sustainer balance.
-- **S61 standing carries:** role-aware deployment sorting (last coverage-map
-  consumer, ADR-0094 substrate in place — the clean next non-content item);
-  Barrier denial dials; Layer-2 positional prediction; Worldcraft move-then-cast;
-  killValue-weighted Math re-base; Perch move-onto-created-perch; default team
-  templates with Terraformer; roster-wide Move-tier discussion; Calculator
-  team-template revision + AI personality variants; Marshmoor template-compliance
-  tests; lightning-mage.ts stale S20 header; `draft-terraformer-substrate-audit.md`
-  archival; terrain-transition animation; Math Skill SP scaling review.
+- **AI MP economy** (newly sharpened by the rebaseline) — the scorer doesn't pace
+  MP or value sustain; AI mages may run dry harder than humans now. Flagged in
+  playtest-watch; an AI MP-pacing pass is the future lever if it bites.
+- **Team-builder follow-ups** (S64): parchment reskin; single-source flavor
+  content pass (inspector is mechanical-only; flavor lives only in the Guide);
+  `weaponType` has no engine consumer yet (ADR-0105); placeholder icons.
+- **Action-log redesign** (S63, `b3bd121`) — shipped, pixel-level visual still
+  unverified; needs Chris's in-battle pass vs `action-log-concept.html`.
+- **Taunt redesign** — still deferred (this session was suppression only). Needs an
+  attacker-side hit-chance hook + AI taunt-awareness; Chris must pin intended
+  effect. Audit in `docs/thirtyNinePlanning/taunt-audit.md`.
+- **Templar (S62) balance/feel calls** — now compounded by Battlemage's Chain
+  feeding the tanky-self-sustainer (watch entry added).
+- **S61 standing carries:** role-aware deployment sorting (the clean next
+  non-content item — ADR-0094 substrate in place); Layer-2 positional prediction;
+  Worldcraft move-then-cast; killValue-weighted Math re-base; Perch
+  move-onto-created-perch; default team templates with Terraformer; roster-wide
+  Move-tier discussion; Calculator team-template revision + AI personality
+  variants; Marshmoor template-compliance tests; lightning-mage.ts stale S20
+  header; `draft-terraformer-substrate-audit.md` archival; terrain-transition
+  animation; Math Skill SP scaling review.

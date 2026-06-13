@@ -34,7 +34,7 @@ The four-school mage display names are flavored (Geosage / Hydrologist / Pyroman
 
 | ID | Display Name | Members | File |
 |---|---|---|---|
-| `battle_skill` | Battle Skill | `power_attack`, `lightning_stab`, `taunt` | `src/content/command-sets/battle-skill.ts` |
+| `battle_skill` | Battle Skill | `power_attack`, `lightning_stab`, `bull_rush` | `src/content/command-sets/battle-skill.ts` |
 | `shadow_arts` | Shadow Arts | `shadow_stitch`, `blowdart`, `undermine`, `sow_doubt` | `src/content/command-sets/shadow-arts.ts` |
 | `marksmanship` | Marksmanship | `pin_down`, `charged_attack`, `scramble` | `src/content/command-sets/marksmanship.ts` |
 | `alchemy` | Alchemy | `compound`, `throw_item` | `src/content/command-sets/alchemy.ts` |
@@ -57,9 +57,10 @@ The display names of the elemental-spell suite were re-flavored (S40 name pass a
 |---|---|---|---|---|---|
 | `attack` | Attack | first_action | no | available | `src/content/abilities/attack.ts` |
 | `power_attack` | Power Attack | first_action | no | available | `src/content/abilities/power-attack.ts` |
-| `lightning_stab` | Lightning Stab | first_action | no (S42 Battle Skill member; Silence rider) | available | `src/content/abilities/lightning-stab.ts` |
+| `lightning_stab` | Lightning Stab | first_action | no (Battle Skill member; Silence rider — Brave×PA gated since S65) | available | `src/content/abilities/lightning-stab.ts` |
+| `bull_rush` | Bull Rush | first_action | no (S65 Battle Skill member; weapon attack + Brave×PA knockback) | available | `src/content/abilities/bull-rush.ts` |
 | `stasis_sword` | Stasis Sword | first_action | no (cross-class option; Stop rider — moved off Knight set in S42) | available | `src/content/abilities/stasis-sword.ts` |
-| `taunt` | Taunt | first_action | no | available | `src/content/abilities/taunt.ts` |
+| `taunt` | Taunt | first_action | no (cross-class option; suppressed off the Knight Battle Skill set in S65) | available | `src/content/abilities/taunt.ts` |
 | `cure` | Cure | secondary_command_sets | no | hidden (engine-side only; UI surfaces through White Magic set when equipped) | `src/content/abilities/cure.ts` |
 | `bolt` | Bolt | first_action | yes (actionSpeed 25) | available | `src/content/abilities/bolt.ts` |
 | `earth_strike` | Rock Toss | first_action | yes (actionSpeed 30) | available | `src/content/abilities/earth-strike.ts` |
@@ -162,6 +163,7 @@ S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive w
 | `charging` | Charging | neutral, time | REJECT | conditional | `src/content/statuses/charging.ts` |
 | `regen` | Regen | positive | REFRESH | per_unit_ct | `src/content/statuses/regen.ts` |
 | `regen_auto` | Regen | positive | REFRESH | permanent_per_unit_ct | `src/content/statuses/regen-auto.ts` |
+| `mana_font` | Mana Font | positive | REFRESH | permanent_per_unit_ct | `src/content/statuses/mana-font.ts` |
 | `shell` | Shell | positive, dispellable | REFRESH | permanent_per_unit_ct | `src/content/statuses/shell.ts` |
 | `protect` | Protect | positive, dispellable | REFRESH | permanent_per_unit_ct | `src/content/statuses/protect.ts` |
 | `movement_debuff` | Movement Debuff | negative, earth | REFRESH | per_unit_ct | `src/content/statuses/movement-debuff.ts` |
@@ -253,6 +255,7 @@ via this kind. Per-item `classRestrictions` enforces who can equip what
 | `iron_mail` | Iron Mail | +30 maxHpBase | `src/content/items/iron-mail.ts` |
 | `shimmer_cloak` | Shimmer Cloak | S50 universal armor — +75 HP, +10 F/S/B evade. First evasion-bias body slot. | `src/content/items/shimmer-cloak.ts` |
 | `soul_vest` | Soul Vest | S50 universal armor — +50 HP, +10 Brave, +10 Faith. First universal Brave/Faith piece (Tricorn = Mage-only; Crusader's Helm = Knight-only). | `src/content/items/soul-vest.ts` |
+| `battlemages_chain` | Battlemage's Chain | S65 universal hybrid body — +80 HP, +10 MP, +1 MA | `src/content/items/battlemages-chain.ts` |
 
 ### Headgear
 
@@ -270,6 +273,8 @@ via this kind. Per-item `classRestrictions` enforces who can equip what
 | `tricorn` | Tricorn | +Brave headgear | `src/content/items/tricorn.ts` |
 | `golden_hairpin` | Golden Hairpin | S50 universal head — +10 HP, `mpCostMultipliers: [0.5]` (50% MP cost on every cast). Inverse shape of Staff of Power's × 1.50. | `src/content/items/golden-hairpin.ts` |
 | `skullclamp` | Skullclamp | S50 universal head — −20 HP, −10 MP, +1 PA, +1 MA. **First equipment to ship a negative HP/MP `statMods`** (additive composition through `modifyStatQuery`; vitals fill to post-equipment max at battle start). | `src/content/items/skullclamp.ts` |
+| `barbut` | Barbut | S65 heavy head (Knight/Templar) — +30 HP, × 0.5 incoming Stop / Don't Move / Don't Act (three `by_type` `incomingStatusModifiers`). | `src/content/items/barbut.ts` |
+| `circlet` | Circlet | S65 mage head — +10 HP, +10 MP, grants `mana_font` (per-turn MA/2 MP regen). | `src/content/items/circlet.ts` |
 
 ### Accessories
 

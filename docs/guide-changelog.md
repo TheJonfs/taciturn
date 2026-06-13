@@ -44,6 +44,39 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 65 (2026-06-13)
+
+Commits: Barrier darts; Bull Rush + PA_factor; equipment + MP economy. See
+ADR-0108.
+
+- **The Knight loses Taunt and gains Bull Rush.** Bull Rush is a normal weapon
+  strike (same damage as Attack, 6 MP) that, on hit, has a **high chance to knock
+  the target back one tile** — enough to shove an enemy off a ledge or into a
+  Pit/Valley for fall damage. The knockback chance scales with the Knight's Brave
+  and PA; a high-Brave target resists being shoved. (Taunt is gone from the
+  Knight's kit but still exists for other uses.)
+- **Lightning Stab's Silence now scales with PA instead of MA.** The landed rate
+  is unchanged — only the stat it keys off moved, so the Knight's Silence and
+  knockback rates rise together with PA-boosting gear.
+- **The Assassin's ranged darts now require line of sight.** **Blowdart**,
+  **Shadow Stitch**, **Undermine**, and **Sow Doubt** changed from arcing to
+  straight-line — a wall, a unit, or a Terraformer's **Barrier** between you and
+  the target now **blocks the dart**. Positioning behind cover defends against the
+  Assassin's poison/Stop/Brave-drain/Faith-drain pressure for the first time.
+- **Three new equipment pieces:**
+  - **Circlet** (mage head): HP +10, MP +10, and **regenerates MA ÷ 2 MP each
+    turn**. A sustain option for the tighter MP economy below.
+  - **Barbut** (heavy head; Knight / Templar): HP +30, and **halves the chance of
+    incoming Stop / Don't Move / Don't Act**. A counter to disable-heavy enemies.
+  - **Battlemage's Chain** (body, any class): HP +80, MP +10, MA +1 — a durable
+    hybrid body that trades a robe's elemental resistance for raw bulk.
+- **MP rebaseline (caster classes have less MP):** the four elemental mages —
+  **Geosage, Hydrologist, Pyromancer, Aethurge** — drop from 60 to **48** base
+  MP, and the **Calculator** from 47 to **37**. The **Terraformer stays at 35**;
+  martial classes are unchanged. MP is now a resource to manage, not an
+  afterthought — the Circlet, Thoughtful Pacing, Ethers, and the Rasp Pendant are
+  now real sustain choices.
+
 ## Dual-wield reach is now per-weapon (2026-06-12)
 
 Commit: `87e57a4` (per-swing range gating). See ADR-0107.

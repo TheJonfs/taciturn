@@ -26,6 +26,72 @@ shouldn't drift out of memory between sessions.
 
 ## Active entries
 
+### S65 — control sub-game, MP economy, Bull Rush (ADR-0108)
+
+The Knight gained Bull Rush (weapon attack + Brave×PA knockback), the Assassin
+darts now require LoS, three equipment pieces shipped, and the caster MP bases
+dropped. All unit-tested; the *feel* needs human engagements.
+
+- **MP rebaseline × Circlet sustain (test together).**
+  - **What to watch.** The four elemental mages now field 48 MP (was 60),
+    Calculator 37 (was 47). Does a mage run dry mid-fight at a sensible
+    cadence, and does the Circlet's MA/2-per-turn regen (≈+6 for a 12-MA mage)
+    earn its head slot against Pointy Hat / Magus Crown / Golden Hairpin?
+  - **Why it matters.** The regen only justifies its slot *because* MP is now
+    scarce; the two were tuned as a pair. Too-tight MP makes casters feel
+    starved; too-loose makes the Circlet inert.
+  - **Signal for adjustment.** Mages reliably out of MP by mid-fight with no
+    sustain → loosen the rebaseline or raise the regen; mages never constrained
+    even at 48 → the cut was too shallow.
+
+- **AI MP economy (headline risk).**
+  - **What to watch.** The scorer doesn't pace MP or value sustain. With MP now
+    scarce, AI mages may run dry and stall (idle/auto-pass) harder than human
+    players, widening the gap.
+  - **Why it matters.** Not built this session; the rebaseline could expose it.
+  - **Signal for adjustment.** AI mages repeatedly stranded with no MP and no
+    plan → an AI MP-pacing / sustain-valuation pass (future).
+
+- **Calculator net power (the "slightly strong" flag).**
+  - **What to watch.** −10 MP composes with the recent faith buff (harder per
+    cast, fewer casts). Watch whether this quietly resolves the flag rather than
+    needing a separate nerf.
+  - **Signal for adjustment.** Calculator still over-performs → a targeted nerf;
+    now under-performs → the −10 was too much, partially restore.
+
+- **The control sub-game (Bull Rush / Shadow Stitch / Barbut).**
+  - **What to watch.** Disables only matter if they bite: does the Barbut
+    (Stop / Don't Move / Don't Act × 0.5) earn its slot in practice, and does
+    Bull Rush's shove (off ledges, into Pit/Valley) read as a real tactic? Does
+    the AI value the knockback (it rides the existing Worldcraft fall scoring)?
+  - **Why it matters.** The whole sub-game (offense = darts + Bull Rush;
+    defense = Barbut) is only interesting if the statuses/displacement land
+    meaningfully and the AI engages with them.
+  - **Signal for adjustment.** Barbut never picked / disables shrugged off →
+    raise disable rates or the resist value; Bull Rush never used for position
+    → tune chance/distance or AI knockback valuation.
+
+- **Dart LoS feel.**
+  - **What to watch.** Blowdart / Shadow Stitch / Undermine / Sow Doubt now
+    blocked by cover (terrain, units, Barrier). Does the new positional
+    constraint read as fair counterplay or as the Assassin feeling neutered?
+  - **Signal for adjustment.** Assassin ranged pressure feels dead behind any
+    cover → reconsider (revert a subset, or shorten the change to Blow Dart
+    only); cover-dodging never comes up → the change is invisible (fine).
+
+- **Battlemage's Chain on the tanky-self-sustainer Templar.**
+  - **What to watch.** +80 HP / +10 MP / +1 MA universal body stacked on the
+    Templar (still on the S62 balance watch). Does it tip the Templar into an
+    un-killable sustainer?
+  - **Signal for adjustment.** Templar + Chain dominating attrition → revisit
+    Templar sustain or the Chain's HP.
+
+- **Barbut / Focus Band are both head slot — they don't co-stack.** The engine
+  composes the resists multiplicatively (×0.5 × ×0.75) but a unit has one head
+  slot, so the two never co-occur. They're alternatives (Barbut for the
+  disable-heavy matchup, Focus Band for broad negative-status resistance). Noted
+  so a future "stacking feels off" report isn't chased — it can't happen here.
+
 ### S59 — Tier C revert-traps (ADR-0096)
 
 The AI now springs Worldcraft revert-traps: at cap, it casts a harmless raise
