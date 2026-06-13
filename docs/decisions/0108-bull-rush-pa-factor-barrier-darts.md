@@ -58,8 +58,11 @@ onto the same shape rather than splitting the kit on MA vs PA.
    high-Brave target resist (as Shadow Stitch's Stop does).
 
 3. **Lightning Stab moves to `{ brave, pa }`** (was `{ brave, ma }`), baseChance
-   recalibrated 50 → 34 to **hold** the prior landed Silence rate (PA 10 → factor
-   1.9 vs MA 4 → 1.3; 50 × 1.3/1.9 ≈ 34). Formula consistency, not a buff.
+   **held at 50**. The factor swap (PA 10 → 1.9 vs MA 4 → 1.3) is a deliberate
+   **uplift**: the landed Silence rate rises ~46% (baseline ≈ 0.32 → ≈ 0.47), so
+   Lightning Stab becomes solid anti-mage tech — reliably silencing a caster is
+   the point. (An interim recalibration to 34 — to hold the prior rate — was
+   reverted at Chris's call; the buff is intended.)
 
 ## Consequences
 

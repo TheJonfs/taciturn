@@ -55,9 +55,11 @@ ADR-0108.
   Pit/Valley for fall damage. The knockback chance scales with the Knight's Brave
   and PA; a high-Brave target resists being shoved. (Taunt is gone from the
   Knight's kit but still exists for other uses.)
-- **Lightning Stab's Silence now scales with PA instead of MA.** The landed rate
-  is unchanged — only the stat it keys off moved, so the Knight's Silence and
-  knockback rates rise together with PA-boosting gear.
+- **Lightning Stab's Silence now scales with PA instead of MA — and lands more
+  often.** Because a Knight's PA is much higher than its MA, the same ability now
+  silences a target meaningfully more reliably (roughly half the time on a typical
+  hit, up from about a third). It's now a solid anti-mage tool, and its Silence
+  and Bull Rush's knockback rates rise together with PA-boosting gear.
 - **The Assassin's ranged darts now require line of sight.** **Blowdart**,
   **Shadow Stitch**, **Undermine**, and **Sow Doubt** changed from arcing to
   straight-line — a wall, a unit, or a Terraformer's **Barrier** between you and

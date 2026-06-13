@@ -188,9 +188,9 @@ describe('Lightning Stab — S65 PA recalibration (ADR-0108)', () => {
     if (lightningStab.kind !== 'active') throw new Error('expected active');
     const silence = lightningStab.effects.statusEffects?.[0];
     expect(silence?.factors).toEqual({ brave: true, pa: true });
-    // Recalibrated 50 → 34 to hold the prior landed Silence rate after the
-    // MA(1.3) → PA(1.9) factor swap on a PA-10 Knight.
-    expect(silence?.baseChance).toBe(34);
+    // baseChance held at 50 through the MA → PA factor swap — a deliberate
+    // uplift (PA 1.9 vs MA 1.3) making it solid anti-mage tech (ADR-0108).
+    expect(silence?.baseChance).toBe(50);
   });
 });
 
