@@ -1,6 +1,13 @@
 // Blowdart — Assassin Command Set (Session 42). Instant, ranged (4h × 3v,
-// arc targeting — uncovered source + target), no damage: applies Poison
-// for sustained pressure.
+// straight_line targeting — needs line of sight), no damage: applies
+// Poison for sustained pressure.
+//
+// S65: rangeMode arc → straight_line (ADR-0108). A blown dart is a flat,
+// fast projectile, so a Terraformer's Barrier (or intervening terrain /
+// units) now stops it — making Barrier a real counter to the Assassin's
+// ranged-status pressure, consistent with the S60 arc→straight_line cut
+// (ADR-0097) that flipped the elemental bolts. Lobbed / area attacks and
+// bows stay arc.
 //
 // Shares the existing `poison` status with the Geosage (per S42 brief
 // D8) — same DoT mechanics, tick cadence, and infinite (null) duration
@@ -29,7 +36,7 @@ export const blowdart: ActiveAbilityDefinition = {
   targeting: {
     kind: 'single_unit',
     range: { horizontal: 4, vertical: 3 },
-    rangeMode: 'arc',
+    rangeMode: 'straight_line',
   },
   actionSpeed: 0,
   mpCost: 8,

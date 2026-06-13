@@ -1,6 +1,11 @@
 // Undermine — Assassin Command Set (Session 42). Instant, ranged (4h ×
-// 3v, arc targeting — uncovered source + target), no damage: permanently
-// saps the target's Brave by 20.
+// 3v, straight_line targeting — needs line of sight), no damage:
+// permanently saps the target's Brave by 20.
+//
+// S65: rangeMode arc → straight_line (ADR-0108). Flipped with the rest of
+// the Assassin dart family (Blowdart, Shadow Stitch, Sow Doubt) so a
+// Barrier / intervening cover stops the dart. Consistent with the S60
+// arc→straight_line cut (ADR-0097); bows / lobbed / area stay arc.
 //
 // Applies `brave_down` (magnitude 20) — a permadebuff that persists
 // through KO (ADR-0079) and survives Remedy (`remedyImmune`). Best as an
@@ -32,7 +37,7 @@ export const undermine: ActiveAbilityDefinition = {
   targeting: {
     kind: 'single_unit',
     range: { horizontal: 4, vertical: 3 },
-    rangeMode: 'arc',
+    rangeMode: 'straight_line',
   },
   actionSpeed: 0,
   mpCost: 6,

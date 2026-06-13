@@ -1,6 +1,12 @@
 // Shadow Stitch — Assassin Command Set (Session 42). Instant, ranged
-// (4h × 3v, arc targeting — uncovered source + target), no damage: pins
-// the target with Stop.
+// (4h × 3v, straight_line targeting — needs line of sight), no damage:
+// pins the target with Stop.
+//
+// S65: rangeMode arc → straight_line (ADR-0108). The Stop dart is the
+// strongest member of the "control sub-game"; making it LoS-gated lets a
+// Barrier wall off the ranged Stop, which is the point of pairing
+// disables with resistance gear (the Barbut). Consistent with the S60
+// arc→straight_line cut (ADR-0097); bows / lobbed / area stay arc.
 //
 // Brave-and-Speed formula (per S42 brief): the application chance is
 //   baseFraction × (caster_brave/100) × (target_brave/100)
@@ -34,7 +40,7 @@ export const shadowStitch: ActiveAbilityDefinition = {
   targeting: {
     kind: 'single_unit',
     range: { horizontal: 4, vertical: 3 },
-    rangeMode: 'arc',
+    rangeMode: 'straight_line',
   },
   actionSpeed: 0,
   mpCost: 10,
