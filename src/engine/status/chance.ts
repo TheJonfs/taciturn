@@ -10,7 +10,9 @@
 //   - Brave_factor = (Brave_user/100) × (Brave_target/100)
 //   - MA_factor    = 0.9 + MA_caster / 10
 //   - Speed_factor = 0.9 + Speed_caster / 20  (caster-only; Session 42)
-//   - PA_factor    = (deferred — first PA-using consumer ships the formula)
+//   - PA_factor    = 0.9 + PA_caster / 10  (caster-only; S65, ADR-0108 —
+//                    first PA-using consumer is the Knight's Bull Rush
+//                    knockback; mirrors MA_factor's shape)
 //
 // Resistance and `modifyStatusApplicationChance` modifiers compose
 // unconditionally — they're outside the factor-selection model and
@@ -171,13 +173,15 @@ export function computeStatusChance(
       });
     }
     if (factors.pa) {
-      // Deferred per ADR-0028 — first PA-using consumer ships the
-      // formula. v1 has no PA-using status applier; reaching this
-      // branch is a content authoring error.
-      throw new NotYetImplementedError(
-        'PA_factor is declared on a StatusEffectSpec but the formula is not yet implemented; ' +
-          'the first PA-using consumer ships the formula. Surface the consumer and revisit.',
-      );
+      // PA_factor (S65, ADR-0108) — mirrors MA_factor's shape. First
+      // consumer is Bull Rush's `{ brave, pa }` knockback gate; a
+      // PA-using *status* applier may follow.
+      const pa = runModifyStatQuery(args.state, args.catalog, {
+        unit: args.caster,
+        statName: 'pa',
+        baseValue: args.caster.baseStats.pa,
+      });
+      factorProduct *= 0.9 + pa / 10;
     }
 
     const resistance = lookupStatusResistance(
@@ -326,10 +330,14 @@ export function rollAbilityChance(args: AbilityChanceArgs): AbilityChanceResult 
     });
   }
   if (factors.pa) {
-    throw new NotYetImplementedError(
-      'PA_factor is declared on an ability-chance roll but the formula is not yet implemented; ' +
-        'the first PA-using consumer ships the formula.',
-    );
+    // PA_factor (S65, ADR-0108) — see computeStatusChance. Bull Rush's
+    // knockback chance rides this path with `{ brave, pa }`.
+    const pa = runModifyStatQuery(args.state, args.catalog, {
+      unit: args.caster,
+      statName: 'pa',
+      baseValue: args.caster.baseStats.pa,
+    });
+    factorProduct *= 0.9 + pa / 10;
   }
 
   const chance = Math.max(0, Math.min(1, baseFraction * factorProduct));

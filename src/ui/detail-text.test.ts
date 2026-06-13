@@ -25,7 +25,7 @@ import { taggedResistanceShift } from '../content/statuses/tagged-resistance-shi
 import { battleSkill } from '../content/command-sets/battle-skill.ts';
 import { powerAttack } from '../content/abilities/power-attack.ts';
 import { lightningStab } from '../content/abilities/lightning-stab.ts';
-import { taunt } from '../content/abilities/taunt.ts';
+import { bullRush } from '../content/abilities/bull-rush.ts';
 import { pillar } from '../content/abilities/worldcraft/pillar.ts';
 import { hill } from '../content/abilities/worldcraft/hill.ts';
 import { valley } from '../content/abilities/worldcraft/valley.ts';
@@ -260,7 +260,7 @@ describe('formatCommandSetDetail', () => {
   function makeCatWithBattleSkill() {
     return createCatalog({
       statusTypes: [],
-      abilities: [powerAttack, lightningStab, taunt],
+      abilities: [powerAttack, lightningStab, bullRush],
       commandSets: [battleSkill],
       classes: [makeKnight()],
       items: [],
@@ -277,7 +277,7 @@ describe('formatCommandSetDetail', () => {
     const joined = d.lines.join('\n');
     expect(joined).toContain('Power Attack');
     expect(joined).toContain('Lightning Stab');
-    expect(joined).toContain('Taunt');
+    expect(joined).toContain('Bull Rush');
   });
 
   it("surfaces a member's MP cost and damage formula on its summary line", () => {

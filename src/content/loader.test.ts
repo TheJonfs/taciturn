@@ -176,8 +176,13 @@ describe('loadDefaultCatalog', () => {
     //     lance + imp_halberd — the Lance weapon class, pierces)
     //   - commandSets: 12 → 13 (templar_arts — Cure / Raise / Jump)
     //   - classes: 10 → 11 (templar — class assembly)
+    //
+    // Session 65 — Knight content (Bull Rush / Taunt swap):
+    //   - abilities: 94 → 95 (bull_rush — Knight Battle Skill weapon attack +
+    //     knockback; replaced Taunt in the set, but Taunt stays registered)
+    //   - commandSets / classes unchanged (battle_skill swapped a member)
     expect(cat.statusTypes()).toHaveLength(32);
-    expect(cat.abilities()).toHaveLength(94);
+    expect(cat.abilities()).toHaveLength(95);
     expect(cat.commandSets()).toHaveLength(13);
     expect(cat.classes()).toHaveLength(11);
     expect(cat.items()).toHaveLength(70);

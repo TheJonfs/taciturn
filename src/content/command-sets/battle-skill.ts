@@ -9,6 +9,13 @@
 // as a cross-class option. The broader sword-tech repertoire (Hero
 // Sword, Break, etc.) lands with later Knight content passes.
 //
+// Session 65 suppressed Taunt and added Bull Rush (weapon attack +
+// knockback) — the Knight's entry into the displacement / control
+// sub-game. Taunt's soft-lock guard (ADR-0104) stays as a general net;
+// the Taunt *redesign* remains a future session (this is suppression
+// only, so Taunt no longer appears in the Knight's kit). Taunt stays
+// registered in the catalog as a cross-class option.
+//
 // Session 25 (Attack-in-Act refit): the universal `attack` ability
 // is surfaced via the class's `freeAbilities` and renders as a peer
 // of the command sets in the Act picker — so Knight sees "Attack,
@@ -28,7 +35,7 @@ export const battleSkill: CommandSetDefinition = {
   members: [
     abilityId('power_attack'),
     abilityId('lightning_stab'),
-    abilityId('taunt'),
+    abilityId('bull_rush'),
   ],
   baseCost: 1,
   availability: 'available',

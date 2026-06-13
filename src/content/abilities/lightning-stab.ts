@@ -10,11 +10,17 @@
 //     Attack; the value is the rider.
 //   - mpCost 8: parity with Stasis Sword's S41 value — Knight at base
 //     20 MP gets two casts.
-//   - Silence baseChance 50, factors `{ brave: true, ma: true }`. At
-//     Knight baseline Brave 70 / MA 4 → 0.5 × 0.7 × (0.9 + 0.4) = ~0.46;
-//     a Bravestrider Knight (Brave 80) → 0.5 × 0.8 × 1.3 = ~0.52. The
-//     Bravestrider uplift is a deliberate identity reward (D3); the
-//     baseChance is the lever if playtest reads "too sticky."
+//   - Silence factors `{ brave: true, pa: true }` (S65: was `{ brave, ma }`).
+//     The Knight's Battle Skill riders now scale on PA, not MA — Bull Rush's
+//     knockback and Lightning Stab's Silence share the same PA-driven shape
+//     rather than splitting the kit on MA vs PA (Chris's call; ADR-0108).
+//     baseChance recalibrated 50 → 34 to *hold* the prior Silence rate:
+//     PA_factor (Knight PA 10) = 0.9 + 1.0 = 1.9 vs the old MA_factor
+//     (MA 4) = 1.3, so baseChance × 1.3/1.9 ≈ 34 keeps the landed rate
+//     unchanged (baseline Brave 70/70 → 0.34 × 0.49 × 1.9 ≈ 0.32, matching
+//     the prior 0.50 × 0.49 × 1.3 ≈ 0.32). The Bravestrider uplift (Brave
+//     80) is preserved as a deliberate identity reward (D3); the baseChance
+//     is the lever if playtest reads "too sticky."
 //   - Silence duration 4 — matches the v1 Silence palette (Earth Curse,
 //     Magebane proc).
 //
@@ -55,9 +61,9 @@ export const lightningStab: ActiveAbilityDefinition = {
       {
         typeId: statusTypeId('silence'),
         target: 'primary_target',
-        baseChance: 50,
+        baseChance: 34,
         duration: 4,
-        factors: { brave: true, ma: true },
+        factors: { brave: true, pa: true },
       },
     ],
   },

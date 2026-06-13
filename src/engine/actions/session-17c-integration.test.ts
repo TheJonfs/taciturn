@@ -16,14 +16,14 @@
 //   5. Power Attack (1.5× coefficient).
 //   6. Stasis Sword (Brave_factor + MA_factor for Stop application).
 //   7. Taunt (applyAlways, source-anchored Taunted) + source-KO sweep.
-//   8. PA_factor throws NotYetImplementedError.
+//   8. PA_factor applies 0.9 + PA/10 (S65, ADR-0108; was deferred/throwing).
 //   9. Renderer assertNever follow-up (smoke).
 
 import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from '../../content/index.ts';
 import { applyStatus } from '../status/apply.ts';
 import { removeStatus } from '../status/remove.ts';
-import { rollStatusChance, NotYetImplementedError } from '../status/chance.ts';
+import { rollStatusChance } from '../status/chance.ts';
 import { runDamagePipeline } from '../damage/pipeline.ts';
 import { defaultDamageHandlers } from '../damage/default-handlers.ts';
 import { commitAction } from './commit.ts';
@@ -577,24 +577,27 @@ describe('Stasis Sword — Brave_factor + MA_factor for Stop application', () =>
     expect(result.chance).toBeCloseTo(0.65, 5);
   });
 
-  it('PA factor throws NotYetImplementedError', () => {
+  // S65 (ADR-0108): PA_factor formula now ships (first consumer is Bull
+  // Rush's knockback). PA_factor = 0.9 + PA / 10, mirroring MA_factor.
+  it('PA factor applies 0.9 + PA/10 (S65, ADR-0108)', () => {
     const catalog = loadDefaultCatalog();
-    const { state } = buildBattle({});
+    const { state } = buildBattle({ knightStats: { pa: 10 } });
     const caster = state.units.get(unitId('blue_knight'))!;
     const target = state.units.get(unitId('red_knight'))!;
-    expect(() =>
-      rollStatusChance({
-        state,
-        catalog,
-        caster,
-        target,
-        statusType: catalog.getStatusType(statusTypeId('stop')),
-        ability: null,
-        baseChance: 50,
-        seed: 0,
-        factors: { pa: true },
-      }),
-    ).toThrow(NotYetImplementedError);
+    // baseChance 50, factors { pa: true }. PA 10 → factor 0.9 + 1.0 = 1.9.
+    // Pre-modifier: 0.5 × 1.9 = 0.95 (Stop carries no resistance tag here).
+    const result = rollStatusChance({
+      state,
+      catalog,
+      caster,
+      target,
+      statusType: catalog.getStatusType(statusTypeId('stop')),
+      ability: null,
+      baseChance: 50,
+      seed: 0,
+      factors: { pa: true },
+    });
+    expect(result.chance).toBeCloseTo(0.95, 5);
   });
 
   it('default factors preserve Earth (Faith × MA) shape', () => {
