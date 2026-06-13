@@ -1333,7 +1333,25 @@ function pierceAoeForWeapon(
   // Cardinally aligned iff exactly one of dx/dy is zero (same row XOR same
   // column). Diagonal or same-tile → no pierce (single-target fallback).
   if ((dx === 0) === (dy === 0)) return undefined;
-  return { shape: { kind: 'line', length: 2 }, anchorMode: 'caster', excludeCaster: true };
+  // The pierce line must reach as far as the weapon's *validated* range,
+  // or a target that `validateAction` accepted (it uses the weapon's
+  // range) gets validated-but-not-hit: the action commits and logs but the
+  // footprint excludes the target, so no damage and no miss. Derive the
+  // line's length from the weapon's horizontal max and its vertical
+  // tolerance from the weapon's vertical range, rather than hardcoding a
+  // length of 2 / the ruleset's default tolerance. (Lance/Imp Halberd are
+  // H2/V4 — the V4 reach was being clipped to the ruleset default of 3.)
+  return {
+    shape: { kind: 'line', length: weapon.range?.max ?? 2 },
+    anchorMode: 'caster',
+    excludeCaster: true,
+    // Only set tolerance when the weapon declares a vertical range; omitting
+    // it falls back to the ruleset default (matches the prior behavior for
+    // any piercing weapon that doesn't specify vertical reach).
+    ...(weapon.range?.vertical !== undefined
+      ? { verticalTolerance: weapon.range.vertical }
+      : {}),
+  };
 }
 
 // The pierce footprint for the weapon in a given swing slot. `undefined`
@@ -3412,6 +3430,18 @@ export function reduceChargedActionResolve(
     ) {
       continue;
     }
+    // A unit that Jumped is airborne — off the battlefield until it lands.
+    // Any charged action that would resolve *directly on it* (enemy OR
+    // ally) fizzles rather than landing mid-flight, matching Jump's intent
+    // to dodge in-flight charges. New targeting is already blocked at
+    // commit (validateAction); this covers charges committed *before* the
+    // leap. A tile-anchored AoE still flows to the dispatcher, which skips
+    // airborne units in its footprint sweep — so it hits the others.
+    const wouldSingleTargetAirborne =
+      resolvedUnit !== null &&
+      resolvedUnit.airborne &&
+      (targetRef.kind === 'unit' || ability.effects.aoe === undefined);
+    if (wouldSingleTargetAirborne) continue;
     if (
       targetRef.kind === 'tile' &&
       resolvedUnit === null &&

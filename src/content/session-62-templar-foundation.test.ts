@@ -195,10 +195,12 @@ describe('Cure (Templar AoE heal — S62 rework)', () => {
     expect(cure.tags).toEqual(expect.arrayContaining(['magical', 'holy', 'healing']));
   });
 
-  it('targets a unit or tile and blooms a 1-square cross that includes the caster', () => {
+  it('targets a unit or tile and blooms a 1-square diamond that includes the caster', () => {
     if (cure.kind !== 'active') return;
     expect(cure.targeting.kind).toBe('unit_or_tile');
-    expect(cure.effects.aoe?.shape).toEqual({ kind: 'cross', radius: 1 });
+    // S65: diamond r1 (same 5-tile footprint as the old cross r1, but Aether
+    // Bloom now expands it to a proper diamond r2 rather than a thin cross r2).
+    expect(cure.effects.aoe?.shape).toEqual({ kind: 'diamond', radius: 1 });
     // excludeCaster false → self-Cure loop; vertical tolerance 1 (Chris, S62).
     expect(cure.effects.aoe?.excludeCaster).toBe(false);
     expect(cure.effects.aoe?.verticalTolerance).toBe(1);

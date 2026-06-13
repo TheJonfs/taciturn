@@ -31,6 +31,7 @@ import { chainLightning } from './chain-lightning.ts';
 import { earthQuake } from './earth-quake.ts';
 import { earthCataclysm } from './earth-cataclysm.ts';
 import { fireStorm } from './fire-storm.ts';
+import { cure } from './cure.ts';
 
 const DIAMOND_R1: AoeShape = { kind: 'diamond', radius: 1 };
 
@@ -69,6 +70,13 @@ describe('Mage AoE shape declarations', () => {
 
   it('Fire Storm is diamond r1 (session 26 — was cross r1)', () => {
     expect(fireStorm.effects.aoe?.shape).toEqual(DIAMOND_R1);
+  });
+
+  it('Cure is diamond r1 (S65 — was cross r1; same 5-tile base, diamond r2 boost)', () => {
+    expect(cure.effects.aoe?.shape).toEqual(DIAMOND_R1);
+    // The motivation: Aether Bloom now grows Cure into a proper diamond r2
+    // (13 tiles) rather than the pre-S65 thin cross r2 (9).
+    expect(enlargeAoeShape(cure.effects.aoe!.shape)).toEqual({ kind: 'diamond', radius: 2 });
   });
 });
 

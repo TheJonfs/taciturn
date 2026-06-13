@@ -241,7 +241,7 @@ describe('formatAbilityDetail', () => {
         [monkeygrip, /two-handed weapons need only one hand/i],
         [emissary, /\+25% to all healing/i],
         [unifiedCalling, /recover MP equal to your PA/i],
-        [cure, /1-square cross/i],
+        [cure, /1-square diamond/i],
         [raise, /revive/i],
         [jump, /leap off-field/i],
       ];

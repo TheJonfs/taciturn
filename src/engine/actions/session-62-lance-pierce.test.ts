@@ -10,7 +10,7 @@ import {
   makeTestRuleset,
 } from '../catalog/test-fixtures.ts';
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
-import { flatMap } from '../map/test-fixtures.ts';
+import { flatMap, mapWith } from '../map/test-fixtures.ts';
 import { ACTIVE_BUCKET_IDS, PASSIVE_BUCKET_IDS } from '../abilities/constants.ts';
 import { commitAction } from './commit.ts';
 import {
@@ -147,6 +147,37 @@ describe('Lance pierce — basic Attack hits a 2-tile line', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.newState.units.get(diag.id)!.vitals.hp).toBeLessThan(100); // hit, not whiffed
+  });
+
+  it('reaches a target at the weapon\'s full vertical range (elevation delta 4)', () => {
+    // Regression (S65): the Lance is H2/V4. validateAction accepted an
+    // attack on a target 2 tiles away at elevation delta 4 (within V4), but
+    // the pierce line resolved with the ruleset's default vertical tolerance
+    // (3), so the target was clipped out of the footprint — the attack
+    // committed and logged but landed on nobody (no damage, no miss). The
+    // pierce line now takes its vertical tolerance from the weapon's V4 range.
+    const cat = catalog();
+    const atk = attacker(lance.id); // at (0,0), elevation 0
+    // Map: flat at elevation 0 except the target tile (2,0) raised to 4.
+    const tiles: Array<{ x: number; y: number; elevation: number }> = [];
+    for (let y = 0; y < 6; y++) {
+      for (let x = 0; x < 6; x++) {
+        tiles.push({ x, y, elevation: x === 2 && y === 0 ? 4 : 0 });
+      }
+    }
+    const map = mapWith({ width: 6, height: 6, tiles });
+    const high = makeUnit({
+      id: 'high', team: 'team_b', spd: 10, hp: 100, maxHpBase: 100,
+      position: { x: 2, y: 0, layer: 0 },
+    });
+    const state = makeGameState({ units: [atk, high], map, turnState: turnFor('atk'), masterSeed: 7 });
+    const r = commitAction(state, {
+      type: 'use_ability', source: 'player', actorId: atk.id,
+      payload: { abilityId: abilityId('attack'), target: { kind: 'unit', unitId: high.id } },
+    }, cat);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.newState.units.get(high.id)!.vitals.hp).toBeLessThan(100); // reached, not clipped
   });
 
   it('a non-piercing weapon (Long Sword) hits only the target', () => {

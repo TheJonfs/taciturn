@@ -148,7 +148,7 @@ const ACTIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('valley'), 'Lower a 3×3 area — center −3, edges −2, corners −1 — dealing fall damage to occupants. Counts as 1 active Worldcraft effect.'],
   [abilityId('barrier'), 'Spawn a line of 3–5 barrier tiles. Barriers block movement and line of sight, persist ~5 rounds, and take damage from attacks. Counts as 1 active Worldcraft effect.'],
   // S62 — Templar Arts.
-  [abilityId('cure'), 'Heal a 1-square cross (≈ MA × 8 × Faith). Friendly fire is on — it heals allies AND any enemies in the cross, and the caster too.'],
+  [abilityId('cure'), 'Heal a 1-square diamond (≈ MA × 8 × Faith). Friendly fire is on — it heals allies AND any enemies in the area, and the caster too.'],
   [abilityId('raise'), 'Revive a KO’d ally and heal them (≈ MA × 10 × Faith). On a living target it simply heals.'],
   [abilityId('jump'), 'Leap off-field — untargetable while charging — then land on a tile for PA × WP, doubled with a Lance. Reaches far and high; the target can dodge by leaving the tile. Charges faster the higher your Speed.'],
 ]);

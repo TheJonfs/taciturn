@@ -80,6 +80,21 @@ ADR-0108.
   afterthought — the Circlet, Thoughtful Pacing, Ethers, and the Rasp Pendant are
   now real sustain choices.
 
+### Playtest fixes (same session)
+
+- **Jumping now dodges an in-flight charged action aimed at you.** If a charged
+  spell (enemy *or* ally) was already locked onto a unit and that unit Jumps
+  before the spell goes off, the spell now misses it — Jump takes the unit off
+  the battlefield for real. (Previously the charge still landed on the airborne
+  unit.)
+- **Cure's area is now a diamond.** At its base size it's the same 5 tiles as
+  before, but when boosted by Aether Bloom it grows into a full diamond (13 tiles)
+  instead of a thin cross (9) — matching the elemental area spells.
+- **Polearm/Lance attacks now reach high or low targets correctly.** A piercing
+  weapon attacking a target within its vertical range but at a large elevation
+  difference was silently connecting with nobody (the attack happened but dealt no
+  damage). It now strikes the target as its range allows.
+
 ## Dual-wield reach is now per-weapon (2026-06-12)
 
 Commit: `87e57a4` (per-swing range gating). See ADR-0107.

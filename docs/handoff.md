@@ -37,6 +37,28 @@ Shipped the full S65 brief to main across four commits. **1804 → 1819 tests; t
 - **MP rebaseline:** four elemental mages 60→48, Calculator 47→37, Terraformer 35
   (unchanged), martials unchanged.
 
+### Playtest fixes (same session, after the main S65 work)
+
+Three findings from Chris's playtest, all fixed + regression-tested (1819 →
+1823 tests):
+
+- **Jump now dodges in-flight charged actions.** `reduceChargedActionResolve`
+  didn't honor the `airborne` flag — a charge committed *before* the leap still
+  landed on the jumper. Added an airborne fizzle in the per-target preflight
+  (mirrors the KO fizzle); fulfills ADR-0103's "airborne = off-field" intent.
+  Covers unit-ref and single-target tile-ref; AoE charges already skipped
+  airborne units in the footprint sweep.
+- **Cure cross r1 → diamond r1.** Same 5-tile base, but Aether Bloom now expands
+  it to a proper diamond r2 (13) instead of a thin cross r2 (9). (S26 made the
+  same switch for the elemental AoEs; Cure was missed.)
+- **Polearm pierce vertical-range bug.** `pierceAoeForWeapon` built the pierce
+  line with no `verticalTolerance`, so it fell back to the ruleset default (3)
+  while `validateAction` used the weapon's full vertical range (Lance V4) — a
+  target at elevation delta 4 validated but was clipped from the footprint
+  (attack logged, no damage, no miss). The pierce line now takes its length and
+  vertical tolerance from the weapon's range. Not the ADR-0107 per-swing work
+  (that only touches the dual-wield off-hand swing).
+
 ### Things noticed / for Chris
 
 - **Barbut and Focus Band are both head slot → they never co-stack on one unit.**

@@ -24,6 +24,7 @@ import {
   statusTypeId,
   unitId,
   type AbilityId,
+  type ActiveAbilityDefinition,
   type ClassDefinition,
   type Loadout,
   type ProposedAction,
@@ -248,6 +249,87 @@ describe('Dragoon Jump — resolve', () => {
     s = resolveCharge(ended.newState, c);
     expect(s.units.get(enemy.id)!.vitals.hp).toBe(200); // untouched
     expect(s.units.get(j.id)!.airborne).toBe(false);
+  });
+});
+
+// S65: a unit that Jumps mid-flight should dodge an *already-committed*
+// charged action pinned to it (enemy OR ally) — Jump takes it off the
+// battlefield. validateAction blocks NEW targeting of airborne units at
+// commit; this covers a charge committed BEFORE the leap, which resolves
+// later via reduceChargedActionResolve.
+const chargedBolt: ActiveAbilityDefinition = {
+  id: abilityId('test_charged_bolt'),
+  name: 'Test Charged Bolt',
+  kind: 'active',
+  bucket: bucketId('first_action'),
+  baseCost: 1,
+  availability: 'hidden',
+  targeting: { kind: 'single_unit', range: { horizontal: 6, vertical: 6 }, rangeMode: 'arc' },
+  actionSpeed: 30,
+  mpCost: 0,
+  effects: { damage: { tags: ['magical'], power_coefficient: 5, variance: { min: 1, max: 1 } } },
+};
+
+function catWithBolt() {
+  return createCatalog({
+    statusTypes: [chargingType()],
+    abilities: [jump, attack, chargedBolt],
+    commandSets: [
+      {
+        id: commandSetId('dragoon'),
+        name: 'Dragoon',
+        members: [abilityId('jump'), abilityId('attack'), abilityId('test_charged_bolt')],
+        baseCost: 1,
+        availability: 'hidden',
+      },
+    ],
+    classes: [knightClass()],
+    items: [lance, longSword],
+    rulesets: [makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE })],
+  });
+}
+
+// Caster E (team_b) charges a bolt at victim V; V is the same minimal Knight.
+function boltScenario(victimAirborne: boolean): GameState {
+  const v = makeUnit({
+    id: 'v', team: 'team_a', spd: 10, ma: 0, faith: 100, hp: 100, maxHpBase: 100,
+    loadout: loadout(), position: { x: 0, y: 0, layer: 0 },
+  });
+  const e = makeUnit({
+    id: 'e', team: 'team_b', spd: 10, ma: 10, faith: 100, mp: 10,
+    loadout: loadout(), position: { x: 3, y: 0, layer: 0 },
+  });
+  const c = catWithBolt();
+  let s = makeGameState({ units: [v, e], map: flatMap(6, 6), turnState: turnFor('e') });
+  const cast = commitAction(s, {
+    type: 'use_ability', source: 'player', actorId: e.id,
+    payload: { abilityId: abilityId('test_charged_bolt'), target: { kind: 'unit', unitId: v.id } },
+  }, c);
+  expect(cast.ok).toBe(true);
+  if (!cast.ok) return s;
+  s = cast.newState;
+  expect(s.chargedActions).toHaveLength(1); // bolt is in flight, pinned to V
+  if (victimAirborne) {
+    // V leaps while the bolt is charging.
+    const vu = s.units.get(unitId('v'))!;
+    s = { ...s, units: new Map(s.units).set(vu.id, { ...vu, airborne: true }) };
+  }
+  const ended = commitAction(s, { type: 'turn_end', source: 'system', payload: { unitId: e.id } }, c);
+  expect(ended.ok).toBe(true);
+  if (!ended.ok) return s;
+  return resolveCharge(ended.newState, c);
+}
+
+describe('Jump — airborne dodges an in-flight charged action (S65)', () => {
+  it('a charged bolt pinned to a unit fizzles if it Jumps before resolution', () => {
+    const s = boltScenario(true);
+    expect(s.units.get(unitId('v'))!.vitals.hp).toBe(100); // unharmed — dodged
+    expect(s.chargedActions).toHaveLength(0); // the charge resolved (and fizzled)
+  });
+
+  it('control: the same bolt connects when the victim stays grounded', () => {
+    const s = boltScenario(false);
+    expect(s.units.get(unitId('v'))!.vitals.hp).toBeLessThan(100); // hit
   });
 });
 

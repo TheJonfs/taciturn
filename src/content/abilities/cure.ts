@@ -10,9 +10,13 @@
 //     boosts, ≈ 4.9 × MA with the Templar's innate Emissary (+25%).
 //     Below Potion's 12 × PA single-target — worse on one target, better
 //     across a cluster (the niche).
-//   - Shape: 1-square cross (5 tiles), boostable by Pyromancer's existing
-//     Aether Bloom AoE-expand support (cross r1 → r2).
-//   - Friendly fire ON (ruleset default): the cross heals every unit it
+//   - Shape: diamond r1 (5 tiles — identical footprint to a cross r1),
+//     boostable by Aether Bloom's AoE-expand support. S65: switched cross
+//     r1 → diamond r1 so the boost grows it into a proper diamond r2 (13
+//     tiles) rather than a thin cross r2 (9) — matching the Mage AoEs
+//     (Fire Storm etc.) that made the same switch in S26. No change at the
+//     base size; the two shapes coincide at radius 1.
+//   - Friendly fire ON (ruleset default): the diamond heals every unit it
 //     covers — allies AND enemies (the spatial-identity downside). The
 //     caster heals too (`excludeCaster: false`), enabling the self-Cure /
 //     Unified Calling MP loop once those land.
@@ -54,11 +58,11 @@ export const cure: ActiveAbilityDefinition = {
       variance: { min: 0.95, max: 1.05 },
     },
     aoe: {
-      // Friendly fire is ruleset-global (v1 default true), so the cross
+      // Friendly fire is ruleset-global (v1 default true), so the diamond
       // heals allies and enemies alike; excludeCaster false lets it heal
       // the caster too (self-Cure loop).
       excludeCaster: false,
-      shape: { kind: 'cross', radius: 1 },
+      shape: { kind: 'diamond', radius: 1 },
       verticalTolerance: 1,
     },
   },
