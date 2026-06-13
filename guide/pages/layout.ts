@@ -10,6 +10,7 @@ import { renderInline } from '../build/markdown.ts';
 import { armoryIntro } from '../content/items/index.ts';
 import academySealSvg from '../art/academy-seal.svg?raw';
 import gravityWellUrl from '../art/Gravity_Well_1.png';
+import highGroundUrl from '../art/High_Ground_1.png';
 import { esc } from './html.ts';
 
 // Same seal resolution as spread-context: prefer art/seal.png, fall
@@ -121,7 +122,7 @@ export function specializationsHalfTitle(): string {
         are placed; or open at the discipline you mean to take, and read
         it whole.
       </p>
-      <ul class="half-title__list">${spreadList}</ul>
+      <ul class="half-title__list half-title__list--columns">${spreadList}</ul>
     </section>`;
 }
 
@@ -143,6 +144,10 @@ export function armoryHalfTitle(): string {
         <li>The Armour Stores</li>
         <li>The Accessory Cases</li>
       </ul>
+      <figure class="half-title__plate half-title__plate--tall">
+        <img src="${esc(highGroundUrl)}" alt="Cadets at the Academy armory, examining requisitioned gear" />
+        <figcaption>Cadets at the armory &mdash; the requisitioning before the engagement.</figcaption>
+      </figure>
     </section>`;
 }
 

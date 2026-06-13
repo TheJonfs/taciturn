@@ -94,6 +94,23 @@
   line-height: 2;
 }
 
+/* The Specializations roster has grown to eleven names — long enough
+   that a single column runs tall and unbalanced. Two columns keep it
+   compact and let the half-title breathe; the short room/field lists on
+   the other dividers stay single-column. Column-major fill keeps the
+   alphabetical order reading top-to-bottom, left column then right. */
+.half-title__list--columns {
+  column-count: 2;
+  column-gap: 3.2rem;
+  width: fit-content;
+  margin-inline: auto;
+  text-align: left;
+}
+
+.half-title__list--columns li {
+  break-inside: avoid;
+}
+
 /* An optional plate beneath a half-title's text — a square in-world
    illustration (the Training Fields divider carries the tavern scene).
    Sized to leave the centred text block dominant and the page calm. */
@@ -108,6 +125,17 @@
   height: auto;
   border: 1px solid #6e2b2b;
   box-shadow: 0 1px 3px rgba(43, 38, 32, 0.35);
+}
+
+/* A tall source image squared off in-layout (object-fit crop) rather
+   than shipping a pre-cropped file — keeps the source art canonical, as
+   the title-page seal does. High_Ground (the Armory divider) is 0.68
+   aspect; cropping to 1:1 keeps the five cadets and the armory backdrop
+   and drops only dead floor and ceiling. */
+.half-title__plate--tall img {
+  height: 3.5in;
+  object-fit: cover;
+  object-position: center;
 }
 
 .half-title__plate figcaption {
