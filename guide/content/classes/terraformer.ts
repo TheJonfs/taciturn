@@ -70,11 +70,11 @@ line is hybrid — and they stand until broken or spent.`,
 
     // Free R/S/M passives — keyed by ability id.
     damage_split: {
-      full: `The signature Reaction: survive a blow, and she returns the
-*full* measure to her attacker and mends herself for half. Unlike
-Counter, it scales with whatever struck her — the harder the hit, the
-harsher the answer.`,
-      compact: `On surviving a hit: reflect the full damage back, heal half. Scales with the blow.`,
+      full: `The signature Reaction: survive a blow, and she splits it —
+*half* the damage returned to her attacker, *half* its measure mended on
+herself. Unlike Counter, it scales with whatever struck her, so a heavy
+hit both answers harder and heals her more.`,
+      compact: `On surviving a hit: reflect half the damage back, heal the other half. Scales with the blow.`,
     },
     ignore_height: {
       full: `The Movement passive that makes the kit cohere: she steps

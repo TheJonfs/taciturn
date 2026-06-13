@@ -58,11 +58,12 @@ than the wound it took on the way.`,
       compact: 'Area damage in a diamond, with knockback. Position is the prize, not the damage.',
     },
     brine: {
-      full: `Brine does not hurry. It settles a slowing into the
-target's limbs and lets the Hydrologist's own speed do the rest —
-against a foe already behind in the queue, a Brine is very nearly a
-sentence.`,
-      compact: 'A chance to slow the target. Stacked on her own tempo, close to decisive.',
+      full: `Brine does not hurry. It settles a deep slowing into the
+target's limbs — two full steps of Speed, lasting and stacking, so a
+second Brine bleeds four — and lets the Hydrologist's own tempo do the
+rest. Against a foe already behind in the queue, a Brine is very nearly
+a sentence.`,
+      compact: 'A chance to slow the target −2 Speed (stacking — two casts reach −4). Stacked on her own tempo, close to decisive.',
     },
     maelstrom: {
       full: `The discipline's ultimate: a cone torn open from the

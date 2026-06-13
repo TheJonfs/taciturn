@@ -49,31 +49,34 @@ and twice becomes four. The Assassin who means to deal damage does it by
       full: `The discipline's signature: a thread of shadow cast across
 the field that pins a foe *Stopped* — lifted clean from the turn order
 for a span. It rolls on the Assassin's own Brave and Speed rather than
-on spell-craft, so the faster and bolder the cadet, the surer the pin.`,
-      compact: 'Ranged Stop — pins a foe out of the turn order. Rolls on her Brave and Speed; her speed makes it stick.',
+on spell-craft, so the faster and bolder the cadet, the surer the pin.
+It flies straight now, so cover turns it aside.`,
+      compact: 'Ranged Stop — pins a foe out of the turn order. Rolls on her Brave and Speed; her speed makes it stick. Cover blocks it.',
     },
     blowdart: {
       full: `A dart of venom sent across the field — Poison, applied at
 range and with little ceremony. It is the Assassin's *standing* chip
 pressure: it ticks a foe down while she turns her attention to the next
-throat, and asks nothing of her once it is on.`,
-      compact: 'Ranged Poison — reliable, untended chip pressure. Apply it and move on.',
+throat, and asks nothing of her once it is on. A straight flight, so a
+wall or a body between will stop it.`,
+      compact: 'Ranged Poison — reliable, untended chip pressure. Apply it and move on. Cover blocks it.',
     },
     undermine: {
       full: `Undermine strips a measure of a foe's *Brave* — and Brave,
 the cadet will recall, is what fires a unit's reactions and steadies its
 nerve. Lower it and the enemy's Counter sleeps, his reactive tricks fall
-quiet. The cut holds for the whole engagement. Against a reaction-heavy
-opponent it is very nearly a disarmament.`,
-      compact: 'Ranged, lasting Brave −20 — quiets a foe’s reactions for the engagement. Disarms a Counter build.',
+quiet. The cut holds for the whole engagement; against a reaction-heavy
+opponent it is very nearly a disarmament — where cover does not stop the
+dart.`,
+      compact: 'Ranged, lasting Brave −20 — quiets a foe’s reactions for the engagement. Disarms a Counter build. Cover blocks it.',
     },
     sow_doubt: {
       full: `The mirror of Undermine, turned upon the enemy's art: Sow
 Doubt strips *Faith*, and Faith is what lends a caster's spells their
 bite and their reliability. A doubting mage is a lesser mage — her damage
 thinner, her statuses likelier to slip their hold. Lasting, like its
-sister, and aimed squarely at the other side's casters.`,
-      compact: 'Ranged, lasting Faith −20 — softens an enemy caster’s spells and status chances. The anti-mage cut.',
+sister, and stopped the same way by a wall between.`,
+      compact: 'Ranged, lasting Faith −20 — softens an enemy caster’s spells and status chances. The anti-mage cut. Cover blocks it.',
     },
     speed_save: {
       full: `A reaction, and a cruel one for the enemy: every blow that
@@ -111,9 +114,9 @@ turn behind from the first exchange.
 Guard her position as you would her life — they are the same thing, with
 a back evade of nothing. Where the cadet wants damage instead, the path
 is *volume*: Two Weapons, The Offering, and a touch of Speed turn her
-into a flurry of light strikes no armour was built to shed. Either way
-the counsel is the same — strike from where you cannot be answered, and
-let Speed Save punish every blow the enemy spends to reach her.`,
+into a flurry of light strikes no armour was built to shed. Strike from
+where you cannot be answered, and let Speed Save punish every blow the
+enemy spends to reach her.`,
 
   marginalia: [
     'The Assassin’s first question is never “whom do I hit” but “whose turn do I take.”',

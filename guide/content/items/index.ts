@@ -322,6 +322,13 @@ through it. The Armorer cannot quite explain how, and is careful not
 to ask.`,
     tactical: 'Unrestricted: a modest HP gain alongside lifts to *both* Brave and Faith. Useful on a Knight whose reactions need the firing chance, on an Alchemist running magical secondaries, or on any cadet whose kit asks both stats to compose.',
   },
+  battlemages_chain: {
+    flavor: `A coat of fine ring-mail with a few links struck from a
+queerer metal, worn by the cadet who casts as readily as she stands.
+The Armorer keeps it between the plate and the robes, which is exactly
+where it belongs.`,
+    tactical: 'Unrestricted: a heavy HP gain, useful MP, and a point of Magical Attack — a robe’s reserves and a soldier’s bulk in one body, trading the robes’ elemental resistance for raw durability. The body for the hybrid, and for any cadet who casts but would rather not be made of paper to do it.',
+  },
 
   // --- Headgear -----------------------------------------------------
   iron_helm: {
@@ -346,6 +353,13 @@ the work.`,
     flavor: `The aggressive Knight's helm — cut to let her hit sooner
 and harder, and trusting her to not need the rest.`,
     tactical: 'Knight-only: HP, Physical Attack, and Speed together. The forward Knight’s head.',
+  },
+  barbut: {
+    flavor: `A close iron helm with a narrow slit and a heavier weight
+than its size suggests, struck for the front-liner who has grown tired
+of being held in place. The Armorer recommends it to anyone who has
+spent an exercise unable to move.`,
+    tactical: 'Heavy: a solid HP gain, and — the point of it — *half* the chance an incoming Stop, Don’t Move, or Don’t Act takes hold. The answer to a control-heavy enemy: an Assassin’s Shadow Stitch, a Pin Down, a disabling line. Stacks multiplicatively with the Focus Band for a front-liner who refuses to be locked down.',
   },
   pointy_hat: {
     flavor: `The mage's hat, and rather more than a hat. Half a guard
@@ -380,6 +394,12 @@ tempo.`,
 preferred cure for a cadet whose Reactions miss too often. A lifted
 Brave makes the body's answer surer.`,
     tactical: 'Mages only: HP, MP, and Brave — the last makes her reactions more likely to fire when the field gives the chance.',
+  },
+  circlet: {
+    flavor: `A slim band of pale metal that warms faintly when its
+wearer's reserve is running back — the Armorer's quiet provision for the
+mage who has learned, of late, that her spells are not free.`,
+    tactical: 'Magical: a touch of HP and MP, and — its reason for being — a standing trickle of MP back each turn, scaled to half the wearer’s Magical Attack. The sustain answer to the leaner reserves the casting disciplines now carry; weigh it against the Golden Hairpin’s halved costs and the Magus Crown’s breadth, and choose by whether the engagement is long.',
   },
   golden_hairpin: {
     flavor: `A thin gilded pin, worn through the hair where it stays

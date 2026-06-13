@@ -58,15 +58,19 @@ optional.`,
     precision_fire: {
       full: `Fire damage at full magical force, dispatched to every
 matching cadet, with a real chance besides of setting each one
-*Burning*. On a parameter that catches a clustered enemy line, the
-engagement's most punishing single turn.`,
-      compact: 'Multi-target fire damage with a Burn proc per target. The Calculator’s offensive heart.',
+*Burning*. The damage scales on Magical Attack alone — no Faith term to
+swing it — so it lands the same heavy figure every time, and a heavier
+one than it once did. On a parameter that catches a clustered enemy
+line, the engagement's most punishing single turn.`,
+      compact: 'Multi-target fire damage (MA-scaled, no Faith swing) with a Burn proc per target. The Calculator’s offensive heart.',
     },
     targeted_treatment: {
-      full: `Magical mending to every matching cadet. Friendly fire
-applies *in both directions* — and on this cast above all, an
-inadvertent enemy heal is the cost. Read the preview.`,
-      compact: 'Multi-target heal. Friendly fire applies — read the preview before committing.',
+      full: `Magical mending to every matching cadet, scaled on Magical
+Attack alone — a flat, dependable heal, and a larger one since it shed
+its Faith term. Friendly fire applies *in both directions*, and on this
+cast above all, an inadvertent enemy heal is the cost. Read the
+preview.`,
+      compact: 'Multi-target heal (MA-scaled, no Faith swing). Friendly fire applies — read the preview before committing.',
     },
     exact_rhythm: {
       full: `Every matching cadet's CT pushed backward — a

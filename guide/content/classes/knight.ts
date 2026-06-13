@@ -4,12 +4,16 @@
 // file holds only the voice.
 //
 // Ability-note keys must match the ability ids the catalog resolves for
-// the Knight: attack, power_attack, lightning_stab, taunt (actives);
+// the Knight: attack, power_attack, lightning_stab, bull_rush (actives);
 // counter, martial_expertise, bravestrider (passives). (S42 swapped
 // Stasis Sword's Stop rider for Lightning Stab's Silence rider — the
 // Stop tool moved to the Assassin's Shadow Stitch. S41 swapped the
 // Knight's free Support/Movement: Damage Reduction → Martial Expertise
-// (PA ×1.25) and Move +1 → Bravestrider (+1 Move, +10 Brave).)
+// (PA ×1.25) and Move +1 → Bravestrider (+1 Move, +10 Brave). S65
+// (ADR-0108) suppressed Taunt and added Bull Rush, and moved the Battle
+// Skill riders to PA-scaling: Lightning Stab's Silence and Bull Rush's
+// knockback both roll on the Knight's PA now, not her MA, and land the
+// more reliably for it.)
 
 import type { ClassProse } from '../prose.ts';
 
@@ -47,19 +51,21 @@ opening is not always.`,
     },
     lightning_stab: {
       full: `Here the Knight's hybrid character shows itself: a true physical
-strike that may, on a roll weighted by the cadet's own resolve, leave the
-target *Silenced* — its art sealed, its spells stopped in its throat for a
-span. It is the Knight's answer to an enemy caster, and the Academy's
-plainest proof that she is not merely a wall. A Bravestrider Knight lands
-the seal the more reliably for her lifted Brave.`,
-      compact: 'Physical strike with a chance to Silence the target. The Knight’s answer to a caster.',
+strike that may leave the target *Silenced* — its art sealed for a span.
+The seal rolls on her *Physical Attack*, the highest stat she owns, so it
+lands far more often than a caster's trick would — roughly half her blows,
+where once it was a third. The Knight's answer to an enemy mage, and the
+plainest proof she is not merely a wall.`,
+      compact: 'Physical strike with a good chance to Silence the target — the seal scales on her PA. The Knight’s answer to a caster.',
     },
-    taunt: {
-      full: `Taunt fixes a foe's attention upon the Knight whether that foe
-wills it or no — the rare instruction that simply takes hold. Used well, it
-is mercy for a fragile ally and a trap for an overcommitted enemy. Used
-poorly, it is merely an invitation to a beating one was not ready to absorb.`,
-      compact: 'Forces a foe to fix on the Knight — no roll, it lands. Time it for an ally’s sake.',
+    bull_rush: {
+      full: `A weapon strike that asks no extra damage and offers something
+better: a high chance, on a hit, to *shove the target back a tile* — off a
+ledge, out of a Pit, into a Valley, or simply clear of the line she meant
+to hold. The shove rolls on the Knight's Physical Attack and Brave, and a
+high-Brave target plants her feet against it; but on most enemies it is
+the Knight's quiet hand on the shape of the field.`,
+      compact: 'A normal-damage strike with a high chance to knock the target back one tile. Shove a foe off a ledge or into a hazard.',
     },
     counter: {
       full: `A reaction: when a physical blow finds the Knight, she answers it
@@ -78,20 +84,22 @@ Support slot to this has multiplied the whole of her offence at a stroke.`,
     },
     bravestrider: {
       full: `One further tile of Move Range, and ten points of Brave besides.
-The Move keeps the Knight in the engagement on uneven ground; the Brave is
-the quieter gift — it steadies the reactions Brave governs and lends weight
-to the Brave-scaled strokes of her Battle Skill, Lightning Stab's Silence
-chief among them. Mobility and resolve, carried in a single bearing.`,
-      compact: '+1 Move Range and +10 Brave. Keeps her in the fight, and firms the reactions and rolls Brave governs.',
+The Move keeps the Knight in the engagement on uneven ground; the Brave
+steadies the reactions Brave governs and stiffens her own footing against a
+Bull Rush in turn. For the surer Silence and the harder shove she now
+stacks *Physical Attack* instead — but the resolve Bravestrider lends is
+never wasted on her.`,
+      compact: '+1 Move Range and +10 Brave. Keeps her in the fight and firms the reactions Brave governs (her Battle Skill riders now scale on PA).',
     },
   },
 
   strategy: `The Knight rewards patience and punishes haste — a sentence the
 cadet will hear this instructor repeat. Her worth compounds: the longer she
 stands, the more Counter has answered, the more her armour has quietly
-turned aside, the more a well-timed Taunt has bent the engagement around
-her. A Knight thrown forward alone is a Knight wasted; a Knight placed where
-the line must hold is worth two of anything else on the field.
+turned aside, the more a well-placed Bull Rush has spoiled an enemy's
+footing or fed her a fall. A Knight thrown forward alone is a Knight wasted;
+a Knight placed where the line must hold is worth two of anything else on
+the field.
 
 Build her, then, for endurance and for presence. Where the requisitioning
 cadet has a choice, this instructor favours the gear that lets the Knight be
@@ -101,7 +109,7 @@ is the point.`,
 
   marginalia: [
     'Cadets always overspend Power Attack in their first term. Always. — note for next year.',
-    'Taunt is not a dare. Stop treating it as a dare.',
+    'Bull Rush is a shove, not a kill. The cadet who learns to read a ledge gets twice the use of it.',
     'See the River Ridge exercise — the one with the ford. The Knight who waited won it.',
     'The standing is the point. Underline that.',
   ],
