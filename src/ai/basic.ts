@@ -74,6 +74,7 @@ import {
   rangeFromHeightBonus,
   runModifyAoeShape,
   runModifyAoeVerticalTolerance,
+  runModifyStatQuery,
   tileAt,
   unitAt,
   weaponRangeFromHeightSpec,
@@ -158,6 +159,23 @@ const CLEANSE_VALUE_PER_DEBUFF = 15;
 // MP-restore value factor (Ether). Intentionally small: an Ether throw
 // only wins when no combat/heal/buff action scores positive.
 const ETHER_VALUE_FACTOR = 0.1;
+
+// MP-spend penalty (S66 chunk 2, D2: soft scaled penalty only — no hard
+// floor). An action's MP cost is subtracted from its score in proportion
+// to how low the caster's MP is, so the AI conserves its last MP for
+// marginal casts while a high-value cast (lethal, big AoE) still wins
+// through it (the penalty is bounded and subordinate). ~0 when MP is
+// plentiful, so normal play is undistorted. The weight is the per-MP
+// penalty at fully-empty MP; the convex scarcity curve keeps it gentle
+// until MP runs genuinely low. Playtest dial — see docs/playtest-watch.md.
+const MP_SPEND_PENALTY_WEIGHT = 1.5;
+
+// Restore-valuation (Ether) scarcity bonus (S66 chunk 2). An Ether throw
+// is worth more as the recipient's MP runs low: the base value is
+// multiplied by (1 + this × recipientScarcity), so a bone-dry ally roughly
+// doubles Ether's appeal while a near-full ally sees the base value. Keeps
+// Ether a situational pick that rises exactly when conservation bites.
+const MP_RESTORE_SCARCITY_BONUS = 1.0;
 
 // Math Skill pool-injection scale. Math's net-team-value is raw HP-swing
 // (no killValue weighting yet — see math-skill-scoring.ts); 1.0 injects it
@@ -547,7 +565,10 @@ function bestThrowCandidate(
       const missingMp = Math.max(0, ally.baseStats.maxMpBase - ally.vitals.mp);
       if (missingMp <= 0) continue;
       const restored = Math.min(missingMp, pa * ETHER_MP_COEFFICIENT);
-      consider(restored * ETHER_VALUE_FACTOR, ETHER, ally.id, `throw|ether|${ally.id}`);
+      // S66 chunk 2: restore-valuation — Ether is worth more as the
+      // recipient's MP runs low, the mirror of the MP-spend penalty.
+      const scarcityMult = 1 + MP_RESTORE_SCARCITY_BONUS * mpScarcity(state, catalog, ally);
+      consider(restored * ETHER_VALUE_FACTOR * scarcityMult, ETHER, ally.id, `throw|ether|${ally.id}`);
     }
   }
 
@@ -964,6 +985,50 @@ function killValue(target: Unit): number {
   return 1 / Math.max(0.05, target.vitals.hp / maxHp);
 }
 
+// === MP economy (S66 chunk 2) =========================================
+
+// Computed max MP including equipment / status contributions (ground rule
+// 5: max values are computed, never read from a cached field). Mirrors the
+// reducer's MP-restore cap path (statName 'maxMp').
+function computeMaxMp(state: GameState, catalog: Catalog, unit: Unit): number {
+  return runModifyStatQuery(state, catalog, {
+    unit,
+    statName: 'maxMp',
+    baseValue: unit.baseStats.maxMpBase,
+  });
+}
+
+// MP scarcity of a unit in [0, 1]: ~0 when MP is plentiful, → 1 as MP runs
+// empty. Convex ((1 - ratio)²) so the penalty stays negligible during
+// normal play and rises only as the pool runs genuinely low.
+function mpScarcity(state: GameState, catalog: Catalog, unit: Unit): number {
+  const maxMp = computeMaxMp(state, catalog, unit);
+  if (maxMp <= 0) return 0;
+  const ratio = Math.max(0, Math.min(1, unit.vitals.mp / maxMp));
+  const deficit = 1 - ratio;
+  return deficit * deficit;
+}
+
+// Scarcity-scaled penalty for spending `ability`'s MP cost, subtracted from
+// the action's score (S66 chunk 2, D2). Zero for free / 0-MP abilities — a
+// basic Attack is never penalized, so it naturally beats a marginal MP cast
+// when the caster is low. Bounded (mpCost × weight × scarcity ≤ mpCost ×
+// weight), so it tips marginal casts toward conservation without zeroing a
+// high-value cast. Applied inside the leaf scorers (offence single / AoE /
+// ally-buff) so the joint move-then-act planner's internal ability
+// comparison — where the free-attack alternative would otherwise be
+// discarded before the pool sees it — accounts for it too.
+function mpSpendPenalty(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  ability: ActiveAbilityDefinition,
+): number {
+  const mpCost = computeMpCost(state, catalog, actor.id, ability.id);
+  if (mpCost <= 0) return 0;
+  return mpCost * MP_SPEND_PENALTY_WEIGHT * mpScarcity(state, catalog, actor);
+}
+
 // Session 40 (D7): does the actor's equipped weapon have an attackProc
 // that applies a status the target is particularly vulnerable to? Returns
 // a score multiplier. v1 scope is intentionally narrow — Silence-via-knife
@@ -1205,7 +1270,8 @@ function scoreSingleUnitOffensive(
       state, catalog, actor, source, target.position, target, ability,
       projected < target.vitals.hp,
     );
-    return score;
+    // S66 chunk 2: subordinate MP-spend penalty (0 for free / 0-MP casts).
+    return score - mpSpendPenalty(state, catalog, actor, ability);
   }
 
   // No damage — debuff applier (Magnetic Mark). Tier-2 setup→exploit:
@@ -1224,7 +1290,8 @@ function scoreSingleUnitOffensive(
     const damageWithMark = Math.min(withVulnerable, target.vitals.hp);
     const marginal = damageWithMark - damageWithoutMark;
     if (marginal <= 0) return 0;
-    return marginal * killValue(target);
+    // S66 chunk 2: the debuff applier (Magnetic Mark) pays MP too.
+    return marginal * killValue(target) - mpSpendPenalty(state, catalog, actor, ability);
   }
   return 0;
 }
@@ -1362,7 +1429,8 @@ function scoreAoeOffensive(
       projected < ally.vitals.hp,
     );
   }
-  return total;
+  // S66 chunk 2: subordinate MP-spend penalty (0 for free / 0-MP casts).
+  return total - mpSpendPenalty(state, catalog, actor, ability);
 }
 
 // Per-target weight for status-only AoEs (Earth Cataclysm-style debuff
@@ -1473,7 +1541,9 @@ function scoreAllyBuff(
   // with MA 9 and 5 offensive spells scores 45; a Knight with MA 4
   // and 1 attack scores 4. The dampening factor scales this into the
   // same range as direct-damage scores so buffs don't always dominate.
-  return target.baseStats.ma * offensives.length * BUFF_SCORE_DAMPING_FACTOR;
+  const value = target.baseStats.ma * offensives.length * BUFF_SCORE_DAMPING_FACTOR;
+  // S66 chunk 2: subordinate MP-spend penalty (0 for free / 0-MP casts).
+  return value - mpSpendPenalty(state, catalog, actor, ability);
 }
 
 // =====================
@@ -2546,6 +2616,10 @@ export const _basicAiInternals = {
   scoreWorldcraftFall,
   fallValueForOccupant,
   expectedKnockbackFallValue,
+  computeMaxMp,
+  mpScarcity,
+  mpSpendPenalty,
+  bestThrowCandidate,
   targetIsInAbilityRange,
   tilesInAbilityRange,
   residualDangerForPlan,
