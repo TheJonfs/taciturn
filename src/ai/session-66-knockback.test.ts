@@ -222,8 +222,10 @@ describe('S66 chunk 1 — scoreSingleUnitOffensive folds the fall consequence', 
   // beyond the enemy in the shove direction (3,1) is the variable.
   function setup(beyondTileElev: number) {
     const cat = loadDefaultCatalog();
+    // Full MP so the S66 chunk-2 MP-spend penalty is inert — this layer
+    // isolates the knockback-fall term from MP economy.
     const attacker = makeUnit({
-      id: 'kn', spd: 10, pa: 8, hp: 60, mp: 20, classId: 'knight',
+      id: 'kn', spd: 10, pa: 8, hp: 60, maxMpBase: 20, mp: 20, classId: 'knight',
       position: { x: 1, y: 1, layer: 0 },
       equipment: { leftHand: null, rightHand: longSword.id, headgear: null, armor: null, accessory: null },
     });
