@@ -44,6 +44,38 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Thief session — chunk 1 (2026-06-14)
+
+New class: the **Thief** (12th class, 5th physical). See ADR-0110 for mechanics.
+
+- **New class — Thief.** A fast, slippery skirmisher built around resource
+  theft. Stats: HP 90 / MP 28 / PA 7 / MA 3 / Speed 11, Move 3 / Jump 3,
+  evasion 8 / 4 / 0 (front/side/back), universal gear. PA is its everything-
+  stat. First Action set is **Thief Arts**.
+- **Thief Arts (actives):**
+  - **Steal HP** (5 MP) — a melee weapon strike for 75% of a normal attack's
+    damage that heals the Thief for 50% of the damage dealt. Evadable.
+  - **Steal MP** (3 MP) — a melee strike that drains PA×3 MP from the target
+    and restores half of the MP actually removed to the Thief. Evadable; the
+    refuel scales with what the target actually had to give.
+  - **Steal Buffs** (4 MP) — a ranged (line-of-sight) theft that, on a Brave/PA
+    contest, strips every buff off the target and applies them all to the
+    Thief. Doesn't take debuffs, Stop, or charging states.
+- **Thief native passives (free on the Thief; available to others at cost):**
+  - **Slip Free** (Reaction, 1) — when a timed debuff (Stop, Slow, …) is
+    applied to the Thief, it shrugs off one turn of the duration; a 1-turn
+    debuff is shrugged off entirely. Brave-gated (higher Brave = fires more
+    often).
+  - **Momentum** (Support, 1) — refunds a little CT after any non-magical
+    action, the basic Attack included (the inverse of the Water Mage's Flow
+    State). Move and Wait don't refund.
+  - **Move +2** (Movement, 2) — +2 to Move Range (the Thief reaches effective
+    Move 5).
+- **Not yet:** Steal Heart (the charm capstone) is still to come; the Thief
+  isn't in the default playtest teams yet.
+
+---
+
 ## Session 66 (2026-06-14)
 
 _No player-facing changes._ AI-only work (ADR-0109): the AI now values

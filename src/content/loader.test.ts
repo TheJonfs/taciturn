@@ -183,10 +183,18 @@ describe('loadDefaultCatalog', () => {
     //   - statusTypes: 32 → 33 (mana_font — the Circlet's per-turn MP regen)
     //   - items: 70 → 73 (battlemages_chain, barbut, circlet)
     //   - commandSets / classes unchanged (battle_skill swapped a member)
+    //
+    // Session (Thief) — the 12th class, chunk 1:
+    //   - abilities: 95 → 101 (steal_hp, steal_mp, steal_buffs, slip_free,
+    //     momentum, move_plus_2)
+    //   - commandSets: 13 → 14 (thief_arts — Steal HP / MP / Buffs)
+    //   - classes: 11 → 12 (thief)
+    //   - statusTypes / items unchanged (chunk 1 adds no statuses; the
+    //     control-override charm status lands with Steal Heart in chunk 2)
     expect(cat.statusTypes()).toHaveLength(33);
-    expect(cat.abilities()).toHaveLength(95);
-    expect(cat.commandSets()).toHaveLength(13);
-    expect(cat.classes()).toHaveLength(11);
+    expect(cat.abilities()).toHaveLength(101);
+    expect(cat.commandSets()).toHaveLength(14);
+    expect(cat.classes()).toHaveLength(12);
     expect(cat.items()).toHaveLength(73);
     expect(cat.rulesets()).toHaveLength(1);
   });

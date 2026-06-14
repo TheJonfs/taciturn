@@ -29,6 +29,8 @@ The four-school mage display names are flavored (Geosage / Hydrologist / Pyroman
 | `hunter` | Hunter | `src/content/classes/hunter.ts` |
 | `calculator` | Calculator | `src/content/classes/calculator.ts` |
 | `terraformer` | Terraformer | `src/content/classes/terraformer.ts` |
+| `templar` | Templar | `src/content/classes/templar.ts` |
+| `thief` | Thief | `src/content/classes/thief.ts` |
 
 ## Command sets
 
@@ -46,6 +48,8 @@ The four-school mage display names are flavored (Geosage / Hydrologist / Pyroman
 | `lightning_spells` | Aethurgy | `lightning_strike`, `static_embrace`, `chain_lightning`, `magnetic_mark`, `storm_caller` | `src/content/command-sets/lightning-spells.ts` |
 | `math_skill` | Math Skill | `precision_fire`, `targeted_treatment`, `exact_rhythm`, `sculpted_enhancement`, `engineered_defenses` | `src/content/command-sets/math-skill.ts` |
 | `worldcraft` | Worldcraft | `pillar`, `pit`, `hill`, `valley`, `barrier` | `src/content/command-sets/worldcraft.ts` |
+| `templar_arts` | Templar Arts | `cure`, `raise`, `jump` | `src/content/command-sets/templar-arts.ts` |
+| `thief_arts` | Thief Arts | `steal_hp`, `steal_mp`, `steal_buffs` | `src/content/command-sets/thief-arts.ts` |
 
 The `attack` ability is universal — surfaced through every class's `freeAbilities` rather than as a command-set member, so the action menu shows it alongside the player's First Action set.
 
@@ -109,6 +113,9 @@ The display names of the elemental-spell suite were re-flavored (S40 name pass a
 | `hill` | Hill | first_action | no (S54 Worldcraft — 3×3 [1,2,1;2,3,2;1,2,1] kernel raise; instant; 16 MP) | available | `src/content/abilities/worldcraft/hill.ts` |
 | `valley` | Valley | first_action | no (S54 Worldcraft — 3×3 negated kernel lower + fall damage; instant; 16 MP) | available | `src/content/abilities/worldcraft/valley.ts` |
 | `barrier` | Barrier | first_action | no (S54 Worldcraft — 3-5 tile wall line, HP = PA×MA, TTL 50 turn-starts ≈ 5 rounds in a 5v5; tile_set target; instant; 12 MP) | available | `src/content/abilities/worldcraft/barrier.ts` |
+| `steal_hp` | Steal HP | first_action | no (Thief Arts — 0.75 weapon strike + 50% lifesteal; evadable; 5 MP) | available | `src/content/abilities/steal-hp.ts` |
+| `steal_mp` | Steal MP | first_action | no (Thief Arts — drain PA×3 MP, restore 50% of MP removed; evadable; 3 MP) | available | `src/content/abilities/steal-mp.ts` |
+| `steal_buffs` | Steal Buffs | first_action | no (Thief Arts — additive contest [base 33]; strip polarity:buff statuses → caster; 4 MP) | available | `src/content/abilities/steal-buffs.ts` |
 
 ## Passive abilities
 
@@ -151,6 +158,9 @@ Reaction / Support / Movement passives are equipped through their respective R/S
 | `ignore_height` | Ignore Height | movement | 3 (S54 Terraformer native — Jump → 99, ignores elevation deltas) | `src/content/abilities/ignore-height.ts` |
 | `expert_former` | Expert Former | support | 1 (S54 Terraformer native — Worldcraft effect cap +2, base 2 → 4) | `src/content/abilities/expert-former.ts` |
 | `damage_split` | Damage Split | reaction | 2 (Terraformer native — reflect damage taken to attacker + heal half; built S53, wired onto Terraformer freeAbilities S54) | `src/content/abilities/damage-split.ts` |
+| `slip_free` | Slip Free | reaction | 1 (Thief native — Brave-gated `modifyIncomingStatusDuration`; shaves one tick off an incoming negative debuff, negates a 1-tick) | `src/content/abilities/slip-free.ts` |
+| `momentum` | Momentum | support | 1 (Thief native — +10 CT refund on any non-magical action, basic Attack included; Flow State inverse) | `src/content/abilities/momentum.ts` |
+| `move_plus_2` | Move +2 | movement | 2 (Thief native — +2 moveRange) | `src/content/abilities/move-plus-2.ts` |
 
 S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive without a class home; the `modifyEvasion` hook it introduced stays for equipment-side consumers). **S50 suppressed Damage Reduction** under the same "support without a class home" pattern — `damage_reduction` is now `'hidden'` (the catalog still resolves the id for historical action-log replays; the picker just doesn't surface it).
 
@@ -342,15 +352,20 @@ Registered in `default.ts`'s `terrain.tags` map; see ADR-0073 (tag abstraction) 
 
 ---
 
-## Catalog counts (as of S54 — 2026-05-30)
+## Catalog counts (as of the Thief session — chunk 1)
 
-| Kind | Count | Δ since S51 |
+The authoritative pin is `src/content/loader.test.ts`; these are the current
+catalog totals. (The Δ column lapsed between S54 and here — S62 Templar and
+S65 Knight/equipment content landed without a registry refresh; this entry
+re-baselines to the live totals.)
+
+| Kind | Count | Notes |
 |---|---|---|
-| Classes | 10 | +1 (S54: `terraformer`) |
-| Command sets | 12 | +1 (S54: `worldcraft`) |
-| Abilities (active + passive + hidden) | 88 | +8 (S53: `damage_split`; S54: `pillar`, `pit`, `hill`, `valley`, `barrier`, `ignore_height`, `expert_former`) |
-| Status types | 32 | — |
-| Equipment + consumables | 67 | — |
+| Classes | 12 | S62 `templar`; Thief `thief` |
+| Command sets | 14 | S62 `templar_arts`; Thief `thief_arts` |
+| Abilities (active + passive + hidden) | 101 | Thief chunk 1 +6: `steal_hp`, `steal_mp`, `steal_buffs`, `slip_free`, `momentum`, `move_plus_2` |
+| Status types | 33 | S65 `mana_font` (chunk 1 adds none — the charm status lands with Steal Heart in chunk 2) |
+| Equipment + consumables | 73 | S65 `battlemages_chain`, `barbut`, `circlet` |
 | Rulesets | 1 | — |
 | Maps | 3 | — |
 | Terrain types | 4 | — |

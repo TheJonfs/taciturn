@@ -62,13 +62,19 @@ import { magneticMark } from './magnetic-mark.ts';
 import { maelstrom } from './maelstrom.ts';
 import { martialExpertise } from './martial-expertise.ts';
 import { mathematician } from './mathematician.ts';
+import { momentum } from './momentum.ts';
 import { movePlus1 } from './move-plus-1.ts';
+import { movePlus2 } from './move-plus-2.ts';
 import { powerAttack } from './power-attack.ts';
 import { precisionFire } from './precision-fire.ts';
 import { quickstep } from './quickstep.ts';
 import { sculptedEnhancement } from './sculpted-enhancement.ts';
 import { shadowStitch } from './shadow-stitch.ts';
+import { slipFree } from './slip-free.ts';
 import { smolder } from './smolder.ts';
+import { stealBuffs } from './steal-buffs.ts';
+import { stealHp } from './steal-hp.ts';
+import { stealMp } from './steal-mp.ts';
 import { sowDoubt } from './sow-doubt.ts';
 import { spark } from './spark.ts';
 import { speedSaveReaction } from './speed-save.ts';
@@ -192,4 +198,11 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   emissary,
   unifiedCalling,
   jump,
+  // Thief (12th class) — Thief Arts actives + the three native RSM.
+  stealHp,
+  stealMp,
+  stealBuffs,
+  slipFree,
+  momentum,
+  movePlus2,
 ];

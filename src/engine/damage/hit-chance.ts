@@ -40,15 +40,17 @@ export interface ComputeHitChanceArgs {
 export function computeOutgoingHitChance(args: ComputeHitChanceArgs): number {
   const { state, catalog, attacker, target, ability } = args;
 
-  const damage = ability.effects.damage;
-  if (damage === undefined) return 1.0;
-  const tags = new Set(damage.tags);
-  // Magical-only damage always lands (per Battle Mechanics Guide and
-  // evasionCheck's gate). Healing follows the same rule.
-  if (!tags.has('physical')) return 1.0;
-
   const hitRoll = ability.hitRoll;
+  // No hit-roll declaration → auto-hit (the convention: omit for "no roll").
   if (hitRoll === undefined) return 1.0;
+
+  const damage = ability.effects.damage;
+  // Magical-only damage always lands (per Battle Mechanics Guide and
+  // evasionCheck's gate); healing follows the same rule. A hitRoll-bearing
+  // ability with NO damage effect (the Thief's Steal MP — a pure MP drain)
+  // is treated as a physical strike and rolls evasion below: `hitRoll`
+  // present is the signal that the ability can be dodged.
+  if (damage !== undefined && !new Set(damage.tags).has('physical')) return 1.0;
 
   // S46: physical attacks on Charging targets auto-hit per FFT canon —
   // mirror `evasionCheck`'s pre-roll guard so the forecast UI displays

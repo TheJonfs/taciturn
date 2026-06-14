@@ -358,6 +358,71 @@ export function rollAbilityChance(args: AbilityChanceArgs): AbilityChanceResult 
   return { chance, roll, applied: roll < chance };
 }
 
+// Thief contest chance — the tuned-additive success form for Steal Buffs
+// and (chunk 2) Steal Heart. Distinct from the multiplicative BMG status
+// formula above:
+//   chance% = clamp(baseChance + α·PA + β·(caster_Brave − target_Brave), [1, 95])
+// with α = 3, β = 0.5 (concept-notes "Steal Heart success formula"). The
+// target's Brave acts as RESISTANCE via the differential — unlike the
+// multiplicative formula's symmetric Brave *product* (where high target
+// Brave and high caster Brave both raise the term). The 95 cap means the
+// game's biggest swings are never a guaranteed lock even under full setup;
+// the floor of 1 leaves a sliver. PA and both Braves read through
+// `runModifyStatQuery` so equipment / status modifiers compose. Returns a
+// PERCENTAGE in [1, 95] (note: `rollAbilityChance` above returns a [0,1]
+// fraction — this form is percent-native to match the concept-notes math).
+const THIEF_CONTEST_ALPHA = 3;
+const THIEF_CONTEST_BETA = 0.5;
+
+export interface ThiefContestChanceArgs {
+  readonly state: GameState;
+  readonly catalog: Catalog;
+  readonly caster: Unit;
+  readonly target: Unit;
+  readonly baseChance: number;
+}
+
+export function computeThiefContestChance(args: ThiefContestChanceArgs): number {
+  const pa = runModifyStatQuery(args.state, args.catalog, {
+    unit: args.caster,
+    statName: 'pa',
+    baseValue: args.caster.baseStats.pa,
+  });
+  const casterBrave = runModifyStatQuery(args.state, args.catalog, {
+    unit: args.caster,
+    statName: 'brave',
+    baseValue: args.caster.baseStats.brave,
+  });
+  const targetBrave = runModifyStatQuery(args.state, args.catalog, {
+    unit: args.target,
+    statName: 'brave',
+    baseValue: args.target.baseStats.brave,
+  });
+  const raw =
+    args.baseChance +
+    THIEF_CONTEST_ALPHA * pa +
+    THIEF_CONTEST_BETA * (casterBrave - targetBrave);
+  return Math.max(1, Math.min(95, raw));
+}
+
+export interface ThiefContestRollArgs extends ThiefContestChanceArgs {
+  readonly seed: number;
+  readonly effectIndex?: number;
+}
+
+export interface ThiefContestRollResult {
+  readonly chance: number; // percentage in [1, 95]
+  readonly roll: number; // unit float drawn from the seed
+  readonly applied: boolean;
+}
+
+export function rollThiefContestChance(args: ThiefContestRollArgs): ThiefContestRollResult {
+  const chance = computeThiefContestChance(args);
+  const subIndex = ABILITY_CHANCE_SUB_STREAM + (args.effectIndex ?? 0);
+  const roll = unitFloatFromSeed(args.seed, subIndex);
+  return { chance, roll, applied: roll < chance / 100 };
+}
+
 // mulberry32-style mixer matching engine/damage/handlers.ts. Returns a
 // unit float in [0, 1).
 function unitFloatFromSeed(seed: number, subIndex: number): number {

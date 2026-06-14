@@ -329,7 +329,11 @@ export type SystemHealSource =
   // Session 53: Damage Split heals the reactor for half the damage it took,
   // paired with the `'reflect'` system_damage to the attacker. `abilityId`
   // names the reaction; `unitId` is the reactor (the heal target).
-  | { readonly kind: 'reaction'; readonly abilityId: AbilityId; readonly unitId: UnitId };
+  | { readonly kind: 'reaction'; readonly abilityId: AbilityId; readonly unitId: UnitId }
+  // Thief — Steal HP lifesteal. A damaging active siphons a fraction of the
+  // HP it dealt back to the caster. `abilityId` names the active; `unitId`
+  // is the caster (the heal target).
+  | { readonly kind: 'ability'; readonly abilityId: AbilityId; readonly unitId: UnitId };
 
 // `system_damage` — engine-emitted damage-the-target action used by
 // onTick handlers (Poison) and ADR-0026 falling damage. Symmetric to
@@ -436,6 +440,13 @@ export interface SystemMpDrainPayload {
   readonly source: UnitId;
   readonly target: UnitId;
   readonly amount: number; // requested transfer
+  // Fraction of the MP *actually removed from the target* that the source
+  // receives. Defaults to 1.0 (a full transfer — Rasp Pendant). The Thief's
+  // Steal MP passes 0.5: the target loses the full drained amount, but the
+  // Thief recovers only half (the rest is destroyed). The source's gain is
+  // still capped at its MP headroom after the fraction is applied:
+  //   sourceApplied = min(maxMp(source) − source.mp, floor(restoreFraction × targetApplied))
+  readonly restoreFraction?: number;
 }
 export interface SystemMpDrainOutcome {
   readonly kind: 'system_mp_drain';

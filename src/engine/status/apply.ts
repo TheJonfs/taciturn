@@ -24,7 +24,10 @@ import type {
 import { getUnit } from '../types/index.ts';
 import type { StatusApplicationResult } from './result.ts';
 import { fireOnApply, fireOnRemove } from './runners.ts';
-import { runModifyStatusApplicationStackCount } from '../hooks/runners.ts';
+import {
+  runModifyIncomingStatusDuration,
+  runModifyStatusApplicationStackCount,
+} from '../hooks/runners.ts';
 import { applyStackingRule } from './stacking.ts';
 
 export interface ApplyStatusArgs {
@@ -62,6 +65,12 @@ export interface ApplyStatusArgs {
   // only bumps `fire`-tagged abilities' Burn applications). Defaults to
   // an empty array on system / non-ability paths.
   readonly sourceAbilityTags?: ReadonlyArray<string>;
+  // Per-action seed for apply-time target-side reactions (Thief — Slip
+  // Free's `modifyIncomingStatusDuration` Brave gate). Present only on
+  // in-battle, action-driven applications (an ability landing a debuff);
+  // absent for setup grants, equipment, and composer-internal applies — on
+  // those paths the incoming-duration hook is skipped entirely.
+  readonly seed?: number;
 }
 
 export interface ApplyStatusReturn {
@@ -113,6 +122,34 @@ export function applyStatus(
     baseCount: baseStackQuantity,
   });
 
+  // Incoming-status duration shave (Thief — Slip Free). For a finite-
+  // duration status applied to this unit BY ANOTHER unit (an action-driven
+  // application carrying a seed, not an equipment grant or self-application),
+  // the target's `modifyIncomingStatusDuration` passives may shorten the
+  // incoming duration before the instance is built. A result of 0 negates
+  // the application outright — Slip Free turning a 1-tick debuff into
+  // nothing. The runner gates on the status tags + its own Brave roll, so a
+  // buff or a status the handler ignores passes through unchanged.
+  let effectiveDuration = args.duration;
+  if (
+    args.seed !== undefined &&
+    args.duration !== undefined &&
+    args.sourceKind !== 'equipment' &&
+    args.sourceUnitId !== null &&
+    args.sourceUnitId !== args.targetId
+  ) {
+    effectiveDuration = runModifyIncomingStatusDuration(state, catalog, {
+      unit: targetUnit,
+      statusTypeId: type.id,
+      statusTags: type.tags,
+      baseDuration: args.duration,
+      seed: args.seed,
+    });
+    if (effectiveDuration <= 0) {
+      return { newState: state, result: { kind: 'resisted' } };
+    }
+  }
+
   // Per ADR-0030: composer runs before buildCandidate. When defined, it
   // computes the resulting customState (post-merge with existing) and
   // optionally the resulting stacks count. Burn snapshots the caster's
@@ -137,6 +174,7 @@ export function applyStatus(
   const candidate = buildCandidate(type, args, {
     customState: composedCustomState,
     stacks: composedStacks ?? (requestedStackQuantity > 1 ? requestedStackQuantity : undefined),
+    duration: effectiveDuration,
   });
 
   const dispatch = applyStackingRule(type, existingOfType, candidate);
@@ -186,6 +224,9 @@ export function applyStatus(
 interface CandidateOverrides {
   readonly customState?: Readonly<Record<string, unknown>> | undefined;
   readonly stacks?: number | undefined;
+  // The post-shave duration to instantiate with (Slip Free). Falls back to
+  // `args.duration` when no incoming-duration hook modified it.
+  readonly duration?: number | undefined;
 }
 
 function buildCandidate(
@@ -193,7 +234,7 @@ function buildCandidate(
   args: ApplyStatusArgs,
   overrides: CandidateOverrides,
 ): StatusInstance {
-  const remainingDuration = computeInitialDuration(type, args.duration);
+  const remainingDuration = computeInitialDuration(type, overrides.duration ?? args.duration);
   const magnitude = args.magnitude ?? type.defaultMagnitude;
 
   const source: StatusInstanceSource = {

@@ -41,7 +41,9 @@ import {
   runOnTick,
   runOnTurnEnd,
   runQueryTurnSkipped,
+  unitFloatFromSeed,
 } from '../hooks/runners.ts';
+import { computeOutgoingHitChance } from '../damage/hit-chance.ts';
 import { enumerateMathSkillTargets } from '../targeting/index.ts';
 import { tileAt, unitAt } from '../map/accessors.ts';
 import { endpointFrom, inRange } from '../map/range.ts';
@@ -51,7 +53,7 @@ import { fallDamageAction } from '../map/fall-damage.ts';
 import { decrementBarrierTtls } from '../effects/queue.ts';
 import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
 import { applyStatus } from '../status/apply.ts';
-import { rollAbilityChance, rollStatusChance } from '../status/chance.ts';
+import { rollAbilityChance, rollStatusChance, rollThiefContestChance } from '../status/chance.ts';
 import { removeStatus } from '../status/remove.ts';
 import { isInfiniteDuration } from '../status/duration.ts';
 import { TRIGGER_THRESHOLD } from '../ct/constants.ts';
@@ -840,6 +842,10 @@ function resolveAbilityEffect(
   let damageDealt: number | undefined;
   let healingDealt: number | undefined;
   let absorbed = false;
+  // Set when an `mpDrain` effect (Steal MP) rolled its evasion gate — the
+  // action's reported `hit` reflects it when there's no damage pipeline to
+  // source `hit` from (a dodged Steal MP reads as a miss in the log).
+  let mpDrainHit: boolean | undefined;
   // Records the new position when a knockback rider successfully
   // displaced the target. Populated below; threaded onto the per-target
   // result so the renderer can settle the sprite to the new tile at
@@ -921,6 +927,36 @@ function resolveAbilityEffect(
   // Both fire BEFORE the status-effect chance roll and reactions so the
   // CT change / position change is reflected in subsequent state reads.
   const damage = args.ability.effects.damage;
+
+  // Lifesteal rider (Thief — Steal HP). Heals the caster for a fraction of
+  // the HP actually dealt. Keyed on `damageDealt` (the non-healing
+  // finalDamage), NOT on target-survival, so a killing blow still siphons —
+  // the damage landed. Heals nothing on a miss / fully-resisted 0 / a
+  // healing-tagged or absorbed hit. Emitted as a `system_heal` against the
+  // caster; the heal reducer caps it at the caster's max HP.
+  if (
+    damage !== undefined &&
+    damage.lifesteal !== undefined &&
+    damageContext !== null &&
+    damageContext.hit &&
+    damageDealt !== undefined &&
+    damageDealt > 0
+  ) {
+    const healAmount = Math.floor((damage.lifesteal.percent / 100) * damageDealt);
+    if (healAmount > 0) {
+      pipelineEmissions.push({
+        type: 'system_heal',
+        source: 'system',
+        payload: {
+          targetId: args.attacker.id,
+          amount: healAmount,
+          tags: ['healing'],
+          source: { kind: 'ability', abilityId: args.ability.id, unitId: args.attacker.id },
+        },
+      });
+    }
+  }
+
   if (
     damage !== undefined &&
     args.targetUnit !== null &&
@@ -1020,6 +1056,55 @@ function resolveAbilityEffect(
     }
   }
 
+  // MP-drain effect (Thief — Steal MP). Independent of the damage path:
+  // Steal MP deals no HP. Evadable when the ability declares `hitRoll` — a
+  // dodged drain takes nothing. Drains `coefficient × caster_PA` MP and
+  // restores `restorePercent`% of what was *actually removed* (capped at the
+  // target's current MP, then at the caster's headroom) via one transfer-
+  // bounded `system_mp_drain`. Caster PA reads through runModifyStatQuery so
+  // equipment / status PA modifiers compose.
+  const mpDrain = args.ability.effects.mpDrain;
+  if (mpDrain !== undefined && args.targetUnit !== null) {
+    const liveTarget = workingState.units.get(args.targetUnit.id);
+    if (liveTarget !== undefined && liveTarget.vitals.hp > 0) {
+      let drainHits = true;
+      if (args.ability.hitRoll !== undefined) {
+        const chance = computeOutgoingHitChance({
+          state: workingState,
+          catalog,
+          attacker: args.attacker,
+          target: liveTarget,
+          ability: args.ability,
+        });
+        // Sub-stream 1 is the physical-evasion stream — the damage
+        // pipeline's evasion_check uses the same index, and Steal MP never
+        // runs that pipeline, so the index is free on this action's seed.
+        drainHits = unitFloatFromSeed(args.seed ^ 1) < chance;
+      }
+      mpDrainHit = drainHits;
+      if (drainHits) {
+        const pa = runModifyStatQuery(workingState, catalog, {
+          unit: args.attacker,
+          statName: 'pa',
+          baseValue: args.attacker.baseStats.pa,
+        });
+        const amount = Math.floor(mpDrain.coefficient * pa);
+        if (amount > 0) {
+          pipelineEmissions.push({
+            type: 'system_mp_drain',
+            source: 'system',
+            payload: {
+              source: args.attacker.id,
+              target: liveTarget.id,
+              amount,
+              restoreFraction: mpDrain.restorePercent / 100,
+            },
+          });
+        }
+      }
+    }
+  }
+
   // Apply status effects. Skipped if damage KO'd the target.
   // The application chance formula (BMG / ADR-0024) is rolled before
   // the apply pipeline runs:
@@ -1100,6 +1185,9 @@ function resolveAbilityEffect(
           sourceUnitId: args.attacker.id,
           sourceActionSeq: args.sourceActionSeq,
           sourceAbilityTags: args.ability.tags ?? [],
+          // Per-action seed for apply-time target-side reactions (Slip
+          // Free shaving an incoming debuff one tick, Brave-gated).
+          seed: args.seed,
           ...(spec.magnitude !== undefined ? { magnitude: spec.magnitude } : {}),
           ...(spec.duration !== undefined ? { duration: spec.duration } : {}),
           ...(spec.customState !== undefined ? { customState: spec.customState } : {}),
@@ -1109,6 +1197,79 @@ function resolveAbilityEffect(
       );
       workingState = applied.newState;
       statusOutcomes.push(applied.result);
+    }
+  }
+
+  // Steal Buffs (Thief). A contest (the additive Brave/PA form) followed by
+  // a strip-and-transfer: on success, every positive-polarity, non-equipment
+  // status leaves the target and lands on the caster, preserving each
+  // instance's magnitude / remaining duration / stacks. Only
+  // `aiHints.polarity === 'buff'` qualifies — "neither"/debuff statuses
+  // (Stop, Charging, DoTs) and equipment-granted buffs are excluded. No HP /
+  // MP component, so it can't KO; skipped only if a (non-existent) damage
+  // component already KO'd the target. The contest miss and each applied
+  // buff are recorded into `statusOutcomes` for the result / action log.
+  const stealBuffs = args.ability.effects.stealBuffs;
+  if (stealBuffs !== undefined && args.targetUnit !== null && !targetKO) {
+    const liveTarget = workingState.units.get(args.targetUnit.id);
+    if (liveTarget !== undefined && liveTarget.vitals.hp > 0) {
+      const contest = rollThiefContestChance({
+        state: workingState,
+        catalog,
+        caster: args.attacker,
+        target: liveTarget,
+        baseChance: stealBuffs.baseChance,
+        seed: args.seed,
+      });
+      if (!contest.applied) {
+        statusOutcomes.push({
+          kind: 'missed',
+          chance: contest.chance / 100,
+          roll: contest.roll,
+        });
+      } else {
+        // Snapshot the stealable instances before any mutation (removal
+        // would otherwise invalidate the iteration). Equipment-sourced
+        // buffs belong to the gear and are immune.
+        const stolen: StatusInstance[] = [];
+        for (const inst of liveTarget.statuses) {
+          if (inst.source.kind === 'equipment') continue;
+          if (catalog.getStatusType(inst.typeId).aiHints?.polarity !== 'buff') continue;
+          stolen.push(inst);
+        }
+        // Remove from the target (one removeStatus per unique type — it
+        // clears all instances of that type), then re-apply each captured
+        // instance onto the caster preserving its per-instance state.
+        const stolenTypeIds = new Set(stolen.map((i) => i.typeId));
+        for (const typeId of stolenTypeIds) {
+          workingState = removeStatus(
+            workingState,
+            { targetId: liveTarget.id, typeId },
+            catalog,
+          ).newState;
+        }
+        for (const inst of stolen) {
+          const applied = applyStatus(
+            workingState,
+            {
+              targetId: args.attacker.id,
+              typeId: inst.typeId,
+              sourceUnitId: args.attacker.id,
+              sourceActionSeq: args.sourceActionSeq,
+              sourceAbilityTags: args.ability.tags ?? [],
+              ...(inst.magnitude !== undefined ? { magnitude: inst.magnitude } : {}),
+              ...(inst.remainingDuration !== null
+                ? { duration: inst.remainingDuration }
+                : {}),
+              ...(inst.stacks !== undefined ? { stackQuantity: inst.stacks } : {}),
+              ...(inst.customState !== undefined ? { customState: inst.customState } : {}),
+            },
+            catalog,
+          );
+          workingState = applied.newState;
+          statusOutcomes.push(applied.result);
+        }
+      }
     }
   }
 
@@ -1236,7 +1397,7 @@ function resolveAbilityEffect(
 
   const result: AbilityTargetResult = {
     target: args.payloadTargetForResult,
-    hit: damageContext !== null ? damageContext.hit : true,
+    hit: damageContext !== null ? damageContext.hit : (mpDrainHit ?? true),
     ...(damageDealt !== undefined ? { damage: damageDealt } : {}),
     ...(healingDealt !== undefined ? { healing: healingDealt } : {}),
     ...(absorbed ? { absorbed: true } : {}),
@@ -2943,7 +3104,13 @@ export function reduceSystemMpDrain(
     baseValue: sourceUnit.baseStats.maxMpBase,
   });
   const sourceRoom = Math.max(0, sourceMaxMp - sourceUnit.vitals.mp);
-  const sourceApplied = Math.min(sourceRoom, targetApplied);
+  // `restoreFraction` (default 1.0) scales how much of the removed MP the
+  // source recovers — the Thief's Steal MP restores only half. The target
+  // still loses the full `targetApplied`; the fraction governs the source's
+  // gain, then headroom caps it. Floored so a fractional restore never
+  // over-credits.
+  const restoreFraction = action.payload.restoreFraction ?? 1;
+  const sourceApplied = Math.min(sourceRoom, Math.floor(restoreFraction * targetApplied));
   if (targetApplied === 0 && sourceApplied === 0) {
     // Gated all-zero path (both units exist; nothing transferred). Populate
     // the MP absolutes with the unchanged values so the renderer settles

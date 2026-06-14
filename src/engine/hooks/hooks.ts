@@ -425,6 +425,32 @@ export interface HookSignatures {
     return: number;
   };
 
+  // Target-side incoming-status duration modifier (Thief — Slip Free; ADR
+  // for the Thief substrate). Fires inside `applyStatus` when a finite-
+  // duration status is applied to a unit *by another unit* (an in-battle
+  // application carrying an action seed), letting the target's passives
+  // shorten the incoming duration BEFORE the instance is built. Collected on
+  // the TARGET. The apply path performs one reaction-style Brave roll
+  // (Brave/100, same convention as the reaction surface) and forwards the
+  // outcome as `braveTriggered`, so a handler can gate on Brave like a
+  // reaction without owning RNG (apply-time hooks are otherwise pure). The
+  // chain composes (each handler returns the next running duration); the
+  // runner floors and clamps to >= 0. A 0 result negates the application
+  // outright (the status is never applied) — this is how Slip Free turns a
+  // 1-tick debuff into nothing. Only fires for finite-duration, non-
+  // equipment, non-self status applications; permanent / conditional /
+  // self-applied / equipment-granted statuses skip it.
+  modifyIncomingStatusDuration: {
+    args: {
+      unit: Unit;
+      statusTypeId: StatusTypeId;
+      statusTags: ReadonlyArray<StatusTag>;
+      baseDuration: number;
+      braveTriggered: boolean;
+    };
+    return: number;
+  };
+
   // Status-application stack-count modifier (Session 45 follow-up,
   // ADR-0084). Fires inside `applyStatus`, before the type's
   // composeApplyState reads `requestedStackQuantity`, so a +N modifier

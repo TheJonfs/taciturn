@@ -323,6 +323,14 @@ export interface DamageSpec {
   // target = 8, 2 = 9, 3 = 10, etc. Cluster size is read from the
   // pipeline's `ctx.targetCount`, threaded by the dispatcher.
   readonly chainBonus?: { readonly powerPerAdditionalTarget: number };
+  // Lifesteal rider (Thief — Steal HP). When set, a successful damaging
+  // hit heals the caster for `floor(percent/100 × damageDealt)` via a
+  // `system_heal` against the caster. Keyed on damage *actually dealt*
+  // (post-pipeline finalDamage), so a fully-resisted 0-damage hit heals
+  // nothing; fires even when the hit KO's the target (the damage landed).
+  // Skipped on healing-tagged / absorbed hits (there's no "damage dealt"
+  // to siphon). `percent` is on the [0, 100] scale.
+  readonly lifesteal?: { readonly percent: number };
 }
 
 // Free-standing CT effect — chance-gated CT adjustment with no damage
@@ -439,6 +447,32 @@ export type WorldcraftEffectSpec =
 
 export interface AbilityEffects {
   readonly statusEffects?: ReadonlyArray<StatusEffectSpec>;
+  // MP-drain effect (Thief — Steal MP). Drains `floor(coefficient ×
+  // caster_PA)` MP from the primary target and restores
+  // `floor(restorePercent/100 × MP actually removed)` to the caster — keyed
+  // on MP *actually removed* (capped at the target's current MP), never the
+  // nominal request, so a near-empty target yields a proportionally smaller
+  // refuel. Resolves via a single `system_mp_drain` carrying `restoreFraction`
+  // (the transfer-bounded reducer caps the caster's gain at its own MP
+  // headroom too). Evadable: when the ability declares `hitRoll`, the drain
+  // rolls the physical hit chance (same evasion math as a weapon strike) and
+  // a miss drains nothing. Caster PA reads through `runModifyStatQuery` so
+  // equipment / status PA modifiers compose. Mutually independent of
+  // `damage` — Steal MP deals no HP.
+  readonly mpDrain?: {
+    readonly coefficient: number;
+    readonly restorePercent: number;
+  };
+  // Steal-buffs effect (Thief — Steal Buffs). Rolls the Thief contest
+  // chance (`baseChance + 3·PA + 0.5·(caster_Brave − target_Brave)`,
+  // clamped [1, 95]); on success, strips every positive-polarity
+  // (`aiHints.polarity === 'buff'`), non-equipment status from the primary
+  // target and re-applies each onto the caster, preserving magnitude /
+  // remaining duration / stacks. "neither"/debuff statuses (Stop, Charging,
+  // DoTs) are excluded; equipment-sourced buffs are immune (they belong to
+  // the gear). No HP / MP component. `baseChance` is the additive base
+  // (33 for Steal Buffs).
+  readonly stealBuffs?: { readonly baseChance: number };
   // Session 54: Worldcraft terrain mutation (see WorldcraftEffectSpec).
   // When present, the ability resolves through `resolveWorldcraft` rather
   // than the damage/status pipeline — mutually exclusive with `damage` /

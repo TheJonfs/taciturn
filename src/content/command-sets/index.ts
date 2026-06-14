@@ -9,6 +9,7 @@ import { marksmanship } from './marksmanship.ts';
 import { mathSkill } from './math-skill.ts';
 import { shadowArts } from './shadow-arts.ts';
 import { templarArts } from './templar-arts.ts';
+import { thiefArts } from './thief-arts.ts';
 import { waterSpells } from './water-spells.ts';
 import { whiteMagic } from './white-magic.ts';
 import { worldcraft } from './worldcraft.ts';
@@ -24,6 +25,7 @@ export const commandSets: ReadonlyArray<CommandSetDefinition> = [
   mathSkill,
   shadowArts,
   templarArts,
+  thiefArts,
   waterSpells,
   whiteMagic,
   worldcraft,

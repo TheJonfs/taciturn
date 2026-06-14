@@ -495,6 +495,55 @@ export function runModifyStatusTickAmount(
   return value;
 }
 
+// Distinct seed sub-stream for the incoming-status-duration Brave gate, so
+// the roll doesn't collide with variance (0), evasion (1), brave reactions
+// (2), status chance (3), procs (8), or ability chance (16).
+const INCOMING_STATUS_DURATION_SUB_STREAM = 9;
+
+// Target-side incoming-status duration modifier (Thief — Slip Free). Fires
+// inside `applyStatus` against the TARGET's hooks. Performs the reaction-
+// style Brave roll once (Brave/100, read through `modifyStatQuery` so brave
+// buffs/debuffs compose) and forwards it as `braveTriggered`, then composes
+// the handler chain over the running duration. Floored and clamped to >= 0.
+// No handlers → returns the base duration untouched (no roll consumed).
+export function runModifyIncomingStatusDuration(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    statusTypeId: StatusTypeId;
+    statusTags: ReadonlyArray<StatusTag>;
+    baseDuration: number;
+    seed: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(
+    state,
+    args.unit.id,
+    catalog,
+    'modifyIncomingStatusDuration',
+  );
+  if (handlers.length === 0) return args.baseDuration;
+  const brave = runModifyStatQuery(state, catalog, {
+    unit: args.unit,
+    statName: 'brave',
+    baseValue: args.unit.baseStats.brave,
+  });
+  const braveTriggered =
+    unitFloatFromSeed((args.seed ^ INCOMING_STATUS_DURATION_SUB_STREAM) >>> 0) < brave / 100;
+  let value = args.baseDuration;
+  for (const h of handlers) {
+    value = h.invoke({
+      unit: args.unit,
+      statusTypeId: args.statusTypeId,
+      statusTags: args.statusTags,
+      baseDuration: value,
+      braveTriggered,
+    });
+  }
+  return Math.max(0, Math.floor(value));
+}
+
 // Status-application stack-count modifier (Session 45 follow-up,
 // ADR-0084). Fires inside `applyStatus` against the SOURCE unit's
 // hook registrations (Wand of Lumen +1 stack on fire-tagged ability +

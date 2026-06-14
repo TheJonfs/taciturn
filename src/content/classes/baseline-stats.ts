@@ -49,6 +49,11 @@ export const classDominantStats: ReadonlyMap<ClassId, DominantStat> = new Map([
   // S62: Templar is a PA/MA hybrid (6/6). MA takes the single dominant pick
   // — its headline kit (Cure / Raise) is magical (Terraformer precedent).
   [classId('templar'),        'ma'],
+  // Thief (12th class, 5th physical). PA drives every active (Steal Heart
+  // chance, Steal MP magnitude, Steal HP damage, Steal Buffs chance), so PA
+  // is the identity stat even though Speed is the higher raw number — the
+  // class is deliberately PA-centric (concept-notes "Build axis").
+  [classId('thief'),          'pa'],
 ]);
 
 export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new Map([
@@ -118,4 +123,12 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   // and the mages; MP 36 for the spell kit; PA 6 / MA 6 (well below the
   // Knight's functional 12 and the mages' MA); Speed 8 (slow-caster tier).
   [classId('templar'),        { maxHpBase: 132, maxMpBase: 36, pa: 6,  ma: 6,  spd: 8  }],
+  // Thief (S-thief, 12th class / 5th physical). HP 90 — sturdier than the
+  // Assassin (96 is the glass-cannon; the Thief sits just under it on raw HP
+  // but with stronger PA and evasion) yet far below the Knight (144). MP 28
+  // is tuned to the 24-MP Steal Heart bank — the perpetual use-it-or-bank-it
+  // tension is the class. PA 7 baseline (~10 equipped) is the everything-stat.
+  // MA 3 (tied lowest) — no magical scaling. Speed 11 — fast skirmisher, a
+  // touch under the Assassin (the speed-for-PA trade).
+  [classId('thief'),          { maxHpBase: 90,  maxMpBase: 28, pa: 7,  ma: 3,  spd: 11 }],
 ]);

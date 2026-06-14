@@ -9,6 +9,7 @@ import { knight } from './knight.ts';
 import { lightningMage } from './lightning-mage.ts';
 import { templar } from './templar.ts';
 import { terraformer } from './terraformer.ts';
+import { thief } from './thief.ts';
 import { waterMage } from './water-mage.ts';
 
 export const classes: ReadonlyArray<ClassDefinition> = [
@@ -22,6 +23,7 @@ export const classes: ReadonlyArray<ClassDefinition> = [
   lightningMage,
   templar,
   terraformer,
+  thief,
   waterMage,
 ];
 
