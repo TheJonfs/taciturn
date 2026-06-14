@@ -20,8 +20,16 @@
 // by calling `buildDeployedBattleConfig` again on the already-folded
 // config — no special-casing needed.
 
-import { createInitialState, type BattleConfig, type Catalog, type TeamId, type UnitId } from '@engine/index.ts';
-import { planAiDeployment } from '@ai/index.ts';
+import {
+  createInitialState,
+  type BattleConfig,
+  type Catalog,
+  type TeamId,
+  type Unit,
+  type UnitId,
+  type WeaponType,
+} from '@engine/index.ts';
+import { planAiDeployment, deployRoleFromWeaponType } from '@ai/index.ts';
 import type { DeploymentPlacement } from '@ui/index.ts';
 
 export interface DeploymentResult {
@@ -72,6 +80,19 @@ export function buildDeployedBattleConfig(
 // team; this is a content-authoring problem, surfaced as a console
 // warning here (the boundary where I/O is acceptable — `planAiDeployment`
 // itself stays pure).
+// The weapon type the unit is fighting with, for deployment role
+// classification (S66, ADR-0105). Prefers the right hand, falls back to
+// the left; returns undefined when neither slot holds a weapon (unarmed →
+// the role classifier defaults such a unit to the melee front line).
+function equippedWeaponType(unit: Unit, catalog: Catalog): WeaponType | undefined {
+  for (const slot of [unit.equipment.rightHand, unit.equipment.leftHand]) {
+    if (slot === null) continue;
+    const item = catalog.getItem(slot);
+    if (item.kind === 'weapon') return item.weaponType;
+  }
+  return undefined;
+}
+
 export function computeAiDeploymentResult(
   config: BattleConfig,
   catalog: Catalog,
@@ -84,6 +105,7 @@ export function computeAiDeploymentResult(
       id: u.id,
       maxHP: u.vitals.hp,
       classId: u.classState.currentClass,
+      role: deployRoleFromWeaponType(equippedWeaponType(u, catalog)),
     }));
   const { placements, unplaced } = planAiDeployment({ map: config.map, team, units });
   if (unplaced.length > 0) {

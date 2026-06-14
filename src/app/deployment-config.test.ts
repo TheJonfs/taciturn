@@ -14,7 +14,9 @@ import {
   validateMap,
   type Direction,
   type TeamId,
+  type WeaponType,
 } from '@engine/index.ts';
+import { deployRoleFromWeaponType } from '@ai/index.ts';
 import { riverRidge } from '@content/maps/river-ridge.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import type { DeploymentPlacement } from '@ui/index.ts';
@@ -123,6 +125,39 @@ describe('computeAiDeploymentResult (S43 AI deployment bridge)', () => {
     for (const placement of result.placements.values()) {
       expect(placement.facing).toBe('N');
     }
+  });
+
+  it('classifies roles off equipment and keeps melee ahead of ranged (S66)', () => {
+    // End-to-end: the bridge derives each unit's role from its equipped
+    // weapon type and planAiDeployment puts melee on the forward tiles.
+    // Invariant: no ranged/caster lands strictly ahead of any melee unit
+    // (forward = nearer the opposing centroid). Re-derive roles via the
+    // same exported classifier so the test tracks the real wiring.
+    const state = createInitialState(riverRidgeBattle, catalog);
+    const opposing = riverRidge.tiles.filter((t) => t.deploymentZone != null && t.deploymentZone !== RED);
+    const cx = opposing.reduce((s, t) => s + t.x, 0) / opposing.length;
+    const cy = opposing.reduce((s, t) => s + t.y, 0) / opposing.length;
+    const dist2 = (p: { x: number; y: number }): number => (p.x - cx) ** 2 + (p.y - cy) ** 2;
+
+    const result = computeAiDeploymentResult(riverRidgeBattle, catalog, RED);
+    const meleeDists: number[] = [];
+    const rangedDists: number[] = [];
+    for (const u of state.units.values()) {
+      if (u.team !== RED) continue;
+      let wt: WeaponType | undefined;
+      for (const slot of [u.equipment.rightHand, u.equipment.leftHand]) {
+        if (slot === null) continue;
+        const item = catalog.getItem(slot);
+        if (item.kind === 'weapon') { wt = item.weaponType; break; }
+      }
+      const d = dist2(result.placements.get(u.id)!.position);
+      (deployRoleFromWeaponType(wt) === 'ranged' ? rangedDists : meleeDists).push(d);
+    }
+    // The roster must exercise both roles or the invariant is vacuous.
+    expect(meleeDists.length).toBeGreaterThan(0);
+    expect(rangedDists.length).toBeGreaterThan(0);
+    // Every melee unit is at least as forward as every ranged unit.
+    expect(Math.max(...meleeDists)).toBeLessThanOrEqual(Math.min(...rangedDists));
   });
 });
 

@@ -1,25 +1,36 @@
-// AI deployment heuristic (Session 43).
+// AI deployment heuristic (Session 43; role-aware sorting added S66).
 //
 // Places an AI-controlled team's units onto its deployment-zone tiles
-// without human input. The heuristic is intentionally simple: tanks
-// forward, everyone facing the enemy.
+// without human input. The heuristic is intentionally simple: a melee
+// front line, ranged/casters protected behind it, everyone facing the
+// enemy.
 //
 //   1. Opposing-zone centroid — the average position of every tile
 //      tagged as a deployment zone for some *other* team.
-//   2. Front center — the own-zone tile closest to that centroid (the
-//      tip of the spear).
-//   3. Sort units by descending maxHP (high-HP bodies soak the front),
-//      tie-broken by class id ascending so the result is deterministic.
-//   4. Assign each unit, in that order, to the still-available own-zone
-//      tile closest to the front center. Facing points from the tile
-//      toward the opposing centroid.
+//   2. Forwardness rank — own-zone tiles sorted by distance to that
+//      centroid, closest first (front) to farthest (protected rear). The
+//      old "front center" (S43) is just rank 0 of this ordering.
+//   3. Order units melee-first then ranged, each sorted by descending
+//      maxHP (high-HP bodies soak the front), class id ascending as the
+//      deterministic tie-break.
+//   4. Assign that ordered list onto the forwardness rank in order: melee
+//      take the frontmost tiles (tanks at the tip), ranged/casters take
+//      the tiles immediately behind (S66, D3). Facing points from the
+//      tile toward the opposing centroid.
+//
+// Role is classified off the unit's equipped weapon type (ADR-0105 — this
+// retires that banked hook's first consumer); the caller resolves it (it
+// holds the catalog) and passes it in, keeping this a pure, catalog-blind
+// geometry function. Why forwardness-by-centroid and not the in-battle
+// coverage map (ADR-0094): the coverage map projects threat from *placed*
+// units for a given active actor, but at deployment neither team is on the
+// field yet — the opposing centroid is the only enemy-position signal, so
+// distance-to-centroid is the deployment-appropriate "exposure" proxy.
 //
 // Pure: no RNG, no I/O. The zone-smaller-than-team edge case returns the
 // leftover unit ids in `unplaced` rather than logging — the caller (the
 // app's deployment routing) owns the warning so this stays a pure,
-// trivially-testable geometry function. The heuristic is "correct most
-// of the time but not smart"; role-aware placement is a future refinement
-// (see S43 playtest-watch).
+// trivially-testable geometry function.
 
 import {
   cardinalFromTo,
@@ -30,16 +41,33 @@ import {
   type Tile,
   type TeamId,
   type UnitId,
+  type WeaponType,
 } from '@engine/index.ts';
 
+// Coarse deployment role (S66, D3). `melee` units form the front line;
+// `ranged` (archers and casters) sit on protected rear tiles.
+export type DeployRole = 'melee' | 'ranged';
+
+// Classify a unit's deployment role from its equipped weapon type
+// (ADR-0105). Bows, wands, and staves want to fire from the protected
+// rear; every melee weapon — and an unarmed / unclassified unit — defaults
+// to the front line. Pure; the single source of truth for the mapping.
+const RANGED_WEAPON_TYPES: ReadonlySet<WeaponType> = new Set(['bow', 'wand', 'staff']);
+export function deployRoleFromWeaponType(weaponType: WeaponType | undefined): DeployRole {
+  return weaponType !== undefined && RANGED_WEAPON_TYPES.has(weaponType) ? 'ranged' : 'melee';
+}
+
 // The minimum a unit needs to be placed by the heuristic: its id, its
-// computed maxHP (the sort key — caller computes it, since maxHP is a
-// computed-not-stored value), and its class id (the deterministic
-// tie-break).
+// computed maxHP (a sort key — caller computes it, since maxHP is a
+// computed-not-stored value), its class id (the deterministic tie-break),
+// and its deployment role. `role` is optional and defaults to `melee` so
+// callers/tests that predate role-aware sorting keep the original
+// tanks-forward behavior unchanged.
 export interface DeployableUnit {
   readonly id: UnitId;
   readonly maxHP: number;
   readonly classId: ClassId;
+  readonly role?: DeployRole;
 }
 
 export interface AiDeploymentResult {
@@ -113,49 +141,42 @@ export function planAiDeployment(args: {
 
   const opposingCentroid = centroidOf(opposingZone);
 
-  // Front center: the own-zone tile closest to the enemy centroid.
-  let frontCenter = ownZone[0]!;
-  for (const t of ownZone) {
-    const d = dist2(t, opposingCentroid);
-    const best = dist2(frontCenter, opposingCentroid);
-    if (d < best || (d === best && tileOrder(t, frontCenter) < 0)) {
-      frontCenter = t;
-    }
-  }
-  const frontCenterPoint: Centroid = { x: frontCenter.x, y: frontCenter.y };
-
-  // High HP first; class id breaks ties so the plan is deterministic.
-  const sorted = [...units].sort((a, b) => {
-    if (a.maxHP !== b.maxHP) return b.maxHP - a.maxHP;
-    return a.classId < b.classId ? -1 : a.classId > b.classId ? 1 : 0;
+  // Forwardness rank: own-zone tiles ordered front (closest to the enemy
+  // centroid) to rear. tileOrder breaks equidistant ties deterministically.
+  // Rank 0 is the old "front center" (the tip of the spear).
+  const byForward = [...ownZone].sort((a, b) => {
+    const da = dist2(a, opposingCentroid);
+    const db = dist2(b, opposingCentroid);
+    if (da !== db) return da - db;
+    return tileOrder(a, b);
   });
 
-  const available = [...ownZone];
+  // Within a role: high HP first, class id breaks ties (deterministic).
+  const byPriority = (a: DeployableUnit, b: DeployableUnit): number => {
+    if (a.maxHP !== b.maxHP) return b.maxHP - a.maxHP;
+    return a.classId < b.classId ? -1 : a.classId > b.classId ? 1 : 0;
+  };
+  // Melee first (they claim the frontmost tiles), then ranged/casters
+  // (the protected tiles immediately behind the line). Default-melee for
+  // units whose role is unset (see DeployableUnit.role).
+  const melee = units.filter((u) => (u.role ?? 'melee') === 'melee').sort(byPriority);
+  const ranged = units.filter((u) => u.role === 'ranged').sort(byPriority);
+  const ordered = [...melee, ...ranged];
+
   const placements = new Map<UnitId, { readonly position: Position; readonly facing: Direction }>();
   const unplaced: UnitId[] = [];
 
-  for (const unit of sorted) {
-    if (available.length === 0) {
+  // Assign the role-ordered units onto the forwardness rank in order:
+  // ordered[i] → byForward[i]. Overflow (zone smaller than team) drops the
+  // tail of the ordered list — lowest-priority ranged first, then melee.
+  for (let i = 0; i < ordered.length; i++) {
+    const unit = ordered[i]!;
+    const tile = byForward[i];
+    if (tile === undefined) {
       unplaced.push(unit.id);
       continue;
     }
-    // Pick the available tile nearest the front center (tie-break by
-    // tileOrder for determinism).
-    let bestIdx = 0;
-    for (let i = 1; i < available.length; i++) {
-      const cand = available[i]!;
-      const best = available[bestIdx]!;
-      const dc = dist2(cand, frontCenterPoint);
-      const db = dist2(best, frontCenterPoint);
-      if (dc < db || (dc === db && tileOrder(cand, best) < 0)) {
-        bestIdx = i;
-      }
-    }
-    const tile = available.splice(bestIdx, 1)[0]!;
-    const facing = cardinalFromTo(
-      { x: tile.x, y: tile.y },
-      opposingCentroid,
-    );
+    const facing = cardinalFromTo({ x: tile.x, y: tile.y }, opposingCentroid);
     placements.set(unit.id, {
       position: { x: tile.x, y: tile.y, layer: tile.layer },
       facing,

@@ -14,6 +14,8 @@ export {
 } from './projection.ts';
 export {
   planAiDeployment,
+  deployRoleFromWeaponType,
   type DeployableUnit,
+  type DeployRole,
   type AiDeploymentResult,
 } from './deployment.ts';
