@@ -11,88 +11,81 @@ been processed.
 
 ---
 
-## From Session 65 (2026-06-13) — Knight content + equipment + MP economy + Barrier audit
+## From Session 66 (2026-06-14) — AI capability expansion: knockback, MP economy, deployment
 
-Shipped the full S65 brief to main across four commits. **1804 → 1819 tests; tsc -b
-+ vite build clean.** ADR-0108 captures the decisions.
+Shipped the full S66 brief to main across four commits (chunks 1–3 + a test
+fix split out of chunk 2). **1823 → 1853 tests; tsc -b + vite build clean.**
+ADR-0109 captures the three terms and the D1–D3 calls.
 
-- **Barrier remedy A (widened):** all four Assassin darts (Blowdart, Shadow Stitch,
-  Undermine, Sow Doubt) flipped arc → straight_line. The audit confirmed bows and
-  lobbed/area attacks are deliberately arc and stay; the darts were the genuine
-  mis-fit (Chris chose the whole family over Blow-Dart-only). Remedies B/C
-  (categorical / height-aware arc) parked — not needed.
-- **Knight:** Taunt suppressed off the Battle Skill set (ADR-0104 guard stays;
-  Taunt still catalog-registered, cross-class). Bull Rush added — weapon attack,
-  6 MP, 1.0× damage, Brave×PA-gated one-tile knockback (baseChance 85 → ≈0.79 on a
-  baseline Knight). Rides the existing knockback substrate, so knock-into-hazard
-  fall damage works.
-- **PA_factor** (`0.9 + PA/10`) shipped at both chance-compute sites — the
-  ADR-0028 deferral, Bull Rush is the first consumer. **Lightning Stab** moved to
-  the same `{ brave, pa }` shape (was `{ brave, ma }`), baseChance recalibrated
-  50 → 34 to **hold** its prior Silence rate (formula consistency, not a buff).
-- **Equipment ×3:** Circlet (mage head; +10/+10, grants new `mana_font` status =
-  per-turn MA/2 MP regen via onTick → system_mp_restore), Barbut (heavy head,
-  Knight/Templar; +30 HP + Stop/Don't Move/Don't Act ×0.5), Battlemage's Chain
-  (Heavy body, Knight/Templar; +80 HP / +10 MP / +1 MA).
-- **MP rebaseline:** four elemental mages 60→48, Calculator 47→37, Terraformer 35
-  (unchanged), martials unchanged.
+- **Chunk 1 — knockback value (D1: consequence-only).** The scorer folds the
+  expected knock-into-hazard fall into offensive scores via the engine's own
+  `applyKnockback` + the shared `fallValueForOccupant` (factored out of
+  `scoreWorldcraftFall`), weighted by `computeAbilityChance` (the pure compute
+  extracted from `rollAbilityChance`). Single-target (Bull Rush) **and** AoE
+  (Tidal Wave / Maelstrom; ally-into-hazard signed as a cost). Gated on the
+  target surviving the direct hit. Audit confirmed the AI had zero prior
+  knockback awareness — real evaluation work, not wiring.
+- **Chunk 2 — MP economy (D2: soft penalty only).** `mpSpendPenalty` subtracts a
+  convex scarcity-scaled penalty `(1-mp/maxMp)²` from an action's MP cost; bounded
+  and subordinate (a high-value cast still wins). Applied **inside the leaf
+  scorers** (offence single/AoE + ally-buff) so the joint planner's internal
+  comparison sees it. Ether restore-valued higher as the recipient runs dry.
+  **Scoping (deliberate, flag if revisiting):** penalty covers offence + buff
+  only — **not** heal / Math / Worldcraft (avoids support-cower; leaves those
+  tuned dials alone). Extending to them is a small follow-up if their MP pacing
+  looks off in play.
+- **Chunk 3 — role-aware deployment (D3: coarse melee/ranged via weaponType).**
+  `deployRoleFromWeaponType` (bow/wand/staff → ranged; else melee) — **this
+  retires the banked `weaponType` hook (ADR-0105), its first consumer.**
+  `planAiDeployment` ranks tiles by forwardness and seats melee front / ranged
+  behind. Audit-overturns-spec: the brief's "coverage map" doesn't fit pre-
+  placement deployment (no placed units); distance-to-opposing-centroid is the
+  exposure proxy. Captured in ADR-0109 + the file header.
 
-### Playtest fixes (same session, after the main S65 work)
+### Needs Chris's in-battle feel pass (harness can't drive PixiJS)
 
-Three findings from Chris's playtest, all fixed + regression-tested (1819 →
-1823 tests):
+All S66 validation is unit-test-only. New watch block in `docs/playtest-watch.md`
+covers all three:
+- **MP cower watch** (the named risk): a low-MP mage must still cast high-value
+  spells and only conserve on marginal ones — not hoard and freeze. Dials in
+  `basic.ts` (`MP_SPEND_PENALTY_WEIGHT 1.5`, the curve, `MP_RESTORE_SCARCITY_BONUS
+  1.0`).
+- **Knockback feel:** Bull Rush picked over Attack only when a hazard is in the
+  shove line; AoE knockback avoids shoving allies into pits.
+- **Deployment formation:** melee front / casters behind reads coherently on real
+  maps; casters not stranded too far back to act turn 1.
 
-- **Jump now dodges in-flight charged actions.** `reduceChargedActionResolve`
-  didn't honor the `airborne` flag — a charge committed *before* the leap still
-  landed on the jumper. Added an airborne fizzle in the per-target preflight
-  (mirrors the KO fizzle); fulfills ADR-0103's "airborne = off-field" intent.
-  Covers unit-ref and single-target tile-ref; AoE charges already skipped
-  airborne units in the footprint sweep.
-- **Cure cross r1 → diamond r1.** Same 5-tile base, but Aether Bloom now expands
-  it to a proper diamond r2 (13) instead of a thin cross r2 (9). (S26 made the
-  same switch for the elemental AoEs; Cure was missed.)
-- **Polearm pierce vertical-range bug.** `pierceAoeForWeapon` built the pierce
-  line with no `verticalTolerance`, so it fell back to the ruleset default (3)
-  while `validateAction` used the weapon's full vertical range (Lance V4) — a
-  target at elevation delta 4 validated but was clipped from the footprint
-  (attack logged, no damage, no miss). The pierce line now takes its length and
-  vertical tolerance from the weapon's range. Not the ADR-0107 per-swing work
-  (that only touches the dual-wield off-hand swing).
+### Decisions for Chris when convenient
 
-### Things noticed / for Chris
+- **MP-penalty scope** — extend to heal/Math/Worldcraft for uniform MP economy,
+  or keep offence+buff-only? (Left scoped this session; see ADR-0109.)
+- **Deployment taxonomy** — coarse melee/ranged shipped; a richer
+  tank/skirmisher/artillery/support split is the deferred next step if the coarse
+  one feels blunt.
 
-- **Barbut and Focus Band are both head slot → they never co-stack on one unit.**
-  The brief asked how the resists stack (engine answer: multiplicatively, ×0.5 ×
-  ×0.75 = ×0.375), but in practice they're mutually exclusive alternatives. The
-  engine composition is correct; just won't co-occur via these two items. Logged
-  in playtest-watch so a future "stacking looks off" report isn't chased.
-- **All S65 verification is unit-test-only.** The harness can't drive PixiJS
-  battles, so the *feel* of Bull Rush knockback, the dart LoS change, Circlet
-  sustain under the tighter MP economy, and the Barbut earning its slot all need
-  Chris's in-battle pass. See the new S65 block in `docs/playtest-watch.md`.
-- **Roadmap unchanged** — S65 is a content/tuning pass under the standing
-  "class/ability/equipment expansion" track; no sequencing or scope shift.
+### Housekeeping noticed
 
-### Still open, NOT touched this session (carried)
+- `docs/thirtyNinePlanning/{session-66-brief.md, ai-capability-expansion-blueprint.md}`
+  are untracked in git — planning artifacts; committed this session alongside the
+  docs so they're versioned.
+- **Roadmap unchanged** — S66 is AI-track work tracked via ADR-0109 + this
+  handoff, not a numbered mechanism-track roadmap item (same rationale as S65).
 
-- **AI MP economy** (newly sharpened by the rebaseline) — the scorer doesn't pace
-  MP or value sustain; AI mages may run dry harder than humans now. Flagged in
-  playtest-watch; an AI MP-pacing pass is the future lever if it bites.
-- **Team-builder follow-ups** (S64): parchment reskin; single-source flavor
-  content pass (inspector is mechanical-only; flavor lives only in the Guide);
-  `weaponType` has no engine consumer yet (ADR-0105); placeholder icons.
-- **Action-log redesign** (S63, `b3bd121`) — shipped, pixel-level visual still
-  unverified; needs Chris's in-battle pass vs `action-log-concept.html`.
-- **Taunt redesign** — still deferred (this session was suppression only). Needs an
-  attacker-side hit-chance hook + AI taunt-awareness; Chris must pin intended
-  effect. Audit in `docs/thirtyNinePlanning/taunt-audit.md`.
-- **Templar (S62) balance/feel calls** — now compounded by Battlemage's Chain
-  feeding the tanky-self-sustainer (watch entry added).
-- **S61 standing carries:** role-aware deployment sorting (the clean next
-  non-content item — ADR-0094 substrate in place); Layer-2 positional prediction;
-  Worldcraft move-then-cast; killValue-weighted Math re-base; Perch
-  move-onto-created-perch; default team templates with Terraformer; roster-wide
-  Move-tier discussion; Calculator team-template revision + AI personality
-  variants; Marshmoor template-compliance tests; lightning-mage.ts stale S20
-  header; `draft-terraformer-substrate-audit.md` archival; terrain-transition
-  animation; Math Skill SP scaling review.
+### Still open, NOT touched this session (carried from S65/S61)
+
+- **Action-log redesign** (S63, `b3bd121`) — shipped; pixel-level visual still
+  unverified vs `action-log-concept.html`.
+- **Taunt redesign** — deferred (S65 was suppression only). Needs an attacker-side
+  hit-chance hook + AI taunt-awareness; Chris must pin intended effect. Audit in
+  `docs/thirtyNinePlanning/taunt-audit.md`.
+- **Templar (S62) balance/feel** — compounded by Battlemage's Chain feeding the
+  tanky self-sustainer (watch entry exists).
+- **Team-builder follow-ups (S64):** parchment reskin; single-source flavor pass
+  (inspector mechanical-only; flavor only in Guide); placeholder icons.
+- **S61 standing AI carries** (role-aware deployment now DONE, removed): Layer-2
+  positional prediction; Worldcraft move-then-cast; killValue-weighted Math
+  re-base; Perch move-onto-created-perch; default team templates with Terraformer;
+  roster-wide Move-tier discussion; Calculator team-template revision + AI
+  personality variants; Marshmoor template-compliance tests; lightning-mage.ts
+  stale S20 header; `draft-terraformer-substrate-audit.md` archival; terrain-
+  transition animation; Math Skill SP scaling review.

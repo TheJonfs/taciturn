@@ -44,6 +44,15 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 66 (2026-06-14)
+
+_No player-facing changes._ AI-only work (ADR-0109): the AI now values
+knock-into-hazard fall damage, conserves MP when low (scarcity-scaled spend
+penalty), and places units by role at deployment (melee front, ranged/casters
+back). Mechanics, content, and player-visible UX are unchanged.
+
+---
+
 ## Session 65 (2026-06-13)
 
 Commits: Barrier darts; Bull Rush + PA_factor; equipment + MP economy. See

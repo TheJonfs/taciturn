@@ -1257,3 +1257,60 @@ The class ships; these need real engagements to settle.
 - **What to watch.** Barrier denial is bounded (protect top-1 ally; ≤12 cardinal-screen candidates; lazy gain-then-cost on the top-3). Measured ~2 ms/decide on a 4v4 in tests — but the per-candidate `threatsToTile` recomputes are the cost centre, and a *full Terraformer battle map* (larger, more units) is the real test. Watch per-turn AI think-time when a Terraformer with Barrier MP is acting.
 - **Why it matters.** Perf was the headline risk for this consumer; the bound holds in tests but the harness can't drive a real battle.
 - **Signal for adjustment.** Noticeable think-time spike on a Terraformer's turn → add the team-keyed Dijkstra cache (the known redundancy: the cost loop rebuilds the AI-team Dijkstra per enemy for a fixed hypothetical), or tighten the shortlist/candidate count. Snappy → keep.
+
+## Session 66 — AI capability expansion (ADR-0109)
+
+All three S66 chunks are unit-test-validated only; the PixiJS harness can't drive
+AI battles, so every item below needs Chris's in-battle feel pass.
+
+### AI values knock-into-hazard knockback (S66 chunk 1)
+
+- **What to watch.** The AI now folds the expected fall consequence of a knockback
+  rider into an action's score — a Knight should pick **Bull Rush** over a plain
+  Attack when the shove drops an enemy into a Pit/Valley or off a ledge, and pick
+  the plain Attack when there's no hazard in the shove direction. AoE knockbacks
+  (Tidal Wave / Maelstrom) likewise gain value for shoving enemies into hazards,
+  and should *avoid* knocking an **ally** into one.
+- **Why it matters.** First time displacement consequences influence AI target/
+  ability choice. Consequence-only by design (D1) — it values the *fall*, never a
+  pointless shove.
+- **Signal for adjustment.** AI shoves enemies to safety / wastes Bull Rush with
+  no payoff (shouldn't — flat-ground fall value is 0) → investigate. AI knocks an
+  ally off a ledge → the ally-cost sign is wrong. Lands hazard shoves and declines
+  empty ones → close.
+
+### AI conserves MP when low — the cower watch (S66 chunk 2)
+
+- **What to watch.** The MP-spend penalty is the named risk: it must stay
+  **subordinate**. Watch that a low-MP mage still **casts** when a cast is clearly
+  worth it (lethal, big AoE) and only declines genuinely *marginal* casts in favor
+  of a free attack. The failure mode is the resource cower: a mage that hoards MP
+  and stops casting / ends turns doing nothing. Also watch that normal play (mid-
+  to-high MP) is **undistorted** — the penalty should be near-zero there.
+- **Why it matters.** The MP rebaseline (S65) made AI mages run dry; this is the
+  fix, but a too-strong penalty recreates the cower problem in resource form.
+- **Dials** (`src/ai/basic.ts`): `MP_SPEND_PENALTY_WEIGHT` (1.5), the convex
+  scarcity curve, `MP_RESTORE_SCARCITY_BONUS` (1.0, Ether).
+- **Signal for adjustment.** Mage hoards MP / freezes at low MP → lower the weight
+  (or soften the curve). Mage still burns its last MP on junk casts → raise it, or
+  reconsider the deferred hard floor (D2). Conserves on marginal casts but commits
+  on real ones → close.
+- **Scoping to revisit.** The penalty currently covers offence + ally-buff only
+  (not heal / Math / Worldcraft) — deliberate, to avoid a support-cower and to
+  leave the Worldcraft/Math dials untouched. If Terraformer/Calculator/healer MP
+  pacing looks off in play, extending the penalty to those scorers is the lever.
+
+### AI role-aware deployment (S66 chunk 3)
+
+- **What to watch.** At battle start, an AI team should form a sensible shape:
+  melee/front-line units on the forward tiles (tanks at the tip), archers and
+  casters on the protected tiles behind. Watch whether the formation reads as
+  coherent on the real River Ridge mount (and any future maps) — not casters
+  stranded too far back to act turn 1, nor melee leaving gaps.
+- **Why it matters.** First consumer of `weaponType` (ADR-0105) and the first
+  role-aware placement. Coarse melee/ranged split only (D3).
+- **Signal for adjustment.** Casters deploy uselessly far back / formation looks
+  scattered → revisit the forwardness assignment (e.g. cap ranged setback, or
+  cluster around the spear tip rather than pure distance rank). A richer taxonomy
+  (tank/skirmisher/artillery/support) is the deferred next step if the coarse
+  split feels too blunt. Reads as a sensible battle line → close.
