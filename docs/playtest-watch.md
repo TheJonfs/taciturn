@@ -26,6 +26,53 @@ shouldn't drift out of memory between sessions.
 
 ## Active entries
 
+### Thief — chunk 1 kit feel (ADR-0110)
+
+The Thief (12th class) shipped its three Thief Arts actives and three RSM. All
+unit-tested; the *feel* needs human engagements (the harness can't drive
+PixiJS). The AI under-plays the kit (content-ahead-of-AI) — these are
+human-driver observations, not AI ones.
+
+- **Momentum tempo (the named risk).**
+  - **What to watch.** Momentum refunds +10 CT after every non-magical action,
+    the basic Attack included — and it fires far more often than the Flow State
+    it's modeled on (which only refunds magical casts). Does a Thief spamming
+    Attack / Steal MP pull ahead of the turn queue oppressively?
+  - **Why it matters.** The basic-Attack refund is the deliberate bit (banking
+    turns stay productive); 10 is the spec's "match Flow State" start, but the
+    higher fire rate could compound tempo.
+  - **Signal for adjustment.** Thief noticeably out-acting the field on tempo
+    alone → drop the refund (8 / 6) or exclude the basic Attack.
+
+- **Steal MP as a mage-counter.**
+  - **What to watch.** PA×3 drain is up to ~30 MP at max PA — roughly half a
+    48-MP mage on one hit, a lockout on two. Does a built Thief feel like a
+    fair disruptor or a hard mage-counter that erases caster turns?
+  - **Why it matters.** The drain scales on the Thief's everything-stat; the
+    refuel (50% of removed) funds the rest of the kit.
+  - **Signal for adjustment.** Casters reliably neutralized by a single Thief →
+    drop the coefficient to PA×2 (the concept-notes' release valve).
+
+- **Steal Buffs action-log attribution.**
+  - **What to watch.** On a successful steal, the stolen buffs are recorded as
+    applications in the action's per-target result. Does the log read clearly
+    that the buffs left the *target* and landed on the *Thief*, or does it look
+    like the Thief buffed the enemy?
+  - **Why it matters.** Chunk-1 logging is summary-level (ADR-0110); the
+    strip-from-target half isn't itemized.
+  - **Signal for adjustment.** If the log misreads, itemize the strip (a
+    dedicated "stole Haste from X" line) — folds into the action-log work.
+
+- **Slip Free feel.**
+  - **What to watch.** A high-Brave Thief shrugs a tick off most incoming
+    timed debuffs and negates 1-tick ones. Does control-resistance feel
+    appropriately slippery, or does it trivialize others' disable kits against
+    the Thief?
+  - **Why it matters.** It's the skirmisher's defining defensive trait, gated
+    on the same Brave that fuels its steals.
+  - **Signal for adjustment.** If disables feel pointless vs the Thief, gate
+    Slip Free to a subset of debuffs or lower its effective rate.
+
 ### S65 — control sub-game, MP economy, Bull Rush (ADR-0108)
 
 The Knight gained Bull Rush (weapon attack + Brave×PA knockback), the Assassin
