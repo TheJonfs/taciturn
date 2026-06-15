@@ -34,6 +34,7 @@ export const chainReaction: BuiltTeam = {
       classId: classId('assassin'),
       baseStats: buildBaseStats(classId('assassin'), BRAVE, FAITH, 25),
       level: 25,
+      gender: 'male',
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('shadow_arts')],
@@ -70,6 +71,7 @@ export const chainReaction: BuiltTeam = {
       classId: classId('calculator'),
       baseStats: buildBaseStats(classId('calculator'), BRAVE, FAITH, 24),
       level: 24,
+      gender: 'male',
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('math_skill')],
@@ -107,6 +109,7 @@ export const chainReaction: BuiltTeam = {
       classId: classId('hunter'),
       baseStats: buildBaseStats(classId('hunter'), BRAVE, FAITH, 26),
       level: 26,
+      gender: 'female',
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('marksmanship')],
@@ -144,6 +147,7 @@ export const chainReaction: BuiltTeam = {
       classId: classId('terraformer'),
       baseStats: buildBaseStats(classId('terraformer'), BRAVE, FAITH, 23),
       level: 23,
+      gender: 'female',
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('worldcraft')],
@@ -181,6 +185,7 @@ export const chainReaction: BuiltTeam = {
       classId: classId('lightning_mage'),
       baseStats: buildBaseStats(classId('lightning_mage'), BRAVE, FAITH, 27),
       level: 27,
+      gender: 'female',
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('lightning_spells')],
