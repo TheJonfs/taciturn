@@ -146,13 +146,18 @@ export function estimateChargedTiming(
   const surroundingEvents = events.slice(lo, hi);
   const resolutionIndex = idx - lo;
 
-  // Find the target's NEXT turn from now (first matching unit-event in
-  // the projection — could be before OR after the resolve). The "good
-  // outcome" is `resolutionEvent.ticksFromNow <= targetNextTurn.ticksFromNow`
-  // — the spell lands first and the target can't move out of the way.
-  // Strict-less-than would miss the same-tick tiebreak case where the
-  // charged action wins via entityKind ordering; <= is the more honest
-  // comparison.
+  // Find the target's NEXT turn from now (first matching unit-event in the
+  // projection — could be before OR after the resolve). "Resolves before" is
+  // judged by the resolution's POSITION in the projected order (`idx`) vs the
+  // target turn's position (`i`), NOT by comparing `ticksFromNow`. The two
+  // diverge on a same-tick co-arrival: when the spell and the target's turn
+  // land on the same tick, `projectUpcoming`'s tiebreak (actualCT, then speed,
+  // then entityKind) decides who goes first, and a fast / further-past-
+  // threshold target can win that tick and act before the spell lands. A
+  // `ticksFromNow <=` comparison treats that equal-tick case as "before" and
+  // disagrees with both the mini-timeline icons (which render this same event
+  // order) and the real CT loop. Index order encodes the full tiebreak, so it
+  // matches what the player sees resolve.
   let targetNextTurn: ChargedTimingResult['targetNextTurn'] = null;
   let resolvesBeforeTargetTurn: boolean | null = null;
   if (args.concernedUnitId !== undefined) {
@@ -160,7 +165,7 @@ export function estimateChargedTiming(
       const ev = events[i]!;
       if (ev.entityKind === 'unit' && ev.entityId === args.concernedUnitId) {
         targetNextTurn = { event: ev, index: i };
-        resolvesBeforeTargetTurn = resolutionEvent.ticksFromNow <= ev.ticksFromNow;
+        resolvesBeforeTargetTurn = idx < i;
         break;
       }
     }

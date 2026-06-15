@@ -167,6 +167,34 @@ describe('estimateChargedTiming', () => {
     expect(result!.resolvesBeforeTargetTurn).toBe(false);
   });
 
+  it('same-tick co-arrival: target wins the tiebreak → resolves AFTER (not before)', () => {
+    // Regression (playtest): the spell and the target's turn land on the same
+    // tick, but the target is faster / further past threshold and acts first.
+    // Target spd 30 reaches 100 at tick 4 (overshoot CT 120); the speed-25
+    // charge also resolves at tick 4 (CT 100). `projectUpcoming`'s tiebreak
+    // (higher actualCT first) orders the target's turn BEFORE the resolve —
+    // matching the mini-timeline and the real CT loop. The old
+    // `ticksFromNow <=` comparison treated the equal-tick case as "before";
+    // the index-based comparison correctly reports "after."
+    const cat = emptyCatalog();
+    const caster = makeUnit({ id: 'caster', spd: 10, ct: 0 });
+    const fastTarget = makeUnit({ id: 'tie_target', spd: 30, ct: 0 });
+    const state = makeGameState({ units: [caster, fastTarget] });
+    const result = estimateChargedTiming({
+      state,
+      catalog: cat,
+      ability: chargedAbility(25), // resolves at tick 4
+      caster,
+      anchor: { x: 0, y: 0, layer: 0 },
+      concernedUnitId: unitId('tie_target'),
+    });
+    expect(result).not.toBeNull();
+    expect(result!.targetNextTurn).not.toBeNull();
+    // Same tick for both, but the target acts first.
+    expect(result!.ticksToResolve).toBe(result!.targetNextTurn!.event.ticksFromNow);
+    expect(result!.resolvesBeforeTargetTurn).toBe(false);
+  });
+
   it('surroundingEvents contains the resolve at resolutionIndex', () => {
     const cat = emptyCatalog();
     const caster = makeUnit({ id: 'caster', spd: 10, ct: 0 });
