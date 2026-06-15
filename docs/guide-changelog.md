@@ -44,6 +44,19 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Thief session — follow-up tweaks (2026-06-15)
+
+- **Pin Down (Hunter) now derives its range from the equipped bow** — and, with
+  that, picks up the bow's **high-ground range bonus** it previously lacked. A
+  Hunter shooting Pin Down from higher elevation now reaches farther (same
+  rule as a regular bow shot). With the current bows the base range is
+  unchanged (2–5); the new part is the elevation reach.
+- **Steal MP (Thief)** likewise uses the equipped weapon's range now (see the
+  chunk-1 entry below) — both fixes route through the same weapon-delivery
+  path.
+
+---
+
 ## Thief session — chunk 2: Steal Heart (2026-06-15)
 
 The Thief's capstone. See ADR-0111 for mechanics.

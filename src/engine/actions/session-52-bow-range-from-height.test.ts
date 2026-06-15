@@ -96,13 +96,34 @@ const spell: ActiveAbilityDefinition = {
   effects: { damage: { tags: ['magical'], power_coefficient: 8 } },
 };
 
+// A no-damage ability that signals weapon-delivery via a top-level `'weapon'`
+// tag (the Hunter's Pin Down / Thief's Steal MP shape) — must derive the
+// weapon's range and height bonus just like a weapon-damage-tagged attack.
+const noDamageWeaponAbility: ActiveAbilityDefinition = {
+  id: abilityId('h52_pin'),
+  name: 'Pin',
+  kind: 'active',
+  bucket: bucketId('first_action'),
+  baseCost: 1,
+  availability: 'hidden',
+  tags: ['weapon'],
+  targeting: {
+    kind: 'single_unit',
+    range: { horizontal: 5, minHorizontal: 2, vertical: 99 },
+    rangeMode: 'arc',
+  },
+  actionSpeed: 0,
+  mpCost: 0,
+  effects: {},
+};
+
 function equipRight(id: string): UnitEquipment {
   return { leftHand: null, rightHand: itemId(id), headgear: null, armor: null, accessory: null };
 }
 
 const cat = createCatalog({
   statusTypes: [],
-  abilities: [weaponAttack, spell],
+  abilities: [weaponAttack, spell, noDamageWeaponAbility],
   commandSets: [],
   classes: [makeKnight()],
   items: [bow, sword],
@@ -180,6 +201,14 @@ describe('S52 range-from-height — weapon spec gating', () => {
   it('non-weapon (magical) ability → undefined even with a bow equipped', () => {
     const u = { ...onPeak, equipment: equipRight('h52_bow') };
     expect(weaponRangeFromHeightSpec(u, cat, spell)).toBeUndefined();
+  });
+
+  it('no-damage ability with an ability-level weapon tag + bow → returns the spec (Pin Down / Steal MP)', () => {
+    const u = { ...onPeak, equipment: equipRight('h52_bow') };
+    expect(weaponRangeFromHeightSpec(u, cat, noDamageWeaponAbility)).toEqual({
+      perDeltaVertical: 2,
+      deltaHorizontal: 1,
+    });
   });
 });
 

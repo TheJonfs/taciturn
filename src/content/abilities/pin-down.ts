@@ -10,12 +10,15 @@
 // (D3). No `hitRoll` and no `damage`, so the status formula alone decides
 // the outcome and no damage-triggered reactions fire.
 //
-// Range is authored to the bow band (2-5, vertical-infinite, arc) rather
-// than weapon-sourced — the weapon-range fork keys on the 'weapon' damage
-// tag, and Pin Down deals no damage. Both v1 bows share the 2-5 band, so
-// the authored range matches what the Hunter actually fields. mpCost 0:
-// the Hunter's bow kit doesn't spend MP, and D2's EV calibration assumes
-// Pin Down costs only the action.
+// Weapon-sourced range (the `'weapon'` ability tag): Pin Down deals no
+// damage to carry a `'weapon'` damage tag, so it declares the tag at the
+// ability level — the same path the Thief's Steal MP uses — to make the
+// weapon-range fork (and the bow's range-from-height bonus) apply. With a bow
+// equipped the reach derives from the weapon (so it tracks the actual bow and
+// gains extended horizontal range when shooting from high ground); the
+// authored 2-5 band is the no-bow fallback (matching Charged Attack's shape).
+// mpCost 0: the Hunter's bow kit doesn't spend MP, and D2's EV calibration
+// assumes Pin Down costs only the action.
 
 import {
   abilityId,
@@ -31,6 +34,7 @@ export const pinDown: ActiveAbilityDefinition = {
   bucket: bucketId('first_action'),
   baseCost: 1,
   availability: 'available',
+  tags: ['weapon'],
   targeting: {
     kind: 'single_unit',
     range: { horizontal: 5, minHorizontal: 2, vertical: 99 },
