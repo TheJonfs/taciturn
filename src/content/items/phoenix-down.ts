@@ -1,8 +1,11 @@
 // Phoenix Down — Session 39a Alchemist consumable. Compound for MP 12
 // to bank one; Throw at a KO'd unit to revive (HP=1 baseline) and
-// restore PA × 4 HP on top of the revive. On a non-KO'd target the
-// revive is a no-op and the heal still applies. Resets the target's
-// permadeath counter (`turnsKOd`) to 0.
+// restore PA × 4 HP on top of the revive. Resets the target's permadeath
+// counter (`turnsKOd`) to 0.
+//
+// KO-only (ADR-0112): Throw Item validation rejects a living target — Phoenix
+// Down only works on the downed, like Raise (FFT-canonical). The earlier
+// "heal a living target via no-op revive" behavior was removed.
 
 import { itemId, type ConsumableDefinition } from '@engine/index.ts';
 

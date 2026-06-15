@@ -484,7 +484,9 @@ export interface ConsumableEffects {
   // Restore MP on the target. Ether is the v1 consumer.
   readonly mpRestore?: ConsumableMpRestoreSpec;
   // When true, revive a KO'd target (HP=0 → HP=1 baseline; `hpRestore`
-  // then layers on top). No-op on non-KO'd targets. Reset turnsKOd to 0.
+  // then layers on top). Reset turnsKOd to 0. KO-only (ADR-0112): Throw Item
+  // validation rejects a living target for a `removeKO` consumable, so the
+  // reducer only ever sees a KO'd (or, defensively, no-op) target.
   readonly removeKO?: boolean;
   // Clear statuses from the target by polarity filter. Equipment-sourced
   // statuses (`source.kind === 'equipment'`) are immune per ADR-0028 and

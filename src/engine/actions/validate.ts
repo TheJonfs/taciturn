@@ -784,6 +784,13 @@ function validateUseThrowItem(
   if (targetUnit.airborne) {
     return invalid(`Target unit ${JSON.stringify(targetUnitId)} is airborne and cannot be targeted`);
   }
+  // Revive consumables (Phoenix Down) target only KO'd units — classically a
+  // downed unit to bring back, never a heal on a living one (ADR-0112: the
+  // same rule as Raise). Other consumables (Potion / Ether / Remedy) still
+  // target the living.
+  if (item.effects.removeKO === true && targetUnit.vitals.hp > 0) {
+    return invalid(`${item.name} can only target a KO'd unit`);
+  }
 
   // Range + arc-targetability against the throw-item constant. Per
   // Chris's S39b bug report: throws use arc-style reach (any tile

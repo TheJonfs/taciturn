@@ -335,7 +335,9 @@ describe('S39a — Phoenix Down', () => {
     expect(outcome.perTargetResults[0]!.hpAfter).toBe(33);
   });
 
-  it('on a non-KO\'d target: skip revive (no-op), still heal PA × 4', () => {
+  it('on a non-KO\'d (living) target: rejected at validation — Phoenix Down is KO-only (ADR-0112)', () => {
+    // Classically Phoenix Down only works on the downed; the earlier
+    // heal-a-living-target behavior was removed. Validation blocks the throw.
     const { actor, target } = actorAndTarget({
       actorPa: 8,
       stockpile: new Map([[PHOENIX_DOWN, 1]]),
@@ -343,20 +345,17 @@ describe('S39a — Phoenix Down', () => {
       targetMaxHp: 100,
     });
     const state = gameStateWith([actor, target]);
-    const action: Extract<Action, { type: 'use_throw_item' }> = {
-      type: 'use_throw_item',
-      sequenceNumber: 0,
-      source: 'player',
-      actorId: actor.id,
-      timestamp: { tick: 0, ct: 0 },
-      seed: 0,
-      chainDepth: 0,
-      isReaction: false,
-      payload: { itemId: PHOENIX_DOWN, target: { kind: 'unit', unitId: target.id } },
-    };
-    const { newState, outcome } = reduceUseThrowItem(state, action, catalog);
-    expect(newState.units.get(target.id)!.vitals.hp).toBe(82); // 50 + 32
-    expect(outcome.perTargetResults[0]!.healing).toBe(32);
+    const res = validateAction(
+      state,
+      {
+        type: 'use_throw_item',
+        source: 'player',
+        actorId: actor.id,
+        payload: { itemId: PHOENIX_DOWN, target: { kind: 'unit', unitId: target.id } },
+      },
+      catalog,
+    );
+    expect(res.valid).toBe(false);
   });
 
   it('cannot revive a `removed` (permadead) unit — rejected at validation', () => {

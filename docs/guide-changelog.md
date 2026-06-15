@@ -46,9 +46,9 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ## Playtest fixes (2026-06-15)
 
-- **Raise (Templar) is now KO-only.** It can no longer be cast on a living ally
-  as a heal — it targets only KO'd units, to revive them. (The post-revive heal
-  is unchanged.) Phoenix Down still works on living units.
+- **Raise (Templar) and Phoenix Down are now KO-only.** Neither can be used on a
+  living ally as a heal — both target only KO'd units, to revive them. (The
+  post-revive heal is unchanged.) Use Cure / Potion / Regen to heal the living.
 - **Steal Heart targeting fixed.** It now correctly offers opposite-gender
   targets even for units whose gender was never explicitly set in the team
   builder (they use the class's default gender — the one the portrait shows).
