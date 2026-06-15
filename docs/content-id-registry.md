@@ -49,7 +49,7 @@ The four-school mage display names are flavored (Geosage / Hydrologist / Pyroman
 | `math_skill` | Math Skill | `precision_fire`, `targeted_treatment`, `exact_rhythm`, `sculpted_enhancement`, `engineered_defenses` | `src/content/command-sets/math-skill.ts` |
 | `worldcraft` | Worldcraft | `pillar`, `pit`, `hill`, `valley`, `barrier` | `src/content/command-sets/worldcraft.ts` |
 | `templar_arts` | Templar Arts | `cure`, `raise`, `jump` | `src/content/command-sets/templar-arts.ts` |
-| `thief_arts` | Thief Arts | `steal_hp`, `steal_mp`, `steal_buffs` | `src/content/command-sets/thief-arts.ts` |
+| `thief_arts` | Thievery | `steal_hp`, `steal_mp`, `steal_buffs`, `steal_heart` | `src/content/command-sets/thief-arts.ts` |
 
 The `attack` ability is universal — surfaced through every class's `freeAbilities` rather than as a command-set member, so the action menu shows it alongside the player's First Action set.
 

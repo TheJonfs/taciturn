@@ -48,7 +48,7 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 The Thief's capstone. See ADR-0111 for mechanics.
 
-- **Steal Heart** (Thief Arts, 24 MP) — the biggest swing in the game.
+- **Steal Heart** (Thievery, 24 MP) — the biggest swing in the game.
   **Charms** a target for 3 turns: while charmed, the target acts on the
   Thief's side (you pick its moves). On paper it's still an enemy — it counts
   for its own team's win/loss, and its old allies still treat it as a friend
@@ -73,8 +73,8 @@ New class: the **Thief** (12th class, 5th physical). See ADR-0110 for mechanics.
 - **New class — Thief.** A fast, slippery skirmisher built around resource
   theft. Stats: HP 90 / MP 28 / PA 7 / MA 3 / Speed 11, Move 3 / Jump 3,
   evasion 8 / 4 / 0 (front/side/back), universal gear. PA is its everything-
-  stat. First Action set is **Thief Arts**.
-- **Thief Arts (actives):**
+  stat. First Action set is **Thievery**.
+- **Thievery (actives):**
   - **Steal HP** (5 MP) — a melee weapon strike for 75% of a normal attack's
     damage that heals the Thief for 50% of the damage dealt. Evadable.
   - **Steal MP** (3 MP) — a melee strike that drains PA×3 MP from the target
