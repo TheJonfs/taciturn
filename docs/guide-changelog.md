@@ -77,9 +77,10 @@ New class: the **Thief** (12th class, 5th physical). See ADR-0110 for mechanics.
 - **Thievery (actives):**
   - **Steal HP** (5 MP) — a melee weapon strike for 75% of a normal attack's
     damage that heals the Thief for 50% of the damage dealt. Evadable.
-  - **Steal MP** (3 MP) — a melee strike that drains PA×3 MP from the target
-    and restores half of the MP actually removed to the Thief. Evadable; the
-    refuel scales with what the target actually had to give.
+  - **Steal MP** (3 MP) — a weapon strike that drains PA×3 MP from the target
+    and restores half of the MP actually removed to the Thief. Uses the
+    equipped weapon's range (adjacent with a melee weapon, 2–5 with a bow).
+    Evadable; the refuel scales with what the target actually had to give.
   - **Steal Buffs** (4 MP) — a ranged (line-of-sight) theft that, on a Brave/PA
     contest, strips every buff off the target and applies them all to the
     Thief. Doesn't take debuffs, Stop, or charging states.

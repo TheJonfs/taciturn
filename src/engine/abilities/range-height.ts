@@ -29,17 +29,30 @@ export interface RangeFromHeightBonus {
   readonly deltaHorizontal: number;
 }
 
+// A weapon-delivered ability draws its reach (and bow height bonus) from the
+// equipped weapon. Signalled by a `'weapon'` *damage* tag (the universal
+// Attack, Steal HP, weapon-tagged Battle Skills) OR a top-level `'weapon'`
+// ability tag for weapon-delivered abilities with no damage component — the
+// Thief's Steal MP, a drain swung like a strike, which Chris set to share the
+// weapon's range. The shared predicate keeps `computeAbilityRange`'s range
+// fork and the height-bonus gate in lockstep.
+export function isWeaponDelivered(ability: ActiveAbilityDefinition): boolean {
+  return (
+    ability.effects.damage?.tags.includes('weapon') === true ||
+    ability.tags?.includes('weapon') === true
+  );
+}
+
 // Returns the equipped weapon's `rangeFromHeightBonus` spec iff this is a
-// weapon-tagged physical ability and the weapon declares the field;
-// otherwise `undefined`. Same gate as `computeAbilityRange`'s weapon
-// range fork, so non-weapon abilities (and melee weapons) never get a
-// height bonus.
+// weapon-delivered ability and the weapon declares the field; otherwise
+// `undefined`. Same gate as `computeAbilityRange`'s weapon range fork, so
+// non-weapon abilities (and melee weapons) never get a height bonus.
 export function weaponRangeFromHeightSpec(
   unit: Unit,
   catalog: Catalog,
   ability: ActiveAbilityDefinition,
 ): RangeFromHeightBonus | undefined {
-  if (ability.effects.damage?.tags.includes('weapon') !== true) return undefined;
+  if (!isWeaponDelivered(ability)) return undefined;
   const weapon = getEquippedWeapon(unit, catalog);
   return weapon?.rangeFromHeightBonus;
 }

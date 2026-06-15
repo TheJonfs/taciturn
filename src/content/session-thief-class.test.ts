@@ -27,6 +27,7 @@ import { reduceSystemMpDrain } from '../engine/actions/reducers.ts';
 import { applyStatus } from '../engine/status/apply.ts';
 import { runOnActionResolved } from '../engine/hooks/runners.ts';
 import { computeThiefContestChance } from '../engine/status/chance.ts';
+import { computeAbilityRange } from '../engine/abilities/range.ts';
 import { effectiveController } from '../engine/turn/effective-controller.ts';
 import { ACTIVE_BUCKET_IDS, PASSIVE_BUCKET_IDS } from '../engine/abilities/constants.ts';
 import { activeTurnFor, makeGameState, makeUnit } from '../engine/ct/test-fixtures.ts';
@@ -679,5 +680,54 @@ describe('Steal Heart — break-on-damage (charm is fragile)', () => {
       {} as never,
     ) as { emittedActions?: ReadonlyArray<unknown> };
     expect(out.emittedActions).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Steal MP / Steal HP — weapon-delivered range (Chris: both inherit the
+// equipped weapon's reach; a bow Thief steals at range)
+// ---------------------------------------------------------------------------
+
+describe('Steal MP / Steal HP — weapon range', () => {
+  const cat = loadDefaultCatalog();
+
+  function thiefWith(weapon: ReturnType<typeof itemId> | null) {
+    const u = makeUnit({
+      id: 'thief',
+      spd: 11,
+      pa: 7,
+      classId: 'thief',
+      equipment: {
+        leftHand: null,
+        rightHand: weapon,
+        headgear: null,
+        armor: null,
+        accessory: null,
+      },
+    });
+    return makeGameState({ units: [u] });
+  }
+
+  function rangeOf(state: ReturnType<typeof thiefWith>, ability: string) {
+    const ab = cat.getAbility(abilityId(ability));
+    if (ab.kind !== 'active') throw new Error('expected active');
+    return computeAbilityRange(state, cat, unitId('thief'), ab);
+  }
+
+  it('Steal MP inherits a bow’s range (2–5), like a basic Attack', () => {
+    const state = thiefWith(itemId('longbow'));
+    const r = rangeOf(state, 'steal_mp');
+    expect(r.horizontal).toBe(5);
+    expect(r.minHorizontal).toBe(2);
+  });
+
+  it('Steal HP also inherits the bow’s range (its weapon damage tag)', () => {
+    const state = thiefWith(itemId('longbow'));
+    expect(rangeOf(state, 'steal_hp').horizontal).toBe(5);
+  });
+
+  it('with a melee weapon (no range field) Steal MP stays at the authored melee 1', () => {
+    const state = thiefWith(itemId('long_sword'));
+    expect(rangeOf(state, 'steal_mp').horizontal).toBe(1);
   });
 });

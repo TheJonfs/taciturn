@@ -16,6 +16,7 @@ import type {
 } from '../catalog/index.ts';
 import { runModifyAbilityRange } from '../hooks/index.ts';
 import { getEquippedWeapon } from '../items/equipment.ts';
+import { isWeaponDelivered } from './range-height.ts';
 import {
   getUnit,
   type GameState,
@@ -51,17 +52,18 @@ export function computeAbilityRange(
   if (targeting.kind === 'math_skill') {
     return { horizontal: Infinity, vertical: Infinity, minHorizontal: undefined };
   }
-  // Session 45: weapon-sourced range fork. Weapon-tagged physical attacks
-  // (the universal Attack and weapon-tagged Battle Skills like Lightning
-  // Stab) read the equipped weapon's range when it declares one — a bow
-  // reaches 2-5 where the ability hardcodes melee 1. Parallel in spirit
-  // to the `physicalVariance` fork: the weapon carries the swing's reach,
-  // not the abstract attack ability. The hook chain still composes on top
-  // of the resolved base. Absent → ability-declared range (melee).
+  // Session 45: weapon-sourced range fork. Weapon-delivered abilities (the
+  // universal Attack and weapon-tagged Battle Skills like Lightning Stab; the
+  // Thief's Steal HP, and — per Chris — Steal MP via its `'weapon'` ability
+  // tag) read the equipped weapon's range when it declares one — a bow reaches
+  // 2-5 where the ability hardcodes melee 1. Parallel in spirit to the
+  // `physicalVariance` fork: the weapon carries the swing's reach, not the
+  // abstract ability. The hook chain still composes on top of the resolved
+  // base. Absent → ability-declared range (melee).
   let baseHorizontal = targeting.range.horizontal;
   let baseVertical = targeting.range.vertical;
   let minHorizontal = targeting.range.minHorizontal;
-  if (ability.effects.damage?.tags.includes('weapon') === true) {
+  if (isWeaponDelivered(ability)) {
     const weapon = weaponOverride ?? getEquippedWeapon(unit, catalog);
     if (weapon?.range !== undefined) {
       baseHorizontal = weapon.range.max;

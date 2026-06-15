@@ -2,11 +2,14 @@
 // target and restores 50% of the MP *actually removed* to the Thief. Net-
 // positive refuel that funds the rest of the kit (and, banked, Steal Heart).
 //
-// Melee (1h × 3v) and evadable: the `hitRoll` declaration makes the drain
-// roll the physical hit/evasion contest (same math as a weapon strike) even
-// though it deals no HP — a dodged drain takes nothing. Melee reach is
-// deliberate (concept-notes): Move +2 is what lets the Thief cross the field
-// to a protected backline caster and drain it.
+// Weapon-delivered (the `'weapon'` ability tag): the drain inherits the
+// equipped weapon's reach like a basic Attack / Steal HP — a melee weapon
+// keeps the authored 1h × 3v, a bow extends it to 2-5 (Chris's call). Evadable:
+// the `hitRoll` declaration makes the drain roll the physical hit/evasion
+// contest (same math as a weapon strike) even though it deals no HP — a dodged
+// drain takes nothing. For a melee-weapon Thief, Move +2 is the reach that
+// closes on a protected backline caster (concept-notes); a bow Thief drains
+// from range instead.
 //
 // Restore keys off MP *actually removed*, not the nominal PA × 3 — a near-
 // empty target yields a proportionally smaller refuel, and the Thief never
@@ -30,6 +33,11 @@ export const stealMp: ActiveAbilityDefinition = {
   bucket: bucketId('first_action'),
   baseCost: 1,
   availability: 'available',
+  // `'weapon'` ability tag (no damage effect to carry it) — marks Steal MP as
+  // weapon-delivered so it inherits the equipped weapon's range like a basic
+  // Attack / Steal HP (Chris: a bow Thief drains MP at range). The authored
+  // melee 1 is the unarmed / melee-weapon default; a bow overrides it to 2-5.
+  tags: ['weapon'],
   targeting: {
     kind: 'single_unit',
     range: { horizontal: 1, vertical: 3 },
