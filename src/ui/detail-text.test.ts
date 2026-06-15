@@ -37,6 +37,13 @@ import { unifiedCalling } from '../content/abilities/unified-calling.ts';
 import { cure } from '../content/abilities/cure.ts';
 import { raise } from '../content/abilities/raise.ts';
 import { jump } from '../content/abilities/jump.ts';
+import { stealHp } from '../content/abilities/steal-hp.ts';
+import { stealMp } from '../content/abilities/steal-mp.ts';
+import { stealBuffs } from '../content/abilities/steal-buffs.ts';
+import { stealHeart } from '../content/abilities/steal-heart.ts';
+import { slipFree } from '../content/abilities/slip-free.ts';
+import { momentum } from '../content/abilities/momentum.ts';
+import { movePlus2 } from '../content/abilities/move-plus-2.ts';
 import {
   formatAbilityDetail,
   formatCommandSetDetail,
@@ -244,6 +251,40 @@ describe('formatAbilityDetail', () => {
         [cure, /1-square diamond/i],
         [raise, /revive/i],
         [jump, /leap off-field/i],
+      ];
+      for (const [ability, pattern] of cases) {
+        const d = formatAbilityDetail(ability, cat);
+        const joined = d.lines.join('\n');
+        expect(joined, `${ability.name} description`).toMatch(pattern);
+        expect(joined, `${ability.name} not placeholder`).not.toMatch(/not yet authored/i);
+      }
+    });
+  });
+
+  // Thief: the Thievery actives + the three native R/S/M ship authored
+  // tooltip descriptions — same no-placeholder regression as the Templar set.
+  describe('Thief tooltips', () => {
+    function thiefCat() {
+      return createCatalog({
+        statusTypes: [],
+        abilities: [stealHp, stealMp, stealBuffs, stealHeart, slipFree, momentum, movePlus2],
+        commandSets: [],
+        classes: [makeKnight()],
+        items: [],
+        rulesets: defaultTestRulesets,
+      });
+    }
+
+    it('authors descriptions for Thievery + the three RSM (no placeholder)', () => {
+      const cat = thiefCat();
+      const cases: ReadonlyArray<readonly [Parameters<typeof formatAbilityDetail>[0], RegExp]> = [
+        [stealHp, /heals you for half the damage/i],
+        [stealMp, /drain PA × 3 MP/i],
+        [stealBuffs, /strip every positive status/i],
+        [stealHeart, /charm an enemy of the opposite gender/i],
+        [slipFree, /advance it one tick/i],
+        [momentum, /non-magical action/i],
+        [movePlus2, /\+2 Move Range/i],
       ];
       for (const [ability, pattern] of cases) {
         const d = formatAbilityDetail(ability, cat);

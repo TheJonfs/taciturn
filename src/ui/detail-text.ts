@@ -131,6 +131,10 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('monkeygrip'), 'Two-handed weapons need only one hand — pair a two-hander with a shield, or (with Two Weapons) a second two-hander.'],
   [abilityId('emissary'), '+25% to all healing this unit applies — boosts Cure, Raise, and any healing item it throws. Does not affect Regen.'],
   [abilityId('unified_calling'), 'On receiving a one-time heal (a healing spell, or a Potion / Phoenix Down used on you), recover MP equal to your PA. Not from Regen.'],
+  // Thief — the three native R/S/M.
+  [abilityId('slip_free'), 'When a debuff lands on you, immediately advance it one tick — a 1-turn debuff is shrugged off entirely. Brave-gated, like a reaction.'],
+  [abilityId('momentum'), 'After any non-magical action — the basic Attack included — refund a little CT. Keeps MP-banking turns tempo-positive.'],
+  [abilityId('move_plus_2'), '+2 Move Range.'],
 ]);
 
 // Authored lead-lines for active abilities whose mechanics don't read off
@@ -151,6 +155,11 @@ const ACTIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('cure'), 'Heal a 1-square diamond (≈ MA × 8 × Faith). Friendly fire is on — it heals allies AND any enemies in the area, and the caster too.'],
   [abilityId('raise'), 'Revive a KO’d ally and heal them (≈ MA × 10 × Faith). On a living target it simply heals.'],
   [abilityId('jump'), 'Leap off-field — untargetable while charging — then land on a tile for PA × WP, doubled with a Lance. Reaches far and high; the target can dodge by leaving the tile. Charges faster the higher your Speed.'],
+  // Thief — Thievery (the resource-theft kit).
+  [abilityId('steal_hp'), 'A weapon strike for ~75% damage that heals you for half the damage dealt. Uses the equipped weapon’s range (melee, or a bow’s reach); evadable, and only heals on damage actually dealt.'],
+  [abilityId('steal_mp'), 'Drain PA × 3 MP from the target and recover half of what was actually taken — no free MP off a near-empty target. Uses the equipped weapon’s range; evadable.'],
+  [abilityId('steal_buffs'), 'Strip every positive status off the target and apply them all to yourself. Chance scales with PA and your Brave minus theirs (base 33%).'],
+  [abilityId('steal_heart'), 'Charm an enemy of the opposite gender for 3 turns — you control them while it lasts. Low chance scaling with PA and Brave (base 10%); any damage they take has a 50% chance to snap them out early.'],
 ]);
 
 // Tiny formatting helpers — kept inline rather than a regex zoo so the
