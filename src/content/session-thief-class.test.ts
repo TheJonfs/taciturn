@@ -22,10 +22,12 @@ import {
 } from '@engine/index.ts';
 import { createInitialState } from '../engine/setup/create-initial-state.ts';
 import { commitAction } from '../engine/actions/commit.ts';
+import { validateAction } from '../engine/actions/validate.ts';
 import { reduceSystemMpDrain } from '../engine/actions/reducers.ts';
 import { applyStatus } from '../engine/status/apply.ts';
 import { runOnActionResolved } from '../engine/hooks/runners.ts';
 import { computeThiefContestChance } from '../engine/status/chance.ts';
+import { effectiveController } from '../engine/turn/effective-controller.ts';
 import { ACTIVE_BUCKET_IDS, PASSIVE_BUCKET_IDS } from '../engine/abilities/constants.ts';
 import { activeTurnFor, makeGameState, makeUnit } from '../engine/ct/test-fixtures.ts';
 import { flatMap } from '../engine/map/test-fixtures.ts';
@@ -33,8 +35,19 @@ import { loadDefaultCatalog } from './index.ts';
 import { thief } from './classes/thief.ts';
 import { thiefArts } from './command-sets/thief-arts.ts';
 import { classBaselineStats } from './classes/baseline-stats.ts';
+import { enthralled } from './statuses/enthralled.ts';
 
 const THIEF = classId('thief');
+
+// Extract the enthralled status's onDamageReceived handler so a break-on-damage
+// test can drive it directly with a crafted DamageContext.
+function enthralledOnDamageReceived() {
+  const reg = enthralled.hooks.find((h) => h.name === 'onDamageReceived');
+  if (reg === undefined) throw new Error('enthralled has no onDamageReceived hook');
+  return reg.handler as (args: never, ctx: never) => {
+    emittedActions?: ReadonlyArray<{ type: string }>;
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Registration + stat line
@@ -78,6 +91,7 @@ describe('Thief class — registration + stat line', () => {
       abilityId('steal_hp'),
       abilityId('steal_mp'),
       abilityId('steal_buffs'),
+      abilityId('steal_heart'),
     ]);
     for (const id of ['attack', 'slip_free', 'momentum', 'move_plus_2']) {
       expect(thief.freeAbilities.has(abilityId(id))).toBe(true);
@@ -110,6 +124,10 @@ interface ThiefBattleOpts {
   readonly targetHp?: number;
   readonly targetBrave?: number;
   readonly masterSeed?: number;
+  // Genders default opposite (male thief, female target) so Steal Heart's
+  // gender gate passes; set equal to exercise the rejection.
+  readonly thiefGender?: 'male' | 'female';
+  readonly targetGender?: 'male' | 'female';
 }
 
 // Thief (team_a) at (0,0) facing E; target (team_b) at (1,0) facing E — so a
@@ -132,6 +150,7 @@ function buildThiefBattle(opts: ThiefBattleOpts = {}) {
         name: 'Thief',
         team: teamId('team_a'),
         classId: THIEF,
+        gender: opts.thiefGender ?? 'male',
         position: { x: 0, y: 0, layer: 0 },
         facing: 'E',
         baseStats: {
@@ -163,6 +182,7 @@ function buildThiefBattle(opts: ThiefBattleOpts = {}) {
         name: 'Mark',
         team: teamId('team_b'),
         classId: classId('water_mage'),
+        gender: opts.targetGender ?? 'female',
         position: { x: 1, y: 0, layer: 0 },
         facing: 'E',
         baseStats: {
@@ -504,5 +524,160 @@ describe('system_mp_drain restoreFraction', () => {
     );
     expect(res.outcome.targetApplied).toBe(8);
     expect(res.outcome.sourceApplied).toBe(8);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Chunk 2 — Steal Heart + control-override substrate
+// ---------------------------------------------------------------------------
+
+describe('effectiveController (control-override substrate)', () => {
+  const cat = loadDefaultCatalog();
+
+  it('returns the unit own team normally', () => {
+    const plain = makeUnit({ id: 'u', spd: 10, team: 'team_b' });
+    expect(effectiveController(plain, cat)).toBe(teamId('team_b'));
+  });
+
+  it('returns the charmer team while an enthralled (controlOverride) status is active', () => {
+    const charmed = makeUnit({
+      id: 'u',
+      spd: 10,
+      team: 'team_b',
+      statuses: [
+        {
+          typeId: statusTypeId('enthralled'),
+          source: { unitId: unitId('thief'), actionSeq: 0 },
+          remainingDuration: 3,
+          customState: { charmerTeam: teamId('team_a') },
+        },
+      ],
+    });
+    expect(effectiveController(charmed, cat)).toBe(teamId('team_a'));
+  });
+});
+
+describe('Steal Heart', () => {
+  it('charms an opposite-gender target on a successful contest (control → charmer)', () => {
+    // High caster Brave / low target Brave → contest ~80%; seed lands.
+    const { state, cat } = buildThiefBattle({
+      thiefBrave: 100,
+      targetBrave: 1,
+      thiefMp: 28,
+      masterSeed: 3,
+    });
+    const res = commitAction(state, useAbility('steal_heart'), cat);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const markAfter = res.newState.units.get(unitId('mark'))!;
+    const enth = markAfter.statuses.find((s) => s.typeId === statusTypeId('enthralled'));
+    expect(enth, 'enthralled applied').toBeDefined();
+    expect(enth!.customState?.['charmerTeam']).toBe('team_a');
+    expect(enth!.remainingDuration).toBe(3);
+    // The immunity marker is co-applied and outlasts the charm.
+    const ward = markAfter.statuses.find((s) => s.typeId === statusTypeId('heartwarded'));
+    expect(ward, 'heartwarded applied').toBeDefined();
+    expect(ward!.remainingDuration).toBe(5);
+    // The substrate now hands control of the puppet to the charmer's team.
+    expect(effectiveController(markAfter, cat)).toBe(teamId('team_a'));
+  });
+
+  it('rejects a same-gender target (the gender gate)', () => {
+    const { state, cat } = buildThiefBattle({ thiefGender: 'male', targetGender: 'male' });
+    const v = validateAction(state, useAbility('steal_heart'), cat);
+    expect(v.valid).toBe(false);
+  });
+
+  it('rejects a target already warded (re-charm lock / post-charm immunity)', () => {
+    const { state, cat } = buildThiefBattle({ thiefMp: 28 });
+    const warded = applyStatus(
+      state,
+      {
+        targetId: unitId('mark'),
+        typeId: statusTypeId('heartwarded'),
+        sourceUnitId: unitId('thief'),
+        sourceActionSeq: 0,
+        duration: 5,
+      },
+      cat,
+    ).newState;
+    const v = validateAction(warded, useAbility('steal_heart'), cat);
+    expect(v.valid).toBe(false);
+  });
+
+  it('costs 24 MP — a Thief with less cannot cast it', () => {
+    const { state, cat } = buildThiefBattle({ thiefMp: 20 });
+    const v = validateAction(state, useAbility('steal_heart'), cat);
+    expect(v.valid).toBe(false);
+  });
+});
+
+describe('Steal Heart — break-on-damage (charm is fragile)', () => {
+  // Drive the enthralled status's onDamageReceived handler directly with a
+  // crafted DamageContext: a landed hit + a seed whose break roll is < 0.5
+  // emits a status_remove for the charm; a seed whose roll is >= 0.5 holds.
+  const reg = enthralledOnDamageReceived();
+
+  function breakResult(actionSeed: number) {
+    const out = reg(
+      {
+        unit: makeUnit({ id: 'p', spd: 10, team: 'team_b' }),
+        ctx: {
+          attacker: makeUnit({ id: 'a', spd: 10, team: 'team_b' }),
+          target: makeUnit({ id: 'p', spd: 10, team: 'team_b' }),
+          sourceActionSeq: 0,
+          sourceAbilityId: abilityId('attack'),
+          damageTags: new Set<never>(),
+          baseDamage: 10,
+          multipliers: [],
+          additives: [],
+          variance: { min: 1, max: 1 },
+          hit: true,
+          targetCount: 1,
+          actionSeed,
+        },
+      } as never,
+      {} as never,
+    );
+    return out;
+  }
+
+  it('a landed hit can snap the charm (a breaking seed emits status_remove)', () => {
+    // Search a small seed range for one of each outcome — proves both branches
+    // fire deterministically.
+    let broke = false;
+    let held = false;
+    for (let s = 0; s < 40 && !(broke && held); s++) {
+      const out = breakResult(s) as { emittedActions?: ReadonlyArray<{ type: string }> };
+      const removed = (out.emittedActions ?? []).some((a) => a.type === 'status_remove');
+      if (removed) broke = true;
+      else held = true;
+    }
+    expect(broke, 'some seed breaks the charm').toBe(true);
+    expect(held, 'some seed holds the charm').toBe(true);
+  });
+
+  it('a missed hit never breaks the charm', () => {
+    const out = enthralledOnDamageReceived()(
+      {
+        unit: makeUnit({ id: 'p', spd: 10, team: 'team_b' }),
+        ctx: {
+          attacker: makeUnit({ id: 'a', spd: 10 }),
+          target: makeUnit({ id: 'p', spd: 10 }),
+          sourceActionSeq: 0,
+          sourceAbilityId: abilityId('attack'),
+          damageTags: new Set<never>(),
+          baseDamage: 0,
+          multipliers: [],
+          additives: [],
+          variance: { min: 1, max: 1 },
+          hit: false,
+          targetCount: 1,
+          actionSeed: 5,
+        },
+      } as never,
+      {} as never,
+    ) as { emittedActions?: ReadonlyArray<unknown> };
+    expect(out.emittedActions).toBeUndefined();
   });
 });

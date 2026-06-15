@@ -473,6 +473,23 @@ export interface AbilityEffects {
   // the gear). No HP / MP component. `baseChance` is the additive base
   // (33 for Steal Buffs).
   readonly stealBuffs?: { readonly baseChance: number };
+  // Steal-heart effect (Thief — Steal Heart, the capstone). Rolls the Thief
+  // contest chance (`baseChance + 3·PA + 0.5·(caster_Brave − target_Brave)`,
+  // clamped [1, 95]); on success, applies the `controlOverride` charm status
+  // (`charmStatus`, duration `charmDuration`) to the target with the caster's
+  // team stamped into `customState.charmerTeam`, plus the immunity marker
+  // (`immunityStatus`, duration `immunityDuration` — longer, so it outlasts
+  // the charm and gates re-charm). Gender gating and the immunity / liveness
+  // gates are enforced in `validateUseAbility` (a control-override action),
+  // so resolution only rolls the contest. The status type ids are content
+  // data on the effect so the engine reducer stays decoupled.
+  readonly stealHeart?: {
+    readonly baseChance: number;
+    readonly charmStatus: StatusTypeId;
+    readonly charmDuration: number;
+    readonly immunityStatus: StatusTypeId;
+    readonly immunityDuration: number;
+  };
   // Session 54: Worldcraft terrain mutation (see WorldcraftEffectSpec).
   // When present, the ability resolves through `resolveWorldcraft` rather
   // than the damage/status pipeline — mutually exclusive with `damage` /

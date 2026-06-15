@@ -104,6 +104,23 @@ export interface StatusEffectType {
   // Silence, Sleep, Stop). Default `false` — every existing ailment
   // stays clearable. See ADR for the formula/Remedy changes.
   readonly remedyImmune?: boolean;
+  // When `true`, this status overrides its wearer's *controller* (who picks
+  // the unit's actions) without changing its `team` (roster / win-loss
+  // membership). The reusable substrate behind Steal Heart's charm — the
+  // `effectiveController` query returns the team named in the instance's
+  // `customState.charmerTeam` while such a status is active, then reverts
+  // automatically when it expires or breaks (computed, never stored — ground
+  // rule 5). Future Confusion / Berserk consume the same flag with different
+  // customState. v1 consumer: `enthralled` (the Thief's Steal Heart). Default
+  // `false`.
+  readonly controlOverride?: boolean;
+  // When `true`, a unit carrying this status cannot have a control-override
+  // applied to it — the engine-generic gate behind Steal Heart's post-charm
+  // immunity. Validation rejects a control-override action against a target
+  // holding any `controlOverrideImmune` status (checked via this flag, not a
+  // content id, so the engine stays decoupled from specific content). v1
+  // consumer: `heartwarded`. Default `false`.
+  readonly controlOverrideImmune?: boolean;
   // Required when `durationMode === 'custom'` (ADR-0030). The kind
   // names which engine event drives the trigger; the engine routes
   // the firing through the corresponding existing hook. v1 supports

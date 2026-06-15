@@ -116,6 +116,7 @@ The display names of the elemental-spell suite were re-flavored (S40 name pass a
 | `steal_hp` | Steal HP | first_action | no (Thief Arts — 0.75 weapon strike + 50% lifesteal; evadable; 5 MP) | available | `src/content/abilities/steal-hp.ts` |
 | `steal_mp` | Steal MP | first_action | no (Thief Arts — drain PA×3 MP, restore 50% of MP removed; evadable; 3 MP) | available | `src/content/abilities/steal-mp.ts` |
 | `steal_buffs` | Steal Buffs | first_action | no (Thief Arts — additive contest [base 33]; strip polarity:buff statuses → caster; 4 MP) | available | `src/content/abilities/steal-buffs.ts` |
+| `steal_heart` | Steal Heart | first_action | no (Thief Arts capstone — additive contest [base 10]; gender-gated 3-turn charm via control-override; 24 MP) | available | `src/content/abilities/steal-heart.ts` |
 
 ## Passive abilities
 
@@ -171,6 +172,8 @@ S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive w
 | `haste` | Haste | positive, time, dispellable | REFRESH | permanent_per_unit_ct | `src/content/statuses/haste.ts` |
 | `stop` | Stop | negative, time, mental | REFRESH | per_unit_ct | `src/content/statuses/stop.ts` |
 | `charging` | Charging | neutral, time | REJECT | conditional | `src/content/statuses/charging.ts` |
+| `enthralled` | Enthralled | negative, mental | REFRESH | per_unit_ct | `src/content/statuses/enthralled.ts` (Thief — Steal Heart charm; `controlOverride`; 50% break-on-attack-damage) |
+| `heartwarded` | Heartwarded | neutral | REFRESH | per_unit_ct | `src/content/statuses/heartwarded.ts` (Steal Heart re-charm immunity marker; `controlOverrideImmune`) |
 | `regen` | Regen | positive | REFRESH | per_unit_ct | `src/content/statuses/regen.ts` |
 | `regen_auto` | Regen | positive | REFRESH | permanent_per_unit_ct | `src/content/statuses/regen-auto.ts` |
 | `mana_font` | Mana Font | positive | REFRESH | permanent_per_unit_ct | `src/content/statuses/mana-font.ts` |
@@ -363,8 +366,8 @@ re-baselines to the live totals.)
 |---|---|---|
 | Classes | 12 | S62 `templar`; Thief `thief` |
 | Command sets | 14 | S62 `templar_arts`; Thief `thief_arts` |
-| Abilities (active + passive + hidden) | 101 | Thief chunk 1 +6: `steal_hp`, `steal_mp`, `steal_buffs`, `slip_free`, `momentum`, `move_plus_2` |
-| Status types | 33 | S65 `mana_font` (chunk 1 adds none — the charm status lands with Steal Heart in chunk 2) |
+| Abilities (active + passive + hidden) | 102 | Thief chunk 1 +6 (`steal_hp`, `steal_mp`, `steal_buffs`, `slip_free`, `momentum`, `move_plus_2`); chunk 2 +1 (`steal_heart`) |
+| Status types | 35 | S65 `mana_font`; Thief chunk 2 +2 (`enthralled`, `heartwarded`) |
 | Equipment + consumables | 73 | S65 `battlemages_chain`, `barbut`, `circlet` |
 | Rulesets | 1 | — |
 | Maps | 3 | — |

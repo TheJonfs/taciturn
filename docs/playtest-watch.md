@@ -26,6 +26,44 @@ shouldn't drift out of memory between sessions.
 
 ## Active entries
 
+- ~~**Action-log redesign visual (S63, `b3bd121`).** Whether the redesigned
+  action log reads correctly in real battles.~~ **Resolved (Thief session,
+  Chris):** confirmed reading correctly in-battle. Closed; dropped from the
+  handoff carry-list.
+
+### Thief — Steal Heart / charm feel (ADR-0111)
+
+The charm capstone shipped (control-only scope). Unit-tested; the *feel* and the
+scope quirks need human engagements.
+
+- **Control-only scope quirk.**
+  - **What to watch.** A charmed enemy keeps its team, so its former allies'
+    AI won't proactively attack it, and it's only useful to you offensively
+    (via friendly fire — you direct it to hit its own side). Does the puppet
+    feel impactful, or toothless because it's "protected" by its old team and
+    can't be leveraged defensively?
+  - **Why it matters.** v1 is deliberately control-only (ADR-0111); the full
+    friend/foe flip (puppet hostile to its old team for AI/targeting) was the
+    bigger, deferred option.
+  - **Signal for adjustment.** If the charm reads as underwhelming, promote to
+    the full friend/foe flip.
+
+- **Land-rate & setup loop.**
+  - **What to watch.** Base 10% contest (~31% naked, ~48% equipped, ~58% after
+    an Undermine), capped 95, at 24 MP. Does the set-up-or-don't-bother loop
+    feel rewarding, or just unreliable/expensive given the MP bank tension?
+  - **Signal for adjustment.** If it never lands meaningfully, lift the base or
+    the α/β tuning (concept-notes); if it lands too freely with setup, the cap
+    is the backstop.
+
+- **Charm fragility (break-on-damage).**
+  - **What to watch.** 50% break on any *attack* damage — but NOT on DoT ticks
+    (Poison/Burn bypass the pipeline), so the charm is a touch less fragile
+    than the concept's "any damage." Does the puppet last long enough to matter
+    before a stray AoE / friendly-fire hit snaps it?
+  - **Signal for adjustment.** If it breaks too readily, restrict the trigger
+    to original-team damage or drop below 50%; if it never breaks, fold DoT in.
+
 ### Thief — chunk 1 kit feel (ADR-0110)
 
 The Thief (12th class) shipped its three Thief Arts actives and three RSM. All

@@ -553,6 +553,32 @@ function validateUseAbility(
     return invalid(`Target unit ${JSON.stringify(targetUnitId)} is airborne and cannot be targeted`);
   }
 
+  // Steal Heart (control-override) gates (Thief — ADR-0111). Opposite-gender,
+  // a living target, and not already control-overridden / warded against
+  // re-charm. The override / immunity are tested via generic StatusEffectType
+  // flags, so the engine stays decoupled from the specific content ids.
+  if (ability.effects.stealHeart !== undefined) {
+    if (targetUnit.vitals.hp <= 0) {
+      return invalid("Steal Heart cannot target a KO'd unit");
+    }
+    if (
+      actor.gender === undefined ||
+      targetUnit.gender === undefined ||
+      actor.gender === targetUnit.gender
+    ) {
+      return invalid('Steal Heart requires a target of the opposite gender');
+    }
+    const alreadyOverridden = targetUnit.statuses.some(
+      (s) => catalog.getStatusType(s.typeId).controlOverride === true,
+    );
+    const warded = targetUnit.statuses.some(
+      (s) => catalog.getStatusType(s.typeId).controlOverrideImmune === true,
+    );
+    if (alreadyOverridden || warded) {
+      return invalid('Target is already enthralled or warded against Steal Heart');
+    }
+  }
+
   // Range + targeting-mode checks. Resolve target tile for elevation
   // lookups; tile-not-found is an inconsistency caught here.
   const targetTile = tileAt(state.map, targetUnit.position.x, targetUnit.position.y, targetUnit.position.layer);

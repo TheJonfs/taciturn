@@ -9,8 +9,10 @@ import { critModifier } from './crit-modifier.ts';
 import { engineeredDefenses } from './engineered-defenses.ts';
 import { dontAct } from './dont-act.ts';
 import { dontMove } from './dont-move.ts';
+import { enthralled } from './enthralled.ts';
 import { faithDown } from './faith-down.ts';
 import { haste } from './haste.ts';
+import { heartwarded } from './heartwarded.ts';
 import { maDown } from './ma-down.ts';
 import { maUp } from './ma-up.ts';
 import { manaFont } from './mana-font.ts';
@@ -44,8 +46,10 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   engineeredDefenses,
   dontAct,
   dontMove,
+  enthralled,
   faithDown,
   haste,
+  heartwarded,
   maDown,
   maUp,
   manaFont,

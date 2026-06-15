@@ -189,10 +189,12 @@ describe('loadDefaultCatalog', () => {
     //     momentum, move_plus_2)
     //   - commandSets: 13 → 14 (thief_arts — Steal HP / MP / Buffs)
     //   - classes: 11 → 12 (thief)
-    //   - statusTypes / items unchanged (chunk 1 adds no statuses; the
-    //     control-override charm status lands with Steal Heart in chunk 2)
-    expect(cat.statusTypes()).toHaveLength(33);
-    expect(cat.abilities()).toHaveLength(101);
+    // Session (Thief) — chunk 2 (Steal Heart + control-override):
+    //   - abilities: 101 → 102 (steal_heart, added to thief_arts)
+    //   - statusTypes: 33 → 35 (enthralled — the control-override charm;
+    //     heartwarded — the post-charm re-charm immunity marker)
+    expect(cat.statusTypes()).toHaveLength(35);
+    expect(cat.abilities()).toHaveLength(102);
     expect(cat.commandSets()).toHaveLength(14);
     expect(cat.classes()).toHaveLength(12);
     expect(cat.items()).toHaveLength(73);

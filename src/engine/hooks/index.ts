@@ -52,4 +52,5 @@ export {
   runOnMoveCompleted,
   runOnTurnEnd,
   runQueryTurnSkipped,
+  unitFloatFromSeed,
 } from './runners.ts';

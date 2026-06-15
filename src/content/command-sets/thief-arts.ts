@@ -1,7 +1,7 @@
 // Thief Arts — the Thief's command set. The resource-theft kit: Steal HP
 // (lifesteal weapon strike), Steal MP (net-positive MP drain — the refuel
 // valve that funds the kit), Steal Buffs (strip the target's buffs and wear
-// them). Steal Heart, the 24-MP charm capstone, joins this set in chunk 2.
+// them), and Steal Heart (the 24-MP charm capstone).
 //
 // The weapon basic Attack comes from the class's freeAbilities, not here
 // (the battle-skill convention — avoids duplicating Attack in the picker).
@@ -21,6 +21,7 @@ export const thiefArts: CommandSetDefinition = {
     abilityId('steal_hp'),
     abilityId('steal_mp'),
     abilityId('steal_buffs'),
+    abilityId('steal_heart'),
   ],
   baseCost: 1,
   availability: 'available',

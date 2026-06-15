@@ -44,6 +44,28 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Thief session — chunk 2: Steal Heart (2026-06-15)
+
+The Thief's capstone. See ADR-0111 for mechanics.
+
+- **Steal Heart** (Thief Arts, 24 MP) — the biggest swing in the game.
+  **Charms** a target for 3 turns: while charmed, the target acts on the
+  Thief's side (you pick its moves). On paper it's still an enemy — it counts
+  for its own team's win/loss, and its old allies still treat it as a friend
+  (so you mostly use the puppet to attack its own side).
+  - **Gender-gated:** targets the opposite gender only (Male ↔ Female).
+  - **Hard to land:** a Brave/PA contest at base 10% — ~31% with no setup,
+    ~48% fully equipped, higher if you've dropped the target's Brave first.
+    Capped at 95%, never guaranteed. A set-up-or-don't-bother capstone.
+  - **Fragile:** any *attack* damage the charmed unit takes has a 50% chance
+    to snap the charm early (damage-over-time ticks don't).
+  - **No chaining:** after a charm ends, the target is briefly immune to being
+    re-charmed; and at 24 MP against a 28-MP bar, you can't spam it.
+  - Charming the last living enemy does **not** win the battle — the charm is
+    temporary.
+
+---
+
 ## Thief session — chunk 1 (2026-06-14)
 
 New class: the **Thief** (12th class, 5th physical). See ADR-0110 for mechanics.
@@ -71,8 +93,8 @@ New class: the **Thief** (12th class, 5th physical). See ADR-0110 for mechanics.
     State). Move and Wait don't refund.
   - **Move +2** (Movement, 2) — +2 to Move Range (the Thief reaches effective
     Move 5).
-- **Not yet:** Steal Heart (the charm capstone) is still to come; the Thief
-  isn't in the default playtest teams yet.
+- **Not yet:** the charm capstone (Steal Heart) — shipped in chunk 2 (entry
+  above); the Thief isn't in the default playtest teams yet.
 
 ---
 

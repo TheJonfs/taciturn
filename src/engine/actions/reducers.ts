@@ -1273,6 +1273,67 @@ function resolveAbilityEffect(
     }
   }
 
+  // Steal Heart (Thief — the capstone). A contest (the additive Brave/PA
+  // form, base 10); on success, the target is charmed: the `controlOverride`
+  // status (with the caster's team in customState.charmerTeam) plus the
+  // immunity marker land on it. Gender gating + the immunity / liveness gates
+  // ran in validation, so resolution only rolls the contest. The charm carries
+  // the action seed so a target's Slip Free can still react to it (it's a
+  // negative finite debuff); the immunity is neutral, so Slip Free ignores it.
+  const stealHeart = args.ability.effects.stealHeart;
+  if (stealHeart !== undefined && args.targetUnit !== null && !targetKO) {
+    const liveTarget = workingState.units.get(args.targetUnit.id);
+    if (liveTarget !== undefined && liveTarget.vitals.hp > 0) {
+      const contest = rollThiefContestChance({
+        state: workingState,
+        catalog,
+        caster: args.attacker,
+        target: liveTarget,
+        baseChance: stealHeart.baseChance,
+        seed: args.seed,
+      });
+      if (!contest.applied) {
+        statusOutcomes.push({
+          kind: 'missed',
+          chance: contest.chance / 100,
+          roll: contest.roll,
+        });
+      } else {
+        const charm = applyStatus(
+          workingState,
+          {
+            targetId: liveTarget.id,
+            typeId: stealHeart.charmStatus,
+            sourceUnitId: args.attacker.id,
+            sourceActionSeq: args.sourceActionSeq,
+            sourceAbilityTags: args.ability.tags ?? [],
+            seed: args.seed,
+            duration: stealHeart.charmDuration,
+            // The charmer's team drives the puppet via effectiveController.
+            customState: { charmerTeam: args.attacker.team },
+          },
+          catalog,
+        );
+        workingState = charm.newState;
+        statusOutcomes.push(charm.result);
+        const ward = applyStatus(
+          workingState,
+          {
+            targetId: liveTarget.id,
+            typeId: stealHeart.immunityStatus,
+            sourceUnitId: args.attacker.id,
+            sourceActionSeq: args.sourceActionSeq,
+            sourceAbilityTags: args.ability.tags ?? [],
+            duration: stealHeart.immunityDuration,
+          },
+          catalog,
+        );
+        workingState = ward.newState;
+        statusOutcomes.push(ward.result);
+      }
+    }
+  }
+
   // Free-standing CT effects (per session 18). Each entry rolls the
   // ability-chance gate (Faith × MA × baseChance), then emits a
   // `system_ct_push` against the chosen target. Distinct from

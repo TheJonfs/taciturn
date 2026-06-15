@@ -73,6 +73,7 @@ import { shadowStitch } from './shadow-stitch.ts';
 import { slipFree } from './slip-free.ts';
 import { smolder } from './smolder.ts';
 import { stealBuffs } from './steal-buffs.ts';
+import { stealHeart } from './steal-heart.ts';
 import { stealHp } from './steal-hp.ts';
 import { stealMp } from './steal-mp.ts';
 import { sowDoubt } from './sow-doubt.ts';
@@ -202,6 +203,7 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   stealHp,
   stealMp,
   stealBuffs,
+  stealHeart,
   slipFree,
   momentum,
   movePlus2,

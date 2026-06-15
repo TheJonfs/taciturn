@@ -18,6 +18,7 @@
 import {
   advanceToNextEvent,
   commitAction,
+  effectiveController,
   type Action,
   type Catalog,
   type GameState,
@@ -280,10 +281,15 @@ export class DemoOrchestrator {
   }
 
   private pickController(actor: Unit): Controller {
-    const controller = this.controllers.get(actor.team);
+    // Control-override (Thief — Steal Heart): a charmed unit is driven by the
+    // charmer's team, not its own, for the charm's duration. effectiveController
+    // returns actor.team for everyone else. Win/loss & friend/foe still key off
+    // actor.team (v1 control-only scope — ADR-0111).
+    const controllingTeam = effectiveController(actor, this.catalog);
+    const controller = this.controllers.get(controllingTeam);
     if (controller === undefined) {
       throw new Error(
-        `DemoOrchestrator: no controller registered for team ${JSON.stringify(actor.team)}`,
+        `DemoOrchestrator: no controller registered for team ${JSON.stringify(controllingTeam)}`,
       );
     }
     return controller;
