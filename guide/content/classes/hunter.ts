@@ -49,9 +49,11 @@ engagement.`,
       full: `*Pin Down* lays Slow on a target at range, free of MP, on a
 roll weighted by the Hunter's Brave and Speed rather than spell-craft.
 Cheap, reliable, and her standing answer to the foe she most needs to
-keep at the edge of the field. Note that it cannot reach a cadet right
-beside her; it is a *bow* attack, and asks her distance.`,
-      compact: 'Ranged, free Slow. The Hunter’s standing tempo cut — but it cannot reach an adjacent foe.',
+keep at the edge of the field. It is a *bow* attack through and through:
+it takes its reach from the bow in her hand, so it cannot touch a cadet
+right beside her — and, like any bow shot, it reaches *farther* loosed
+from the high ground.`,
+      compact: 'Ranged, free Slow, carried on the bow — so it cannot reach an adjacent foe, and it reaches farther shot from above.',
     },
     charged_attack: {
       full: `*Charged Attack* is the aimed shot — a charged bow strike

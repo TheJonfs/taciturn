@@ -117,6 +117,6 @@ wrong most often by hesitating.`,
     'The Alchemist’s first turn is a Compound. If it isn’t, ask her why.',
     'Healthy Stride is square, not linear. A cadet who walks two tiles heals four; one who walks four heals sixteen. Make her walk.',
     'Ether is not in the kit. If you forget, you forget when it matters — watch for it.',
-    'A Phoenix Down on a living ally is mercy, not waste. The next blow was the one that mattered.',
+    'A Phoenix Down only answers a cadet already down — it revives, it does not heal the living. Keep a Potion for the wounded.',
   ],
 };

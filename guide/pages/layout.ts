@@ -113,10 +113,10 @@ export function specializationsHalfTitle(): string {
         the shadow, the Hunter from the perch — the four elemental
         Mages, who answer it with their art, the Calculator, who
         answers it with her arithmetic, the Templar, who answers it with
-        mending and the holy leap, and the Terraformer, who answers it
-        by remaking the ground beneath them all. The spreads are
-        arranged alphabetically; each is the same in form — stats
-        imported from
+        mending and the holy leap, the Terraformer, who answers it by
+        remaking the ground beneath them all, and the Thief, who answers
+        it by taking what the others rely upon. The spreads are arranged
+        alphabetically; each is the same in form — stats imported from
         the Academy&rsquo;s records, the full repertoire annotated, the
         instructor&rsquo;s counsel at the close. Read in the order they
         are placed; or open at the discipline you mean to take, and read

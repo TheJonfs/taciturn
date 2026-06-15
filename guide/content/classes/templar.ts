@@ -37,18 +37,21 @@ out of reach.`,
 
   abilityNotes: {
     cure: {
-      full: `A charged heal dropped as a one-square cross — five tiles of
-mending, scaled on Magical Attack and Faith. The cross does not ask
-whose side a cadet is on: it heals allies, the caster herself, *and*
-any enemy caught in it. Quick to land, so placement is the whole skill.`,
-      compact: 'Charged cross-shaped heal (MA × Faith). Heals friend, foe, and self alike — place it well.',
+      full: `A charged heal dropped as a small diamond — five tiles of
+mending at its base, scaled on Magical Attack and Faith, and widened to
+a full diamond under Aether Bloom. It does not ask whose side a cadet is
+on: it heals allies, the caster herself, *and* any enemy caught in it.
+Quick to land, so placement is the whole skill.`,
+      compact: 'Charged diamond heal (MA × Faith), widening under Aether Bloom. Heals friend, foe, and self alike — place it well.',
     },
     raise: {
       full: `The Academy's only standing revival short of a thrown
-Phoenix Down: it brings a KO'd ally back and mends them in the same
-breath, scaled higher than Cure. A single Raise can undo the turn the
-enemy thought had settled the engagement.`,
-      compact: 'Charged single-target revive-and-heal. The only revival spell the Academy fields.',
+Phoenix Down — and, like the Phoenix Down, it answers *only* a cadet
+already down: it brings a KO'd ally back and mends them in the same
+breath, scaled higher than Cure. It will not heal the living; for that,
+Cure. A single Raise can undo the turn the enemy thought had settled the
+engagement.`,
+      compact: 'Charged revive: brings back a KO’d ally and heals them. KO-only — use Cure for the living. The Academy’s lone revival spell.',
     },
     jump: {
       full: `The Dragoon's leap: the Templar vaults clear off the field —

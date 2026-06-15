@@ -151,6 +151,18 @@
   --band-label: #d8c79b;
 }
 
+/* The Thief's palette is dusty coral-rose — a muted rose accent over a
+   deep wine-rose stat band, with a soft blush label, drawn from the
+   heart motif of her vest and her Steal Heart capstone. A warm register
+   no other spread occupies: pinker than the Fire Mage's red and the
+   Alchemist's brass, and unmistakable against the Templar's violet that
+   precedes it. */
+.v-e--thief {
+  --accent: #a14e5c;
+  --band: #6e2f3c;
+  --band-label: #e6bcc0;
+}
+
 .v-e .spread__verso {
   position: relative;
 }

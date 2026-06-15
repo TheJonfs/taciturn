@@ -26,6 +26,7 @@ import fireMagePortraitUrl from '../art/fire_mage_1.png';
 import lightningMagePortraitUrl from '../art/lightning_mage_1.png';
 import templarPortraitUrl from '../art/templar_1.png';
 import terraformerPortraitUrl from '../art/terraformer_1.png';
+import thiefPortraitUrl from '../art/thief_1.png';
 
 // Prefer a provided raster seal (art/seal.png) over the inline SVG.
 // import.meta.glob resolves to {} when the file is absent.
@@ -48,7 +49,8 @@ export type ElementId =
   | 'fire'
   | 'lightning'
   | 'templar'
-  | 'terraformer';
+  | 'terraformer'
+  | 'thief';
 
 interface ClassMeta {
   readonly element: ElementId;
@@ -67,7 +69,10 @@ interface ClassMeta {
 // element. The Templar's is deep amethyst (royal violet + gold) for the
 // Glabados holy knight — a richer, bluer purple than the Aethurge's
 // grayer electric one, so the two purples stay distinct across the
-// book. The elemental wheel's four hues finish the set.
+// book. The Thief's is dusty coral-rose (the heart motif of her vest
+// and Steal Heart), a warm register no other spread occupies — distinct
+// from the Alchemist's brass and the Fire Mage's red by its pink cast.
+// The elemental wheel's four hues finish the set.
 const CLASS_META: Record<string, ClassMeta> = {
   knight: { element: 'knight', portraitUrl: knightPortraitUrl },
   alchemist: { element: 'alchemist', portraitUrl: alchemistPortraitUrl },
@@ -80,6 +85,7 @@ const CLASS_META: Record<string, ClassMeta> = {
   lightning_mage: { element: 'lightning', portraitUrl: lightningMagePortraitUrl },
   templar: { element: 'templar', portraitUrl: templarPortraitUrl },
   terraformer: { element: 'terraformer', portraitUrl: terraformerPortraitUrl },
+  thief: { element: 'thief', portraitUrl: thiefPortraitUrl },
 };
 
 /** Everything a variant template needs to render one class spread. */
@@ -150,6 +156,7 @@ export function spreadContextFor(id: ClassId): SpreadContext {
  *   Pyromancer     → fire_mage
  *   Templar        → templar
  *   Terraformer    → terraformer
+ *   Thief          → thief
  */
 export const SPREAD_ORDER: ReadonlyArray<ClassId> = [
   classId('lightning_mage'), // Aethurge
@@ -163,4 +170,5 @@ export const SPREAD_ORDER: ReadonlyArray<ClassId> = [
   classId('fire_mage'),      // Pyromancer
   classId('templar'),
   classId('terraformer'),
+  classId('thief'),
 ];
