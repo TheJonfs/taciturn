@@ -130,3 +130,75 @@ describe('projectStatusChances', () => {
     expect(projectStatusChances({ state, catalog: cat, caster, target, ability: ab })).toHaveLength(0);
   });
 });
+
+describe('projectStatusChances — Thief steal contests', () => {
+  function thiefContestCat() {
+    const enthralled = makeStatusType({ id: 'enthralled' });
+    const stealBuffsAbility: ActiveAbilityDefinition = {
+      id: abilityId('steal_buffs'),
+      name: 'Steal Buffs',
+      kind: 'active',
+      bucket: bucketId('first_action'),
+      baseCost: 1,
+      availability: 'available',
+      targeting: { kind: 'single_unit', range: { horizontal: 4, vertical: 3 }, rangeMode: 'straight_line' },
+      actionSpeed: 0,
+      mpCost: 4,
+      effects: { stealBuffs: { baseChance: 33 } },
+    };
+    const stealHeartAbility: ActiveAbilityDefinition = {
+      id: abilityId('steal_heart'),
+      name: 'Steal Heart',
+      kind: 'active',
+      bucket: bucketId('first_action'),
+      baseCost: 1,
+      availability: 'available',
+      targeting: { kind: 'single_unit', range: { horizontal: 3, vertical: 3 }, rangeMode: 'straight_line' },
+      actionSpeed: 0,
+      mpCost: 24,
+      effects: {
+        stealHeart: {
+          baseChance: 10,
+          charmStatus: statusTypeId('enthralled'),
+          charmDuration: 3,
+          immunityStatus: statusTypeId('enthralled'),
+          immunityDuration: 5,
+        },
+      },
+    };
+    const cat = createCatalog({
+      statusTypes: [enthralled],
+      abilities: [stealBuffsAbility, stealHeartAbility],
+      commandSets: [],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE })],
+    });
+    return { cat, stealBuffsAbility, stealHeartAbility };
+  }
+
+  // Caster PA 7 / Brave 70 vs Brave 70 → additive contest:
+  //   Steal Buffs: 33 + 3*7 + 0.5*0 = 54%; Steal Heart: 10 + 21 = 31%.
+  it('Steal Buffs forecasts the contest % under a "Steal Buffs" label (no status)', () => {
+    const { cat, stealBuffsAbility } = thiefContestCat();
+    const caster = makeUnit({ id: 'a', pa: 7, brave: 70 });
+    const target = makeUnit({ id: 'b', brave: 70 });
+    const state = makeGameState({ units: [caster, target] });
+    const out = projectStatusChances({ state, catalog: cat, caster, target, ability: stealBuffsAbility });
+    expect(out).toHaveLength(1);
+    expect(out[0]!.label).toBe('Steal Buffs');
+    expect(out[0]!.statusTypeId).toBeUndefined();
+    expect(Math.round(out[0]!.chance * 100)).toBe(54);
+  });
+
+  it('Steal Heart forecasts the contest % keyed to the charm status', () => {
+    const { cat, stealHeartAbility } = thiefContestCat();
+    const caster = makeUnit({ id: 'a', pa: 7, brave: 70 });
+    const target = makeUnit({ id: 'b', brave: 70 });
+    const state = makeGameState({ units: [caster, target] });
+    const out = projectStatusChances({ state, catalog: cat, caster, target, ability: stealHeartAbility });
+    expect(out).toHaveLength(1);
+    expect(out[0]!.statusTypeId).toBe(statusTypeId('enthralled'));
+    expect(Math.round(out[0]!.chance * 100)).toBe(31);
+  });
+});

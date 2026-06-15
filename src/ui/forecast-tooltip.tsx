@@ -51,12 +51,15 @@ export function ForecastTooltip({ forecast, catalog, cursor }: ForecastTooltipPr
         </div>
       )}
       {row.statusChances.map((s) => {
-        const statusType = catalog.hasStatusType(s.statusTypeId)
-          ? catalog.getStatusType(s.statusTypeId)
-          : null;
-        const name = statusType?.name ?? String(s.statusTypeId);
+        const statusType =
+          s.statusTypeId !== undefined && catalog.hasStatusType(s.statusTypeId)
+            ? catalog.getStatusType(s.statusTypeId)
+            : null;
+        // Prefer an explicit label (Steal Buffs has no status to name);
+        // otherwise the applied status's name.
+        const name = s.label ?? statusType?.name ?? String(s.statusTypeId);
         return (
-          <div key={String(s.statusTypeId)} style={lineStyle}>
+          <div key={s.label ?? String(s.statusTypeId)} style={lineStyle}>
             {name} {Math.round(s.chance * 100)}%
           </div>
         );

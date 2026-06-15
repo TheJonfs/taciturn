@@ -5,12 +5,18 @@
 //
 // Used by the UI's forecast hover panel and tooltip.
 
-import { computeStatusChance } from '../status/chance.ts';
+import { computeStatusChance, computeThiefContestChance } from '../status/chance.ts';
 import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
 import type { GameState, StatusTypeId, Unit } from '../types/index.ts';
 
 export interface StatusChanceForecast {
-  readonly statusTypeId: StatusTypeId;
+  // The applied status, when the effect applies one (the renderer shows its
+  // name). Absent for effects with no single status to name — the Thief's
+  // Steal Buffs (a strip-and-transfer contest), which carries `label` instead.
+  readonly statusTypeId?: StatusTypeId;
+  // Display label override — used when there's no status to name. The renderer
+  // prefers it over the status name.
+  readonly label?: string;
   // [0, 1] — same scale `rollStatusChance` returns.
   readonly chance: number;
 }
@@ -30,9 +36,35 @@ export interface ProjectStatusChancesArgs {
 export function projectStatusChances(
   args: ProjectStatusChancesArgs,
 ): ReadonlyArray<StatusChanceForecast> {
-  const effects = args.ability.effects.statusEffects ?? [];
-  if (effects.length === 0) return [];
   const out: StatusChanceForecast[] = [];
+
+  // Thief steal contests (Steal Buffs / Steal Heart) use the additive Brave/PA
+  // contest, not the `statusEffects` chance pipeline — project them explicitly
+  // so the forecast panel shows a connect %. Steal Heart names the charm it
+  // applies; Steal Buffs has no single status, so it carries a label.
+  const { stealBuffs, stealHeart } = args.ability.effects;
+  if (stealBuffs !== undefined) {
+    const chance = computeThiefContestChance({
+      state: args.state,
+      catalog: args.catalog,
+      caster: args.caster,
+      target: args.target,
+      baseChance: stealBuffs.baseChance,
+    });
+    out.push({ label: 'Steal Buffs', chance: chance / 100 });
+  }
+  if (stealHeart !== undefined) {
+    const chance = computeThiefContestChance({
+      state: args.state,
+      catalog: args.catalog,
+      caster: args.caster,
+      target: args.target,
+      baseChance: stealHeart.baseChance,
+    });
+    out.push({ statusTypeId: stealHeart.charmStatus, chance: chance / 100 });
+  }
+
+  const effects = args.ability.effects.statusEffects ?? [];
   for (const spec of effects) {
     // Skip caster-targeted effects when the displayed target isn't the
     // caster — the forecast is per-(status, target) for the on-screen

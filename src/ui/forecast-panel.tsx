@@ -119,12 +119,13 @@ export function ForecastPanel({ forecast, catalog, state }: ForecastPanelProps):
                   </div>
                 )}
                 {row.statusChances.map((s) => {
-                  const statusType = catalog.hasStatusType(s.statusTypeId)
-                    ? catalog.getStatusType(s.statusTypeId)
-                    : null;
-                  const name = statusType?.name ?? String(s.statusTypeId);
+                  const statusType =
+                    s.statusTypeId !== undefined && catalog.hasStatusType(s.statusTypeId)
+                      ? catalog.getStatusType(s.statusTypeId)
+                      : null;
+                  const name = s.label ?? statusType?.name ?? String(s.statusTypeId);
                   return (
-                    <div key={String(s.statusTypeId)} style={statusRowStyle}>
+                    <div key={s.label ?? String(s.statusTypeId)} style={statusRowStyle}>
                       <span style={statusLabelStyle}>{name}</span>
                       <span style={statusValueStyle}>{Math.round(s.chance * 100)}%</span>
                     </div>
