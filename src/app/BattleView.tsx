@@ -33,6 +33,7 @@ import { buildDeployedBattleConfig, type DeploymentResult } from './deployment-c
 import { loadDefaultCatalog } from '@content/index.ts';
 import {
   createInitialState,
+  effectiveController,
   enumeratePreBattleActions,
   type BattleConfig,
   type Catalog,
@@ -530,8 +531,12 @@ function BattleViewInner({
 
   // Active-team signaling inputs (S43): whose turn it is, and that team's
   // display name + canonical color. Drives the banner, the menu glow, and
-  // the turn-transition alert.
-  const activeTeam: TeamId | null = turnFlow.activeUnit?.team ?? null;
+  // the turn-transition alert. Keyed off the EFFECTIVE controller (not the
+  // unit's raw team) so a charmed unit's turn reads as the *charmer's* turn —
+  // the banner and the pass-and-play handoff then match who actually inputs
+  // (and stays consistent with `isOurTurn`). Reverts when the charm ends.
+  const activeTeam: TeamId | null =
+    turnFlow.activeUnit !== null ? effectiveController(turnFlow.activeUnit, catalog) : null;
   const activeTeamName =
     activeTeam !== null && latestState !== null
       ? latestState.teams.find((t) => t.id === activeTeam)?.name ?? null

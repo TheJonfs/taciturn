@@ -23,6 +23,7 @@ import {
   computeAbilityRange,
   computeBaseActionSpeed,
   computeMpCost,
+  effectiveController,
   enumerateMathSkillTargets,
   getLegalMoves,
   maxRangeFromHeightBonus,
@@ -224,7 +225,15 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     return state.units.get(state.turnState.unitId) ?? null;
   }, [state]);
 
-  const isOurTurn = activeUnit !== null && humanTeams.has(activeUnit.team);
+  // Key "is it our turn" off the EFFECTIVE controller, not the unit's raw
+  // team: a unit charmed by the human (Steal Heart's control-override) acts
+  // for the human this turn even though its `team` is still the enemy's, and
+  // a human unit charmed by the AI acts for the AI. The orchestrator already
+  // routes the turn via `effectiveController`; this keeps the action menu in
+  // lockstep so control doesn't soft-lock (engine waits on input the team-
+  // gated UI never offered). Reverts automatically when the charm ends.
+  const isOurTurn =
+    activeUnit !== null && humanTeams.has(effectiveController(activeUnit, catalog));
 
   const movesAvailable = state?.turnState?.budget.movesAvailable ?? 0;
   const actsAvailable = state?.turnState?.budget.actsAvailable ?? 0;
