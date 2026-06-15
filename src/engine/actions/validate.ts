@@ -586,6 +586,21 @@ function validateUseAbility(
     }
   }
 
+  // Revive abilities (the Templar's Raise) target only KO'd allies — a downed
+  // unit to bring back. Per Chris (playtest, amending ADR-0099): Raise no
+  // longer doubles as a heal on a living target, which let the AI mis-cast it
+  // as a healing spell. A `removed` unit is permanently gone and can't be
+  // raised either. The consumable Phoenix Down path keeps its own removeKO
+  // handling; this gate is for the UseAbility validation only.
+  if (ability.effects.removeKO === true) {
+    if (targetUnit.removed) {
+      return invalid('Raise cannot target a removed unit');
+    }
+    if (targetUnit.vitals.hp > 0) {
+      return invalid("Raise can only target a KO'd unit");
+    }
+  }
+
   // Range + targeting-mode checks. Resolve target tile for elevation
   // lookups; tile-not-found is an inconsistency caught here.
   const targetTile = tileAt(state.map, targetUnit.position.x, targetUnit.position.y, targetUnit.position.layer);

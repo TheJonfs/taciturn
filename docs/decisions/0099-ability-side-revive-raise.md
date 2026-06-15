@@ -1,6 +1,8 @@
 ## ADR-0099: Ability-side revive (`effects.removeKO`) — the Templar's Raise
 
-**Status:** Accepted
+**Status:** Accepted (amended by [ADR-0112](0112-raise-ko-only-targeting.md) —
+Raise is now KO-only; the living-target heal behavior described below no longer
+applies to Raise)
 **Date:** 2026-06-10
 
 ## Context

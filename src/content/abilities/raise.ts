@@ -4,9 +4,14 @@
 //
 // Mechanism (ADR-0099): `effects.removeKO` revives the target (HP 0 → 1,
 // turnsKOd → 0, CT → 0) before the healing `damage` effect lands, so the
-// unit returns at 1 + (MA × 10 × faithFactor). On a non-KO'd target the
-// revive no-ops and it reads as a single-target heal (matching Phoenix
-// Down on a living target).
+// unit returns at 1 + (MA × 10 × faithFactor).
+//
+// KO-only targeting (ADR-0112, amends ADR-0099): Raise validates only against
+// a KO'd target. The original design let it no-op the revive and read as a
+// plain heal on a living ally, but in playtest the AI mis-cast it as a healing
+// spell on healthy allies. Validation now rejects a living (or removed) target,
+// so Raise is unambiguously "bring back the downed." (Phoenix Down keeps its
+// own consumable removeKO path; this gate is UseAbility-side.)
 //
 // Spec (templar-concept-notes.md):
 //   - Revive HP = MA × 10 × faithFactor (~0.49 at faith 70). At MA 6 +

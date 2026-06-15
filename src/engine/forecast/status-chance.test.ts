@@ -181,8 +181,8 @@ describe('projectStatusChances — Thief steal contests', () => {
   //   Steal Buffs: 33 + 3*7 + 0.5*0 = 54%; Steal Heart: 10 + 21 = 31%.
   it('Steal Buffs forecasts the contest % under a "Steal Buffs" label (no status)', () => {
     const { cat, stealBuffsAbility } = thiefContestCat();
-    const caster = makeUnit({ id: 'a', pa: 7, brave: 70 });
-    const target = makeUnit({ id: 'b', brave: 70 });
+    const caster = makeUnit({ id: 'a', spd: 10, pa: 7, brave: 70 });
+    const target = makeUnit({ id: 'b', spd: 10, brave: 70 });
     const state = makeGameState({ units: [caster, target] });
     const out = projectStatusChances({ state, catalog: cat, caster, target, ability: stealBuffsAbility });
     expect(out).toHaveLength(1);
@@ -193,8 +193,8 @@ describe('projectStatusChances — Thief steal contests', () => {
 
   it('Steal Heart forecasts the contest % keyed to the charm status', () => {
     const { cat, stealHeartAbility } = thiefContestCat();
-    const caster = makeUnit({ id: 'a', pa: 7, brave: 70 });
-    const target = makeUnit({ id: 'b', brave: 70 });
+    const caster = makeUnit({ id: 'a', spd: 10, pa: 7, brave: 70 });
+    const target = makeUnit({ id: 'b', spd: 10, brave: 70 });
     const state = makeGameState({ units: [caster, target] });
     const out = projectStatusChances({ state, catalog: cat, caster, target, ability: stealHeartAbility });
     expect(out).toHaveLength(1);

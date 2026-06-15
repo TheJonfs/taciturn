@@ -183,7 +183,10 @@ describe('Raise — charged revive end-to-end', () => {
     expect(s.chargedActions).toHaveLength(0);
   });
 
-  it('on a non-KO\'d ally, the revive no-ops and it lands as a heal', () => {
+  it('rejects a non-KO\'d target — Raise is KO-only (amends ADR-0099)', () => {
+    // Playtest change (Chris): Raise no longer doubles as a heal on a living
+    // ally, so the AI can't mis-cast it as a healing spell. Casting on a
+    // living ally now fails validation rather than landing as a heal.
     const cat = makeCatalog();
     const healer = makeUnit({
       id: 'healer', spd: 10, ma: 6, mp: 30, faith: 80,
@@ -199,7 +202,7 @@ describe('Raise — charged revive end-to-end', () => {
       id: 'enemy', team: 'team_b', spd: 10, hp: 60, maxHpBase: 60,
       position: { x: 4, y: 4, layer: 0 },
     });
-    let s = makeGameState({
+    const s = makeGameState({
       units: [healer, woundedAlly, enemy],
       map: flatMap(6, 6),
       turnState: turnFor('healer'),
@@ -208,15 +211,6 @@ describe('Raise — charged revive end-to-end', () => {
       type: 'use_ability', source: 'player', actorId: healer.id,
       payload: { abilityId: abilityId('raise'), target: { kind: 'unit', unitId: woundedAlly.id } },
     }, cat);
-    expect(cast.ok).toBe(true);
-    if (!cast.ok) return;
-    const ended = commitAction(cast.newState, { type: 'turn_end', source: 'system', payload: { unitId: healer.id } }, cat);
-    expect(ended.ok).toBe(true);
-    if (!ended.ok) return;
-    s = resolveCharge(ended.newState, cat);
-    // Healed from 10 by ~[36.5, 40.3] → [46, 51]; turnsKOd untouched at 0.
-    const healed = s.units.get(woundedAlly.id)!;
-    expect(healed.vitals.hp).toBeGreaterThanOrEqual(46);
-    expect(healed.vitals.hp).toBeLessThanOrEqual(51);
+    expect(cast.ok).toBe(false);
   });
 });

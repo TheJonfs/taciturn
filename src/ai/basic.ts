@@ -825,6 +825,13 @@ function enumerateHealingAbilities(
 
 function isHealingSingleUnit(ability: ActiveAbilityDefinition): boolean {
   if (!targetsUnit(ability.targeting.kind)) return false;
+  // Revive abilities (Raise — `removeKO`) carry a 'healing'-tagged damage
+  // spec for the post-revive heal, but they are NOT general heals: validation
+  // now gates them to KO'd targets only (amending ADR-0099). Excluding them
+  // here stops the AI proposing Raise on a living ally (the playtest misuse) —
+  // which validation would reject anyway. AI revive valuation is a separate
+  // (deferred) beat; the AI doesn't currently cast Raise on the KO'd.
+  if (ability.effects.removeKO === true) return false;
   const damage = ability.effects.damage;
   if (damage === undefined) return false;
   return damage.tags.includes('healing');
