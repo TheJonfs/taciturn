@@ -71,4 +71,5 @@ export const fireMage: ClassDefinition = {
   ]),
   // S49 Level system: mage class — MA-dominant.
   dominantStat: 'ma',
+  defaultGender: 'female',
 };

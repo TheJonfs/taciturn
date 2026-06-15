@@ -129,6 +129,10 @@ interface ThiefBattleOpts {
   // gender gate passes; set equal to exercise the rejection.
   readonly thiefGender?: 'male' | 'female';
   readonly targetGender?: 'male' | 'female';
+  // Omit the gender field entirely (a default-team unit whose gender toggle
+  // was never clicked) — the gate must then resolve the class default.
+  readonly omitThiefGender?: boolean;
+  readonly omitTargetGender?: boolean;
 }
 
 // Thief (team_a) at (0,0) facing E; target (team_b) at (1,0) facing E — so a
@@ -151,7 +155,7 @@ function buildThiefBattle(opts: ThiefBattleOpts = {}) {
         name: 'Thief',
         team: teamId('team_a'),
         classId: THIEF,
-        gender: opts.thiefGender ?? 'male',
+        ...(opts.omitThiefGender === true ? {} : { gender: opts.thiefGender ?? 'male' }),
         position: { x: 0, y: 0, layer: 0 },
         facing: 'E',
         baseStats: {
@@ -183,7 +187,7 @@ function buildThiefBattle(opts: ThiefBattleOpts = {}) {
         name: 'Mark',
         team: teamId('team_b'),
         classId: classId('water_mage'),
-        gender: opts.targetGender ?? 'female',
+        ...(opts.omitTargetGender === true ? {} : { gender: opts.targetGender ?? 'female' }),
         position: { x: 1, y: 0, layer: 0 },
         facing: 'E',
         baseStats: {
@@ -587,6 +591,21 @@ describe('Steal Heart', () => {
     const { state, cat } = buildThiefBattle({ thiefGender: 'male', targetGender: 'male' });
     const v = validateAction(state, useAbility('steal_heart'), cat);
     expect(v.valid).toBe(false);
+  });
+
+  // Regression (playtest): a default-team unit whose gender toggle was never
+  // clicked has no `gender` in state. The gate must resolve the class default
+  // (what the portrait shows) rather than auto-rejecting on the missing field.
+  it('resolves an unset TARGET gender via the class default (male thief → female-default water mage = valid)', () => {
+    const { state, cat } = buildThiefBattle({ thiefGender: 'male', omitTargetGender: true });
+    const v = validateAction(state, useAbility('steal_heart'), cat);
+    expect(v.valid).toBe(true);
+  });
+
+  it('resolves an unset CASTER gender via the class default (female-default thief → male target = valid)', () => {
+    const { state, cat } = buildThiefBattle({ omitThiefGender: true, targetGender: 'male' });
+    const v = validateAction(state, useAbility('steal_heart'), cat);
+    expect(v.valid).toBe(true);
   });
 
   it('rejects a target already warded (re-charm lock / post-charm immunity)', () => {

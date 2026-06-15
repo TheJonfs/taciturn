@@ -58,4 +58,5 @@ export const hunter: ClassDefinition = {
   // S49 Level system: Hunter is a PA-scaling ranged class (bows compute
   // damage off PA × WP) — physical-dominant.
   dominantStat: 'pa',
+  defaultGender: 'male',
 };

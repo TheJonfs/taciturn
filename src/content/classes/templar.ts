@@ -63,4 +63,5 @@ export const templar: ClassDefinition = {
     abilityId('faithstrider'),
   ]),
   dominantStat: 'ma',
+  defaultGender: 'male',
 };

@@ -51,4 +51,5 @@ export const alchemist: ClassDefinition = {
   // S49 Level system: Alchemist is the second-highest PA in v1 (8) and
   // builds throw-item magnitudes off PA — physical-dominant.
   dominantStat: 'pa',
+  defaultGender: 'female',
 };

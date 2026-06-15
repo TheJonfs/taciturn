@@ -57,4 +57,5 @@ export const assassin: ClassDefinition = {
   // S49 Level system: Assassin's identity is Speed (14 base, highest in
   // v1) — at L27 Speed bumps to 15.
   dominantStat: 'spd',
+  defaultGender: 'female',
 };

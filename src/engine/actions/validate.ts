@@ -561,11 +561,18 @@ function validateUseAbility(
     if (targetUnit.vitals.hp <= 0) {
       return invalid("Steal Heart cannot target a KO'd unit");
     }
-    if (
-      actor.gender === undefined ||
-      targetUnit.gender === undefined ||
-      actor.gender === targetUnit.gender
-    ) {
+    // Resolve each unit's gender, falling back to its class default when a
+    // placement left `gender` unset (default-team units that never had the
+    // gender toggle clicked). Every unit has a concrete resolved gender —
+    // the same one the portrait shows — so Steal Heart can judge opposite-
+    // gender targeting even when the field is absent in state.
+    const actorGender =
+      actor.gender ?? catalog.getClass(actor.classState.currentClass).defaultGender ?? 'male';
+    const targetGender =
+      targetUnit.gender ??
+      catalog.getClass(targetUnit.classState.currentClass).defaultGender ??
+      'male';
+    if (actorGender === targetGender) {
       return invalid('Steal Heart requires a target of the opposite gender');
     }
     const alreadyOverridden = targetUnit.statuses.some(

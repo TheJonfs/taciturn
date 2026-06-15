@@ -64,4 +64,5 @@ export const thief: ClassDefinition = {
     abilityId('move_plus_2'),
   ]),
   dominantStat: 'pa',
+  defaultGender: 'female',
 };

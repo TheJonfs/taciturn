@@ -24,6 +24,7 @@ import type {
   ClassId,
   CommandSetId,
   DamageTag,
+  Gender,
   SpecialMovementType,
   TerrainType,
 } from '../../types/index.ts';
@@ -89,6 +90,15 @@ export interface ClassDefinition {
   readonly firstActionCommandSet: CommandSetId;
   readonly freeAbilities: ReadonlySet<AbilityId>;
   readonly dominantStat: DominantStat;
+  // The class's default gender — used both for the portrait variant when a
+  // placement leaves `gender` unset AND, since the Thief's Steal Heart (which
+  // gender-gates Male ↔ Female), as the *mechanical* resolved gender. A
+  // default-team unit that never had a gender authored resolves to this, so
+  // Steal Heart can still judge opposite-gender targeting. Every real class
+  // declares it (a cross-check test pins the 12 to the UI portrait module's
+  // `defaultGender`); optional only so the engine's lightweight test fixtures
+  // needn't author one. Consumers fall back to `'male'` when absent.
+  readonly defaultGender?: Gender;
   // Optional per-class resistance baseline. Missing = no class-level
   // resistance (the unit's resistances come entirely from the placement).
   readonly baselineResistances?: ReadonlyMap<DamageTag, number>;

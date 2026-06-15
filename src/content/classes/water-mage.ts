@@ -66,4 +66,5 @@ export const waterMage: ClassDefinition = {
   ]),
   // S49 Level system: mage class — MA-dominant.
   dominantStat: 'ma',
+  defaultGender: 'female',
 };

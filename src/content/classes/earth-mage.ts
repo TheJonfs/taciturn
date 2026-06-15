@@ -64,4 +64,5 @@ export const earthMage: ClassDefinition = {
   // S49 Level system: mage classes lean on MA — at L23 MA drops 1; at
   // L27 MA boosts 1.
   dominantStat: 'ma',
+  defaultGender: 'male',
 };

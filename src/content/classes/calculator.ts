@@ -63,4 +63,5 @@ export const calculator: ClassDefinition = {
   // S49 Level system: Calculator is MA-dominant (Math damage / heal /
   // CT scale off MA).
   dominantStat: 'ma',
+  defaultGender: 'female',
 };

@@ -68,4 +68,5 @@ export const terraformer: ClassDefinition = {
     abilityId('expert_former'),
   ]),
   dominantStat: 'ma',
+  defaultGender: 'male',
 };
