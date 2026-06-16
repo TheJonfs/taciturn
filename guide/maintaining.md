@@ -163,6 +163,13 @@ flavour — numbers and one-line effects.
     renders a loud `⚠ hand-maintain` marker** rather than a silent
     blank — fill it from the ability's source header (the same
     stale-prose discipline as §4).
+- **Availability filter:** the reference lists only team-builder-available
+  content (`availability: 'available'`); `'hidden'` items/abilities —
+  system procs (Discharge Strike, weapon resonances), test fixtures,
+  unhomed/playtest pieces (Strength Ring, the Iron armour, Float) — are
+  excluded, mirroring the team builder (ADR-0049). `isLive()` in
+  `reference.ts`. So a newly-authored `hidden` piece *correctly* won't
+  appear; flip its `availability` on the game side to surface it.
 - **The §1 audit hook:** when the changelog reports a formula/constant
   change (a new weapon-damage rule, a re-tuned crit multiplier, a
   contest-math tweak), update the matching formula line *and* clear any

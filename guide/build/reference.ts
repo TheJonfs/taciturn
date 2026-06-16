@@ -39,6 +39,20 @@ import type {
   PassiveAbilityDefinition,
 } from '@engine/index.ts';
 
+// --- availability filter ----------------------------------------------
+//
+// The reference mirrors what a player can actually field: only content
+// the team builder surfaces (`availability: 'available'`). `'hidden'`
+// content — test fixtures, system-emitted procs (discharge_strike, the
+// weapon resonance shifts), homeless/playtest pieces (Strength Ring, the
+// Iron armour, Float) — is excluded, matching the team builder and AI
+// generation. Hidden sub-abilities still surface by name where a live
+// ability references them (e.g. §7 Discharge "retaliate with Discharge
+// Strike"); we just don't give them their own rows. Per ADR-0049.
+function isLive(def: { readonly availability: string }): boolean {
+  return def.availability === 'available';
+}
+
 // --- markdown helpers -------------------------------------------------
 
 /** Escape a cell for a GitHub-flavoured markdown table: no raw pipes, no newlines. */
@@ -276,7 +290,7 @@ function systemConstants(): string {
 
 function weapons(): string {
   const rows = items()
-    .filter((i) => i.kind === 'weapon')
+    .filter((i) => i.kind === 'weapon' && isLive(i))
     .map((i) => {
       const f = describeItem(i);
       return [f.name, f.weaponLine ?? '—', f.effects.length > 0 ? f.effects.join('; ') : '—'];
@@ -286,7 +300,7 @@ function weapons(): string {
 
 function accessories(): string {
   const rows = items()
-    .filter((i) => i.kind === 'accessory')
+    .filter((i) => i.kind === 'accessory' && isLive(i))
     .map((i) => {
       const f = describeItem(i);
       return [f.name, f.effects.length > 0 ? f.effects.join('; ') : '—'];
@@ -302,7 +316,7 @@ const ARMOR_SLOT: Record<string, string> = {
 
 function armor(): string {
   const rows = items()
-    .filter((i) => i.kind === 'armor' || i.kind === 'headgear' || i.kind === 'shield')
+    .filter((i) => (i.kind === 'armor' || i.kind === 'headgear' || i.kind === 'shield') && isLive(i))
     .map((i) => {
       const f = describeItem(i);
       const restriction = f.tierLabel ?? 'universal';
@@ -361,7 +375,7 @@ function classStatLines(): string {
 function abilities(own: Ownership): string {
   const actives = catalog()
     .abilities()
-    .filter((a): a is ActiveAbilityDefinition => a.kind === 'active');
+    .filter((a): a is ActiveAbilityDefinition => a.kind === 'active' && isLive(a));
   const rows = actives.map((a) => {
     const f = describeAbility(a);
     return [
@@ -384,7 +398,7 @@ function abilities(own: Ownership): string {
 function rsmPassives(own: Ownership): string {
   const passives = catalog()
     .abilities()
-    .filter((a): a is PassiveAbilityDefinition => a.kind === 'passive');
+    .filter((a): a is PassiveAbilityDefinition => a.kind === 'passive' && isLive(a));
   const rows = passives.map((p) => {
     const f = describeAbility(p);
     const native = own.natives.get(String(p.id))?.join(' / ') ?? '—';
@@ -452,6 +466,11 @@ function header(): string {
     '> extractable as data); each carries a `src/engine/...` pointer and is re-verified when',
     '> the cited system changes. `[verify]` marks a genuinely uncertain cell; ⚠ marks a',
     '> hand-maintained line awaiting an entry.',
+    '>',
+    '> **Scope:** only team-builder-available content is listed (`availability: \'available\'`).',
+    '> Hidden content — system-emitted procs (Discharge Strike, weapon resonances), test',
+    '> fixtures, and unhomed/playtest pieces — is excluded, matching the team builder and AI',
+    '> generation. A hidden sub-ability still appears by name where a live ability references it.',
   ].join('\n');
 }
 

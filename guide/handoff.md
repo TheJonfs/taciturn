@@ -34,6 +34,14 @@ docs.
   marker (no silent blanks).
 - **`build/render-reference.ts`** (new) — tsx entry; writes
   `output/planner-content-reference.md`. No Vite/Paged.js needed.
+- **Availability filter** (`isLive()`): the reference lists only
+  team-builder-available content (`availability: 'available'`, ADR-0049).
+  Chris's call — suppresses `'hidden'` playtest/system content: Strength
+  Ring, Iron Helm, Iron Mail, Float, and the system-proc abilities
+  (Discharge Strike, Undertow, the apply-proc / weapon-resonance shifts).
+  Hidden sub-abilities still appear by name where a live ability cites
+  them (e.g. §7 Discharge → Discharge Strike). A newly-authored hidden
+  piece correctly won't appear until its availability flips game-side.
 - **`package.json`** — `build:reference` (standalone) + appended to
   `build:guide`.
 - **`.gitignore`** — ignore `output/planner-content-reference.md`.
