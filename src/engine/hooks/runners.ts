@@ -226,6 +226,33 @@ export function runModifyActionSpeed(
   return value;
 }
 
+// Additive chain over Spell Power (magical power_coefficient) modifiers.
+// Handlers fire against the *caster's* registrations — Wand of Potential
+// (+1 SP on lightning magic) lives on the holder. Called once by the
+// `magicalMaPower` damage handler with `baseValue: 0`; the returned
+// delta is added to the ability's effective power coefficient. Per
+// ADR-0113.
+export function runModifySpellPower(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    ability: ActiveAbilityDefinition;
+    baseValue: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifySpellPower');
+  let value = args.baseValue;
+  for (const h of handlers) {
+    value = h.invoke({
+      unit: args.unit,
+      ability: args.ability,
+      baseValue: value,
+    });
+  }
+  return value;
+}
+
 // Additive chain over per-tag resistance modifiers. Handlers fire
 // against the *target's* (resistance owner's) registrations — Capacitor
 // Ring (+50 Lightning) lives on the wearer. Called per damage tag by

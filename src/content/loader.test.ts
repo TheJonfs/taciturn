@@ -193,11 +193,16 @@ describe('loadDefaultCatalog', () => {
     //   - abilities: 101 → 102 (steal_heart, added to thief_arts)
     //   - statusTypes: 33 → 35 (enthralled — the control-override charm;
     //     heartwarded — the post-charm re-charm immunity marker)
+    // Session 68 — equipment expansion (4 pieces):
+    //   - abilities: 102 → 103 (wand_of_potential_apply_shift — the hidden
+    //     resonance proc; the three weapons + accessory add no abilities)
+    //   - items: 73 → 77 (vicious_dagger, scimitar, wand_of_potential,
+    //     gauntlet_of_might)
     expect(cat.statusTypes()).toHaveLength(35);
-    expect(cat.abilities()).toHaveLength(102);
+    expect(cat.abilities()).toHaveLength(103);
     expect(cat.commandSets()).toHaveLength(14);
     expect(cat.classes()).toHaveLength(12);
-    expect(cat.items()).toHaveLength(73);
+    expect(cat.items()).toHaveLength(77);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

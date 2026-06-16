@@ -73,6 +73,12 @@ import { wizardsRobe } from './wizards-robe.ts';
 import { battlemagesChain } from './battlemages-chain.ts';
 import { barbut } from './barbut.ts';
 import { circlet } from './circlet.ts';
+// Session 68 — equipment expansion (crit anchor, tempo sword, lightning
+// support wand, contested PA accessory)
+import { viciousDagger } from './vicious-dagger.ts';
+import { scimitar } from './scimitar.ts';
+import { wandOfPotential } from './wand-of-potential.ts';
+import { gauntletOfMight } from './gauntlet-of-might.ts';
 
 export const items: ReadonlyArray<ItemDefinition> = [
   // Session 17c / 19 originals
@@ -97,9 +103,14 @@ export const items: ReadonlyArray<ItemDefinition> = [
   chefsKnife,
   magebane,
   sai,
+  // Session 68 — crit anchor of the knife family (WP 5 + per-unit +25 crit).
+  viciousDagger,
   // Session 50 — defensive sword variant (universal sword; WP 6 + per-
   // facing evade in lieu of higher WP).
   parryingSword,
+  // Session 68 — power-for-tempo sword (WP 7 + Speed +1; sidegrade to
+  // the WP 8 Longsword).
+  scimitar,
   // Session 50 — Knight Sword weapon class (two-handed, Brave-scaled
   // variance, high WP + rider package).
   absolom,
@@ -159,6 +170,8 @@ export const items: ReadonlyArray<ItemDefinition> = [
   lightfoot,
   augmentor,
   diamondBracelet,
+  // Session 68 — contested flat-PA accessory (PA +3; one-per-team).
+  gauntletOfMight,
   purifier,
   arcaneLens,
   // Session 31 batch B — new accessory
@@ -172,6 +185,10 @@ export const items: ReadonlyArray<ItemDefinition> = [
   mantleOfProtection,
   ironfoot,
   wandOfLumen,
+  // Session 68 — lightning-support wand: water/earth Resonance on hit
+  // (completes the four-element wand rotation) + a +1 Spell Power rider
+  // on the holder's lightning-tagged magic.
+  wandOfPotential,
   // Session 39a — Alchemist consumables (stockpile content for Compound
   // / Throw Item). Not equippable; appear in stockpile maps only.
   potion,

@@ -350,6 +350,27 @@ export interface HookSignatures {
     return: number;
   };
 
+  // Spell Power modifier — caster-side, additive on the magical
+  // `power_coefficient` (Spell Power). Fired from the `magicalMaPower`
+  // damage handler against the CASTER's hooks: `baseDamage = MA × (SP +
+  // ∑deltas) × Faith_factor`. Tag-conditional contributors gate on
+  // `args.ability.effects.damage?.tags` (Wand of Potential: +1 only on
+  // lightning-tagged magic). Magical-only — the handler that fires it is
+  // gated on the `'magical'` damage tag, so physical attacks (incl.
+  // physical lightning like Lightning Stab) and healing never see it.
+  // Holder-gated by construction: the equipment contributor walks the
+  // caster's equipment, so only the equipper's casts benefit. Composes
+  // through `runDamagePipeline`, so the AI projection / UI forecast
+  // (which reuse the live pipeline) inherit it for free. Per ADR-0113.
+  modifySpellPower: {
+    args: {
+      unit: Unit;
+      ability: ActiveAbilityDefinition;
+      baseValue: number;
+    };
+    return: number;
+  };
+
   // Per-tag resistance modifier — additive on the unit's per-tag
   // resistance value. Capacitor Ring (+50 Lightning), Wand of Depths
   // ({ lightning: +50, fire: -50 }), and future status-driven shifts

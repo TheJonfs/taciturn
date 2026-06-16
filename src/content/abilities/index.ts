@@ -95,6 +95,7 @@ import { undermine } from './undermine.ts';
 import { wandOfDeepwoodApplyShift } from './wand-of-deepwood-apply-shift.ts';
 import { wandOfLumenApplyShift } from './wand-of-lumen-apply-shift.ts';
 import { wandOfDepthsApplyShift } from './wand-of-depths-apply-shift.ts';
+import { wandOfPotentialApplyShift } from './wand-of-potential-apply-shift.ts';
 import { waterStrike } from './water-strike.ts';
 import { pillar } from './worldcraft/pillar.ts';
 import { pit } from './worldcraft/pit.ts';
@@ -184,6 +185,7 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   wandOfDeepwoodApplyShift,
   wandOfDepthsApplyShift,
   wandOfLumenApplyShift,
+  wandOfPotentialApplyShift,
   waterStrike,
   pillar,
   pit,

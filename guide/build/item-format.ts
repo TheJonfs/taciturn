@@ -248,6 +248,13 @@ function hookEffects(item: ItemDefinition): string[] {
     out.push(`Action speed ${signed(mod.delta)}${gate}`);
   }
 
+  // Spell Power modifiers (S68, Wand of Potential) — additive on the
+  // magical power coefficient, tag-gated to the holder's matching casts.
+  for (const mod of item.spellPowerModifiers ?? []) {
+    const gate = mod.tagFilter ? ` (${mod.tagFilter.join('/')})` : '';
+    out.push(`Spell Power ${signed(mod.delta)}${gate}`);
+  }
+
   for (const mod of item.abilityRangeModifiers ?? []) {
     const axes: string[] = [];
     if (mod.deltaHorizontal) axes.push(`range ${signed(mod.deltaHorizontal)}`);

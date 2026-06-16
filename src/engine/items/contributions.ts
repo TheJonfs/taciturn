@@ -207,6 +207,44 @@ function* actionSpeedContributor(
   }
 }
 
+// modifySpellPower contributor (Session 68): each item's
+// `spellPowerModifiers` declares additive Spell Power (magical
+// `power_coefficient`) deltas, optionally gated on the ability's damage
+// tags. Wand of Potential authors `{ delta: 1, tagFilter: ['lightning']
+// }` so only the holder's lightning-tagged magic gains +1 SP.
+// Mirror of `actionSpeedContributor`'s tag-gating: a filtered handler
+// inspects `args.ability.effects.damage?.tags` and no-ops when the
+// ability carries none of the listed tags. Holder-gating is implicit —
+// this walks the caster's own equipped items.
+function* spellPowerContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'modifySpellPower'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.spellPowerModifiers === undefined) continue;
+    for (const mod of item.spellPowerModifiers) {
+      const localIndex = tieBreakIndex++;
+      const localDelta = mod.delta;
+      const localFilter = mod.tagFilter;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (localFilter !== undefined) {
+            const abilityTags = args.ability.effects.damage?.tags;
+            if (abilityTags === undefined) return args.baseValue;
+            const matches = localFilter.some((t: DamageTag) => abilityTags.includes(t));
+            if (!matches) return args.baseValue;
+          }
+          return args.baseValue + localDelta;
+        },
+      };
+    }
+  }
+}
+
 // modifyResistance contributor: each item's `resistanceMods` declares
 // per-tag additive shifts (Capacitor Ring +50 Lightning, Wand of
 // Depths {lightning: +50, fire: -50}). One handler per (tag, delta)
@@ -726,6 +764,8 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   modifyStatQuery: statQueryContributor,
   modifyMpCost: mpCostContributor,
   modifyActionSpeed: actionSpeedContributor,
+  // Session 68: Wand of Potential's +1 Spell Power on lightning magic.
+  modifySpellPower: spellPowerContributor,
   modifyResistance: resistanceContributor,
   modifyIncomingStatusApplicationChance: incomingStatusChanceContributor,
   modifyBucketCapacity: bucketCapacityContributor,

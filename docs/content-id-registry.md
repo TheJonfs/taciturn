@@ -101,6 +101,7 @@ The display names of the elemental-spell suite were re-flavored (S40 name pass a
 | `wand_of_deepwood_apply_shift` | Wand of the Deepwood Resonance | first_action | no (hidden wand on-hit proc — applies tagged_resistance_shift) | hidden | `src/content/abilities/wand-of-deepwood-apply-shift.ts` |
 | `wand_of_depths_apply_shift` | Wand of the Depths Resonance | first_action | no (hidden wand on-hit proc) | hidden | `src/content/abilities/wand-of-depths-apply-shift.ts` |
 | `wand_of_lumen_apply_shift` | Wand of Lumen Resonance | first_action | no (hidden Lumen proc — applies +Earth/−Water shift; S45 follow-up + ADR-0084 Burn-stack rider) | hidden | `src/content/abilities/wand-of-lumen-apply-shift.ts` |
+| `wand_of_potential_apply_shift` | Wand of Potential Resonance | first_action | no (S68 hidden proc — applies +Water/−Earth shift, completing the four-element wand rotation) | hidden | `src/content/abilities/wand-of-potential-apply-shift.ts` |
 | `apply_burn_proc` | Burn | first_action | no (hidden helper — emitted by Flametongue / Wand of Lumen Burn-rider) | hidden | `src/content/abilities/apply-burn-proc.ts` |
 | `apply_silence_proc` | Silence | first_action | no (hidden helper — emitted by Silence-applying weapons / casts) | hidden | `src/content/abilities/apply-silence-proc.ts` |
 | `precision_fire` | Precision Fire | first_action | no (S49 Math Skill — fire damage + 50% Burn proc per matching target) | available | `src/content/abilities/precision-fire.ts` |
@@ -222,9 +223,11 @@ Equipment slots: weapon (one- or two-handed), shield, armor, headgear, accessory
 | `chefs_knife` | Chef's Knife | weapon | S40 knife class — Speed-based dynamic variance | `src/content/items/chefs-knife.ts` |
 | `magebane` | Magebane | weapon | S40 knife class — anti-magic flavor | `src/content/items/magebane.ts` |
 | `sai` | Sai | weapon | S40 knife class — Assassin-favored | `src/content/items/sai.ts` |
+| `vicious_dagger` | Vicious Dagger | weapon | S68 knife class — WP 5, accuracy 95, +25 crit_chance (per-unit, additive; crit anchor) | `src/content/items/vicious-dagger.ts` |
 | `wand_of_depths` | Wand of the Depths | weapon | 100% on-hit `+Water/−Fire` resonance + ability range +1H on water spells + S51 refit: +1 AoE vertical tolerance on water spells (pre-S51 `deltaVertical: 1` was dead since spells target at vertical 99) | `src/content/items/wand-of-depths.ts` |
 | `wand_of_deepwood` | Wand of the Deepwood | weapon | actionSpeed mod on earth casts; tagged_resistance_shift apply-proc | `src/content/items/wand-of-deepwood.ts` |
 | `wand_of_lumen` | Wand of Lumen | weapon | S45 follow-up — `+Earth/−Water` shift on hit + ADR-0084 Burn-stack rider on fire ability apply | `src/content/items/wand-of-lumen.ts` |
+| `wand_of_potential` | Wand of Potential | weapon | S68 — `+Water/−Earth` resonance on hit (completes the wand rotation) + `spellPowerModifiers` +1 SP on the holder's lightning magic (new `modifySpellPower` hook, ADR-0113) | `src/content/items/wand-of-potential.ts` |
 | `staff_of_power` | Staff of Power | weapon | × 1.50 MP cost [S55 tune 1.2→1.5] · +4 MA | `src/content/items/staff-of-power.ts` |
 | `staff_of_abundance` | Staff of Abundance | weapon | MP-economy magic staff | `src/content/items/staff-of-abundance.ts` |
 | `longbow` | Longbow | weapon | S45 bow — WP 7, accuracy 33, two-handed, range 2-5/vertical-inf, height-delta variance | `src/content/items/longbow.ts` |
@@ -300,6 +303,7 @@ via this kind. Per-item `classRestrictions` enforces who can equip what
 | `lightfoot` | Lightfoot | +1 Move via movementMods | `src/content/items/lightfoot.ts` |
 | `augmentor` | Augmentor | +1 Support-bucket capacity (sister to Steel Helm's +1 Reaction) | `src/content/items/augmentor.ts` |
 | `diamond_bracelet` | Diamond Bracelet | status-defense accessory | `src/content/items/diamond-bracelet.ts` |
+| `gauntlet_of_might` | Gauntlet of Might | +3 PA (contested flat-PA accessory; one-per-team) | `src/content/items/gauntlet-of-might.ts` |
 | `purifier` | Purifier | × 2 status-tick amount on negative-tagged statuses (S30 / S33.5 interaction piece) | `src/content/items/purifier.ts` |
 | `arcane_lens` | Arcane Lens | × 1.10 outgoing hit chance | `src/content/items/arcane-lens.ts` |
 | `rasp_pendant` | Rasp Pendant | 10% damage-to-MP-drain on hit | `src/content/items/rasp-pendant.ts` |
@@ -355,20 +359,18 @@ Registered in `default.ts`'s `terrain.tags` map; see ADR-0073 (tag abstraction) 
 
 ---
 
-## Catalog counts (as of the Thief session — chunk 1)
+## Catalog counts (as of S68 — equipment expansion)
 
 The authoritative pin is `src/content/loader.test.ts`; these are the current
-catalog totals. (The Δ column lapsed between S54 and here — S62 Templar and
-S65 Knight/equipment content landed without a registry refresh; this entry
-re-baselines to the live totals.)
+catalog totals.
 
 | Kind | Count | Notes |
 |---|---|---|
 | Classes | 12 | S62 `templar`; Thief `thief` |
 | Command sets | 14 | S62 `templar_arts`; Thief `thief_arts` |
-| Abilities (active + passive + hidden) | 102 | Thief chunk 1 +6 (`steal_hp`, `steal_mp`, `steal_buffs`, `slip_free`, `momentum`, `move_plus_2`); chunk 2 +1 (`steal_heart`) |
+| Abilities (active + passive + hidden) | 103 | S68 +1 (`wand_of_potential_apply_shift`) |
 | Status types | 35 | S65 `mana_font`; Thief chunk 2 +2 (`enthralled`, `heartwarded`) |
-| Equipment + consumables | 73 | S65 `battlemages_chain`, `barbut`, `circlet` |
+| Equipment + consumables | 77 | S68 +4 (`vicious_dagger`, `scimitar`, `wand_of_potential`, `gauntlet_of_might`) |
 | Rulesets | 1 | — |
 | Maps | 3 | — |
 | Terrain types | 4 | — |

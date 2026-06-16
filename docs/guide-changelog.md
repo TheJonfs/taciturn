@@ -44,6 +44,33 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 68 (2026-06-16)
+
+Four new requisition pieces enter the armory (all unique-per-team, like the
+rest of the gear). See ADR-0113 for the new Spell Power mechanic.
+
+- **Vicious Dagger** (Knife) — WP 5, 95% accuracy, and **+25% critical-hit
+  chance** for its wielder. The crit bonus is per-unit (it applies to *every*
+  hit the wielder lands, including the off-hand swing under Two Weapons) and
+  **stacks** with the base 5%, the Arcane Lens (+10%), and Static Embrace's
+  Crit Modifier. The crit anchor of the knife family.
+- **Scimitar** (Sword) — WP 7, 95% accuracy, **Speed +1**. A sidegrade to the
+  Longsword: one point less weapon power in exchange for tempo. The Longsword
+  still hits harder per swing.
+- **Wand of Potential** (Wand) — WP 2, 90% accuracy. Two effects: on every
+  basic hit it applies a **Resonance** that makes the target **+25% resistant
+  to Water and −25% resistant (more vulnerable) to Earth** (completing the
+  four-wand elemental rotation), and it grants its holder **+1 Spell Power on
+  lightning-tagged magic** — e.g. Lightning Bolt's power rises from 12 to 13
+  (~+8% damage), Bolt from 5 to 6 (~+20%). The Spell Power bonus applies only
+  to the holder's own lightning *spells* (not physical lightning attacks, not
+  other elements, not allies). The Aethurge's natural sidearm.
+- **Gauntlet of Might** (Accessory) — **PA +3.** A potent, contested boost to
+  every physical-power effect; the unique-per-team rule means only one unit can
+  wear it.
+
+---
+
 ## Playtest fixes (2026-06-15)
 
 - **Raise (Templar) and Phoenix Down are now KO-only.** Neither can be used on a

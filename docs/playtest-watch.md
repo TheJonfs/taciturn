@@ -31,6 +31,29 @@ shouldn't drift out of memory between sessions.
   Chris):** confirmed reading correctly in-battle. Closed; dropped from the
   handoff carry-list.
 
+### S68 equipment — feel-pass tunables
+
+Four new pieces shipped at settled numbers; two carry a latent tuning the brief
+flagged for the feel pass.
+
+- **Gauntlet of Might — PA +3.**
+  - **What to watch.** +3 PA is potent across every PA-scaled effect (basic
+    attacks, the Thief's PA-gated charm / Steal MP contest, status PA_factor).
+    Does it read as too dominant on a single unit despite the one-per-team gate?
+  - **Why it matters.** Shipped at +3 per the brief; +2 is the flagged fallback.
+  - **Signal for adjustment.** If a Gauntlet build warps deployment around the
+    one wearer, drop to +2.
+
+- **Vicious Dagger — crit stacking.**
+  - **What to watch.** Base 5 + Vicious 25 (+ Arcane Lens 10 + a Crit Modifier)
+    can push a dedicated build past ~40% crit; at ×1.5 that's ~+20% average
+    damage. Does the crit archetype feel strong-but-fair, or swingy?
+  - **Why it matters.** The dagger *seeds* the crit archetype; further support
+    pieces are a future pass. It's strong but bounded by design.
+  - **Signal for adjustment.** If crit-stacking reads as oppressive, the future
+    crit pieces should be tuned down (or the dagger's +25 trimmed) rather than
+    expanding the archetype.
+
 ### Thief — Steal Heart / charm feel (ADR-0111)
 
 The charm capstone shipped (control-only scope). Unit-tested; the *feel* and the

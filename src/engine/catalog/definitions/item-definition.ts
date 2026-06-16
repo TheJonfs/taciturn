@@ -41,6 +41,21 @@ export interface ActionSpeedModifier {
   readonly tagFilter?: ReadonlyArray<DamageTag>;
 }
 
+// Session 68: tag-conditional Spell Power (magical `power_coefficient`)
+// delta. `tagFilter` gates on the ability's damage tags — Wand of
+// Potential authors `{ delta: 1, tagFilter: ['lightning'] }`, so only
+// the holder's lightning-tagged magic gains the +1 SP; omitted filter
+// would apply to every magical cast. Composition is additive on the
+// power coefficient. Read by `magicalMaPower` via the `modifySpellPower`
+// hook (per ADR-0113). Spell Power is the magical power coefficient
+// (`baseDamage = MA × SP × Faith_factor`), so +1 is proportionally
+// larger on low-SP spells (Bolt SP 5 → +20%) than high (Lightning Bolt
+// SP 12 → +8%) — intended.
+export interface SpellPowerModifier {
+  readonly delta: number;
+  readonly tagFilter?: ReadonlyArray<DamageTag>;
+}
+
 // Per-axis ability-range delta, optionally gated on the ability's damage
 // tags. Wand of Depths authors `{ deltaHorizontal: 1, deltaVertical: 1,
 // tagFilter: ['water'] }`. Composition is additive per axis. Per
@@ -171,6 +186,16 @@ interface EquipmentBase {
   // damage tags (Wand of Deepwood: +5 only on Earth-tagged casts).
   // Applied at commit time via `computeBaseActionSpeed`.
   readonly actionSpeedModifiers?: ReadonlyArray<ActionSpeedModifier>;
+
+  // Session 68: tag-conditional Spell Power deltas (additive on the
+  // magical `power_coefficient`). Wand of Potential authors
+  // `[{ delta: 1, tagFilter: ['lightning'] }]` → the holder's
+  // lightning-tagged magic gains +1 SP. Holder-gated automatically (the
+  // contributor walks the *caster's* equipment) and applied only in the
+  // magical base stage, so non-lightning magic, physical lightning
+  // attacks, and non-holders are unaffected. Wired through the
+  // `modifySpellPower` hook (per ADR-0113).
+  readonly spellPowerModifiers?: ReadonlyArray<SpellPowerModifier>;
 
   // Per-tag resistance shifts (Capacitor Ring `{ lightning: +50 }`,
   // Wand of Depths `{ lightning: +50, fire: -50 }`). Each entry
