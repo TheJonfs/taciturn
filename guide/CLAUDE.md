@@ -21,7 +21,7 @@ This is a **parallel project**. It does not block, and is not blocked by, game r
 - Abilities: `../src/content/abilities/*.ts`
 - Statuses: `../src/content/statuses/*.ts`
 - Maps: `../src/content/maps/*.ts`
-- Catalog assembly: `../src/content/catalog.ts` (or equivalent — confirm during scaffolding)
+- Catalog assembly: `loadDefaultCatalog()` from `../src/content/index.ts`, wrapped by the guide's single data doorway `build/data.ts`
 
 **Never modifies game source.** This folder is read-only with respect to `../src/`. If a guide-build run reveals incorrect or missing game content, surface the issue to Chris — don't patch the game from here.
 
@@ -131,7 +131,27 @@ Per `vision.md`, the project proceeds in roughly eight phases, one Claude Code s
 7. **Assembly and polish** — final PDF
 8. **Future** — River Ridge training-field page; future maps
 
-**Current phase:** Phase 8 is **complete** — and with it, the v1 handbook is **content-complete**. `output/guide.pdf` is 27 pages: title → TOC → welcome → foundations → *Specializations half-title* → 5 spreads (each verso on an even page, so two-page view shows true facing spreads) → Armory → *Training Fields half-title* → River Ridge (3 pages, with a data-driven SVG map) → colophon. **Next sessions are no longer roadmap-driven** — they are Chris's write-through pass on the prose, the publication-time art downsample, and any future training fields as the game ships them. See `handoff.md` for the open polish items and the running-header / `@page` patterns to preserve. Update this section at the start of each session to reflect where the project is.
+**Current status (keep this current — it's the first thing a new
+session reads):** the v1 handbook has been content-complete since Phase
+8, and has since grown well past that milestone as the game shipped
+content. `output/guide.pdf` is **~55 pages**: title → TOC → welcome →
+foundations → *Specializations half-title* (two-column roster) → **12
+class spreads** (each verso on an even page, so two-page view shows true
+facing pairs) → *Armory half-title* (with a cover plate) → Armory
+(Universal/Heavy/Magical gear tiers) → *Training Fields half-title* →
+**3 training fields** (River Ridge, Stonebridge, Marshmoor — each with a
+data-driven SVG map) → colophon.
+
+**Sessions are now maintenance-driven, not roadmap-driven.** The work is
+a recurring loop: the game implementer ships changes → records the
+player-facing ones in `docs/guide-changelog.md` → a guide session
+reflects them. **Read `maintaining.md` for the operational playbook**
+(the update loop, the add-a-class / add-a-field recipes, the verso/recto
+parity invariant, build/verify commands, the stale-prose audit). The
+per-session changelog cursor and transient notes live in `handoff.md`.
+**Update this status block** (and the Quick-reference line below) when
+the page / spread / field counts change, so the next session starts with
+an accurate picture.
 
 ## Plan-review and handoff discipline
 
@@ -146,17 +166,26 @@ The handoff discipline:
 - Captures things noticed but not acted on; choices considered and rejected; suggested scope or sequencing for the next session; open questions
 - Does NOT duplicate the vision doc, ADRs (if we have them), or commit messages
 
-If the project surfaces architecture-level decisions worth durable record, write them as ADRs in `guide/decisions/` (create the folder when first needed; the project may or may not need ADRs depending on how much architecture emerges).
+Architecture-level decisions worth a durable record go in `guide/decisions/` as ADRs. The folder exists; the first record is `decisions/0001-gear-tiers.md` (the Armory's Universal/Heavy/Magical gear-tier model). Number new ADRs sequentially.
 
 ## Tooling notes
 
-To be confirmed during Phase 2 scaffolding:
+The stack settled long ago (these were open questions in early phases;
+recording the answers so they aren't re-litigated):
 
-- **Paged.js or Vivliostyle** — both polyfill CSS Paged Media; pick during scaffolding based on browser-render fidelity and ergonomics
-- **Build framework** — could be a simple Node script with Vite for dev preview, or a more structured tool (Astro is a candidate for static-site-with-print-output; 11ty is another). Settle in scaffolding.
-- **TypeScript / module resolution** — the build needs to import from `../src/content/` cleanly; verify path aliases and TypeScript config compose with the main game's setup
-- **Font choices** — settle in concepting (Phase 3)
-- **Chromium for PDF render** — already on most Mac setups via Puppeteer or Playwright; pick during scaffolding
+- **Render pipeline:** HTML/CSS → **Paged.js** → PDF via **Puppeteer**
+  (headless Chromium). `build/render-pdf.ts` drives it.
+- **Build framework:** **Vite** (build + asset bundling). Entry
+  `build/preview-entry.ts` composes the handbook and hands it to
+  Paged.js. Commands: `npm run build:guide` (full PDF). See
+  `maintaining.md §5` for the verify workflow — and note the dev server
+  does **not** render styles (Vite serves CSS as JS in dev), so
+  verification is on the built PDF, not `npm run dev`.
+- **Module resolution:** path aliases (`@content`, `@engine`) resolve to
+  `../src/` via `vite.config.ts`; the build imports game content
+  directly. `build/data.ts` is the single data doorway.
+- **Fonts:** EB Garamond (body), Cinzel (display), Cormorant (figures /
+  stat numerals), Caveat (marginalia) — via `@fontsource/*`.
 
 ## What not to do here
 
@@ -195,7 +224,9 @@ build pipeline alongside the other `../src/content/` reads.
 - Provided art: `guide/art/...`
 - Output: `guide/output/...`
 - Voice: Gariland instructor, formal-warm, no modern idiom, mechanical accuracy non-negotiable
-- Current phase: Phase 8 complete (River Ridge + spread parity); v1 handbook content-complete
+- Operational playbook: `maintaining.md` (update loop, recipes, parity, build/verify)
+- Architecture decisions: `decisions/` (ADR-0001: gear tiers)
+- Current status: ~55 pp, 12 class spreads, 3 training fields; maintenance-driven (changelog → guide)
 - Shared name pool: `../src/content/names/index.ts` — Ivalician /
   FFT-flavored names used by the game's team builder and AI; coordinate
   example-cadet names with this pool
