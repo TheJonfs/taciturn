@@ -177,10 +177,16 @@ recording the answers so they aren't re-litigated):
   (headless Chromium). `build/render-pdf.ts` drives it.
 - **Build framework:** **Vite** (build + asset bundling). Entry
   `build/preview-entry.ts` composes the handbook and hands it to
-  Paged.js. Commands: `npm run build:guide` (full PDF). See
-  `maintaining.md §5` for the verify workflow — and note the dev server
-  does **not** render styles (Vite serves CSS as JS in dev), so
-  verification is on the built PDF, not `npm run dev`.
+  Paged.js. Commands: `npm run build:guide` (full PDF + planner
+  reference). See `maintaining.md §5` for the verify workflow — and note
+  the dev server does **not** render styles (Vite serves CSS as JS in
+  dev), so verification is on the built PDF, not `npm run dev`.
+- **Planner content reference:** a second artifact — a terse,
+  mechanical-only mirror of the catalog for the *planner* thread (no
+  prose, numbers + one-line effects). `npm run build:reference`
+  (`build/reference.ts` → `output/planner-content-reference.md`,
+  gitignored); also runs as the tail of `build:guide`. Schema/contract
+  is `planner-content-reference.md` (committed). See `maintaining.md §5a`.
 - **Module resolution:** path aliases (`@content`, `@engine`) resolve to
   `../src/` via `vite.config.ts`; the build imports game content
   directly. `build/data.ts` is the single data doorway.
@@ -222,7 +228,8 @@ build pipeline alongside the other `../src/content/` reads.
 - Game data: `../src/content/...`
 - Hand-authored prose: `guide/content/...`
 - Provided art: `guide/art/...`
-- Output: `guide/output/...`
+- Output: `guide/output/...` (PDF + `planner-content-reference.md`, both gitignored)
+- Planner reference: `npm run build:reference`; schema `planner-content-reference.md`, generator `build/reference.ts`, playbook `maintaining.md §5a`
 - Voice: Gariland instructor, formal-warm, no modern idiom, mechanical accuracy non-negotiable
 - Operational playbook: `maintaining.md` (update loop, recipes, parity, build/verify)
 - Architecture decisions: `decisions/` (ADR-0001: gear tiers)

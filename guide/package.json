@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build:html": "vite build",
-    "build:guide": "vite build && tsx build/render-pdf.ts"
+    "build:reference": "tsx build/render-reference.ts",
+    "build:guide": "vite build && tsx build/render-pdf.ts && tsx build/render-reference.ts"
   },
   "dependencies": {
     "@fontsource/caveat": "^5.2.8",

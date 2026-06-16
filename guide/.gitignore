@@ -1,4 +1,5 @@
 node_modules
 dist
 output/*.pdf
+output/planner-content-reference.md
 .DS_Store

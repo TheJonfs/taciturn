@@ -131,6 +131,44 @@ flavour the data line doesn't dictate.
   in a probe is a tsx limitation, not a real bug; the browser build
   handles it fine. Verify those paths through the PDF instead.
 
+## 5a. The planner content reference (the terse mechanical mirror)
+
+A second build artifact rides the same pipeline: a stripped-down,
+mechanical-only mirror of the catalog for the **planner thread** (the
+Opus chat that designs content without code access). No prose, no
+flavour — numbers and one-line effects.
+
+- **Generate:** `npm run build:reference` (standalone, fast — no Vite,
+  no Paged.js) or as the tail of `npm run build:guide`. Generator is
+  `build/reference.ts`; entry is `build/render-reference.ts`. Output:
+  `output/planner-content-reference.md` (**gitignored**, like the PDF —
+  hand it to the planner out of band).
+- **Contract/schema:** `planner-content-reference.md` (committed, in the
+  guide root). That's the target schema the planner authored; the
+  generated file fills it.
+- **What's automatic vs. hand-mirrored:**
+  - **Auto (always true):** §2–§8 (weapons, accessories, armour, class
+    stat lines, abilities, RSM passives, statuses) and the §1 *ruleset*
+    table — all flow from the same catalog + the shared formatters
+    (`describeItem` / `describeAbility`). A new class/item/ability/status
+    appears with **no edit** here, exactly like the PDF.
+  - **Hand-mirrored (re-verify on engine change):** the §1 *formula*
+    block (damage / crit / status-chance / contest math — these live in
+    engine handler functions, not as data) and the §7 passive *effect*
+    column + a few §6 active augments (passive behaviour lives in hook
+    code; some actives carry payload outside the structured fields).
+    These are the two curated maps `PASSIVE_EFFECTS` / `ACTIVE_EFFECTS`
+    and the formula list in `systemConstants()`, each with
+    `src/engine/...` pointers. **A new passive with no curated line
+    renders a loud `⚠ hand-maintain` marker** rather than a silent
+    blank — fill it from the ability's source header (the same
+    stale-prose discipline as §4).
+- **The §1 audit hook:** when the changelog reports a formula/constant
+  change (a new weapon-damage rule, a re-tuned crit multiplier, a
+  contest-math tweak), update the matching formula line *and* clear any
+  `[verify]` you can now resolve. The data tables fix themselves; the
+  formula block does not.
+
 ## 6. The verso/recto parity invariant — and the fit budget
 
 **Invariant:** every class spread must open on an **even (verso/left)**
