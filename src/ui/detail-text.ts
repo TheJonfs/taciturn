@@ -114,7 +114,8 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('speed_save'), 'On taking enemy damage, gain +1 Speed permanently. Stacks across the battle and persists through KO.'],
   [abilityId('fleet_of_foot'), '+1 Move Range and +1 Jump — a two-axis mobility package.'],
   // S45 — Hunter R/S/M.
-  [abilityId('eagle_eye'), '× 2 physical hit chance — takes the bow’s bare 33 accuracy to ~66%, and saturates the clamp on high-accuracy weapons.'],
+  [abilityId('eagle_eye'), '× 2 physical hit chance — takes the bows’ bare 40 accuracy to ~80%, and saturates the clamp on high-accuracy weapons.'],
+  [abilityId('vantage'), 'Your attacks resolve as if you stood 2 elevation higher: bigger downhill bow damage, +5% high-ground accuracy, longer bow range-from-height, and line of sight that can clear cover (even a Barrier). Attacker-only — never affects you as a target, your movement, or area effects.'],
   [abilityId('updraft'), 'On taking enemy damage, gain +1 Jump permanently. Stacks across the battle and persists through KO.'],
   [abilityId('high_jump'), '+2 Jump — reach the high ground bows’ elevation-variance rewards.'],
   // S49 — Calculator R/S/M.
