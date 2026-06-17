@@ -68,9 +68,9 @@ function elevMap(aElev: number, bElev: number): GameState['map'] {
 // ===========================================================================
 
 describe('Hunter class definition', () => {
-  it('baseline stats: HP 116 / MP 28 / PA 6 / MA 3 / Speed 9', () => {
+  it('baseline stats (S68): HP 116 / MP 28 / PA 7 / MA 5 / Speed 10', () => {
     expect(classBaselineStats.get(classId('hunter'))!).toEqual({
-      maxHpBase: 116, maxMpBase: 28, pa: 6, ma: 3, spd: 9,
+      maxHpBase: 116, maxMpBase: 28, pa: 7, ma: 5, spd: 10,
     });
   });
 

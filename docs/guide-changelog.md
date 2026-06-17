@@ -44,6 +44,28 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 68 — tuning & dual-wield fix (2026-06-17)
+
+Balance tuning and a dual-wield correctness fix. See ADR-0114 for the fix.
+
+- **Dual-wield now uses each weapon's own accuracy and damage variance.**
+  Previously, when wielding two different weapons (Two Weapons), *both*
+  swings borrowed the main-hand weapon's accuracy and variance while still
+  using each hand's own weapon power. That let you pair, say, a high-accuracy
+  main weapon with a heavy low-accuracy off-hand and have the off-hand swing
+  inherit the good accuracy. Now each swing is self-contained: the off-hand
+  swing uses the off-hand weapon's accuracy and variance. **Matched pairs
+  (two of the same weapon type) are unaffected.**
+- **Knight base Speed 9 → 8.** The Knight acts slightly less often — a
+  counterweight to its uniquely broad equipment access (off-hand, head, and
+  body options most classes lack), and to set it apart as the slow, heavily-
+  armored bruiser.
+- **Hunter rebalanced into a PA/Speed middle ground.** PA 6 → 7, Speed 9 →
+  10, MA 3 → 5. The Hunter is now faster than the Knight and hits a bit
+  harder, sitting between the Knight (power) and Assassin (speed). The MA
+  bump makes the Hunter a better fit than the Knight for a magic-leaning
+  secondary command set.
+
 ## Session 68 (2026-06-16)
 
 Four new requisition pieces enter the armory (all unique-per-team, like the

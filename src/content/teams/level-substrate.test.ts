@@ -66,7 +66,7 @@ describe('buildBaseStats — level modifier', () => {
     expect(stats.maxMpBase).toBe(20);
     expect(stats.pa).toBe(10);
     expect(stats.ma).toBe(4);
-    expect(stats.spd).toBe(9);
+    expect(stats.spd).toBe(8); // S68: Knight base Speed 9 → 8
   });
 
   it('omitting level defaults to L25 (back-compat with legacy callers)', () => {
@@ -101,7 +101,7 @@ describe('buildBaseStats — level modifier', () => {
     // Knight is PA-dominant — PA drops 10 → 9.
     expect(knightStats.pa).toBe(9);
     expect(knightStats.ma).toBe(4);
-    expect(knightStats.spd).toBe(9);
+    expect(knightStats.spd).toBe(8); // S68: Knight base Speed 9 → 8
   });
 
   it('L27 caps HP/MP at +10% (S50) and applies +1 to the dominant stat', () => {

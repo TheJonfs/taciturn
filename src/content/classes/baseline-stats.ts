@@ -59,7 +59,11 @@ export const classDominantStats: ReadonlyMap<ClassId, DominantStat> = new Map([
 export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new Map([
   // S46 tuning: PA 11 → 10. Knight's raw output read a touch too high
   // alongside Battle Skill + Martial Expertise's ×1.25.
-  [classId('knight'),         { maxHpBase: 144, maxMpBase: 20, pa: 10, ma: 4,  spd: 9  }],
+  // S68 tuning: spd 9 → 8. The Knight commands more equipment breadth than
+  // any other class (off-hand shields/Books, the full head/body tiers); a
+  // slightly slower tempo is the counterweight, and it differentiates the
+  // Knight as the slow-but-immovable bruiser from the new mid-tempo Hunter.
+  [classId('knight'),         { maxHpBase: 144, maxMpBase: 20, pa: 10, ma: 4,  spd: 8  }],
   // S65 MP rebaseline: the four elemental mages 60 → 48. MP shifts from a
   // non-constraint into a managed resource — sustain options (Circlet's
   // MA/2 per-turn regen, Thoughtful Pacing, Ethers, Rasp Pendant) become
@@ -93,9 +97,17 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   // magical. HP 116 sits between Assassin (96) and Earth Mage (112)-ish —
   // sturdier than the glass-cannon Assassin but a back-line shooter, not
   // a front-liner. MP 28 is a light caster supplement (the bow kit spends
-  // no MP). PA 6 medium-strong physical; MA 3 (lowest, tied Assassin) —
-  // not a caster. Speed 9 medium (below Assassin 14, at the Knight tier).
-  [classId('hunter'),         { maxHpBase: 116, maxMpBase: 28, pa: 6,  ma: 3,  spd: 9  }],
+  // no MP).
+  // S68 tuning: the Hunter lacked a stat pole (same Speed as the Knight
+  // with 4 less PA). Now positioned as the PA/Speed middle ground between
+  // the Knight (PA pole) and Assassin (Speed pole):
+  //   - PA 6 → 7 (medium-strong physical; Martial Expertise → ~8).
+  //   - Speed 9 → 10 (above the Knight's new 8, below Assassin 13 — a
+  //     mid-tempo skirmisher with the range to leverage it).
+  //   - MA 3 → 5 (deliberate plant: makes the Hunter, not the purely-
+  //     physical Knight, the better candidate for a magic-driven secondary
+  //     command set; inert in the current all-physical bow kit).
+  [classId('hunter'),         { maxHpBase: 116, maxMpBase: 28, pa: 7,  ma: 5,  spd: 10 }],
   // Session 49 (Calculator, the 9th class). HP 101 sits between
   // Assassin (96) and Earth Mage (112) — modest. MP 47 is moderate
   // (between Knight 20 and Mages 60); Mathematician + Thoughtful
