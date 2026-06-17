@@ -62,6 +62,7 @@ import {
 import { expectActiveAbility } from '@engine/actions/index.ts';
 import { getEquippedWeapon } from '@engine/items/index.ts';
 import {
+  runModifyAttackerElevation,
   runModifyEvasion,
   runModifyHitChance,
   runModifyStatQuery,
@@ -158,7 +159,16 @@ const projectionEvasionCheck: DamageHandler = (ctx, env) => {
   });
   const evasionFactor = 1 - evasionPct / 100;
 
-  const elevationModifier = computeElevationModifier(env.state, ctx.attacker.position, ctx.target.position);
+  const attackerElevationBonus = runModifyAttackerElevation(env.state, env.catalog, {
+    unit: ctx.attacker,
+    baseValue: 0,
+  });
+  const elevationModifier = computeElevationModifier(
+    env.state,
+    ctx.attacker.position,
+    ctx.target.position,
+    attackerElevationBonus,
+  );
 
   const baseChance = accuracy * evasionFactor * elevationModifier;
   const modifiedChance = runModifyHitChance(env.state, env.catalog, {
@@ -333,6 +343,7 @@ function computeElevationModifier(
   state: GameState,
   attacker: Position,
   target: Position,
+  attackerElevationBonus: number = 0,
 ): number {
   const attackerTile = state.map.tiles.find(
     (t) => t.x === attacker.x && t.y === attacker.y && t.layer === attacker.layer,
@@ -341,7 +352,8 @@ function computeElevationModifier(
     (t) => t.x === target.x && t.y === target.y && t.layer === target.layer,
   );
   if (attackerTile === undefined || targetTile === undefined) return 1.0;
-  if (attackerTile.elevation > targetTile.elevation) return 1.05;
-  if (attackerTile.elevation < targetTile.elevation) return 0.95;
+  const attackerElevation = attackerTile.elevation + attackerElevationBonus;
+  if (attackerElevation > targetTile.elevation) return 1.05;
+  if (attackerElevation < targetTile.elevation) return 0.95;
   return 1.0;
 }

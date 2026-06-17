@@ -54,6 +54,8 @@ export const hunter: ClassDefinition = {
     abilityId('updraft'),
     abilityId('eagle_eye'),
     abilityId('high_jump'),
+    // S68: the Hunter's 2nd free Support — offensive elevation +2 (ADR-0115).
+    abilityId('vantage'),
   ]),
   // S49 Level system: Hunter is a PA-scaling ranged class (bows compute
   // damage off PA × WP) — physical-dominant.

@@ -19,6 +19,7 @@
 import { expectActiveAbility } from '../actions/validate.ts';
 import { collectActiveHandlers } from '../hooks/collector.ts';
 import {
+  runModifyAttackerElevation,
   runModifyEvasion,
   runModifyHitChance,
   runModifyOutgoingHealing,
@@ -387,7 +388,19 @@ export const evasionCheck: DamageHandler = (ctx, env) => {
   });
   const evasionFactor = 1 - evasionPct / 100;
 
-  const elevationModifier = computeElevationModifier(env.state, ctx.attacker.position, ctx.target.position);
+  // S68 (Vantage): the attacker's offensive elevation reads through the
+  // `modifyAttackerElevation` chain, so a Vantage wielder counts as
+  // "higher" for the ±5% modifier. baseValue 0 → the bonus delta.
+  const attackerElevationBonus = runModifyAttackerElevation(env.state, env.catalog, {
+    unit: ctx.attacker,
+    baseValue: 0,
+  });
+  const elevationModifier = computeElevationModifier(
+    env.state,
+    ctx.attacker.position,
+    ctx.target.position,
+    attackerElevationBonus,
+  );
 
   const baseChance = accuracy * evasionFactor * elevationModifier;
   // Apply hit-chance modifiers in two passes: target-side (Blind) then
@@ -569,7 +582,13 @@ export function resolvePhysicalVarianceBand(
   if (source.kind === 'height_delta') {
     const aTile = tileAt(state.map, attacker.position.x, attacker.position.y, attacker.position.layer);
     const tTile = tileAt(state.map, target.position.x, target.position.y, target.position.layer);
-    const aElev = aTile?.elevation ?? 0;
+    // S68 (Vantage, ADR-0115): the attacker's offensive elevation reads
+    // through `modifyAttackerElevation`, so a Vantage wielder shoots as if
+    // it stood higher — softening uphill shots and sharpening downhill.
+    const aElev = runModifyAttackerElevation(state, catalog, {
+      unit: attacker,
+      baseValue: aTile?.elevation ?? 0,
+    });
     const tElev = tTile?.elevation ?? 0;
     const factor = Math.max(0, 1 - source.falloffPerHeight * (tElev - aElev));
     return { min: factor, max: factor };

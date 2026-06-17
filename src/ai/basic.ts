@@ -74,6 +74,7 @@ import {
   rangeFromHeightBonus,
   runModifyAoeShape,
   runModifyAoeVerticalTolerance,
+  runModifyAttackerElevation,
   runModifyStatQuery,
   tileAt,
   unitAt,
@@ -1141,12 +1142,21 @@ function positionInAbilityRange(
   // Session 52: bow height-range bonus — the shooter reaches farther
   // horizontally when above the target (no-op otherwise). Mirrors the
   // live-validation site so AI enumeration agrees with the engine.
+  // S68 (Vantage, ADR-0115): the actor's offensive elevation — feeds the
+  // height-range bonus and the LoS source ("shoot over cover"). Vertical
+  // `inRange` stays on the raw source elevation (Vantage doesn't change
+  // vertical reach). Mirrors validate.ts.
+  const offensiveSourceElev = runModifyAttackerElevation(state, catalog, {
+    unit: actor,
+    baseValue: sourceTile.elevation,
+  });
   const heightBonus = rangeFromHeightBonus(
     weaponRangeFromHeightSpec(actor, catalog, ability),
-    sourceTile.elevation,
+    offensiveSourceElev,
     targetTile.elevation,
   );
   const sourceEndpoint = endpointFrom(source, sourceTile.elevation);
+  const losSourceEndpoint = endpointFrom(source, offensiveSourceElev);
   const targetEndpoint = endpointFrom(target, targetTile.elevation);
   const within = inRange({
     source: sourceEndpoint,
@@ -1167,7 +1177,7 @@ function positionInAbilityRange(
   // it); arc lobs over intermediate obstructions.
   const mode = 'rangeMode' in ability.targeting ? ability.targeting.rangeMode : undefined;
   if (mode === 'straight_line') {
-    return hasLineOfSight(state.map, sourceEndpoint, targetEndpoint);
+    return hasLineOfSight(state.map, losSourceEndpoint, targetEndpoint);
   }
   if (mode === 'arc') {
     return arcTargetable(state.map, source, target);
@@ -1206,11 +1216,18 @@ function tilesInAbilityRange(
   // widening, those tiles fall outside a box sized to the base range
   // and would be silently dropped.
   const sourceTile = tileAt(state.map, source.x, source.y, source.layer);
+  // S68 (Vantage): widen by the height bonus the actor's *offensive*
+  // elevation could earn, so the box includes the farther tiles a
+  // Vantage shooter newly reaches.
+  const offensiveSourceElev = runModifyAttackerElevation(state, catalog, {
+    unit: actor,
+    baseValue: sourceTile?.elevation ?? 0,
+  });
   const range =
     baseRange +
     maxRangeFromHeightBonus(
       weaponRangeFromHeightSpec(actor, catalog, ability),
-      sourceTile?.elevation ?? 0,
+      offensiveSourceElev,
     );
   for (let dy = -range; dy <= range; dy++) {
     for (let dx = -range; dx <= range; dx++) {

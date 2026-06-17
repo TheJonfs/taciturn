@@ -371,6 +371,25 @@ export interface HookSignatures {
     return: number;
   };
 
+  // Attacker offensive-elevation modifier (S68, Vantage). Additive on the
+  // *acting unit's* tile elevation, applied ONLY in that unit's own
+  // offensive elevation computations: height_delta damage variance, the
+  // high-ground accuracy modifier, bow reach-from-height, and the source
+  // endpoint of attack line-of-sight ("shoot over cover"). `baseValue` is
+  // the unit's raw source-tile elevation; handlers return the effective
+  // elevation it *fights as if standing at*. Collected on the attacker.
+  // The offset never touches defensive reads (the unit as a target),
+  // Math Skill Height, pathfinding, knockback, or AoE — the unit is
+  // physically at its real elevation; it only *aims* from higher. Per
+  // ADR-0115.
+  modifyAttackerElevation: {
+    args: {
+      unit: Unit;
+      baseValue: number;
+    };
+    return: number;
+  };
+
   // Per-tag resistance modifier — additive on the unit's per-tag
   // resistance value. Capacitor Ring (+50 Lightning), Wand of Depths
   // ({ lightning: +50, fire: -50 }), and future status-driven shifts

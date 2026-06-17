@@ -253,6 +253,27 @@ export function runModifySpellPower(
   return value;
 }
 
+// Additive chain over the attacker's offensive elevation (S68, Vantage).
+// Pass the unit's raw source-tile elevation as `baseValue`; returns the
+// effective elevation the unit's own offensive computations should use
+// (height_delta variance, high-ground accuracy, bow reach-from-height,
+// attack LoS source). Collected on the acting unit. Per ADR-0115.
+export function runModifyAttackerElevation(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    baseValue: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyAttackerElevation');
+  let value = args.baseValue;
+  for (const h of handlers) {
+    value = h.invoke({ unit: args.unit, baseValue: value });
+  }
+  return value;
+}
+
 // Additive chain over per-tag resistance modifiers. Handlers fire
 // against the *target's* (resistance owner's) registrations — Capacitor
 // Ring (+50 Lightning) lives on the wearer. Called per damage tag by

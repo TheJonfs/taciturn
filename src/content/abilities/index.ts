@@ -92,6 +92,7 @@ import { tideSurge } from './tide-surge.ts';
 import { tidewalker } from './tidewalker.ts';
 import { twoWeapons } from './two-weapons.ts';
 import { undermine } from './undermine.ts';
+import { vantage } from './vantage.ts';
 import { wandOfDeepwoodApplyShift } from './wand-of-deepwood-apply-shift.ts';
 import { wandOfLumenApplyShift } from './wand-of-lumen-apply-shift.ts';
 import { wandOfDepthsApplyShift } from './wand-of-depths-apply-shift.ts';
@@ -182,6 +183,7 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   tidewalker,
   twoWeapons,
   undermine,
+  vantage,
   wandOfDeepwoodApplyShift,
   wandOfDepthsApplyShift,
   wandOfLumenApplyShift,

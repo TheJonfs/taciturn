@@ -55,6 +55,7 @@ import {
   inRange,
   positionKey,
   rangeFromHeightBonus,
+  runModifyAttackerElevation,
   tileAt,
   weaponRangeFromHeightSpec,
   type AbilityId,
@@ -286,9 +287,17 @@ function canReachAndHit(
   const targetTile = tileAt(state.map, targetPos.x, targetPos.y, targetPos.layer);
   if (sourceTile === undefined || targetTile === undefined) return false;
   const ruleset = catalog.getRuleset(state.ruleset.id);
+  // S68 (Vantage, ADR-0115): a threatening unit with Vantage menaces from
+  // its effective (raised) elevation — so the threat model fears its
+  // extended reach-from-height and over-cover shots. Vertical `inRange`
+  // stays raw, mirroring validate.ts.
+  const offensiveSourceElev = runModifyAttackerElevation(state, catalog, {
+    unit: attacker,
+    baseValue: sourceTile.elevation,
+  });
   const heightBonus = rangeFromHeightBonus(
     weaponRangeFromHeightSpec(attacker, catalog, ability),
-    sourceTile.elevation,
+    offensiveSourceElev,
     targetTile.elevation,
   );
   const within = inRange({
@@ -305,7 +314,7 @@ function canReachAndHit(
   if (mode === 'straight_line') {
     return hasLineOfSight(
       state.map,
-      endpointFrom(source, sourceTile.elevation),
+      endpointFrom(source, offensiveSourceElev),
       endpointFrom(targetPos, targetTile.elevation),
     );
   }

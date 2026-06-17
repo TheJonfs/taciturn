@@ -54,6 +54,22 @@ flagged for the feel pass.
     crit pieces should be tuned down (or the dagger's +25 trimmed) rather than
     expanding the archetype.
 
+### S68 Vantage — X = 2 magnitude (ADR-0115)
+
+Shipped at +2 elevation as the deliberately-spicy first cut.
+
+- **What to watch.** A Vantage bow on level ground already reads as +2 downhill
+  → always-on ~+40% on the Longbow's height-variance (linear curve), before any
+  real terrain. Plus +5% accuracy more often, +1 reach-from-height at level, and
+  shoot-over-cover. Does the bow Hunter (with the S68 PA7/Spd10 buffs) over-
+  perform on damage-over-time vs the Knight/Assassin trade study?
+- **Why it matters.** One constant (`VANTAGE_ELEVATION_BONUS`) controls all of
+  it; +1 halves the always-on damage floor (~+20%).
+- **Signal for adjustment.** If the Hunter's tempo-normalized output overtakes
+  its intended middle-ground slot, drop to +1. Also watch the cross-class
+  caster splash (Aethurge / any straight-line mage taking Vantage for shoot-
+  over-cover) — intended vs Barriers, but flag if it trivializes cover broadly.
+
 ### Thief — Steal Heart / charm feel (ADR-0111)
 
 The charm capstone shipped (control-only scope). Unit-tested; the *feel* and the

@@ -59,10 +59,17 @@ export function pickEvasion(
 // 0.95; same elevation → 1.0. Reads tile elevation at the attacker's
 // and target's positions. If either tile is missing (impossible in v1
 // well-formed maps but defensive), returns 1.0.
+//
+// S68 (Vantage, ADR-0115): `attackerElevationBonus` is added to the
+// attacker's tile elevation before the comparison, so a Vantage wielder
+// counts as "higher" more often. Caller-supplied (it resolves the
+// `modifyAttackerElevation` chain, which lives in the runners tier this
+// pure helper can't import); defaults to 0 (no bonus).
 export function computeElevationModifier(
   state: GameState,
   attacker: Position,
   target: Position,
+  attackerElevationBonus: number = 0,
 ): number {
   const attackerTile = state.map.tiles.find(
     (t) => t.x === attacker.x && t.y === attacker.y && t.layer === attacker.layer,
@@ -71,7 +78,8 @@ export function computeElevationModifier(
     (t) => t.x === target.x && t.y === target.y && t.layer === target.layer,
   );
   if (attackerTile === undefined || targetTile === undefined) return 1.0;
-  if (attackerTile.elevation > targetTile.elevation) return 1.05;
-  if (attackerTile.elevation < targetTile.elevation) return 0.95;
+  const attackerElevation = attackerTile.elevation + attackerElevationBonus;
+  if (attackerElevation > targetTile.elevation) return 1.05;
+  if (attackerElevation < targetTile.elevation) return 0.95;
   return 1.0;
 }

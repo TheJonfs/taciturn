@@ -32,6 +32,7 @@ import {
   type UnitId,
 } from '../types/index.ts';
 import { getLegalMoves, positionKey } from '../map/pathfinding.ts';
+import { runModifyAttackerElevation } from '../hooks/runners.ts';
 import { hasLineOfSight } from '../map/line-of-sight.ts';
 import { arcTargetable } from '../map/arc.ts';
 import { UnknownDefinitionError } from '../catalog/index.ts';
@@ -312,6 +313,15 @@ function validateUseAbility(
   if (sourceTile === undefined) {
     return invalid('Source tile does not exist');
   }
+  // S68 (Vantage, ADR-0115): the actor's *offensive* elevation — used for
+  // line-of-sight ("shoot over cover") and bow reach-from-height, where a
+  // Vantage wielder aims as if standing higher. Vertical-range (`inRange`)
+  // deliberately stays on the raw `sourceTile.elevation` (Vantage doesn't
+  // change whether the unit is in someone's — or its own — vertical reach).
+  const offensiveSourceElevation = runModifyAttackerElevation(state, catalog, {
+    unit: actor,
+    baseValue: sourceTile.elevation,
+  });
 
   // Session 54: barrier-as-target. A damaging ability aimed at a tile that
   // bears a barrier is valid even if its declared targeting requires a unit
@@ -342,7 +352,7 @@ function validateUseAbility(
         if (ability.targeting.rangeMode === 'straight_line') {
           if (!hasLineOfSight(
             state.map,
-            endpointFrom(actor.position, sourceTile.elevation),
+            endpointFrom(actor.position, offensiveSourceElevation),
             endpointFrom(tilePos, destTile.elevation),
           )) {
             return invalid('Line of sight is blocked');
@@ -477,7 +487,7 @@ function validateUseAbility(
       // above the target tile (no-op for non-bow / level / uphill shots).
       const tileHeightBonus = rangeFromHeightBonus(
         weaponRangeFromHeightSpec(actor, catalog, ability),
-        sourceTile.elevation,
+        offensiveSourceElevation,
         destTile.elevation,
       );
       const tileInRange = inRange({
@@ -495,7 +505,7 @@ function validateUseAbility(
       if (tileRangeMode === 'straight_line') {
         const losOk = hasLineOfSight(
           state.map,
-          endpointFrom(actor.position, sourceTile.elevation),
+          endpointFrom(actor.position, offensiveSourceElevation),
           endpointFrom(tilePos, destTile.elevation),
         );
         if (!losOk) return invalid('Line of sight is blocked');
@@ -621,7 +631,7 @@ function validateUseAbility(
     // above the target (no-op for non-bow / level / uphill shots).
     const unitHeightBonus = rangeFromHeightBonus(
       weaponRangeFromHeightSpec(actor, catalog, ability),
-      sourceTile.elevation,
+      offensiveSourceElevation,
       targetTile.elevation,
     );
     const inRangeOk = inRange({
@@ -639,7 +649,7 @@ function validateUseAbility(
     if (rangeMode === 'straight_line') {
       const losOk = hasLineOfSight(
         state.map,
-        endpointFrom(actor.position, sourceTile.elevation),
+        endpointFrom(actor.position, offensiveSourceElevation),
         endpointFrom(targetUnit.position, targetTile.elevation),
       );
       if (!losOk) return invalid('Line of sight is blocked');

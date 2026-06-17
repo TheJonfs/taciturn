@@ -44,6 +44,24 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 68 — Vantage (Hunter Support) (2026-06-17)
+
+New ability. See ADR-0115.
+
+- **Vantage** (Support, **free on the Hunter**, costs 1 for other classes) —
+  your **attacks resolve as if you stood 2 tiles higher** than you actually
+  stand. It's purely offensive and applies only to *your own* attacks; it
+  never changes how high you count when you're the target, and it doesn't
+  affect movement, Calculator height math, or area effects. Concretely it
+  improves four things when you attack: the downhill **damage bonus** on bows
+  (height-based variance), the **high-ground accuracy** bonus (you count as
+  "higher" more often), a bow's **range-from-height**, and **line of sight** —
+  you can shoot over cover (including a Terraformer's **Barrier**) that would
+  otherwise block the shot. Because only bows scale damage/range with height,
+  Vantage is shaped for archers, but any straight-line attacker can use the
+  shoot-over-cover effect — e.g. an **Aethurge** clearing a Barrier wall with
+  Lightning Bolt. (Starting value is deliberately strong and may be tuned down.)
+
 ## Session 68 — tuning & dual-wield fix (2026-06-17)
 
 Balance tuning and a dual-wield correctness fix. See ADR-0114 for the fix.

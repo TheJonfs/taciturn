@@ -171,6 +171,7 @@ const PASSIVE_EFFECTS: Record<string, string> = {
   updraft: 'On taking enemy damage: +1 Jump, accumulating & permanent (capped 1/enemy-turn)',
   eagle_eye: 'Physical hit chance ×2',
   high_jump: '+2 Jump',
+  vantage: 'Your attacks resolve as if you stood +2 elevation: height_delta damage variance, +5% high-ground accuracy, bow reach-from-height, attack LoS source (shoot over cover). Attacker-only; never affects defense / Calculator height / movement.',
   // Terraformer.
   damage_split: 'On surviving a damaging hit: reflect HALF the damage to the attacker and heal self the other half (Brave-gated; bypasses defenses)',
   ignore_height: 'Vertical movement ignores the Jump-stat constraint (step any elevation delta)',

@@ -151,6 +151,7 @@ Reaction / Support / Movement passives are equipped through their respective R/S
 | `aether_bloom` | Aether Bloom | support | 2 (Pyromancer native — AoE shape +1 step on magical casts) | `src/content/abilities/aether-bloom.ts` |
 | `conductor` | Conductor | support | 2 (Aethurge native — × 1.25 MA multiplier) | `src/content/abilities/conductor.ts` |
 | `eagle_eye` | Eagle Eye | support | 2 (S45 Hunter — × 2 physical hit chance) | `src/content/abilities/eagle-eye.ts` |
+| `vantage` | Vantage | support | 1 (S68 Hunter — offensive elevation +2: height_delta variance, +5% high-ground accuracy, bow reach-from-height, attack LoS source / shoot-over-cover; attacker-only, ADR-0115) | `src/content/abilities/vantage.ts` |
 | `martial_expertise` | Martial Expertise | support | 2 (S41 Knight — × 1.25 PA multiplier; Conductor parity) | `src/content/abilities/martial-expertise.ts` |
 | `two_weapons` | Two Weapons | support | 3 (S42 Assassin — dual-wield + per-swing PA × 0.75) | `src/content/abilities/two-weapons.ts` |
 | `field_kit` | Travel Preparations | support | 1 (S39 Alchemist — start battle with Potion / Phoenix Down / Remedy stocked) | `src/content/abilities/field-kit.ts` |
@@ -368,7 +369,7 @@ catalog totals.
 |---|---|---|
 | Classes | 12 | S62 `templar`; Thief `thief` |
 | Command sets | 14 | S62 `templar_arts`; Thief `thief_arts` |
-| Abilities (active + passive + hidden) | 103 | S68 +1 (`wand_of_potential_apply_shift`) |
+| Abilities (active + passive + hidden) | 104 | S68 +1 (`wand_of_potential_apply_shift`); S68 Vantage +1 (`vantage`) |
 | Status types | 35 | S65 `mana_font`; Thief chunk 2 +2 (`enthralled`, `heartwarded`) |
 | Equipment + consumables | 77 | S68 +4 (`vicious_dagger`, `scimitar`, `wand_of_potential`, `gauntlet_of_might`) |
 | Rulesets | 1 | — |

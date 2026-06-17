@@ -20,7 +20,12 @@
 import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
 import type { GameState, Unit } from '../types/index.ts';
 import { getEquippedWeapon } from '../items/equipment.ts';
-import { runModifyEvasion, runModifyHitChance, runModifyOutgoingHitChance } from '../hooks/runners.ts';
+import {
+  runModifyAttackerElevation,
+  runModifyEvasion,
+  runModifyHitChance,
+  runModifyOutgoingHitChance,
+} from '../hooks/runners.ts';
 import {
   computeAttackerFacing,
   computeElevationModifier,
@@ -75,7 +80,19 @@ export function computeOutgoingHitChance(args: ComputeHitChanceArgs): number {
   });
   const evasionFactor = 1 - evasionPct / 100;
 
-  const elevationModifier = computeElevationModifier(state, attacker.position, target.position);
+  // S68 (Vantage): mirror evasionCheck — the attacker's offensive
+  // elevation reads through `modifyAttackerElevation` so the forecast
+  // agrees with the live roll.
+  const attackerElevationBonus = runModifyAttackerElevation(state, catalog, {
+    unit: attacker,
+    baseValue: 0,
+  });
+  const elevationModifier = computeElevationModifier(
+    state,
+    attacker.position,
+    target.position,
+    attackerElevationBonus,
+  );
 
   const baseChance = accuracy * evasionFactor * elevationModifier;
   const afterTarget = runModifyHitChance(state, catalog, {

@@ -198,8 +198,10 @@ describe('loadDefaultCatalog', () => {
     //     resonance proc; the three weapons + accessory add no abilities)
     //   - items: 73 → 77 (vicious_dagger, scimitar, wand_of_potential,
     //     gauntlet_of_might)
+    // Session 68 (Vantage) — the Hunter's 2nd Support:
+    //   - abilities: 103 → 104 (vantage — offensive elevation +2, ADR-0115)
     expect(cat.statusTypes()).toHaveLength(35);
-    expect(cat.abilities()).toHaveLength(103);
+    expect(cat.abilities()).toHaveLength(104);
     expect(cat.commandSets()).toHaveLength(14);
     expect(cat.classes()).toHaveLength(12);
     expect(cat.items()).toHaveLength(77);
