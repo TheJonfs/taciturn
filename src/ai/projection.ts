@@ -100,7 +100,14 @@ const projectionVarianceRoll: DamageHandler = (ctx, env) => {
     return { ...ctx, multipliers: [...ctx.multipliers, { source: 'variance', factor: pinned }] };
   }
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
-  const band = resolvePhysicalVarianceBand(env.state, env.catalog, ctx.attacker, ctx.target, ability);
+  const band = resolvePhysicalVarianceBand(
+    env.state,
+    env.catalog,
+    ctx.attacker,
+    ctx.target,
+    ability,
+    ctx.attackingWeaponSlot,
+  );
   if (band.min === 1 && band.max === 1) return ctx;
   const factor = (band.min + band.max) / 2;
   return {

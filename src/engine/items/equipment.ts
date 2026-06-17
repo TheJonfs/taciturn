@@ -55,6 +55,27 @@ export function getWeaponInSlot(
   return readSlotAsWeapon(unit.equipment[slot], catalog);
 }
 
+// Resolve the weapon a given swing reads (S68 per-swing-consistency fix).
+// When `attackingWeaponSlot` is set (a designated swing of a multi-swing
+// dual-wield Attack), read that exact slot's weapon; otherwise resolve
+// the dominant (right-hand) weapon. Every per-swing damage-pipeline read
+// — WP (`physicalPaWp`), accuracy (`evasionCheck`), variance band
+// (`resolvePhysicalVarianceBand`) — must route through this so a swing
+// is internally consistent. Pre-S68, WP was per-slot but accuracy and
+// variance read the dominant weapon, letting a dual-wielder launder the
+// off-hand weapon's WP through the right-hand weapon's accuracy/variance
+// (e.g. right-hand Sai's 95% + Speed-variance applied to a left-hand
+// War Axe's WP 12). See ADR for the fix.
+export function getSwingWeapon(
+  unit: Unit,
+  attackingWeaponSlot: EquipmentSlotId | undefined,
+  catalog: Catalog,
+): WeaponEquipment | null {
+  return attackingWeaponSlot !== undefined
+    ? getWeaponInSlot(unit, attackingWeaponSlot, catalog)
+    : getEquippedWeapon(unit, catalog);
+}
+
 // Session 39a: predicates to narrow the widened `ItemDefinition` union
 // (equipment + consumables). Equipment paths use `isEquipment` to filter
 // before reading equipment-only fields like `bucketCapacityMods` or

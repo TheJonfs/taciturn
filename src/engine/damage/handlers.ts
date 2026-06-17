@@ -32,12 +32,13 @@ import {
 } from '../hooks/runners.ts';
 import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
 import type { GameState } from '../types/index.ts';
-import { getEquippedWeapon, getWeaponInSlot } from '../items/equipment.ts';
+import { getEquippedWeapon, getSwingWeapon } from '../items/equipment.ts';
 import { tileAt } from '../map/accessors.ts';
 import {
   getUnit,
   type DamageContext,
   type DamageTag,
+  type EquipmentSlotId,
   type Unit,
 } from '../types/index.ts';
 import type { DamageHandler, PipelineEnv } from './registry.ts';
@@ -177,14 +178,10 @@ export const physicalPaWp: DamageHandler = (ctx, env) => {
     statName: 'pa',
     baseValue: ctx.attacker.baseStats.pa,
   });
-  // Per-swing weapon scope (Session 42): when this is one swing of a
-  // multi-swing attack, read the designated slot's weapon. Otherwise
-  // resolve the dominant weapon as before (bit-identical for every
-  // single-weapon / pre-S42 caller).
-  const weapon =
-    ctx.attackingWeaponSlot !== undefined
-      ? getWeaponInSlot(ctx.attacker, ctx.attackingWeaponSlot, env.catalog)
-      : getEquippedWeapon(ctx.attacker, env.catalog);
+  // Per-swing weapon scope (Session 42; shared resolver since S68): read
+  // the designated swing slot's weapon when set, else the dominant weapon
+  // (bit-identical for every single-weapon / pre-S42 caller).
+  const weapon = getSwingWeapon(ctx.attacker, ctx.attackingWeaponSlot, env.catalog);
   const wp = weapon?.wp ?? 1;
   const baseDamage = pa * wp * power_coefficient;
 
@@ -370,8 +367,10 @@ export const evasionCheck: DamageHandler = (ctx, env) => {
   // Accuracy precedence (per ADR-0028): per-ability `hitRoll.accuracy`
   // override → equipped weapon's `accuracy` → unarmed default (100).
   // The override path lets specific abilities depart from weapon
-  // accuracy (none in v1).
-  const weapon = getEquippedWeapon(ctx.attacker, env.catalog);
+  // accuracy (none in v1). S68: read the *swing* weapon (per slot) so a
+  // dual-wield off-hand swing uses its own accuracy, not the dominant
+  // weapon's — fixes the accuracy-launder exploit.
+  const weapon = getSwingWeapon(ctx.attacker, ctx.attackingWeaponSlot, env.catalog);
   const accuracyPct = hitRoll.accuracy ?? weapon?.accuracy ?? 100;
   const accuracy = accuracyPct / 100;
 
@@ -517,7 +516,14 @@ function resolveVarianceBand(
   env: PipelineEnv,
 ): { readonly min: number; readonly max: number } {
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
-  return resolvePhysicalVarianceBand(env.state, env.catalog, ctx.attacker, ctx.target, ability);
+  return resolvePhysicalVarianceBand(
+    env.state,
+    env.catalog,
+    ctx.attacker,
+    ctx.target,
+    ability,
+    ctx.attackingWeaponSlot,
+  );
 }
 
 // Shared physical-variance-band resolver (per ADR-0067 + Session 40).
@@ -538,17 +544,23 @@ function resolveVarianceBand(
 // `height_delta` (Session 45, bows) reads the target's tile elevation
 // relative to the attacker's and collapses to a single deterministic
 // point — the only arm that consults the target.
+//
+// S68: `attackingWeaponSlot` selects the swing's weapon (per slot) so a
+// dual-wield off-hand swing resolves *its own* variance band, not the
+// dominant weapon's. Omitted (the AI projection / UI forecast and every
+// single-swing caller) → dominant weapon, bit-identical to pre-S68.
 export function resolvePhysicalVarianceBand(
   state: GameState,
   catalog: Catalog,
   attacker: Unit,
   target: Unit,
   ability: ActiveAbilityDefinition,
+  attackingWeaponSlot?: EquipmentSlotId,
 ): { readonly min: number; readonly max: number } {
   const damage = ability.effects.damage;
   const fallback = damage?.variance ?? { min: 1, max: 1 };
   if (damage === undefined || !damage.tags.includes('physical')) return fallback;
-  const weapon = getEquippedWeapon(attacker, catalog);
+  const weapon = getSwingWeapon(attacker, attackingWeaponSlot, catalog);
   const source = weapon?.physicalVariance;
   if (source === undefined) return fallback;
   if (source.kind === 'static') {
