@@ -44,6 +44,21 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 68 — bow accuracy/power pass (2026-06-17)
+
+Both bows buffed, to lift the Hunter out of being the lowest-output build (a
+damage-over-time re-analysis with the new stats + Vantage confirmed it was
+accuracy-starved and far behind on raw damage):
+
+- **Longbow** — accuracy **33 → 40**, weapon power **7 → 9**.
+- **Riptide Bow** — accuracy **33 → 40**, weapon power **5 → 7**.
+
+The accuracy bump fixes the bow's real bottleneck (reliability) at every range;
+the power bump pays off **earned high ground** — a Hunter shooting from a height
+(naturally seized or built by a Terraformer), especially with **Vantage**, now
+out-damages a Knight, while a Hunter on flat ground still sits well below the
+front-line classes. Taking the high ground is now a concrete tactical payoff.
+
 ## Session 68 — Vantage (Hunter Support) (2026-06-17)
 
 New ability. See ADR-0115.

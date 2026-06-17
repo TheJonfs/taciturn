@@ -231,8 +231,8 @@ Equipment slots: weapon (one- or two-handed), shield, armor, headgear, accessory
 | `wand_of_potential` | Wand of Potential | weapon | S68 — `+Water/−Earth` resonance on hit (completes the wand rotation) + `spellPowerModifiers` +1 SP on the holder's lightning magic (new `modifySpellPower` hook, ADR-0113) | `src/content/items/wand-of-potential.ts` |
 | `staff_of_power` | Staff of Power | weapon | × 1.50 MP cost [S55 tune 1.2→1.5] · +4 MA | `src/content/items/staff-of-power.ts` |
 | `staff_of_abundance` | Staff of Abundance | weapon | MP-economy magic staff | `src/content/items/staff-of-abundance.ts` |
-| `longbow` | Longbow | weapon | S45 bow — WP 7, accuracy 33, two-handed, range 2-5/vertical-inf, height-delta variance | `src/content/items/longbow.ts` |
-| `riptide_bow` | Riptide Bow | weapon | S45 bow + 30% Undertow CT-push proc | `src/content/items/riptide-bow.ts` |
+| `longbow` | Longbow | weapon | S45 bow — WP 9, accuracy 40 (S68 bump from WP 7 / acc 33), two-handed, range 2-5/vertical-inf, height-delta variance | `src/content/items/longbow.ts` |
+| `riptide_bow` | Riptide Bow | weapon | S45 bow — WP 7, accuracy 40 (S68 bump from WP 5 / acc 33) + 30% Undertow CT-push proc | `src/content/items/riptide-bow.ts` |
 | `parrying_sword` | Parrying Sword | weapon | S50 — sword tag, WP 6, accuracy 95, +10 Front / +5 Side evade (defensive sword variant) | `src/content/items/parrying-sword.ts` |
 | `absolom` | Absolom | weapon | S50 Knight Sword class — WP 13, accuracy 95, two-handed, `attacker_brave` variance ([Brave/100 ± 0.05]), +1 Reaction-bucket capacity. First consumer of the new `attacker_brave` `WeaponPhysicalVariance` kind. | `src/content/items/absolom.ts` |
 

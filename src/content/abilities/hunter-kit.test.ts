@@ -234,13 +234,14 @@ describe('Charged Attack', () => {
     const attacker = makeUnit({ id: 'a', spd: 9, pa: 6, classId: 'hunter', position: { x: 0, y: 0, layer: 0 }, equipment: equipRight('longbow') });
     const target = makeUnit({ id: 't', spd: 9, hp: 200, maxHpBase: 200, classId: 'knight', position: { x: 1, y: 0, layer: 0 } });
     const state = makeGameState({ units: [attacker, target], map: elevMap(0, 0) });
-    // base = PA 6 × WP 7 × coeff 2.0 = 84; variance 1.0 at equal elevation.
+    // base = PA 6 × WP 9 × coeff 2.0 = 108; variance 1.0 at equal elevation.
+    // (S68: Longbow WP 7 → 9.)
     const r = runDamagePipeline({
       state, catalog, attacker, target,
       ability: expectActiveAbility(catalog, abilityId('charged_attack')),
       sourceActionSeq: 0, seed: 1, registry: defaultDamageHandlers,
     });
-    expect(r.finalDamage).toBe(84);
+    expect(r.finalDamage).toBe(108);
   });
 });
 
@@ -260,12 +261,12 @@ describe('Longbow height-delta damage (basic Attack)', () => {
     }).finalDamage ?? -1;
   }
 
-  it('same elevation → PA 6 × WP 7 × 1.0 = 42', () => {
-    expect(damage(0, 0)).toBe(42);
+  it('same elevation → PA 6 × WP 9 × 1.0 = 54', () => {
+    expect(damage(0, 0)).toBe(54);
   });
 
-  it('shooting down 5 → ×2.0 = 84', () => {
-    expect(damage(5, 0)).toBe(84);
+  it('shooting down 5 → ×2.0 = 108', () => {
+    expect(damage(5, 0)).toBe(108);
   });
 
   it('shooting up 5 → ×0 = 0 (no damage from far below)', () => {

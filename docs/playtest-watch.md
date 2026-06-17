@@ -69,6 +69,13 @@ Shipped at +2 elevation as the deliberately-spicy first cut.
   its intended middle-ground slot, drop to +1. Also watch the cross-class
   caster splash (Aethurge / any straight-line mage taking Vantage for shoot-
   over-cover) — intended vs Barriers, but flag if it trivializes cover broadly.
+- **S68 update — bow buff shipped (Longbow WP 9/acc 40, Riptide WP 7/acc 40).**
+  The DoT re-analysis confirmed X=2 wasn't overpowering (the bow Hunter was the
+  lowest-output build); the fix was buffing the bows, not nerfing Vantage. By
+  design now: a **flat-ground** Hunter stays well below the front line, but a
+  **perched** Hunter (earned high ground + Vantage) *out-damages the Knight*.
+  **Watch:** confirm this perched-vs-flat split reads as an *earned* payoff for
+  taking the high ground, not as oppressive — on elevation-rich maps especially.
 
 ### Thief — Steal Heart / charm feel (ADR-0111)
 

@@ -2,7 +2,9 @@
 // power for tempo control: lower WP than the Longbow, but a chance to
 // push the target's turn back on every hit.
 //
-// WP 5 / Acc 33, the same 2-5 / vertical-99 range and height-delta
+// WP 7 / Acc 40 (S68 tuning — was WP 5 / Acc 33; the bow accuracy/WP
+// pass, one WP below the Longbow's 9 to keep its lower-power, tempo-
+// control identity), the same 2-5 / vertical-99 range and height-delta
 // variance as the Longbow, two-handed. The identity is the on-hit proc:
 // 30% chance to fire Undertow (a PA-scaled `system_ct_push`, ~18 CT back
 // for a Hunter), mechanically symmetric to the Water Mage's CT
@@ -20,8 +22,8 @@ export const riptideBow: WeaponEquipment = {
   availability: 'available',
   kind: 'weapon',
   weaponType: 'bow',
-  wp: 5,
-  accuracy: 33,
+  wp: 7,
+  accuracy: 40,
   tags: ['bow', 'water'],
   twoHanded: true,
   range: { min: 2, max: 5, vertical: 99 },

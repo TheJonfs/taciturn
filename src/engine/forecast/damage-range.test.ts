@@ -157,11 +157,11 @@ describe('projectDamageRange', () => {
     };
     const state = makeGameState({ units: [attacker, target], map });
     const r = projectDamageRange({ state, catalog: cat, attacker, target, ability: attack });
-    // Base 42 × variance 2.0 = 84. Variance is deterministic (single
-    // point) so min/expected/max all collapse to 84.
-    expect(r.min).toBe(84);
-    expect(r.expected).toBe(84);
-    expect(r.max).toBe(84);
+    // Base 54 × variance 2.0 = 108 (S68: Longbow WP 7 → 9). Variance is
+    // deterministic (single point) so min/expected/max all collapse to 108.
+    expect(r.min).toBe(108);
+    expect(r.expected).toBe(108);
+    expect(r.max).toBe(108);
   });
 
   it('reflects bow height_delta variance — shooting at the same elevation projects ×1.0', () => {
@@ -186,7 +186,7 @@ describe('projectDamageRange', () => {
     };
     const state = makeGameState({ units: [attacker, target], map });
     const r = projectDamageRange({ state, catalog: cat, attacker, target, ability: attack });
-    expect(r.expected).toBe(42); // 6 × 7 × 1.0
+    expect(r.expected).toBe(54); // 6 × 9 × 1.0 (S68: Longbow WP 7 → 9)
   });
 
   it('reflects bow height_delta variance — shooting 5+ tiles uphill projects 0', () => {
@@ -216,8 +216,8 @@ describe('projectDamageRange', () => {
 
   it('damage range excludes hit chance — bow with low-accuracy weapon projects raw damage (S46 fix)', () => {
     // Pre-S46 the projection folded hit_chance into the damage multipliers,
-    // so a Longbow's 33% accuracy produced a damage range that was
-    // pre-multiplied by ~0.33. The forecast panel separately displays hit
+    // so a Longbow's accuracy produced a damage range that was
+    // pre-multiplied by it. The forecast panel separately displays hit
     // chance, so this double-counted visually. Post-fix, the damage range
     // is the raw variance-only projection; the panel's hit-chance row
     // shows accuracy as its own number.
@@ -229,9 +229,9 @@ describe('projectDamageRange', () => {
       position: { x: 0, y: 0, layer: 0 },
       equipment: longbow,
     });
-    // Target facing toward attacker — front evasion lookup. Knight has
-    // 0/0/0 evasion in v1, so the multiplier would be 33% × 1.0 × 1.0 =
-    // 0.33 if hit chance were folded in. We assert it's NOT folded in.
+    // Target facing toward attacker — front evasion lookup. We assert hit
+    // chance is NOT folded into the damage range (the panel shows it
+    // separately).
     const target = makeUnit({
       id: 'target', spd: 9, classId: 'knight', maxHpBase: 200, hp: 200,
       position: { x: 4, y: 0, layer: 0 },
@@ -246,9 +246,9 @@ describe('projectDamageRange', () => {
     };
     const state = makeGameState({ units: [attacker, target], map });
     const r = projectDamageRange({ state, catalog: cat, attacker, target, ability: attack });
-    // Raw 6 × 7 × 1.0 = 42. If hit chance (33%) were folded in, it would
-    // be ~14. Anything between 14 and 42 indicates partial folding.
-    expect(r.expected).toBe(42);
+    // Raw 6 × 9 × 1.0 = 54 (S68: Longbow WP 7 → 9). If hit chance (40%)
+    // were folded in it would be ~22. Anything below 54 indicates folding.
+    expect(r.expected).toBe(54);
   });
 
   it('returns zero range for an ability without a damage spec', () => {

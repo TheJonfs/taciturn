@@ -39,16 +39,22 @@ Skill / pathfinding / knockback / AoE. **X = 2** is the deliberately-spicy first
 cut. **LoS applies to spells too** — intended: an Aethurge's Lightning Bolt can
 clear a Terraformer Barrier (the regression test pins exactly this).
 
-### Two explicit follow-ups Chris flagged
+### Follow-ups
 
-1. **Re-analyze Hunter DoT vs other classes** with Vantage + the S68 stat buffs
-   folded in (the trade-study frame from this session), then **playtest X=2 and
-   dial toward +1 if too spicy.** The whole mechanic is one constant
-   (`VANTAGE_ELEVATION_BONUS` in `vantage.ts`) — trivial to retune. Added to
-   `playtest-watch.md`.
-2. The earlier handoff's open Hunter items are now closed: PA7/Spd10/MA5 shipped
-   last commit; Vantage is the Support. The **MA-5 plant** still anticipates a
-   future magic-leaning Hunter secondary command set (no content yet).
+1. **DoT re-analysis — DONE, and it drove a bow buff.** The tempo-normalized
+   re-run showed the bow Hunter was the *lowest-output* build even with the
+   stat buffs + Vantage + high ground — accuracy-starved (bow acc 33, single
+   low-WP swing). So instead of dialing Vantage down, we **buffed both bows**
+   (Longbow acc 33→40 / WP 7→9; Riptide acc 33→40 / WP 5→7; "Case B"). The
+   design intent (Chris): flat-ground Hunter stays well below the front line;
+   a **perched** Hunter (earned high ground + Vantage) now out-damages the
+   Knight — making "seize/build the high ground" a real party goal. **X=2 kept**
+   (one constant `VANTAGE_ELEVATION_BONUS`; still trivially retunable).
+2. **Playtest watch:** confirm the perched-vs-flat split *feels* right on
+   elevation-rich maps (the perched Hunter beating the Knight is intended, but
+   verify it reads as "earned," not oppressive). `playtest-watch.md` updated.
+3. The **MA-5 plant** still anticipates a future magic-leaning Hunter secondary
+   command set (no content yet).
 
 ### Watch / known limitations
 
