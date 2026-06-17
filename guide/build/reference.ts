@@ -262,6 +262,7 @@ function systemConstants(): string {
     '**Physical damage** (every weapon family): `PA × WP × power_coefficient`. — `src/engine/damage/handlers.ts` `physicalPaWp`.',
     '  - Weapon *family* changes only the **variance** band, not the base: `static` (axe/hammer), `attacker_speed` (knife — Speed-scaling, **not** a `(PA+Speed)` base), `attacker_brave` (knight sword), `height_delta` (bow). — `varianceRoll`.',
     '**Magical damage**: `MA × power_coefficient × Faith_factor`; no hit roll; resistance multiplies `(1 − resistance/100)`. — `magicalMaPower`, `resistanceCheck`.',
+    '**Spell Power (SP)** *is* a spell\'s magical `power_coefficient` (the per-ability multiplier in the magical formula above) — so +1 SP = +1 coefficient (≈ +1/SP fractional damage, bigger on low-SP spells). Items grant it via `spellPowerModifiers`, tag- and holder-gated (e.g. Wand of Potential: +1 SP to the holder\'s lightning spells). — ADR-0113.',
     '**Healing**: `MA × power_coefficient × Faith_factor`, × Emissary (if present). `noFaithScaling` abilities force Faith_factor = 1 (deterministic `MA × power`). — `healingBase`.',
     '**Lance Jump bonus**: `× 2` when the attacker wields a `lance`-tagged weapon. — `lanceBonus`.',
     '**Crit**: roll `crit_chance/100`; on hit append `× crit_multiplier`, layered on top of every other multiplier (variance, resistance, Vulnerable…). Healing never crits. — `critRoll`.',
