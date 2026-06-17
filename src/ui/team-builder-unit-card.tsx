@@ -96,7 +96,13 @@ export function TeamBuilderUnitCard({
       <div style={headerRowStyle}>
         <div style={portraitWrapStyle}>
           {portraitUrl !== null ? (
-            <img src={portraitUrl} alt={className ?? ''} style={portraitImgStyle} />
+            // S68: `key` forces a fresh <img> when the portrait URL changes
+            // (class / gender swap) rather than reusing one element with a
+            // swapped `src` — avoids the browser retaining the old decoded
+            // 512² frame until a repaint (the "stuck portrait until tab
+            // refocus" glitch). No cost on re-renders where the URL is
+            // unchanged (the common case) — the key is stable, element reused.
+            <img key={portraitUrl} src={portraitUrl} alt={className ?? ''} style={portraitImgStyle} />
           ) : (
             <div style={portraitFallbackStyle}>{selectedIndex + 1}</div>
           )}
