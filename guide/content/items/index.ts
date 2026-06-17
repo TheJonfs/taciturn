@@ -58,6 +58,11 @@ surprising number return to. Honest power, honest reach, and accuracy
 the others in the racks can only envy.`,
     tactical: 'The reliable baseline. When the build has no strong reason to reach elsewhere, it does not let the cadet down.',
   },
+  scimitar: {
+    flavor: `A lighter blade, curved and quick — less weight behind the
+swing than the Long Sword, but it answers the hand a half-beat sooner.`,
+    tactical: 'A sidegrade to the Long Sword: a point of Weapon Power traded for a step of Speed and the tempo it buys. Reach for it when turn frequency matters more than the heaviest single swing. Open to any class.',
+  },
   bolt_hammer: {
     flavor: `The Bolt Hammer remains, in this instructor's view, one of
 the armory's more elegant pieces — it asks the wielder to compose
@@ -97,6 +102,11 @@ in the swing, long in the reach — where the water runs, so does she.`,
     flavor: `The Geosage's wand — patient wood for a patient
 discipline. It does not hurry her, but it hurries her earth.`,
     tactical: 'Quickens her earth-tagged casts and shifts a struck foe’s resistances. The Geosage’s answer to her own slow tempo.',
+  },
+  wand_of_potential: {
+    flavor: `The fourth wand, and the one that closes the circle — the
+Aethurge's slim sidearm, humming faintly of the storm it favours.`,
+    tactical: 'The Aethurge’s natural wand: it hardens the holder’s own lightning *spells* with a point of Spell Power, while its basic strikes lay a Resonance that wards a foe against water and opens him to earth — completing the four-wand elemental rotation. The Spell Power lifts lightning spells alone, and only for the wielder.',
   },
   wand_of_lumen: {
     flavor: `The Pyromancer's wand — slim and warm to the touch, and
@@ -169,6 +179,11 @@ issues the Magebane with a brief, formal warning about which cadets it
 is *not* meant for — and a longer, more private remark about which
 cadets it absolutely is.`,
     tactical: 'The heaviest of the knives, with a real chance each blow that lands gags the target — a serious threat to a caster. Open to any class; punishing on a Knight or an Alchemist who can close on the mage line.',
+  },
+  vicious_dagger: {
+    flavor: `The knife the Armorer logs by name and by date of issue.
+Honed for one thing — the strike that bites deeper than it ought to.`,
+    tactical: 'The crit anchor of the knife family: a flat lift to critical chance on *every* blow the wielder lands, the off-hand swing included. Stacks with the Arcane Lens and a Crit Modifier; the seed of a dedicated crit build, telling hardest at the knife class’s volume of strikes. Open to any class.',
   },
 
   // --- Bows ---------------------------------------------------------
@@ -429,6 +444,11 @@ the cadet who refuses to choose.`,
     flavor: `The lens sharpens the eye. The cadet who wears it strikes
 surer, and more of those strikes tell.`,
     tactical: 'Lifts critical chance and multiplies outgoing hit chance. For the cadet who wants her blows to land — and to land hard.',
+  },
+  gauntlet_of_might: {
+    flavor: `A plated gauntlet, heavier in the hand than it looks. The
+Armorer issues exactly one, and notes with care who comes to ask.`,
+    tactical: 'A flat, generous lift to Physical Attack — the most direct boost to every weapon strike, charged shot, and physical-power ability in the racks. Unique per team, so it crowns a single striker; choose her with care.',
   },
   lightfoot: {
     flavor: `Everything that makes a cadet difficult to pin, gathered

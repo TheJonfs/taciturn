@@ -40,9 +40,8 @@ ahead of everyone — because she will, in fact, be acting one.`,
     attack: {
       full: `The Assassin's blade is light — the lightest honest arm the
 Academy issues — and on its own it does little. Its purpose is
-plurality: equip a second weapon and she strikes twice; add The Offering
-and twice becomes four. The Assassin who means to deal damage does it by
-*volume*, never by weight of any single blow.`,
+*plurality*: dual-wielded, and doubled again with The Offering. She
+deals damage by volume, never by the weight of any single blow.`,
       compact: 'A light melee blow. Its worth is in number — dual-wielded and doubled, not in any one strike.',
     },
     shadow_stitch: {
@@ -89,10 +88,11 @@ her.`,
     two_weapons: {
       full: `Two Weapons opens the off-hand to a second blade, and the
 Assassin strikes with both — her Physical Attack pared to three-quarters
-for the privilege. For a discipline whose damage is a matter of *number*
-rather than force, it is the foundation under every striking build she
-runs.`,
-      compact: 'Support: dual-wield, at PA ×0.75. The foundation of the volume-damage build.',
+for the privilege. Each blade now keeps its *own* accuracy, so a matched
+pair serves her best. For a discipline whose damage is a matter of
+*number* rather than force, it is the foundation under every striking
+build she runs.`,
+      compact: 'Support: dual-wield, at PA ×0.75. Each blade keeps its own accuracy — pair matched weapons. The volume-damage foundation.',
     },
     fleet_of_foot: {
       full: `One further tile of Move and one of Jump, granted freely —

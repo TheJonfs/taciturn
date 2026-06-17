@@ -134,7 +134,7 @@ Per `vision.md`, the project proceeds in roughly eight phases, one Claude Code s
 **Current status (keep this current — it's the first thing a new
 session reads):** the v1 handbook has been content-complete since Phase
 8, and has since grown well past that milestone as the game shipped
-content. `output/guide.pdf` is **~55 pages**: title → TOC → welcome →
+content. `output/guide.pdf` is **~57 pages**: title → TOC → welcome →
 foundations → *Specializations half-title* (two-column roster) → **12
 class spreads** (each verso on an even page, so two-page view shows true
 facing pairs) → *Armory half-title* (with a cover plate) → Armory
@@ -233,7 +233,7 @@ build pipeline alongside the other `../src/content/` reads.
 - Voice: Gariland instructor, formal-warm, no modern idiom, mechanical accuracy non-negotiable
 - Operational playbook: `maintaining.md` (update loop, recipes, parity, build/verify)
 - Architecture decisions: `decisions/` (ADR-0001: gear tiers)
-- Current status: ~55 pp, 12 class spreads, 3 training fields; maintenance-driven (changelog → guide)
+- Current status: ~57 pp, 12 class spreads, 3 training fields; maintenance-driven (changelog → guide)
 - Shared name pool: `../src/content/names/index.ts` — Ivalician /
   FFT-flavored names used by the game's team builder and AI; coordinate
   example-cadet names with this pool

@@ -1,96 +1,80 @@
 # Handoff
 
-*Outgoing notes from the planner-content-reference session — a new build
-artifact: a terse, mechanical-only mirror of the catalog for the planner
-thread. Not changelog-driven; a tooling addition Chris requested.
-Overwritten each session — read every item, then act / promote / drop.*
+*Outgoing notes from the Session-68 guide update — the bow/Hunter
+identity pass plus four new Armory pieces, reflected across **both**
+artifacts (the planner content reference and the PDF guide). Driven by
+the `docs/guide-changelog.md` feed. Overwritten each session — read every
+item, then act / promote / drop.*
 
 ## Changelog cursor
 
-**Unchanged — still processed through the Thief session (2026-06-15).**
-This session added no guide *content*; it built the planner-reference
-generator. The next guide session still starts above the "Playtest fixes
-(2026-06-15)" heading in `docs/guide-changelog.md`. The changelog had no
-new entries at session start.
+**Processed through Session 68 (2026-06-17)** — all four S68 entries:
+the bow accuracy/power pass (`e9144f5`), Vantage (`eaf115c`), the
+tuning & dual-wield fix (`b511733`, `fcc5ec8`), and the four new
+requisition pieces (`0078713`). Next guide session starts **above** the
+topmost "Session 68 — bow accuracy/power pass" heading.
 
 ## What landed (this session)
 
-A second build artifact rides the guide pipeline — the **Planner Content
-Reference**, a stripped-down mechanical mirror (no prose) for the planner
-Opus thread that designs content without code access. Decisions taken
-with Chris up front: **hybrid §1** (auto-extract values + hand-mirror
-formulas with pointers), and the output is a **gitignored artifact in
-`output/`** (like the PDF), so the only committed change is build code +
-docs.
+Two commits already in before the PDF bundle:
+- `4835c73` — **planner reference, S68 content** (Vantage in §7, the §1
+  Spell Power formula line resolving a long-standing `[verify]`, plus the
+  auto-flowed items/bows/stat-lines).
 
-- **`build/reference.ts`** (new) — the markdown emitter. tsx-safe:
-  imports only `data.ts` + the two formatters (no `?raw` SVG). Emits
-  §1–§8 of the schema. §2–§8 and the §1 ruleset table are auto-extracted
-  via `describeItem` / `describeAbility` / the catalog. The §1 *formula*
-  block, the §7 passive *effect* column (`PASSIVE_EFFECTS`), and a few §6
-  active augments (`ACTIVE_EFFECTS`) are hand-mirrored from engine
-  handler / hook source headers, with `src/engine/...` pointers. A
-  passive/active with no curated line renders a loud `⚠ hand-maintain`
-  marker (no silent blanks).
-- **`build/render-reference.ts`** (new) — tsx entry; writes
-  `output/planner-content-reference.md`. No Vite/Paged.js needed.
-- **Availability filter** (`isLive()`): the reference lists only
-  team-builder-available content (`availability: 'available'`, ADR-0049).
-  Chris's call — suppresses `'hidden'` playtest/system content: Strength
-  Ring, Iron Helm, Iron Mail, Float, and the system-proc abilities
-  (Discharge Strike, Undertow, the apply-proc / weapon-resonance shifts).
-  Hidden sub-abilities still appear by name where a live ability cites
-  them (e.g. §7 Discharge → Discharge Strike). A newly-authored hidden
-  piece correctly won't appear until its availability flips game-side.
-- **`package.json`** — `build:reference` (standalone) + appended to
-  `build:guide`.
-- **`.gitignore`** — ignore `output/planner-content-reference.md`.
-- **`planner-content-reference.md`** (the planner's schema/contract,
-  committed) — added a header pointer: this is the schema; the live
-  document is generated to `output/`.
-- **Docs:** `maintaining.md` §5a (the new maintenance playbook for the
-  reference), `CLAUDE.md` tooling notes + quick reference.
+PDF-guide bundle (this commit):
+- **Hunter spread** (`content/classes/hunter.ts`) — *light-touch* per
+  Chris. Stat block auto-refreshed (PA 7 / MA 5 / Spd 10); added the
+  **Vantage** ability note; fixed the stale accuracy framing ("scarcely
+  better than a coin-flip" → "fewer than half its shots unaided"; comment
+  33 → 40); wove Vantage into the brief + strategy. Compensating trim in
+  the strategy held the spread at 2 pages.
+- **Knight spread** (`content/classes/knight.ts`) — stat block auto
+  (Speed 8); one new marginalia carrying the "slowest blade, broadest
+  equipment — weight buys breadth" framing.
+- **Armory** (`content/items/index.ts`) — hand-authored notes for the
+  four new pieces (Scimitar, Vicious Dagger, Wand of Potential, Gauntlet
+  of Might); they auto-appear as data, the notes match the chapter's
+  voice. Wand of Potential's `spellPowerModifiers` rider renders (the
+  shared `item-format.ts` already handles it).
+- **Assassin spread** (`content/classes/assassin.ts`) — Two Weapons note
+  gains the S68 per-weapon accuracy/variance line ("each blade keeps its
+  own accuracy — pair matched weapons").
 
-All passive-effect and thin-active one-liners were distilled from the
-ability source headers (not memory) and verified against ids. Reference
-builds clean: 327 lines, all 8 sections, **zero** `⚠` / `[verify]` in
-any row.
+PDF rebuilt to **57 pages** (+2: the four Armory entries + notes). The
+planner reference rebuilt clean (no `⚠`/`[verify]` rows).
 
-## Things surfaced for Chris (flag, don't fix)
+## Parity — a spill caught and fixed
 
-- **Two distinct status types both named "Regen"** appear in §8 (one
-  `per_unit_ct`, one `permanent_per_unit_ct`) — likely the cast Regen vs.
-  an item/Tintinibar-granted Regen. Real catalog data, not a generator
-  bug; possibly a content naming collision worth a look on the game side.
-- **The §1 formula block & §7/§6 hand-maps are the only drift surface.**
-  They're the planner-reference analogue of the stale-prose audit: when
-  the changelog reports a formula/constant change or a new passive,
-  update the matching line. New *data* (classes, items, abilities,
-  statuses, stat lines) flows in free — no edit.
+Adding the Two Weapons clause spilled the **Assassin** spread 2 → 3
+pages, shifting every subsequent spread to odd/recto (Calculator through
+Thief all RECTO-FAIL). Recovered by trimming the Assassin's redundant
+`attack` note (it overlapped Two Weapons / The Offering) and tightening
+the new clause. Re-ran the §6 parity check: **all 12 spreads back on
+even/verso.** Lesson reaffirmed: the Assassin (5 actives) is as tight as
+the four-active spreads — budget a trim before adding to it.
 
-## Watch-for (carried)
+## Watch-for / flag
 
-- **PDF still ~85–91 MB** — art downsample remains the standing
-  top-priority cleanup (unrelated to this session).
-- **Guide build is not `tsc`-gated** (pre-existing): `tsc --noEmit`
-  reports ~55 errors across `item-format.ts` / `spread-context.ts` /
-  `preview-entry.ts` from accessing `@engine`'s discriminated-union props
-  directly. `reference.ts` adds 2 of the identical idiom (it mirrors
-  `item-format.ts`'s `item.classRestrictions` access). The build runs via
-  tsx/Vite, which is the real path; not a regression.
+- **PDF now ~91 MB** (unchanged driver — the twelve portraits + plates).
+  Art downsample remains the standing top-priority cleanup.
+- **Vantage is flagged for tuning game-side** (the source comment + ADR-
+  0115 say X=+2 is "the spicy first cut… dial toward +1 if too strong").
+  If it drops to +1, the Vantage note's "two tiles higher" needs a one-
+  word edit in both `hunter.ts` and the reference's `PASSIVE_EFFECTS`.
+- **`vantage` PASSIVE_EFFECTS entry** in `build/reference.ts` was found
+  as a *duplicate key* during the S68 reference pass (two `vantage:`
+  lines); resolved to the single, more-complete one. No other dupes, but
+  worth a glance if effects ever render unexpectedly.
 
 ## Considered and rejected
 
-- **Committing the generated reference** (game-side `docs/` or guide
-  root). Chris chose the gitignored-artifact route — keeps the
-  guide/game commit boundary clean and treats it like the PDF.
-- **Leaving §7 effects as `⚠` markers** to fill incrementally. Rejected
-  as not deliverable-quality; filled all ~35 passives + thin actives now
-  from source headers.
+- **Fuller Hunter identity rewrite** (altitude reframed from defence to
+  earned offence). Chris chose *light touch* — the prose was already
+  high-ground-centric, so only the stale lines + the Vantage note needed
+  to land.
 
 ## Suggested next scope
 
-- Hand the planner the generated file and let real use shake out which
-  cells it leans on; tune terseness / add columns from feedback.
-- Resume changelog-driven content maintenance when the feed advances.
-- Art downsample (still overdue).
+- Resume changelog-driven maintenance as S69+ lands.
+- Art downsample (overdue).
+- If Vantage is re-tuned to +1, the two-line edit noted above.

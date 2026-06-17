@@ -112,5 +112,6 @@ is the point.`,
     'Bull Rush is a shove, not a kill. The cadet who learns to read a ledge gets twice the use of it.',
     'See the River Ridge exercise — the one with the ford. The Knight who waited won it.',
     'The standing is the point. Underline that.',
+    'The slowest blade on the field now, by design — but no other cadet fills off-hand, head, and body alike. Weight buys breadth.',
   ],
 };

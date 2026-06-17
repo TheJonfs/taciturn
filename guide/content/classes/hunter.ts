@@ -4,15 +4,16 @@
 //
 // Ability-note keys match the ids the catalog resolves for the Hunter:
 // attack, pin_down, charged_attack, scramble (actives, the Marksmanship
-// command set); updraft (reaction), eagle_eye (support), high_jump
-// (movement).
+// command set); updraft (reaction), eagle_eye and vantage (support),
+// high_jump (movement).
 //
 // The Hunter is the Academy's eighth discipline and its fourth
 // non-caster — the addition that balances the roster at four physical
 // and four magical. A ranged-instant-damage skirmisher built around the
 // bow weapon class: shoots any elevation (the bow's vertical 99),
-// rewards the high ground (height-delta variance), and depends on Eagle
-// Eye to convert the bow's thin 33% baseline accuracy into hits.
+// rewards the high ground (height-delta variance, now sharpened by
+// Vantage), and depends on Eagle Eye to convert the bow's thin 40%
+// baseline accuracy into hits.
 
 import type { ClassProse } from '../prose.ts';
 
@@ -29,12 +30,13 @@ unremarkable, her arm light — but on the right tile, with the right
 shot, she is the engagement.
 
 Two facts shape the discipline. First, the bow misses without help:
-every bow the Armory issues lands a shot scarcely better than a
-coin-flip, and it is *Eagle Eye*, her free Support, that lifts the
-strike to land. The cadet who fails to equip it has misunderstood her
-kit. Second, the bow rewards *height*: every elevation she stands above
-her target adds to the damage, and every level she stands below cuts
-it. Climb. Shoot. Pin. Climb again.`,
+every bow the Armory issues lands fewer than half its shots unaided,
+and it is *Eagle Eye*, her free Support, that lifts the strike to land.
+The cadet who fails to equip it has misunderstood her kit. Second, the
+bow rewards *height*: every elevation she stands above her target adds
+to the damage, and every level she stands below cuts it — and *Vantage*
+lets her aim from a height she has not climbed. Climb. Shoot. Pin.
+Climb again.`,
 
   abilityNotes: {
     attack: {
@@ -93,6 +95,17 @@ terrain in the Academy's inventory she cannot reach. Bow plus altitude
 is the discipline; this is half of it, granted freely.`,
       compact: 'Movement: +2 Jump. Atop a Hunter’s native climb, she reaches almost any terrain.',
     },
+    vantage: {
+      full: `Her second free Support, and the one that makes the high
+ground *pay*. *Vantage* lets her aim as though she stood two tiles
+higher than her feet — and only on her own shots. The downhill damage,
+the high-ground accuracy, a bow's reach from elevation, the line drawn
+over cover: each reads from the borrowed height, though her body never
+leaves its tile. It is altitude lent to every arrow, and the surest
+sign that this discipline's damage is a thing she *earns* by where she
+draws from.`,
+      compact: 'Support: her own attacks resolve as if two tiles higher — downhill damage, accuracy, reach, and the shot over cover. Borrowed altitude, on offence alone.',
+    },
   },
 
   strategy: `The Hunter is played for *position* before damage. Equip
@@ -102,14 +115,13 @@ Climb to the highest tile in line of sight, drop a Pin Down on whichever
 foe most needs slowing, and from there shoot at the leisure her
 altitude buys her.
 
-Two things to keep, then. *Read the terrain first*: the Hunter's whole
-kit assumes the high ground, and a Hunter on the flat is a Hunter
-playing the wrong game — use Scramble and High Jump to find a perch the
-enemy cannot easily contest. And *guard her from below*: her front
-evade is modest and her back is none, so a foe who closes is a foe who
-ends her quickly. If the enemy commits a striker to climb after her,
-she has, in effect, already won the trade her teammates were waiting
-to make.`,
+Two things to keep, then. *Read the terrain first*: her whole kit
+assumes the high ground, and a Hunter on the flat is playing the wrong
+game — Scramble, High Jump, and Vantage all serve the same end. And
+*guard her from below*: her front evade is modest and her back is none,
+so a foe who closes ends her quickly. If the enemy commits a striker to
+climb after her, she has already won the trade her teammates were
+waiting to make.`,
 
   marginalia: [
     'No Eagle Eye, no bow. Write that down.',
