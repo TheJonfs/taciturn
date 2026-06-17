@@ -109,6 +109,7 @@ import {
   statusTypeId,
 } from '@engine/index.ts';
 import { projectExpectedDamage } from './projection.ts';
+import { killValue } from './kill-value.ts';
 import { pickBestMathSkill } from './math-skill-scoring.ts';
 import { buildCoverageMap, threatsToTile, type CoverageMap, type ThreatEntry } from './threat/coverage-map.ts';
 
@@ -1053,17 +1054,6 @@ function triggerConditionMatches(
     return true;
   }
   return true;
-}
-
-// "Kill value" of a target — higher when the target is closer to
-// dead. Per the v1 heuristic: lower HP is more valuable to attack.
-// Returns a positive number; the inverse-HP shape gives diminishing
-// returns at high HP and rapid escalation as HP → 0.
-function killValue(target: Unit): number {
-  const maxHp = Math.max(1, target.baseStats.maxHpBase);
-  // 1 / (hp/maxHp + 0.05) — 0.05 floor avoids divide-by-zero on a unit
-  // with 0 HP (which the AI shouldn't reach but is defensive).
-  return 1 / Math.max(0.05, target.vitals.hp / maxHp);
 }
 
 // === MP economy (S66 chunk 2) =========================================

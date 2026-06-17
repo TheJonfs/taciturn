@@ -44,6 +44,14 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 69 — AI self-state valuation (2026-06-17)
+
+_No player-facing changes._ (AI scoring only — the enemy AI now values
+charming/freeing units, stealing buffs, and field-wide kills; no game rule,
+content, or UX changed. ADR-0116.)
+
+---
+
 ## Session 68 — bow accuracy/power pass (2026-06-17)
 
 Commits: `e9144f5`.

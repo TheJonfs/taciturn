@@ -1490,3 +1490,20 @@ AI battles, so every item below needs Chris's in-battle feel pass.
   KOs its own unit → check the gate. AI ever swings at a non-charmed ally → the
   guard regressed (should be impossible by construction). Frees worthwhile
   puppets and presses damage otherwise → close.
+
+### Calculator Math targeting weights kills (S69 chunk 3)
+
+- **What to watch.** A Calculator's Math Skill (Precision Fire) now killValue-
+  weights its per-target damage, so a field-wide cast that catches a near-dead
+  enemy is valued like a direct kill. Watch that the AI Calculator **picks the
+  parameter/value set that finishes wounded enemies** rather than the one that
+  merely chips the most full-HP targets — and that a Math kill competes properly
+  with a direct attack in the pool (no more under-firing on wounded targets).
+- **Why it matters.** Closes ADR-0092's deferred "Math under-competes on wounded
+  targets" limitation. Heal / CT / buff Math options stay raw (unweighted) — only
+  the damage option re-bases.
+- **Signal for adjustment.** Calculator ignores a finishable enemy for a fatter
+  raw-damage cluster → the weighting isn't biting (check the cap-then-weight
+  order). Over-commits Math at the expense of a better direct attack → the
+  MATH_SCORE_SCALE (1.0) vs the kill weighting is off. Finishes wounded clusters
+  → close.

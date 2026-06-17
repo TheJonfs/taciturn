@@ -151,6 +151,28 @@ describe('pickBestMathSkill', () => {
     }
   });
 
+  it('killValue-weights damage — a near-dead enemy outscores a healthy one (S69 carry triage)', () => {
+    const catalog = loadDefaultCatalog();
+    const scoreFor = (foeHp: number): number => {
+      const state = createInitialState(
+        makeConfig([
+          { id: 'calc', team: 'team_a', cls: 'calculator', ct: 7, mp: 40 },
+          { id: 'foe', team: 'team_b', cls: 'knight', ct: 5, hp: foeHp },
+        ]),
+        catalog,
+      );
+      const actor = state.units.get(unitId('calc'))!;
+      const result = pickBestMathSkill(state, catalog, actor);
+      expect(result).not.toBeNull();
+      expect(result!.action.type === 'use_ability' && result!.action.payload.abilityId).toBe(abilityId('precision_fire'));
+      return result!.score;
+    };
+    // The near-dead foe caps less raw damage but its killValue is far higher,
+    // so the kill-weighted option scores above the full-HP one — the
+    // mis-ranking ADR-0092 flagged is fixed.
+    expect(scoreFor(5)).toBeGreaterThan(scoreFor(100));
+  });
+
   it("skips options whose MP cost exceeds the actor's current MP", () => {
     const catalog = loadDefaultCatalog();
     // Calculator at very low MP. Three enemies at CT 5 — Precision Fire

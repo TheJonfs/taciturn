@@ -9,8 +9,8 @@
 // v1 scoring shape (simple max-EV per the brief — Aggressive /
 // Conservative variants deferred per Brief D8):
 //
-//   - **Precision Fire** (damage):       sum(enemy_damage capped at hp)
-//                                       - sum(ally_damage capped at hp)
+//   - **Precision Fire** (damage):       sum(enemy_damage capped at hp × killValue)
+//                                       - sum(ally_damage capped at hp × killValue)
 //   - **Targeted Treatment** (heal):    sum(ally_heal_needed)
 //                                       - sum(enemy_heal capped at missing_hp)
 //   - **Exact Rhythm** (CT push):       sum(enemy_ct_reduction_value)
@@ -33,8 +33,12 @@
 // (`bestMathCandidate`) injects the returned score into the unified
 // candidate pool, where it competes against attacks/heals/items. A lethal
 // attack (small damage × large killValue) thus outranks a marginal Math
-// cast. Note the score here is raw net-team-value (HP-swing units, no
-// killValue weighting yet); a full killValue-weighted re-base is deferred.
+// cast. S69 carry triage: the Precision Fire damage option is now
+// killValue-weighted per target (the same scale attacks use), so a
+// field-wide cast that catches a near-dead enemy competes commensurably with
+// a direct kill (closing ADR-0092's deferred limitation). The heal / CT /
+// buff options remain raw net-team-value — they aren't "kills" and their
+// own tuned coefficients keep them subordinate.
 
 import {
   abilityId,
@@ -51,6 +55,7 @@ import {
   type ProposedAction,
   type Unit,
 } from '@engine/index.ts';
+import { killValue } from './kill-value.ts';
 
 const MATH_SKILL_COMMAND_SET: CommandSetId = commandSetId('math_skill');
 
@@ -144,8 +149,16 @@ function scoreOption(
     const sign = isEnemy ? 1 : -1;
 
     if (ability.id === PRECISION_FIRE) {
+      // S69 carry triage: killValue-weight the per-target damage so the
+      // field-wide cast values *actually killing* targets, the same scale
+      // attacks use (`projectedDamage × killValue`). A parameter/value set
+      // that catches a near-dead enemy now scores far above one that only
+      // chips full-HP targets — and a Math cast competes commensurably with a
+      // direct attack in the unified pool (closing ADR-0092's deferred
+      // limitation). Friendly-fire ally damage is weighted symmetrically: a
+      // near-dead ally caught in the blast is a proportionally bigger cost.
       const dmg = Math.min(target.vitals.hp, estimatePerTargetDamage(actor, target, ability));
-      score += sign * dmg;
+      score += sign * dmg * killValue(target);
     } else if (ability.id === TARGETED_TREATMENT) {
       const maxHp = target.baseStats.maxHpBase;
       const missing = Math.max(0, maxHp - target.vitals.hp);
