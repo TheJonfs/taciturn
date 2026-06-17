@@ -46,6 +46,8 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ## Session 68 — bow accuracy/power pass (2026-06-17)
 
+Commits: `e9144f5`.
+
 Both bows buffed, to lift the Hunter out of being the lowest-output build (a
 damage-over-time re-analysis with the new stats + Vantage confirmed it was
 accuracy-starved and far behind on raw damage):
@@ -61,7 +63,7 @@ front-line classes. Taking the high ground is now a concrete tactical payoff.
 
 ## Session 68 — Vantage (Hunter Support) (2026-06-17)
 
-New ability. See ADR-0115.
+Commits: `eaf115c`. New ability. See ADR-0115.
 
 - **Vantage** (Support, **free on the Hunter**, costs 1 for other classes) —
   your **attacks resolve as if you stood 2 tiles higher** than you actually
@@ -79,6 +81,7 @@ New ability. See ADR-0115.
 
 ## Session 68 — tuning & dual-wield fix (2026-06-17)
 
+Commits: `b511733` (Knight/Hunter tuning), `fcc5ec8` (dual-wield fix).
 Balance tuning and a dual-wield correctness fix. See ADR-0114 for the fix.
 
 - **Dual-wield now uses each weapon's own accuracy and damage variance.**
@@ -99,10 +102,21 @@ Balance tuning and a dual-wield correctness fix. See ADR-0114 for the fix.
   bump makes the Hunter a better fit than the Knight for a magic-leaning
   secondary command set.
 
+_Guide impact (this session's four S68 entries together):_ the **Hunter class
+spread** is the big one — refreshed stat block, a new native Support (Vantage),
+buffed bows, and a sharpened identity (the mobile **high-ground specialist**
+whose damage is earned through positioning) — its role prose likely wants a
+review, not just a stat refresh. The **Knight spread** needs its stat block
+(Speed 8) and a light "slowest, most heavily-equipped bruiser" framing. The
+**Armory** gains four pieces (Vicious Dagger, Scimitar, Wand of Potential,
+Gauntlet of Might) and the two bows' new numbers. The **Two Weapons / dual-wield
+mechanics** note should reflect per-weapon accuracy & variance.
+
 ## Session 68 (2026-06-16)
 
-Four new requisition pieces enter the armory (all unique-per-team, like the
-rest of the gear). See ADR-0113 for the new Spell Power mechanic.
+Commits: `0078713`. Four new requisition pieces enter the armory (all
+unique-per-team, like the rest of the gear). See ADR-0113 for the new Spell
+Power mechanic.
 
 - **Vicious Dagger** (Knife) — WP 5, 95% accuracy, and **+25% critical-hit
   chance** for its wielder. The crit bonus is per-unit (it applies to *every*
