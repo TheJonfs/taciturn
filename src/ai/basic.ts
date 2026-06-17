@@ -268,6 +268,21 @@ const CHARM_SWING_DAMPING_FACTOR = 0.5;
 // naturally rather than peeling a bare target.
 const STEAL_BUFF_VALUE_PER_BUFF = 18;
 
+// === Self-state valuation (S69 chunk 2 — break a bad state) ============
+
+// Break-a-charm. When an own ally is `enthralled` (control-override — it acts
+// for the enemy), attacking it has a 50% chance to snap the charm (matches
+// enthralled's onDamageReceived roll). Freeing it both denies the enemy its
+// remaining puppet-turns and returns them to us, valued via the same
+// damage-output proxy as the charm cast: (ally output × remaining puppet
+// turns × this factor) × break chance, minus the friendly damage the attack
+// costs. A KO'ing or 0-damage attack is excluded (a corpse can't be freed; a
+// 0-damage hit never rolls the break). This is the ONLY path that targets a
+// same-team unit offensively, and it is guarded to fire solely on
+// control-overridden allies — it must never leak onto a non-charmed ally.
+const CHARM_BREAK_CHANCE = 0.5;
+const BREAK_CHARM_VALUE_FACTOR = 1.0;
+
 // Session 40 (D7): minimal weapon-proc-target awareness. When the
 // actor's equipped weapon has an `attackProcs` rider that applies a
 // status the target is particularly vulnerable to, multiply the
@@ -430,6 +445,12 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
     if (charm !== null) candidates.push(charm);
     const stealBuffs = bestStealBuffCandidate(state, catalog, actor, enemies);
     if (stealBuffs !== null) candidates.push(stealBuffs);
+
+    // Self-state: break a bad state (S69 chunk 2). Free an own ally an enemy
+    // has charmed by attacking it (50% break per hit). Guarded to fire only
+    // on control-overridden allies — never a non-charmed ally.
+    const breakCharm = bestBreakCharmCandidate(state, catalog, actor, allies, enemies, offensive);
+    if (breakCharm !== null) candidates.push(breakCharm);
 
     // Worldcraft (S57 Tier A): Pit/Valley fall damage. Tile-targeted casts
     // scored in the unified currency (signed fall damage × killValue), so a
@@ -1744,6 +1765,86 @@ function estimateOffensiveOutput(
 }
 
 // =====================
+// Self-state: break a bad state (S69 chunk 2)
+// =====================
+
+// Whether `unit` is currently control-overridden (enthralled / future
+// Confusion / Berserk) — the guard that keeps break-a-charm from ever
+// targeting a non-charmed ally.
+function isControlOverridden(unit: Unit, catalog: Catalog): boolean {
+  return unit.statuses.some(
+    (s) => catalog.hasStatusType(s.typeId) && catalog.getStatusType(s.typeId).controlOverride === true,
+  );
+}
+
+// Remaining puppet-turns of `unit`'s control-override status (the longest, if
+// somehow several). per_unit_ct duration counts the puppet's own turns;
+// `remainingDuration` is null only for permanent/conditional modes (charm is
+// finite), so default to 1 so freeing always carries at least one turn.
+function controlOverrideRemainingTurns(unit: Unit, catalog: Catalog): number {
+  let best = 0;
+  for (const s of unit.statuses) {
+    if (!catalog.hasStatusType(s.typeId)) continue;
+    if (catalog.getStatusType(s.typeId).controlOverride !== true) continue;
+    best = Math.max(best, s.remainingDuration ?? 1);
+  }
+  return Math.max(1, best);
+}
+
+// Break-a-charm candidates. For each own ally driven against us by a
+// control-override status, value freeing it = (its damage-output × remaining
+// puppet turns × factor) × break chance, minus the friendly damage the
+// attack costs. The attack must deal positive damage (to roll the 50% break)
+// and must not KO the ally (don't kill the unit we're trying to reclaim).
+// Guarded hard: only `isControlOverridden` allies are ever considered, so
+// this never leaks onto a non-charmed ally.
+function bestBreakCharmCandidate(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  allies: ReadonlyArray<Unit>,
+  enemies: ReadonlyArray<Unit>,
+  offensive: ReadonlyArray<ActiveAbilityDefinition>,
+): ScoredAction | null {
+  const charmed = allies.filter((a) => a.id !== actor.id && isControlOverridden(a, catalog));
+  if (charmed.length === 0) return null;
+  // A representative opponent for the freed ally's output estimate (what it
+  // would do *for* us once reclaimed). Magnitude isn't sensitive to which.
+  const repEnemy = enemies.length > 0 ? enemies[0]! : undefined;
+  let best: ScoredAction | null = null;
+  for (const ally of charmed) {
+    const remaining = controlOverrideRemainingTurns(ally, catalog);
+    const output = repEnemy !== undefined ? estimateOffensiveOutput(state, catalog, ally, repEnemy) : 0;
+    const breakValue = output * remaining * BREAK_CHARM_VALUE_FACTOR * CHARM_BREAK_CHANCE;
+    if (breakValue <= 0) continue;
+    for (const ability of offensive) {
+      const damage = ability.effects.damage;
+      if (damage === undefined || damage.tags.includes('healing')) continue;
+      if (!targetsUnit(ability.targeting.kind)) continue;
+      if (selfDamageWouldKO(actor, ability)) continue;
+      if (!targetIsInAbilityRange(state, actor, actor.position, ally, ability, catalog)) continue;
+      const projected = projectExpectedDamageFromActor(state, catalog, actor, actor.position, ally, ability);
+      if (projected <= 0) continue; // no damage → no break roll
+      if (projected >= ally.vitals.hp) continue; // don't KO our own unit
+      // Friendly damage is a real cost; net it off the break value. The
+      // smallest-damage attack that still breaks therefore scores highest.
+      const score = breakValue - projected;
+      if (score <= 0) continue;
+      const action: ProposedAction = {
+        type: 'use_ability',
+        source: 'player',
+        actorId: actor.id,
+        payload: { abilityId: ability.id, target: { kind: 'unit', unitId: ally.id } },
+      };
+      if (!canCommitAction(state, catalog, actor, action)) continue;
+      const cand: ScoredAction = { score, action, key: `break-charm|${ability.id}|${ally.id}` };
+      if (best === null || compareScored(cand, best) > 0) best = cand;
+    }
+  }
+  return best;
+}
+
+// =====================
 // Worldcraft scoring (S57 Tier A — Pit/Valley fall damage)
 // =====================
 
@@ -2827,6 +2928,10 @@ export const _basicAiInternals = {
   bestStealBuffCandidate,
   estimateOffensiveOutput,
   countStealableBuffs,
+  bestBreakCharmCandidate,
+  isControlOverridden,
+  controlOverrideRemainingTurns,
+  enumerateOffensiveAbilities,
 };
 
 // Type re-exports needed by the test internals.

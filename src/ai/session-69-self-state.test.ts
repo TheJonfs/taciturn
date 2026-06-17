@@ -239,3 +239,117 @@ describe('S69 chunk 1 — decideBasicAi acceptance', () => {
     expect(decision.action.payload).not.toMatchObject({ abilityId: STEAL_HEART });
   });
 });
+
+// === Chunk 2 — break a bad state (free a charmed ally) =================
+
+// An own-team (team_b) Fire Mage that an enemy has charmed: it carries the
+// `enthralled` control-override and acts for team_a. A real threat once
+// freed (fire spells). Adjacent to the breaker by default.
+function charmedAlly(opts: { hp?: number; x?: number; charmed?: boolean } = {}): Unit {
+  const statuses = (opts.charmed ?? true)
+    ? [makeStatusInstance({ typeId: 'enthralled', remainingDuration: 3, customState: { charmerTeam: 'team_a' } })]
+    : [];
+  return makeUnit({
+    id: 'puppet',
+    spd: 10,
+    ma: 16,
+    classId: 'fire_mage',
+    hp: opts.hp ?? 100,
+    maxHpBase: 100,
+    position: { x: opts.x ?? 1, y: 0, layer: 0 },
+    loadout: mageLoadout(),
+    statuses,
+    team: 'team_b',
+  });
+}
+
+describe('S69 chunk 2 — break-a-charm primitives', () => {
+  it('isControlOverridden / controlOverrideRemainingTurns read the enthralled status', () => {
+    const puppet = charmedAlly();
+    expect(_basicAiInternals.isControlOverridden(puppet, cat)).toBe(true);
+    expect(_basicAiInternals.controlOverrideRemainingTurns(puppet, cat)).toBe(3);
+    const free = charmedAlly({ charmed: false });
+    expect(_basicAiInternals.isControlOverridden(free, cat)).toBe(false);
+  });
+});
+
+describe('S69 chunk 2 — bestBreakCharmCandidate', () => {
+  function setup(opts: { allyHp?: number; charmed?: boolean }): {
+    state: ReturnType<typeof makeGameState>; actor: Unit; allies: Unit[]; enemies: Unit[];
+  } {
+    const a = thief({ x: 0 }); // unarmed breaker, melee attack ~chip damage
+    const puppet = charmedAlly({ hp: opts.allyHp ?? 100, x: 1, charmed: opts.charmed ?? true });
+    const enemy = mageEnemy({ x: 4 }); // team_a, the repEnemy for the output estimate
+    const state = makeGameState({
+      units: [a, puppet, enemy], map: { width: 6, height: 1, tiles: flatGround(6, 1) },
+      teams: TEAMS, turnState: activeTurnFor(a.id),
+    });
+    return {
+      state,
+      actor: state.units.get(a.id)!,
+      allies: [state.units.get(a.id)!, state.units.get(puppet.id)!],
+      enemies: [state.units.get(enemy.id)!],
+    };
+  }
+
+  it('fires on a charmed ally — a positive, ally-targeted break', () => {
+    const { state, actor, allies, enemies } = setup({});
+    const cand = _basicAiInternals.bestBreakCharmCandidate(
+      state, cat, actor, allies, enemies, _basicAiInternals.enumerateOffensiveAbilities(state, actor, cat),
+    );
+    expect(cand).not.toBeNull();
+    expect(cand!.score).toBeGreaterThan(0);
+    expect(cand!.action.payload).toMatchObject({ target: { kind: 'unit', unitId: 'puppet' } });
+  });
+
+  it('never targets a non-charmed ally (the guard)', () => {
+    const { state, actor, allies, enemies } = setup({ charmed: false });
+    const cand = _basicAiInternals.bestBreakCharmCandidate(
+      state, cat, actor, allies, enemies, _basicAiInternals.enumerateOffensiveAbilities(state, actor, cat),
+    );
+    expect(cand).toBeNull();
+  });
+
+  it('declines when every attack would KO the ally (don\'t kill the unit we want back)', () => {
+    const { state, actor, allies, enemies } = setup({ allyHp: 1 });
+    const cand = _basicAiInternals.bestBreakCharmCandidate(
+      state, cat, actor, allies, enemies, _basicAiInternals.enumerateOffensiveAbilities(state, actor, cat),
+    );
+    expect(cand).toBeNull();
+  });
+});
+
+describe('S69 chunk 2 — decideBasicAi acceptance', () => {
+  it('attacks a charmed ally to free it when no enemy is reachable', () => {
+    const a = thief({ x: 0 });
+    const puppet = charmedAlly({ x: 1 });
+    const enemy = mageEnemy({ x: 5 }); // out of melee + charm reach
+    const noMove = { ...activeTurnFor(a.id), budget: { movesAvailable: 0, actsAvailable: 1 } };
+    const state = makeGameState({
+      units: [a, puppet, enemy], map: { width: 6, height: 1, tiles: flatGround(6, 1) },
+      teams: TEAMS, turnState: noMove,
+    });
+    const decision = decideBasicAi(state, cat);
+    expect(decision.kind).toBe('commit');
+    if (decision.kind !== 'commit') return;
+    expect(decision.action.payload).toMatchObject({ target: { kind: 'unit', unitId: 'puppet' } });
+  });
+
+  it('never attacks a non-charmed ally (frees nobody when nobody is charmed)', () => {
+    const a = thief({ x: 0 });
+    const ally = charmedAlly({ x: 1, charmed: false }); // a normal ally
+    const enemy = mageEnemy({ x: 5 });
+    const noMove = { ...activeTurnFor(a.id), budget: { movesAvailable: 0, actsAvailable: 1 } };
+    const state = makeGameState({
+      units: [a, ally, enemy], map: { width: 6, height: 1, tiles: flatGround(6, 1) },
+      teams: TEAMS, turnState: noMove,
+    });
+    const decision = decideBasicAi(state, cat);
+    // Either it ends the turn or acts on the enemy — but it must NEVER target
+    // the non-charmed ally.
+    if (decision.kind === 'commit' && decision.action.type === 'use_ability') {
+      const target = decision.action.payload.target;
+      if (target.kind === 'unit') expect(target.unitId).not.toBe('puppet');
+    }
+  });
+});

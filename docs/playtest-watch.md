@@ -1468,3 +1468,25 @@ AI battles, so every item below needs Chris's in-battle feel pass.
   damping (or check the contest gate). Thief never charms even a fat threat with
   no other play → raise it. Steals bare targets → the buff-count guard regressed.
   Charms real threats and presses damage when that's better → close.
+
+### AI frees a charmed ally — break-a-charm (S69 chunk 2)
+
+- **What to watch.** When an own unit is `enthralled` (an enemy Thief's Steal
+  Heart), the AI may attack it to snap the charm (50% per landed hit). Watch that
+  it (a) **attacks the charmed unit to free it** when the freed unit's value
+  justifies the chip damage, (b) **never KOs its own unit** to do so, and — the
+  hard guard — (c) **never attacks a non-charmed ally**. The break competes in the
+  pool, so a better attack on a real enemy still wins.
+- **Why it matters.** The session's higher-value self-state half (break-a-charm
+  over the deferred don't-feed-snowball). It's the only path that offensively
+  targets a same-team unit; the guard (`isControlOverridden` only) must hold.
+- **Dials** (`src/ai/basic.ts`): `CHARM_BREAK_CHANCE` (0.5, matches enthralled),
+  `BREAK_CHARM_VALUE_FACTOR` (1.0). Free value = freed unit's damage-output ×
+  remaining puppet turns × factor × break chance, minus the friendly damage cost.
+- **Known limitation.** Uses the damage-output proxy, so it undervalues freeing a
+  pure-support ally (a charmed healer healing the enemy reads as 0 output) —
+  consistent with the charm-cast threat basis; revisit if it matters in play.
+- **Signal for adjustment.** AI ignores a charmed ally with a strong freed value /
+  KOs its own unit → check the gate. AI ever swings at a non-charmed ally → the
+  guard regressed (should be impossible by construction). Frees worthwhile
+  puppets and presses damage otherwise → close.
