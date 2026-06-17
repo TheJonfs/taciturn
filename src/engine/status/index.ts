@@ -25,9 +25,11 @@ export {
   rollStatusChance,
   computeAbilityChance,
   rollAbilityChance,
+  computeThiefContestChance,
   NotYetImplementedError,
   type StatusChanceArgs,
   type StatusChanceResult,
   type AbilityChanceArgs,
   type AbilityChanceResult,
+  type ThiefContestChanceArgs,
 } from './chance.ts';

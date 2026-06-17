@@ -84,6 +84,7 @@ import {
   buildElevationChanges,
   cardinalFromTo,
   computeAbilityChance,
+  computeThiefContestChance,
   computeWorldcraftEffectCap,
   FALLING_DAMAGE_PER_LEVEL,
   type KnockbackDirection,
@@ -239,6 +240,34 @@ const SELF_COST_DAMPING_FACTOR = 0.25;
 // as damage options.
 const BUFF_SCORE_DAMPING_FACTOR = 0.3;
 
+// === Self-state valuation (S69 chunk 1 — gain a good state) ============
+// Two currently-AI-invisible Thief actives get scored candidates here, both
+// strictly subordinate (the cower discipline): the EV land-gate (the
+// additive Brave/PA contest) keeps each honest, and a real attack / lethal
+// play still wins. Self-buffs need no new term — the only chooseable ones
+// are `single_unit` ally buffs, which already score via scoreAllyBuff with
+// the actor as a valid same-team target (livingAllies includes self); the
+// rest are auto-fired reactions the scorer never chooses. Playtest dials —
+// see docs/playtest-watch.md.
+
+// Charm swing (Steal Heart). The action-economy delta of charming a target
+// for N of its turns: it loses those turns acting for its team and the AI
+// gains them as a puppet. Valued as the target's per-turn damage output
+// (the "damage-output proxy", Chris's call — its strongest projected attack
+// against the charmer) × charm duration × land-chance, damped to stay
+// subordinate to a lethal finish. Scores 0 on a target with no offensive
+// output, so it never makes the AI charm a harmless unit over attacking.
+const CHARM_SWING_DAMPING_FACTOR = 0.5;
+
+// Steal Buffs — a transfer (strip the enemy's positive statuses + wear them
+// yourself). Valued per stealable buff on the target: a flat
+// damage-equivalent that folds the deny side and the gain side into one
+// bounded term (a buff stolen is roughly a buff cleansed off a foe *plus* a
+// buff gained — slightly above Remedy's per-debuff cleanse value). Scores 0
+// when the target carries no stealable buffs, so the AI declines it
+// naturally rather than peeling a bare target.
+const STEAL_BUFF_VALUE_PER_BUFF = 18;
+
 // Session 40 (D7): minimal weapon-proc-target awareness. When the
 // actor's equipped weapon has an `attackProcs` rider that applies a
 // status the target is particularly vulnerable to, multiply the
@@ -392,6 +421,15 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
     // pre-empt (per S57: it now competes rather than firing first).
     const math = bestMathCandidate(state, catalog, actor);
     if (math !== null) candidates.push(math);
+
+    // Self-state: gain a good state (S69 chunk 1). Both are contest-gated
+    // Thief actives, scored subordinately in the unified currency so a
+    // lethal play still wins. Steal Heart values the charm's action-economy
+    // swing; Steal Buffs values the transfer per stealable buff.
+    const charm = bestCharmCandidate(state, catalog, actor, enemies);
+    if (charm !== null) candidates.push(charm);
+    const stealBuffs = bestStealBuffCandidate(state, catalog, actor, enemies);
+    if (stealBuffs !== null) candidates.push(stealBuffs);
 
     // Worldcraft (S57 Tier A): Pit/Valley fall damage. Tile-targeted casts
     // scored in the unified currency (signed fall damage × killValue), so a
@@ -650,6 +688,20 @@ function countDebuffStatuses(unit: Unit, catalog: Catalog): number {
     const type = catalog.getStatusType(inst.typeId);
     const polarity = type.aiHints?.polarity ?? 'debuff';
     if (polarity !== 'buff') count += 1;
+  }
+  return count;
+}
+
+// Count the buff-polarity statuses Steal Buffs would lift off a unit.
+// Mirrors the engine's stealBuffs resolution exactly (steal-buffs.ts):
+// `aiHints.polarity === 'buff'` and non-equipment-sourced. Used to value
+// the steal by how much it actually denies + gains.
+function countStealableBuffs(unit: Unit, catalog: Catalog): number {
+  let count = 0;
+  for (const inst of unit.statuses) {
+    if (inst.source.kind === 'equipment') continue;
+    if (!catalog.hasStatusType(inst.typeId)) continue;
+    if (catalog.getStatusType(inst.typeId).aiHints?.polarity === 'buff') count += 1;
   }
   return count;
 }
@@ -1568,6 +1620,127 @@ function scoreAllyBuff(
   const value = target.baseStats.ma * offensives.length * BUFF_SCORE_DAMPING_FACTOR;
   // S66 chunk 2: subordinate MP-spend penalty (0 for free / 0-MP casts).
   return value - mpSpendPenalty(state, catalog, actor, ability);
+}
+
+// =====================
+// Self-state: gain a good state (S69 chunk 1)
+// =====================
+
+// Steal Heart (charm) candidates. Each `effects.stealHeart` ability the
+// actor can afford, against every living enemy in range, scored by the
+// action-economy swing and gated by the additive Brave/PA contest. Target
+// liveness / opposite-gender / re-charm-ward are all enforced by
+// canCommitAction (which runs validateAction) — no need to re-implement the
+// gate here. Current-position only (no move-to-charm), the established
+// utility-candidate boundary (cf. Worldcraft); a Thief already adjacent
+// enough to its priority enemy will charm when the swing wins.
+function bestCharmCandidate(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  enemies: ReadonlyArray<Unit>,
+): ScoredAction | null {
+  const charms = enumerateActiveAbilities(actor, catalog)
+    .filter((a) => a.effects.stealHeart !== undefined)
+    .filter((a) => canAfford(state, catalog, actor, a));
+  if (charms.length === 0) return null;
+  let best: ScoredAction | null = null;
+  for (const ability of charms) {
+    const charm = ability.effects.stealHeart;
+    if (charm === undefined) continue;
+    for (const enemy of enemies) {
+      if (!targetIsInAbilityRange(state, actor, actor.position, enemy, ability, catalog)) continue;
+      const output = estimateOffensiveOutput(state, catalog, enemy, actor);
+      if (output <= 0) continue; // a target that can't hurt anyone isn't worth a puppet
+      const chance = computeThiefContestChance({
+        state, catalog, caster: actor, target: enemy,
+        baseChance: charm.baseChance,
+      }) / 100;
+      const score =
+        output * charm.charmDuration * chance * CHARM_SWING_DAMPING_FACTOR -
+        mpSpendPenalty(state, catalog, actor, ability);
+      if (score <= 0) continue;
+      const action: ProposedAction = {
+        type: 'use_ability',
+        source: 'player',
+        actorId: actor.id,
+        payload: { abilityId: ability.id, target: { kind: 'unit', unitId: enemy.id } },
+      };
+      if (!canCommitAction(state, catalog, actor, action)) continue;
+      const cand: ScoredAction = { score, action, key: `charm|${ability.id}|${enemy.id}` };
+      if (best === null || compareScored(cand, best) > 0) best = cand;
+    }
+  }
+  return best;
+}
+
+// Steal Buffs candidates. Each `effects.stealBuffs` ability against every
+// living enemy in range that actually carries stealable buffs, scored by
+// (stealable-buff count × per-buff value) × contest chance. A bare target
+// scores 0 (no buffs → nothing to steal), so the AI peels a buffed
+// backliner and ignores an unbuffed one.
+function bestStealBuffCandidate(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  enemies: ReadonlyArray<Unit>,
+): ScoredAction | null {
+  const steals = enumerateActiveAbilities(actor, catalog)
+    .filter((a) => a.effects.stealBuffs !== undefined)
+    .filter((a) => canAfford(state, catalog, actor, a));
+  if (steals.length === 0) return null;
+  let best: ScoredAction | null = null;
+  for (const ability of steals) {
+    const steal = ability.effects.stealBuffs;
+    if (steal === undefined) continue;
+    for (const enemy of enemies) {
+      if (!targetIsInAbilityRange(state, actor, actor.position, enemy, ability, catalog)) continue;
+      const buffs = countStealableBuffs(enemy, catalog);
+      if (buffs <= 0) continue;
+      const chance = computeThiefContestChance({
+        state, catalog, caster: actor, target: enemy,
+        baseChance: steal.baseChance,
+      }) / 100;
+      const score =
+        buffs * STEAL_BUFF_VALUE_PER_BUFF * chance -
+        mpSpendPenalty(state, catalog, actor, ability);
+      if (score <= 0) continue;
+      const action: ProposedAction = {
+        type: 'use_ability',
+        source: 'player',
+        actorId: actor.id,
+        payload: { abilityId: ability.id, target: { kind: 'unit', unitId: enemy.id } },
+      };
+      if (!canCommitAction(state, catalog, actor, action)) continue;
+      const cand: ScoredAction = { score, action, key: `steal-buffs|${ability.id}|${enemy.id}` };
+      if (best === null || compareScored(cand, best) > 0) best = cand;
+    }
+  }
+  return best;
+}
+
+// The "damage-output proxy" (Chris's threat-value call): the strongest
+// expected damage `unit` could land on `against` with one of its own
+// offensive abilities, projected through the live pipeline (PA/MA, WP,
+// Faith, evasion, elevation all composed). Used to value charming a unit by
+// what it would otherwise do to us. Returns 0 if the unit has no damaging
+// offensive (a pure debuffer / support isn't worth a charm slot under this
+// proxy). Ranged-reach is not gated — this is a capability estimate, not a
+// this-turn shot.
+function estimateOffensiveOutput(
+  state: GameState,
+  catalog: Catalog,
+  unit: Unit,
+  against: Unit,
+): number {
+  let best = 0;
+  for (const ability of enumerateOffensiveAbilities(state, unit, catalog)) {
+    if (ability.effects.damage === undefined) continue;
+    if (ability.effects.damage.tags.includes('healing')) continue;
+    const projected = projectExpectedDamage({ state, catalog, attacker: unit, target: against, ability });
+    if (projected > best) best = projected;
+  }
+  return best;
 }
 
 // =====================
@@ -2650,6 +2823,10 @@ export const _basicAiInternals = {
   planKoTargetId,
   bestRevertTrapCandidate,
   scoreRevertDrop,
+  bestCharmCandidate,
+  bestStealBuffCandidate,
+  estimateOffensiveOutput,
+  countStealableBuffs,
 };
 
 // Type re-exports needed by the test internals.

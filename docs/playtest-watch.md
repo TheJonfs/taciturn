@@ -1445,3 +1445,26 @@ AI battles, so every item below needs Chris's in-battle feel pass.
   cluster around the spear tip rather than pure distance rank). A richer taxonomy
   (tank/skirmisher/artillery/support) is the deferred next step if the coarse
   split feels too blunt. Reads as a sensible battle line → close.
+
+### AI values gaining a good state — Steal Heart / Steal Buffs (S69 chunk 1)
+
+- **What to watch.** The Thief's two previously-AI-invisible actives now score as
+  subordinate candidates. Watch that an AI Thief **casts Steal Heart on a real
+  threat** when the swing wins (a high-output enemy, no better play) but **never
+  passes up a lethal/decisive attack** to charm — the named cower-adjacent risk.
+  Likewise Steal Buffs should **peel a buffed backliner** and **ignore a bare
+  one** (scores 0 with no stealable buffs). Both must stay below a genuine attack.
+- **Why it matters.** First self-state valuation (the brief's chunk 1). The
+  contest land-gate (~31% naked Steal Heart, ~48% Steal Buffs) keeps each EV
+  honest; over-valuation would make the AI charm-spam instead of pressing damage.
+- **Dials** (`src/ai/basic.ts`): `CHARM_SWING_DAMPING_FACTOR` (0.5) — charm value =
+  target damage-output × charm duration × contest chance × this; `STEAL_BUFF_VALUE_PER_BUFF`
+  (18, damage-equivalent per stolen buff).
+- **Threat-value basis.** Charm uses the *damage-output proxy* (Chris's call): the
+  target's strongest projected attack, so a hard hitter is the charm target, not
+  a tank. Current-position only — no move-to-charm (the utility-candidate
+  boundary, cf. Worldcraft).
+- **Signal for adjustment.** Thief charms over a kill / charm-spams → lower the
+  damping (or check the contest gate). Thief never charms even a fat threat with
+  no other play → raise it. Steals bare targets → the buff-count guard regressed.
+  Charms real threats and presses damage when that's better → close.
