@@ -9,10 +9,13 @@
 // 2. For each cell *between* source and target (endpoints excluded),
 //    interpolate the ray's elevation at that cell along the source→target
 //    elevation gradient.
-// 3. For each `blocks_los` tile at that (x, y), at any layer, check
-//    whether the ray's elevation passes through the tile's vertical
-//    extent (`tile.elevation` ≤ ray ≤ `tile.elevation + 1`, exclusive
-//    on both ends — leaning toward "doesn't block" on grazing).
+// 3. For each tile at that (x, y), at any layer, block when EITHER:
+//    (a) the ray runs *below the tile's ground surface* (`ray <
+//        tile.elevation`, strict) — terrain-mass occlusion, so a hill / mesa
+//        between the endpoints blocks; or
+//    (b) the ray passes through a barrier / `blocks_los` column's vertical
+//        extent (`tile.elevation` ≤ ray < `tile.elevation + 1`; barriers
+//        inclusive on the floor, columns strict-both-ends to graze-pass).
 //
 // Limits flagged for later refinement:
 // - Bresenham can clip cell corners that a "supercover" trace would
@@ -23,49 +26,33 @@
 //   doc's open question), threaded in when the action layer lands.
 // - Blocking columns are assumed 1 elevation unit tall. Tile properties
 //   may eventually carry an explicit height parameter.
+// - Terrain-mass occlusion applies per tile at (x, y) across *all* layers,
+//   so on a future multi-layer map a ray passing *under* a bridge would read
+//   as buried in the upper tile. v1 maps are effectively single-layer; a
+//   layer-aware ray is the refinement if stacked maps land.
 
 import { tilesAt } from './accessors.ts';
+import { bresenhamCells } from './bresenham.ts';
 import type { BattleMap, Tile } from '../types/index.ts';
 import type { RangeEndpoint } from './range.ts';
 
 const BLOCKS_LOS_PROPERTY = 'blocks_los';
 const BLOCKER_HEIGHT = 1;
 
-interface Cell {
-  readonly x: number;
-  readonly y: number;
-}
-
-// Bresenham over (x, y), inclusive of endpoints. Single-pass; no
-// allocations beyond the result array.
-function bresenhamCells(x0: number, y0: number, x1: number, y1: number): ReadonlyArray<Cell> {
-  const cells: Cell[] = [];
-  const dx = Math.abs(x1 - x0);
-  const dy = Math.abs(y1 - y0);
-  const sx = x0 < x1 ? 1 : -1;
-  const sy = y0 < y1 ? 1 : -1;
-  let err = dx - dy;
-  let x = x0;
-  let y = y0;
-  // Loose safety bound — straight lines on a v1 map cap at width+height.
-  // The break-on-endpoint check is the real terminator.
-  for (let i = 0; i <= dx + dy + 1; i++) {
-    cells.push({ x, y });
-    if (x === x1 && y === y1) break;
-    const e2 = 2 * err;
-    if (e2 > -dy) {
-      err -= dy;
-      x += sx;
-    }
-    if (e2 < dx) {
-      err += dx;
-      y += sy;
-    }
-  }
-  return cells;
-}
-
 function tileBlocksAt(tile: Tile, rayElevation: number): boolean {
+  // Terrain-mass occlusion (S69 follow-up): the ray is *strictly below* this
+  // tile's ground surface → it is buried inside the terrain (a hill / raised
+  // ground / mesa between the endpoints), so it blocks. Strict (`<`) is
+  // load-bearing: a level shot across flat ground rides exactly at
+  // `tile.elevation` (ray == surface) and must pass, and a shot that grazes a
+  // smooth up/down slope rides the surface too. Only ground that *rises above*
+  // the interpolated sightline occludes. This makes a tall hump between two
+  // units block a straight-line shot the way intuition expects; previously
+  // only barriers / `blocks_los` columns occluded and terrain mass was
+  // transparent (you could shoot through a mountain). Endpoints are excluded
+  // by the caller, so standing-on-a-cliff doesn't block your own shot.
+  if (rayElevation < tile.elevation) return true;
+
   // Session 53: a Barrier blocks line-of-sight (Chris's call). Unlike a
   // `blocks_los` terrain column — which grazes-pass on a strict `>` floor so
   // a level shot over a same-height wall isn't blocked — a Barrier is a solid

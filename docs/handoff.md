@@ -33,10 +33,25 @@ build clean.** Three checkpointed chunks:
 support cower), the break-a-charm guard, and the Math re-base all want Chris's
 in-battle pass. New `playtest-watch.md` entries for each.
 
-### Investigation report — LoS / Vantage / Barrier geometry (report-only)
+### Investigation → ADR-0117 (terrain occlusion + bounded arc) — SHIPPED
 
-The brief's report-back. **No code change** (not greenlit; the question is
-whether to make cover-height-vs-elevation a dial).
+The brief's LoS/Vantage/Barrier report-back; Chris greenlit a follow-up from it,
+now on main as **ADR-0117** (1935 → 1943 tests; tsc + vite build clean):
+- **Straight-line spells now occlude on terrain mass** (`ray < tile.elevation`,
+  strict) — a hill/mesa above the sightline blocks; flat shots and smooth slopes
+  pass; height (incl. Vantage +2) opens sightlines over ridges. Spell-only (bows
+  are `arc`, a separate function).
+- **Bows keep arcing but with a bounded apex** — a lob clears cover only up to
+  `ARC_LOB_CLEARANCE = 5` above the higher endpoint (mirrors the bow's +5
+  damage-zero delta), so walls clear and mountains block. Applies to all `arc`
+  abilities. `bresenhamCells` extracted to `src/engine/map/bresenham.ts`.
+- **Watch:** balance-significant for LoS spells; interacts with the just-tuned
+  S68 bow/Vantage content — needs Chris's feel pass (`playtest-watch.md`).
+- **Multi-layer caveat** flagged in the LoS header + design doc (occlusion checks
+  all layers at an x,y; a ray under a bridge would read as buried — v1 is
+  single-layer).
+
+The original report, retained for reference:
 
 - **LoS as a function of computed elevation.** `hasLineOfSight(map, source,
   target)` (`src/engine/map/line-of-sight.ts`) walks the Bresenham (x,y) cells

@@ -83,19 +83,23 @@ Direct contact targeting. Range is typically small (1) with a configured vertica
 
 ### Straight-line (ray-trace)
 
-Ranged with line-of-sight requirement. The engine traces a line from source center to target center in 3D (x, y, elevation) and checks for blockers along the path. A blocker is:
-- A tile with the `blocks_los` property whose elevation crosses the line.
-- (Optionally, by ability) any other unit between source and target.
+Ranged with line-of-sight requirement. The engine traces a line from source center to target center in 3D (x, y, elevation) and checks for blockers along the path. The ray's elevation at each intermediate (x, y) is interpolated linearly along the source→target gradient. A blocker is:
+- **Terrain mass:** any tile whose ground surface rises *above* the ray (`ray < tile.elevation`, strict) — the ray is buried inside a hill / mesa / raised ground between the endpoints. Strict inequality means a level shot across flat ground and a shot that rides a smooth slope both pass (ray == surface grazes through); only ground that pokes *above* the sightline occludes. (S69 follow-up — previously terrain mass was transparent and only `blocks_los`/barriers occluded.)
+- A tile with the `blocks_los` property or a **barrier** whose 1-tall vertical extent crosses the line. `blocks_los` columns graze-pass on both ends (strict `>`…`<`); barriers use an inclusive floor (`>=`) so a wall between two same-elevation units blocks the eye-level ray.
+- (Optionally, by ability) any other unit between source and target. *(Not yet implemented.)*
 
-Ties at exact tile boundaries are resolved by a documented rule (lean toward "doesn't block" to keep play feeling generous, but specifics TBD). Used by bows, beams, gaze attacks, most direct-fire ranged.
+Ties at exact tile boundaries lean toward "doesn't block" to keep play feeling generous. Used by the straight-line spells (and any ability flagged `straight_line`); **not** bows, which arc. A Vantage wielder's *source* elevation reads +2 (ADR-0115), letting it see over cover it otherwise couldn't.
+
+> **Known limit:** terrain occlusion checks every tile at an (x, y) across all layers, so on a future multi-layer map a ray passing *under* a bridge would read as buried in the upper tile. v1 maps are single-layer; a layer-aware ray is the refinement if stacked maps land.
 
 ### Arc
 
-Ranged with no straight-line requirement, but with overhead-clearance rules. Arc validates simply:
+Ranged with no straight-line requirement, but with overhead-clearance rules:
 - Source tile must not be covered: no tile at higher layer at source's (x, y).
 - Target tile must not be covered: no tile at higher layer at target's (x, y).
+- **Bounded apex (S69 follow-up):** an intermediate tile blocks the lob only when its ground surface rises *more than `ARC_LOB_CLEARANCE` (5) above the higher of the two endpoints*. So walls, buildings, and low humps are lobbed over (the FFT "shoot over cover" feel) but a genuine mountain blocks. The clearance is a flat ceiling above the higher endpoint, not a true parabola — generous near the endpoints by design (you can lob over an adjacent wall). `5` mirrors the bow's height-delta damage falloff (a bow already deals 0 at a +5 delta), and Vantage is *not* folded into the apex.
 
-That's it. No ray trace through intermediate tiles. The arc is conceptually high enough that walls and units between source and target are irrelevant. Used by crossbows (in the "lobs over cover" sense), grenades, mortars, rain-of-arrows. Bridges and ceilings provide cover from arcs but not from straight-line attacks (and vice versa, conveniently).
+Used by bows (the "lobs over cover" sense), grenades, mortars, rain-of-arrows. Bridges and ceilings provide cover from arcs but not from straight-line attacks (and vice versa, conveniently).
 
 ## Area of effect
 

@@ -143,3 +143,60 @@ describe('hasLineOfSight — blocks_los handling', () => {
     ).toBe(true);
   });
 });
+
+describe('hasLineOfSight — terrain-mass occlusion (S69 follow-up)', () => {
+  // 3-tile strip; the middle tile is plain ground (no blocks_los / barrier)
+  // at a given elevation. The ray must duck below the middle surface to be
+  // occluded by the terrain mass.
+  const strip = (left: number, mid: number, right: number) =>
+    mapWith({
+      width: 3,
+      height: 1,
+      tiles: [
+        { x: 0, y: 0, elevation: left },
+        { x: 1, y: 0, elevation: mid },
+        { x: 2, y: 0, elevation: right },
+      ],
+    });
+
+  it('blocks a level shot through a tall plain-terrain hump (the mountain case)', () => {
+    // [10, 50, 10]: ray rides at 10 across the span; the middle surface is at
+    // 50, far above it → buried in the mountain → blocked. (Previously this
+    // connected — terrain mass was transparent.)
+    expect(
+      hasLineOfSight(strip(10, 50, 10), { x: 0, y: 0, elevation: 10 }, { x: 2, y: 0, elevation: 10 }),
+    ).toBe(false);
+  });
+
+  it('blocks a downhill shot that ducks under a same-height hump', () => {
+    // [10, 10, 7]: ray at the middle = 8.5, below the surface at 10 → blocked.
+    expect(
+      hasLineOfSight(strip(10, 10, 7), { x: 0, y: 0, elevation: 10 }, { x: 2, y: 0, elevation: 7 }),
+    ).toBe(false);
+  });
+
+  it('does not block a smooth downhill slope (ray rides the surface)', () => {
+    // [10, 8, 6]: ray at the middle = 8, exactly the surface → grazes, passes.
+    expect(
+      hasLineOfSight(strip(10, 8, 6), { x: 0, y: 0, elevation: 10 }, { x: 2, y: 0, elevation: 6 }),
+    ).toBe(true);
+  });
+
+  it('does not block a level shot across flat ground', () => {
+    expect(
+      hasLineOfSight(strip(5, 5, 5), { x: 0, y: 0, elevation: 5 }, { x: 2, y: 0, elevation: 5 }),
+    ).toBe(true);
+  });
+
+  it('clears a hump into a pit only with enough height (the see-over-the-ridge threshold)', () => {
+    // Target in a pit at 7, hump at 10. To clear it the ray at the midpoint
+    // (= (source+7)/2) must reach the crest (10): source 13 just clears,
+    // source 12 (e.g. flat-ground 10 + Vantage's 2) is still short.
+    expect(
+      hasLineOfSight(strip(13, 10, 7), { x: 0, y: 0, elevation: 13 }, { x: 2, y: 0, elevation: 7 }),
+    ).toBe(true);
+    expect(
+      hasLineOfSight(strip(12, 10, 7), { x: 0, y: 0, elevation: 12 }, { x: 2, y: 0, elevation: 7 }),
+    ).toBe(false);
+  });
+});

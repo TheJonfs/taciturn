@@ -1507,3 +1507,25 @@ AI battles, so every item below needs Chris's in-battle feel pass.
   order). Over-commits Math at the expense of a better direct attack → the
   MATH_SCORE_SCALE (1.0) vs the kill weighting is off. Finishes wounded clusters
   → close.
+
+### Terrain blocks straight-line sight; bounded bow lobs (S69 follow-up, ADR-0117)
+
+- **What to watch.** Straight-line spells now occlude on terrain mass (a hill/mesa
+  above the sightline blocks), and bows lob over cover only up to +5 above the
+  higher endpoint. Watch on elevation-rich maps (River Ridge and future mounts):
+  (a) do LoS spells feel *fairly* blocked by hills — not so much that mages can't
+  find shots, nor so little that high ground doesn't matter; (b) does **height**
+  meaningfully open sightlines (perched/Vantage caster sees over a ridge a flat
+  one can't); (c) do bows still feel like they "shoot over cover" while a real
+  mountain stops them.
+- **Why it matters.** Overturns a v1 simplification (terrain was transparent to
+  sight). Balance-significant for the LoS spells; interacts with the **just-tuned
+  S68 bow/Vantage** content — a flat-ground bow can no longer shoot over a hill.
+- **Dials**: `ARC_LOB_CLEARANCE` (5, `src/engine/map/arc.ts`); the straight-line
+  rule is the strict `ray < tile.elevation` occlusion (`line-of-sight.ts`, not a
+  numeric dial — change is structural).
+- **Signal for adjustment.** Mages can't get LoS on broken terrain / battles
+  stall → the occlusion is too aggressive (revisit grazing tolerance, or whether
+  some terrain should be "low" cover). Bows still clear implausibly tall obstacles
+  / a mountain doesn't stop them → raise/lower `ARC_LOB_CLEARANCE`. High ground
+  visibly opens shots and bows lob over walls but not peaks → close.

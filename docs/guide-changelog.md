@@ -44,6 +44,36 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 69 follow-up — terrain blocks sight; mountains block lobs (2026-06-17)
+
+Line-of-sight now respects terrain elevation. See ADR-0117.
+
+- **Hills and raised ground now block straight-line spells.** The seven
+  line-of-sight spells (Lightning Bolt, Scorch, Water Lash, Megavolt, Chain
+  Lightning, Fireball, Flame Lance) are blocked when a tile's terrain rises
+  above the line between caster and target — not just by barriers, but by the
+  **ground itself**. Previously a straight-line shot passed through any hill
+  (you could fire through a mountain); now a hump between you and your target
+  breaks the shot.
+  - A **level shot across flat ground** and a shot that **rides a smooth slope**
+    still connect — only terrain that rises *above* your sightline blocks.
+  - **Height beats cover:** standing higher (earned high ground, or a Hunter's
+    Vantage +2) raises your sightline so you can see *over* a ridge a
+    ground-level caster can't. To see over a hump into a pit behind it, you need
+    enough height to clear the crest.
+- **Bows still lob over cover — but not over mountains.** Bow shots (and other
+  arcing/lobbed attacks — Rock Toss, Earthquake, Cataclysm, Tidal Wave,
+  Maelstrom, Discharge Strike) still arc over walls and low humps as before, but
+  an obstacle that rises **more than 5 elevation above the higher of you and your
+  target** now blocks the lob. Walls and buildings: still cleared. A genuine
+  mountain: blocked. (5 is the same height delta at which a bow's damage already
+  falls to zero.)
+- **Player takeaway:** on elevation-rich maps, terrain is now real cover against
+  line-of-sight spells, and the high ground lets you shoot over it. Bows keep
+  their reach over ordinary cover but can't lob over a peak.
+
+---
+
 ## Session 69 — AI self-state valuation (2026-06-17)
 
 _No player-facing changes._ (AI scoring only — the enemy AI now values
