@@ -117,14 +117,20 @@ caster spends on damage and a careful one spends on *position*.
 
 Ground also *blocks*. A class of attacks — the bolt and the beam, the
 straight-line spell that travels from caster to mark — requires a clear
-line between the two: terrain, an interposed body, or a conjured
-barrier will stop it cold. These are the engagement's aimed strikes,
-and cover is the answer to them. Mark the distinction, for it does not
-hold everywhere: the lobbed and the arcing attacks — a bow's high shot,
-a spell that falls upon its target from above rather than flying at it —
-ignore the obstruction and reach over the wall. A cadet behind cover is
-safe from the one and exposed to the other, and reading which is which
-is reading the ground.
+line between the two: an interposed body, a conjured barrier, or *the
+ground itself* rising above that line will stop it cold. Here height
+answers in kind. A cadet who holds the high ground — or a Hunter who
+aims with *Vantage* — looks *down* a raised line and sees over a ridge
+that would blind a caster on the flat; to reach a target in a hollow
+behind a crest, one must stand high enough to clear it. These are the
+engagement's aimed strikes, and cover — terrain now as much as wall — is
+the answer to them. Mark the distinction, for it does not hold
+everywhere: the lobbed and the arcing attacks — a bow's high shot, a
+spell that falls upon its target from above rather than flying at it —
+arc over a wall or a low hump as though it were not there. Only a
+*genuine mountain*, rising well above both cadets, turns the lob aside.
+A cadet behind cover is safe from the aimed strike and exposed to the
+lob, and reading which is which is reading the ground.
 
 Read the terrain as carefully as you read your opponent. More often
 than the cadet expects, the two are the same reading.`,

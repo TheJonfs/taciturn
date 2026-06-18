@@ -1,80 +1,69 @@
 # Handoff
 
-*Outgoing notes from the Session-68 guide update — the bow/Hunter
-identity pass plus four new Armory pieces, reflected across **both**
-artifacts (the planner content reference and the PDF guide). Driven by
-the `docs/guide-changelog.md` feed. Overwritten each session — read every
-item, then act / promote / drop.*
+*Outgoing notes from the Session-69 line-of-sight pass — terrain
+elevation now occludes straight-line attacks, and a bow's lob is bounded
+by a genuine mountain (ADR-0117). A small, surgical update to both
+artifacts. Driven by `docs/guide-changelog.md`. Overwritten each session
+— read every item, then act / promote / drop.*
 
 ## Changelog cursor
 
-**Processed through Session 68 (2026-06-17)** — all four S68 entries:
-the bow accuracy/power pass (`e9144f5`), Vantage (`eaf115c`), the
-tuning & dual-wield fix (`b511733`, `fcc5ec8`), and the four new
-requisition pieces (`0078713`). Next guide session starts **above** the
-topmost "Session 68 — bow accuracy/power pass" heading.
+**Processed through the Session 69 follow-up (2026-06-17)** — the two
+topmost entries: "Session 69 follow-up — terrain blocks sight; mountains
+block lobs" (player-facing, reflected below) and "Session 69 — AI
+self-state valuation" (`_No player-facing changes._`, AI scoring only,
+skipped). Next guide session starts **above** the "Session 69 follow-up"
+heading.
 
 ## What landed (this session)
 
-Two commits already in before the PDF bundle:
-- `4835c73` — **planner reference, S68 content** (Vantage in §7, the §1
-  Spell Power formula line resolving a long-standing `[verify]`, plus the
-  auto-flowed items/bows/stat-lines).
+A single player-facing change (ADR-0117), reflected as a *mechanics
+change to existing content* — no new tables, just refined rules prose +
+a §1 reference line:
 
-PDF-guide bundle (this commit):
-- **Hunter spread** (`content/classes/hunter.ts`) — *light-touch* per
-  Chris. Stat block auto-refreshed (PA 7 / MA 5 / Spd 10); added the
-  **Vantage** ability note; fixed the stale accuracy framing ("scarcely
-  better than a coin-flip" → "fewer than half its shots unaided"; comment
-  33 → 40); wove Vantage into the brief + strategy. Compensating trim in
-  the strategy held the spread at 2 pages.
-- **Knight spread** (`content/classes/knight.ts`) — stat block auto
-  (Speed 8); one new marginalia carrying the "slowest blade, broadest
-  equipment — weight buys breadth" framing.
-- **Armory** (`content/items/index.ts`) — hand-authored notes for the
-  four new pieces (Scimitar, Vicious Dagger, Wand of Potential, Gauntlet
-  of Might); they auto-appear as data, the notes match the chapter's
-  voice. Wand of Potential's `spellPowerModifiers` rider renders (the
-  shared `item-format.ts` already handles it).
-- **Assassin spread** (`content/classes/assassin.ts`) — Two Weapons note
-  gains the S68 per-weapon accuracy/variance line ("each blade keeps its
-  own accuracy — pair matched weapons").
+- **PDF — Foundations** (`content/foundations/index.ts`): the line-of-
+  sight / cover passage refined. It already noted that straight-line
+  attacks need a clear line; now it states that **terrain rising above
+  the sightline** blocks (not just walls/units/barriers), that **height
+  raises the sightline** — high ground or a Hunter's *Vantage* sees over
+  a ridge that blinds a caster on the flat — and that lobs/arcs clear a
+  wall or low hump but are **turned aside by a genuine mountain** (>5
+  above both cadets). Renders on p7; the chapter stayed within its pages
+  (PDF still 57 pp).
+- **Planner reference — §1** (`build/reference.ts`): a new line-of-sight
+  formula line (hand-mirrored, ADR-0117) capturing the same three facts
+  for the designer. Sits beside the evasion line.
 
-PDF rebuilt to **57 pages** (+2: the four Armory entries + notes). The
-planner reference rebuilt clean (no `⚠`/`[verify]` rows).
+No per-class spread needed editing: the mages' / Assassin's "Cover
+blocks it" notes are still accurate (cover still blocks straight-line),
+and the Hunter's Vantage note already framed shooting "over cover."
 
-## Parity — a spill caught and fixed
+## Verification
 
-Adding the Two Weapons clause spilled the **Assassin** spread 2 → 3
-pages, shifting every subsequent spread to odd/recto (Calculator through
-Thief all RECTO-FAIL). Recovered by trimming the Assassin's redundant
-`attack` note (it overlapped Two Weapons / The Offering) and tightening
-the new clause. Re-ran the §6 parity check: **all 12 spreads back on
-even/verso.** Lesson reaffirmed: the Assassin (5 actives) is as tight as
-the four-active spreads — budget a trim before adding to it.
+- **Parity intact** — all 12 class spreads still open on even/verso (the
+  Foundations growth is upstream of the Specializations half-title, which
+  re-anchors via `break-before: right`, so the spreads were never at
+  risk; checked anyway).
+- Planner reference rebuilt clean (no `⚠`/`[verify]` rows); §1 LoS line
+  present.
 
 ## Watch-for / flag
 
-- **PDF now ~91 MB** (unchanged driver — the twelve portraits + plates).
-  Art downsample remains the standing top-priority cleanup.
-- **Vantage is flagged for tuning game-side** (the source comment + ADR-
-  0115 say X=+2 is "the spicy first cut… dial toward +1 if too strong").
-  If it drops to +1, the Vantage note's "two tiles higher" needs a one-
-  word edit in both `hunter.ts` and the reference's `PASSIVE_EFFECTS`.
-- **`vantage` PASSIVE_EFFECTS entry** in `build/reference.ts` was found
-  as a *duplicate key* during the S68 reference pass (two `vantage:`
-  lines); resolved to the single, more-complete one. No other dupes, but
-  worth a glance if effects ever render unexpectedly.
+- **PDF still ~91 MB** — art downsample remains the standing top-priority
+  cleanup.
+- **Vantage may be re-tuned +2 → +1 game-side** (carried from S68; ADR-
+  0115's "spicy first cut" note). If it changes, the "two tiles higher"
+  wording needs a one-word edit in `hunter.ts`, the reference's
+  `PASSIVE_EFFECTS`, *and now also* the Foundations LoS passage and the
+  §1 LoS reference line (both name Vantage's +2). Four spots.
 
 ## Considered and rejected
 
-- **Fuller Hunter identity rewrite** (altitude reframed from defence to
-  earned offence). Chris chose *light touch* — the prose was already
-  high-ground-centric, so only the stale lines + the Vantage note needed
-  to land.
+- **Touching the mage / Assassin spreads.** Their cover notes remain
+  correct under the new rule (terrain joining walls as cover only
+  strengthens "cover blocks it"); no edit earns its parity risk.
 
 ## Suggested next scope
 
-- Resume changelog-driven maintenance as S69+ lands.
+- Resume changelog-driven maintenance as S70+ lands.
 - Art downsample (overdue).
-- If Vantage is re-tuned to +1, the two-line edit noted above.
