@@ -44,9 +44,28 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 71 — Behavior audits & fixes (chunk 2) (2026-06-19)
+
+Commits: _(S71 chunk 2)_. See ADR-0119. Two behavior fixes from the new-player
+playtest; the rest of the chunk-2 findings audited as already-correct (no change).
+
+- **Templar Jump now uses up your Move for the turn.** Committing Jump (the
+  charged Dragoon leap) forfeits your Move — you can't Jump and then also walk in
+  the same turn. (It doesn't make the turn cost more CT; it just blocks the second
+  mobility action.)
+- **Exact Rhythm (Math Skill) hits ~2× harder.** Its CT push no longer scales with
+  Faith — magnitude is now `SP × MA`, matching Precision Fire and Targeted
+  Treatment. The Calculator's Math Skill output is meant to be a faith-independent
+  instrument; Exact Rhythm was the last one still faith-scaled.
+- **No change (audited, already correct):** Bull Rush and the other Knight Battle
+  Skills are already melee-only; Rasp Pendant already drains MP only on direct
+  attacks/ability damage (not DoTs/reflect/fall); Worldcraft still doesn't trigger
+  Flow State's CT refund (by design); Ignition already applies Burn on *any*
+  magical damage (its tooltip was fixed in chunk 1).
+
 ## Session 71 — Legibility & polish (chunk 1) (2026-06-19)
 
-Commits: _(S71 chunk 1)_. New-player legibility batch — tooltip corrections,
+Commits: `5cf3d3b`. New-player legibility batch — tooltip corrections,
 Team Builder affordances, targeting recolor. No mechanics changed; the audit
 found the underlying behaviors were already correct, so these are *what the
 player sees*, not *what the game does*.

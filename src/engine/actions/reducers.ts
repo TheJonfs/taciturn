@@ -373,6 +373,21 @@ export function reduceUseAbility(
   // bypass to validate.ts's actsAvailable skip.
   if (state.turnState !== null && !action.isReaction && !isRider) {
     workingState = decrementActBudget(workingState);
+    // S71 (#14): a `spendsMoveBudget` ability (Templar Jump) also forfeits
+    // the turn's Move — the leap is the turn's reposition, so a follow-up
+    // Move would be a double-move. Zero movesAvailable so `validateAction`
+    // (and the UI) block a subsequent Move. movesConsumed is left alone:
+    // Jump doesn't physically relocate, so the turn's CT cost is unchanged.
+    if (ability.spendsMoveBudget === true && workingState.turnState !== null) {
+      const turn = workingState.turnState;
+      workingState = {
+        ...workingState,
+        turnState: {
+          ...turn,
+          budget: { ...turn.budget, movesAvailable: 0 },
+        },
+      };
+    }
   }
 
   // Action Speed gate. actionSpeed > 0 → spawn a ChargedAction with

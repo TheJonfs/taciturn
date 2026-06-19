@@ -48,6 +48,9 @@ export const jump: ActiveAbilityDefinition = {
   actionSpeed: 24, // >0 marks it charged; chargeSpeedFromUnitSpeed sets the rate
   chargeSpeedFromUnitSpeed: 3,
   mpCost: 6,
+  // S71 (#14): Jump forfeits the turn's Move budget — the leap is the
+  // turn's reposition, so Jump-then-Move would be a double-move.
+  spendsMoveBudget: true,
   effects: {
     jumpLeap: true,
     damage: {

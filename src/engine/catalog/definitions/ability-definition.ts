@@ -601,6 +601,16 @@ export interface ActiveAbilityDefinition extends AbilityCommon {
   // that matches on `action.payload.source.kind === 'ability_self_cost'`
   // and returns `blocked`.
   readonly selfDamage?: { readonly fraction: number };
+  // S71 (#14): when `true`, committing this ability on the active turn
+  // also forfeits the turn's Move budget (`movesAvailable → 0`), so a Move
+  // can't follow it. Templar's Jump uses this — a leaping reposition-attack
+  // is the turn's mobility, so Jump-then-Move would be a double-move.
+  // Applies at commit (charged or instant), to the active unit only —
+  // reactions and equipment-proc riders have no turn budget to spend.
+  // Does not bump `movesConsumed`: the turn's CT cost is unchanged (Jump
+  // doesn't physically relocate), so this only blocks a second mobility
+  // action, it doesn't make the turn cost more.
+  readonly spendsMoveBudget?: boolean;
   // Session 49: per-target MP cost rider for Math Skill abilities. When
   // set, the total MP cost at cast time becomes
   //   `mpCost + perTarget × matchingTargetCount`

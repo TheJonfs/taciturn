@@ -155,6 +155,50 @@ describe('Dragoon Jump — charge rate + airborne', () => {
   });
 });
 
+describe('Dragoon Jump — forfeits the turn Move budget (S71 #14)', () => {
+  it('committing Jump zeroes movesAvailable so a follow-up Move is blocked', () => {
+    const c = cat();
+    const j = makeUnit({ id: 'j', spd: 10, mp: 10, equipment: weapon(lance.id), loadout: loadout(), position: { x: 0, y: 0, layer: 0 } });
+    const enemy = makeUnit({ id: 'e', team: 'team_b', spd: 10, hp: 200, maxHpBase: 200, position: { x: 2, y: 0, layer: 0 } });
+    const s = makeGameState({ units: [j, enemy], map: flatMap(6, 6), turnState: turnFor('j') });
+    const r = commitAction(s, {
+      type: 'use_ability', source: 'player', actorId: j.id,
+      payload: { abilityId: abilityId('jump'), target: { kind: 'tile', position: { x: 2, y: 0, layer: 0 } } },
+    }, c);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.newState.turnState).not.toBeNull();
+    // Jump forfeits the Move (and consumes its Act); a follow-up Move is gone.
+    expect(r.newState.turnState!.budget.movesAvailable).toBe(0);
+    expect(r.newState.turnState!.budget.actsAvailable).toBe(0);
+    // movesConsumed is NOT bumped — Jump doesn't physically relocate, so the
+    // turn's CT cost stays Act-only, not Move+Act.
+    expect(r.newState.turnState!.consumed.movesConsumed).toBe(0);
+    const move = validateAction(r.newState, {
+      type: 'move', source: 'player', actorId: j.id,
+      payload: { destination: { x: 1, y: 0, layer: 0 } },
+    }, c);
+    expect(move.valid).toBe(false);
+  });
+
+  it('control: an ordinary charged ability leaves the Move budget intact', () => {
+    const c = catWithBolt();
+    const caster = makeUnit({ id: 'k', spd: 10, ma: 10, faith: 100, mp: 10, loadout: loadout(), position: { x: 0, y: 0, layer: 0 } });
+    const enemy = makeUnit({ id: 'e', team: 'team_b', spd: 10, hp: 100, maxHpBase: 100, position: { x: 2, y: 0, layer: 0 } });
+    const s = makeGameState({ units: [caster, enemy], map: flatMap(6, 6), turnState: turnFor('k') });
+    const r = commitAction(s, {
+      type: 'use_ability', source: 'player', actorId: caster.id,
+      payload: { abilityId: abilityId('test_charged_bolt'), target: { kind: 'unit', unitId: enemy.id } },
+    }, c);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // No spendsMoveBudget → the charged cast consumed only the Act; the unit
+    // could still Move this turn (the case Jump deliberately forbids).
+    expect(r.newState.turnState!.budget.movesAvailable).toBe(1);
+    expect(r.newState.turnState!.budget.actsAvailable).toBe(0);
+  });
+});
+
 describe('Dragoon Jump — resolve', () => {
   it('lands back home, clears airborne, and strikes the target tile for PA×WP×2 (Lance)', () => {
     const c = cat();
