@@ -40,6 +40,8 @@ import rampart03Url from './rampart-03.png';
 import rock01Url from './rock-01.png';
 import rock02Url from './rock-02.png';
 import rock03Url from './rock-03.png';
+import grassRock01Url from './grass-rock-01.png';
+import grassRock02Url from './grass-rock-02.png';
 import type { TerrainType } from '@engine/index.ts';
 
 // Session 33 (ADR-0073): `water_shallow` / `water_deep` ship with
@@ -50,15 +52,17 @@ import type { TerrainType } from '@engine/index.ts';
 // walling for Stonebridge's SE keep. Source art was authored at ~700px
 // and downscaled to 256×256 to match the other terrain variants.
 //
-// Session 70: `rock` ships with three bare-stone variants, used by
-// Mountain Pass for its high ground (elevation ≥ 7 — the SW massif and
-// NE ridge) to break up the grass tiling visually.
+// Session 70: `rock` ships with three bare-stone variants for Mountain
+// Pass's high ground (elevation ≥ 7 — the SW massif and NE ridge), and
+// `grass_rock` two grass-over-stone variants for the mid band (elev 5-6)
+// — a visual transition between the green lowlands and the bare heights.
 export const TERRAIN_MANIFEST: ReadonlyMap<TerrainType, ReadonlyArray<string>> = new Map([
   ['ground', [ground01Url, ground02Url, ground03Url]],
   ['water_shallow', [shallowWater01Url, shallowWater02Url, shallowWater03Url]],
   ['water_deep', [deepWater01Url, deepWater02Url, deepWater03Url]],
   ['rampart', [rampart01Url, rampart02Url, rampart03Url]],
   ['rock', [rock01Url, rock02Url, rock03Url]],
+  ['grass_rock', [grassRock01Url, grassRock02Url]],
 ]);
 
 // Returns the texture-URL pool for a terrain type, or `null` if no

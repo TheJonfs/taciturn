@@ -152,11 +152,12 @@ export const defaultRuleset: RulesetDefinition = {
   // identity rather than mechanical differentiation. Carries the
   // `'land'` tag so existing land-aware composition (future passives)
   // covers it; no `'rampart'` tag yet because there is no consumer.
-  // Session 70: `rock` joins for Mountain Pass's high ground (elevation
-  // ≥ 7 — the SW massif and NE ridge). Like `rampart`, it behaves as land
-  // for pathfinding (implicit default step cost 1, walkable by every
-  // class — see each class's `canEnter`); the distinct id exists so the
-  // renderer can paint bare-stone art on the heights. Carries `'land'`.
+  // Session 70: `rock` (Mountain Pass high ground, elev ≥ 7) and
+  // `grass_rock` (the mid band, elev 5-6) join. Like `rampart`, both
+  // behave as land for pathfinding (implicit default step cost 1,
+  // walkable by every class — see each class's `canEnter`); the distinct
+  // ids exist purely so the renderer can paint stone / grass-over-stone
+  // art by elevation. Both carry `'land'`.
   terrain: {
     tags: new Map<string, ReadonlySet<string>>([
       ['ground', new Set(['land'])],
@@ -164,6 +165,7 @@ export const defaultRuleset: RulesetDefinition = {
       ['water_deep', new Set(['water', 'deep'])],
       ['rampart', new Set(['land'])],
       ['rock', new Set(['land'])],
+      ['grass_rock', new Set(['land'])],
     ]),
   },
 

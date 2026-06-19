@@ -38,7 +38,7 @@ export const hunter: ClassDefinition = {
     moveRange: 3,
     jump: 3,
     terrainCosts: new Map(),
-    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart', 'rock']),
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart', 'rock', 'grass_rock']),
   },
   evasion: { front: 6, side: 3, back: 0 },
   equipmentSlots: {

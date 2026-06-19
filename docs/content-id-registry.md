@@ -374,6 +374,7 @@ Registered in `default.ts`'s `terrain.tags` map; see ADR-0073 (tag abstraction) 
 | `water_deep` | `water`, `deep` | Elev 0. Default cost 3 (Tidewalker reduces to 2). |
 | `rampart` | `land` | S47. Keep walls on Stonebridge. Walkable by every class at elev 8; default step cost 1. Distinct id for renderer art identity. |
 | `rock` | `land` | S70. Mountain Pass high ground (elev ≥ 7). Walkable by every class; default step cost 1 — mechanically identical to `ground`. Distinct id purely so the renderer paints bare-stone art on the heights. |
+| `grass_rock` | `land` | S70. Mountain Pass mid band (elev 5-6) — grass-over-stone transition between lowland `ground` and `rock`. Mechanically identical to `ground` (land, cost 1); renderer-art-only. |
 
 ---
 
@@ -391,7 +392,7 @@ catalog totals.
 | Equipment + consumables | 77 | S68 +4 (`vicious_dagger`, `scimitar`, `wand_of_potential`, `gauntlet_of_might`) |
 | Rulesets | 1 | — |
 | Maps | 4 | S70 `mountainPass` |
-| Terrain types | 5 | S70 `rock` (Mountain Pass high ground) |
+| Terrain types | 6 | S70 `rock` (elev ≥ 7) + `grass_rock` (elev 5-6) on Mountain Pass |
 
 Pinned in `src/content/loader.test.ts`; that test fails loud if the counts drift without a corresponding registry update.
 

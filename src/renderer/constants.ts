@@ -34,6 +34,9 @@ export const TERRAIN_COLORS: Readonly<Record<string, number>> = {
   // Session 70: rock fallback fill — a cool bare-stone grey for Mountain
   // Pass's heights, under the rock texture variants.
   rock: 0x6f6b66,
+  // Session 70: grass_rock fallback — a muted grey-green between grass
+  // and stone, for the elev 5-6 transition band.
+  grass_rock: 0x5d6447,
 };
 
 // Optional per-terrain multiplicative tint applied to the texture

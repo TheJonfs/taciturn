@@ -33,7 +33,7 @@ export const earthMage: ClassDefinition = {
     terrainCosts: new Map(),
     // Session 33 (ADR-0073): water is universally enterable; cost is
     // the gate. See knight.ts for the convention.
-    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart', 'rock']),
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart', 'rock', 'grass_rock']),
   },
   // Standard mage evasion baseline (modest front, modest side, no back)
   // per BMG "Evasion and accuracy". Real numbers land in tuning.

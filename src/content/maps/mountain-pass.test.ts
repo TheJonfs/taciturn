@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   mountainPass,
+  MOUNTAIN_PASS_GRASS_ROCK_ELEVATION,
   MOUNTAIN_PASS_HEIGHT,
   MOUNTAIN_PASS_ROCK_ELEVATION,
   MOUNTAIN_PASS_WIDTH,
@@ -16,6 +17,7 @@ const REGISTRY: TerrainRegistry = new Map([
   ['water_shallow', new Set(['water', 'shallow'])],
   ['water_deep', new Set(['water', 'deep'])],
   ['rock', new Set(['land'])],
+  ['grass_rock', new Set(['land'])],
 ]);
 
 describe('Mountain Pass map — structural', () => {
@@ -59,20 +61,26 @@ describe('Mountain Pass map — landmark elevations', () => {
 });
 
 describe('Mountain Pass map — terrain', () => {
-  it('has no water (every elevation ≥ 2) and only ground/rock terrain', () => {
+  it('has no water (every elevation ≥ 2) and only land terrain', () => {
     for (const t of mountainPass.tiles) {
       expect(t.elevation).toBeGreaterThanOrEqual(2);
-      expect(['ground', 'rock']).toContain(t.terrain);
+      expect(['ground', 'grass_rock', 'rock']).toContain(t.terrain);
     }
   });
 
-  it('paints elevation ≥ 7 as rock and elevation 2-6 as ground (S70 visual)', () => {
+  it('paints three elevation bands: ≥7 rock, 5-6 grass_rock, ≤4 ground (S70 visual)', () => {
     for (const t of mountainPass.tiles) {
-      const expected = t.elevation >= MOUNTAIN_PASS_ROCK_ELEVATION ? 'rock' : 'ground';
+      const expected =
+        t.elevation >= MOUNTAIN_PASS_ROCK_ELEVATION
+          ? 'rock'
+          : t.elevation >= MOUNTAIN_PASS_GRASS_ROCK_ELEVATION
+            ? 'grass_rock'
+            : 'ground';
       expect(t.terrain).toBe(expected);
     }
-    // Spot-checks: SW massif peak is rock; NW valley is ground.
+    // Spot-checks across the bands.
     expect(tileAt(mountainPass, 9, 13, 0)!.terrain).toBe('rock'); // elev 10
+    expect(tileAt(mountainPass, 1, 0, 0)!.terrain).toBe('grass_rock'); // elev 5
     expect(tileAt(mountainPass, 2, 2, 0)!.terrain).toBe('ground'); // elev 3
   });
 
