@@ -113,8 +113,16 @@ export class TileLayer {
       sprite.label = `tile-${terrainType}`;
       sprite.x = tile.x * TILE_SIZE + TILE_INSET / 2;
       sprite.y = tile.y * TILE_SIZE + TILE_INSET / 2;
-      const src = Math.max(texture.width, texture.height, 1);
-      sprite.scale.set(size / src);
+      // Fill the tile square on both axes. Scaling by a single dimension
+      // (the old `max(w, h)`) only covered the tile when the texture was
+      // square; a non-square variant (e.g. S70's 256×139 rock) left the
+      // grey fallback rect showing through the uncovered strip. Per-axis
+      // scale stretches any aspect ratio to fill exactly — terrain
+      // textures tolerate the slight stretch better than a grey gap.
+      sprite.scale.set(
+        size / Math.max(texture.width, 1),
+        size / Math.max(texture.height, 1),
+      );
       if (tint !== TERRAIN_TINT_DEFAULT) sprite.tint = tint;
       this.overlay.addChild(sprite);
     }
