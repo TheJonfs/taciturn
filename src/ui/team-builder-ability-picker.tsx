@@ -137,6 +137,27 @@ function CategorySection({
 
       {isOpen && (
         <div style={optionListStyle}>
+          {/* S71 #7: the class's First Action command set is pinned and
+              never editable, so it was invisible in the builder — a new
+              player couldn't see what their own class does. Surface it as
+              a locked, hoverable row at the top of the Command sets list;
+              hover routes it to the inspector like any other set. */}
+          {category.kind === 'commandSet' && (
+            <OptionRow
+              key="__primary_command_set__"
+              name={catalog.getCommandSet(classDef.firstActionCommandSet).name}
+              cost={0}
+              isFree={false}
+              isEquipped
+              disabled
+              tag="Class"
+              onToggle={() => {}}
+              onFocus={() =>
+                onFocus({ kind: 'commandSet', commandSetId: classDef.firstActionCommandSet })
+              }
+              onBlurFocus={() => onFocus(null)}
+            />
+          )}
           {category.kind === 'commandSet'
             ? commandSets
                 .filter(
@@ -229,6 +250,9 @@ interface OptionRowProps {
   readonly onToggle: () => void;
   readonly onFocus: () => void;
   readonly onBlurFocus: () => void;
+  // S71 #7: when set, the row is a locked, non-toggling entry (the class's
+  // primary command set) — renders this tag in place of the cost pips.
+  readonly tag?: string;
 }
 
 function OptionRow({
@@ -240,6 +264,7 @@ function OptionRow({
   onToggle,
   onFocus,
   onBlurFocus,
+  tag,
 }: OptionRowProps): ReactElement {
   // Over-budget unequipped options can't be added — but stay *hoverable*
   // (no HTML `disabled`, which would also block hover) so the inspector
@@ -266,7 +291,11 @@ function OptionRow({
         {isEquipped ? <Icon name="check" size={13} style={{ color: '#6dc66d' }} /> : null}
       </span>
       <span style={optionNameStyle}>{name}</span>
-      <CostPips cost={cost} isFree={isFree} />
+      {tag !== undefined ? (
+        <span style={classTagStyle}>{tag}</span>
+      ) : (
+        <CostPips cost={cost} isFree={isFree} />
+      )}
     </button>
   );
 }
@@ -424,5 +453,18 @@ const freeTagStyle: CSSProperties = {
   fontSize: 10,
   letterSpacing: '0.04em',
   opacity: 0.55,
+  flexShrink: 0,
+};
+
+// S71 #7: the locked "Class" tag on the pinned primary command-set row.
+const classTagStyle: CSSProperties = {
+  fontSize: 9,
+  fontWeight: 700,
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase',
+  padding: '1px 6px',
+  borderRadius: 3,
+  background: '#2a3a52',
+  color: '#a3c6f0',
   flexShrink: 0,
 };

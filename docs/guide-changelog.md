@@ -44,6 +44,46 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 71 — Legibility & polish (chunk 1) (2026-06-19)
+
+Commits: _(S71 chunk 1)_. New-player legibility batch — tooltip corrections,
+Team Builder affordances, targeting recolor. No mechanics changed; the audit
+found the underlying behaviors were already correct, so these are *what the
+player sees*, not *what the game does*.
+
+- **Tooltip corrections** (the text was stale or missing; the mechanics were
+  already as described below):
+  - **Damage Split** now reads "reflect **half** the damage back and heal
+    yourself for the other half" (it never reflected the full amount — old text).
+  - **Tidal Pull** rewritten from the mechanic: "on taking a non-healing hit,
+    gain **+20 CT** — your next turn comes sooner." It pulls *your* turn forward,
+    not the enemy toward you (the old "pull" wording misled).
+  - **Ignition** now reads "on dealing magical damage of **any** element (not
+    just fire), apply 1 Burn." (It always fired on any magical damage — the
+    "fire-tagged casts" wording was the bug.)
+  - **Spiked Mail** now lists its retaliation: "on taking physical damage,
+    reflect 20% back at the attacker."
+  - **Wand of Potential** now lists its "+1 Spell Power on lightning casts."
+  - **Wand Resonances** (all four wands) now name the resistance shift each
+    applies on hit and its direction — Depths +25 fire/−25 lightning, Deepwood
+    +25 lightning/−25 fire, Lumen +25 earth/−25 water, Potential +25 water/−25
+    earth.
+- **Team Builder legibility:**
+  - **Empty unit slots now show the level** a unit placed there would receive
+    (muted), so you can see a slot's level before committing a unit.
+  - **Your chosen class's own active skills** now appear: the class's First
+    Action command set is pinned at the top of the Command sets list (tagged
+    "Class") and hoverable for its full detail — previously only the *secondary*
+    command-set options were inspectable.
+  - **Gender now shows on every roster card** (e.g. "Pyromancer · ♀ Female"), and
+    the gender toggle's tooltip notes it gates **Steal Heart** (charm only crosses
+    Male ↔ Female) — so you can plan charm builds without guessing.
+- **Targeting color:** Math Skill target previews (and the Barrier line picker)
+  now paint matched tiles in a distinct **amber** instead of red. Red read as
+  "Red Team," which was misleading for Math Skill — it matches by formula and can
+  land on your own units. Single-target attack targeting (always an enemy) stays
+  red.
+
 ## Session 70 — Mountain Pass map + split deployment zones (2026-06-19)
 
 Commits: `fec6b0e`, `6cce2b5`, `0b8d238`. See ADR-0118.

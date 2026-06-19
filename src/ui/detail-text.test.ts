@@ -12,6 +12,10 @@ import { longbow } from '../content/items/longbow.ts';
 import { raspPendant } from '../content/items/rasp-pendant.ts';
 import { wandOfDepths } from '../content/items/wand-of-depths.ts';
 import { wandOfLumen } from '../content/items/wand-of-lumen.ts';
+import { wandOfPotential } from '../content/items/wand-of-potential.ts';
+import { wandOfDepthsApplyShift } from '../content/abilities/wand-of-depths-apply-shift.ts';
+import { wandOfPotentialApplyShift } from '../content/abilities/wand-of-potential-apply-shift.ts';
+import { spikedMail } from '../content/items/spiked-mail.ts';
 import { sorcerersRobe } from '../content/items/sorcerers-robe.ts';
 import { magusCrown } from '../content/items/magus-crown.ts';
 import { lightningStrike } from '../content/abilities/lightning-strike.ts';
@@ -131,6 +135,53 @@ describe('formatItemDetail', () => {
     const d = formatItemDetail(magusCrown, cat);
     expect(d.subtitle).toBe('Headgear');
     expect(d.lines.join('\n')).toContain('Secondary Action(s) capacity');
+  });
+
+  // S71 #8: when the proc ability is in the catalog, a wand's Resonance
+  // names the resistance shift it applies (which tags, which direction)
+  // rather than a bare "triggers <Resonance>".
+  it('enumerates a wand Resonance shift when the proc ability is resolvable', () => {
+    const cat = createCatalog({
+      statusTypes: [burn, taggedResistanceShift],
+      abilities: [wandOfDepthsApplyShift, wandOfPotentialApplyShift],
+      commandSets: [],
+      classes: [makeKnight()],
+      items: [wandOfDepths, wandOfPotential],
+      rulesets: defaultTestRulesets,
+    });
+    const d = formatItemDetail(wandOfDepths, cat);
+    const joined = d.lines.join('\n');
+    expect(joined).toContain("Resonance (on hit): shift target's +25 fire · -25 lightning resistance");
+  });
+
+  // S71 #11: Wand of Potential surfaces its +1 Spell Power on lightning
+  // casts (the spellPowerModifiers rider was previously unrendered).
+  it('surfaces the Wand of Potential +1 SP on lightning casts', () => {
+    const cat = createCatalog({
+      statusTypes: [burn, taggedResistanceShift],
+      abilities: [wandOfPotentialApplyShift],
+      commandSets: [],
+      classes: [makeKnight()],
+      items: [wandOfPotential],
+      rulesets: defaultTestRulesets,
+    });
+    const d = formatItemDetail(wandOfPotential, cat);
+    expect(d.lines.join('\n')).toContain('Spell Power: +1 SP on lightning-tagged casts');
+  });
+
+  // S71 #10: Spiked Mail surfaces its physical-reflect retaliation (the
+  // physicalReflectPercent field was previously unrendered).
+  it('surfaces Spiked Mail physical-reflect retaliation', () => {
+    const cat = createCatalog({
+      statusTypes: [burn],
+      abilities: [],
+      commandSets: [],
+      classes: [makeKnight()],
+      items: [spikedMail],
+      rulesets: defaultTestRulesets,
+    });
+    const d = formatItemDetail(spikedMail, cat);
+    expect(d.lines.join('\n')).toContain('On taking physical damage: reflect 20% back at the attacker');
   });
 });
 

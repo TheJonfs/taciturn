@@ -453,6 +453,20 @@ export function slotLevel(state: TeamBuilderState, index: number): number | null
   return slotLevelFor(activeCount);
 }
 
+// S71 #3: the level a unit *would* be assigned if placed in slot `index`
+// right now — the same "filled slots before it" walk as `slotLevel`, but
+// without the empty-slot null. The roster shows this (muted) on empty
+// slots so a player sees a slot's level before committing a unit. Once
+// filled, `slotLevel` returns the same value (until the surrounding
+// fill-order shifts).
+export function slotLevelProspective(state: TeamBuilderState, index: number): number {
+  let activeCount = 0;
+  for (let i = 0; i < index; i += 1) {
+    if (state.units[i]?.classId != null) activeCount += 1;
+  }
+  return slotLevelFor(activeCount);
+}
+
 // ---------------------------------------------------------------------
 // Mutations — each returns a new state; the input is never modified.
 // ---------------------------------------------------------------------

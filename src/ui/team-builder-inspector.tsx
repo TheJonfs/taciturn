@@ -253,6 +253,12 @@ function CommandSetInspector({
   const { selectedUnit, rulesetId } = builder;
   const cs = catalog.getCommandSet(focus.commandSetId);
   const detail = formatCommandSetDetail(cs, catalog);
+  // S71 #7: the class's pinned First Action command set is always
+  // equipped and isn't a budgeted secondary pick, so skip the budget-fit
+  // calc (which would otherwise read a misleading "over budget").
+  const classId = selectedUnit.classId;
+  const isPrimary =
+    classId !== null && catalog.getClass(classId).firstActionCommandSet === focus.commandSetId;
   const isEquipped = (
     selectedUnit.loadout.actionBuckets[BUCKET_SECONDARY_COMMAND_SETS] ?? []
   ).includes(focus.commandSetId);
@@ -274,7 +280,11 @@ function CommandSetInspector({
         )}
       </div>
       <DetailLines lines={detail.lines} />
-      <div style={fit.ok ? fitOkStyle : fitOverStyle}>{fit.text}</div>
+      {isPrimary ? (
+        <div style={fitOkStyle}>your class’s First Action set · always equipped</div>
+      ) : (
+        <div style={fit.ok ? fitOkStyle : fitOverStyle}>{fit.text}</div>
+      )}
     </div>
   );
 }

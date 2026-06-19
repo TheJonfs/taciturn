@@ -317,12 +317,15 @@ function GenderToggle({
   onChange: (gender: Gender) => void;
 }): ReactElement {
   return (
-    <div style={genderToggleStyle} role="group" aria-label="Portrait gender">
+    // S71 #13: gender isn't purely cosmetic — it gates Steal Heart (charm
+    // only crosses Male ↔ Female). The titles spell that out so a player
+    // setting up a charm build knows it matters.
+    <div style={genderToggleStyle} role="group" aria-label="Gender (gates Steal Heart charm)">
       <button
         type="button"
         onClick={() => onChange('female')}
         aria-pressed={value === 'female'}
-        title="Female portrait"
+        title="Female — gender gates Steal Heart (charm crosses Male ↔ Female)"
         style={value === 'female' ? genderButtonActiveStyle : genderButtonStyle}
       >
         ♀
@@ -331,7 +334,7 @@ function GenderToggle({
         type="button"
         onClick={() => onChange('male')}
         aria-pressed={value === 'male'}
-        title="Male portrait"
+        title="Male — gender gates Steal Heart (charm crosses Male ↔ Female)"
         style={value === 'male' ? genderButtonActiveStyle : genderButtonStyle}
       >
         ♂

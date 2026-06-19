@@ -253,11 +253,19 @@ export const COUNTERPART_RING_COLOR = 0x9adfff;
 // (HIGHLIGHT_STROKE_ALPHA). The stroke gives a hard edge that reads
 // against any terrain, including the new grass texture (ADR-0054) that
 // previously muddied the muted-red attack highlight.
-export const HIGHLIGHT_COLORS: Readonly<Record<'move' | 'attack' | 'heal' | 'aoe', number>> = {
+export const HIGHLIGHT_COLORS: Readonly<
+  Record<'move' | 'attack' | 'heal' | 'aoe' | 'target', number>
+> = {
   move: 0x4a90e2,   // blue — reachable destinations
-  attack: 0xff5252, // saturated red — valid attack targets
+  attack: 0xff5252, // saturated red — valid attack targets (an enemy you picked)
   heal: 0x4ade80,   // saturated lime — valid heal targets
   aoe: 0xf6e5a8,    // gold — area-of-effect preview
+  // S71 #12: a distinct amber "aim" tint for target previews whose tiles
+  // land on units of *either* team — Math Skill (formula-matched, can hit
+  // your own) and tile-set/Barrier (neutral terrain). Red read as Red
+  // Team allegiance there; amber is neither team's color (Team A blue /
+  // Team B brick-red) nor heal-green / aoe-gold.
+  target: 0xff8c2b,
 };
 export const HIGHLIGHT_ALPHA = 0.45;
 // Stroke outline drawn around each highlighted tile. Higher alpha than

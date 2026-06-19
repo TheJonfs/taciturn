@@ -464,7 +464,11 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       if (flowState.parameter !== null && flowState.value !== null && state !== null) {
         const matched = enumerateMathSkillTargets(state, flowState.parameter, flowState.value);
         const ability = catalog.getAbility(flowState.abilityId);
-        const kind = isHealingAbility(ability) ? 'heal' : 'attack';
+        // S71 #12: damage / CT-push / buff Math Skills paint the matched
+        // tiles with the neutral 'target' amber rather than 'attack' red.
+        // Math Skill is formula-matched and can land on your own units —
+        // red there read as Red Team allegiance. Heal stays green.
+        const kind = isHealingAbility(ability) ? 'heal' : 'target';
         renderer.setHighlights(
           matched.map((u) => u.position),
           kind,
@@ -475,20 +479,21 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     } else if (flowState.kind === 'tile-set-target-select') {
       // Session 55: Barrier line picker. Anchor phase paints the tiles a line
       // can start from; extent phase paints the anchor + every valid far-end
-      // (the line itself previews via the overlay channel on hover). 'attack'
-      // tint — the generic "selecting tiles for an ability" red (Barrier is
-      // neither a heal nor a damage cast, but red reads as the active aim).
+      // (the line itself previews via the overlay channel on hover). S71 #12:
+      // the neutral 'target' amber — Barrier is neither a heal nor a damage
+      // cast and lands on terrain, so the old 'attack' red wrongly read as
+      // Red Team aim.
       if (tileSetTargeting === null) {
         renderer.setHighlights([], 'none');
       } else if (tileSetTargeting.phase === 'anchor') {
-        renderer.setHighlights(tileSetTargeting.anchors, 'attack');
+        renderer.setHighlights(tileSetTargeting.anchors, 'target');
       } else {
         const farEnds: Position[] = [];
         for (const line of tileSetTargeting.lines.values()) {
           farEnds.push(line[line.length - 1]!);
         }
         const anchor = flowState.anchor;
-        renderer.setHighlights(anchor !== null ? [anchor, ...farEnds] : farEnds, 'attack');
+        renderer.setHighlights(anchor !== null ? [anchor, ...farEnds] : farEnds, 'target');
       }
     } else {
       renderer.setHighlights([], 'none');

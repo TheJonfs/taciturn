@@ -5,9 +5,10 @@
 
 import type { CSSProperties, ReactElement } from 'react';
 import type { Catalog } from '@engine/index.ts';
-import { portraitUrlFor } from '../assets/portraits/index.ts';
+import { defaultGenderFor, portraitUrlFor } from '../assets/portraits/index.ts';
 import {
   slotLevel,
+  slotLevelProspective,
   type DraftUnit,
   type DraftUnitStats,
   type UnitValidity,
@@ -38,6 +39,7 @@ export function TeamBuilderRoster({
             index={index}
             unit={unit}
             level={slotLevel(state, index)}
+            prospectiveLevel={slotLevelProspective(state, index)}
             stats={unitStats[index] ?? null}
             unitValidity={validity.units[index]!}
             isSelected={index === selectedIndex}
@@ -57,6 +59,9 @@ interface RosterCardProps {
   // active-unit position via `slotLevelFor`. Filled slots render the
   // level as a small pill on the portrait corner.
   readonly level: number | null;
+  // S71 #3: the level this slot *would* assign once filled — shown muted
+  // on empty slots so the player sees a slot's level before placing.
+  readonly prospectiveLevel: number;
   readonly stats: DraftUnitStats | null;
   readonly unitValidity: UnitValidity;
   readonly isSelected: boolean;
@@ -68,6 +73,7 @@ function RosterCard({
   index,
   unit,
   level,
+  prospectiveLevel,
   stats,
   unitValidity,
   isSelected,
@@ -77,6 +83,15 @@ function RosterCard({
   const className =
     unit.classId !== null ? catalog.getClass(unit.classId).name : null;
   const portraitUrl = unit.classId !== null ? portraitUrlFor(unit.classId, unit.gender) : null;
+  // S71 #13: surface gender at-a-glance on every filled card so the
+  // player can plan Steal Heart (charm only crosses Male ↔ Female)
+  // without opening each unit. Resolves the effective gender the same
+  // way the portrait does: explicit choice, else the class default.
+  const gender =
+    unit.classId !== null
+      ? (unit.gender ?? defaultGenderFor(unit.classId) ?? 'male')
+      : null;
+  const genderLabel = gender === 'female' ? '♀ Female' : gender === 'male' ? '♂ Male' : null;
 
   return (
     <button
@@ -114,14 +129,27 @@ function RosterCard({
           <span style={nameStyle}>
             {unit.name ?? className ?? `Unit ${index + 1}`}
           </span>
-          {/* S49: small level pill next to the unit name; absent on
-              empty slots. Surfaced only on filled slots so the player
-              sees the level shift across the team without it cluttering
-              the empty pad. */}
-          {level !== null && <span style={levelBadgeStyle}>L{level}</span>}
+          {/* S49: small level pill next to the unit name. S71 #3: empty
+              slots now show their *prospective* level (the level a unit
+              placed here would get) in a muted variant, so the player
+              sees a slot's level before committing a unit. */}
+          {level !== null ? (
+            <span style={levelBadgeStyle}>L{level}</span>
+          ) : (
+            <span
+              style={levelBadgeEmptyStyle}
+              title="Level this slot will assign once a unit is placed"
+            >
+              L{prospectiveLevel}
+            </span>
+          )}
         </div>
         <div style={subStyle}>
-          {unit.classId === null ? 'No class selected' : `${className}`}
+          {unit.classId === null
+            ? 'No class selected'
+            : genderLabel !== null
+              ? `${className} · ${genderLabel}`
+              : `${className}`}
         </div>
         {stats !== null ? (
           <div style={statRowStyle}>
@@ -292,6 +320,21 @@ const levelBadgeStyle: CSSProperties = {
   borderRadius: 3,
   background: '#2a3a52',
   color: '#a3c6f0',
+  flexShrink: 0,
+};
+
+// S71 #3: empty-slot prospective level — same pill, muted (dashed,
+// lower-contrast) so it reads as "what this slot will be" rather than a
+// committed value.
+const levelBadgeEmptyStyle: CSSProperties = {
+  fontSize: 9,
+  fontWeight: 700,
+  letterSpacing: '0.04em',
+  padding: '1px 5px',
+  borderRadius: 3,
+  background: 'transparent',
+  color: '#6f7d92',
+  border: '1px dashed #3a4961',
   flexShrink: 0,
 };
 

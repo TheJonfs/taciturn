@@ -39,6 +39,7 @@ import {
   setUnitName,
   setUnitGender,
   slotLevel,
+  slotLevelProspective,
   equipmentOptionsForSlot,
   teamBuilderStateFromBuiltTeam,
   teamBuilderStateToBuiltTeam,
@@ -527,6 +528,23 @@ describe('team builder state — slot level (Pass 1 lineup/card)', () => {
     expect(slotLevel(s, 1)).toBe(25); // first filled → captain
     expect(slotLevel(s, 2)).toBeNull(); // empty slot → no level
     expect(slotLevel(s, 3)).toBe(24); // second filled → L24
+  });
+
+  // S71 #3: empty slots advertise the level a unit *would* get if placed
+  // now — the same filled-slots-before-it walk, without the null.
+  it('gives empty slots a prospective level matching what filling would assign', () => {
+    let s = createEmptyTeamBuilderState();
+    // All empty: each slot's prospective level is slotLevelFor(filled-before).
+    // With nothing filled, every slot sees 0 filled before it → all L25.
+    expect([0, 1, 2, 3, 4].map((i) => slotLevelProspective(s, i))).toEqual([
+      25, 25, 25, 25, 25,
+    ]);
+    // Fill slot 0: now slots 1+ have one filled before them → prospective L24,
+    // and a filled slot's prospective equals its actual slotLevel.
+    s = setClass(s, 0, classId('knight'), catalog);
+    expect(slotLevelProspective(s, 0)).toBe(slotLevel(s, 0)); // 25
+    expect(slotLevelProspective(s, 1)).toBe(24);
+    expect(slotLevelProspective(s, 2)).toBe(24);
   });
 });
 

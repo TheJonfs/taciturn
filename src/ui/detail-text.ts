@@ -87,11 +87,11 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('earth_resilience'), 'On taking a non-healing hit, gain +1 Move (stackable, lingering).'],
   [abilityId('earth_communion'), '× 1.25 status application chance on every cast.'],
   [abilityId('bedrock_stride'), '+1 Move Range. Falling damage is suppressed.'],
-  [abilityId('tidal_pull'), 'On taking damage, the attacker is pulled toward the reactor (Water Mage CT push back on hit).'],
+  [abilityId('tidal_pull'), 'On taking a non-healing hit, gain +20 CT — your next turn comes sooner. (It pulls your own turn forward, not the enemy toward you.)'],
   [abilityId('flow_state'), 'On committing a magical action, refund some CT to the caster.'],
   [abilityId('tidewalker'), 'Water tiles cost 1 less to move through (minimum 1) — shallow water 2→1, deep water 3→2. Does not change Move Range.'],
   [abilityId('smolder'), 'On taking damage, apply 1 stack of Burn to the attacker (uses reactor MA).'],
-  [abilityId('ignition'), 'Fire-tagged casts also apply 1 stack of Burn at the proc rate.'],
+  [abilityId('ignition'), 'On dealing magical damage of any element (not just fire), apply 1 stack of Burn to the target. Healing doesn’t trigger it.'],
   [abilityId('aether_bloom'), 'AoE casts gain +1 tile to their area shape.'],
   [abilityId('hotfoot'), '+1 Move Range, +1 Speed.'],
   [abilityId('discharge'), 'On taking damage, retaliate with a Lightning swing at the attacker.'],
@@ -124,7 +124,7 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('thoughtful_pacing'), 'Restores MP equal to 2 × spaces moved at the end of each Move action.'],
   // S54 — Terraformer R/S/M (descriptions added S55; S54 shipped the abilities
   // without tooltip lines, so the builder showed the placeholder).
-  [abilityId('damage_split'), 'On taking a non-healing hit and surviving, reflect the full damage back at the attacker and heal yourself for half of it.'],
+  [abilityId('damage_split'), 'On taking a non-healing hit and surviving, reflect half the damage back at the attacker and heal yourself for the other half.'],
   [abilityId('ignore_height'), 'Ignore Jump height limits entirely — climb or descend any elevation change in one step.'],
   [abilityId('expert_former'), '+2 to the Worldcraft active-effect cap (2 → 4) — twice as many terrain changes / barriers persist at once before the oldest reverts.'],
   // S62 — Templar R/S/M (the four innates).
@@ -176,6 +176,32 @@ function formatPercent(p: number): string {
 
 function formatVarianceBand(min: number, max: number): string {
   return `[${min.toFixed(2)}, ${max.toFixed(2)}]`;
+}
+
+// Resonance procs (the four wands) fire a hidden ability that applies a
+// parametric `tagged_resistance_shift`; the actual resistance deltas live on
+// that ability's per-instance `customState.tagDeltas`. Surface them so the
+// wand tooltip names which resistances move and which direction (S71 #8),
+// rather than a bare "triggers <Resonance>".
+function formatResonanceShift(procAbilityId: AbilityId, catalog: Catalog): string | null {
+  if (!catalog.hasAbility(procAbilityId)) return null;
+  const ability = catalog.getAbility(procAbilityId);
+  if (ability.kind !== 'active') return null;
+  const specs = ability.effects.statusEffects;
+  if (specs === undefined) return null;
+  for (const spec of specs) {
+    if (spec.typeId !== statusTypeId('tagged_resistance_shift')) continue;
+    const tagDeltas = (spec.customState as { tagDeltas?: Record<string, number> } | undefined)
+      ?.tagDeltas;
+    if (tagDeltas === undefined) continue;
+    const parts: string[] = [];
+    for (const [tag, delta] of Object.entries(tagDeltas)) {
+      if (delta === undefined || delta === 0) continue;
+      parts.push(`${delta > 0 ? '+' : ''}${delta} ${tag}`);
+    }
+    if (parts.length > 0) return parts.join(' · ');
+  }
+  return null;
 }
 
 // Equipment kind label for the tooltip subtitle.
@@ -389,6 +415,16 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
     }
   }
 
+  // Spell-power (magical power_coefficient) modifiers (Wand of Potential
+  // +1 SP on lightning casts). Tag-gated, caster-side — mirrors the
+  // action-speed / range rider shape above.
+  if (item.spellPowerModifiers !== undefined && item.spellPowerModifiers.length > 0) {
+    for (const mod of item.spellPowerModifiers) {
+      const tag = mod.tagFilter?.[0] !== undefined ? `${String(mod.tagFilter[0])}-tagged` : 'all';
+      lines.push(`Spell Power: ${mod.delta >= 0 ? '+' : ''}${mod.delta} SP on ${tag} casts`);
+    }
+  }
+
   // MP-cost multipliers (Staff of Power ×1.20).
   if (item.mpCostMultipliers !== undefined && item.mpCostMultipliers.length > 0) {
     for (const factor of item.mpCostMultipliers) {
@@ -460,9 +496,17 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
     }
   }
 
-  // attackProcs (Bolt Hammer, Flametongue, wands).
+  // attackProcs (Bolt Hammer, Flametongue, wands). Wand Resonance procs
+  // describe the resistance shift they apply; other procs name the
+  // triggered ability.
   if (item.attackProcs !== undefined && item.attackProcs.length > 0) {
     for (const proc of item.attackProcs) {
+      const resonance = formatResonanceShift(proc.abilityId, catalog);
+      if (resonance !== null) {
+        const when = proc.chance >= 1 ? 'on hit' : `${formatPercent(proc.chance)} on hit`;
+        lines.push(`Resonance (${when}): shift target's ${resonance} resistance`);
+        continue;
+      }
       const procName = catalog.hasAbility(proc.abilityId)
         ? catalog.getAbility(proc.abilityId).name
         : String(proc.abilityId);
@@ -473,6 +517,14 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
   // damageMpDrainPercent (Rasp Pendant).
   if (item.damageMpDrainPercent !== undefined && item.damageMpDrainPercent > 0) {
     lines.push(`On hit: drain ${item.damageMpDrainPercent}% of final damage as MP from target`);
+  }
+
+  // physicalReflectPercent (Spiked Mail). Deterministic retaliation —
+  // reflects a share of incoming physical damage back at the attacker.
+  if (item.physicalReflectPercent !== undefined && item.physicalReflectPercent > 0) {
+    lines.push(
+      `On taking physical damage: reflect ${item.physicalReflectPercent}% back at the attacker`,
+    );
   }
 
   // attackSwingMultiplier (The Offering — swings-per-weapon on basic Attack).

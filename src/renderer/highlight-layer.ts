@@ -27,7 +27,7 @@ import {
   TILE_SIZE,
 } from './constants.ts';
 
-export type HighlightKind = 'move' | 'attack' | 'heal' | 'aoe' | 'none';
+export type HighlightKind = 'move' | 'attack' | 'heal' | 'aoe' | 'target' | 'none';
 
 // Session 55: one tile of a Worldcraft elevation-kernel preview — its
 // position and the per-tile elevation delta the cast would apply (+ raises,
