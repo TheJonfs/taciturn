@@ -11,60 +11,62 @@ been processed.
 
 ---
 
-## From S70 — Map 4 + split deployment + zone-registry extraction (2026-06-19)
+## From S71 — Polish & correctness batch (all 3 chunks) (2026-06-19)
 
-Shipped on main across three checkpointed chunks. **ADR-0118. 1943 → 1985 tests;
-tsc + vite build clean.** Browser-verified end-to-end (Mountain Pass loads, Blue
-victim zone tints in the NW valley, Red AI ambusher deploys 3 SW / 2 NE honoring
-caps, no console errors).
+Shipped on main across two commits + one no-op chunk. **ADR-0119. 1985 → 1992
+tests; tsc + vite build clean.** Chunk 1 browser-verified in the Team Builder
+(Mage War default team); chunks 2–3 are unit/integration + audit.
 
-1. **Extraction + registry + combiner** (`fec6b0e`). Deployment zones left the
-   `Tile.deploymentZone` field and now live in `content/deployment/registry.ts`,
-   paired with terrain by `assembleBattlefield`. Type + accessors + validation in
-   `engine/{types,map}/deployment-zone.ts`. `validateMap` is terrain-only;
-   zone-coverage moved to `validateDeploymentZones`. Per Chris's plan-review call:
-   threaded the config through all four readers and dropped the tile field
-   (single source of truth), not a stamped projection. Three existing maps migrated
-   1:1, deploy identically.
-2. **Mountain Pass + split config** (`6cce2b5`). 16×16 pass; `mountain_pass`
-   registry config — Blue victim (1 NW-valley sub-zone, uncapped); Red ambusher
-   (SW massif cap 3 + NE edge cap 2). Restaged the river-ridge 5v5. Side
-   assignment per Chris (Blue=victim, Red=ambusher).
-3. **Caps + split-zone AI** (`0b8d238`). `planAiDeployment` distributes melee
-   round-robin across sub-zones then ranged, laying each wing out by its own local
-   forwardness (no role-sorting across the gap — the S66 single-centroid seam).
-   Human placement: `canPlaceInZone` rejects over-cap clicks; full sub-zones
-   re-tint faint.
+- **Chunk 1 — legibility & polish** (`5cf3d3b`). Tooltip corrections (Damage
+  Split half-reflect, Tidal Pull self-CT, Ignition any-magical, Spiked Mail
+  reflect, Wand of Potential +1 SP, the four wand Resonances); Team Builder
+  affordances (empty-slot prospective level, primary-class command set pinned +
+  hoverable, gender on roster cards + Steal-Heart note); targeting recolor (new
+  `'target'` amber highlight for Math Skill + Barrier previews, which land on
+  either team — red read as Red Team). No engine behavior change.
+- **Chunk 2 — behavior fixes** (`76d6f32`, ADR-0119). Templar Jump forfeits the
+  Move budget (`spendsMoveBudget` flag → zeroes `movesAvailable` at commit; UI
+  Move button already budget-gated). Exact Rhythm drops Faith from its CT-push
+  magnitude (the S63 Math-Skill sweep's leftover) — now `SP × MA`, ~2× at default
+  Faith.
+- **Chunk 3 — Ignition** (no code). Audited: already fires on any magical damage
+  at cost 2 (the documented intent); the only defect was the tooltip, fixed in
+  chunk 1. Chunk 3 closes with no behavior change.
 
-### Watch / unverified
+### Flag for Chris — one open judgment call
 
-- **Two new `playtest-watch.md` entries** (both S70): does the *victim* AI advance
-  into the SE crossfire (free probe for the deferred predictive threat-model), and
-  does the split-zone AI deployment *read* as a coherent ambush. Both need Chris's
-  in-battle pass — all S70 validation is unit/integration + one deployment-screen
-  browser check; no full battle was played.
-- **Control toggle on the setup screen:** while driving the browser smoke I
-  couldn't flip Team A→AI / Team B→Human via DOM clicks (it stayed at the default
-  Blue=Human/Red=AI). Likely my eval selector, not a bug — but if a quick manual
-  check shows the Human/AI buttons don't toggle, that's worth a look. Not
-  investigated further.
+- **Math Skill status-application Faith gates.** #15's sweep made Math Skill
+  *output* faith-independent (Exact Rhythm fixed; Precision Fire / Targeted
+  Treatment already done in S63). I left the **status-application** Faith × MA
+  gates intact — Precision Fire's Burn proc, Sculpted Enhancement, Engineered
+  Defenses. Reasoning: that gate governs *whether a status lands*, is the
+  engine-wide application formula, and S63 explicitly retained Precision Fire's.
+  It is *not* the "~2× output" identity the finding targets. **If you intend the
+  Calculator's "deterministic instrument" identity to extend to status
+  reliability** (faith-independent or `applyAlways` chance), those three are a
+  small follow-up — say the word. Captured in ADR-0119's audit section.
 
-### The registry is the encounter-definition seed (kept dormant)
+### Noted divergence (in ADR-0119, not silently resolved)
 
-The combiner stays a plain terrain+zones assembler. Config *selection* by context
-(story vs random), deploy-K-from-a-larger-roster, scenario/objective/reward
-objects — all still out of scope. A second layout for any existing terrain is now
-pure authoring (add a registry key); the shape proves it but nothing ships a
-non-`default` config yet.
+- **Jump "reposition" framing vs implementation.** The finding calls Jump a
+  reposition, but the shipped Jump lands back on its takeoff tile (no relocation,
+  ADR-0103). The Move-lock is justified on action-economy grounds, not "it moved
+  you." If Jump is ever made to land on the *target* tile (FFT-canonical), the
+  lock already fits; and `movesConsumed` was deliberately left unbumped (CT cost
+  unchanged) — bumping it to price Jump as a Move+Act turn is a reserved lever.
 
-## Still open, NOT touched (carried)
+## Still open, NOT touched (carried from S70)
 
 - **Predictive positional threat-model** — the remaining large AI gap (avoid
   reach, protect units, deploy against threats; + don't-feed-the-snowball). The
-  S70 ambush map is now the natural test bed for it (see playtest-watch).
+  S70 ambush map (Mountain Pass) is the natural test bed (see `playtest-watch.md`).
+- **S70 in-battle verification** — does the victim AI advance into the SE
+  crossfire, and does the split-zone deployment read as a coherent ambush. Both
+  need Chris's in-battle pass (S70 validation was unit/integration + one
+  deployment-screen browser check). In `playtest-watch.md`.
 - **S69 feel-passes still unverified** — AI charm/steal/break-charm, the Math
-  re-base, terrain-occlusion LoS + bounded bow arc (ADR-0117), Vantage perched-vs-
-  flat (S68). All in `playtest-watch.md`.
+  re-base, terrain-occlusion LoS + bounded bow arc (ADR-0117), Vantage
+  perched-vs-flat (S68). All in `playtest-watch.md`.
 - **Taunt redesign** (needs Chris to pin intended effect — `taunt-audit.md`);
   **Templar (S62)** and **Thief** feel passes; **S68 equipment** tunables
   (Gauntlet +3, Vicious crit). All in `playtest-watch.md`.

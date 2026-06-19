@@ -46,7 +46,7 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ## Session 71 — Behavior audits & fixes (chunk 2) (2026-06-19)
 
-Commits: _(S71 chunk 2)_. See ADR-0119. Two behavior fixes from the new-player
+Commits: `76d6f32`. See ADR-0119. Two behavior fixes from the new-player
 playtest; the rest of the chunk-2 findings audited as already-correct (no change).
 
 - **Templar Jump now uses up your Move for the turn.** Committing Jump (the
