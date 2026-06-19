@@ -40,7 +40,15 @@
 // machine trusts that `selectTile` only ever carries an eligible empty
 // tile and `pickUnit` only ever carries an un-placed roster unit.
 
-import type { Direction, Position, TeamId, UnitId } from '@engine/index.ts';
+import {
+  subZoneIndexForTile,
+  zoneForTeam,
+  type DeploymentZoneConfig,
+  type Direction,
+  type Position,
+  type TeamId,
+  type UnitId,
+} from '@engine/index.ts';
 
 // A committed placement: where a unit stands and which way it faces.
 // The unit-placement-equivalent the pipeline consumes downstream.
@@ -108,6 +116,70 @@ export function unitPlacedOn(
     }
   }
   return null;
+}
+
+// ===== Per-sub-zone cap helpers (S70) =====
+//
+// A split zone caps how many units may deploy into each sub-zone. These
+// pure helpers read the current placements against the zone config so the
+// hook can (a) reject over-cap placement and (b) dim full sub-zones. A
+// single uncapped zone (the three original maps) has no full sub-zones
+// and admits every in-zone tile, so these are no-ops there.
+
+function posKey(p: Position): string {
+  return `${p.x},${p.y},${p.layer}`;
+}
+
+// How many placed units fall in each of `team`'s sub-zones, indexed by
+// sub-zone order. Empty array if the team has no zone.
+export function subZoneUsage(
+  zones: DeploymentZoneConfig,
+  team: TeamId,
+  placements: ReadonlyMap<UnitId, DeploymentPlacement>,
+): number[] {
+  const zone = zoneForTeam(zones, team);
+  if (zone === undefined) return [];
+  const used = zone.subZones.map(() => 0);
+  for (const { position } of placements.values()) {
+    const idx = subZoneIndexForTile(zones, team, position);
+    if (idx !== null) used[idx] = used[idx]! + 1;
+  }
+  return used;
+}
+
+// May a unit be placed on `pos`? True iff the tile is in `team`'s zone and
+// the sub-zone it belongs to is uncapped or below its cap. The caller
+// checks lift (re-placement) first, so an occupied tile never reaches here.
+export function canPlaceInZone(
+  zones: DeploymentZoneConfig,
+  team: TeamId,
+  pos: Position,
+  placements: ReadonlyMap<UnitId, DeploymentPlacement>,
+): boolean {
+  const idx = subZoneIndexForTile(zones, team, pos);
+  if (idx === null) return false;
+  const subZone = zoneForTeam(zones, team)!.subZones[idx]!;
+  if (subZone.cap === undefined) return true;
+  return subZoneUsage(zones, team, placements)[idx]! < subZone.cap;
+}
+
+// Position keys of every tile belonging to an at-capacity sub-zone — the
+// tiles to render "locked" (no remaining capacity).
+export function lockedZoneTileKeys(
+  zones: DeploymentZoneConfig,
+  team: TeamId,
+  placements: ReadonlyMap<UnitId, DeploymentPlacement>,
+): ReadonlySet<string> {
+  const zone = zoneForTeam(zones, team);
+  const keys = new Set<string>();
+  if (zone === undefined) return keys;
+  const used = subZoneUsage(zones, team, placements);
+  zone.subZones.forEach((sz, idx) => {
+    if (sz.cap !== undefined && used[idx]! >= sz.cap) {
+      for (const t of sz.tiles) keys.add(posKey(t));
+    }
+  });
+  return keys;
 }
 
 // True once every roster unit has a placement. Drives the "Start Battle"

@@ -4,12 +4,22 @@
 // completion / occupant-lookup helpers.
 
 import { describe, expect, it } from 'vitest';
-import { teamId, unitId, type Direction, type Position } from '@engine/index.ts';
 import {
+  teamId,
+  unitId,
+  type Direction,
+  type DeploymentZoneConfig,
+  type Position,
+} from '@engine/index.ts';
+import {
+  canPlaceInZone,
   createDeploymentState,
   isDeploymentComplete,
+  lockedZoneTileKeys,
+  subZoneUsage,
   transition,
   unitPlacedOn,
+  type DeploymentPlacement,
   type DeploymentState,
 } from './deployment-flow.ts';
 
@@ -28,6 +38,71 @@ function run(...events: Parameters<typeof transition>[1][]): DeploymentState {
   for (const e of events) s = transition(s, e);
   return s;
 }
+
+describe('deployment-flow — per-sub-zone cap helpers (S70)', () => {
+  const RED = teamId('team_b');
+  // Two capped sub-zones: A (cap 2) and B (cap 1).
+  const split: DeploymentZoneConfig = {
+    teams: [
+      {
+        team: RED,
+        subZones: [
+          { cap: 2, tiles: [{ x: 0, y: 0, layer: 0 }, { x: 1, y: 0, layer: 0 }, { x: 2, y: 0, layer: 0 }] },
+          { cap: 1, tiles: [{ x: 0, y: 5, layer: 0 }, { x: 1, y: 5, layer: 0 }] },
+        ],
+      },
+    ],
+  };
+  const at = (x: number, y: number): DeploymentPlacement => ({
+    position: { x, y, layer: 0 },
+    facing: south,
+  });
+
+  it('subZoneUsage counts placements per sub-zone', () => {
+    const placements = new Map([
+      [unitId('a'), at(0, 0)], // sub-zone 0
+      [unitId('b'), at(1, 0)], // sub-zone 0
+      [unitId('c'), at(0, 5)], // sub-zone 1
+    ]);
+    expect(subZoneUsage(split, RED, placements)).toEqual([2, 1]);
+  });
+
+  it('canPlaceInZone rejects a tile whose sub-zone is at cap', () => {
+    const placements = new Map([
+      [unitId('a'), at(0, 0)],
+      [unitId('b'), at(1, 0)], // sub-zone 0 now full (cap 2)
+    ]);
+    // Sub-zone 0's remaining empty tile (2,0) is no longer placeable.
+    expect(canPlaceInZone(split, RED, { x: 2, y: 0, layer: 0 }, placements)).toBe(false);
+    // Sub-zone 1 still has room.
+    expect(canPlaceInZone(split, RED, { x: 0, y: 5, layer: 0 }, placements)).toBe(true);
+    // Off-zone tile is never placeable.
+    expect(canPlaceInZone(split, RED, { x: 9, y: 9, layer: 0 }, placements)).toBe(false);
+  });
+
+  it('lockedZoneTileKeys returns every tile of an at-capacity sub-zone', () => {
+    const placements = new Map([
+      [unitId('a'), at(0, 0)],
+      [unitId('b'), at(1, 0)], // sub-zone 0 full
+    ]);
+    const locked = lockedZoneTileKeys(split, RED, placements);
+    // All three sub-zone-0 tiles lock (incl. the still-empty (2,0)).
+    expect(locked.has('0,0,0')).toBe(true);
+    expect(locked.has('1,0,0')).toBe(true);
+    expect(locked.has('2,0,0')).toBe(true);
+    // Sub-zone 1 (under cap) stays open.
+    expect(locked.has('0,5,0')).toBe(false);
+  });
+
+  it('an uncapped zone never locks and always admits in-zone tiles', () => {
+    const uncapped: DeploymentZoneConfig = {
+      teams: [{ team: RED, subZones: [{ tiles: [{ x: 0, y: 0, layer: 0 }] }] }],
+    };
+    const many = new Map([[unitId('a'), at(0, 0)]]);
+    expect(lockedZoneTileKeys(uncapped, RED, many).size).toBe(0);
+    expect(canPlaceInZone(uncapped, RED, { x: 0, y: 0, layer: 0 }, many)).toBe(true);
+  });
+});
 
 describe('deployment-flow — initial state', () => {
   it('starts idle with no placements, carrying currentTeam', () => {

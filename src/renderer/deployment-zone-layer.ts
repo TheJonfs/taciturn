@@ -29,6 +29,8 @@ import {
   TILE_SIZE,
 } from './constants.ts';
 
+const EMPTY_LOCKED: ReadonlySet<string> = new Set();
+
 export interface DeploymentZoneTint {
   readonly color: number;
   readonly fillAlpha: number;
@@ -69,24 +71,41 @@ export class DeploymentZoneLayer {
 
   // Tint each side's deployment-zone tiles relative to `currentTeam`.
   // Called once at deployment-screen mount; supports repaints (clears
-  // first) if a future caller re-invokes it. Iterates the zone config's
-  // sub-zones (a split zone simply contributes more tiles under the same
-  // team tint).
-  draw(zones: DeploymentZoneConfig, currentTeam: TeamId): void {
+  // first) — the deployment hook re-invokes it as placements change so
+  // full sub-zones update. Iterates the zone config's sub-zones (a split
+  // zone simply contributes more tiles under the same team tint).
+  //
+  // `lockedTileKeys` (S70): position keys ("x,y,layer") of the current
+  // team's tiles whose sub-zone is at capacity. They render faint — the
+  // same dimmed read as an opponent zone — to signal "no room left here."
+  draw(
+    zones: DeploymentZoneConfig,
+    currentTeam: TeamId,
+    lockedTileKeys: ReadonlySet<string> = EMPTY_LOCKED,
+  ): void {
     this.gfx.clear();
     for (const zone of zones.teams) {
       const tint = deploymentZoneTintFor(zone.team, currentTeam);
       if (tint === null) continue;
+      const isCurrent = zone.team === currentTeam;
       for (const subZone of zone.subZones) {
         for (const tile of subZone.tiles) {
+          const locked =
+            isCurrent && lockedTileKeys.has(`${tile.x},${tile.y},${tile.layer}`);
+          // Locked current-team tiles drop to the faint opponent alphas so
+          // they read as non-interactive (capacity exhausted).
+          const fillAlpha = locked ? DEPLOYMENT_ZONE_ALPHA_OPPONENT : tint.fillAlpha;
+          const strokeAlpha = locked
+            ? DEPLOYMENT_ZONE_STROKE_ALPHA_OPPONENT
+            : tint.strokeAlpha;
           const px = tile.x * TILE_SIZE + TILE_INSET / 2;
           const py = tile.y * TILE_SIZE + TILE_INSET / 2;
           const size = TILE_SIZE - TILE_INSET;
           this.gfx.rect(px, py, size, size);
-          this.gfx.fill({ color: tint.color, alpha: tint.fillAlpha });
+          this.gfx.fill({ color: tint.color, alpha: fillAlpha });
           this.gfx.stroke({
             color: tint.color,
-            alpha: tint.strokeAlpha,
+            alpha: strokeAlpha,
             width: DEPLOYMENT_ZONE_STROKE_WIDTH,
           });
         }

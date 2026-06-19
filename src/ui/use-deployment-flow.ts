@@ -19,7 +19,6 @@
 
 import { useEffect, useMemo, useReducer, useRef, type Dispatch } from 'react';
 import {
-  isTileInTeamZone,
   type DeploymentZoneConfig,
   type Direction,
   type Position,
@@ -29,8 +28,10 @@ import {
 } from '@engine/index.ts';
 import type { BattleRenderer } from '@renderer/index.ts';
 import {
+  canPlaceInZone,
   createDeploymentState,
   isDeploymentComplete,
+  lockedZoneTileKeys,
   transition,
   unitPlacedOn,
   type DeploymentEvent,
@@ -90,12 +91,15 @@ export function useDeploymentFlow({
   );
   const rosterIds = useMemo(() => rosterUnits.map((u) => u.id), [rosterUnits]);
 
-  // ===== Zone tint — drawn once when the renderer is available =====
+  // ===== Zone tint — repainted as placements change so at-capacity
+  // sub-zones dim (S70 split-zone caps). For an uncapped single zone the
+  // locked set is always empty, so this matches the pre-S70 static tint. =====
   useEffect(() => {
     if (renderer === null) return;
-    renderer.drawDeploymentZone(zones, currentTeam);
+    const locked = lockedZoneTileKeys(zones, currentTeam, state.placements);
+    renderer.drawDeploymentZone(zones, currentTeam, locked);
     return () => renderer.clearDeploymentZone();
-  }, [renderer, zones, currentTeam]);
+  }, [renderer, zones, currentTeam, state.placements]);
 
   // ===== Tile-click wiring =====
   // Re-registered on `state` change so the handler closes over the
@@ -109,13 +113,15 @@ export function useDeploymentFlow({
         dispatch({ kind: 'liftUnit', unitId: placed });
         return;
       }
-      // An eligible empty tile in the current team's zone → select it.
-      if (isTileInTeamZone(zones, currentTeam, pos)) {
+      // An eligible empty tile in the current team's zone with capacity
+      // left in its sub-zone → select it. A full sub-zone's empty tiles
+      // (drawn dimmed) are not selectable — the same cap the AI honors.
+      if (canPlaceInZone(zones, currentTeam, pos, state.placements)) {
         dispatch({ kind: 'selectTile', tile: pos });
         return;
       }
-      // Anything else (off-zone, opponent zone) → cancel the current
-      // selection.
+      // Anything else (off-zone, opponent zone, full sub-zone) → cancel
+      // the current selection.
       dispatch({ kind: 'cancel' });
     };
     renderer.setOnTileClick(handler);

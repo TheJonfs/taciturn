@@ -86,6 +86,9 @@ export class BattleRenderer {
   // `deploymentTeam` so context-loss recovery (`redrawStaticLayers`) can
   // repaint the zones without the caller re-supplying them.
   private deploymentZones: DeploymentZoneConfig | null = null;
+  // Position keys of the current team's at-capacity sub-zone tiles (S70),
+  // retained so a context-loss repaint keeps full sub-zones dimmed.
+  private deploymentLockedTiles: ReadonlySet<string> = new Set();
   // Set true in `destroy()`. The deployment-phase methods early-return
   // once destroyed: they're called from `useDeploymentFlow`'s effect
   // *cleanups*, which React runs in the same unmount pass as the
@@ -444,11 +447,16 @@ export class BattleRenderer {
   // once at deployment-screen mount; `currentTeam` and `zones` are
   // retained so `setDeploymentUnit` picks the right friendly/enemy
   // portrait flip and `redrawStaticLayers` can repaint after context loss.
-  drawDeploymentZone(zones: DeploymentZoneConfig, currentTeam: TeamId): void {
+  drawDeploymentZone(
+    zones: DeploymentZoneConfig,
+    currentTeam: TeamId,
+    lockedTileKeys: ReadonlySet<string> = new Set(),
+  ): void {
     if (this.destroyed) return;
     this.deploymentTeam = currentTeam;
     this.deploymentZones = zones;
-    this.deploymentZoneLayer.draw(zones, currentTeam);
+    this.deploymentLockedTiles = lockedTileKeys;
+    this.deploymentZoneLayer.draw(zones, currentTeam, lockedTileKeys);
   }
 
   // S50: WebGL context-loss recovery. Pixi auto-restores `Graphics` draw
@@ -493,7 +501,11 @@ export class BattleRenderer {
     this.barrierLayer.draw(map);
     this.elevationLabelLayer.draw(map);
     if (this.deploymentTeam !== null && this.deploymentZones !== null) {
-      this.deploymentZoneLayer.draw(this.deploymentZones, this.deploymentTeam);
+      this.deploymentZoneLayer.draw(
+        this.deploymentZones,
+        this.deploymentTeam,
+        this.deploymentLockedTiles,
+      );
     }
   }
 
