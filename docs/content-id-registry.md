@@ -336,6 +336,7 @@ S39 Alchemist substrate. Not "equipment" in the slot sense — consumed via `com
 | `riverRidge` | River Ridge | 14×14 | `src/content/maps/river-ridge.ts` |
 | `stonebridge` | Stonebridge | 16×16 | `src/content/maps/stonebridge.ts` |
 | `marshmoor` | Marshmoor | 16×16 | `src/content/maps/marshmoor.ts` |
+| `mountainPass` | Mountain Pass | 16×16 | `src/content/maps/mountain-pass.ts` |
 
 Authored battles consume these maps via per-scenario battle configs:
 
@@ -344,8 +345,23 @@ Authored battles consume these maps via per-scenario battle configs:
 | `river_ridge_v1` | River Ridge | `src/content/battles/river-ridge-battle.ts` |
 | `stonebridge_v1` | Stonebridge | `src/content/battles/stonebridge-battle.ts` |
 | `marshmoor_v1` | Marshmoor | `src/content/battles/marshmoor-battle.ts` |
+| `mountain_pass_v1` | Mountain Pass | `src/content/battles/mountain-pass-battle.ts` |
 | `demo_battle` (smoke-test fixture) | (inline 6×6) | `src/content/battles/demo.ts` |
 | `training_field` (engine smoke-test) | Training Field | `src/content/battles/training-field-battle.ts` |
+
+### Deployment-zone configs (S70, ADR-0118)
+
+Deployment zones live beside the terrain in a per-map registry
+(`src/content/deployment/registry.ts`), keyed `mapKey → { configName → config }`
+and paired with the terrain by the `assembleBattlefield` combiner. `Tile` no
+longer carries a `deploymentZone` field.
+
+| Map key | Config | Shape |
+|---|---|---|
+| `river_ridge` | `default` | Blue rows 0-2 / Red rows 11-13, cols 5-8 (single sub-zone each) |
+| `stonebridge` | `default` | Blue rows 0-1 / Red rows 14-15, cols 5-8 |
+| `marshmoor` | `default` | Blue NE corner / Red SW corner, 3×3 |
+| `mountain_pass` | `default` | **Split:** Blue victim — 1 NW-valley sub-zone (uncapped); Red ambusher — SW massif (cap 3) + NE edge (cap 2) |
 
 ## Terrain types
 
@@ -373,7 +389,7 @@ catalog totals.
 | Status types | 35 | S65 `mana_font`; Thief chunk 2 +2 (`enthralled`, `heartwarded`) |
 | Equipment + consumables | 77 | S68 +4 (`vicious_dagger`, `scimitar`, `wand_of_potential`, `gauntlet_of_might`) |
 | Rulesets | 1 | — |
-| Maps | 3 | — |
+| Maps | 4 | S70 `mountainPass` |
 | Terrain types | 4 | — |
 
 Pinned in `src/content/loader.test.ts`; that test fails loud if the counts drift without a corresponding registry update.

@@ -31,6 +31,34 @@ shouldn't drift out of memory between sessions.
   Chris):** confirmed reading correctly in-battle. Closed; dropped from the
   handoff carry-list.
 
+### S70 — Mountain Pass ambush: does the victim AI play the terrain?
+
+The brief's free intelligence probe (ADR-0118; observation, not acceptance).
+
+- **What to watch.** On Mountain Pass with the *ambusher* (the SE-heights split
+  zone) AI-controlled and the *victim* (NW valley) also AI, or victim AI vs human
+  ambusher: does the victim AI advance straight up the pass into the SE crossfire,
+  or does it use the central spine / valley cover and refuse the bad ground?
+- **Why it matters.** The in-battle AI has no predictive positional threat-model
+  (the large deferred AI gap) — it doesn't reason about avoiding enemy reach or
+  walking into a kill-zone. The ambush map is the cleanest natural test of how
+  badly that absence reads.
+- **What signal would indicate adjustment.** If the victim reliably marches into
+  the crossfire and gets folded, that's concrete motivation (and a test bed) for
+  the predictive threat-model beat. If it incidentally plays fine (terrain costs
+  steer it well enough), the threat-model stays low-priority.
+
+### S70 — split-zone AI deployment coherence
+
+- **What to watch.** When the ambusher is AI, does the 3-SW-massif / 2-NE-edge
+  split *read* as a coherent ambush (tank fronting the dominant wing, casters
+  perched), or does the round-robin distribution put units in odd spots?
+- **Why it matters.** The split-zone heuristic fills wings sensibly by
+  construction (unit-tested) but has had no in-battle feel pass.
+- **What signal would indicate adjustment.** If the AI's wing composition looks
+  obviously wrong (e.g. the lone melee stranded on the weak NE flank, casters
+  exposed at the front), revisit the distribution order.
+
 ### S68 equipment — feel-pass tunables
 
 Four new pieces shipped at settled numbers; two carry a latent tuning the brief

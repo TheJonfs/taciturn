@@ -44,6 +44,25 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 70 — Mountain Pass map + split deployment zones (2026-06-19)
+
+Commits: `fec6b0e`, `6cce2b5`, `0b8d238`. See ADR-0118.
+
+- **New map: Mountain Pass** (16×16). A narrow NW→SE pass — a broad low NW
+  valley, a central low spine, and a tight SE defile walled by the bottom-center
+  massif and the rising NE ridge. Selectable on the battle-setup screen alongside
+  River Ridge, Stonebridge, and Marshmoor.
+- **Split deployment zones.** A side's deployment area can now be **two (or more)
+  separate regions**, each with its own **unit cap**. Mountain Pass uses this for
+  an ambush layout: one side (the *victim*) deploys as a single block in the NW
+  valley; the other (the *ambusher*) splits across two SE-heights positions
+  flanking the defile — **up to 3 units on the SW massif and up to 2 on the NE
+  edge**.
+- **Deployment UX for caps.** When placing into a capped split zone, once a
+  sub-zone is full its remaining tiles **dim and stop accepting units** — place
+  the rest in the other sub-zone. (The existing three maps are unchanged: each is
+  a single uncapped zone per side, so nothing about deploying on them changes.)
+
 ## Session 69 follow-up — terrain blocks sight; mountains block lobs (2026-06-17)
 
 Line-of-sight now respects terrain elevation. See ADR-0117.

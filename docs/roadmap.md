@@ -341,7 +341,7 @@ These are not numbered in the main sequence because their timing depends on what
 
 - **Status catalog expansion** — after session 3 (hook system + minimal status). Adds the breadth of v1 statuses defined in `docs/design/status-effects.md`.
 - **Class/ability/equipment catalog expansion** — after session 5 (ability slots) and partly after session 8 (damage pipeline). Adds enough classes and abilities to populate session 13's first playable battle.
-- **Map content expansion** — after session 4 (map and movement). Adds maps beyond the test fixtures.
+- **Map content expansion** — after session 4 (map and movement). Adds maps beyond the test fixtures. *Shipped: River Ridge (S33), Stonebridge (S47), Marshmoor (S52), Mountain Pass (S70). S70 also extracted deployment zones into a per-map registry + combiner and added the split-zone (multi-sub-zone, capped) model — ADR-0118.*
 - **Ruleset variants** — after session 6, only if needed; the default ruleset suffices for most early work.
 
 ## Out of scope for v1

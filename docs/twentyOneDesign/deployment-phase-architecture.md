@@ -39,27 +39,38 @@ VisibilityState {
 }
 ```
 
-### Map-Side State
+### Zone State
 
-Tiles carry a deployment zone field as part of their existing tile data:
+> **Updated S70 (ADR-0118).** Zones used to be a per-tile `deploymentZone:
+> 'team_a' | 'team_b' | null` field baked into the map. They now live *beside*
+> the terrain in a per-map registry (`src/content/deployment/registry.ts`),
+> paired with the terrain by the `assembleBattlefield` combiner. `Tile` no longer
+> carries a deployment field. This lets one terrain carry several layouts (a story
+> ambush vs a random-battle layout) without map surgery.
+
+A side's zone is a **list of sub-zones**, each a tile-set with an optional
+per-sub-zone unit cap:
 
 ```
-Tile {
-  x, y, layer: int
-  elevation: int
-  terrainType: TerrainTypeId
-  properties: TileProperty[]
-  deploymentZone: 'team_a' | 'team_b' | null   // null is the default
-}
+DeploymentZoneConfig { teams: TeamDeploymentZone[] }
+TeamDeploymentZone   { team: TeamId; subZones: DeploymentSubZone[] }
+DeploymentSubZone    { tiles: Position[]; cap?: number }   // cap undefined = uncapped
 ```
 
-Maps own the zones; the deployment phase reads them. This naturally supports asymmetric, non-contiguous, or specially-shaped zones (e.g., an "ambush" map where one team's zone is split between two areas of the map).
+A single contiguous zone is the one-sub-zone, no-cap degenerate case. This
+naturally supports asymmetric, non-contiguous, or specially-shaped zones — e.g.,
+Mountain Pass's ambush, where the ambusher's zone is split between two SE-heights
+sub-zones (caps 3 and 2) flanking the defile.
 
 ## Validation
 
 ### Per-Placement
 
 - Position is within the unit's team zone tiles.
+- The sub-zone the position belongs to is below its cap (S70). Enforced for both
+  human placement (`canPlaceInZone` — over-cap tiles are non-selectable and re-tint
+  faint) and AI placement (`planAiDeployment` distributes across sub-zones honoring
+  caps).
 - Position is not occupied by another unit on the same team.
 - Position is reachable / standable terrain (not a void, not blocked, layer/terrain-type compatible with ground unit).
 - Facing is one of the four cardinal directions.
