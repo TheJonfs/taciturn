@@ -37,7 +37,7 @@ export const assassin: ClassDefinition = {
     jump: 4,
     terrainCosts: new Map(),
     // Universal water-enterable; cost is the gate (ADR-0073).
-    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart']),
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart', 'rock']),
   },
   evasion: { front: 8, side: 4, back: 0 },
   equipmentSlots: {

@@ -31,6 +31,9 @@ export const TERRAIN_COLORS: Readonly<Record<string, number>> = {
   // distinct from cliff-cut ground. Replaced by texture variants when
   // Chris's authored art lands.
   rampart: 0x8a7a62,
+  // Session 70: rock fallback fill — a cool bare-stone grey for Mountain
+  // Pass's heights, under the rock texture variants.
+  rock: 0x6f6b66,
 };
 
 // Optional per-terrain multiplicative tint applied to the texture

@@ -43,7 +43,7 @@ export const calculator: ClassDefinition = {
     terrainCosts: new Map(),
     // Universal water-enterable (ADR-0073). See knight.ts for the
     // convention.
-    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart']),
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart', 'rock']),
   },
   evasion: { front: 7, side: 3, back: 0 },
   equipmentSlots: {

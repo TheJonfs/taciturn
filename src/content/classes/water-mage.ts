@@ -38,7 +38,7 @@ export const waterMage: ClassDefinition = {
     // the gate. Tidewalker (free passive) reduces shallow 2 → 1 and
     // deep 3 → 2, making water-traversal the Water Mage's signature.
     // See knight.ts for the universal convention.
-    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart']),
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart', 'rock']),
   },
   // Slightly higher front evade than Earth Mage (8/5/0) — Water's
   // mobility identity nudges into evasion. Real numbers land in the

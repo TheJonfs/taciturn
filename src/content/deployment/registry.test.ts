@@ -164,11 +164,13 @@ describe('Mountain Pass split config (S70)', () => {
     expect(capSum).toBe(5);
   });
 
-  it('every zone tile is ground on the terrain (no water deployment)', () => {
+  it('every zone tile is walkable land — ground or rock, never water', () => {
+    // The ambusher's SE-heights tiles (elev ≥ 7) are `rock`; the victim's
+    // NW valley is `ground`. Both are land — no unit deploys in water.
     for (const team of [BLUE, RED]) {
       for (const pos of tilesForTeam(zones, team)) {
         const tile = tileAt(mountainPass, pos.x, pos.y, pos.layer)!;
-        expect(tile.terrain).toBe('ground');
+        expect(['ground', 'rock']).toContain(tile.terrain);
       }
     }
   });

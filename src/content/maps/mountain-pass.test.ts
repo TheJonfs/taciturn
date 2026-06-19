@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   mountainPass,
   MOUNTAIN_PASS_HEIGHT,
+  MOUNTAIN_PASS_ROCK_ELEVATION,
   MOUNTAIN_PASS_WIDTH,
 } from './mountain-pass.ts';
 import { tileAt, validateMap, type TerrainRegistry } from '@engine/index.ts';
@@ -14,6 +15,7 @@ const REGISTRY: TerrainRegistry = new Map([
   ['ground', new Set(['land'])],
   ['water_shallow', new Set(['water', 'shallow'])],
   ['water_deep', new Set(['water', 'deep'])],
+  ['rock', new Set(['land'])],
 ]);
 
 describe('Mountain Pass map — structural', () => {
@@ -57,14 +59,24 @@ describe('Mountain Pass map — landmark elevations', () => {
 });
 
 describe('Mountain Pass map — terrain', () => {
-  it('is entirely ground (every elevation ≥ 2, no water)', () => {
+  it('has no water (every elevation ≥ 2) and only ground/rock terrain', () => {
     for (const t of mountainPass.tiles) {
       expect(t.elevation).toBeGreaterThanOrEqual(2);
-      expect(t.terrain).toBe('ground');
+      expect(['ground', 'rock']).toContain(t.terrain);
     }
   });
 
-  it('validates cleanly against the default registry', () => {
+  it('paints elevation ≥ 7 as rock and elevation 2-6 as ground (S70 visual)', () => {
+    for (const t of mountainPass.tiles) {
+      const expected = t.elevation >= MOUNTAIN_PASS_ROCK_ELEVATION ? 'rock' : 'ground';
+      expect(t.terrain).toBe(expected);
+    }
+    // Spot-checks: SW massif peak is rock; NW valley is ground.
+    expect(tileAt(mountainPass, 9, 13, 0)!.terrain).toBe('rock'); // elev 10
+    expect(tileAt(mountainPass, 2, 2, 0)!.terrain).toBe('ground'); // elev 3
+  });
+
+  it('validates cleanly against the default registry (rock is registered)', () => {
     const result = validateMap(mountainPass, REGISTRY);
     expect(result.errors).toEqual([]);
     expect(result.ok).toBe(true);

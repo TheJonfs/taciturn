@@ -44,7 +44,7 @@ export const templar: ClassDefinition = {
     moveRange: 2,
     jump: 3,
     terrainCosts: new Map(),
-    canEnter: new Set(['ground', 'water_shallow', 'water_deep']),
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rock']),
   },
   evasion: { front: 10, side: 6, back: 2 },
   equipmentSlots: {

@@ -10,8 +10,12 @@
 // the ambusher in the SE heights on both flanks of the defile, the
 // victim out in the NW valley.
 //
-// Elevations span 2-11; every tile is ≥2, so the whole map is `ground`
-// under the universal water-table convention (no water on this map).
+// Elevations span 2-11; every tile is ≥2, so no water under the
+// universal water-table convention. Session 70 visual pass: the high
+// ground (elevation ≥ 7 — the SW massif and NE ridge) is `rock` terrain
+// to break up the grass tiling; everything elev 2-6 stays `ground`.
+// `rock` behaves identically to `ground` for pathfinding (land, step
+// cost 1, in every class's `canEnter`) — the split is purely visual.
 //
 // Indexing matches the brief's Appendix: the grid below stores y=0 first
 // (the canonical engine row order); first index = row (y), second =
@@ -59,9 +63,14 @@ const ELEVATION_GRID: ReadonlyArray<ReadonlyArray<number>> = [
   [4, 5, 7, 5, 6, 7, 8, 8, 9, 10, 9, 8, 6, 7, 4, 4],
 ];
 
+// Visual rock threshold (S70): tiles at this elevation or above paint as
+// `rock`. Mechanically identical to `ground`; this is a rendering split.
+export const MOUNTAIN_PASS_ROCK_ELEVATION = 7;
+
 function terrainFromElevation(elev: number): string {
   if (elev === 0) return 'water_deep';
   if (elev === 1) return 'water_shallow';
+  if (elev >= MOUNTAIN_PASS_ROCK_ELEVATION) return 'rock';
   return 'ground';
 }
 
