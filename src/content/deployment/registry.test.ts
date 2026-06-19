@@ -6,10 +6,12 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  subZoneIndexForTile,
   teamForTile,
   tilesForTeam,
   tileAt,
   validateDeploymentZones,
+  zoneForTeam,
   type TeamId,
 } from '@engine/index.ts';
 import { teamId } from '@engine/index.ts';
@@ -17,6 +19,7 @@ import { DEPLOYMENT_ZONE_REGISTRY, deploymentZonesFor } from './registry.ts';
 import { riverRidge } from '@content/maps/river-ridge.ts';
 import { stonebridge } from '@content/maps/stonebridge.ts';
 import { marshmoor } from '@content/maps/marshmoor.ts';
+import { mountainPass } from '@content/maps/mountain-pass.ts';
 
 const BLUE = teamId('team_a');
 const RED = teamId('team_b');
@@ -128,6 +131,50 @@ describe('Marshmoor default zones', () => {
 
   it('validates cleanly against the terrain (5-unit teams)', () => {
     const result = validateDeploymentZones(zones, marshmoor, {
+      requiredZonesPerTeam: req([[BLUE, 5], [RED, 5]]),
+    });
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe('Mountain Pass split config (S70)', () => {
+  const zones = deploymentZonesFor('mountain_pass');
+
+  it('victim (Blue) is one uncapped NW-valley sub-zone of 8 tiles', () => {
+    const blue = zoneForTeam(zones, BLUE)!;
+    expect(blue.subZones).toHaveLength(1);
+    expect(blue.subZones[0]!.cap).toBeUndefined();
+    expect(blue.subZones[0]!.tiles).toHaveLength(8);
+    expect(teamForTile(zones, { x: 2, y: 2, layer: 0 })).toBe(BLUE);
+  });
+
+  it('ambusher (Red) splits into SW massif (cap 3) + NE edge (cap 2)', () => {
+    const red = zoneForTeam(zones, RED)!;
+    expect(red.subZones).toHaveLength(2);
+    expect(red.subZones[0]!.cap).toBe(3);
+    expect(red.subZones[1]!.cap).toBe(2);
+    // SW massif tiles resolve to sub-zone 0; NE edge to sub-zone 1.
+    expect(subZoneIndexForTile(zones, RED, { x: 8, y: 13, layer: 0 })).toBe(0);
+    expect(subZoneIndexForTile(zones, RED, { x: 14, y: 11, layer: 0 })).toBe(1);
+  });
+
+  it('caps sum to the 5-unit roster (ambusher fills exactly)', () => {
+    const red = zoneForTeam(zones, RED)!;
+    const capSum = red.subZones.reduce((s, sz) => s + (sz.cap ?? 0), 0);
+    expect(capSum).toBe(5);
+  });
+
+  it('every zone tile is ground on the terrain (no water deployment)', () => {
+    for (const team of [BLUE, RED]) {
+      for (const pos of tilesForTeam(zones, team)) {
+        const tile = tileAt(mountainPass, pos.x, pos.y, pos.layer)!;
+        expect(tile.terrain).toBe('ground');
+      }
+    }
+  });
+
+  it('validates cleanly against the terrain (5-unit teams)', () => {
+    const result = validateDeploymentZones(zones, mountainPass, {
       requiredZonesPerTeam: req([[BLUE, 5], [RED, 5]]),
     });
     expect(result.ok).toBe(true);

@@ -28,6 +28,7 @@ import { deploymentZonesFor } from '@content/deployment/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import { stonebridgeBattle } from '@content/battles/stonebridge-battle.ts';
 import { marshmoorBattle } from '@content/battles/marshmoor-battle.ts';
+import { mountainPassBattle } from '@content/battles/mountain-pass-battle.ts';
 import { buildTeamBattleConfig, type BuiltTeam } from '@content/teams/index.ts';
 import type { BattleConfig, Catalog, TeamControl, TeamId } from '@engine/index.ts';
 import { TEAM_PALETTE, TEAM_PALETTE_FALLBACK_CSS } from '@renderer/index.ts';
@@ -39,11 +40,12 @@ type Slot = 0 | 1;
 // S47: two maps live; the setup screen picks between them. Both configs
 // declare the same two teams in the same order, so TEAM_IDS / TEAM_NAMES
 // stay derived from one canonical config.
-export type MapId = 'river_ridge' | 'stonebridge' | 'marshmoor';
+export type MapId = 'river_ridge' | 'stonebridge' | 'marshmoor' | 'mountain_pass';
 export const MAP_OPTIONS: ReadonlyArray<{ id: MapId; label: string; config: BattleConfig }> = [
   { id: 'river_ridge', label: 'River Ridge', config: riverRidgeBattle },
   { id: 'stonebridge', label: 'Stonebridge', config: stonebridgeBattle },
   { id: 'marshmoor', label: 'Marshmoor', config: marshmoorBattle },
+  { id: 'mountain_pass', label: 'Mountain Pass', config: mountainPassBattle },
 ];
 function battleForMap(id: MapId): BattleConfig {
   return MAP_OPTIONS.find((m) => m.id === id)!.config;

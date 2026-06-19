@@ -46,6 +46,64 @@ const marshmoorDefault: DeploymentZoneConfig = {
   ],
 };
 
+// Mountain Pass (16×16) — the first SPLIT config (S70). The victim (Blue,
+// team_a) deploys as one contiguous block in the NW valley basin; the
+// ambusher (Red, team_b) splits across two disjoint SE-heights sub-zones
+// flanking the defile: the dominant SW massif (cap 3) and the lower NE
+// edge (cap 2). Caps sum to 5 = the 5v5 roster, so the ambusher fills
+// exactly. Tiles per the brief's D1; assignment per D2 (Chris, S70).
+const mountainPassAmbush: DeploymentZoneConfig = {
+  teams: [
+    {
+      // Victim — NW valley basin (elev 3-5). One sub-zone, uncapped:
+      // 8 tiles for 5 units.
+      team: TEAM_BLUE,
+      subZones: [
+        {
+          tiles: [
+            { x: 1, y: 1, layer: 0 },
+            { x: 2, y: 1, layer: 0 },
+            { x: 3, y: 1, layer: 0 },
+            { x: 1, y: 2, layer: 0 },
+            { x: 2, y: 2, layer: 0 },
+            { x: 3, y: 2, layer: 0 },
+            { x: 2, y: 3, layer: 0 },
+            { x: 3, y: 3, layer: 0 },
+          ],
+        },
+      ],
+    },
+    {
+      // Ambusher — two SE-heights sub-zones flanking the defile.
+      team: TEAM_RED,
+      subZones: [
+        {
+          // SW massif — the dominant wall (elev 7-10). Cap 3.
+          cap: 3,
+          tiles: [
+            { x: 8, y: 12, layer: 0 },
+            { x: 9, y: 12, layer: 0 },
+            { x: 8, y: 13, layer: 0 },
+            { x: 9, y: 13, layer: 0 },
+            { x: 8, y: 14, layer: 0 },
+            { x: 9, y: 14, layer: 0 },
+          ],
+        },
+        {
+          // NE edge — the lower, weaker flank (elev 5-8). Cap 2.
+          cap: 2,
+          tiles: [
+            { x: 14, y: 11, layer: 0 },
+            { x: 15, y: 11, layer: 0 },
+            { x: 15, y: 12, layer: 0 },
+            { x: 15, y: 13, layer: 0 },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 // mapKey → (configName → config). 'default' is the convention every map
 // provides; further keys are alternate layouts on the same terrain.
 export const DEPLOYMENT_ZONE_REGISTRY: Readonly<
@@ -54,6 +112,7 @@ export const DEPLOYMENT_ZONE_REGISTRY: Readonly<
   river_ridge: { default: riverRidgeDefault },
   stonebridge: { default: stonebridgeDefault },
   marshmoor: { default: marshmoorDefault },
+  mountain_pass: { default: mountainPassAmbush },
 };
 
 // Look up a map's deployment-zone config by name (defaults to 'default').
