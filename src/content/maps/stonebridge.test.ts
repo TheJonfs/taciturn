@@ -12,12 +12,8 @@ import {
   STONEBRIDGE_HEIGHT,
   STONEBRIDGE_WIDTH,
 } from './stonebridge.ts';
-import { teamId } from '@engine/index.ts';
 import { tileAt } from '@engine/index.ts';
 import { validateMap, type TerrainRegistry } from '@engine/index.ts';
-
-const TEAM_BLUE = teamId('team_a');
-const TEAM_RED = teamId('team_b');
 
 const REGISTRY: TerrainRegistry = new Map([
   ['ground', new Set(['land'])],
@@ -131,48 +127,13 @@ describe('Stonebridge map — bridge and river', () => {
   });
 });
 
-describe('Stonebridge map — deployment zones', () => {
-  it('Blue zone covers rows 0-1 cols 5-8 (8 tiles)', () => {
-    let count = 0;
-    for (const t of stonebridge.tiles) {
-      if (t.deploymentZone === TEAM_BLUE) count += 1;
-    }
-    expect(count).toBe(8);
-    expect(tileAt(stonebridge, 5, 0, 0)!.deploymentZone).toBe(TEAM_BLUE);
-    expect(tileAt(stonebridge, 8, 1, 0)!.deploymentZone).toBe(TEAM_BLUE);
-    expect(tileAt(stonebridge, 4, 0, 0)!.deploymentZone).toBeUndefined();
-    expect(tileAt(stonebridge, 5, 2, 0)!.deploymentZone).toBeUndefined();
-  });
+// Deployment zones live in the registry now (S70); their coverage and
+// flat-ground property are tested in
+// `src/content/deployment/registry.test.ts`.
 
-  it('Red zone covers rows 14-15 cols 5-8 (8 tiles)', () => {
-    let count = 0;
-    for (const t of stonebridge.tiles) {
-      if (t.deploymentZone === TEAM_RED) count += 1;
-    }
-    expect(count).toBe(8);
-    expect(tileAt(stonebridge, 5, 14, 0)!.deploymentZone).toBe(TEAM_RED);
-    expect(tileAt(stonebridge, 8, 15, 0)!.deploymentZone).toBe(TEAM_RED);
-    expect(tileAt(stonebridge, 4, 14, 0)!.deploymentZone).toBeUndefined();
-  });
-
-  it('all deployment-zone tiles are flat ground (elev 2)', () => {
-    for (const t of stonebridge.tiles) {
-      if (t.deploymentZone !== undefined) {
-        expect(t.elevation).toBe(2);
-        expect(t.terrain).toBe('ground');
-      }
-    }
-  });
-});
-
-describe('Stonebridge map — passes validation', () => {
-  it('validates cleanly with 4-unit team requirement', () => {
-    const result = validateMap(stonebridge, REGISTRY, {
-      requiredZonesPerTeam: new Map([
-        [TEAM_BLUE, 4],
-        [TEAM_RED, 4],
-      ]),
-    });
+describe('Stonebridge map — passes terrain validation', () => {
+  it('validates cleanly against the default registry', () => {
+    const result = validateMap(stonebridge, REGISTRY);
     expect(result.errors).toEqual([]);
     expect(result.ok).toBe(true);
   });

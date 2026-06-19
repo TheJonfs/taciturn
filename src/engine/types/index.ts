@@ -7,6 +7,7 @@ export * from './battle-config.ts';
 export * from './battle-outcome.ts';
 export * from './charged-action.ts';
 export * from './damage.ts';
+export * from './deployment-zone.ts';
 export * from './duration-mode.ts';
 export * from './equipment-slot.ts';
 export * from './errors.ts';

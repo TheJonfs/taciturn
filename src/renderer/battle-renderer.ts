@@ -24,6 +24,7 @@ import {
   type Action,
   type Catalog,
   type ClassId,
+  type DeploymentZoneConfig,
   type Gender,
   type GameState,
   type Position,
@@ -81,6 +82,10 @@ export class BattleRenderer {
   // The team currently deploying — captured by `drawDeploymentZone` so
   // `setDeploymentUnit` can decide the friendly/enemy portrait flip.
   private deploymentTeam: TeamId | null = null;
+  // The zone config currently being tinted — retained alongside
+  // `deploymentTeam` so context-loss recovery (`redrawStaticLayers`) can
+  // repaint the zones without the caller re-supplying them.
+  private deploymentZones: DeploymentZoneConfig | null = null;
   // Set true in `destroy()`. The deployment-phase methods early-return
   // once destroyed: they're called from `useDeploymentFlow`'s effect
   // *cleanups*, which React runs in the same unmount pass as the
@@ -435,13 +440,15 @@ export class BattleRenderer {
   // them, via `setDeploymentUnit`, which bypasses the animator (the
   // per-frame loop skips any sprite without an animator snapshot).
 
-  // Tint the map's deployment zones for the team currently deploying.
-  // Called once at deployment-screen mount; `currentTeam` is retained
-  // so `setDeploymentUnit` picks the right friendly/enemy portrait flip.
-  drawDeploymentZone(map: GameState['map'], currentTeam: TeamId): void {
+  // Tint the deployment zones for the team currently deploying. Called
+  // once at deployment-screen mount; `currentTeam` and `zones` are
+  // retained so `setDeploymentUnit` picks the right friendly/enemy
+  // portrait flip and `redrawStaticLayers` can repaint after context loss.
+  drawDeploymentZone(zones: DeploymentZoneConfig, currentTeam: TeamId): void {
     if (this.destroyed) return;
     this.deploymentTeam = currentTeam;
-    this.deploymentZoneLayer.draw(map, currentTeam);
+    this.deploymentZones = zones;
+    this.deploymentZoneLayer.draw(zones, currentTeam);
   }
 
   // S50: WebGL context-loss recovery. Pixi auto-restores `Graphics` draw
@@ -485,8 +492,8 @@ export class BattleRenderer {
     this.cliffEdgeLayer.draw(map);
     this.barrierLayer.draw(map);
     this.elevationLabelLayer.draw(map);
-    if (this.deploymentTeam !== null) {
-      this.deploymentZoneLayer.draw(map, this.deploymentTeam);
+    if (this.deploymentTeam !== null && this.deploymentZones !== null) {
+      this.deploymentZoneLayer.draw(this.deploymentZones, this.deploymentTeam);
     }
   }
 

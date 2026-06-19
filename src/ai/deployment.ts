@@ -5,8 +5,8 @@
 // front line, ranged/casters protected behind it, everyone facing the
 // enemy.
 //
-//   1. Opposing-zone centroid — the average position of every tile
-//      tagged as a deployment zone for some *other* team.
+//   1. Opposing-zone centroid — the average position of every tile in
+//      some *other* team's deployment zone.
 //   2. Forwardness rank — own-zone tiles sorted by distance to that
 //      centroid, closest first (front) to farthest (protected rear). The
 //      old "front center" (S43) is just rank 0 of this ordering.
@@ -31,14 +31,20 @@
 // leftover unit ids in `unplaced` rather than logging — the caller (the
 // app's deployment routing) owns the warning so this stays a pure,
 // trivially-testable geometry function.
+//
+// Session 70: reads the deployment-zone *config* (extracted off the map
+// tiles) rather than `map.tiles[].deploymentZone`. The geometry is
+// unchanged — it only ever used tile (x, y, layer), so the switch from
+// `Tile` to `Position` is transparent for single-zone sides.
 
 import {
   cardinalFromTo,
-  type BattleMap,
+  opposingTilesFor,
+  tilesForTeam,
   type ClassId,
+  type DeploymentZoneConfig,
   type Direction,
   type Position,
-  type Tile,
   type TeamId,
   type UnitId,
   type WeaponType,
@@ -85,7 +91,7 @@ interface Centroid {
 
 // Squared Euclidean distance on (x, y). Squared avoids a sqrt and
 // preserves ordering — we only ever compare distances, never report them.
-function dist2(tile: Tile, point: Centroid): number {
+function dist2(tile: Position, point: Centroid): number {
   const dx = tile.x - point.x;
   const dy = tile.y - point.y;
   return dx * dx + dy * dy;
@@ -93,15 +99,15 @@ function dist2(tile: Tile, point: Centroid): number {
 
 // Deterministic total order over tiles: row, then column, then layer.
 // Used as the tie-break whenever two tiles are equidistant from a
-// reference point, so the heuristic never depends on map-tile iteration
+// reference point, so the heuristic never depends on tile iteration
 // order.
-function tileOrder(a: Tile, b: Tile): number {
+function tileOrder(a: Position, b: Position): number {
   if (a.y !== b.y) return a.y - b.y;
   if (a.x !== b.x) return a.x - b.x;
   return a.layer - b.layer;
 }
 
-function centroidOf(tiles: ReadonlyArray<Tile>): Centroid {
+function centroidOf(tiles: ReadonlyArray<Position>): Centroid {
   let sx = 0;
   let sy = 0;
   for (const t of tiles) {
@@ -112,30 +118,27 @@ function centroidOf(tiles: ReadonlyArray<Tile>): Centroid {
 }
 
 export function planAiDeployment(args: {
-  readonly map: BattleMap;
+  readonly zones: DeploymentZoneConfig;
   readonly team: TeamId;
   readonly units: ReadonlyArray<DeployableUnit>;
 }): AiDeploymentResult {
-  const { map, team, units } = args;
+  const { zones, team, units } = args;
 
-  const ownZone = map.tiles.filter((t) => t.deploymentZone === team);
-  // Opposing zone = any tile tagged for a *different* team. `null` (an
-  // explicitly-neutral shared zone) and `undefined` (no zone) are skipped.
-  const opposingZone = map.tiles.filter(
-    (t) => t.deploymentZone != null && t.deploymentZone !== team,
-  );
+  const ownZone = tilesForTeam(zones, team);
+  // Opposing zone = every tile belonging to a *different* team.
+  const opposingZone = opposingTilesFor(zones, team);
 
   if (opposingZone.length === 0) {
     throw new Error(
-      `planAiDeployment: map declares no opposing deployment zone for team ${JSON.stringify(team)}`,
+      `planAiDeployment: config declares no opposing deployment zone for team ${JSON.stringify(team)}`,
     );
   }
 
   // No own-zone tiles → nothing can be placed. Fail loud rather than
-  // silently returning an empty plan (it's a malformed-map signal).
+  // silently returning an empty plan (it's a malformed-config signal).
   if (ownZone.length === 0) {
     throw new Error(
-      `planAiDeployment: map declares no deployment zone for team ${JSON.stringify(team)}`,
+      `planAiDeployment: config declares no deployment zone for team ${JSON.stringify(team)}`,
     );
   }
 

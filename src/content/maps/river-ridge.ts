@@ -7,9 +7,10 @@
 //   elev 1  → water_shallow
 //   elev ≥2 → ground
 //
-// Deployment zones (`deploymentZone` field) author rows 0-2 cols 5-8 as
-// Blue (team_a) and rows 11-13 cols 5-8 as Red (team_b). Both zones
-// are flat (elev 2) and entirely on `ground` terrain.
+// Deployment zones live beside the terrain now (S70): see
+// `src/content/deployment/registry.ts` (`river_ridge` → `default`),
+// which authors Blue at rows 0-2 / cols 5-8 and Red at rows 11-13 /
+// cols 5-8 — the same flat, ground tiles this map used to bake in.
 //
 // Convention on N/S orientation: in the engine, y=0 is the top row of
 // the grid (the elevation grid in the design doc is printed with y=13
@@ -26,14 +27,10 @@
 // central climb (elev 2 → 3 → 4 → 7), the eastern perch (elev 9 → 2)
 // without knowing the terrain string.
 
-import type { BattleMap, TeamId, Tile } from '@engine/index.ts';
-import { teamId } from '@engine/index.ts';
+import type { BattleMap, Tile } from '@engine/index.ts';
 
 export const RIVER_RIDGE_WIDTH = 14;
 export const RIVER_RIDGE_HEIGHT = 14;
-
-const TEAM_BLUE: TeamId = teamId('team_a');
-const TEAM_RED: TeamId = teamId('team_b');
 
 // Per the design doc's elevation grid. Rows are y=0 (first) through
 // y=13 (last). Each row is a width-14 sequence of elevations.
@@ -80,24 +77,12 @@ function terrainFromElevation(elev: number): string {
   return 'ground';
 }
 
-// Deployment-zone author rule. Per the spec:
-//   Blue: rows 0-2, cols 5-8 (4 wide × 3 deep = 12 tiles)
-//   Red:  rows 11-13, cols 5-8
-function deploymentZoneFor(x: number, y: number): TeamId | undefined {
-  const inZoneCols = x >= 5 && x <= 8;
-  if (!inZoneCols) return undefined;
-  if (y >= 0 && y <= 2) return TEAM_BLUE;
-  if (y >= 11 && y <= 13) return TEAM_RED;
-  return undefined;
-}
-
 function buildRiverRidge(): BattleMap {
   const tiles: Tile[] = [];
   for (let y = 0; y < RIVER_RIDGE_HEIGHT; y++) {
     const row = ELEVATION_GRID[y]!;
     for (let x = 0; x < RIVER_RIDGE_WIDTH; x++) {
       const elev = row[x]!;
-      const zone = deploymentZoneFor(x, y);
       tiles.push({
         x,
         y,
@@ -105,7 +90,6 @@ function buildRiverRidge(): BattleMap {
         elevation: elev,
         terrain: terrainFromElevation(elev),
         properties: [],
-        ...(zone !== undefined ? { deploymentZone: zone } : {}),
       });
     }
   }

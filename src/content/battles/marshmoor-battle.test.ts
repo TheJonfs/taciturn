@@ -7,10 +7,11 @@ import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from '@content/index.ts';
 import {
   createInitialState,
+  teamForTile,
   teamId,
-  tileAt,
   type UnitId,
 } from '@engine/index.ts';
+import { deploymentZonesFor } from '../deployment/index.ts';
 import { marshmoor } from '../maps/marshmoor.ts';
 import { marshmoorBattle } from './marshmoor-battle.ts';
 import { riverRidgeBattle } from './river-ridge-battle.ts';
@@ -54,10 +55,9 @@ describe('Marshmoor battle config', () => {
   });
 
   it('each unit deploys inside their own team deployment zone', () => {
+    const zones = deploymentZonesFor('marshmoor');
     for (const unit of marshmoorBattle.units) {
-      const tile = tileAt(marshmoor, unit.position.x, unit.position.y, unit.position.layer);
-      expect(tile).toBeDefined();
-      expect(tile!.deploymentZone).toBe(unit.team);
+      expect(teamForTile(zones, unit.position)).toBe(unit.team);
     }
   });
 

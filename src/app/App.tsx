@@ -24,6 +24,7 @@ import {
   type DeploymentResult,
 } from './deployment-config.ts';
 import { loadDefaultCatalog } from '@content/index.ts';
+import { deploymentZonesFor } from '@content/deployment/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import { stonebridgeBattle } from '@content/battles/stonebridge-battle.ts';
 import { marshmoorBattle } from '@content/battles/marshmoor-battle.ts';
@@ -183,7 +184,7 @@ function AppInner() {
         teams: cfg.teams.map((t, i) => ({ ...t, control: controls[i] ?? t.control })),
       };
     },
-    [controls, selectedBattle],
+    [controls, selectedBattle, mapId],
   );
 
   // Begin the deployment pipeline once both teams are built: fold every
@@ -192,12 +193,13 @@ function AppInner() {
   const beginDeployment = useCallback(
     (teamA: BuiltTeam, teamB: BuiltTeam): void => {
       const assembled = assemble(teamA, teamB);
+      const zones = deploymentZonesFor(mapId);
       let folded = assembled;
       for (const team of assembled.teams) {
         if (team.control === 'ai') {
           folded = buildDeployedBattleConfig(
             folded,
-            computeAiDeploymentResult(folded, catalog, team.id),
+            computeAiDeploymentResult(folded, catalog, team.id, zones),
           );
         }
       }
@@ -338,6 +340,7 @@ function AppInner() {
         <DeploymentScreen
           key={deployingTeam}
           template={deployedConfig}
+          zones={deploymentZonesFor(mapId)}
           deployingTeam={deployingTeam}
           onCommit={handleDeploymentCommit}
           onBack={() => setScreen('setup')}

@@ -11,8 +11,8 @@ import {
   classId,
   teamId,
   unitId,
-  type BattleMap,
-  type Tile,
+  type DeploymentZoneConfig,
+  type Position,
   type WeaponType,
 } from '@engine/index.ts';
 import { planAiDeployment, deployRoleFromWeaponType, type DeployableUnit } from './deployment.ts';
@@ -20,24 +20,23 @@ import { planAiDeployment, deployRoleFromWeaponType, type DeployableUnit } from 
 const BLUE = teamId('team_a');
 const RED = teamId('team_b');
 
-function zonedMap(args: {
+// Single sub-zone per team built from explicit rows (S70 — zones live off
+// the map). `height` is unused but kept in the arg shape.
+function zonedConfig(args: {
   readonly width: number;
   readonly height: number;
   readonly blueRows: ReadonlyArray<number>;
   readonly redRows: ReadonlyArray<number>;
-}): BattleMap {
-  const { width, height, blueRows, redRows } = args;
-  const tiles: Tile[] = [];
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const zone = blueRows.includes(y) ? BLUE : redRows.includes(y) ? RED : undefined;
-      tiles.push({
-        x, y, layer: 0, elevation: 0, terrain: 'ground', properties: [],
-        ...(zone !== undefined ? { deploymentZone: zone } : {}),
-      });
-    }
-  }
-  return { width, height, tiles };
+}): DeploymentZoneConfig {
+  const { width, blueRows, redRows } = args;
+  const rowTiles = (rows: ReadonlyArray<number>): Position[] =>
+    rows.flatMap((y) => Array.from({ length: width }, (_, x) => ({ x, y, layer: 0 })));
+  return {
+    teams: [
+      { team: BLUE, subZones: [{ tiles: rowTiles(blueRows) }] },
+      { team: RED, subZones: [{ tiles: rowTiles(redRows) }] },
+    ],
+  };
 }
 
 function deployable(
@@ -67,7 +66,7 @@ describe('S66 chunk 3 — deployRoleFromWeaponType', () => {
 describe('S66 chunk 3 — planAiDeployment role-aware placement', () => {
   // Red zone is the two south rows; y=3 is the front (nearer Blue at y=0),
   // y=4 the protected rear.
-  const map = zonedMap({ width: 2, height: 5, blueRows: [0], redRows: [3, 4] });
+  const zones = zonedConfig({ width: 2, height: 5, blueRows: [0], redRows: [3, 4] });
 
   it('lands melee on the forward row and ranged/casters on the rear row', () => {
     const units = [
@@ -76,7 +75,7 @@ describe('S66 chunk 3 — planAiDeployment role-aware placement', () => {
       deployable('archer', 50, 'hunter', 'ranged'),
       deployable('mage', 45, 'fire_mage', 'ranged'),
     ];
-    const { placements, unplaced } = planAiDeployment({ map, team: RED, units });
+    const { placements, unplaced } = planAiDeployment({ zones, team: RED, units });
     expect(unplaced).toEqual([]);
     expect(placements.get(unitId('knight'))!.position.y).toBe(3);
     expect(placements.get(unitId('monk'))!.position.y).toBe(3);
@@ -92,7 +91,7 @@ describe('S66 chunk 3 — planAiDeployment role-aware placement', () => {
       deployable('glassMelee2', 28, 'monk', 'melee'),
       deployable('tankyMage', 99, 'fire_mage', 'ranged'),
     ];
-    const { placements } = planAiDeployment({ map, team: RED, units });
+    const { placements } = planAiDeployment({ zones, team: RED, units });
     expect(placements.get(unitId('glassMelee1'))!.position.y).toBe(3);
     expect(placements.get(unitId('glassMelee2'))!.position.y).toBe(3);
     expect(placements.get(unitId('tankyMage'))!.position.y).toBe(4);
@@ -104,7 +103,7 @@ describe('S66 chunk 3 — planAiDeployment role-aware placement', () => {
       deployable('small', 40, 'monk', 'melee'),
       deployable('archer', 50, 'hunter', 'ranged'),
     ];
-    const { placements } = planAiDeployment({ map, team: RED, units });
+    const { placements } = planAiDeployment({ zones, team: RED, units });
     // Front row holds both melee; the rear holds the archer.
     expect(placements.get(unitId('big'))!.position.y).toBe(3);
     expect(placements.get(unitId('small'))!.position.y).toBe(3);

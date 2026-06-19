@@ -10,7 +10,7 @@
 export type TerrainType = string;
 export type TileProperty = string;
 
-import type { TeamId, UnitId } from './ids.ts';
+import type { UnitId } from './ids.ts';
 
 // Session 53 (ADR-0088): a destructible Barrier object occupying a tile.
 // Spawned by the Terraformer's Worldcraft Barrier ability (S54); modeled as
@@ -45,13 +45,11 @@ export interface Tile {
   // tile. Set/cleared via `system_barrier_change`; HP-damaged via
   // `system_barrier_damage`.
   readonly barrier?: BarrierState;
-  // Per ADR-0049 / session 25: which team (if any) may deploy onto this
-  // tile during the pre-battle deployment phase. `undefined` = not a
-  // deployment-zone tile; `null` = explicitly neutral (reserved for
-  // future "shared zone" maps). Map authors set this for tiles that
-  // gate the team-builder's deployment placement; no engine code today
-  // consumes it (deployment-phase UI lands in a later session).
-  readonly deploymentZone?: TeamId | null;
+  // Session 70 (ADR pending): deployment zones moved off the tile into a
+  // per-map zone-config registry (`engine/types/deployment-zone.ts`),
+  // paired with the terrain by the combiner. One terrain can now carry
+  // many deployment layouts. The old `deploymentZone?: TeamId | null`
+  // field is gone — see `DeploymentZoneConfig`.
 }
 
 export interface BattleMap {

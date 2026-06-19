@@ -8,16 +8,19 @@ import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from '@content/index.ts';
 import {
   createInitialState,
+  opposingTilesFor,
   runPreBattlePhase,
+  teamForTile,
   teamId,
   unitId,
-  validateMap,
+  validateDeploymentZones,
   type Direction,
   type TeamId,
   type WeaponType,
 } from '@engine/index.ts';
 import { deployRoleFromWeaponType } from '@ai/index.ts';
 import { riverRidge } from '@content/maps/river-ridge.ts';
+import { deploymentZonesFor } from '@content/deployment/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import type { DeploymentPlacement } from '@ui/index.ts';
 import {
@@ -28,6 +31,7 @@ import {
 
 const BLUE: TeamId = teamId('team_a');
 const RED: TeamId = teamId('team_b');
+const RIVER_RIDGE_ZONES = deploymentZonesFor('river_ridge');
 
 // A complete Blue deployment — every Blue unit on a distinct tile in
 // the northern zone (rows 0-2, cols 5-8), each facing south. S48: now
@@ -96,24 +100,18 @@ describe('computeAiDeploymentResult (S43 AI deployment bridge)', () => {
   const catalog = loadDefaultCatalog();
 
   it('places every unit of the AI team inside its deployment zone', () => {
-    const result = computeAiDeploymentResult(riverRidgeBattle, catalog, RED);
+    const result = computeAiDeploymentResult(riverRidgeBattle, catalog, RED, RIVER_RIDGE_ZONES);
     const redUnits = riverRidgeBattle.units.filter((u) => u.team === RED);
     expect(result.team).toBe(RED);
     expect(result.placements.size).toBe(redUnits.length);
     // Every placement lands on a Red deployment-zone tile.
     for (const placement of result.placements.values()) {
-      const tile = riverRidge.tiles.find(
-        (t) =>
-          t.x === placement.position.x &&
-          t.y === placement.position.y &&
-          t.layer === placement.position.layer,
-      );
-      expect(tile?.deploymentZone).toBe(RED);
+      expect(teamForTile(RIVER_RIDGE_ZONES, placement.position)).toBe(RED);
     }
   });
 
   it('produces a result that folds cleanly through buildDeployedBattleConfig', () => {
-    const result = computeAiDeploymentResult(riverRidgeBattle, catalog, RED);
+    const result = computeAiDeploymentResult(riverRidgeBattle, catalog, RED, RIVER_RIDGE_ZONES);
     const config = buildDeployedBattleConfig(riverRidgeBattle, result);
     // No throw (every Red unit has a placement) and the engine consumes it.
     const initial = createInitialState(config, catalog);
@@ -121,7 +119,7 @@ describe('computeAiDeploymentResult (S43 AI deployment bridge)', () => {
   });
 
   it('faces the deployed AI team toward the opponent (Red faces north)', () => {
-    const result = computeAiDeploymentResult(riverRidgeBattle, catalog, RED);
+    const result = computeAiDeploymentResult(riverRidgeBattle, catalog, RED, RIVER_RIDGE_ZONES);
     for (const placement of result.placements.values()) {
       expect(placement.facing).toBe('N');
     }
@@ -134,12 +132,12 @@ describe('computeAiDeploymentResult (S43 AI deployment bridge)', () => {
     // (forward = nearer the opposing centroid). Re-derive roles via the
     // same exported classifier so the test tracks the real wiring.
     const state = createInitialState(riverRidgeBattle, catalog);
-    const opposing = riverRidge.tiles.filter((t) => t.deploymentZone != null && t.deploymentZone !== RED);
+    const opposing = opposingTilesFor(RIVER_RIDGE_ZONES, RED);
     const cx = opposing.reduce((s, t) => s + t.x, 0) / opposing.length;
     const cy = opposing.reduce((s, t) => s + t.y, 0) / opposing.length;
     const dist2 = (p: { x: number; y: number }): number => (p.x - cx) ** 2 + (p.y - cy) ** 2;
 
-    const result = computeAiDeploymentResult(riverRidgeBattle, catalog, RED);
+    const result = computeAiDeploymentResult(riverRidgeBattle, catalog, RED, RIVER_RIDGE_ZONES);
     const meleeDists: number[] = [];
     const rangedDists: number[] = [];
     for (const u of state.units.values()) {
@@ -189,13 +187,9 @@ describe('pipeline integration — deployment commit → initial state → pre-b
   });
 });
 
-describe('deployment-mount map validation (validateMap)', () => {
-  const registry = loadDefaultCatalog().getRuleset(
-    riverRidgeBattle.rulesetId,
-  ).terrain.tags;
-
+describe('deployment-mount zone validation (validateDeploymentZones)', () => {
   it("River Ridge's zones are sufficient for the 5v5 roster (S48)", () => {
-    const result = validateMap(riverRidge, registry, {
+    const result = validateDeploymentZones(RIVER_RIDGE_ZONES, riverRidge, {
       requiredZonesPerTeam: new Map([
         [BLUE, 5],
         [RED, 5],
@@ -207,7 +201,7 @@ describe('deployment-mount map validation (validateMap)', () => {
   it('a team too large for its deployment zone is caught', () => {
     // River Ridge authors 12 zone tiles per team; a 20-unit team would
     // overflow — the same check DeploymentScreen runs at mount.
-    const result = validateMap(riverRidge, registry, {
+    const result = validateDeploymentZones(RIVER_RIDGE_ZONES, riverRidge, {
       requiredZonesPerTeam: new Map([
         [BLUE, 20],
         [RED, 4],

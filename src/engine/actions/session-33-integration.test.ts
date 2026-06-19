@@ -30,6 +30,7 @@ import {
   getLegalMoves,
   positionKey,
   runPreBattlePhase,
+  teamForTile,
   teamId,
   unitId,
   type ActiveAbilityDefinition,
@@ -43,6 +44,7 @@ import { makeKnight } from '../abilities/test-fixtures.ts';
 import { activeTurnFor, makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { reduceUseAbility } from './reducers.ts';
 import { riverRidge } from '../../content/maps/river-ridge.ts';
+import { deploymentZonesFor } from '../../content/deployment/index.ts';
 import { riverRidgeBattle } from '../../content/battles/river-ridge-battle.ts';
 import { commitAction } from './commit.ts';
 
@@ -323,15 +325,9 @@ describe('Session 33 — River Ridge battle bootstraps end-to-end', () => {
 
   it('every unit deploys on a tile owned by its team', () => {
     const state = initialRiverRidgeState();
+    const zones = deploymentZonesFor('river_ridge');
     for (const unit of state.units.values()) {
-      const tile = state.map.tiles.find(
-        (t) =>
-          t.x === unit.position.x &&
-          t.y === unit.position.y &&
-          t.layer === unit.position.layer,
-      );
-      expect(tile).toBeDefined();
-      expect(tile!.deploymentZone).toBe(unit.team);
+      expect(teamForTile(zones, unit.position)).toBe(unit.team);
     }
   });
 

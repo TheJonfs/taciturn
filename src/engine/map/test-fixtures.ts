@@ -20,7 +20,6 @@
 import type {
   BarrierState,
   BattleMap,
-  TeamId,
   TerrainType,
   Tile,
   TileProperty,
@@ -33,11 +32,6 @@ export interface TileSpec {
   readonly elevation?: number;
   readonly terrain?: TerrainType;
   readonly properties?: ReadonlyArray<TileProperty>;
-  // Optional deployment-zone tag. Pass `undefined` (or omit) for a
-  // non-zone tile; pass a TeamId for a team-tagged zone; `null` is the
-  // "shared zone" sentinel reserved for future content. Mirrors the
-  // `Tile.deploymentZone` field.
-  readonly deploymentZone?: TeamId | null;
   // Session 53: optional Barrier object on the tile, for barrier substrate
   // tests. Omit for a normal tile.
   readonly barrier?: BarrierState;
@@ -51,7 +45,6 @@ export function tileFrom(spec: TileSpec): Tile {
     elevation: spec.elevation ?? 0,
     terrain: spec.terrain ?? 'ground',
     properties: spec.properties ?? [],
-    ...(spec.deploymentZone !== undefined ? { deploymentZone: spec.deploymentZone } : {}),
     ...(spec.barrier !== undefined ? { barrier: spec.barrier } : {}),
   };
 }

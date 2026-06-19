@@ -8,11 +8,12 @@ import { loadDefaultCatalog } from '@content/index.ts';
 import {
   createInitialState,
   itemId,
+  teamForTile,
   teamId,
-  tileAt,
   unitId,
   type UnitId,
 } from '@engine/index.ts';
+import { deploymentZonesFor } from '../deployment/index.ts';
 import { riverRidge } from '../maps/river-ridge.ts';
 import { demoBattle } from './demo.ts';
 import { riverRidgeBattle } from './river-ridge-battle.ts';
@@ -90,10 +91,9 @@ describe('River Ridge battle config', () => {
   });
 
   it('each unit deploys inside their own team deployment zone', () => {
+    const zones = deploymentZonesFor('river_ridge');
     for (const unit of riverRidgeBattle.units) {
-      const tile = tileAt(riverRidge, unit.position.x, unit.position.y, unit.position.layer);
-      expect(tile).toBeDefined();
-      expect(tile!.deploymentZone).toBe(unit.team);
+      expect(teamForTile(zones, unit.position)).toBe(unit.team);
     }
   });
 

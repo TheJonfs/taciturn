@@ -2,9 +2,13 @@
 // See ADR-0073 and `docs/maps/river-ridge.md`.
 //
 // Validation is intentionally minimal in v1: catch the kinds of typos
-// content authors make (terrain string not in the registry, deployment
-// zone missing for a team, coordinates out of range) before they
-// surface as confusing pathfinding failures mid-battle.
+// content authors make (terrain string not in the registry, coordinates
+// out of range) before they surface as confusing pathfinding failures
+// mid-battle.
+//
+// Session 70: deployment-zone coverage moved out of here — zones now live
+// beside the terrain (see `deployment-zone.ts` / `validateDeployment
+// Zones`). `validateMap` validates terrain geometry only.
 //
 // Pure function. Returns a structured error list; callers decide
 // whether to throw (production load) or surface for tooling (a future
@@ -22,16 +26,13 @@
 //     the engine enforces a ceiling, so the validator stays open-ended
 //     on that. A ruleset-level cap can land if needed.
 
-import type { BattleMap, TeamId } from '../types/index.ts';
+import type { BattleMap } from '../types/index.ts';
 import type { TerrainRegistry } from './terrain-registry.ts';
 
 export interface MapValidationError {
   // Machine-readable code for tooling; the message is the human read.
   readonly code:
     | 'unknown_terrain'
-    | 'unknown_deployment_team'
-    | 'missing_deployment_zone'
-    | 'insufficient_deployment_zone'
     | 'tile_out_of_bounds'
     | 'duplicate_tile_position'
     | 'negative_elevation';
@@ -43,24 +44,13 @@ export interface MapValidationResult {
   readonly errors: ReadonlyArray<MapValidationError>;
 }
 
-export interface MapValidationOptions {
-  // Each team that must have at least one deployment-zone tile on the
-  // map, paired with the minimum number of zone tiles required for that
-  // team. (Maximum team size, typically; River Ridge's spec mandates 4
-  // per team for the 4v4 demo, but the deployment zones author 12 each
-  // for placement flexibility.)
-  readonly requiredZonesPerTeam: ReadonlyMap<TeamId, number>;
-}
-
 export function validateMap(
   map: BattleMap,
   registry: TerrainRegistry,
-  options: MapValidationOptions,
 ): MapValidationResult {
   const errors: MapValidationError[] = [];
 
   const seenPositions = new Set<string>();
-  const zoneCounts = new Map<TeamId, number>();
 
   for (const tile of map.tiles) {
     // Bounds check.
@@ -100,36 +90,6 @@ export function validateMap(
         message: `Tile at (${tile.x}, ${tile.y}, layer ${tile.layer}) has unregistered terrain '${tile.terrain}'.`,
       });
     }
-
-    // Deployment-zone team resolves in the required-teams map.
-    // `undefined` (no deploymentZone field) is fine; `null` (explicitly
-    // neutral) is fine; an unknown TeamId is an authoring slip.
-    if (tile.deploymentZone !== undefined && tile.deploymentZone !== null) {
-      if (!options.requiredZonesPerTeam.has(tile.deploymentZone)) {
-        errors.push({
-          code: 'unknown_deployment_team',
-          message: `Tile at (${tile.x}, ${tile.y}, layer ${tile.layer}) is tagged as deployment zone for unknown team '${tile.deploymentZone}'.`,
-        });
-      } else {
-        zoneCounts.set(tile.deploymentZone, (zoneCounts.get(tile.deploymentZone) ?? 0) + 1);
-      }
-    }
-  }
-
-  // Deployment-zone coverage per required team.
-  for (const [team, required] of options.requiredZonesPerTeam) {
-    const count = zoneCounts.get(team) ?? 0;
-    if (count === 0) {
-      errors.push({
-        code: 'missing_deployment_zone',
-        message: `No deployment-zone tiles authored for team '${team}'.`,
-      });
-    } else if (count < required) {
-      errors.push({
-        code: 'insufficient_deployment_zone',
-        message: `Team '${team}' has only ${count} deployment-zone tile${count === 1 ? '' : 's'}; battle config requires ${required}.`,
-      });
-    }
   }
 
   return { ok: errors.length === 0, errors };
@@ -151,9 +111,8 @@ export class MapValidationError_Throw extends Error {
 export function assertMapValid(
   map: BattleMap,
   registry: TerrainRegistry,
-  options: MapValidationOptions,
 ): void {
-  const result = validateMap(map, registry, options);
+  const result = validateMap(map, registry);
   if (!result.ok) {
     throw new MapValidationError_Throw(result.errors);
   }

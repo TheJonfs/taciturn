@@ -1,10 +1,11 @@
 // Deployment-zone layer — tints each team's deployment-zone tiles
 // during the deployment phase (Session 35 / Phase E).
 //
-// Engine-blind: reads only `BattleMap` (the `Tile.deploymentZone` field
-// authored per ADR-0049) and the id of the team currently deploying.
-// Static for the lifetime of the deployment screen — `draw` is called
-// once at mount and `clear` once on transition into the battle proper.
+// Engine-blind: reads only the `DeploymentZoneConfig` (S70 — zones live
+// beside the terrain now, not on the tiles) and the id of the team
+// currently deploying. Static for the lifetime of the deployment screen
+// — `draw` is called once at mount and `clear` once on transition into
+// the battle proper.
 //
 // The current team's zone reads bright (it's interactive — the player
 // places units there); any other team's zone reads faint (visible, so
@@ -15,7 +16,7 @@
 // the facing picker draw over it.
 
 import { Container, Graphics } from 'pixi.js';
-import type { BattleMap, TeamId } from '@engine/index.ts';
+import type { DeploymentZoneConfig, TeamId } from '@engine/index.ts';
 import {
   DEPLOYMENT_ZONE_ALPHA_CURRENT,
   DEPLOYMENT_ZONE_ALPHA_OPPONENT,
@@ -66,24 +67,30 @@ export class DeploymentZoneLayer {
     this.container.addChild(this.gfx);
   }
 
-  // Tint the map's deployment-zone tiles relative to `currentTeam`.
+  // Tint each side's deployment-zone tiles relative to `currentTeam`.
   // Called once at deployment-screen mount; supports repaints (clears
-  // first) if a future caller re-invokes it.
-  draw(map: BattleMap, currentTeam: TeamId): void {
+  // first) if a future caller re-invokes it. Iterates the zone config's
+  // sub-zones (a split zone simply contributes more tiles under the same
+  // team tint).
+  draw(zones: DeploymentZoneConfig, currentTeam: TeamId): void {
     this.gfx.clear();
-    for (const tile of map.tiles) {
-      const tint = deploymentZoneTintFor(tile.deploymentZone, currentTeam);
+    for (const zone of zones.teams) {
+      const tint = deploymentZoneTintFor(zone.team, currentTeam);
       if (tint === null) continue;
-      const px = tile.x * TILE_SIZE + TILE_INSET / 2;
-      const py = tile.y * TILE_SIZE + TILE_INSET / 2;
-      const size = TILE_SIZE - TILE_INSET;
-      this.gfx.rect(px, py, size, size);
-      this.gfx.fill({ color: tint.color, alpha: tint.fillAlpha });
-      this.gfx.stroke({
-        color: tint.color,
-        alpha: tint.strokeAlpha,
-        width: DEPLOYMENT_ZONE_STROKE_WIDTH,
-      });
+      for (const subZone of zone.subZones) {
+        for (const tile of subZone.tiles) {
+          const px = tile.x * TILE_SIZE + TILE_INSET / 2;
+          const py = tile.y * TILE_SIZE + TILE_INSET / 2;
+          const size = TILE_SIZE - TILE_INSET;
+          this.gfx.rect(px, py, size, size);
+          this.gfx.fill({ color: tint.color, alpha: tint.fillAlpha });
+          this.gfx.stroke({
+            color: tint.color,
+            alpha: tint.strokeAlpha,
+            width: DEPLOYMENT_ZONE_STROKE_WIDTH,
+          });
+        }
+      }
     }
   }
 

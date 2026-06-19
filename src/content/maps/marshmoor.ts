@@ -17,7 +17,9 @@
 //
 // No ramparts on Marshmoor (those are Stonebridge architecture).
 //
-// Deployment zones (per S52 brief): two opposite-corner 3×3 grids,
+// Deployment zones live beside the terrain now (S70): see
+// `src/content/deployment/registry.ts` (`marshmoor` → `default`). Two
+// opposite-corner 3×3 grids:
 //   NE zone (team_a / Blue): cols 13-15, rows 0-2 (9 tiles)
 //   SW zone (team_b / Red):  cols 0-2,   rows 13-15 (9 tiles)
 // Manhattan distance between zone centers is 26 tiles — the longest
@@ -37,14 +39,10 @@
 // tempo cost, not a free perch. With the S52 bow range-from-height
 // mechanic these peaks become premium archer objectives.
 
-import type { BattleMap, TeamId, Tile } from '@engine/index.ts';
-import { teamId } from '@engine/index.ts';
+import type { BattleMap, Tile } from '@engine/index.ts';
 
 export const MARSHMOOR_WIDTH = 16;
 export const MARSHMOOR_HEIGHT = 16;
-
-const TEAM_BLUE: TeamId = teamId('team_a');
-const TEAM_RED: TeamId = teamId('team_b');
 
 // Per the S52 brief's elevation grid. Rows are y=0 (first, "north" by
 // canvas convention) through y=15 (last, "south"). Columns are x=0
@@ -90,22 +88,12 @@ function terrainFromTile(elev: number): string {
   return 'ground';
 }
 
-// Deployment-zone author rule per S52 brief:
-//   NE (Blue): cols 13-15, rows 0-2 (9 tiles)
-//   SW (Red):  cols 0-2,   rows 13-15 (9 tiles)
-function deploymentZoneFor(x: number, y: number): TeamId | undefined {
-  if (x >= 13 && x <= 15 && y >= 0 && y <= 2) return TEAM_BLUE;
-  if (x >= 0 && x <= 2 && y >= 13 && y <= 15) return TEAM_RED;
-  return undefined;
-}
-
 function buildMarshmoor(): BattleMap {
   const tiles: Tile[] = [];
   for (let y = 0; y < MARSHMOOR_HEIGHT; y++) {
     const row = ELEVATION_GRID[y]!;
     for (let x = 0; x < MARSHMOOR_WIDTH; x++) {
       const elev = row[x]!;
-      const zone = deploymentZoneFor(x, y);
       tiles.push({
         x,
         y,
@@ -113,7 +101,6 @@ function buildMarshmoor(): BattleMap {
         elevation: elev,
         terrain: terrainFromTile(elev),
         properties: [],
-        ...(zone !== undefined ? { deploymentZone: zone } : {}),
       });
     }
   }

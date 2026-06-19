@@ -24,6 +24,7 @@ import {
   createInitialState,
   type BattleConfig,
   type Catalog,
+  type DeploymentZoneConfig,
   type TeamId,
   type Unit,
   type UnitId,
@@ -97,6 +98,7 @@ export function computeAiDeploymentResult(
   config: BattleConfig,
   catalog: Catalog,
   team: TeamId,
+  zones: DeploymentZoneConfig,
 ): DeploymentResult {
   const state = createInitialState(config, catalog);
   const units = [...state.units.values()]
@@ -107,7 +109,7 @@ export function computeAiDeploymentResult(
       classId: u.classState.currentClass,
       role: deployRoleFromWeaponType(equippedWeaponType(u, catalog)),
     }));
-  const { placements, unplaced } = planAiDeployment({ map: config.map, team, units });
+  const { placements, unplaced } = planAiDeployment({ zones, team, units });
   if (unplaced.length > 0) {
     // eslint-disable-next-line no-console
     console.warn(

@@ -12,12 +12,8 @@ import {
   MARSHMOOR_HEIGHT,
   MARSHMOOR_WIDTH,
 } from './marshmoor.ts';
-import { teamId } from '@engine/index.ts';
 import { tileAt } from '@engine/index.ts';
 import { validateMap, type TerrainRegistry } from '@engine/index.ts';
-
-const TEAM_BLUE = teamId('team_a');
-const TEAM_RED = teamId('team_b');
 
 const REGISTRY: TerrainRegistry = new Map([
   ['ground', new Set(['land'])],
@@ -112,57 +108,13 @@ describe('Marshmoor map — central flats', () => {
   });
 });
 
-describe('Marshmoor map — deployment zones', () => {
-  it('Blue (NE) zone covers cols 13-15 rows 0-2 (9 tiles)', () => {
-    let count = 0;
-    for (const t of marshmoor.tiles) {
-      if (t.deploymentZone === TEAM_BLUE) count += 1;
-    }
-    expect(count).toBe(9);
-    expect(tileAt(marshmoor, 13, 0, 0)!.deploymentZone).toBe(TEAM_BLUE);
-    expect(tileAt(marshmoor, 15, 2, 0)!.deploymentZone).toBe(TEAM_BLUE);
-    expect(tileAt(marshmoor, 12, 0, 0)!.deploymentZone).toBeUndefined();
-    expect(tileAt(marshmoor, 13, 3, 0)!.deploymentZone).toBeUndefined();
-  });
+// Deployment zones live in the registry now (S70); their coverage, the
+// land-only property, and the intentional elev-4 asymmetry are tested in
+// `src/content/deployment/registry.test.ts`.
 
-  it('Red (SW) zone covers cols 0-2 rows 13-15 (9 tiles)', () => {
-    let count = 0;
-    for (const t of marshmoor.tiles) {
-      if (t.deploymentZone === TEAM_RED) count += 1;
-    }
-    expect(count).toBe(9);
-    expect(tileAt(marshmoor, 0, 13, 0)!.deploymentZone).toBe(TEAM_RED);
-    expect(tileAt(marshmoor, 2, 15, 0)!.deploymentZone).toBe(TEAM_RED);
-    expect(tileAt(marshmoor, 3, 13, 0)!.deploymentZone).toBeUndefined();
-    expect(tileAt(marshmoor, 0, 12, 0)!.deploymentZone).toBeUndefined();
-  });
-
-  it('every deployment-zone tile is land (elev ≥ 2), so no unit deploys in water', () => {
-    for (const t of marshmoor.tiles) {
-      if (t.deploymentZone !== undefined) {
-        expect(t.elevation).toBeGreaterThanOrEqual(2);
-        expect(t.terrain).toBe('ground');
-      }
-    }
-  });
-
-  it('preserves the intentional elev-4 asymmetry in each zone', () => {
-    // NE zone's raised tile at (14, 1); SW zone's at (0, 15).
-    expect(tileAt(marshmoor, 14, 1, 0)!.elevation).toBe(4);
-    expect(tileAt(marshmoor, 14, 1, 0)!.deploymentZone).toBe(TEAM_BLUE);
-    expect(tileAt(marshmoor, 0, 15, 0)!.elevation).toBe(4);
-    expect(tileAt(marshmoor, 0, 15, 0)!.deploymentZone).toBe(TEAM_RED);
-  });
-});
-
-describe('Marshmoor map — passes validation', () => {
-  it('validates cleanly with the 5v5 team requirement', () => {
-    const result = validateMap(marshmoor, REGISTRY, {
-      requiredZonesPerTeam: new Map([
-        [TEAM_BLUE, 5],
-        [TEAM_RED, 5],
-      ]),
-    });
+describe('Marshmoor map — passes terrain validation', () => {
+  it('validates cleanly against the default registry', () => {
+    const result = validateMap(marshmoor, REGISTRY);
     expect(result.errors).toEqual([]);
     expect(result.ok).toBe(true);
   });

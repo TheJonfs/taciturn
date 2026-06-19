@@ -19,8 +19,8 @@
 
 import { useEffect, useMemo, useReducer, useRef, type Dispatch } from 'react';
 import {
-  tileAt,
-  type BattleMap,
+  isTileInTeamZone,
+  type DeploymentZoneConfig,
   type Direction,
   type Position,
   type TeamId,
@@ -40,7 +40,7 @@ import {
 export interface UseDeploymentFlowArgs {
   // `null` until the DeploymentScreen has mounted its renderer.
   readonly renderer: BattleRenderer | null;
-  readonly map: BattleMap;
+  readonly zones: DeploymentZoneConfig;
   readonly currentTeam: TeamId;
   // The deploying team's units — the roster. Canonical `Unit` objects
   // (from `createInitialState`); the hook overrides position + facing
@@ -74,7 +74,7 @@ export interface DeploymentFlow {
 
 export function useDeploymentFlow({
   renderer,
-  map,
+  zones,
   currentTeam,
   rosterUnits,
 }: UseDeploymentFlowArgs): DeploymentFlow {
@@ -93,9 +93,9 @@ export function useDeploymentFlow({
   // ===== Zone tint — drawn once when the renderer is available =====
   useEffect(() => {
     if (renderer === null) return;
-    renderer.drawDeploymentZone(map, currentTeam);
+    renderer.drawDeploymentZone(zones, currentTeam);
     return () => renderer.clearDeploymentZone();
-  }, [renderer, map, currentTeam]);
+  }, [renderer, zones, currentTeam]);
 
   // ===== Tile-click wiring =====
   // Re-registered on `state` change so the handler closes over the
@@ -110,18 +110,17 @@ export function useDeploymentFlow({
         return;
       }
       // An eligible empty tile in the current team's zone → select it.
-      const tile = tileAt(map, pos.x, pos.y, pos.layer);
-      if (tile?.deploymentZone === currentTeam) {
+      if (isTileInTeamZone(zones, currentTeam, pos)) {
         dispatch({ kind: 'selectTile', tile: pos });
         return;
       }
-      // Anything else (off-zone, opponent zone, neutral tile) → cancel
-      // the current selection.
+      // Anything else (off-zone, opponent zone) → cancel the current
+      // selection.
       dispatch({ kind: 'cancel' });
     };
     renderer.setOnTileClick(handler);
     return () => renderer.setOnTileClick(null);
-  }, [renderer, state, map, currentTeam]);
+  }, [renderer, state, zones, currentTeam]);
 
   // ===== Facing-arrow click wiring — registered once =====
   useEffect(() => {

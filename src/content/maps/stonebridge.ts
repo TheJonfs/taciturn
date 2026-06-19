@@ -18,21 +18,16 @@
 // north/west/south walls; corner hills at elev 8 (top-left, bottom-
 // left of the map) remain `ground` (they're hills, not architecture).
 //
-// Deployment zones per S47 brief D7:
-//   North zone (team_a / Blue): rows 0-1, cols 5-8 (8 tiles)
-//   South zone (team_b / Red):  rows 14-15, cols 5-8 (8 tiles)
-//
-// All deployment tiles are flat ground (elev 2). 8 tiles per side
-// supports the v1 4v4 Mage War mode with 4 placement slots + 4 extras.
+// Deployment zones live beside the terrain now (S70): see
+// `src/content/deployment/registry.ts` (`stonebridge` → `default`),
+// which authors Blue at rows 0-1 / cols 5-8 and Red at rows 14-15 /
+// cols 5-8 — the same flat-ground tiles this map used to bake in. 8
+// tiles per side supports the v1 4v4 Mage War mode.
 
-import type { BattleMap, TeamId, Tile } from '@engine/index.ts';
-import { teamId } from '@engine/index.ts';
+import type { BattleMap, Tile } from '@engine/index.ts';
 
 export const STONEBRIDGE_WIDTH = 16;
 export const STONEBRIDGE_HEIGHT = 16;
-
-const TEAM_BLUE: TeamId = teamId('team_a');
-const TEAM_RED: TeamId = teamId('team_b');
 
 // Per the S47 brief's elevation grid. Rows are y=0 (first, "north" by
 // canvas convention) through y=15 (last, "south"). The brief printed
@@ -94,24 +89,12 @@ function terrainFromTile(x: number, y: number, elev: number): string {
   return 'ground';
 }
 
-// Deployment-zone author rule per S47 brief D7:
-//   North (Blue): rows 0-1, cols 5-8 (8 tiles)
-//   South (Red):  rows 14-15, cols 5-8 (8 tiles)
-function deploymentZoneFor(x: number, y: number): TeamId | undefined {
-  const inZoneCols = x >= 5 && x <= 8;
-  if (!inZoneCols) return undefined;
-  if (y >= 0 && y <= 1) return TEAM_BLUE;
-  if (y >= 14 && y <= 15) return TEAM_RED;
-  return undefined;
-}
-
 function buildStonebridge(): BattleMap {
   const tiles: Tile[] = [];
   for (let y = 0; y < STONEBRIDGE_HEIGHT; y++) {
     const row = ELEVATION_GRID[y]!;
     for (let x = 0; x < STONEBRIDGE_WIDTH; x++) {
       const elev = row[x]!;
-      const zone = deploymentZoneFor(x, y);
       tiles.push({
         x,
         y,
@@ -119,7 +102,6 @@ function buildStonebridge(): BattleMap {
         elevation: elev,
         terrain: terrainFromTile(x, y, elev),
         properties: [],
-        ...(zone !== undefined ? { deploymentZone: zone } : {}),
       });
     }
   }

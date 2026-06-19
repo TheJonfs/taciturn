@@ -13,12 +13,8 @@ import {
   RIVER_RIDGE_HEIGHT,
   RIVER_RIDGE_WIDTH,
 } from './river-ridge.ts';
-import { teamId } from '@engine/index.ts';
 import { tileAt } from '@engine/index.ts';
 import { validateMap, type TerrainRegistry } from '@engine/index.ts';
-
-const TEAM_BLUE = teamId('team_a');
-const TEAM_RED = teamId('team_b');
 
 const REGISTRY: TerrainRegistry = new Map([
   ['ground', new Set(['land'])],
@@ -110,39 +106,12 @@ describe('River Ridge map — ridge climb', () => {
   });
 });
 
-describe('River Ridge map — deployment zones', () => {
-  it('Blue zone covers rows 0-2 cols 5-8 (12 tiles)', () => {
-    let blueCount = 0;
-    for (const t of riverRidge.tiles) {
-      if (t.deploymentZone === TEAM_BLUE) blueCount += 1;
-    }
-    expect(blueCount).toBe(12);
-    // Spot-check zone tile and non-zone tile.
-    expect(tileAt(riverRidge, 5, 0, 0)!.deploymentZone).toBe(TEAM_BLUE);
-    expect(tileAt(riverRidge, 8, 2, 0)!.deploymentZone).toBe(TEAM_BLUE);
-    expect(tileAt(riverRidge, 4, 0, 0)!.deploymentZone).toBeUndefined();
-  });
+// Deployment zones live in the registry now (S70); their coverage is
+// tested in `src/content/deployment/registry.test.ts`.
 
-  it('Red zone covers rows 11-13 cols 5-8 (12 tiles)', () => {
-    let redCount = 0;
-    for (const t of riverRidge.tiles) {
-      if (t.deploymentZone === TEAM_RED) redCount += 1;
-    }
-    expect(redCount).toBe(12);
-    expect(tileAt(riverRidge, 5, 11, 0)!.deploymentZone).toBe(TEAM_RED);
-    expect(tileAt(riverRidge, 8, 13, 0)!.deploymentZone).toBe(TEAM_RED);
-    expect(tileAt(riverRidge, 4, 13, 0)!.deploymentZone).toBeUndefined();
-  });
-});
-
-describe('River Ridge map — passes validation', () => {
-  it('validates cleanly against the default registry with 4-unit team requirement', () => {
-    const result = validateMap(riverRidge, REGISTRY, {
-      requiredZonesPerTeam: new Map([
-        [TEAM_BLUE, 4],
-        [TEAM_RED, 4],
-      ]),
-    });
+describe('River Ridge map — passes terrain validation', () => {
+  it('validates cleanly against the default registry', () => {
+    const result = validateMap(riverRidge, REGISTRY);
     expect(result.errors).toEqual([]);
     expect(result.ok).toBe(true);
   });

@@ -18,7 +18,7 @@ import {
   type Position,
   type Unit,
 } from '@engine/index.ts';
-import { riverRidge } from '@content/maps/river-ridge.ts';
+import { deploymentZonesFor } from '@content/deployment/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import type { BattleRenderer } from '@renderer/index.ts';
 import { useDeploymentFlow, type DeploymentFlow } from './use-deployment-flow.ts';
@@ -59,7 +59,7 @@ let capturedFlow: DeploymentFlow;
 function Harness({ renderer }: { renderer: BattleRenderer }) {
   capturedFlow = useDeploymentFlow({
     renderer,
-    map: riverRidge,
+    zones: deploymentZonesFor('river_ridge'),
     currentTeam: BLUE,
     rosterUnits,
   });

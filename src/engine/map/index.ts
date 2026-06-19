@@ -43,9 +43,22 @@ export {
   MapValidationError_Throw,
   validateMap,
   type MapValidationError,
-  type MapValidationOptions,
   type MapValidationResult,
 } from './map-validator.ts';
+export {
+  assembleBattlefield,
+  isTileInTeamZone,
+  opposingTilesFor,
+  subZoneIndexForTile,
+  teamForTile,
+  tilesForTeam,
+  validateDeploymentZones,
+  zoneForTeam,
+  type DeployableBattlefield,
+  type DeploymentZoneValidationError,
+  type DeploymentZoneValidationOptions,
+  type DeploymentZoneValidationResult,
+} from './deployment-zone.ts';
 export {
   aoeFootprint,
   cardinalFromTo,

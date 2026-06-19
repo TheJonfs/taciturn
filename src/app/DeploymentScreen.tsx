@@ -39,9 +39,11 @@ import { loadDefaultCatalog } from '@content/index.ts';
 import {
   createInitialState,
   unitId,
+  validateDeploymentZones,
   validateMap,
   type BattleConfig,
   type Catalog,
+  type DeploymentZoneConfig,
   type Direction,
   type GameState,
   type TeamId,
@@ -63,6 +65,10 @@ export interface DeploymentScreenProps {
   // (S43: when both teams are human, Team A deploys first and its
   // placements are folded before Team B's deployment screen mounts).
   readonly template: BattleConfig;
+  // The deployment-zone config for this battle (S70 — zones live beside
+  // the terrain now). Paired with `template.map` by the combiner; the
+  // screen tints it, gates placement on it, and validates it.
+  readonly zones: DeploymentZoneConfig;
   // Which team is placing units this pass (S43). Earlier sessions
   // hardcoded `teams[0]`; the unified flow deploys each human team in
   // turn order, so the caller names the team.
@@ -84,6 +90,7 @@ export function DeploymentScreen(props: DeploymentScreenProps): ReactElement {
 
 function DeploymentScreenInner({
   template,
+  zones,
   deployingTeam,
   onCommit,
   onBack,
@@ -99,10 +106,12 @@ function DeploymentScreenInner({
 
   const currentTeam: TeamId = deployingTeam;
 
-  // Validate the map's deployment zones against the per-team roster
-  // sizes (S33's `validateMap`). Pure + cheap → `useMemo`. A failure
+  // Validate the terrain (`validateMap`) and the deployment-zone config
+  // against the per-team roster sizes (`validateDeploymentZones`, S70 —
+  // zone coverage moved off the map). Pure + cheap → `useMemo`. A failure
   // short-circuits to an error panel with a "Back to Setup" affordance
-  // rather than mounting the renderer.
+  // rather than mounting the renderer. Errors from both checks merge so
+  // the author sees terrain and zone problems together.
   const validation = useMemo(() => {
     const registry = catalog.getRuleset(template.rulesetId).terrain.tags;
     const requiredZonesPerTeam = new Map<TeamId, number>();
@@ -110,8 +119,15 @@ function DeploymentScreenInner({
       const count = template.units.filter((u) => u.team === team.id).length;
       requiredZonesPerTeam.set(team.id, count);
     }
-    return validateMap(template.map, registry, { requiredZonesPerTeam });
-  }, [catalog, template]);
+    const terrain = validateMap(template.map, registry);
+    const zoneCheck = validateDeploymentZones(zones, template.map, {
+      requiredZonesPerTeam,
+    });
+    return {
+      ok: terrain.ok && zoneCheck.ok,
+      errors: [...terrain.errors, ...zoneCheck.errors],
+    };
+  }, [catalog, template, zones]);
 
   // Full initial state — the source of canonical `Unit` objects for the
   // roster. `createInitialState` is pure; held in a `useRef` one-shot so
@@ -222,7 +238,7 @@ function DeploymentScreenInner({
 
   const flow = useDeploymentFlow({
     renderer,
-    map: template.map,
+    zones,
     currentTeam,
     rosterUnits,
   });
