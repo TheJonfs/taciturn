@@ -268,8 +268,8 @@ describe('Wand of Lumen — system_apply_status path (S50 fix)', () => {
   });
 
   it("Precision Fire's native Burn rider composes with Wand of Lumen (direct-cast path, no S50 fix needed)", () => {
-    // Precision Fire's `effects.statusEffects` includes a 50%-chance
-    // Burn application. That path goes through `resolveAbilityEffect`,
+    // Precision Fire's `effects.statusEffects` includes a (25%-base,
+    // MA-scaled) Burn application. That path goes through `resolveAbilityEffect`,
     // not through `system_apply_status` — so it gets `sourceAbilityTags`
     // populated directly from `args.ability.tags`. The S50 fix didn't
     // touch this path (it's been working since the modifier shipped in

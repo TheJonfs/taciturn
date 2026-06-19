@@ -44,6 +44,19 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 71 follow-up — Math Skill status applications drop Faith (2026-06-19)
+
+See ADR-0119 (Update). Extends the #15 Faith sweep to the Calculator's status
+applications — they were the one place Math Skill still leaned on Faith.
+
+- **Math Skill statuses no longer scale with Faith** — they scale with the
+  Calculator's MA only, like the rest of the kit. Base chances were lowered to
+  keep the landing rates roughly where they were: **Precision Fire's Burn 50→25%**,
+  **Sculpted Enhancement's PA/MA Up 50→25%**, **Engineered Defenses 80→40%**. Net
+  effect at a typical Calculator (MA 9): about the same odds as before (~45% /
+  ~45% / ~72%), but now independent of either side's Faith — and they get more
+  reliable as the Calculator's MA grows. (Tuning watch item; numbers may shift.)
+
 ## Session 71 — Behavior audits & fixes (chunk 2) (2026-06-19)
 
 Commits: `76d6f32`. See ADR-0119. Two behavior fixes from the new-player

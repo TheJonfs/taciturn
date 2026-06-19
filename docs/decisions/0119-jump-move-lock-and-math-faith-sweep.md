@@ -86,11 +86,43 @@ fix any of them needed was tooltip copy (shipped in chunk 1):
   casts"), corrected in chunk 1. No behaviour change; chunk 3 closes with no code.
 
 The Math Skill *status-application* Faith × MA gates (Precision Fire's Burn,
-Sculpted Enhancement, Engineered Defenses) were **left intact** — they use the
-engine-wide status-application formula, and Precision Fire's was explicitly
-retained in S63. That gate governs *whether a status lands*, not output magnitude;
-it is consistent across all three status-applying Math abilities and is not the
-"~2× output" identity #15 targets.
+Sculpted Enhancement, Engineered Defenses) were initially **left intact** and
+flagged for Chris — they use the engine-wide status-application formula, govern
+*whether a status lands* (not output magnitude), and Precision Fire's was
+explicitly retained in S63. **See the Update below: Chris reviewed and chose to
+drop Faith from these too.**
+
+## Update (same session): Faith dropped from Math Skill status applications
+
+Chris reviewed the numbers and elected **Option B** — make the three Math Skill
+status applications Faith-independent (MA-only factor) *and* retune their base
+chances so the effective landing rates stay near today's, rather than letting the
+MA factor push them to near-100%.
+
+Why retune: the status-chance formula is
+`base × Faith_factor × MA_factor × resistance × hooks`, and `MA_factor = 0.9 +
+MA/10` is **≥ 1.8 for any MA ≥ 9** — it amplifies, never gates below 1.0. Faith
+(×0.49 at the default 70/70) was the only term holding these below 100%. Dropping
+Faith without retuning would jump them from ~44–71% to ~90–100% (and to a hard
+100% with any MA buff). The bases were lowered to land near the prior effective
+rates at base MA 9, still MA-scaled:
+
+| Ability | base (was → now) | factors | ≈ chance at MA 9 |
+|---|---|---|---|
+| Precision Fire → Burn | 50 → **25** | `{ ma: true }` | ~45% |
+| Sculpted Enhancement → PA/MA Up (linked) | 50 → **25** | `{ ma: true }` | ~45% |
+| Engineered Defenses | 80 → **40** | `{ ma: true }` | ~72% |
+
+This makes status application consistent with how S63/S71 treated *output
+magnitude* (MA scales, Faith does not). The Sculpted Enhancement PA Up + MA Up
+specs must carry identical `baseChance` + `factors` for `linkRoll` to keep them
+coupled (same roll *and* same computed chance → both land or both miss).
+
+The 25/25/40 set is a best-effort match, not a playtested value — logged as a
+**tuning watch item** in `docs/playtest-watch.md` (the MA factor still pushes a
+high-MA Calculator toward 100%, the lever if it reads too reliable). The
+"blanket-remove rejected" alternative below is therefore superseded *for the
+faith term*; the retune is what keeps it from being a blanket buff.
 
 ## Consequences
 

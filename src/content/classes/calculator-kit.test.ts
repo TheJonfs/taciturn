@@ -5,9 +5,11 @@
 // Substrate-level correctness (predicate enumeration, dispatcher fan-
 // out) is covered in `src/engine/targeting/math-skill.test.ts`; this
 // file verifies the content interactions:
-//   1. Precision Fire damages matched units (cluster fan-out + Faith × MA).
+//   1. Precision Fire damages matched units (cluster fan-out; SP × MA,
+//      Faith-independent per S63).
 //   2. Targeted Treatment heals matched units.
-//   3. Exact Rhythm reduces matched CTs (Faith × MA × SP magnitude).
+//   3. Exact Rhythm reduces matched CTs (SP × MA magnitude, Faith-
+//      independent per S71 #15).
 //   4. Mathematician's per-target MP discount (3 → 1).
 //   5. Mathematician's +1 SP bonus surfaces on damage / CT magnitudes.
 //   6. Thoughtful Pacing emits system_mp_restore on Move.
@@ -249,8 +251,8 @@ describe('Calculator kit — Math Skill end-to-end', () => {
       ),
       'caster',
     );
-    // 80% base × Faith 0.49 × MA factor (0.9 + 8/10 = 1.7) ≈ 67% — a
-    // single roll has variance. Use a seeded retry-window: run a few
+    // S71 #15: 40% base × MA factor (0.9 + 8/10 = 1.7), Faith-independent,
+    // ≈ 68% — a single roll has variance. Use a seeded retry-window: run a few
     // seeds and require at least one to apply.
     let applied = false;
     for (let seed = 1; seed <= 8; seed++) {
@@ -267,6 +269,34 @@ describe('Calculator kit — Math Skill end-to-end', () => {
       }
     }
     expect(applied).toBe(true);
+  });
+
+  // S71 #15 (Option B): the three Math Skill status applications are
+  // Faith-independent (MA-only factor), at the tuned 25/25/40 base set.
+  // Pins both the faith removal and the retune so a future change is
+  // deliberate. The 25/25/40 set is itself a tuning watch item.
+  it('Math Skill status applications drop Faith (MA-only) at the tuned 25/25/40 bases', () => {
+    const catalog = loadDefaultCatalog();
+    const specsOf = (id: string) => {
+      const a = catalog.getAbility(abilityId(id));
+      return a.kind === 'active' ? a.effects.statusEffects ?? [] : [];
+    };
+    const burn = specsOf('precision_fire').find((s) => s.typeId === statusTypeId('burn'))!;
+    expect(burn.baseChance).toBe(25);
+    expect(burn.factors).toEqual({ ma: true });
+
+    // Sculpted Enhancement's PA Up + MA Up must share base + factors so
+    // linkRoll keeps them coupled (same roll AND same computed chance).
+    const sculpted = specsOf('sculpted_enhancement');
+    expect(sculpted.length).toBe(2);
+    for (const s of sculpted) {
+      expect(s.baseChance).toBe(25);
+      expect(s.factors).toEqual({ ma: true });
+    }
+
+    const ed = specsOf('engineered_defenses')[0]!;
+    expect(ed.baseChance).toBe(40);
+    expect(ed.factors).toEqual({ ma: true });
   });
 });
 

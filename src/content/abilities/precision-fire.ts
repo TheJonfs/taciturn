@@ -45,17 +45,21 @@ export const precisionFire: ActiveAbilityDefinition = {
       power_coefficient: 3,
       // S63: Faith removed from the magnitude (deliberate buff — Math Skill
       // reads as a deterministic instrument, not a Faith-gated spell). Damage
-      // is `SP × MA`; ~2× prior output at default Faith. SP unchanged. The
-      // Burn proc below still runs the standard Faith × MA apply gate.
+      // is `SP × MA`; ~2× prior output at default Faith. SP unchanged.
       noFaithScaling: true,
     },
     statusEffects: [
       {
         typeId: statusTypeId('burn'),
         target: 'primary_target',
-        baseChance: 50,
-        // Default factors `{ faith: true, ma: true }` — Faith × MA
-        // gates the Burn proc per BMG status-application formula.
+        // S71 (#15, Option B): Faith dropped from the Burn application too —
+        // the Calculator's identity is faith-independent, MA-scaled (matching
+        // the magnitude above). Base lowered 50 → 25 so the MA factor (≥1.8
+        // for MA ≥ 9) lands it near the prior effective rate (~45% at MA 9)
+        // instead of jumping to ~90%. The 25/25/40 Math-Skill status base set
+        // is a tuning watch item (see playtest-watch.md / ADR-0119).
+        baseChance: 25,
+        factors: { ma: true },
       },
     ],
   },

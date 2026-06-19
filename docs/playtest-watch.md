@@ -26,6 +26,26 @@ shouldn't drift out of memory between sessions.
 
 ## Active entries
 
+### S71 — Math Skill status application bases (25/25/40 after the Faith sweep)
+
+- **What to watch.** S71 (#15, ADR-0119 update) made the three Math Skill status
+  applications Faith-independent (MA-only factor) and retuned their base chances
+  to roughly preserve the prior effective rates: **Precision Fire → Burn 50→25**,
+  **Sculpted Enhancement → PA/MA Up 50→25**, **Engineered Defenses 40 (was 80)**.
+  At the Calculator's base MA 9 these land ~45% / ~45% / ~72% per matching target;
+  they rise with MA (Conductor, Cornered Focus, level) since the MA factor (≥1.8)
+  now does all the scaling.
+- **Why it matters.** The bases were originally tuned *with* the Faith multiplier
+  (×0.49 at default Faith) holding them down. The retune is a best-effort match to
+  the old feel, not a playtested value — and because the MA factor only amplifies
+  (never gates below 1.0), a high-MA Calculator pushes all three toward 100%.
+- **What signal would indicate adjustment.** Burn-spread / party-buff coverage
+  feels *too reliable* on a buffed-MA Calculator (statuses effectively always land)
+  → lower the bases further, or reconsider whether MA should scale status chance at
+  all (the Option C "flat base" path). Coverage feels *too thin* at base MA → raise
+  the bases back toward the old effective numbers. Dials: the `baseChance` on
+  `precision-fire.ts` / `sculpted-enhancement.ts` / `engineered-defenses.ts`.
+
 - ~~**Action-log redesign visual (S63, `b3bd121`).** Whether the redesigned
   action log reads correctly in real battles.~~ **Resolved (Thief session,
   Chris):** confirmed reading correctly in-battle. Closed; dropped from the

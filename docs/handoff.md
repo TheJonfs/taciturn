@@ -33,18 +33,17 @@ tests; tsc + vite build clean.** Chunk 1 browser-verified in the Team Builder
   at cost 2 (the documented intent); the only defect was the tooltip, fixed in
   chunk 1. Chunk 3 closes with no behavior change.
 
-### Flag for Chris — one open judgment call
+### Resolved this session — Math Skill status-application Faith gates
 
-- **Math Skill status-application Faith gates.** #15's sweep made Math Skill
-  *output* faith-independent (Exact Rhythm fixed; Precision Fire / Targeted
-  Treatment already done in S63). I left the **status-application** Faith × MA
-  gates intact — Precision Fire's Burn proc, Sculpted Enhancement, Engineered
-  Defenses. Reasoning: that gate governs *whether a status lands*, is the
-  engine-wide application formula, and S63 explicitly retained Precision Fire's.
-  It is *not* the "~2× output" identity the finding targets. **If you intend the
-  Calculator's "deterministic instrument" identity to extend to status
-  reliability** (faith-independent or `applyAlways` chance), those three are a
-  small follow-up — say the word. Captured in ADR-0119's audit section.
+- The flag raised at first review (whether to drop Faith from Math Skill *status*
+  applications, not just output) was **settled with Chris: Option B applied.**
+  Precision Fire's Burn, Sculpted Enhancement, and Engineered Defenses now use the
+  MA-only factor (`factors: { ma: true }`), with bases retuned **50→25 / 50→25 /
+  80→40** to keep effective landing rates near the prior ~45% / ~45% / ~72% at
+  base MA 9 (the MA factor ≥1.8 would otherwise have pushed them to ~90–100%).
+  ADR-0119 updated; **25/25/40 logged as a tuning watch item in
+  `playtest-watch.md`** — best-effort match, not playtested, and a high-MA
+  Calculator still trends toward 100%.
 
 ### Noted divergence (in ADR-0119, not silently resolved)
 

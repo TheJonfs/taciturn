@@ -1,11 +1,14 @@
 // Engineered Defenses — Math Skill #5 (Session 49 / ADR-0086).
 //
-// The Calculator's multi-target defensive buff. 80% base chance per
-// matching target (Faith × MA gated) to apply 1 stack of Engineered
-// Defenses status — +10 to each elemental resistance + 5% to every
-// evasion facing, permanent for the battle.
+// The Calculator's multi-target defensive buff. 40% base chance per
+// matching target, MA-scaled and Faith-independent (S71 #15 Option B), to
+// apply 1 stack of Engineered Defenses status — +10 to each elemental
+// resistance + 5% to every evasion facing, permanent for the battle. At
+// MA 9 the MA factor (1.8) lands it ~72% per target — about the prior
+// effective rate at default Faith, without the buff target's Faith
+// dragging it.
 //
-// Net expectation per cast (4 targets): ~1.5 applications. Stackable
+// Stackable
 // per Brief D7 — multiple successful casts on the same target compound
 // the resistance and evasion uplift. Lever for runaway: convert to
 // non-stackable; flagged in handoff watch-fors.
@@ -41,8 +44,10 @@ export const engineeredDefenses: ActiveAbilityDefinition = {
       {
         typeId: statusTypeId('engineered_defenses'),
         target: 'primary_target',
-        baseChance: 80,
-        // Default factors `{ faith: true, ma: true }` — Faith × MA gate.
+        // S71 (#15, Option B): MA-only (Faith dropped), base 80 → 40 —
+        // tuning watch item (the 25/25/40 Math-Skill status set).
+        baseChance: 40,
+        factors: { ma: true },
       },
     ],
   },
