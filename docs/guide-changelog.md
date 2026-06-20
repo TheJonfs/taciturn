@@ -44,6 +44,14 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 71 follow-up — Gender visible in battle (2026-06-20)
+
+- **A unit's gender now shows in battle**, not just on its portrait. The unit
+  detail panel (click a unit) spells it out on the identity line — e.g. "L23
+  Aethurge · ♂ Male · Team …" — and the turn-queue mini-cards show a small ♀/♂
+  next to the class. Gender gates Steal Heart (charm only crosses Male ↔ Female),
+  so it's now readable for planning charms without inspecting portraits.
+
 ## Session 71 follow-up — Team Builder levels are now fixed per slot (2026-06-20)
 
 See ADR-0087 (S71 amendment).

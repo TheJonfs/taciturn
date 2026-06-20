@@ -20,6 +20,7 @@ import {
   type DamageTag,
   type EquipmentSlotId,
   type GameState,
+  type Gender,
   type Unit,
 } from '@engine/index.ts';
 import { portraitUrlFor } from '../assets/portraits/index.ts';
@@ -27,6 +28,15 @@ import { bucketLabel, slotLabel } from './labels.ts';
 import { DetailHover } from './detail-hover.tsx';
 import { formatAbilityDetail, formatItemDetail, formatStatusDetail } from './detail-text.ts';
 import { badgeStyleFor } from './status-polarity.ts';
+
+// Gender as a short glyph + word for the identity line. Resolves the
+// effective gender the same way the portrait / Steal Heart do — explicit
+// choice, else the class default, else male — so it's always concrete.
+// Gender is mechanically relevant (it gates Steal Heart, which only crosses
+// Male ↔ Female), and previously the only in-battle cue was the portrait.
+function genderLabel(gender: Gender | undefined): string {
+  return (gender ?? 'male') === 'female' ? '♀ Female' : '♂ Male';
+}
 
 // The four core elemental tags. These are *always* shown in the
 // Resistances section — every unit has a meaningful relationship to all
@@ -181,7 +191,8 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
             <div>
               <div style={nameStyle}>{unit.name}</div>
               <div style={subStyle}>
-                L{unit.level} {cls.name} · Team {String(unit.team)}
+                L{unit.level} {cls.name} · {genderLabel(unit.gender ?? cls.defaultGender)} ·
+                {' '}Team {String(unit.team)}
               </div>
             </div>
           </div>

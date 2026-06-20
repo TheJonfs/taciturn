@@ -48,6 +48,17 @@ teams: placement now sets level** (3 units in slots 1/3/5 = 25/26/27, was
 25/24/26). Full 5-unit teams unchanged. Watch item if slot-skipping level-gaming
 matters → contiguous-fill constraint is the mitigation (not adopted).
 
+### Gender shown in battle (late S71)
+
+In-battle gender was portrait-only. Added it to the unit detail panel's identity
+line (`unit-detail-panel.tsx` — "L23 Aethurge · ♂ Male · Team …") and a small ♀/♂
+glyph on the queue-tower mini-cards (`queue-tower.tsx`; `describeEvent` now
+resolves `unit.gender ?? class default`). Browser-verified in a live battle (♂ on
+males, ♀ on the Pyromancer). Minor pre-existing wart noticed, not touched: the
+detail panel renders team as the raw id ("Team team_b"). Also noticed (not
+mine): `UnitSprite.drawFacing` throws on an invalid facing string rather than
+failing soft — only reachable via the debug hook, real UI offers N/E/S/W only.
+
 ### Two playtest bug fixes (late S71)
 
 - **Throw Item "can't target self" (fixed — real cause).** First diagnosis (empty

@@ -191,7 +191,12 @@ function MiniCard(props: {
       </div>
       <div style={miniCardLabelColStyle}>
         <div style={miniCardNameStyle}>{label}</div>
-        <div style={miniCardSubStyle}>{sublabel}</div>
+        <div style={miniCardSubStyle}>
+          {sublabel}
+          {gender !== null && (
+            <span style={miniCardGenderStyle}>{gender === 'female' ? '♀' : '♂'}</span>
+          )}
+        </div>
       </div>
       <div style={miniCardTicksStyle}>+{event.ticksFromNow}</div>
     </div>
@@ -357,7 +362,9 @@ function describeEvent(
       isCharged: false,
       primaryUnitId: unit.id,
       classId: unit.classState.currentClass,
-      gender: unit.gender ?? null,
+      // Resolve the effective gender (explicit choice, else class default) so
+      // the mini-card glyph matches the portrait and is always concrete.
+      gender: unit.gender ?? cls.defaultGender ?? null,
     };
   }
   // charged_action — find the in-flight charged action and read its
@@ -557,6 +564,14 @@ const miniCardSubStyle: CSSProperties = {
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
+};
+
+// Gender glyph trailing the mini-card class line — a non-portrait cue for
+// gender (which gates Steal Heart). Slightly brighter than the class text
+// so the ♀/♂ reads at a glance without crowding it.
+const miniCardGenderStyle: CSSProperties = {
+  marginLeft: 4,
+  opacity: 0.85,
 };
 
 const miniCardTicksStyle: CSSProperties = {
