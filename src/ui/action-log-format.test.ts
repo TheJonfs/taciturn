@@ -16,7 +16,7 @@ import { activeTurnFor, makeGameState, makeUnit } from '../engine/ct/test-fixtur
 import { makeStatusInstance } from '../engine/status/test-fixtures.ts';
 import { flatMap } from '../engine/map/test-fixtures.ts';
 import { makeAbilitiesCatalog, knightLoadout } from '../engine/abilities/test-fixtures.ts';
-import { buildLogView, formatActionLog } from './action-log-format.ts';
+import { buildLogView, finalTurnNumber, formatActionLog } from './action-log-format.ts';
 
 function env(overrides: Partial<ActionEnvelope> & { sequenceNumber: number }): ActionEnvelope {
   return {
@@ -213,6 +213,47 @@ describe('formatActionLog', () => {
     ];
     const rows = formatActionLog(log, makeBaseState(), emptyCatalog());
     expect(rows.map((r) => r.tag)).toEqual(['T0001', 'T0002']);
+  });
+
+  // S71 playtest report: the results screen's "ended on turn T####"
+  // counted only turn_start, while the log's T-number also advances on
+  // every charged-action resolve — so they disagreed in any battle with a
+  // charged spell. `finalTurnNumber` is now the shared source of truth.
+  it('finalTurnNumber counts charged resolves too, matching the last log T-number', () => {
+    const chargedId = 'ca-1' as unknown as import('@engine/index.ts').ChargedActionId;
+    const log: Action[] = [
+      {
+        ...env({ sequenceNumber: 1, actorId: unitId('u1') }),
+        type: 'turn_start',
+        payload: { unitId: unitId('u1') },
+      },
+      {
+        ...env({ sequenceNumber: 2, actorId: unitId('u1') }),
+        type: 'turn_end',
+        payload: { unitId: unitId('u1') },
+        outcome: { kind: 'turn_end', unitId: unitId('u1'), ctSpent: 20 },
+      },
+      {
+        ...env({ sequenceNumber: 3, source: 'system' }),
+        type: 'charged_action_resolve',
+        payload: { chargedActionId: chargedId },
+        outcome: { kind: 'charged_action_resolve', chargedActionId: chargedId, perTargetResults: [] },
+      },
+    ];
+    // turn_start (1) + charged_action_resolve (1) = 2; turn_end doesn't count.
+    expect(finalTurnNumber(log)).toBe(2);
+    // It equals the largest T-number the formatter assigns.
+    const rows = formatActionLog(log, makeBaseState(), emptyCatalog());
+    const maxTag = rows
+      .map((r) => r.tag)
+      .filter((t): t is string => t !== null && /^T\d{4}$/.test(t))
+      .sort()
+      .at(-1);
+    expect(maxTag).toBe('T0002');
+    // The pre-fix turn_start-only count (1) would have disagreed.
+    const turnStartsOnly = log.filter((a) => a.type === 'turn_start').length;
+    expect(turnStartsOnly).toBe(1);
+    expect(finalTurnNumber(log)).not.toBe(turnStartsOnly);
   });
 
   it('interleaves a [ko] row right after the lethal damage row', () => {

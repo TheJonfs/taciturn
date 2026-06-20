@@ -15,6 +15,7 @@
 import { useEffect, type CSSProperties, type ReactElement } from 'react';
 import type { BattleOutcome, Catalog, GameState, UnitId } from '@engine/index.ts';
 import { derivePerUnitStats, deriveKoEvents } from './derived-events.ts';
+import { finalTurnNumber } from './action-log-format.ts';
 
 export interface ResultsScreenProps {
   readonly state: GameState;
@@ -48,7 +49,11 @@ export function ResultsScreen(props: ResultsScreenProps): ReactElement {
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const tNumber = countTurns(state.actionLog);
+  // Use the action log's own T-number count so "ended on turn T####"
+  // matches the last log row. (Previously this counted only turn_start and
+  // undercounted every battle that resolved a charged spell — each of
+  // which gets its own T-number in the log. S71 playtest report.)
+  const tNumber = finalTurnNumber(state.actionLog);
   return (
     <>
       <div style={backdropStyle} onClick={onClose} />
@@ -162,12 +167,6 @@ function pickMvp(stats: ReadonlyMap<UnitId, { damageDealt: number }>): {
     }
   }
   return best;
-}
-
-function countTurns(log: GameState['actionLog']): number {
-  let n = 0;
-  for (const a of log) if (a.type === 'turn_start') n += 1;
-  return n;
 }
 
 function Section({ title, children }: { readonly title: string; readonly children: React.ReactNode }): ReactElement {

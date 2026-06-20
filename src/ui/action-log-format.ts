@@ -119,6 +119,26 @@ export interface LogRow {
   readonly emphasis: boolean;
 }
 
+// A log row's displayed T-number advances on each turn boundary AND each
+// charged-action resolve (Chris's playtest call: a resolve gets its own
+// T-number, rendered as a top-level T#### row). Single source of truth so
+// the results screen's "Battle ended on turn T####" matches the last
+// action-log row instead of re-deriving it — the two had drifted (the
+// results screen counted only turn_start, undercounting every battle with
+// a charged spell).
+export function advancesTurnNumber(action: Action): boolean {
+  return action.type === 'turn_start' || action.type === 'charged_action_resolve';
+}
+
+// The T-number of the final action-log row — i.e. how many T#### headers
+// the log produced. Equals the `tNumber` the formatter reaches on its last
+// row (tNumber only ever increments).
+export function finalTurnNumber(log: ReadonlyArray<Action>): number {
+  let n = 0;
+  for (const action of log) if (advancesTurnNumber(action)) n += 1;
+  return n;
+}
+
 // Format every visible action in the log, interleaving `[ko]` rows at
 // the sequence points where units fall. Caller renders top-to-bottom
 // with newest at the bottom.
@@ -182,9 +202,9 @@ export function formatActionLog(
     // T-number advances on turn boundaries AND on charged-action resolves
     // (per Chris's playtest call: "each charged-action resolve gets its
     // own T-number"). The resolve renders as a top-level T#### row rather
-    // than an indented [charged] row.
-    if (action.type === 'turn_start') tNumber += 1;
-    if (action.type === 'charged_action_resolve') tNumber += 1;
+    // than an indented [charged] row. Shared predicate so the results
+    // screen's end-of-battle count can't drift from this.
+    if (advancesTurnNumber(action)) tNumber += 1;
     const rows = formatAction(action, state, catalog, tNumber, chargedContext);
     for (const row of rows) out.push(row);
     const kos = koBySeq.get(action.sequenceNumber);

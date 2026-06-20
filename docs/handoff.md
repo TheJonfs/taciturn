@@ -33,6 +33,26 @@ tests; tsc + vite build clean.** Chunk 1 browser-verified in the Team Builder
   at cost 2 (the documented intent); the only defect was the tooltip, fixed in
   chunk 1. Chunk 3 closes with no behavior change.
 
+### Two playtest bug fixes (late S71)
+
+- **Throw Item dead-end (fixed).** Throwing an item at self — incl. at full HP —
+  always validated fine at the engine level (probe-tested). The reported "can't
+  target self" was an *empty/insufficient stockpile* dead-ending the target step:
+  Throw Item was offered with nothing to throw, so target clicks hit the bogus-item
+  fallback and silently cancelled. Fixed by gating Throw Item disabled (with a
+  "Compound first" hint) when the stockpile is empty — `computeAbilityDisableReason`
+  in `use-turn-flow.ts`.
+- **Battle-end turn count (fixed).** Results screen "ended on turn T####" counted
+  only `turn_start`; the action log's T-number also advances on each
+  `charged_action_resolve`. They disagreed in any charged-spell battle. Extracted
+  `finalTurnNumber` in `action-log-format.ts` as the shared source of truth; the
+  results screen now uses it.
+- **Browser-verify blocked (carry):** couldn't auto-drive a both-AI battle to
+  re-confirm the turn count in-app — the setup screen's Human/AI toggle still
+  doesn't respond to DOM clicks (the same issue noted in the S70 handoff). Both
+  fixes are unit-tested; #2's two surfaces now share one function so they can't
+  drift. Worth a manual in-app check if convenient.
+
 ### Resolved this session — Math Skill status-application Faith gates
 
 - The flag raised at first review (whether to drop Faith from Math Skill *status*

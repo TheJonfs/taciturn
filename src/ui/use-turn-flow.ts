@@ -956,6 +956,14 @@ function pickAnyStockpileItem(unit: Unit): import('@engine/index.ts').ItemId | n
   return null;
 }
 
+// Total consumables the unit currently holds across all stockpile entries.
+// Gates Throw Item's availability (nothing stocked → nothing to throw).
+function stockpileTotal(unit: Unit): number {
+  let total = 0;
+  for (const count of unit.stockpile.values()) total += count;
+  return total;
+}
+
 // S55: append every in-range Barrier tile the given (damaging) ability can
 // legally hit to the target set. A barrier sits on an unoccupied tile, so the
 // unit enumeration above never surfaces it; the engine accepts a `tile` target
@@ -994,7 +1002,7 @@ function isHealingAbility(ability: ActiveAbilityDefinition | { kind: string }): 
   return dmg !== undefined && dmg.tags.includes('healing');
 }
 
-function computeAbilityDisableReason(
+export function computeAbilityDisableReason(
   state: GameState,
   catalog: Catalog,
   actor: Unit,
@@ -1006,6 +1014,15 @@ function computeAbilityDisableReason(
   const mpCost = computeMpCost(state, catalog, actor.id, ability.id);
   if (actor.vitals.mp < mpCost) {
     return `Insufficient MP — need ${mpCost}, have ${actor.vitals.mp}`;
+  }
+  // Throw Item needs something to throw. With an empty stockpile the whole
+  // flow dead-ends — the player can pick Throw Item and enter target-select,
+  // but every target click probes with no stockpiled item and silently
+  // cancels (the engine rejects a throw with nothing to throw). Disable it
+  // up front with a Compound-first hint instead. Compound (which *creates*
+  // items) has no such gate. (S71 follow-up; playtest report.)
+  if (ability.id === THROW_ITEM_ABILITY_ID && stockpileTotal(actor) <= 0) {
+    return 'No items to throw — Compound first';
   }
   // We don't run runOnActionAttempted here because we'd need a concrete
   // ProposedAction (with a chosen target). The per-ability disable

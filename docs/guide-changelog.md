@@ -44,6 +44,20 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 71 follow-up — Throw Item gating + battle-end turn count (2026-06-19)
+
+Two small bug fixes from a playtest report.
+
+- **Throw Item is now disabled when you have nothing to throw**, with a "Compound
+  first" hint, instead of letting you open it and then silently failing to pick a
+  target. (Throwing an item — including on *yourself*, e.g. an Ether — always
+  worked when you had one in stock; the confusion was an empty/insufficient
+  stockpile dead-ending the targeting step.)
+- **The battle-end summary's turn number now matches the action log.** "Battle
+  ended on turn T####" previously counted only unit turns and ignored
+  charged-spell resolutions (which each get their own T-number in the log), so the
+  two disagreed in any fight with a charged spell. Both now use the same count.
+
 ## Session 71 follow-up — Math Skill status applications drop Faith (2026-06-19)
 
 See ADR-0119 (Update). Extends the #15 Faith sweep to the Calculator's status
