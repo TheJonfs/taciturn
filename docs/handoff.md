@@ -35,13 +35,21 @@ tests; tsc + vite build clean.** Chunk 1 browser-verified in the Team Builder
 
 ### Two playtest bug fixes (late S71)
 
-- **Throw Item dead-end (fixed).** Throwing an item at self — incl. at full HP —
-  always validated fine at the engine level (probe-tested). The reported "can't
-  target self" was an *empty/insufficient stockpile* dead-ending the target step:
-  Throw Item was offered with nothing to throw, so target clicks hit the bogus-item
-  fallback and silently cancelled. Fixed by gating Throw Item disabled (with a
-  "Compound first" hint) when the stockpile is empty — `computeAbilityDisableReason`
-  in `use-turn-flow.ts`.
+- **Throw Item "can't target self" (fixed — real cause).** First diagnosis (empty
+  stockpile) was wrong: Chris had Phoenix Down + Remedy + Ether, no Potion, full
+  HP. The throw target-click probed a *single arbitrary* stocked item; with Phoenix
+  Down first (and Phoenix Down's KO-only gate), validating it against a living self
+  failed, and the handler cancelled the click. Fix: the click now proceeds if **any
+  stocked item is throwable** at the target (`use-turn-flow.ts`); the item picker
+  greys out per-item invalid throws with the engine reason
+  (`ThrowItemItemPicker`, `action-menu.tsx` — the gate had been stubbed
+  `disabled={false}`); and Throw Item is still disabled when the bag is empty
+  (`computeAbilityDisableReason`).
+  - **Follow-up gap (not fixed):** the throw *highlight* (`computeLegalTargets`)
+    excludes KO'd units, so a KO'd ally isn't shown as a throw target — you can
+    still click their tile (the click handler runs on any tile, and Phoenix Down
+    then validates), but the visual cue is missing. Minor; worth aligning the
+    highlight to include KO'd-but-not-removed units for throw/Phoenix Down.
 - **Battle-end turn count (fixed).** Results screen "ended on turn T####" counted
   only `turn_start`; the action log's T-number also advances on each
   `charged_action_resolve`. They disagreed in any charged-spell battle. Extracted

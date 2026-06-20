@@ -21,7 +21,7 @@
 // directly; the hook owns all validation.
 
 import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
-import { enumerateMathSkillTargets, projectTurnEndCt, statusTypeId, type ActiveAbilityDefinition, type Catalog, type ConsumableDefinition, type Direction, type GameState, type ProposedAction, type Unit, type UnitId } from '@engine/index.ts';
+import { enumerateMathSkillTargets, projectTurnEndCt, statusTypeId, validateAction, type ActiveAbilityDefinition, type Catalog, type ConsumableDefinition, type Direction, type GameState, type ProposedAction, type Unit, type UnitId } from '@engine/index.ts';
 import { abilityRoute, type TurnFlow } from './use-turn-flow.ts';
 import { DetailHover } from './detail-hover.tsx';
 import { formatAbilityDetail } from './detail-text.ts';
@@ -145,6 +145,7 @@ export function ActionMenu({ turnFlow, catalog, engineState, onOpenUnitDetail }:
         <ThrowItemItemPicker
           turnFlow={turnFlow}
           catalog={catalog}
+          engineState={engineState}
           targetUnitId={state.targetUnitId}
         />
       );
@@ -809,19 +810,21 @@ function CompoundItemPicker({
 }
 
 // Throw Item's item picker. Lists every consumable the actor has at
-// least one of (stockpile count > 0), gated by what each item can do
-// to the target:
-//   - Phoenix Down: only enabled when target is KO'd.
-//   - Other items: only enabled when target is alive.
-// (Engine accepts any item on any alive/KO'd target with a gated zero
-// outcome; the UI gates pre-cast to avoid the wasted-turn footgun.)
+// least one of (stockpile count > 0), each gated by whether the engine
+// would accept throwing it at the chosen target — e.g. Phoenix Down only
+// validates on a KO'd target, other items only on a living one. Disabled
+// items show the engine's reason so the player isn't left guessing and
+// can't waste a turn on a no-op throw. (S71: the per-item gate had been
+// stubbed to `disabled={false}`, surfacing items the throw would reject.)
 function ThrowItemItemPicker({
   turnFlow,
   catalog,
+  engineState,
   targetUnitId,
 }: {
   readonly turnFlow: TurnFlow;
   readonly catalog: Catalog;
+  readonly engineState: GameState | null;
   readonly targetUnitId: UnitId;
 }): ReactElement {
   const actor = turnFlow.activeUnit;
@@ -837,13 +840,27 @@ function ThrowItemItemPicker({
       )}
       {consumables.map((item) => {
         const have = actor.stockpile.get(item.id) ?? 0;
+        let disabled = false;
+        let reason: string | null = null;
+        if (engineState !== null) {
+          const v = validateAction(engineState, {
+            type: 'use_throw_item',
+            source: 'player',
+            actorId: actor.id,
+            payload: { itemId: item.id, target: { kind: 'unit', unitId: targetUnitId } },
+          }, catalog);
+          if (!v.valid) {
+            disabled = true;
+            reason = v.reason ?? null;
+          }
+        }
         return (
           <ItemPickerButton
             key={String(item.id)}
             label={item.name}
             sublineParts={[`Have ${have - 1} after throw`]}
-            disabled={false}
-            reason={null}
+            disabled={disabled}
+            reason={reason}
             onClick={() => {
               const action: ProposedAction = {
                 type: 'use_throw_item',

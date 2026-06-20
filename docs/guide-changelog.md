@@ -48,11 +48,16 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 Two small bug fixes from a playtest report.
 
-- **Throw Item is now disabled when you have nothing to throw**, with a "Compound
-  first" hint, instead of letting you open it and then silently failing to pick a
-  target. (Throwing an item — including on *yourself*, e.g. an Ether — always
-  worked when you had one in stock; the confusion was an empty/insufficient
-  stockpile dead-ending the targeting step.)
+- **Throw Item targeting fixed.** Picking a target with Throw Item now works
+  whenever *any* item you're carrying can legally be thrown there — previously it
+  silently cancelled back to the menu if the *first* item in your bag happened to
+  be incompatible with that target. The concrete case: a full-HP unit holding a
+  Phoenix Down (which can only be thrown at a KO'd unit) but no Potion couldn't
+  target itself, even though it had a Remedy / Ether it could throw. Now the item
+  picker also greys out items that can't be thrown at the chosen target (e.g.
+  Phoenix Down on a living unit) with the reason, instead of letting you pick a
+  dud. Throw Item is also disabled outright (with a "Compound first" hint) when
+  your bag is empty.
 - **The battle-end summary's turn number now matches the action log.** "Battle
   ended on turn T####" previously counted only unit turns and ignored
   charged-spell resolutions (which each get their own T-number in the log), so the

@@ -613,37 +613,37 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
             dispatch({ kind: 'cancel' });
             return;
           }
-          // Confirm the target is in legal range / LoS via the engine.
-          const probeAction: ProposedAction = {
-            type: 'use_throw_item',
-            source: 'player',
-            actorId: activeUnit.id,
-            payload: {
-              // The item is a placeholder for the range/LoS check; the
-              // engine will reject if no stockpile entry exists for it.
-              // For the click-validity gate we want the range + LoS +
-              // removed-target check, which doesn't depend on item.
-              // Pick the first item we know exists in the stockpile if
-              // any; otherwise use any item id and let validation pass
-              // through the non-stockpile gates first.
-              itemId: pickAnyStockpileItem(activeUnit) ?? COMPOUND_ABILITY_ID as unknown as import('@engine/index.ts').ItemId,
-              target: { kind: 'unit', unitId: occupant.id },
-            },
-          };
-          const v = validateAction(state, probeAction, catalog);
-          // If the failure is range / LoS / removed, treat as invalid
-          // click and cancel. Stockpile-missing is fine (the player
-          // will see the item picker reject it explicitly).
-          if (!v.valid && v.reason !== undefined && !/stockpile/i.test(v.reason)) {
+          // The throw flow picks the target first, item second — so a
+          // target is legal iff AT LEAST ONE stocked consumable can be
+          // thrown at it (range/arc + the item's own gates, e.g. Phoenix
+          // Down needs a KO'd target). The old code probed a single
+          // *arbitrary* stocked item, which silently cancelled the click
+          // when that item was incompatible: a full-HP unit holding a
+          // Phoenix Down (and no Potion) failed the KO-only gate even
+          // though a Remedy / Ether throw on itself was perfectly legal
+          // (S71 playtest report). Validate each stocked item until one
+          // passes.
+          let anyThrowable = false;
+          for (const [stockId, count] of activeUnit.stockpile) {
+            if (count <= 0) continue;
+            const probe: ProposedAction = {
+              type: 'use_throw_item',
+              source: 'player',
+              actorId: activeUnit.id,
+              payload: { itemId: stockId, target: { kind: 'unit', unitId: occupant.id } },
+            };
+            if (validateAction(state, probe, catalog).valid) {
+              anyThrowable = true;
+              break;
+            }
+          }
+          if (!anyThrowable) {
             if (import.meta.env.DEV) {
               // eslint-disable-next-line no-console
               console.debug(
-                '[targeting] throw_item click cancel',
-                `(${pos.x},${pos.y},${pos.layer})`,
-                'target=',
+                '[targeting] throw_item click cancel — no stocked item is throwable at',
                 occupant.id,
-                '— validate:',
-                v.reason,
+                `(${pos.x},${pos.y},${pos.layer})`,
               );
             }
             dispatch({ kind: 'cancel' });
@@ -942,18 +942,6 @@ const EMPTY_TARGETS: LegalTargets = {
 
 function samePosition(a: Position, b: Position): boolean {
   return a.x === b.x && a.y === b.y && a.layer === b.layer;
-}
-
-// Session 39b: returns any item id present in the unit's stockpile
-// with count > 0, or null when the stockpile is empty. Used by the
-// throw-item click handler to construct a probe action for the
-// range / LoS / removed-target validity check — the actual item
-// will be picked next in the item-select state.
-function pickAnyStockpileItem(unit: Unit): import('@engine/index.ts').ItemId | null {
-  for (const [id, count] of unit.stockpile) {
-    if (count > 0) return id;
-  }
-  return null;
 }
 
 // Total consumables the unit currently holds across all stockpile entries.

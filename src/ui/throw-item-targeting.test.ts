@@ -16,6 +16,8 @@ import { validateAction } from '../engine/actions/validate.ts';
 import { throwItem } from '../content/abilities/throw-item.ts';
 import { ether } from '../content/items/ether.ts';
 import { potion } from '../content/items/potion.ts';
+import { phoenixDown } from '../content/items/phoenix-down.ts';
+import { remedy } from '../content/items/remedy.ts';
 import { computeAbilityDisableReason, computeLegalTargets } from './use-turn-flow.ts';
 
 function cat() {
@@ -24,9 +26,30 @@ function cat() {
     abilities: [throwItem],
     commandSets: [],
     classes: [makeKnight()],
-    items: [ether, potion],
+    items: [ether, potion, phoenixDown, remedy],
     rulesets: [makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE })],
   });
+}
+
+// "Can I throw any stocked item at this target?" — the rule the throw
+// target-click now uses (the reported bug was probing a single arbitrary
+// item that happened to be incompatible).
+function anyThrowableAt(
+  s: ReturnType<typeof makeGameState>,
+  c: ReturnType<typeof cat>,
+  actorId: ReturnType<typeof unitId>,
+  stockpile: ReadonlyMap<ReturnType<typeof itemId>, number>,
+  targetUnitId: ReturnType<typeof unitId>,
+): boolean {
+  for (const [id, count] of stockpile) {
+    if (count <= 0) continue;
+    const v = validateAction(s, {
+      type: 'use_throw_item', source: 'player', actorId,
+      payload: { itemId: id, target: { kind: 'unit', unitId: targetUnitId } },
+    }, c);
+    if (v.valid) return true;
+  }
+  return false;
 }
 
 function turnFor(id: string) {
@@ -58,6 +81,37 @@ describe('Throw Item — self-target works at full HP (engine)', () => {
       payload: { itemId: itemId('ether'), target: { kind: 'unit', unitId: u.id } },
     }, c);
     expect(v.valid).toBe(true);
+  });
+
+  // The exact reported scenario: Phoenix Down (first in stock), Remedy, Ether,
+  // no Potion, full HP. Phoenix Down on a living target is invalid (KO-only),
+  // but Ether/Remedy are valid — so the target is legal. The old click probe
+  // validated only the first item (Phoenix Down) and silently cancelled.
+  it('a full-HP unit holding Phoenix Down + Ether is still a legal self-throw target', () => {
+    const c = cat();
+    const stock = new Map([
+      [itemId('phoenix_down'), 1],
+      [itemId('remedy'), 1],
+      [itemId('ether'), 1],
+    ]);
+    const u = makeUnit({
+      id: 'a', spd: 10, hp: 50, maxHpBase: 50, mp: 10,
+      position: { x: 1, y: 1, layer: 0 },
+      stockpile: stock,
+    });
+    const s = makeGameState({ units: [u], map: flatMap(5, 5), turnState: turnFor('a') });
+    const throwOf = (id: string) =>
+      validateAction(s, {
+        type: 'use_throw_item', source: 'player', actorId: u.id,
+        payload: { itemId: itemId(id), target: { kind: 'unit', unitId: u.id } },
+      }, c);
+    // Phoenix Down can't be thrown at a living target...
+    expect(throwOf('phoenix_down').valid).toBe(false);
+    // ...but Ether and Remedy can.
+    expect(throwOf('ether').valid).toBe(true);
+    expect(throwOf('remedy').valid).toBe(true);
+    // So the target is legal under the "any stocked item is throwable" rule.
+    expect(anyThrowableAt(s, c, u.id, stock, u.id)).toBe(true);
   });
 
   it('offers self as a legal Throw target', () => {
