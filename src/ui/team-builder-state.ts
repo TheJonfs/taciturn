@@ -173,14 +173,16 @@ export function teamBuilderStateToBuiltTeam(
   catalog: Catalog,
 ): BuiltTeam {
   const units: BuiltUnit[] = [];
-  for (const unit of state.units) {
+  for (let index = 0; index < state.units.length; index += 1) {
+    const unit = state.units[index]!;
     if (unit.classId === null) continue;
-    // S49: level is the active-unit's post-filter position (the unit's
-    // slot among the team's filled units, not its draft slot). The
-    // player thinks "where is this unit in my team list" — empty pad
-    // slots don't count. The first active unit is the team captain at
-    // L25; outward slots step ±1 per `slotLevelFor`.
-    const level = slotLevelFor(units.length);
+    // S71 (Chris's call): level is a fixed property of the slot *position*
+    // (`slotLevelFor(index)`), not the unit's rank among filled slots.
+    // Slot 0 = captain L25, ±1 outward. Placement determines level, and a
+    // unit's level never shifts as other slots fill — matching the roster
+    // display. (Reverses the S49 compacted scheme; empty slots no longer
+    // renumber the units after them.)
+    const level = slotLevelFor(index);
     units.push({
       // `setClass` auto-picks a name on first class assignment, so an
       // active unit always carries one. The class-name fallback covers
@@ -436,35 +438,16 @@ export function computeDraftUnitStats(
   };
 }
 
-// The assigned level for the unit in slot `index`, or `null` if that
-// slot is empty (classless). Mirrors the export walk in
-// `teamBuilderStateToBuiltTeam`: level is the unit's position among the
-// *filled* slots — the first filled slot is the captain at L25, outward
-// filled slots step ±1 via `slotLevelFor`. Empty slots are skipped, so
-// the sequence the roster + card display matches the assembled
-// `BuiltTeam`. Shared by the roster cards and the unit card so they
-// can't disagree.
-export function slotLevel(state: TeamBuilderState, index: number): number | null {
-  if (state.units[index]?.classId == null) return null;
-  let activeCount = 0;
-  for (let i = 0; i < index; i += 1) {
-    if (state.units[i]!.classId !== null) activeCount += 1;
-  }
-  return slotLevelFor(activeCount);
-}
-
-// S71 #3: the level a unit *would* be assigned if placed in slot `index`
-// right now — the same "filled slots before it" walk as `slotLevel`, but
-// without the empty-slot null. The roster shows this (muted) on empty
-// slots so a player sees a slot's level before committing a unit. Once
-// filled, `slotLevel` returns the same value (until the surrounding
-// fill-order shifts).
-export function slotLevelProspective(state: TeamBuilderState, index: number): number {
-  let activeCount = 0;
-  for (let i = 0; i < index; i += 1) {
-    if (state.units[i]?.classId != null) activeCount += 1;
-  }
-  return slotLevelFor(activeCount);
+// The level of slot `index` — a fixed property of the slot *position*
+// (S71 playtest, Chris's call): slot 0 = L25, then ±1 outward per
+// `slotLevelFor` (1→24, 2→26, 3→23, 4→27). A unit placed here gets this
+// level regardless of how many other slots are filled or in what order, so
+// the roster shows the correct level in each slot all the way — no
+// shifting as the team fills. Empty slots still have a level (it's the
+// slot's, shown as a preview); the caller distinguishes filled vs empty by
+// `unit.classId`. Replaces the prior fill-order (compacted) scheme.
+export function slotLevel(index: number): number {
+  return slotLevelFor(index);
 }
 
 // ---------------------------------------------------------------------

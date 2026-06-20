@@ -24,9 +24,10 @@ export interface TeamExportThinUnit {
   readonly classId: string;
   readonly brave: number;
   readonly faith: number;
-  // S49: Level system. The team-builder assigns level by active-unit
-  // position (slot 0 = L25 baseline; outward steps per `slotLevelFor`),
-  // and the exporter preserves whatever value the BuiltUnit carries. The
+  // Level system. The team-builder assigns level by slot *position*
+  // (slot 0 = L25 baseline; outward steps per `slotLevelFor` — S71, fixed
+  // per slot), and the exporter preserves whatever value the BuiltUnit
+  // carries. The
   // implementer pastes the JSON into a new template and wraps each
   // unit's level with the source of their choice — `slotLevelFor(index)`
   // for slot-derived (the team-builder convention) or a literal value

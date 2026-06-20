@@ -23,7 +23,6 @@ import {
   computeDraftUnitStats,
   computeTeamValidity,
   createEmptyTeamBuilderState,
-  slotLevel,
   selectUnit as selectUnitMut,
   setBrave as setBraveMut,
   setClass as setClassMut,
@@ -125,17 +124,13 @@ export function useTeamBuilder({
 
   const unitStats = useMemo(
     () => {
-      // S49: thread per-unit level (slot-derived from active-unit
-      // position) into the stat computation so HP/MP/dominant-stat
-      // shifts surface immediately when the player moves a unit between
-      // slots. Empty slots get no stats anyway; level defaults to L25
-      // but is unused on the null return.
-      let activeCount = 0;
-      return state.units.map((unit) => {
-        const level = unit.classId !== null ? slotLevelFor(activeCount) : 25;
-        if (unit.classId !== null) activeCount += 1;
-        return computeDraftUnitStats(unit, catalog, mapTemplate, level);
-      });
+      // S71: per-unit level is a fixed property of the slot *position*
+      // (`slotLevelFor(index)`), not the unit's rank among filled slots —
+      // so the stat preview matches the slot's displayed level and never
+      // shifts as other slots fill. Empty slots get no stats (null return).
+      return state.units.map((unit, index) =>
+        computeDraftUnitStats(unit, catalog, mapTemplate, slotLevelFor(index)),
+      );
     },
     [state.units, catalog, mapTemplate],
   );
@@ -197,8 +192,7 @@ export function useTeamBuilder({
       const idx = state.selectedIndex;
       const hypothetical = setEquipmentMut(state, idx, slot, itemId, catalog);
       const unit = hypothetical.units[idx]!;
-      const level = slotLevel(hypothetical, idx) ?? 25;
-      return computeDraftUnitStats(unit, catalog, mapTemplate, level);
+      return computeDraftUnitStats(unit, catalog, mapTemplate, slotLevelFor(idx));
     },
     [state, catalog, mapTemplate],
   );

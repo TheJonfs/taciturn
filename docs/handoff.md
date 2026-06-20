@@ -33,6 +33,21 @@ tests; tsc + vite build clean.** Chunk 1 browser-verified in the Team Builder
   at cost 2 (the documented intent); the only defect was the tooltip, fixed in
   chunk 1. Chunk 3 closes with no behavior change.
 
+### Team Builder slot levels → fixed per slot (late S71, Chris's call)
+
+The S71 `slotLevelProspective` stopgap (and the underlying S49 *compaction*
+scheme) caused the roster level pills to shift as the team filled — every empty
+slot read the same number; a unit placed out of order showed L25 and renumbered
+as earlier slots filled. Per Chris, levels are now a **fixed property of the slot
+position** (`slotLevelFor(index)` everywhere: assembly, stat preview, display) —
+restoring ADR-0087's *blueprint* (which the implementation had drifted from).
+Browser-verified: empty roster reads L25/24/26/23/27; filling slot 3 first shows
+L26 and nothing shifts. ADR-0087 amended; `slotLevel(index)` no longer takes
+state/returns null; `slotLevelProspective` removed. **Behavior change for <5-unit
+teams: placement now sets level** (3 units in slots 1/3/5 = 25/26/27, was
+25/24/26). Full 5-unit teams unchanged. Watch item if slot-skipping level-gaming
+matters → contiguous-fill constraint is the mitigation (not adopted).
+
 ### Two playtest bug fixes (late S71)
 
 - **Throw Item "can't target self" (fixed — real cause).** First diagnosis (empty

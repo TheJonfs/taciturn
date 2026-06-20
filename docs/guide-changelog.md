@@ -44,7 +44,20 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
-## Session 71 follow-up — Throw Item gating + battle-end turn count (2026-06-19)
+## Session 71 follow-up — Team Builder levels are now fixed per slot (2026-06-20)
+
+See ADR-0087 (S71 amendment).
+
+- **Each roster slot now has a fixed level** — Slot 1 = L25, Slot 2 = L24, Slot 3
+  = L26, Slot 4 = L23, Slot 5 = L27 — shown correctly from the start and on every
+  slot, filled or empty. Previously the levels were assigned by a unit's *rank
+  among your filled units* (so the pills shifted as you filled the team and only
+  settled once it was full). A unit now takes its slot's level regardless of how
+  many other slots are filled or in what order.
+- **Consequence for teams under 5 units:** because level follows the slot, *where*
+  you place a unit now sets its level. A 3-unit team in slots 1/3/5 is L25/26/27
+  (it used to be L25/24/26 wherever you placed them); leaving Slot 1 empty means
+  no L25 unit. Full 5-unit teams are unchanged.
 
 Two small bug fixes from a playtest report.
 

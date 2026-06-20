@@ -46,7 +46,6 @@ export function TeamBuilderUnitCard({
   catalog,
 }: TeamBuilderUnitCardProps): ReactElement {
   const {
-    state,
     selectedIndex,
     selectedUnit,
     unitStats,
@@ -81,7 +80,7 @@ export function TeamBuilderUnitCard({
     focus !== null && focus.kind === 'equipment'
       ? builder.projectEquipmentStats(focus.slot, focus.itemId)
       : null;
-  const level = slotLevel(state, selectedIndex);
+  const level = slotLevel(selectedIndex);
   const className = classId !== null ? catalog.getClass(classId).name : null;
   const effectiveGender: Gender | null =
     classId !== null
@@ -106,7 +105,7 @@ export function TeamBuilderUnitCard({
           ) : (
             <div style={portraitFallbackStyle}>{selectedIndex + 1}</div>
           )}
-          {level !== null && <span style={levelPinStyle}>L{level}</span>}
+          <span style={levelPinStyle}>L{level}</span>
         </div>
 
         {/* Beside the portrait: three compact rows within the portrait's

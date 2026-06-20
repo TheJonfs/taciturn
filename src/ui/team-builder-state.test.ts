@@ -39,7 +39,6 @@ import {
   setUnitName,
   setUnitGender,
   slotLevel,
-  slotLevelProspective,
   equipmentOptionsForSlot,
   teamBuilderStateFromBuiltTeam,
   teamBuilderStateToBuiltTeam,
@@ -503,48 +502,36 @@ describe('team builder state — cosmetic gender (S55)', () => {
   });
 });
 
-describe('team builder state — slot level (Pass 1 lineup/card)', () => {
-  it('maps filled slots to the alternating-outward level sequence', () => {
+describe('team builder state — slot level (S71: fixed per-slot)', () => {
+  it('maps each slot index to its fixed level, independent of state', () => {
+    // Slot position determines the level: 0=25, then ±1 outward.
+    expect([0, 1, 2, 3, 4].map((i) => slotLevel(i))).toEqual([25, 24, 26, 23, 27]);
+  });
+
+  it("a slot's level does not shift as other slots fill, in any order", () => {
     let s = createEmptyTeamBuilderState();
+    // Empty: slot 2 already reads its fixed L26 (the playtest complaint was
+    // that it read 24/25 until the roster was full).
+    expect(slotLevel(2)).toBe(26);
+    // Fill slot 2 *first* (out of order): still L26 — not the L25 "captain".
+    s = setClass(s, 2, classId('knight'), catalog);
+    expect(slotLevel(2)).toBe(26);
+    // Filling an earlier slot doesn't renumber slot 2.
+    s = setClass(s, 0, classId('assassin'), catalog);
+    expect(slotLevel(0)).toBe(25);
+    expect(slotLevel(2)).toBe(26);
+  });
+
+  it('assembles a built team with slot-position levels (gaps keep their slot levels)', () => {
+    let s = createEmptyTeamBuilderState();
+    // Fill slots 0, 2, 4 (gaps at 1, 3). Under the fixed-per-slot rule the
+    // three units take their slots' levels — 25 / 26 / 27 — not the old
+    // compacted 25 / 24 / 26.
     s = setClass(s, 0, classId('knight'), catalog);
-    s = setClass(s, 1, classId('assassin'), catalog);
     s = setClass(s, 2, classId('hunter'), catalog);
-    s = setClass(s, 3, classId('templar'), catalog);
     s = setClass(s, 4, classId('water_mage'), catalog);
-    // Slot 0 captain L25; outward alternating per `slotLevelFor`.
-    expect([0, 1, 2, 3, 4].map((i) => slotLevel(s, i))).toEqual([
-      25, 24, 26, 23, 27,
-    ]);
-  });
-
-  it('skips empty slots so level tracks active-unit position, not raw index', () => {
-    let s = createEmptyTeamBuilderState();
-    // Leave slot 0 empty; fill slots 1 and 3. The first *filled* slot is
-    // the captain at L25 regardless of its raw index — matching the
-    // export walk in `teamBuilderStateToBuiltTeam`.
-    s = setClass(s, 1, classId('knight'), catalog);
-    s = setClass(s, 3, classId('assassin'), catalog);
-    expect(slotLevel(s, 0)).toBeNull(); // empty slot → no level
-    expect(slotLevel(s, 1)).toBe(25); // first filled → captain
-    expect(slotLevel(s, 2)).toBeNull(); // empty slot → no level
-    expect(slotLevel(s, 3)).toBe(24); // second filled → L24
-  });
-
-  // S71 #3: empty slots advertise the level a unit *would* get if placed
-  // now — the same filled-slots-before-it walk, without the null.
-  it('gives empty slots a prospective level matching what filling would assign', () => {
-    let s = createEmptyTeamBuilderState();
-    // All empty: each slot's prospective level is slotLevelFor(filled-before).
-    // With nothing filled, every slot sees 0 filled before it → all L25.
-    expect([0, 1, 2, 3, 4].map((i) => slotLevelProspective(s, i))).toEqual([
-      25, 25, 25, 25, 25,
-    ]);
-    // Fill slot 0: now slots 1+ have one filled before them → prospective L24,
-    // and a filled slot's prospective equals its actual slotLevel.
-    s = setClass(s, 0, classId('knight'), catalog);
-    expect(slotLevelProspective(s, 0)).toBe(slotLevel(s, 0)); // 25
-    expect(slotLevelProspective(s, 1)).toBe(24);
-    expect(slotLevelProspective(s, 2)).toBe(24);
+    const built = teamBuilderStateToBuiltTeam(s, catalog);
+    expect(built.units.map((u) => u.level)).toEqual([25, 26, 27]);
   });
 });
 

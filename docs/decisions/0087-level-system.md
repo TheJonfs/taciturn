@@ -94,6 +94,40 @@ This causes a small retroactive tuning shift: pre-S49 templates were all-L25; po
 - New static `classDominantStats` map keyed by ClassId; cross-validated against ClassDefinition.dominantStat at test time.
 - Math Skill's `parameter: 'level'` predicate gains a real signal (was implicitly always-25, always-divisible).
 
+## Amendment (S71, 2026-06-20): level is by slot *position*, not filled-ordinal
+
+The original implementation assigned level by **active-unit position** — the unit's
+rank among the *filled* slots (decision §6 above: "active-unit position via
+`slotLevelFor`"), compacting over empty slots. So a 3-unit team always took
+25/24/26 regardless of which slots held them, and the captain (L25) was the
+first *filled* slot.
+
+This conflicted with the blueprint quoted in Context, which is **slot-based**:
+"slot 1 = L25, slot 2 = L24, slot 3 = L26, …". A playtest surfaced the
+user-visible symptom — the roster level pills shifted as the team filled (every
+empty slot read the same number; a unit placed out of order showed L25 and
+renumbered as earlier slots filled) and only settled once the roster was full.
+
+Per Chris's call, the system now assigns level by **slot index**:
+`slotLevelFor(slotIndex)` for every slot, filled or empty. A unit gets its slot's
+level regardless of how many other slots are filled or in what order, so the
+roster shows the correct level in each slot all the way and nothing shifts.
+
+Consequences:
+- **Full 5-unit teams: unchanged** (slot index == filled rank with no gaps) — the
+  common Mage-War case is identical.
+- **Teams under 5 units: levels now depend on placement.** A 3-unit team in slots
+  1/3/5 is L25/26/27 (was 25/24/26); leaving slot 1 empty means no L25 captain.
+  Placement is now a (minor) lever — accepted as the cost of a predictable, stable
+  roster display. If level-gaming via slot-skipping proves undesirable, a
+  contiguous-fill constraint is the mitigation (not adopted now).
+
+Implementation: `teamBuilderStateToBuiltTeam`, `slotLevel(index)`, and the
+stat-preview paths in `use-team-builder.ts` all key off the slot index;
+`slotLevel` no longer takes state or returns null (every slot has a level). The
+S71 `slotLevelProspective` stopgap (which estimated empty-slot levels under the
+old scheme) is removed.
+
 ## Alternatives considered
 
 - **Level as a `modifyStatQuery` handler**: rejected — would compete with equipment / status for ordering, and the brief specifies pre-equipment application.

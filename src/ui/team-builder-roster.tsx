@@ -8,7 +8,6 @@ import type { Catalog } from '@engine/index.ts';
 import { defaultGenderFor, portraitUrlFor } from '../assets/portraits/index.ts';
 import {
   slotLevel,
-  slotLevelProspective,
   type DraftUnit,
   type DraftUnitStats,
   type UnitValidity,
@@ -38,8 +37,7 @@ export function TeamBuilderRoster({
             key={index}
             index={index}
             unit={unit}
-            level={slotLevel(state, index)}
-            prospectiveLevel={slotLevelProspective(state, index)}
+            level={slotLevel(index)}
             stats={unitStats[index] ?? null}
             unitValidity={validity.units[index]!}
             isSelected={index === selectedIndex}
@@ -55,13 +53,10 @@ export function TeamBuilderRoster({
 interface RosterCardProps {
   readonly index: number;
   readonly unit: DraftUnit;
-  // S49: null for empty slots; a number for filled slots derived from
-  // active-unit position via `slotLevelFor`. Filled slots render the
-  // level as a small pill on the portrait corner.
-  readonly level: number | null;
-  // S71 #3: the level this slot *would* assign once filled — shown muted
-  // on empty slots so the player sees a slot's level before placing.
-  readonly prospectiveLevel: number;
+  // S71: the slot's fixed level (a property of the slot position; same for
+  // filled and empty). Rendered as a small pill on the portrait corner —
+  // solid when the slot is filled, muted when empty.
+  readonly level: number;
   readonly stats: DraftUnitStats | null;
   readonly unitValidity: UnitValidity;
   readonly isSelected: boolean;
@@ -73,13 +68,13 @@ function RosterCard({
   index,
   unit,
   level,
-  prospectiveLevel,
   stats,
   unitValidity,
   isSelected,
   onClick,
   catalog,
 }: RosterCardProps): ReactElement {
+  const isFilled = unit.classId !== null;
   const className =
     unit.classId !== null ? catalog.getClass(unit.classId).name : null;
   const portraitUrl = unit.classId !== null ? portraitUrlFor(unit.classId, unit.gender) : null;
@@ -129,18 +124,14 @@ function RosterCard({
           <span style={nameStyle}>
             {unit.name ?? className ?? `Unit ${index + 1}`}
           </span>
-          {/* S49: small level pill next to the unit name. S71 #3: empty
-              slots now show their *prospective* level (the level a unit
-              placed here would get) in a muted variant, so the player
-              sees a slot's level before committing a unit. */}
-          {level !== null ? (
+          {/* S71: every slot shows its fixed level (a property of the slot
+              position) — solid when filled, muted when empty. The number
+              no longer shifts as the team fills. */}
+          {isFilled ? (
             <span style={levelBadgeStyle}>L{level}</span>
           ) : (
-            <span
-              style={levelBadgeEmptyStyle}
-              title="Level this slot will assign once a unit is placed"
-            >
-              L{prospectiveLevel}
+            <span style={levelBadgeEmptyStyle} title="This slot's level">
+              L{level}
             </span>
           )}
         </div>
