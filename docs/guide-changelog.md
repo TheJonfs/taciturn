@@ -57,7 +57,9 @@ Two small bug fixes from a playtest report.
   picker also greys out items that can't be thrown at the chosen target (e.g.
   Phoenix Down on a living unit) with the reason, instead of letting you pick a
   dud. Throw Item is also disabled outright (with a "Compound first" hint) when
-  your bag is empty.
+  your bag is empty. **KO'd allies now light up as Throw targets** when you're
+  carrying a Phoenix Down (they were previously not highlighted, so reviving by
+  throw wasn't discoverable).
 - **The battle-end summary's turn number now matches the action log.** "Battle
   ended on turn T####" previously counted only unit turns and ignored
   charged-spell resolutions (which each get their own T-number in the log), so the

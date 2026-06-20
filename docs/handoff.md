@@ -45,11 +45,12 @@ tests; tsc + vite build clean.** Chunk 1 browser-verified in the Team Builder
   (`ThrowItemItemPicker`, `action-menu.tsx` — the gate had been stubbed
   `disabled={false}`); and Throw Item is still disabled when the bag is empty
   (`computeAbilityDisableReason`).
-  - **Follow-up gap (not fixed):** the throw *highlight* (`computeLegalTargets`)
-    excludes KO'd units, so a KO'd ally isn't shown as a throw target — you can
-    still click their tile (the click handler runs on any tile, and Phoenix Down
-    then validates), but the visual cue is missing. Minor; worth aligning the
-    highlight to include KO'd-but-not-removed units for throw/Phoenix Down.
+  - **KO'd-target highlight (fixed).** Extracted `hasThrowableItemAt` (exported
+    from `use-turn-flow.ts`) and used it for BOTH the target-click and the throw
+    branch of `computeLegalTargets` — so the highlight now includes KO'd-but-not-
+    removed allies (Phoenix Down targets) and excludes living units a revive-only
+    bag can't reach, exactly matching the click. Highlight ↔ click are now in
+    lockstep through one helper.
 - **Battle-end turn count (fixed).** Results screen "ended on turn T####" counted
   only `turn_start`; the action log's T-number also advances on each
   `charged_action_resolve`. They disagreed in any charged-spell battle. Extracted

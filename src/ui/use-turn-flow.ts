@@ -616,28 +616,11 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
           // The throw flow picks the target first, item second — so a
           // target is legal iff AT LEAST ONE stocked consumable can be
           // thrown at it (range/arc + the item's own gates, e.g. Phoenix
-          // Down needs a KO'd target). The old code probed a single
-          // *arbitrary* stocked item, which silently cancelled the click
-          // when that item was incompatible: a full-HP unit holding a
-          // Phoenix Down (and no Potion) failed the KO-only gate even
-          // though a Remedy / Ether throw on itself was perfectly legal
-          // (S71 playtest report). Validate each stocked item until one
-          // passes.
-          let anyThrowable = false;
-          for (const [stockId, count] of activeUnit.stockpile) {
-            if (count <= 0) continue;
-            const probe: ProposedAction = {
-              type: 'use_throw_item',
-              source: 'player',
-              actorId: activeUnit.id,
-              payload: { itemId: stockId, target: { kind: 'unit', unitId: occupant.id } },
-            };
-            if (validateAction(state, probe, catalog).valid) {
-              anyThrowable = true;
-              break;
-            }
-          }
-          if (!anyThrowable) {
+          // Down needs a KO'd target). Shared with the highlight via
+          // `hasThrowableItemAt` so the two never disagree. The old code
+          // probed a single *arbitrary* stocked item, which silently
+          // cancelled the click when that item was incompatible (S71).
+          if (!hasThrowableItemAt(state, catalog, activeUnit, occupant.id)) {
             if (import.meta.env.DEV) {
               // eslint-disable-next-line no-console
               console.debug(
@@ -952,6 +935,32 @@ function stockpileTotal(unit: Unit): number {
   return total;
 }
 
+// True iff at least one stocked consumable can legally be thrown at the
+// target. The throw flow picks the target first, item second, so a target
+// is legal when *some* held item validates against it (range/arc + the
+// item's own gates — e.g. Phoenix Down needs a KO'd target). Shared by the
+// target highlight (`computeLegalTargets`) and the target-click handler so
+// the two never disagree — including for KO'd-but-not-removed allies, who
+// the generic single-target highlight excludes but Phoenix Down revives.
+export function hasThrowableItemAt(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  targetUnitId: UnitId,
+): boolean {
+  for (const [stockId, count] of actor.stockpile) {
+    if (count <= 0) continue;
+    const probe: ProposedAction = {
+      type: 'use_throw_item',
+      source: 'player',
+      actorId: actor.id,
+      payload: { itemId: stockId, target: { kind: 'unit', unitId: targetUnitId } },
+    };
+    if (validateAction(state, probe, catalog).valid) return true;
+  }
+  return false;
+}
+
 // S55: append every in-range Barrier tile the given (damaging) ability can
 // legally hit to the target set. A barrier sits on an unoccupied tile, so the
 // unit enumeration above never surfaces it; the engine accepts a `tile` target
@@ -1056,6 +1065,22 @@ export function computeLegalTargets(
     (ability.targeting.kind === 'unit_or_tile' && !tileMode);
 
   if (treatAsUnit) {
+    // Throw Item is target-first / item-second and isn't a `use_ability`
+    // (it commits `use_throw_item`). A unit is a legal throw target iff some
+    // held item validates against it — which *includes* KO'd-but-not-removed
+    // units (Phoenix Down revives them). The generic single-target loop
+    // below excludes KO'd units and probes the wrong action, so handle throw
+    // here and keep the highlight in lockstep with the target-click.
+    if (ability.id === THROW_ITEM_ABILITY_ID) {
+      for (const candidate of state.units.values()) {
+        if (candidate.removed) continue;
+        if (hasThrowableItemAt(state, catalog, actor, candidate.id)) {
+          positions.push(candidate.position);
+          unitIds.add(candidate.id);
+        }
+      }
+      return { positions, unitIds, tilePositions: tileKeys };
+    }
     for (const candidate of state.units.values()) {
       if (candidate.vitals.hp <= 0) continue;
       const proposed: ProposedAction = {

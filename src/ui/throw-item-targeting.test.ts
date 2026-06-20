@@ -127,6 +127,50 @@ describe('Throw Item — self-target works at full HP (engine)', () => {
     expect(targets.unitIds.has(u.id)).toBe(true);
     expect(targets.unitIds.has(ally.id)).toBe(true);
   });
+
+  // The KO'd-target highlight gap: a downed (not removed) ally is a valid
+  // Phoenix Down target, but the generic single-target highlight excludes
+  // hp<=0 units. The throw highlight now includes them, in lockstep with
+  // the target-click.
+  it("highlights a KO'd (not removed) ally as a Throw target when holding a revive", () => {
+    const c = cat();
+    const actor = makeUnit({
+      id: 'a', spd: 10, hp: 50, maxHpBase: 50,
+      position: { x: 1, y: 1, layer: 0 },
+      stockpile: new Map([[itemId('phoenix_down'), 1]]),
+    });
+    const downed = makeUnit({
+      id: 'd', spd: 10, team: 'team_a', hp: 0, maxHpBase: 50,
+      position: { x: 2, y: 1, layer: 0 },
+    });
+    const s = makeGameState({ units: [actor, downed], map: flatMap(5, 5), turnState: turnFor('a') });
+    const targets = computeLegalTargets(s, c, actor, throwAbility(c), false);
+    expect(targets.unitIds.has(downed.id)).toBe(true);
+  });
+
+  // Lockstep the other way: a revive-only bag can't throw at a living unit,
+  // so a living target is not highlighted (matching the click).
+  it('does not highlight a living unit when the only held item is a revive', () => {
+    const c = cat();
+    const actor = makeUnit({
+      id: 'a', spd: 10, hp: 50, maxHpBase: 50,
+      position: { x: 1, y: 1, layer: 0 },
+      stockpile: new Map([[itemId('phoenix_down'), 1]]),
+    });
+    const livingAlly = makeUnit({
+      id: 'b', spd: 10, team: 'team_a', hp: 40, maxHpBase: 40,
+      position: { x: 2, y: 1, layer: 0 },
+    });
+    const downed = makeUnit({
+      id: 'd', spd: 10, team: 'team_a', hp: 0, maxHpBase: 50,
+      position: { x: 1, y: 2, layer: 0 },
+    });
+    const s = makeGameState({ units: [actor, livingAlly, downed], map: flatMap(5, 5), turnState: turnFor('a') });
+    const targets = computeLegalTargets(s, c, actor, throwAbility(c), false);
+    expect(targets.unitIds.has(downed.id)).toBe(true); // revivable
+    expect(targets.unitIds.has(livingAlly.id)).toBe(false); // can't revive the living
+    expect(targets.unitIds.has(actor.id)).toBe(false); // nor self (alive)
+  });
 });
 
 describe('Throw Item — disabled when the stockpile is empty', () => {
