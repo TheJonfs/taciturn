@@ -46,7 +46,7 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ## Session 72 follow-up — Aura Mastery (new Enchanter Support) (2026-06-22)
 
-Commits: see the Aura Mastery commit. ADR-0122.
+Commits: `f4b08a3`. ADR-0122.
 
 - **New Support: Aura Mastery** — the Enchanter's second native Support (free for
   the Enchanter; costs 1 for any class that equips it). **The buffs you *cast*
@@ -64,9 +64,9 @@ Commits: see the Aura Mastery commit. ADR-0122.
 
 ## Session 72 follow-up — Protect & Shell now halve damage (2026-06-22)
 
-Commits: see the Protect/Shell rework commit. ADR-0121. Affects **every** source
-of Protect/Shell (the Enchanter's casts, Defender's Auto-Protect, Sorcerer's
-Robe's Auto-Shell).
+Commits: `d06ff4e` (with shared-hook refactor `4456778` underneath). ADR-0121.
+Affects **every** source of Protect/Shell (the Enchanter's casts, Defender's
+Auto-Protect, Sorcerer's Robe's Auto-Shell).
 
 - **Protect and Shell now multiply incoming damage by ×0.5** rather than adding
   +50 resistance. Protect halves incoming **physical** damage; Shell halves
@@ -87,7 +87,7 @@ Robe's Auto-Shell).
 ## Session 72 — Enchanter (new class) (2026-06-22)
 
 Commits: `75543ad` (chunk 1 — Auramancy actives), `32f2990` (chunk 2 — RSM),
-plus the chunk-3 class-wiring commit. See ADR-0120.
+`4c84126` (chunk 3 — class wiring). See ADR-0120.
 
 - **New class: the Enchanter** — the dedicated ally-buff caster (13th class, 6th
   magical; flavored portrait the Enchantress). Stat line: HP 103 / MP 40 / PA 3 /
