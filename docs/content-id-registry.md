@@ -31,6 +31,7 @@ The four-school mage display names are flavored (Geosage / Hydrologist / Pyroman
 | `terraformer` | Terraformer | `src/content/classes/terraformer.ts` |
 | `templar` | Templar | `src/content/classes/templar.ts` |
 | `thief` | Thief | `src/content/classes/thief.ts` |
+| `enchanter` | Enchanter | `src/content/classes/enchanter.ts` |
 
 ## Command sets
 
@@ -50,6 +51,7 @@ The four-school mage display names are flavored (Geosage / Hydrologist / Pyroman
 | `worldcraft` | Worldcraft | `pillar`, `pit`, `hill`, `valley`, `barrier` | `src/content/command-sets/worldcraft.ts` |
 | `templar_arts` | Templar Arts | `cure`, `raise`, `jump` | `src/content/command-sets/templar-arts.ts` |
 | `thief_arts` | Thievery | `steal_hp`, `steal_mp`, `steal_buffs`, `steal_heart` | `src/content/command-sets/thief-arts.ts` |
+| `auramancy` | Auramancy | `enchant_haste`, `enchant_protect`, `enchant_shell`, `esuna` | `src/content/command-sets/auramancy.ts` |
 
 The `attack` ability is universal — surfaced through every class's `freeAbilities` rather than as a command-set member, so the action menu shows it alongside the player's First Action set.
 
@@ -118,6 +120,10 @@ The display names of the elemental-spell suite were re-flavored (S40 name pass a
 | `steal_mp` | Steal MP | first_action | no (Thief Arts — drain PA×3 MP, restore 50% of MP removed; evadable; 3 MP) | available | `src/content/abilities/steal-mp.ts` |
 | `steal_buffs` | Steal Buffs | first_action | no (Thief Arts — additive contest [base 33]; strip polarity:buff statuses → caster; 4 MP) | available | `src/content/abilities/steal-buffs.ts` |
 | `steal_heart` | Steal Heart | first_action | no (Thief Arts capstone — additive contest [base 10]; gender-gated 3-turn charm via control-override; 24 MP) | available | `src/content/abilities/steal-heart.ts` |
+| `enchant_haste` | Haste | first_action | yes (actionSpeed 30, S72 Auramancy — AoE diamond-r1 applies timed Haste, baseChance 95 ≈ ~88% net; MP 10) | available | `src/content/abilities/enchant-haste.ts` |
+| `enchant_protect` | Protect | first_action | yes (actionSpeed 30, S72 Auramancy — AoE Protect, baseChance 95; MP 8) | available | `src/content/abilities/enchant-protect.ts` |
+| `enchant_shell` | Shell | first_action | yes (actionSpeed 30, S72 Auramancy — AoE Shell, baseChance 95; MP 8) | available | `src/content/abilities/enchant-shell.ts` |
+| `esuna` | Esuna | first_action | yes (actionSpeed 30, S72 Auramancy — AoE cleanse via `effects.cleanse`, 100%/Faith-independent, Remedy's debuff set; MP 8) | available | `src/content/abilities/esuna.ts` |
 
 ## Passive abilities
 
@@ -126,7 +132,7 @@ Reaction / Support / Movement passives are equipped through their respective R/S
 | ID | Display Name | Bucket | Cost | File |
 |---|---|---|---|---|
 | `move_plus_1` | Move +1 | movement | 1 | `src/content/abilities/move-plus-1.ts` |
-| `float` | Float | movement | 1 | `src/content/abilities/float.ts` |
+| `float` | Float | movement | 2 (S72 Enchanter Movement — revived from hidden; water-cost negation + fall-damage immunity, no elevation) | `src/content/abilities/float.ts` |
 | `fly` | Fly | movement | 2 (hidden — not surfaced in the picker as of S48) | `src/content/abilities/fly.ts` |
 | `bedrock_stride` | Bedrock Stride | movement | 2 (Geosage themed Movement) | `src/content/abilities/bedrock-stride.ts` |
 | `hotfoot` | Hotfoot | movement | 2 (Pyromancer themed Movement) | `src/content/abilities/hotfoot.ts` |
@@ -164,6 +170,8 @@ Reaction / Support / Movement passives are equipped through their respective R/S
 | `slip_free` | Slip Free | reaction | 1 (Thief native — Brave-gated `modifyIncomingStatusDuration`; shaves one tick off an incoming negative debuff, negates a 1-tick) | `src/content/abilities/slip-free.ts` |
 | `momentum` | Momentum | support | 1 (Thief native — +10 CT refund on any non-magical action, basic Attack included; Flow State inverse) | `src/content/abilities/momentum.ts` |
 | `move_plus_2` | Move +2 | movement | 2 (Thief native — +2 moveRange) | `src/content/abilities/move-plus-2.ts` |
+| `resistance_save` | Resistance Save | reaction | 1 (S72 Enchanter native — +10 all-elem-res per magical hit, uncapped; Speed Save family) | `src/content/abilities/resistance-save.ts` |
+| `short_charge` | Short Charge | support | 1 (S72 Enchanter native — universal charged-action speed × 1.33 via `modifyActionSpeed`) | `src/content/abilities/short-charge.ts` |
 
 S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive without a class home; the `modifyEvasion` hook it introduced stays for equipment-side consumers). **S50 suppressed Damage Reduction** under the same "support without a class home" pattern — `damage_reduction` is now `'hidden'` (the catalog still resolves the id for historical action-log replays; the picker just doesn't surface it).
 
@@ -206,6 +214,10 @@ S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive w
 | `tagged_resistance_shift` | Resonance | negative, dispellable | STACK_INDEPENDENT | permanent | `src/content/statuses/tagged-resistance-shift.ts` |
 | `cornered_focus` | Cornered Focus | positive, mental | STACK_ADDITIVE | permanent | `src/content/statuses/cornered-focus.ts` |
 | `engineered_defenses` | Engineered Defenses | positive, dispellable | STACK_INDEPENDENT | permanent | `src/content/statuses/engineered-defenses.ts` |
+| `quickening` | Haste | positive, time, dispellable | REFRESH | per_unit_ct | `src/content/statuses/quickening.ts` (S72 timed cast-Haste; sibling to permanent `haste`) |
+| `protect_cast` | Protect | positive, dispellable | REFRESH | per_unit_ct | `src/content/statuses/protect-cast.ts` (S72 timed cast-Protect) |
+| `shell_cast` | Shell | positive, dispellable | REFRESH | per_unit_ct | `src/content/statuses/shell-cast.ts` (S72 timed cast-Shell) |
+| `resistance_save` | Resistance Save | positive | STACK_ADDITIVE | permanent | `src/content/statuses/resistance-save.ts` (S72 +10 all-elem-res accumulator, uncapped) |
 
 A status's `aiHints.polarity` (`'buff' | 'debuff'`) drives AI scoring; the polarity is independent of the `negative`/`positive` *tag* (which steers resistance application). Buff statuses include haste, regen, movement_self_buff, pa_up, ma_up, crit_modifier, and the S42 `speed_save` / Hunter `updraft` self-stacking buffs.
 
@@ -378,17 +390,17 @@ Registered in `default.ts`'s `terrain.tags` map; see ADR-0073 (tag abstraction) 
 
 ---
 
-## Catalog counts (as of S68 — equipment expansion)
+## Catalog counts (as of S72 — Enchanter class)
 
 The authoritative pin is `src/content/loader.test.ts`; these are the current
 catalog totals.
 
 | Kind | Count | Notes |
 |---|---|---|
-| Classes | 12 | S62 `templar`; Thief `thief` |
-| Command sets | 14 | S62 `templar_arts`; Thief `thief_arts` |
-| Abilities (active + passive + hidden) | 104 | S68 +1 (`wand_of_potential_apply_shift`); S68 Vantage +1 (`vantage`) |
-| Status types | 35 | S65 `mana_font`; Thief chunk 2 +2 (`enthralled`, `heartwarded`) |
+| Classes | 13 | S72 `enchanter`; S62 `templar`; Thief `thief` |
+| Command sets | 15 | S72 `auramancy`; S62 `templar_arts`; Thief `thief_arts` |
+| Abilities (active + passive + hidden) | 110 | S72 +6 (`enchant_haste/protect/shell`, `esuna`, `resistance_save`, `short_charge`; `float` revived, already counted) |
+| Status types | 39 | S72 +4 (`quickening`, `protect_cast`, `shell_cast`, `resistance_save`); S65 `mana_font` |
 | Equipment + consumables | 77 | S68 +4 (`vicious_dagger`, `scimitar`, `wand_of_potential`, `gauntlet_of_might`) |
 | Rulesets | 1 | — |
 | Maps | 4 | S70 `mountainPass` |

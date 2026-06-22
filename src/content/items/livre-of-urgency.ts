@@ -22,6 +22,7 @@ export const livreOfUrgency: ShieldEquipment = {
     classId('lightning_mage'),
     classId('calculator'),
     classId('terraformer'),
+    classId('enchanter'),
   ],
   statMods: { spd: 1 },
   actionSpeedModifiers: [{ delta: 5, tagFilter: ['magical'] }],

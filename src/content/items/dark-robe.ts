@@ -14,6 +14,7 @@ const MAGE_CLASSES = [
   classId('lightning_mage'),
   classId('calculator'),
   classId('terraformer'),
+  classId('enchanter'),
 ];
 
 export const darkRobe: ArmorEquipment = {

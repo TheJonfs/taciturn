@@ -44,6 +44,43 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 72 — Enchanter (new class) (2026-06-22)
+
+Commits: `75543ad` (chunk 1 — Auramancy actives), `32f2990` (chunk 2 — RSM),
+plus the chunk-3 class-wiring commit. See ADR-0120.
+
+- **New class: the Enchanter** — the dedicated ally-buff caster (13th class, 6th
+  magical; flavored portrait the Enchantress). Stat line: HP 103 / MP 40 / PA 3 /
+  MA 10 / Speed 10, Move 3 / Jump 2, Evade 6/4/0. Wears universal + mage gear.
+  Selectable in the Team Builder and deployable on every map. Auramancy is its
+  First Action set; **its offense has to come from a secondary command set** —
+  on its own it buffs and basic-attacks.
+- **Auramancy (4 abilities)** — all charged, area-of-effect (a 1-square diamond),
+  and **friendly-fire-on** (the diamond also catches the caster and any enemy
+  standing in it — place it on your own cluster):
+  - **Haste / Protect / Shell** — apply Haste (Speed ×1.5), Protect (half
+    incoming physical), or Shell (half incoming magical) to everyone in the area
+    for several turns. ~90% to land on a normal-Faith ally; the chance **rises
+    with the caster's MA and falls on low-Faith allies** (a faithless ally is
+    pointedly harder to buff). MP 10 / 8 / 8.
+  - **Esuna** — cleanses ailments (Poison, Blind, Silence, Stop, Don't Act/Move,
+    Slow, Burn…) from everyone in the area. Always works, ignores Faith. Leaves
+    committed stat-downs (PA/MA Down, etc.) alone — same set Remedy cures. MP 8.
+- **These cast buffs are stealable** — a Thief's Steal Buffs can lift a Haste /
+  Protect / Shell the Enchanter cast right off the target.
+- **R/S/M kit:**
+  - **Resistance Save** (Reaction) — on taking magical damage, permanently gain
+    +10 to every elemental resistance (earth/water/fire/lightning). Stacks all
+    battle, uncapped, persists through KO.
+  - **Short Charge** (Support) — all your charged spells resolve ~33% sooner.
+    Works on any class's charged abilities; instants are unaffected.
+  - **Float** (Movement, revived) — cross shallow **and** deep water at no extra
+    move cost, and take **no fall damage** (knockback off a ledge, a tile
+    collapsing). No flight / elevation change.
+- **Note for existing classes:** Short Charge and Float are equippable by other
+  classes too (Short Charge speeds any charged kit; Float is a strong
+  water-map / anti-knockback Movement option).
+
 ## Session 71 follow-up — Gender visible in battle (2026-06-20)
 
 - **A unit's gender now shows in battle**, not just on its portrait. The unit

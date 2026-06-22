@@ -212,10 +212,13 @@ describe('loadDefaultCatalog', () => {
     //     'available' and bumps it 1 → 2 SP, no count change)
     //   - statusTypes: 38 → 39 (resistance_save — the accumulating elemental-
     //     resistance stat-Save)
+    // Session 72 (Enchanter chunk 3 — class wiring):
+    //   - classes: 12 → 13 (enchanter)
+    //   - commandSets: 14 → 15 (auramancy)
     expect(cat.statusTypes()).toHaveLength(39);
     expect(cat.abilities()).toHaveLength(110);
-    expect(cat.commandSets()).toHaveLength(14);
-    expect(cat.classes()).toHaveLength(12);
+    expect(cat.commandSets()).toHaveLength(15);
+    expect(cat.classes()).toHaveLength(13);
     expect(cat.items()).toHaveLength(77);
     expect(cat.rulesets()).toHaveLength(1);
   });

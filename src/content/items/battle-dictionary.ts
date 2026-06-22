@@ -33,6 +33,7 @@ export const battleDictionary: ShieldEquipment = {
     classId('lightning_mage'),
     classId('calculator'),
     classId('terraformer'),
+    classId('enchanter'),
   ],
   statMods: { pa: 1 },
   abilityRangeModifiers: [{ deltaHorizontal: 1, tagFilter: ['magical'] }],

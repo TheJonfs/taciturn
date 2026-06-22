@@ -49,6 +49,9 @@ export const classDominantStats: ReadonlyMap<ClassId, DominantStat> = new Map([
   // S62: Templar is a PA/MA hybrid (6/6). MA takes the single dominant pick
   // — its headline kit (Cure / Raise) is magical (Terraformer precedent).
   [classId('templar'),        'ma'],
+  // S72: Enchanter is MA-dominant — Auramancy's buff landing chance scales
+  // off MA (0.9 + MA/10), so MA is the class's identity stat.
+  [classId('enchanter'),      'ma'],
   // Thief (12th class, 5th physical). PA drives every active (Steal Heart
   // chance, Steal MP magnitude, Steal HP damage, Steal Buffs chance), so PA
   // is the identity stat even though Speed is the higher raw number — the
@@ -135,6 +138,11 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   // and the mages; MP 36 for the spell kit; PA 6 / MA 6 (well below the
   // Knight's functional 12 and the mages' MA); Speed 8 (slow-caster tier).
   [classId('templar'),        { maxHpBase: 132, maxMpBase: 36, pa: 6,  ma: 6,  spd: 8  }],
+  // S72: Enchanter — dedicated buff caster, "a notch below the elemental
+  // mages on output, normal mage durability." MP 40 and MA 10 tier down from
+  // the elementals' 48 / 12-14; HP 103 is mid-band (above Pyromancer 97 /
+  // Calculator 101, below Earth Mage 112). PA 3, Speed 10.
+  [classId('enchanter'),      { maxHpBase: 103, maxMpBase: 40, pa: 3,  ma: 10, spd: 10 }],
   // Thief (S-thief, 12th class / 5th physical). HP 90 — sturdier than the
   // Assassin (96 is the glass-cannon; the Thief sits just under it on raw HP
   // but with stronger PA and evasion) yet far below the Knight (144). MP 28

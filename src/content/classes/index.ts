@@ -3,6 +3,7 @@ import { alchemist } from './alchemist.ts';
 import { assassin } from './assassin.ts';
 import { calculator } from './calculator.ts';
 import { earthMage } from './earth-mage.ts';
+import { enchanter } from './enchanter.ts';
 import { fireMage } from './fire-mage.ts';
 import { hunter } from './hunter.ts';
 import { knight } from './knight.ts';
@@ -17,6 +18,7 @@ export const classes: ReadonlyArray<ClassDefinition> = [
   assassin,
   calculator,
   earthMage,
+  enchanter,
   fireMage,
   hunter,
   knight,

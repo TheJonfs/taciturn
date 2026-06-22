@@ -20,6 +20,7 @@ export const tomeOfPower: ShieldEquipment = {
     classId('lightning_mage'),
     classId('calculator'),
     classId('terraformer'),
+    classId('enchanter'),
   ],
   statMods: { ma: 1, maxMpBase: 10 },
 };

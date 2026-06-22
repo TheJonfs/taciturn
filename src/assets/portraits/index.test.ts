@@ -8,7 +8,7 @@ import { classId, type ClassId } from '@engine/index.ts';
 import { portraitUrlFor, defaultGenderFor } from './index.ts';
 
 const CLASSES: ReadonlyArray<ClassId> = [
-  'alchemist', 'assassin', 'calculator', 'earth_mage', 'fire_mage',
+  'alchemist', 'assassin', 'calculator', 'earth_mage', 'enchanter', 'fire_mage',
   'hunter', 'knight', 'lightning_mage', 'templar', 'terraformer', 'thief', 'water_mage',
 ].map(classId);
 
@@ -47,6 +47,7 @@ describe('portraitUrlFor — class + gender resolution', () => {
     expect(defaultGenderFor(classId('alchemist'))).toBe('female');
     expect(defaultGenderFor(classId('assassin'))).toBe('female');
     expect(defaultGenderFor(classId('calculator'))).toBe('female');
+    expect(defaultGenderFor(classId('enchanter'))).toBe('female');
     expect(defaultGenderFor(classId('fire_mage'))).toBe('female');
     expect(defaultGenderFor(classId('water_mage'))).toBe('female');
     expect(defaultGenderFor(classId('thief'))).toBe('female');

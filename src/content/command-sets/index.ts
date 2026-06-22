@@ -1,6 +1,7 @@
 import type { CommandSetDefinition } from '@engine/index.ts';
 import { alchemy } from './alchemy.ts';
 import { arcaneSkill } from './arcane-skill.ts';
+import { auramancy } from './auramancy.ts';
 import { battleSkill } from './battle-skill.ts';
 import { earthSpells } from './earth-spells.ts';
 import { fireSpells } from './fire-spells.ts';
@@ -17,6 +18,7 @@ import { worldcraft } from './worldcraft.ts';
 export const commandSets: ReadonlyArray<CommandSetDefinition> = [
   alchemy,
   arcaneSkill,
+  auramancy,
   battleSkill,
   earthSpells,
   fireSpells,

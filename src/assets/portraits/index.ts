@@ -21,6 +21,8 @@ import calculatorFemale from './calculator-female.png';
 import calculatorMale from './calculator-male.png';
 import earthMageFemale from './earth-mage-female.png';
 import earthMageMale from './earth-mage-male.png';
+import enchantressFemale from './enchantress-female.png';
+import enchantressMale from './enchantress-male.png';
 import fireMageFemale from './fire-mage-female.png';
 import fireMageMale from './fire-mage-male.png';
 import hunterFemale from './hunter-female.png';
@@ -52,6 +54,7 @@ const PORTRAITS: ReadonlyMap<ClassId, PortraitPair> = new Map([
   [classId('assassin'), { male: assassinMale, female: assassinFemale, defaultGender: 'female' }],
   [classId('calculator'), { male: calculatorMale, female: calculatorFemale, defaultGender: 'female' }],
   [classId('earth_mage'), { male: earthMageMale, female: earthMageFemale, defaultGender: 'male' }],
+  [classId('enchanter'), { male: enchantressMale, female: enchantressFemale, defaultGender: 'female' }],
   [classId('fire_mage'), { male: fireMageMale, female: fireMageFemale, defaultGender: 'female' }],
   [classId('hunter'), { male: hunterMale, female: hunterFemale, defaultGender: 'male' }],
   [classId('knight'), { male: knightMale, female: knightFemale, defaultGender: 'male' }],

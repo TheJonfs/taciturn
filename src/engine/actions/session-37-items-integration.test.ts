@@ -84,6 +84,7 @@ describe('Session 37 — items registered in the default catalog', () => {
     expect(lightRobe.kind).toBe('armor');
     // S49: calculator added to the Mage allowlist for body + head gear.
     // S54: terraformer added (mage gear tier).
+    // S72: enchanter added (mage gear tier).
     expect(lightRobe.classRestrictions).toEqual([
       classId('earth_mage'),
       classId('water_mage'),
@@ -91,6 +92,7 @@ describe('Session 37 — items registered in the default catalog', () => {
       classId('lightning_mage'),
       classId('calculator'),
       classId('terraformer'),
+      classId('enchanter'),
     ]);
     expect(lightRobe.statMods).toEqual({ maxHpBase: 75, maxMpBase: 20 });
     expect(lightRobe.resistanceMods?.get('fire')).toBe(75);
@@ -111,6 +113,7 @@ describe('Session 37 — items registered in the default catalog', () => {
     expect(tricorn.kind).toBe('headgear');
     // S49: calculator added to the Mage allowlist for body + head gear.
     // S54: terraformer added (mage gear tier).
+    // S72: enchanter added (mage gear tier).
     expect(tricorn.classRestrictions).toEqual([
       classId('earth_mage'),
       classId('water_mage'),
@@ -118,6 +121,7 @@ describe('Session 37 — items registered in the default catalog', () => {
       classId('lightning_mage'),
       classId('calculator'),
       classId('terraformer'),
+      classId('enchanter'),
     ]);
     expect(tricorn.statMods).toEqual({ maxHpBase: 10, maxMpBase: 10, brave: 10 });
   });

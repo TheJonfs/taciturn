@@ -1,4 +1,8 @@
-// Session 72 integration tests — Enchanter (chunks 1–2).
+// Session 72 integration tests — Enchanter (chunks 1–3).
+//
+// Chunk 3 (class wiring): the enchanter class registers with Auramancy as its
+// First Action set + the RSM free kit; the buff→steal loop closes (an
+// Enchanter casts Haste on an ally → a Thief's Steal Buffs lifts it).
 //
 // Chunk 1 (Auramancy actives):
 //   1. Buff chance tuning — the three Auramancy buffs (baseChance 95) land
@@ -59,8 +63,6 @@ import {
   type ActiveAbilityDefinition,
   type AbilityDefinition,
   type BattleConfig,
-  type ClassDefinition,
-  type CommandSetDefinition,
   type CommandSetId,
   type GameState,
   type Loadout,
@@ -70,61 +72,16 @@ import {
 const TEAM_A = teamId('team_a');
 const TEAM_B = teamId('team_b');
 
-// Temporary Auramancy set + Enchanter class for the end-to-end casts. The
-// real registration lands in chunk 3; this local catalog extension lets the
-// four chunk-1 actives be cast through the loadout/validate/charged-resolve
-// path now without preempting the chunk-3 ids.
-const TEST_AURAMANCY: CommandSetDefinition = {
-  id: commandSetId('test_auramancy'),
-  name: 'Auramancy (test)',
-  members: [
-    abilityId('enchant_haste'),
-    abilityId('enchant_protect'),
-    abilityId('enchant_shell'),
-    abilityId('esuna'),
-  ],
-  baseCost: 1,
-  availability: 'available',
-};
-
-const TEST_ENCHANTER: ClassDefinition = {
-  id: classId('test_enchanter'),
-  name: 'Enchanter (test)',
-  movement: {
-    moveRange: 3,
-    jump: 2,
-    terrainCosts: new Map(),
-    canEnter: new Set(['ground']),
-  },
-  evasion: { front: 6, side: 4, back: 0 },
-  equipmentSlots: {
-    leftHand: true,
-    rightHand: true,
-    headgear: true,
-    armor: true,
-    accessory: true,
-  },
-  firstActionCommandSet: commandSetId('test_auramancy'),
-  freeAbilities: new Set([abilityId('attack')]),
-  dominantStat: 'ma',
-  defaultGender: 'female',
-};
-
+// The real catalog — chunk 3 registered the `enchanter` class + `auramancy`
+// command set, so the end-to-end casts run against production content.
 function makeTestCatalog() {
-  return createCatalog({
-    statusTypes,
-    abilities,
-    commandSets: [...commandSets, TEST_AURAMANCY],
-    classes: [...classes, TEST_ENCHANTER],
-    items,
-    rulesets,
-  });
+  return createCatalog({ statusTypes, abilities, commandSets, classes, items, rulesets });
 }
 
 function enchanterLoadout(): Loadout {
   const actionBuckets: Record<string, ReadonlyArray<CommandSetId>> = {};
   for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = [];
-  actionBuckets[bucketId('first_action')] = [commandSetId('test_auramancy')];
+  actionBuckets[bucketId('first_action')] = [commandSetId('auramancy')];
   const passiveBuckets: Record<string, ReadonlyArray<AbilityId>> = {};
   for (const b of PASSIVE_BUCKET_IDS) passiveBuckets[b] = [];
   return { actionBuckets, passiveBuckets };
@@ -147,7 +104,7 @@ function buildEnchanterBattle() {
         id: unitId('caster'),
         name: 'Enchanter',
         team: TEAM_A,
-        classId: classId('test_enchanter'),
+        classId: classId('enchanter'),
         position: { x: 1, y: 1, layer: 0 },
         facing: 'E',
         baseStats: {
@@ -471,5 +428,109 @@ describe('Float', () => {
       catalog2,
     ).jump;
     expect(withFloat).toBe(plain);
+  });
+});
+
+// ===== Chunk 3 — class wiring + buff→steal loop =====
+
+describe('Enchanter class wiring', () => {
+  const catalog = makeTestCatalog();
+
+  it('registers the enchanter class with Auramancy + the RSM free kit', () => {
+    const cls = catalog.getClass(classId('enchanter'));
+    expect(cls.firstActionCommandSet).toBe(commandSetId('auramancy'));
+    expect(cls.dominantStat).toBe('ma');
+    for (const a of ['attack', 'resistance_save', 'short_charge', 'float']) {
+      expect(cls.freeAbilities.has(abilityId(a))).toBe(true);
+    }
+    // Auramancy holds the four actives.
+    const set = catalog.getCommandSet(commandSetId('auramancy'));
+    expect(set.members).toEqual([
+      abilityId('enchant_haste'),
+      abilityId('enchant_protect'),
+      abilityId('enchant_shell'),
+      abilityId('esuna'),
+    ]);
+  });
+});
+
+// The buff economy loop (brief acceptance): an Enchanter buffs an ally, then a
+// Thief's Steal Buffs lifts the cast buff off them. Builds a real battle with
+// the production enchanter + thief classes.
+describe('buff → steal loop (Enchanter buffs, Thief steals)', () => {
+  function buildLoopBattle() {
+    const catalog = makeTestCatalog();
+    const config: BattleConfig = {
+      battleId: 'session_72_loop',
+      rulesetId: rulesetId('default'),
+      map: flatMap(8, 8),
+      teams: [
+        { id: TEAM_A, name: 'A', control: 'human' },
+        { id: TEAM_B, name: 'B', control: 'ai' },
+      ],
+      units: [
+        {
+          id: unitId('ench'), name: 'Enchanter', team: TEAM_A, classId: classId('enchanter'),
+          position: { x: 1, y: 1, layer: 0 }, facing: 'E',
+          baseStats: { spd: 10, pa: 3, ma: 10, maxHpBase: 103, maxMpBase: 40, brave: 70, faith: 70, crit_chance: 0, crit_multiplier: 1 },
+          vitals: { hp: 103, mp: 40 }, loadout: enchanterLoadout(),
+        },
+        {
+          // Ally to receive the buff (also where the Thief stands adjacent).
+          // Brave 1 so the Thief's contest sits at the 95% cap (deterministic
+          // steal at the chosen seed — the Thief-test idiom).
+          id: unitId('ally'), name: 'Ally', team: TEAM_A, classId: classId('knight'),
+          position: { x: 2, y: 1, layer: 0 }, facing: 'W',
+          baseStats: { spd: 8, pa: 10, ma: 4, maxHpBase: 100, maxMpBase: 20, brave: 1, faith: 70, crit_chance: 0, crit_multiplier: 1 },
+          vitals: { hp: 100, mp: 20 },
+          loadout: { actionBuckets: { [bucketId('first_action')]: [commandSetId('battle_skill')] }, passiveBuckets: {} },
+        },
+        {
+          // Enemy Thief in straight-line range of the ally (4h × 3v).
+          id: unitId('thief'), name: 'Thief', team: TEAM_B, classId: classId('thief'),
+          position: { x: 4, y: 1, layer: 0 }, facing: 'W',
+          baseStats: { spd: 11, pa: 7, ma: 3, maxHpBase: 90, maxMpBase: 28, brave: 100, faith: 70, crit_chance: 0, crit_multiplier: 1 },
+          vitals: { hp: 90, mp: 28 },
+          loadout: { actionBuckets: { [bucketId('first_action')]: [commandSetId('thief_arts')] }, passiveBuckets: {} },
+        },
+      ],
+      victoryConditions: [
+        { kind: 'defeat_all', side: TEAM_B, description: 'A wins' },
+        { kind: 'defeat_all', side: TEAM_A, description: 'B wins' },
+      ],
+      masterSeed: 7,
+    };
+    return { state: createInitialState(config, catalog), catalog };
+  }
+
+  it('a cast-sourced Haste on an ally is stolen away by the Thief', () => {
+    const { state, catalog } = buildLoopBattle();
+    // The Enchanter's real charged Haste cast is covered by the chunk-1
+    // end-to-end test; here we seed the cast result deterministically — a
+    // `quickening` sourced from the Enchanter (non-equipment ⇒ stealable) —
+    // and focus on closing the loop through Steal Buffs (itself a probabilistic
+    // contest, so the apply side is set up deterministically).
+    let s = applyStatus(
+      state,
+      { targetId: unitId('ally'), typeId: statusTypeId('quickening'), sourceUnitId: unitId('ench'), sourceActionSeq: null, duration: 6 },
+      catalog,
+    ).newState;
+    expect(s.units.get(unitId('ally'))!.statuses.some((i) => i.typeId === statusTypeId('quickening'))).toBe(true);
+
+    // Thief steals buffs off the ally. Brave 100 vs the Brave-1 ally → contest
+    // at the 95% cap; seed 7 lands it (the Thief-class-test idiom).
+    s = { ...s, turnState: activeTurnFor(unitId('thief')) };
+    const steal = commitAction(
+      s,
+      { type: 'use_ability', source: 'player', actorId: unitId('thief'), payload: { abilityId: abilityId('steal_buffs'), target: { kind: 'unit', unitId: unitId('ally') } } },
+      catalog,
+    );
+    expect(steal.ok).toBe(true);
+    if (!steal.ok) return;
+    s = steal.newState;
+
+    // The buff left the ally and now rides the Thief.
+    expect(s.units.get(unitId('ally'))!.statuses.some((i) => i.typeId === statusTypeId('quickening'))).toBe(false);
+    expect(s.units.get(unitId('thief'))!.statuses.some((i) => i.typeId === statusTypeId('quickening'))).toBe(true);
   });
 });
