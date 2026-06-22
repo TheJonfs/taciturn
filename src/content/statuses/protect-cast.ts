@@ -18,7 +18,7 @@
 // time-to-kill across the roster — flagged for the playtest pile.
 
 import { statusTypeId, type StatusEffectType } from '@engine/index.ts';
-import { protectResistanceHook } from './protect.ts';
+import { protectMitigationHook } from './protect.ts';
 
 export const protectCast: StatusEffectType = {
   id: statusTypeId('protect_cast'),
@@ -28,7 +28,7 @@ export const protectCast: StatusEffectType = {
   stackingRule: 'REFRESH',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
-  // Shares the +magnitude physical-resistance hook with the equipment
-  // `protect` (see protect.ts) — identical behavior, only the duration differs.
-  hooks: [protectResistanceHook],
+  // Shares the physical-damage mitigation hook with the equipment `protect`
+  // (see protect.ts) — identical behavior, only the duration differs.
+  hooks: [protectMitigationHook],
 };

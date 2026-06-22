@@ -37,6 +37,7 @@ import {
   runModifyResistance,
   runModifyStatQuery,
   runOnActionTargeted,
+  runOnDamageReceived,
 } from '../hooks/runners.ts';
 import { applyStatus } from '../status/apply.ts';
 import { items as session29Items } from '../../content/items/index.ts';
@@ -50,9 +51,12 @@ import {
   itemId,
   statusTypeId,
   unitId,
+  type DamageContext,
+  type DamageMultiplier,
   type DamageTag,
   type ItemId,
   type ProposedAction,
+  type Unit,
   type UnitEquipment,
 } from '../types/index.ts';
 import type {
@@ -310,10 +314,35 @@ describe('Session 29 classRestrictions', () => {
 // 3. Shell + Protect — modifyResistance gating
 // ===========================================================================
 
-describe('Session 29 Shell / Protect — modifyResistance composition', () => {
-  it('Shell adds magnitude to magical resistance via modifyResistance', () => {
+describe('Session 29 Shell / Protect — onDamageReceived mitigation (S72 rework, ADR-0121)', () => {
+  // Minimal DamageContext exercising only what the mitigation hooks read
+  // (damageTags + multipliers). `runningMultipliers` lets a test seed a prior
+  // resistance multiplier — a negative one stands in for absorption.
+  function ctxFor(
+    target: Unit,
+    tags: ReadonlyArray<DamageTag>,
+    runningMultipliers: ReadonlyArray<DamageMultiplier> = [],
+  ): DamageContext {
+    return {
+      attacker: target,
+      target,
+      sourceActionSeq: 0,
+      sourceAbilityId: abilityId('test_spell'),
+      damageTags: new Set<DamageTag>(tags),
+      baseDamage: 20,
+      multipliers: runningMultipliers,
+      additives: [],
+      variance: { min: 1, max: 1 },
+      hit: true,
+      targetCount: 1,
+    };
+  }
+  const product = (ctx: DamageContext): number =>
+    ctx.multipliers.reduce((p, m) => p * m.factor, 1);
+
+  function withStatus(typeId: ReturnType<typeof statusTypeId>) {
     const cat = createCatalog({
-      statusTypes: [shell],
+      statusTypes: [shell, protect],
       abilities: [],
       commandSets: [],
       classes: [makeKnight()],
@@ -321,42 +350,36 @@ describe('Session 29 Shell / Protect — modifyResistance composition', () => {
       rulesets: defaultTestRulesets,
     });
     const u = makeUnit({ id: 'u', spd: 10 });
-    let state = makeGameState({ units: [u] });
-    const applied = applyStatus(
-      state,
-      { targetId: u.id, typeId: statusTypeId('shell'), sourceUnitId: null, sourceActionSeq: null },
+    const state = applyStatus(
+      makeGameState({ units: [u] }),
+      { targetId: u.id, typeId, sourceUnitId: null, sourceActionSeq: null },
       cat,
-    );
-    state = applied.newState;
-    const target = state.units.get(u.id)!;
-    const magical = runModifyResistance(state, cat, { unit: target, tag: 'magical', baseValue: 0 });
-    const physical = runModifyResistance(state, cat, { unit: target, tag: 'physical', baseValue: 0 });
-    expect(magical).toBe(50);
-    expect(physical).toBe(0);
+    ).newState;
+    return { cat, state, target: state.units.get(u.id)! };
+  }
+
+  it('Shell halves magical damage (×0.5), leaves physical untouched', () => {
+    const { cat, state, target } = withStatus(statusTypeId('shell'));
+    expect(product(runOnDamageReceived(state, cat, { unit: target, ctx: ctxFor(target, ['magical']) }))).toBe(0.5);
+    expect(product(runOnDamageReceived(state, cat, { unit: target, ctx: ctxFor(target, ['physical']) }))).toBe(1);
   });
 
-  it('Protect adds magnitude to physical resistance only', () => {
-    const cat = createCatalog({
-      statusTypes: [protect],
-      abilities: [],
-      commandSets: [],
-      classes: [makeKnight()],
-      items: [],
-      rulesets: defaultTestRulesets,
+  it('Protect halves physical damage (×0.5), leaves magical untouched', () => {
+    const { cat, state, target } = withStatus(statusTypeId('protect'));
+    expect(product(runOnDamageReceived(state, cat, { unit: target, ctx: ctxFor(target, ['physical']) }))).toBe(0.5);
+    expect(product(runOnDamageReceived(state, cat, { unit: target, ctx: ctxFor(target, ['magical']) }))).toBe(1);
+  });
+
+  it('Shell is one-directional: it does NOT reduce magic that resistance has flipped to absorption', () => {
+    const { cat, state, target } = withStatus(statusTypeId('shell'));
+    // A prior negative resistance multiplier (resistance > 100) means the
+    // running product is already negative → absorption. Shell stays out.
+    const out = runOnDamageReceived(state, cat, {
+      unit: target,
+      ctx: ctxFor(target, ['magical'], [{ source: 'resistance', factor: -0.5 }]),
     });
-    const u = makeUnit({ id: 'u', spd: 10 });
-    let state = makeGameState({ units: [u] });
-    const applied = applyStatus(
-      state,
-      { targetId: u.id, typeId: statusTypeId('protect'), sourceUnitId: null, sourceActionSeq: null },
-      cat,
-    );
-    state = applied.newState;
-    const target = state.units.get(u.id)!;
-    const physical = runModifyResistance(state, cat, { unit: target, tag: 'physical', baseValue: 0 });
-    const magical = runModifyResistance(state, cat, { unit: target, tag: 'magical', baseValue: 0 });
-    expect(physical).toBe(50);
-    expect(magical).toBe(0);
+    expect(out.multipliers).toHaveLength(1); // only the resistance multiplier; Shell skipped
+    expect(product(out)).toBe(-0.5); // heal magnitude unchanged
   });
 
   it('Auto-Shell via equipment statusGrants applies permanent Shell', () => {

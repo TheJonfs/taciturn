@@ -1,27 +1,31 @@
-// Shell — additive magical resistance buff.
+// Shell — magical damage mitigation (S72 rework, ADR-0121).
 //
-// Per Session 29 (ADR-0061 sibling): Shell registers a `modifyResistance`
-// handler that adds its magnitude to the unit's magical resistance when
-// the damage's tag includes `'magical'`. Default magnitude 50, meaning
-// +50% magical resistance ((100 − 50) / 100 = 0.5× incoming magical
-// damage) on top of native resistance.
+// Shell is a one-directional multiplier on incoming *magical damage*, not a
+// resistance number: it halves the magic damage you take *after* resistance
+// has set the starting rate, and it does NOT touch magical healing /
+// absorption (cranking resistance > 100 still heals you for the full amount).
+// This is "approach 4" from the S72 design discussion — chosen over the prior
+// additive `modifyResistance` (+50 magical) because the multiplier reads as a
+// clean "halve the magic that hurts you" and composes predictably with
+// vulnerabilities and resistances (no signed-max surprise).
 //
-// Duration: `permanent_per_unit_ct` — Shell does not auto-expire. v1's
-// only consumer is Sorcerer's Robe's Auto-Shell (per the equipment doc),
-// which lasts as long as the equipment is worn.
+// Mechanism: an `onDamageReceived` handler (the Damage Reduction precedent)
+// that pushes a multiplier into `ctx.multipliers` when the damage carries the
+// `'magical'` tag. The factor is `(100 − magnitude) / 100` — magnitude is the
+// **% reduction** (default 50 ⇒ ×0.5), so a future buff-amplifier scales the
+// cut by scaling the magnitude (60 ⇒ ×0.4). Clamped at factor 0 (≥100%
+// reduction = immune, never negative).
 //
-// A future cast-Shell spell will want a timed variant — six ticks per
-// Chris's call this session, REFRESH stacking, magnitude 50 default. When
-// it ships, author it as a sibling `shell_cast` status type with
-// `durationMode: 'per_unit_ct'` rather than retroactively re-typing this
-// one (same pattern Haste / `quickening` will follow). With both active,
-// `composeResistance`'s signedMax composition takes the larger of the
-// two magnitudes — cast Shell at magnitude > 50 supersedes Auto-Shell
-// for the duration; expiry falls back to Auto-Shell's +50.
+// One-directional: resistance_check runs before onDamageReceived, so by the
+// time this fires the running product of `ctx.multipliers` already carries the
+// resistance factor — and `raw = (base + additives) × ∏multipliers`, so a
+// negative running product means resistance has flipped this to absorption.
+// In that case Shell stays out (returns the ctx unchanged), leaving the
+// absorbed heal intact.
 //
-// Resistance tag: none. Application is unresisted in v1 — Sorcerer's
-// Robe's grant lands at battle start regardless of the wearer's
-// resistance map.
+// The behavior lives here once and is shared by the equipment-grant `shell`
+// (permanent) and the cast `shell_cast` (timed) siblings (the regen /
+// regen_auto pattern), so Shell behaves identically regardless of source.
 
 import {
   statusHook,
@@ -30,20 +34,20 @@ import {
   type StatusHookRegistration,
 } from '@engine/index.ts';
 
-// The Shell behavior — additive `magnitude` to magical resistance — lives here
-// once and is shared by the equipment-grant `shell` (permanent) and the cast
-// `shell_cast` (timed) siblings, so Shell behaves identically regardless of
-// source (the regen / regen_auto pattern). Additive (not a 0.5× multiplier) by
-// design: it composes with native resistance via signedMax and can push the
-// magical tag past 100 (→ immune, or absorption once that ships). Gates on the
-// `'magical'` tag, which every elemental spell also carries, so the +50 covers
-// all magic damage.
-export const shellResistanceHook: StatusHookRegistration = statusHook(
-  'modifyResistance',
+export const shellMitigationHook: StatusHookRegistration = statusHook(
+  'onDamageReceived',
   (args, ctx) => {
-    if (args.tag !== 'magical') return args.baseValue;
+    const dmg = args.ctx;
+    if (!dmg.damageTags.has('magical')) return dmg;
+    // Skip when resistance has already flipped this to absorption (negative
+    // running product ⇒ raw < 0): never reduce magic you absorb.
+    const runningProduct = dmg.multipliers.reduce((p, m) => p * m.factor, 1);
+    if (runningProduct < 0) return dmg;
     const magnitude = ctx.instance.magnitude ?? 0;
-    return args.baseValue + magnitude;
+    const factor = Math.max(0, (100 - magnitude) / 100);
+    return {
+      ctx: { ...dmg, multipliers: [...dmg.multipliers, { source: 'shell', factor }] },
+    };
   },
 );
 
@@ -55,5 +59,5 @@ export const shell: StatusEffectType = {
   stackingRule: 'REFRESH',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
-  hooks: [shellResistanceHook],
+  hooks: [shellMitigationHook],
 };

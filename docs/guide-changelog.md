@@ -44,6 +44,28 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 72 follow-up — Protect & Shell now halve damage (2026-06-22)
+
+Commits: see the Protect/Shell rework commit. ADR-0121. Affects **every** source
+of Protect/Shell (the Enchanter's casts, Defender's Auto-Protect, Sorcerer's
+Robe's Auto-Shell).
+
+- **Protect and Shell now multiply incoming damage by ×0.5** rather than adding
+  +50 resistance. Protect halves incoming **physical** damage; Shell halves
+  incoming **magical** damage — applied *after* your resistances set the rate.
+  - **What changes in practice:** they now **stack with your resistances** instead
+    of competing with them. Before, Shell's +50 only mattered if it beat your
+    element resistance (they didn't add up); now a resistant unit *and* Shell is
+    reliably tankier — e.g. a Geosage (fire-weak) hit by a 150 fire spell now
+    takes **75** with Shell (the weakness halved), where it previously dropped to
+    50 by overriding the weakness.
+  - **They don't reduce magic/physical you absorb.** If you've stacked resistance
+    past 100 so an element *heals* you, Protect/Shell leave that healing intact —
+    they only cut damage, never your absorption.
+  - Shell no longer contributes to *reaching* absorption (it's not a resistance
+    number anymore); absorption still comes from resistance gear like the
+    Capacitor Ring.
+
 ## Session 72 — Enchanter (new class) (2026-06-22)
 
 Commits: `75543ad` (chunk 1 — Auramancy actives), `32f2990` (chunk 2 — RSM),

@@ -19,7 +19,7 @@
 // time-to-kill — flagged for the playtest pile.
 
 import { statusTypeId, type StatusEffectType } from '@engine/index.ts';
-import { shellResistanceHook } from './shell.ts';
+import { shellMitigationHook } from './shell.ts';
 
 export const shellCast: StatusEffectType = {
   id: statusTypeId('shell_cast'),
@@ -29,7 +29,7 @@ export const shellCast: StatusEffectType = {
   stackingRule: 'REFRESH',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
-  // Shares the +magnitude magical-resistance hook with the equipment `shell`
-  // (see shell.ts) — identical behavior, only the duration differs.
-  hooks: [shellResistanceHook],
+  // Shares the magical-damage mitigation hook with the equipment `shell` (see
+  // shell.ts) — identical behavior, only the duration differs.
+  hooks: [shellMitigationHook],
 };

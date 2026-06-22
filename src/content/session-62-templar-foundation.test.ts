@@ -15,11 +15,14 @@ import {
   commandSetId,
   itemId,
   statusTypeId,
-  runModifyResistance,
   runModifyStatQuery,
+  runOnDamageReceived,
   type AbilityId,
   type ClassDefinition,
   type CommandSetDefinition,
+  type DamageContext,
+  type DamageMultiplier,
+  type DamageTag,
   type Loadout,
 } from '@engine/index.ts';
 import { createCatalog } from '../engine/catalog/index.ts';
@@ -176,8 +179,26 @@ describe('Defender (second Knight Sword, Auto-Protect)', () => {
     const target = state.units.get(u.id)!;
     expect(target.statuses[0]?.typeId).toBe(statusTypeId('protect'));
     expect(target.statuses[0]?.magnitude).toBe(50);
-    expect(runModifyResistance(state, cat, { unit: target, tag: 'physical', baseValue: 0 })).toBe(50);
-    expect(runModifyResistance(state, cat, { unit: target, tag: 'magical', baseValue: 0 })).toBe(0);
+    // S72 rework (ADR-0121): Protect is a one-directional damage multiplier,
+    // not a resistance number. It halves incoming physical (×0.5) and leaves
+    // magical alone.
+    const mkCtx = (tag: DamageTag): DamageContext => ({
+      attacker: target,
+      target,
+      sourceActionSeq: 0,
+      sourceAbilityId: abilityId('test'),
+      damageTags: new Set<DamageTag>([tag]),
+      baseDamage: 20,
+      multipliers: [] as DamageMultiplier[],
+      additives: [],
+      variance: { min: 1, max: 1 },
+      hit: true,
+      targetCount: 1,
+    });
+    const product = (ctx: DamageContext): number =>
+      ctx.multipliers.reduce((p: number, m: DamageMultiplier) => p * m.factor, 1);
+    expect(product(runOnDamageReceived(state, cat, { unit: target, ctx: mkCtx('physical') }))).toBe(0.5);
+    expect(product(runOnDamageReceived(state, cat, { unit: target, ctx: mkCtx('magical') }))).toBe(1);
   });
 });
 

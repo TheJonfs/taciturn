@@ -1,16 +1,22 @@
-// Protect — additive physical resistance buff.
+// Protect — physical damage mitigation (S72 rework, ADR-0121). The physical
+// twin of Shell; moved in lockstep so "Protect/Shell" mean the same kind of
+// thing (a damage multiplier), not "one's a resistance number, the other's a
+// multiplier."
 //
-// Mirror of Shell (per Session 29): registers a `modifyResistance` handler
-// that adds its magnitude to the unit's physical resistance when the
-// damage's tag includes `'physical'`. Default magnitude 50, meaning +50%
-// physical resistance ((100 − 50) / 100 = 0.5× incoming physical damage).
+// Protect is a one-directional multiplier on incoming *physical damage*: it
+// halves the physical damage you take *after* resistance has set the starting
+// rate, and does NOT touch physical absorption (resistance > 100 still heals).
+// See shell.ts for the full rationale (approach 4 from the S72 discussion).
 //
-// Duration: `permanent_per_unit_ct` — Protect does not auto-expire. v1
-// ships no consumer (Auto-Protect is reserved for future Knight-side
-// armor in Equipment Batch B-or-later); the status is authored now so
-// the substrate is in place when content arrives. A future cast-Protect
-// spell follows the same `protect_cast` (per_unit_ct, 6-tick default,
-// REFRESH) pattern as Shell.
+// Mechanism: an `onDamageReceived` handler that pushes a multiplier into
+// `ctx.multipliers` when the damage carries the `'physical'` tag. Factor is
+// `(100 − magnitude) / 100` — magnitude is the **% reduction** (default 50 ⇒
+// ×0.5), scalable by a future buff-amplifier. Clamped at 0. Skips when the
+// running product is already negative (resistance flipped it to absorption),
+// leaving the absorbed heal intact.
+//
+// The behavior lives here once and is shared by the equipment-grant `protect`
+// (permanent) and the cast `protect_cast` (timed) siblings.
 
 import {
   statusHook,
@@ -19,18 +25,19 @@ import {
   type StatusHookRegistration,
 } from '@engine/index.ts';
 
-// The Protect behavior — additive `magnitude` to physical resistance — lives
-// here once and is shared by the equipment-grant `protect` (permanent) and
-// the cast `protect_cast` (timed) siblings, so Protect behaves identically
-// regardless of source (the regen / regen_auto pattern). Additive (not a 0.5×
-// multiplier) by design: it composes with native resistance via signedMax and
-// can push a tag past 100 (→ immune, or absorption once that ships).
-export const protectResistanceHook: StatusHookRegistration = statusHook(
-  'modifyResistance',
+export const protectMitigationHook: StatusHookRegistration = statusHook(
+  'onDamageReceived',
   (args, ctx) => {
-    if (args.tag !== 'physical') return args.baseValue;
+    const dmg = args.ctx;
+    if (!dmg.damageTags.has('physical')) return dmg;
+    // Skip when resistance has already flipped this to absorption.
+    const runningProduct = dmg.multipliers.reduce((p, m) => p * m.factor, 1);
+    if (runningProduct < 0) return dmg;
     const magnitude = ctx.instance.magnitude ?? 0;
-    return args.baseValue + magnitude;
+    const factor = Math.max(0, (100 - magnitude) / 100);
+    return {
+      ctx: { ...dmg, multipliers: [...dmg.multipliers, { source: 'protect', factor }] },
+    };
   },
 );
 
@@ -42,5 +49,5 @@ export const protect: StatusEffectType = {
   stackingRule: 'REFRESH',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
-  hooks: [protectResistanceHook],
+  hooks: [protectMitigationHook],
 };
