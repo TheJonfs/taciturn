@@ -17,6 +17,7 @@ import {
 import { riverRidge } from '@content/maps/river-ridge.ts';
 import { stonebridge } from '@content/maps/stonebridge.ts';
 import { marshmoor } from '@content/maps/marshmoor.ts';
+import { mountainPass } from '@content/maps/mountain-pass.ts';
 import { classId, rulesetId } from '@engine/index.ts';
 import type {
   AbilityId,
@@ -72,6 +73,11 @@ export function stonebridgeMap(): BattleMap {
 /** Marshmoor — the Academy's third training-field map (S52). */
 export function marshmoorMap(): BattleMap {
   return marshmoor;
+}
+
+/** Mountain Pass — the Academy's fourth training-field map (S70). */
+export function mountainPassMap(): BattleMap {
+  return mountainPass;
 }
 
 /** One spoke of the elemental wheel, derived from a Mage class's baseline. */
