@@ -26,6 +26,7 @@ import { protectCast } from './protect-cast.ts';
 import { quickening } from './quickening.ts';
 import { regen } from './regen.ts';
 import { regenAuto } from './regen-auto.ts';
+import { resistanceSave } from './resistance-save.ts';
 import { shell } from './shell.ts';
 import { shellCast } from './shell-cast.ts';
 import { silence } from './silence.ts';
@@ -66,6 +67,7 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   quickening,
   regen,
   regenAuto,
+  resistanceSave,
   shell,
   shellCast,
   silence,

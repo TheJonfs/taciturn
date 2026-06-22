@@ -1,9 +1,9 @@
-// Session 72 integration tests — Enchanter chunk 1 (Auramancy actives).
+// Session 72 integration tests — Enchanter (chunks 1–2).
 //
-// Covers:
-//   1. Buff chance tuning — the three Auramancy buffs (baseChance 97) land
-//      ~90% net on a default-Faith (70) ally at the Enchanter's MA 10, climb
-//      toward always-on as MA is buffed, and drop on a low-Faith ally.
+// Chunk 1 (Auramancy actives):
+//   1. Buff chance tuning — the three Auramancy buffs (baseChance 95) land
+//      ~88% (≈90%) net on a default-Faith (70) ally at the Enchanter's MA 10,
+//      climb toward always-on as MA is buffed, and drop on a low-Faith ally.
 //   2. The timed buff statuses (quickening / protect_cast / shell_cast):
 //      per_unit_ct duration, REFRESH, polarity 'buff' (so Steal Buffs lifts
 //      them — the Thief loop), distinct from the permanent equipment forms.
@@ -13,6 +13,14 @@
 //   4. End-to-end Esuna: cleanse removes negative statuses (Blind) from an
 //      ally in the AoE but leaves committed stat-downs (PA Down, remedyImmune)
 //      and buffs (quickening) alone — mirroring Remedy's cleanse set.
+//
+// Chunk 2 (RSM):
+//   5. Resistance Save — +10 to each elemental resistance per magical hit,
+//      uncapped STACK_ADDITIVE accumulation; reaction magical-gated.
+//   6. Short Charge — proportional charge speedup (×1.33, floored); instants
+//      stay instant.
+//   7. Float — water move-cost negation + fall-damage immunity, no elevation
+//      effect.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -29,7 +37,9 @@ import { commitAction } from './commit.ts';
 import { advanceToNextEvent } from '../turn/scheduler.ts';
 import { computeStatusChance } from '../status/chance.ts';
 import { applyStatus } from '../status/apply.ts';
-import { computeSpeed } from '../ct/speed.ts';
+import { computeBaseActionSpeed, computeSpeed } from '../ct/speed.ts';
+import { runModifyResistance, runModifySystemDamage } from '../hooks/runners.ts';
+import { computeMovementProfile } from '../map/movement-profile.ts';
 import { activeTurnFor, makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import {
   ACTIVE_BUCKET_IDS,
@@ -46,12 +56,15 @@ import {
   teamId,
   unitId,
   type AbilityId,
+  type ActiveAbilityDefinition,
+  type AbilityDefinition,
   type BattleConfig,
   type ClassDefinition,
   type CommandSetDefinition,
   type CommandSetId,
   type GameState,
   type Loadout,
+  type SystemDamageSource,
 } from '@engine/index.ts';
 
 const TEAM_A = teamId('team_a');
@@ -358,5 +371,105 @@ describe('esuna end-to-end', () => {
     expect(statuses).not.toContain(statusTypeId('blind')); // cleansed
     expect(statuses).toContain(statusTypeId('pa_down')); // remedyImmune — kept
     expect(statuses).toContain(statusTypeId('quickening')); // buff — kept
+  });
+});
+
+// ===== Chunk 2 — RSM =====
+
+const catalog2 = createCatalog({ statusTypes, abilities, commandSets, classes, items, rulesets });
+
+// Narrow a catalog ability to its active form (the chunk-2 Short Charge
+// tests only pass actives — attack / enchant_haste / earth_cataclysm).
+function asActive(a: AbilityDefinition): ActiveAbilityDefinition {
+  if (a.kind !== 'active') throw new Error(`expected active ability, got ${a.kind}`);
+  return a;
+}
+
+function passiveLoadout(bucket: string, abilityIds: ReadonlyArray<AbilityId>): Loadout {
+  const actionBuckets: Record<string, ReadonlyArray<CommandSetId>> = {};
+  for (const b of ACTIVE_BUCKET_IDS) actionBuckets[b] = [];
+  const passiveBuckets: Record<string, ReadonlyArray<AbilityId>> = {};
+  for (const b of PASSIVE_BUCKET_IDS) passiveBuckets[b] = [];
+  passiveBuckets[bucket] = abilityIds;
+  return { actionBuckets, passiveBuckets };
+}
+
+describe('Resistance Save', () => {
+  it('grants +10 to each elemental resistance, leaves physical alone, and accumulates uncapped', () => {
+    let u = makeUnit({ id: 'u', spd: 10, team: 'team_a' });
+    let s = makeGameState({ units: [u] });
+    // One magical hit's worth.
+    s = applyStatus(s, { targetId: u.id, typeId: statusTypeId('resistance_save'), sourceUnitId: u.id, sourceActionSeq: null, magnitude: 10 }, catalog2).newState;
+    u = s.units.get(u.id)!;
+    for (const tag of ['earth', 'water', 'fire', 'lightning'] as const) {
+      expect(runModifyResistance(s, catalog2, { unit: u, tag, baseValue: 0 })).toBe(10);
+    }
+    // Not an elemental tag — untouched.
+    expect(runModifyResistance(s, catalog2, { unit: u, tag: 'physical', baseValue: 0 })).toBe(0);
+    // A second hit: STACK_ADDITIVE sums onto one instance → +20, uncapped.
+    s = applyStatus(s, { targetId: u.id, typeId: statusTypeId('resistance_save'), sourceUnitId: u.id, sourceActionSeq: null, magnitude: 10 }, catalog2).newState;
+    u = s.units.get(u.id)!;
+    expect(u.statuses.filter((i) => i.typeId === statusTypeId('resistance_save'))).toHaveLength(1);
+    expect(runModifyResistance(s, catalog2, { unit: u, tag: 'fire', baseValue: 0 })).toBe(20);
+  });
+
+  it('reaction is gated on magical (not physical) damage', () => {
+    const ability = catalog2.getAbility(abilityId('resistance_save'));
+    expect(ability.kind).toBe('passive');
+    if (ability.kind !== 'passive') return;
+    const cond = ability.reactionFields?.triggerCondition;
+    expect(cond?.type).toBe('damage_received');
+    if (cond?.type !== 'damage_received') return;
+    expect(cond.damageTagsAny).toContain('magical');
+    expect(cond.damageTagsNone).toContain('healing');
+  });
+});
+
+describe('Short Charge', () => {
+  const s = makeGameState({
+    units: [makeUnit({ id: 'caster', spd: 10, ma: 10, loadout: passiveLoadout(bucketId('support'), [abilityId('short_charge')]) })],
+  });
+  const caster = s.units.get(unitId('caster'))!;
+
+  it('speeds a basic charge (actSpd 30 → 39) and an ultimate (18 → 23) proportionally', () => {
+    // enchant_haste is actionSpeed 30; earth_cataclysm is 18. ×1.33 floored.
+    expect(computeBaseActionSpeed(s, catalog2, caster, asActive(catalog2.getAbility(abilityId('enchant_haste'))))).toBe(39);
+    expect(computeBaseActionSpeed(s, catalog2, caster, asActive(catalog2.getAbility(abilityId('earth_cataclysm'))))).toBe(23);
+  });
+
+  it('leaves instant abilities instant (0 stays 0)', () => {
+    expect(computeBaseActionSpeed(s, catalog2, caster, asActive(catalog2.getAbility(abilityId('attack'))))).toBe(0);
+  });
+});
+
+describe('Float', () => {
+  const s = makeGameState({
+    units: [makeUnit({ id: 'f', spd: 10, loadout: passiveLoadout(bucketId('movement'), [abilityId('float')]) })],
+  });
+  const u = s.units.get(unitId('f'))!;
+
+  it('negates water move-cost (shallow 2 → 1, deep 3 → 1), ground unchanged', () => {
+    const profile = computeMovementProfile(s, u.id, catalog2);
+    expect(profile.terrainCosts.get('water_shallow')).toBe(1);
+    expect(profile.terrainCosts.get('water_deep')).toBe(1);
+    // Ground untouched — defaults to cost 1 (Float is water-only).
+    expect(profile.terrainCosts.get('ground') ?? 1).toBe(1);
+  });
+
+  it('is immune to fall damage but not other system damage', () => {
+    const falling: SystemDamageSource = { kind: 'falling', unitId: u.id, dropDistance: 4 };
+    expect(runModifySystemDamage(s, catalog2, { unit: u, source: falling, tags: new Set(['physical']), baseAmount: 40 })).toBe(0);
+    const poison: SystemDamageSource = { kind: 'status_tick', statusTypeId: statusTypeId('poison'), unitId: u.id };
+    expect(runModifySystemDamage(s, catalog2, { unit: u, source: poison, tags: new Set(['poison']), baseAmount: 10 })).toBe(10);
+  });
+
+  it('has no elevation effect (Jump unchanged from class baseline)', () => {
+    const withFloat = computeMovementProfile(s, u.id, catalog2).jump;
+    const plain = computeMovementProfile(
+      makeGameState({ units: [makeUnit({ id: 'p', spd: 10 })] }),
+      unitId('p'),
+      catalog2,
+    ).jump;
+    expect(withFloat).toBe(plain);
   });
 });

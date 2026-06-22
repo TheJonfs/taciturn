@@ -74,6 +74,7 @@ const STATUS_DESCRIPTIONS: ReadonlyMap<StatusTypeId, string> = new Map([
   [statusTypeId('updraft'), '+1 Jump per stack — granted by the Hunter’s Updraft reaction on enemy damage taken. Permanent through KO.'],
   [statusTypeId('cornered_focus'), '+1 MA per stack — granted by the Calculator’s Cornered Focus reaction on enemy damage taken. Permanent through KO.'],
   [statusTypeId('engineered_defenses'), '+10 per elemental resistance and +5% per-facing evade per stack — granted by the Calculator’s Engineered Defenses cast. Permanent.'],
+  [statusTypeId('resistance_save'), '+10 to each elemental resistance (earth/water/fire/lightning) per stack — granted by the Enchanter’s Resistance Save reaction on magical damage taken. Permanent through KO; uncapped.'],
 ]);
 
 // Short authored placeholders for the demo passives. Each line is the
@@ -82,7 +83,7 @@ const STATUS_DESCRIPTIONS: ReadonlyMap<StatusTypeId, string> = new Map([
 const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('counter'), 'On taking a non-healing physical hit, swing back at the attacker with the same weapon.'],
   [abilityId('move_plus_1'), '+1 Move Range.'],
-  [abilityId('float'), 'Treat water tiles as walkable.'],
+  [abilityId('float'), 'Cross shallow and deep water at no extra move cost (both drop to 1 per tile), and take no damage from falls — knockback off a ledge or a tile collapsing underfoot. No elevation change: it’s not flight.'],
   [abilityId('fly'), 'Ignore terrain and jump entirely — move freely over any tile.'],
   [abilityId('earth_resilience'), 'On taking a non-healing hit, gain +1 Move (stackable, lingering).'],
   [abilityId('earth_communion'), '× 1.25 status application chance on every cast.'],
@@ -117,6 +118,9 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('eagle_eye'), '× 2 physical hit chance — takes the bows’ bare 40 accuracy to ~80%, and saturates the clamp on high-accuracy weapons.'],
   [abilityId('vantage'), 'Your attacks resolve as if you stood 2 elevation higher: bigger downhill bow damage, +5% high-ground accuracy, longer bow range-from-height, and line of sight that can clear cover (even a Barrier). Attacker-only — never affects you as a target, your movement, or area effects.'],
   [abilityId('updraft'), 'On taking enemy damage, gain +1 Jump permanently. Stacks across the battle and persists through KO.'],
+  // S72 — Enchanter R/S/M.
+  [abilityId('resistance_save'), 'On taking magical damage, gain +10 to every elemental resistance (earth/water/fire/lightning), permanently. Stacks across the battle and persists through KO — uncapped, so prolonged magical fire hardens you toward immunity.'],
+  [abilityId('short_charge'), 'All your charged spells resolve ~33% sooner (the charge accumulates faster). Works on any class’s charged abilities; instant actions are unaffected.'],
   [abilityId('high_jump'), '+2 Jump — reach the high ground bows’ elevation-variance rewards.'],
   // S49 — Calculator R/S/M.
   [abilityId('cornered_focus'), 'On taking enemy damage, gain +1 MA permanently. Stacks across the battle and persists through KO — the Calculator sharpens under pressure.'],

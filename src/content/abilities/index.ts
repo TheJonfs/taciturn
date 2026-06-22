@@ -81,6 +81,8 @@ import { stealHeart } from './steal-heart.ts';
 import { stealHp } from './steal-hp.ts';
 import { stealMp } from './steal-mp.ts';
 import { sowDoubt } from './sow-doubt.ts';
+import { resistanceSaveReaction } from './resistance-save.ts';
+import { shortCharge } from './short-charge.ts';
 import { spark } from './spark.ts';
 import { speedSaveReaction } from './speed-save.ts';
 import { stasisSword } from './stasis-sword.ts';
@@ -169,6 +171,8 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   shadowStitch,
   smolder,
   sowDoubt,
+  resistanceSaveReaction,
+  shortCharge,
   spark,
   speedSaveReaction,
   stasisSword,

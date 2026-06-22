@@ -206,8 +206,14 @@ describe('loadDefaultCatalog', () => {
     //   - statusTypes: 35 → 38 (quickening, protect_cast, shell_cast — the
     //     timed cast forms of Haste / Protect / Shell, sibling to the permanent
     //     equipment-grant statuses)
-    expect(cat.statusTypes()).toHaveLength(38);
-    expect(cat.abilities()).toHaveLength(108);
+    // Session 72 (Enchanter chunk 2 — RSM):
+    //   - abilities: 108 → 110 (resistance_save reaction, short_charge support;
+    //     float was already registered — chunk 2 revives it from 'hidden' to
+    //     'available' and bumps it 1 → 2 SP, no count change)
+    //   - statusTypes: 38 → 39 (resistance_save — the accumulating elemental-
+    //     resistance stat-Save)
+    expect(cat.statusTypes()).toHaveLength(39);
+    expect(cat.abilities()).toHaveLength(110);
     expect(cat.commandSets()).toHaveLength(14);
     expect(cat.classes()).toHaveLength(12);
     expect(cat.items()).toHaveLength(77);

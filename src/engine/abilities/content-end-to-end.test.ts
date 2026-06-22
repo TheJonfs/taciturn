@@ -52,13 +52,14 @@ describe('Move +1 (passive, scalar via modifyStatQuery)', () => {
 });
 
 describe('Float (passive, modifyTerrainCosts)', () => {
-  // Session 33.5 (ADR-0074 context): Float redesigned. Pre-S33 it added
-  // water to canEnter; under S33's universal-water-enter convention that
-  // role became a no-op against the production catalog. Float is now the
-  // universal terrain-cost leveller — every terrain's move cost drops to
-  // min(cost, 1). On the default ruleset that means water_shallow 2 → 1
-  // and water_deep 3 → 1; ground (already 1) is unchanged.
-  it('flattens every terrain cost to min(cost, 1)', () => {
+  // Session 72: Float re-scoped to the Enchanter's Movement — water-only
+  // cost negation (`'water'`-tagged terrain → min(cost, 1)) plus fall-damage
+  // immunity (tested in session-72-integration.test.ts), no elevation effect.
+  // On the default ruleset that means water_shallow 2 → 1 and water_deep
+  // 3 → 1; ground (already 1) is untouched. (Pre-S72 Float flattened *all*
+  // terrain; the only costed non-water v1 terrain is water, so the observable
+  // costs here are unchanged.)
+  it('negates water terrain cost to min(cost, 1)', () => {
     const floatUnit = makeUnit({
       id: 'f',
       spd: 10,
@@ -76,7 +77,9 @@ describe('Float (passive, modifyTerrainCosts)', () => {
     const floatProfile = computeMovementProfile(state, floatUnit.id, cat);
     expect(floatProfile.terrainCosts.get('water_shallow')).toBe(1);
     expect(floatProfile.terrainCosts.get('water_deep')).toBe(1);
-    expect(floatProfile.terrainCosts.get('ground')).toBe(1);
+    // Ground is untouched — water-only Float leaves it to the ruleset
+    // default cost (absent from the explicit map ⇒ default 1).
+    expect(floatProfile.terrainCosts.get('ground') ?? 1).toBe(1);
   });
 });
 
