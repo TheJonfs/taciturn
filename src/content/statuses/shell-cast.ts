@@ -29,6 +29,9 @@ export const shellCast: StatusEffectType = {
   stackingRule: 'REFRESH',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
+  // Aura Mastery amplifies cast Shell (ADR-0122). magnitude is the % damage
+  // reduction (additive kind): 50 → 50×K, a deeper cut.
+  amplifiable: true,
   // Shares the magical-damage mitigation hook with the equipment `shell` (see
   // shell.ts) — identical behavior, only the duration differs.
   hooks: [shellMitigationHook],

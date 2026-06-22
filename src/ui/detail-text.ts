@@ -123,6 +123,7 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   // S72 — Enchanter R/S/M.
   [abilityId('resistance_save'), 'On taking magical damage, gain +10 to every elemental resistance (earth/water/fire/lightning), permanently. Stacks across the battle and persists through KO — uncapped, so prolonged magical fire hardens you toward immunity.'],
   [abilityId('short_charge'), 'All your charged spells resolve ~33% sooner (the charge accumulates faster). Works on any class’s charged abilities; instant actions are unaffected.'],
+  [abilityId('aura_mastery'), 'The buffs you cast land ~33% stronger — deeper Haste, Protect, Shell, Regen, Engineered Defenses, and Crit boosts. Only your spell-cast buffs; equipment-granted buffs and flat stat boosts (PA/MA/Move/Jump Up) are unaffected.'],
   [abilityId('high_jump'), '+2 Jump — reach the high ground bows’ elevation-variance rewards.'],
   // S49 — Calculator R/S/M.
   [abilityId('cornered_focus'), 'On taking enemy damage, gain +1 MA permanently. Stacks across the battle and persists through KO — the Calculator sharpens under pressure.'],

@@ -39,7 +39,12 @@ const REGEN_COEFFICIENT = 0.10;
 // `regen_auto` (battle-long Auto-Regen via Tintinibar). Per Session 31:
 // the two share lifecycle/duration semantics but not the heal formula,
 // so the formula lives in one place.
-export const regenOnTick: StatusHookRegistration = statusHook('onTick', (args): OnTickResult => {
+//
+// S72 (ADR-0122): the per-tick amount now scales by the instance magnitude (a
+// coefficient, default 1 ⇒ unchanged), so a caster-side amplifier (Aura
+// Mastery) can deepen *cast* Regen. `regen_auto` keeps magnitude 1 (it's not
+// amplifiable), so equipment Auto-Regen is bit-identical to before.
+export const regenOnTick: StatusHookRegistration = statusHook('onTick', (args, ctx): OnTickResult => {
   // Per ADR-0079: KO'd targets don't tick. Cast Regen (`per_unit_ct`)
   // clears at KO via the KO-clear sweep, so under normal flow this gate
   // is only load-bearing for `regen_auto` (`permanent_per_unit_ct`,
@@ -58,7 +63,8 @@ export const regenOnTick: StatusHookRegistration = statusHook('onTick', (args): 
     statName: 'maxHp',
     baseValue: args.unit.baseStats.maxHpBase,
   });
-  const amount = Math.floor((faith / 100) * REGEN_COEFFICIENT * maxHp);
+  const magnitude = ctx.instance.magnitude ?? 1;
+  const amount = Math.floor((faith / 100) * REGEN_COEFFICIENT * magnitude * maxHp);
   if (amount <= 0) {
     return {};
   }
@@ -84,6 +90,11 @@ export const regen: StatusEffectType = {
   tags: ['positive'],
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
+  // Coefficient scalar on the per-tick heal (default 1 = current behavior).
+  defaultMagnitude: 1,
   aiHints: { polarity: 'buff' },
+  // Aura Mastery amplifies cast Regen (Life from the Loam; ADR-0122). magnitude
+  // is the heal coefficient (additive kind): 1 → 1×K deepens the heal-over-time.
+  amplifiable: true,
   hooks: [regenOnTick],
 };

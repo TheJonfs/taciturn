@@ -195,6 +195,24 @@ export interface HookSignatures {
     return: number;
   };
 
+  // Outgoing status-magnitude modifier (S72, ADR-0122). Fires against the
+  // CASTER's hooks at apply time, scaling the magnitude baked into the new
+  // instance. First consumer is the Enchanter's Aura Mastery support
+  // (amplifies the caster's buffs). Only fires for `amplifiable` statuses on
+  // volitional, non-equipment applications (see engine/status/apply.ts).
+  // Composes multiplicatively through the chain; consumers read
+  // `statusType.amplifiable` / `statusType.magnitudeKind` to decide whether
+  // and how to scale.
+  modifyOutgoingStatusMagnitude: {
+    args: {
+      unit: Unit;          // the caster whose hooks fire
+      target: Unit;
+      statusType: StatusEffectType;
+      baseMagnitude: number;
+    };
+    return: number;
+  };
+
   // Evasion modifier — additive on per-facing evasion. Consumers:
   // Bulwark Stance (+10 front evade), future Concentration support
   // (-N target evasion), reaction abilities that condition evasion on

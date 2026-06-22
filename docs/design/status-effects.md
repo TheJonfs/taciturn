@@ -65,6 +65,22 @@ Statuses without a notion of strength (Stop, Don't Move, Silence) omit magnitude
 
 The status type declares whether magnitude is meaningful, and how it's interpreted by its hooks. The application pipeline reads `defaultMagnitude` from the type when no value is supplied.
 
+### Amplifiable buffs (the Aura-Mastery surface) — read this when authoring a new buff
+
+S72 (ADR-0122) added a caster-side magnitude amplifier: the Enchanter's **Aura Mastery** support multiplies the magnitude of buffs the wielder *casts* by a factor K (1.33), via the `modifyOutgoingStatusMagnitude` hook fired at apply time. The amplification is **opt-in per status type**, with two fields on `StatusEffectType`:
+
+- `amplifiable?: boolean` — when `true`, this status participates in caster-side magnitude amplification. Default `false`.
+- `magnitudeKind?: 'additive' | 'multiplier'` — how the magnitude reads, so the amplifier scales it correctly:
+  - **`'additive'`** (default): magnitude is an additive/coefficient value — a damage-reduction % (Protect/Shell), a resistance bump, a crit bump, a heal coefficient (Regen). Amplified as `magnitude × K`.
+  - **`'multiplier'`**: magnitude multiplies a stat (Haste's Speed ×1.5). Amplified as `1 + (magnitude − 1) × K`, so K deepens the *bonus*, not the whole multiplier.
+
+**When you author a new status, decide whether it's amplifiable.** The rule of thumb:
+
+- **Flag it `amplifiable: true`** (with the right `magnitudeKind`) when its magnitude *is its effect strength* and a dedicated buffer should be able to deepen it — a damage multiplier, a heal/regen coefficient, a resistance or crit/evasion bump. These should "just work" with Aura-style supports without re-touching the support.
+- **Leave it unflagged** when: it's a flat stat *point* (PA/MA/Move/Jump Up — deliberately excluded so amplification doesn't inflate raw stats); it's a **reaction self-buff** or accumulator (Speed/Cornered/Combat Save, Updraft, Earthen Resolve, Resistance Save — the unit shouldn't amplify its own reaction gains); or it's the **equipment-grant variant** of a buff (the permanent `haste`/`protect`/`shell`/`regen_auto`/`mana_font` — equipment grants are gated out at the apply path anyway, and only the *cast* sibling is flagged).
+
+The flagged v1 set: `quickening` (cast Haste, multiplier), `protect_cast`, `shell_cast`, `regen` (cast), `engineered_defenses`, `crit_modifier` (all additive). Equipment grants apply with `sourceKind: 'equipment'`, which `applyStatus` excludes from amplification — so even a flagged type granted by gear is never boosted.
+
 ## Stacking rules
 
 When a status is applied to a unit that already has an instance of the same type, the type's `stackingRule` determines what happens. Per-type declaration; common rules:

@@ -54,6 +54,10 @@ export const engineeredDefenses: StatusEffectType = {
   stackingRule: 'STACK_INDEPENDENT',
   defaultMagnitude: 1,
   aiHints: { polarity: 'buff' },
+  // Aura Mastery amplifies cast Engineered Defenses (Calculator; ADR-0122).
+  // magnitude is the per-stack multiplier (additive kind): 1 → 1×K scales both
+  // the +resistance and +evasion per application.
+  amplifiable: true,
   hooks: [
     statusHook('modifyResistance', (args, ctx) => {
       if (!ELEMENTAL_TAGS.has(args.tag)) return args.baseValue;

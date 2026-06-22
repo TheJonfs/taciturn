@@ -80,6 +80,30 @@ export interface StatusEffectType {
   readonly durationMode: DurationMode;
   readonly stackingRule: StackingRule;
   readonly defaultMagnitude?: number;
+  // Buff-amplification opt-in (S72, ADR-0122). When `true`, a caster-side
+  // magnitude amplifier (the Enchanter's Aura Mastery support, via the
+  // `modifyOutgoingStatusMagnitude` hook) scales this status's magnitude by its
+  // factor K at apply time. Default `false` — most statuses are NOT amplifiable.
+  //
+  // AUTHORING NOTE — when adding a new status whose *strength* lives in its
+  // magnitude (a damage multiplier, a heal/regen coefficient, a resistance or
+  // crit bump — NOT a flat stat point like PA/MA/Move Up, and NOT a reaction
+  // self-buff or an equipment-grant variant), decide whether it should be
+  // amplifiable: if its `defaultMagnitude` represents "effect strength" that a
+  // dedicated buffer should be able to deepen, set `amplifiable: true` and the
+  // correct `magnitudeKind`. This keeps the Aura-style supports working on new
+  // content without re-touching the support. See docs/design/status-effects.md
+  // ("Amplifiable buffs").
+  readonly amplifiable?: boolean;
+  // How this status's `magnitude` reads, so an amplifier scales it correctly:
+  //   - 'additive' (default): magnitude is an additive/coefficient value
+  //     (resistance points, crit bump, a damage-reduction %, a regen
+  //     coefficient). Amplified as `magnitude × K`.
+  //   - 'multiplier': magnitude is a multiplier on a stat (Haste's Speed ×1.5).
+  //     Amplified as `1 + (magnitude − 1) × K` so K scales the *bonus*, not the
+  //     whole multiplier.
+  // Only consulted when `amplifiable` is true.
+  readonly magnitudeKind?: 'additive' | 'multiplier';
   readonly hooks: ReadonlyArray<StatusHookRegistration>;
   // AI-side metadata. See `StatusAiHints`.
   readonly aiHints?: StatusAiHints;

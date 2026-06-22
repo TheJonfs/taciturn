@@ -25,6 +25,8 @@
 //      stay instant.
 //   7. Float — water move-cost negation + fall-damage immunity, no elevation
 //      effect.
+//   8. Aura Mastery (ADR-0122) — the caster-side buff-magnitude amplifier (×1.33,
+//      kind-aware), flagged statuses only, equipment/unflagged applies excluded.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -532,5 +534,64 @@ describe('buff → steal loop (Enchanter buffs, Thief steals)', () => {
     // The buff left the ally and now rides the Thief.
     expect(s.units.get(unitId('ally'))!.statuses.some((i) => i.typeId === statusTypeId('quickening'))).toBe(false);
     expect(s.units.get(unitId('thief'))!.statuses.some((i) => i.typeId === statusTypeId('quickening'))).toBe(true);
+  });
+});
+
+// ===== Aura Mastery — buff amplifier (ADR-0122) =====
+
+describe('Aura Mastery (buff-magnitude amplifier, ×1.33)', () => {
+  const catalog = makeTestCatalog();
+
+  // Apply `typeId` from a caster (optionally carrying Aura Mastery) to a target;
+  // return the magnitude baked into the resulting instance.
+  function magOf(
+    typeId: ReturnType<typeof statusTypeId>,
+    opts: { aura: boolean; duration?: number; sourceKind?: 'unit' | 'equipment' },
+  ): number | undefined {
+    const caster = makeUnit({
+      id: 'caster',
+      spd: 10,
+      ...(opts.aura ? { loadout: passiveLoadout(bucketId('support'), [abilityId('aura_mastery')]) } : {}),
+    });
+    const target = makeUnit({ id: 'target', spd: 10 });
+    const applied = applyStatus(
+      makeGameState({ units: [caster, target] }),
+      {
+        targetId: target.id,
+        typeId,
+        sourceUnitId: caster.id,
+        sourceActionSeq: null,
+        ...(opts.duration !== undefined ? { duration: opts.duration } : {}),
+        ...(opts.sourceKind !== undefined ? { sourceKind: opts.sourceKind } : {}),
+      },
+      catalog,
+    ).newState;
+    return target_magnitude(applied, typeId);
+  }
+  function target_magnitude(
+    state: ReturnType<typeof makeGameState>,
+    typeId: ReturnType<typeof statusTypeId>,
+  ): number | undefined {
+    return state.units.get(unitId('target'))!.statuses.find((i) => i.typeId === typeId)?.magnitude;
+  }
+
+  it('scales additive-magnitude buffs by ×1.33', () => {
+    expect(magOf(statusTypeId('shell_cast'), { aura: true, duration: 6 })).toBeCloseTo(66.5);
+    expect(magOf(statusTypeId('protect_cast'), { aura: true, duration: 6 })).toBeCloseTo(66.5);
+    expect(magOf(statusTypeId('crit_modifier'), { aura: true })).toBeCloseTo(26.6);
+    expect(magOf(statusTypeId('engineered_defenses'), { aura: true })).toBeCloseTo(1.33);
+    expect(magOf(statusTypeId('regen'), { aura: true, duration: 6 })).toBeCloseTo(1.33);
+  });
+
+  it('scales a multiplier-magnitude buff (Haste) on its bonus: 1.5 → 1.665', () => {
+    expect(magOf(statusTypeId('quickening'), { aura: true, duration: 6 })).toBeCloseTo(1.665);
+  });
+
+  it('leaves non-amplifiable buffs, equipment-variant buffs, and equipment-source applies alone', () => {
+    expect(magOf(statusTypeId('pa_up'), { aura: true })).toBe(1); // flat stat-point buff — not flagged
+    expect(magOf(statusTypeId('haste'), { aura: true })).toBe(1.5); // equipment Haste variant — not flagged
+    expect(magOf(statusTypeId('shell_cast'), { aura: false, duration: 6 })).toBe(50); // no amplifier on caster
+    // Even a flagged status, applied via the equipment path, is gated out:
+    expect(magOf(statusTypeId('shell_cast'), { aura: true, duration: 6, sourceKind: 'equipment' })).toBe(50);
   });
 });

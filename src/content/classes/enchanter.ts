@@ -16,8 +16,9 @@
 // robes, wands/staves/books, mage headgear). All five equipment slots open.
 //
 // Innate kit (free; costed in the pool for others): Auramancy (First Action),
-// plus the three native R/S/M — Resistance Save (Reaction), Short Charge
-// (Support), Float (Movement).
+// plus the native R/S/M — Resistance Save (Reaction), two Supports (Short
+// Charge + Aura Mastery, the buff-amplifier), and Float (Movement). Support
+// capacity 3 fits Short Charge (1) + Aura Mastery (1) together.
 
 import {
   abilityId,
@@ -48,6 +49,7 @@ export const enchanter: ClassDefinition = {
     abilityId('attack'),
     abilityId('resistance_save'),
     abilityId('short_charge'),
+    abilityId('aura_mastery'),
     abilityId('float'),
   ]),
   dominantStat: 'ma',

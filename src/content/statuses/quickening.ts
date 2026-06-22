@@ -30,6 +30,10 @@ export const quickening: StatusEffectType = {
   stackingRule: 'REFRESH',
   defaultMagnitude: 1.5,
   aiHints: { polarity: 'buff' },
+  // Aura Mastery amplifies cast Haste (ADR-0122). magnitude is a Speed
+  // multiplier, so the amplifier scales the *bonus*: 1.5 → 1 + 0.5×K.
+  amplifiable: true,
+  magnitudeKind: 'multiplier',
   // Shares the Speed × magnitude hook with the equipment `haste` (see
   // haste.ts) — identical behavior, only the duration model differs.
   hooks: [hasteSpeedHook],

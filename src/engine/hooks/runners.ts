@@ -176,6 +176,39 @@ export function runModifyIncomingStatusApplicationChance(
   return value;
 }
 
+// Caster-side status-magnitude chain (S72, ADR-0122). Fires against the
+// caster's hooks at apply time; each handler returns the next-running
+// magnitude. Aura Mastery is the v1 consumer (scales `amplifiable` buffs by
+// K). Composition is multiplicative-by-convention (each handler multiplies),
+// but the chain itself just threads the running value.
+export function runModifyOutgoingStatusMagnitude(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    caster: Unit;
+    target: Unit;
+    statusType: StatusEffectType;
+    baseMagnitude: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(
+    state,
+    args.caster.id,
+    catalog,
+    'modifyOutgoingStatusMagnitude',
+  );
+  let value = args.baseMagnitude;
+  for (const h of handlers) {
+    value = h.invoke({
+      unit: args.caster,
+      target: args.target,
+      statusType: args.statusType,
+      baseMagnitude: value,
+    });
+  }
+  return value;
+}
+
 // Multiplicative chain over MP-cost modifiers. Handlers fire against the
 // caster's registrations. Each handler returns the next-running cost
 // (handler shape: `args.baseCost * factor`, mirroring modifyHitChance).

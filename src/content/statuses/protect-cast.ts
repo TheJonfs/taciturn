@@ -28,6 +28,9 @@ export const protectCast: StatusEffectType = {
   stackingRule: 'REFRESH',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
+  // Aura Mastery amplifies cast Protect (ADR-0122). magnitude is the % damage
+  // reduction (additive kind): 50 → 50×K, a deeper cut.
+  amplifiable: true,
   // Shares the physical-damage mitigation hook with the equipment `protect`
   // (see protect.ts) — identical behavior, only the duration differs.
   hooks: [protectMitigationHook],

@@ -26,6 +26,7 @@ import type { StatusApplicationResult } from './result.ts';
 import { fireOnApply, fireOnRemove } from './runners.ts';
 import {
   runModifyIncomingStatusDuration,
+  runModifyOutgoingStatusMagnitude,
   runModifyStatusApplicationStackCount,
 } from '../hooks/runners.ts';
 import { applyStackingRule } from './stacking.ts';
@@ -168,6 +169,22 @@ export function applyStatus(
     if (composed.stacks !== undefined) composedStacks = composed.stacks;
   }
 
+  // Caster-side magnitude amplification (S72, ADR-0122). Aura Mastery scales an
+  // `amplifiable` buff's magnitude at apply time. Gated to volitional,
+  // non-equipment applications with a real caster — equipment grants and
+  // system / source-less applies are never amplified. The scaled value is
+  // baked into the instance (so it persists, is stealable, etc.).
+  const baseMagnitude = args.magnitude ?? type.defaultMagnitude;
+  const amplifiedMagnitude =
+    baseMagnitude !== undefined && caster !== null && args.sourceKind !== 'equipment'
+      ? runModifyOutgoingStatusMagnitude(state, catalog, {
+          caster,
+          target: targetUnit,
+          statusType: type,
+          baseMagnitude,
+        })
+      : baseMagnitude;
+
   // 2/3. Build candidate instance (instantiation step). We always
   // construct it; the stacking rule decides whether it ends up on the
   // unit, refreshes an existing one, or is rejected.
@@ -175,6 +192,7 @@ export function applyStatus(
     customState: composedCustomState,
     stacks: composedStacks ?? (requestedStackQuantity > 1 ? requestedStackQuantity : undefined),
     duration: effectiveDuration,
+    magnitude: amplifiedMagnitude,
   });
 
   const dispatch = applyStackingRule(type, existingOfType, candidate);
@@ -227,6 +245,10 @@ interface CandidateOverrides {
   // The post-shave duration to instantiate with (Slip Free). Falls back to
   // `args.duration` when no incoming-duration hook modified it.
   readonly duration?: number | undefined;
+  // The post-amplification magnitude (Aura Mastery, ADR-0122). Falls back to
+  // `args.magnitude ?? type.defaultMagnitude` when no caster-side magnitude
+  // hook applied.
+  readonly magnitude?: number | undefined;
 }
 
 function buildCandidate(
@@ -235,7 +257,7 @@ function buildCandidate(
   overrides: CandidateOverrides,
 ): StatusInstance {
   const remainingDuration = computeInitialDuration(type, overrides.duration ?? args.duration);
-  const magnitude = args.magnitude ?? type.defaultMagnitude;
+  const magnitude = overrides.magnitude ?? args.magnitude ?? type.defaultMagnitude;
 
   const source: StatusInstanceSource = {
     unitId: args.sourceUnitId,

@@ -172,6 +172,7 @@ Reaction / Support / Movement passives are equipped through their respective R/S
 | `move_plus_2` | Move +2 | movement | 2 (Thief native — +2 moveRange) | `src/content/abilities/move-plus-2.ts` |
 | `resistance_save` | Resistance Save | reaction | 1 (S72 Enchanter native — +10 all-elem-res per magical hit, uncapped; Speed Save family) | `src/content/abilities/resistance-save.ts` |
 | `short_charge` | Short Charge | support | 1 (S72 Enchanter native — universal charged-action speed × 1.33 via `modifyActionSpeed`) | `src/content/abilities/short-charge.ts` |
+| `aura_mastery` | Aura Mastery | support | 1 (S72 Enchanter native — amplifies the magnitude of `amplifiable` cast buffs × 1.33 via `modifyOutgoingStatusMagnitude`; ADR-0122) | `src/content/abilities/aura-mastery.ts` |
 
 S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive without a class home; the `modifyEvasion` hook it introduced stays for equipment-side consumers). **S50 suppressed Damage Reduction** under the same "support without a class home" pattern — `damage_reduction` is now `'hidden'` (the catalog still resolves the id for historical action-log replays; the picker just doesn't surface it).
 
@@ -399,7 +400,7 @@ catalog totals.
 |---|---|---|
 | Classes | 13 | S72 `enchanter`; S62 `templar`; Thief `thief` |
 | Command sets | 15 | S72 `auramancy`; S62 `templar_arts`; Thief `thief_arts` |
-| Abilities (active + passive + hidden) | 110 | S72 +6 (`enchant_haste/protect/shell`, `esuna`, `resistance_save`, `short_charge`; `float` revived, already counted) |
+| Abilities (active + passive + hidden) | 111 | S72 +7 (`enchant_haste/protect/shell`, `esuna`, `resistance_save`, `short_charge`, `aura_mastery`; `float` revived, already counted) |
 | Status types | 39 | S72 +4 (`quickening`, `protect_cast`, `shell_cast`, `resistance_save`); S65 `mana_font` |
 | Equipment + consumables | 77 | S68 +4 (`vicious_dagger`, `scimitar`, `wand_of_potential`, `gauntlet_of_might`) |
 | Rulesets | 1 | — |

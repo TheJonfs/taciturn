@@ -44,6 +44,24 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 72 follow-up — Aura Mastery (new Enchanter Support) (2026-06-22)
+
+Commits: see the Aura Mastery commit. ADR-0122.
+
+- **New Support: Aura Mastery** — the Enchanter's second native Support (free for
+  the Enchanter; costs 1 for any class that equips it). **The buffs you *cast*
+  land ~33% stronger.** It deepens: Haste, Protect, Shell (the Enchanter's
+  Auramancy), **Regen** (the Geosage's Life from the Loam), **Engineered
+  Defenses** (the Calculator), and the **Crit boost** from Static Embrace.
+  - Concretely at the default: Protect/Shell go from halving damage to cutting
+    ~⅔ of it; Haste goes from ×1.5 to ~×1.67 Speed; Regen / Engineered Defenses /
+    Crit Modifier all land ~33% bigger.
+  - **Only your spell-cast buffs.** Buffs granted by equipment (Boots of Haste,
+    Sorcerer's Robe, the Circlet, etc.) and flat stat boosts (PA/MA/Move/Jump Up,
+    the on-hit "Save" buffs) are **not** affected.
+  - With Support capacity 3, an Enchanter can run **Short Charge *and* Aura
+    Mastery** together — faster *and* stronger auras.
+
 ## Session 72 follow-up — Protect & Shell now halve damage (2026-06-22)
 
 Commits: see the Protect/Shell rework commit. ADR-0121. Affects **every** source

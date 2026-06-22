@@ -28,6 +28,9 @@ export const critModifier: StatusEffectType = {
   stackingRule: 'STACK_INDEPENDENT',
   defaultMagnitude: 20,
   aiHints: { polarity: 'buff' },
+  // Aura Mastery amplifies cast Crit Modifier (Static Embrace; ADR-0122).
+  // magnitude is an additive crit_chance bump: 20 → 20×K.
+  amplifiable: true,
   hooks: [
     statusHook('modifyStatQuery', (args, ctx) => {
       if (args.statName !== 'crit_chance') return args.baseValue;

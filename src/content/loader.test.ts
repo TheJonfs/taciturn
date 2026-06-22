@@ -215,8 +215,10 @@ describe('loadDefaultCatalog', () => {
     // Session 72 (Enchanter chunk 3 — class wiring):
     //   - classes: 12 → 13 (enchanter)
     //   - commandSets: 14 → 15 (auramancy)
+    // Session 72 (Aura Mastery — 2nd Enchanter Support, ADR-0122):
+    //   - abilities: 110 → 111 (aura_mastery)
     expect(cat.statusTypes()).toHaveLength(39);
-    expect(cat.abilities()).toHaveLength(110);
+    expect(cat.abilities()).toHaveLength(111);
     expect(cat.commandSets()).toHaveLength(15);
     expect(cat.classes()).toHaveLength(13);
     expect(cat.items()).toHaveLength(77);
