@@ -39,6 +39,10 @@ import { discharge } from './discharge.ts';
 import { dischargeStrike } from './discharge-strike.ts';
 import { earthBlessing } from './earth-blessing.ts';
 import { earthCataclysm } from './earth-cataclysm.ts';
+import { enchantHaste } from './enchant-haste.ts';
+import { enchantProtect } from './enchant-protect.ts';
+import { enchantShell } from './enchant-shell.ts';
+import { esuna } from './esuna.ts';
 import { earthCommunion } from './earth-communion.ts';
 import { earthCurse } from './earth-curse.ts';
 import { earthQuake } from './earth-quake.ts';
@@ -130,6 +134,10 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   dischargeStrike,
   earthBlessing,
   earthCataclysm,
+  enchantHaste,
+  enchantProtect,
+  enchantShell,
+  esuna,
   earthCommunion,
   earthCurse,
   earthQuake,

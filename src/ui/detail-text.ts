@@ -161,6 +161,14 @@ const ACTIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('steal_mp'), 'Drain PA × 3 MP from the target and recover half of what was actually taken — no free MP off a near-empty target. Uses the equipped weapon’s range; evadable.'],
   [abilityId('steal_buffs'), 'Strip every positive status off the target and apply them all to yourself. Chance scales with PA and your Brave minus theirs (base 33%).'],
   [abilityId('steal_heart'), 'Charm an enemy of the opposite gender for 3 turns — you control them while it lasts. Low chance scaling with PA and Brave (base 10%); any damage they take has a 50% chance to snap them out early.'],
+  // S72 — Auramancy (Enchanter). The three buffs share a chance (~90% on a
+  // normal-Faith ally, climbing with MA, dropping hard on low-Faith allies);
+  // friendly fire is on, so the diamond also catches the caster and any enemy
+  // standing in it. Each buff lasts ~6 of the target's turns, then fades.
+  [abilityId('enchant_haste'), 'Buff a 1-square diamond with Haste (Speed ×1.5) for several turns. ~90% to land on a normal-Faith ally — higher with more MA, lower on faithless allies. Friendly fire: also buffs you and any enemy in the area.'],
+  [abilityId('enchant_protect'), 'Buff a 1-square diamond with Protect (half incoming physical damage) for several turns. ~90% to land on a normal-Faith ally, scaling with MA / target Faith. Friendly fire: also buffs you and any enemy in the area.'],
+  [abilityId('enchant_shell'), 'Buff a 1-square diamond with Shell (half incoming magical damage) for several turns. ~90% to land on a normal-Faith ally, scaling with MA / target Faith. Friendly fire: also buffs you and any enemy in the area.'],
+  [abilityId('esuna'), 'Cleanse a 1-square diamond — strip every ailment (Poison, Blind, Silence, Stop, Don’t Act/Move, Slow, Burn…) from each unit. Always works; ignores Faith. Leaves committed stat-downs (PA/MA Down, etc.) alone. Friendly fire: also cleanses you and any enemy in the area.'],
 ]);
 
 // Tiny formatting helpers — kept inline rather than a regex zoo so the

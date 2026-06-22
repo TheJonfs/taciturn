@@ -200,8 +200,14 @@ describe('loadDefaultCatalog', () => {
     //     gauntlet_of_might)
     // Session 68 (Vantage) — the Hunter's 2nd Support:
     //   - abilities: 103 → 104 (vantage — offensive elevation +2, ADR-0115)
-    expect(cat.statusTypes()).toHaveLength(35);
-    expect(cat.abilities()).toHaveLength(104);
+    // Session 72 (Enchanter chunk 1 — Auramancy actives):
+    //   - abilities: 104 → 108 (enchant_haste, enchant_protect, enchant_shell,
+    //     esuna; the auramancy command set + enchanter class land in chunk 3)
+    //   - statusTypes: 35 → 38 (quickening, protect_cast, shell_cast — the
+    //     timed cast forms of Haste / Protect / Shell, sibling to the permanent
+    //     equipment-grant statuses)
+    expect(cat.statusTypes()).toHaveLength(38);
+    expect(cat.abilities()).toHaveLength(108);
     expect(cat.commandSets()).toHaveLength(14);
     expect(cat.classes()).toHaveLength(12);
     expect(cat.items()).toHaveLength(77);

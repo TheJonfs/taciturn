@@ -447,6 +447,18 @@ export type WorldcraftEffectSpec =
 
 export interface AbilityEffects {
   readonly statusEffects?: ReadonlyArray<StatusEffectSpec>;
+  // Status cleanse (S72, Enchanter's Esuna). The ability-level counterpart
+  // to the Remedy consumable's `clearStatuses`: removes every status whose
+  // polarity is not 'buff' from the (per-)target — 100% and Faith-
+  // independent (removal, not application — you don't "miss" a cleanse).
+  // Mirrors the consumable path exactly (`resolveAbilityEffect`):
+  // equipment-sourced instances are immune (they belong to the gear), and
+  // `remedyImmune` stat-down debuffs (PA/MA/Brave/Faith/Speed Down) opt out
+  // — so Esuna and Remedy cleanse the same set. Fires per affected unit
+  // when paired with `aoe`. `polarity: 'debuff'` is the only v1 kind
+  // (parallel to ConsumableStatusClearSpec); a future "strip buffs"
+  // variant would add a kind here.
+  readonly cleanse?: { readonly polarity: 'debuff' };
   // MP-drain effect (Thief — Steal MP). Drains `floor(coefficient ×
   // caster_PA)` MP from the primary target and restores
   // `floor(restorePercent/100 × MP actually removed)` to the caster — keyed

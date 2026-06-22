@@ -1215,6 +1215,37 @@ function resolveAbilityEffect(
     }
   }
 
+  // Esuna-style cleanse (S72, Enchanter). The removal counterpart to status
+  // application — 100% and Faith-independent (you don't "miss" a cleanse).
+  // Walk the (live) target's statuses and remove every non-buff instance,
+  // mirroring the Remedy consumable's debuff-clear exactly: equipment-sourced
+  // instances are immune (skipped by `removeStatus` and here), and
+  // `remedyImmune` stat-down debuffs opt out — so Esuna and Remedy cleanse
+  // the same set. Snapshot the type ids first (removeStatus mutates the
+  // unit reference, so re-reading mid-loop is unsafe). Fires per affected
+  // unit in an AoE (this body runs once per target).
+  if (args.ability.effects.cleanse !== undefined && args.targetUnit !== null && !targetKO) {
+    const cleanseTargetId = args.targetUnit.id;
+    const liveCleanseTarget = workingState.units.get(cleanseTargetId);
+    if (liveCleanseTarget !== undefined) {
+      const typeIdsToClear = new Set<StatusTypeId>();
+      for (const inst of liveCleanseTarget.statuses) {
+        if (inst.source.kind === 'equipment') continue;
+        const type = catalog.getStatusType(inst.typeId);
+        if (type.remedyImmune === true) continue;
+        const polarity = type.aiHints?.polarity ?? 'debuff';
+        if (polarity !== 'buff') typeIdsToClear.add(inst.typeId);
+      }
+      for (const typeId of typeIdsToClear) {
+        workingState = removeStatus(
+          workingState,
+          { targetId: cleanseTargetId, typeId },
+          catalog,
+        ).newState;
+      }
+    }
+  }
+
   // Steal Buffs (Thief). A contest (the additive Brave/PA form) followed by
   // a strip-and-transfer: on success, every positive-polarity, non-equipment
   // status leaves the target and lands on the caster, preserving each

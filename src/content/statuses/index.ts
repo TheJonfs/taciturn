@@ -22,9 +22,12 @@ import { paDown } from './pa-down.ts';
 import { paUp } from './pa-up.ts';
 import { poison } from './poison.ts';
 import { protect } from './protect.ts';
+import { protectCast } from './protect-cast.ts';
+import { quickening } from './quickening.ts';
 import { regen } from './regen.ts';
 import { regenAuto } from './regen-auto.ts';
 import { shell } from './shell.ts';
+import { shellCast } from './shell-cast.ts';
 import { silence } from './silence.ts';
 import { slow } from './slow.ts';
 import { speedDown } from './speed-down.ts';
@@ -59,9 +62,12 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   paUp,
   poison,
   protect,
+  protectCast,
+  quickening,
   regen,
   regenAuto,
   shell,
+  shellCast,
   silence,
   slow,
   speedDown,

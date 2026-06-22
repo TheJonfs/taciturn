@@ -1,0 +1,37 @@
+// Protect (cast) — the timed form of Protect. Display name "Protect":
+// the player sees "Protect" whether it came from future Knight armor
+// (the permanent `protect` status, equipment lifecycle) or the
+// Enchanter's Auramancy cast (this status, timed). Same `modifyResistance`
+// handler (+magnitude physical resistance); the only difference from
+// `protect` is `per_unit_ct` duration so the buff expires.
+//
+// Authored as a separate type per the steer in `protect.ts` ("a future
+// cast-Protect spell follows the same `protect_cast` (per_unit_ct,
+// 6-tick default, REFRESH) pattern as Shell"). magnitude 50 ⇒ ((100−50)
+// /100) = 0.5× incoming physical, composed via signedMax against any
+// native resistance.
+//
+// Stealable (`aiHints.polarity: 'buff'`, non-equipment) for the Thief's
+// Steal Buffs loop (S72). `dispellable` for future dispel content.
+//
+// Balance note (S72 watch-for): reliable physical damage reduction shifts
+// time-to-kill across the roster — flagged for the playtest pile.
+
+import { statusHook, statusTypeId, type StatusEffectType } from '@engine/index.ts';
+
+export const protectCast: StatusEffectType = {
+  id: statusTypeId('protect_cast'),
+  name: 'Protect',
+  tags: ['positive', 'dispellable'],
+  durationMode: 'per_unit_ct',
+  stackingRule: 'REFRESH',
+  defaultMagnitude: 50,
+  aiHints: { polarity: 'buff' },
+  hooks: [
+    statusHook('modifyResistance', (args, ctx) => {
+      if (args.tag !== 'physical') return args.baseValue;
+      const magnitude = ctx.instance.magnitude ?? 0;
+      return args.baseValue + magnitude;
+    }),
+  ],
+};

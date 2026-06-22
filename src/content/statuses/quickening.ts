@@ -1,0 +1,39 @@
+// Quickening — the cast (timed) form of Haste. Display name "Haste":
+// the player sees "Haste" whether it came from Boots of Haste (the
+// permanent `haste` status, equipment lifecycle) or from the Enchanter's
+// Auramancy cast (this status, timed). Same single `modifyStatQuery`
+// handler (Speed × magnitude); the only difference from `haste` is the
+// duration model — `per_unit_ct` so the buff ticks down on the
+// recipient's CT cadence and expires, giving the Enchanter recurring
+// work re-applying it.
+//
+// Authored as a separate type per the steer in `haste.ts` ("when a
+// timed-Haste ability lands later, the right shape is a separate status
+// type (e.g., `quickening`) ... rather than retroactively re-typing this
+// one"). With both active on a unit, `computeSpeed`'s composition is
+// last-writer / max per the stat-query chain — a cast Quickening and an
+// equipment Haste don't double-multiply Speed in v1 content (no unit
+// carries both today; flagged if a future build pairs them).
+//
+// Stealable: `aiHints.polarity: 'buff'` + non-equipment source means the
+// Thief's Steal Buffs lifts it (the buff-economy loop, S72). `dispellable`
+// tags it for future dispel content.
+
+import { statusHook, statusTypeId, type StatusEffectType } from '@engine/index.ts';
+
+export const quickening: StatusEffectType = {
+  id: statusTypeId('quickening'),
+  name: 'Haste',
+  tags: ['positive', 'time', 'dispellable'],
+  durationMode: 'per_unit_ct',
+  stackingRule: 'REFRESH',
+  defaultMagnitude: 1.5,
+  aiHints: { polarity: 'buff' },
+  hooks: [
+    statusHook('modifyStatQuery', (args, ctx) => {
+      if (args.statName !== 'spd') return args.baseValue;
+      const multiplier = ctx.instance.magnitude ?? 1;
+      return args.baseValue * multiplier;
+    }),
+  ],
+};
