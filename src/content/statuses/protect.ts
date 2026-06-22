@@ -12,7 +12,27 @@
 // spell follows the same `protect_cast` (per_unit_ct, 6-tick default,
 // REFRESH) pattern as Shell.
 
-import { statusHook, statusTypeId, type StatusEffectType } from '@engine/index.ts';
+import {
+  statusHook,
+  statusTypeId,
+  type StatusEffectType,
+  type StatusHookRegistration,
+} from '@engine/index.ts';
+
+// The Protect behavior — additive `magnitude` to physical resistance — lives
+// here once and is shared by the equipment-grant `protect` (permanent) and
+// the cast `protect_cast` (timed) siblings, so Protect behaves identically
+// regardless of source (the regen / regen_auto pattern). Additive (not a 0.5×
+// multiplier) by design: it composes with native resistance via signedMax and
+// can push a tag past 100 (→ immune, or absorption once that ships).
+export const protectResistanceHook: StatusHookRegistration = statusHook(
+  'modifyResistance',
+  (args, ctx) => {
+    if (args.tag !== 'physical') return args.baseValue;
+    const magnitude = ctx.instance.magnitude ?? 0;
+    return args.baseValue + magnitude;
+  },
+);
 
 export const protect: StatusEffectType = {
   id: statusTypeId('protect'),
@@ -22,11 +42,5 @@ export const protect: StatusEffectType = {
   stackingRule: 'REFRESH',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
-  hooks: [
-    statusHook('modifyResistance', (args, ctx) => {
-      if (args.tag !== 'physical') return args.baseValue;
-      const magnitude = ctx.instance.magnitude ?? 0;
-      return args.baseValue + magnitude;
-    }),
-  ],
+  hooks: [protectResistanceHook],
 };

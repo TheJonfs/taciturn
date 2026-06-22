@@ -17,7 +17,8 @@
 // Balance note (S72 watch-for): reliable physical damage reduction shifts
 // time-to-kill across the roster — flagged for the playtest pile.
 
-import { statusHook, statusTypeId, type StatusEffectType } from '@engine/index.ts';
+import { statusTypeId, type StatusEffectType } from '@engine/index.ts';
+import { protectResistanceHook } from './protect.ts';
 
 export const protectCast: StatusEffectType = {
   id: statusTypeId('protect_cast'),
@@ -27,11 +28,7 @@ export const protectCast: StatusEffectType = {
   stackingRule: 'REFRESH',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
-  hooks: [
-    statusHook('modifyResistance', (args, ctx) => {
-      if (args.tag !== 'physical') return args.baseValue;
-      const magnitude = ctx.instance.magnitude ?? 0;
-      return args.baseValue + magnitude;
-    }),
-  ],
+  // Shares the +magnitude physical-resistance hook with the equipment
+  // `protect` (see protect.ts) — identical behavior, only the duration differs.
+  hooks: [protectResistanceHook],
 };

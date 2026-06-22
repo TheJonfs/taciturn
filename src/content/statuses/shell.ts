@@ -23,7 +23,29 @@
 // Robe's grant lands at battle start regardless of the wearer's
 // resistance map.
 
-import { statusHook, statusTypeId, type StatusEffectType } from '@engine/index.ts';
+import {
+  statusHook,
+  statusTypeId,
+  type StatusEffectType,
+  type StatusHookRegistration,
+} from '@engine/index.ts';
+
+// The Shell behavior — additive `magnitude` to magical resistance — lives here
+// once and is shared by the equipment-grant `shell` (permanent) and the cast
+// `shell_cast` (timed) siblings, so Shell behaves identically regardless of
+// source (the regen / regen_auto pattern). Additive (not a 0.5× multiplier) by
+// design: it composes with native resistance via signedMax and can push the
+// magical tag past 100 (→ immune, or absorption once that ships). Gates on the
+// `'magical'` tag, which every elemental spell also carries, so the +50 covers
+// all magic damage.
+export const shellResistanceHook: StatusHookRegistration = statusHook(
+  'modifyResistance',
+  (args, ctx) => {
+    if (args.tag !== 'magical') return args.baseValue;
+    const magnitude = ctx.instance.magnitude ?? 0;
+    return args.baseValue + magnitude;
+  },
+);
 
 export const shell: StatusEffectType = {
   id: statusTypeId('shell'),
@@ -33,11 +55,5 @@ export const shell: StatusEffectType = {
   stackingRule: 'REFRESH',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
-  hooks: [
-    statusHook('modifyResistance', (args, ctx) => {
-      if (args.tag !== 'magical') return args.baseValue;
-      const magnitude = ctx.instance.magnitude ?? 0;
-      return args.baseValue + magnitude;
-    }),
-  ],
+  hooks: [shellResistanceHook],
 };

@@ -14,7 +14,26 @@
 // status type (e.g., `quickening`) with a duration-counted mode rather
 // than retroactively re-typing this one.
 
-import { statusHook, statusTypeId, type StatusEffectType } from '@engine/index.ts';
+import {
+  statusHook,
+  statusTypeId,
+  type StatusEffectType,
+  type StatusHookRegistration,
+} from '@engine/index.ts';
+
+// The Haste behavior — Speed × magnitude — lives here once and is shared by
+// the equipment-grant `haste` (permanent) and the cast `quickening` (timed)
+// siblings, so "Haste behaves the same regardless of source" holds by
+// construction (the regen / regen_auto pattern). The two types differ only in
+// id, durationMode, and (eventually) the amplifiable flag.
+export const hasteSpeedHook: StatusHookRegistration = statusHook(
+  'modifyStatQuery',
+  (args, ctx) => {
+    if (args.statName !== 'spd') return args.baseValue;
+    const multiplier = ctx.instance.magnitude ?? 1;
+    return args.baseValue * multiplier;
+  },
+);
 
 export const haste: StatusEffectType = {
   id: statusTypeId('haste'),
@@ -24,11 +43,5 @@ export const haste: StatusEffectType = {
   stackingRule: 'REFRESH',
   defaultMagnitude: 1.5,
   aiHints: { polarity: 'buff' },
-  hooks: [
-    statusHook('modifyStatQuery', (args, ctx) => {
-      if (args.statName !== 'spd') return args.baseValue;
-      const multiplier = ctx.instance.magnitude ?? 1;
-      return args.baseValue * multiplier;
-    }),
-  ],
+  hooks: [hasteSpeedHook],
 };

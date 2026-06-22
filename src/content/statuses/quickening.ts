@@ -19,7 +19,8 @@
 // Thief's Steal Buffs lifts it (the buff-economy loop, S72). `dispellable`
 // tags it for future dispel content.
 
-import { statusHook, statusTypeId, type StatusEffectType } from '@engine/index.ts';
+import { statusTypeId, type StatusEffectType } from '@engine/index.ts';
+import { hasteSpeedHook } from './haste.ts';
 
 export const quickening: StatusEffectType = {
   id: statusTypeId('quickening'),
@@ -29,11 +30,7 @@ export const quickening: StatusEffectType = {
   stackingRule: 'REFRESH',
   defaultMagnitude: 1.5,
   aiHints: { polarity: 'buff' },
-  hooks: [
-    statusHook('modifyStatQuery', (args, ctx) => {
-      if (args.statName !== 'spd') return args.baseValue;
-      const multiplier = ctx.instance.magnitude ?? 1;
-      return args.baseValue * multiplier;
-    }),
-  ],
+  // Shares the Speed × magnitude hook with the equipment `haste` (see
+  // haste.ts) — identical behavior, only the duration model differs.
+  hooks: [hasteSpeedHook],
 };

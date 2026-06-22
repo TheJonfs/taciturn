@@ -18,7 +18,8 @@
 // Balance note (S72 watch-for): reliable magical damage reduction shifts
 // time-to-kill — flagged for the playtest pile.
 
-import { statusHook, statusTypeId, type StatusEffectType } from '@engine/index.ts';
+import { statusTypeId, type StatusEffectType } from '@engine/index.ts';
+import { shellResistanceHook } from './shell.ts';
 
 export const shellCast: StatusEffectType = {
   id: statusTypeId('shell_cast'),
@@ -28,11 +29,7 @@ export const shellCast: StatusEffectType = {
   stackingRule: 'REFRESH',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
-  hooks: [
-    statusHook('modifyResistance', (args, ctx) => {
-      if (args.tag !== 'magical') return args.baseValue;
-      const magnitude = ctx.instance.magnitude ?? 0;
-      return args.baseValue + magnitude;
-    }),
-  ],
+  // Shares the +magnitude magical-resistance hook with the equipment `shell`
+  // (see shell.ts) — identical behavior, only the duration differs.
+  hooks: [shellResistanceHook],
 };
