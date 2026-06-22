@@ -59,8 +59,9 @@ engagement.`,
 Physical Attack times weapon, *doubled* with a Lance in hand. It
 reaches far and high, striking perched foes melee cannot. The mark may
 dodge by leaving the tile; the higher her Speed, the less time she
-gives them to.`,
-      compact: 'Off-field leap: untargetable while airborne, then PA × WP on a tile (×2 with a Lance). Dodgeable by moving.',
+gives them to. Committing the leap spends her Move for the turn — she
+cannot Jump and also walk.`,
+      compact: 'Off-field leap: untargetable while airborne, then PA × WP on a tile (×2 with a Lance). Dodgeable by moving. Spends the turn’s Move.',
     },
     emissary: {
       full: `All the mending she works lands a quarter heavier — her

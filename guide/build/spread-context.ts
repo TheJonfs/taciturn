@@ -27,6 +27,7 @@ import lightningMagePortraitUrl from '../art/lightning_mage_1.png';
 import templarPortraitUrl from '../art/templar_1.png';
 import terraformerPortraitUrl from '../art/terraformer_1.png';
 import thiefPortraitUrl from '../art/thief_1.png';
+import enchanterPortraitUrl from '../art/enchantress_1.png';
 
 // Prefer a provided raster seal (art/seal.png) over the inline SVG.
 // import.meta.glob resolves to {} when the file is absent.
@@ -50,7 +51,8 @@ export type ElementId =
   | 'lightning'
   | 'templar'
   | 'terraformer'
-  | 'thief';
+  | 'thief'
+  | 'enchanter';
 
 interface ClassMeta {
   readonly element: ElementId;
@@ -72,6 +74,9 @@ interface ClassMeta {
 // book. The Thief's is dusty coral-rose (the heart motif of her vest
 // and Steal Heart), a warm register no other spread occupies — distinct
 // from the Alchemist's brass and the Fire Mage's red by its pink cast.
+// The Enchanter's is jewel emerald / viridian — a richer, bluer green
+// than the Geosage's olive and the Hunter's forest, reading as the
+// gemstone-bright aura-caster (the Enchantress) rather than any element.
 // The elemental wheel's four hues finish the set.
 const CLASS_META: Record<string, ClassMeta> = {
   knight: { element: 'knight', portraitUrl: knightPortraitUrl },
@@ -86,6 +91,7 @@ const CLASS_META: Record<string, ClassMeta> = {
   templar: { element: 'templar', portraitUrl: templarPortraitUrl },
   terraformer: { element: 'terraformer', portraitUrl: terraformerPortraitUrl },
   thief: { element: 'thief', portraitUrl: thiefPortraitUrl },
+  enchanter: { element: 'enchanter', portraitUrl: enchanterPortraitUrl },
 };
 
 /** Everything a variant template needs to render one class spread. */
@@ -138,7 +144,7 @@ export function spreadContextFor(id: ClassId): SpreadContext {
 }
 
 /**
- * The nine classes, in handbook order — alphabetical by display name.
+ * The thirteen classes, in handbook order — alphabetical by display name.
  * The order is intentionally not grouped by physical/magical or by
  * pedagogical sequence; a reader looking for a discipline finds it by
  * name and the alphabet, and any in-spread cross-references mention the
@@ -149,6 +155,7 @@ export function spreadContextFor(id: ClassId): SpreadContext {
  *   Alchemist      → alchemist
  *   Assassin       → assassin
  *   Calculator     → calculator
+ *   Enchanter      → enchanter
  *   Geosage        → earth_mage
  *   Hunter         → hunter
  *   Hydrologist    → water_mage
@@ -163,6 +170,7 @@ export const SPREAD_ORDER: ReadonlyArray<ClassId> = [
   classId('alchemist'),
   classId('assassin'),
   classId('calculator'),
+  classId('enchanter'),
   classId('earth_mage'),     // Geosage
   classId('hunter'),
   classId('water_mage'),     // Hydrologist

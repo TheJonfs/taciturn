@@ -15,6 +15,7 @@ import { lightningMageProse } from './lightning-mage.ts';
 import { templarProse } from './templar.ts';
 import { terraformerProse } from './terraformer.ts';
 import { thiefProse } from './thief.ts';
+import { enchanterProse } from './enchanter.ts';
 
 export const classProse: Record<string, ClassProse> = {
   knight: knightProse,
@@ -29,4 +30,5 @@ export const classProse: Record<string, ClassProse> = {
   templar: templarProse,
   terraformer: terraformerProse,
   thief: thiefProse,
+  enchanter: enchanterProse,
 };

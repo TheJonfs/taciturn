@@ -93,6 +93,7 @@ const MAGICAL_ANCHOR_IDS = new Set([
   'lightning_mage',
   'calculator',
   'terraformer',
+  'enchanter',
 ]);
 
 const TIER_LABELS: Record<GearTier, string> = {

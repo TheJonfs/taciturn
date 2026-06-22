@@ -74,23 +74,25 @@ preview.`,
     },
     exact_rhythm: {
       full: `Every matching cadet's CT pushed backward — a
-deterministic shove, magnitude scaled to the Calculator's Faith and
-Magical Attack. Caught on three enemy clocks, an opponent loses a
-turn she had counted on.`,
-      compact: 'Pushes each matching cadet’s CT backward — Faith × MA scaled. The Calculator’s tempo cut.',
+deterministic shove, its magnitude scaled now to Magical Attack alone
+(the Faith term is gone), and a heavier push than it once was. Caught
+on three enemy clocks, an opponent loses a turn she had counted on.`,
+      compact: 'Pushes each matching cadet’s CT backward — MA-scaled now (no Faith), and heavier for it. The Calculator’s tempo cut.',
     },
     sculpted_enhancement: {
-      full: `A half-chance per matching cadet to land *PA Up* + *MA
-Up* together (linked roll). Twice on the parameter that catches her
-own line, the team strikes measurably sharper on both arms.`,
-      compact: 'Half chance to apply +PA + +MA (linked) per matching cadet. Pick a parameter that catches your team, not theirs.',
+      full: `A chance per matching cadet — climbing with her Magical
+Attack — to land *PA Up* + *MA Up* together (linked roll). Twice on
+the parameter that catches her own line, the team strikes measurably
+sharper on both arms.`,
+      compact: 'Chance per matching cadet (MA-scaled, no Faith) to apply +PA + +MA (linked). Pick a parameter that catches your team, not theirs.',
     },
     engineered_defenses: {
       full: `The defensive twin, and the Math the Calculator most
-often opens with. Four-in-five per matching cadet to apply
-*Engineered Defenses* — permanent +resist at every element, +evasion
-at every facing. Stacks across casts.`,
-      compact: 'Four-in-five chance per cadet to apply +elemental resists + +evade. Stacks across casts.',
+often opens with. A strong chance per matching cadet — the surer the
+higher her Magical Attack — to apply *Engineered Defenses*: permanent
++resist at every element, +evasion at every facing. Stacks across
+casts.`,
+      compact: 'Strong chance per cadet (MA-scaled, no Faith) to apply +elemental resists + +evade. Stacks across casts.',
     },
     cornered_focus: {
       full: `A blow on the Calculator sharpens her *Magical Attack* —

@@ -81,7 +81,7 @@ export function tableOfContents(): string {
 // the roster grows.
 const NUMBER_WORDS = [
   'zero', 'one', 'two', 'three', 'four', 'five', 'six',
-  'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+  'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen',
 ];
 function numberWord(n: number): string {
   return NUMBER_WORDS[n] ?? String(n);
@@ -114,8 +114,9 @@ export function specializationsHalfTitle(): string {
         Mages, who answer it with their art, the Calculator, who
         answers it with her arithmetic, the Templar, who answers it with
         mending and the holy leap, the Terraformer, who answers it by
-        remaking the ground beneath them all, and the Thief, who answers
-        it by taking what the others rely upon. The spreads are arranged
+        remaking the ground beneath them all, the Enchanter, who answers
+        it by strengthening those who fight beside her, and the Thief, who
+        answers it by taking what the others rely upon. The spreads are arranged
         alphabetically; each is the same in form — stats imported from
         the Academy&rsquo;s records, the full repertoire annotated, the
         instructor&rsquo;s counsel at the close. Read in the order they

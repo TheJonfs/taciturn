@@ -163,6 +163,18 @@
   --band-label: #e6bcc0;
 }
 
+/* The Enchanter's palette is jewel emerald / viridian — a gemstone-bright
+   green accent over a deep forest-jade stat band, with a pale mint label.
+   Richer and bluer than the Geosage's olive (#516b30) and the Hunter's
+   darker forest (#2d5641), so the three greens read as distinct
+   disciplines on a flip-through — the aura-caster's gemstone glow rather
+   than any earth or wood. */
+.v-e--enchanter {
+  --accent: #1f6b54;
+  --band: #154a3a;
+  --band-label: #a9d8c4;
+}
+
 .v-e .spread__verso {
   position: relative;
 }

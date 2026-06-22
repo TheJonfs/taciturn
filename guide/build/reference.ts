@@ -185,9 +185,13 @@ const PASSIVE_EFFECTS: Record<string, string> = {
   slip_free: 'On a timed debuff applied to self: advance its duration 1 tick (Brave-gated); a 1-turn debuff is shrugged off entirely',
   momentum: '+CT after any non-magical action (basic Attack included); Move and Wait do not refund',
   move_plus_2: '+2 Move Range',
+  // Enchanter (ADR-0120/0122).
+  resistance_save: 'On taking magical damage: +10 to every elemental resistance, accumulating & permanent (uncapped; persists through KO)',
+  short_charge: 'Your charged spells resolve ~33% sooner (×1.33 action speed); any class, any charged ability; instants unaffected',
+  aura_mastery: 'The buffs you *cast* land ~33% stronger (Haste/Protect/Shell, Regen, Engineered Defenses, Crit Modifier). Not equipment-granted buffs or flat stat-point buffs',
   // Generic / cross-class movement.
   move_plus_1: '+1 Move Range',
-  float: 'Every terrain move cost flattened to min(cost, 1)',
+  float: 'Cross shallow & deep water at no extra move cost, and take no fall damage. No flight / elevation change (Enchanter, revived S72)',
   fly: 'Flying movement — ignores jump/adjacency constraints (terrain costs & canEnter still apply)',
 };
 
@@ -268,6 +272,7 @@ function systemConstants(): string {
     '**Crit**: roll `crit_chance/100`; on hit append `× crit_multiplier`, layered on top of every other multiplier (variance, resistance, Vulnerable…). Healing never crits. — `critRoll`.',
     '**Evasion**: physical attacks roll against the facing-appropriate evasion% (front / side / back); `evasionFactor = 1 − evasionPct/100`. Magical attacks ignore evasion. — `evasionCheck`.',
     '**Line of sight** (straight-line / `straight_line` attacks): blocked by an interposed unit, a barrier, *or terrain rising above the caster→target sightline*. The attacker\'s elevation raises the sightline (earned high ground, or Vantage\'s +2), so height sees over a ridge that blocks a ground-level caster. Lobbed/`arc` attacks (bows, Rock Toss, Earthquake, Cataclysm, Tidal Wave, Maelstrom, Discharge Strike) ignore cover but are blocked by terrain rising >5 above the higher of caster/target. — ADR-0117 (refines ADR-0097).',
+    '**Protect / Shell**: directional ×0.5 incoming-damage multipliers applied *after* resistance (Protect halves physical, Shell halves magical) — they stack with resistance rather than competing, and never touch damage you *absorb* (resistance >100). Sources: Enchanter casts (amplifiable by Aura Mastery), Defender\'s Auto-Protect, Sorcerer\'s Robe\'s Auto-Shell. — ADR-0121.',
     '**Status-application chance**: `base_chance × ∏selected_factors × (1 − target_resistance/100) × ∏modifiers`. Default selected factors `{ faith, ma }`. — `src/engine/status/chance.ts`.',
     '  - `Faith_factor = (Faith_user/100) × (Faith_target/100)`; `Brave_factor` likewise; `MA_factor = 0.9 + MA_caster/10`; `PA_factor = 0.9 + PA_caster/10`; `Speed_factor = 0.9 + Speed_caster/20`.',
     '**Thief contest** (Steal Buffs / Steal Heart): `clamp(base + 3·PA + 0.5·(Thief_Brave − Target_Brave), [1, 95])`. Base 33 (Steal Buffs), 10 (Steal Heart). Target Brave is the resistance term. — `src/engine/status/chance.ts`, `src/content/abilities/steal-*.ts`.',
