@@ -2730,8 +2730,84 @@ interface MoveScore {
   // is possible this turn (so danger is usually ~0 anyway); safety must not
   // override closing the distance, only break ties toward the safer tile.
   readonly incomingDanger: number;
+  // S73 buff-aware cohesion: horizontal distance from this destination to
+  // the team's AoE-buffer (the cohesion anchor). 0 when the team fields no
+  // AoE-buffer (the term is inert). Lower is more clustered.
+  readonly distanceToBuffer: number;
   // Stable lex key for final tiebreak.
   readonly key: string;
+}
+
+// An AoE-buffer is a unit that applies a buff status over an AoE footprint
+// (the Enchanter's Auramancy — diamond-1 Haste / Protect / Shell). Its
+// presence on the team triggers buff-aware cohesion: beneficiaries advance
+// grouped so the buff lands on multiple allies (S73 chunk 2).
+function isAoeBuffer(unit: Unit, catalog: Catalog): boolean {
+  for (const ability of enumerateActiveAbilities(unit, catalog)) {
+    if (ability.effects.aoe === undefined) continue;
+    const statusEffects = ability.effects.statusEffects;
+    if (statusEffects !== undefined && statusEffects.some((s) => isBuffStatus(catalog, s.typeId))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// The cohesion anchor `actor` should cluster toward while advancing: the
+// position of the nearest AoE-buffer ally (lex-id tiebreak), or null if the
+// team fields none or the actor is itself the only buffer. When null the
+// cohesion term is inert and advance behavior is unchanged.
+function cohesionAnchor(
+  actor: Unit,
+  allies: ReadonlyArray<Unit>,
+  catalog: Catalog,
+): Position | null {
+  let nearest: Unit | null = null;
+  for (const ally of allies) {
+    if (ally.id === actor.id) continue;
+    if (!isAoeBuffer(ally, catalog)) continue;
+    if (nearest === null) {
+      nearest = ally;
+      continue;
+    }
+    const d = horizontalDistance(actor.position, ally.position);
+    const dn = horizontalDistance(actor.position, nearest.position);
+    if (d < dn || (d === dn && ally.id < nearest.id)) nearest = ally;
+  }
+  return nearest === null ? null : nearest.position;
+}
+
+// Buff-aware cohesion band (S73 chunk 2, playtest dial). The most a unit
+// will trade off forward progress to cluster with its buffer: among advance
+// destinations within COHESION_BAND tiles of the best forward progress,
+// prefer the one nearest the buffer. Bounded to 1 so the advance can never
+// halt (the unit still closes ≥ moveRange − 1 per turn) — mild by Chris's
+// S73 call. Raise it for a stronger pull if playtest wants tighter packing
+// (watch enemy-AoE clustering: the AI can't yet weigh enemy AoE threat).
+const COHESION_BAND = 1;
+
+// Cohesion ranking among banded advance candidates: nearest the buffer wins,
+// then more-forward, then safer, then lex-id. Returns >0 when `a` beats `b`.
+function compareClustered(a: MoveScore, b: MoveScore): number {
+  if (a.distanceToBuffer !== b.distanceToBuffer) return b.distanceToBuffer - a.distanceToBuffer;
+  if (a.distanceToPriority !== b.distanceToPriority) return b.distanceToPriority - a.distanceToPriority;
+  if (a.incomingDanger !== b.incomingDanger) return b.incomingDanger - a.incomingDanger;
+  return a.key < b.key ? 1 : a.key > b.key ? -1 : 0;
+}
+
+// Pick the most-clustered advance destination within COHESION_BAND of the
+// best forward progress. Caller guarantees a non-empty candidate list and a
+// pure-advance regime (no offensive option reachable).
+function selectClusteredAdvance(candidates: ReadonlyArray<MoveScore>): MoveScore {
+  let minDist = Infinity;
+  for (const c of candidates) minDist = Math.min(minDist, c.distanceToPriority);
+  const band = minDist + COHESION_BAND;
+  let best: MoveScore | null = null;
+  for (const c of candidates) {
+    if (c.distanceToPriority > band) continue;
+    if (best === null || compareClustered(c, best) > 0) best = c;
+  }
+  return best!;
 }
 
 // Best move destination for advancing the AI's plan. Two-tier scoring:
@@ -2771,7 +2847,12 @@ function pickBestMove(
   const positionalActive = heightSeeker && baseShot > 0;
   const distanceCost = APPROACH_DISTANCE_FRACTION * baseShot;
 
+  // S73 buff-aware cohesion: the tile the actor should cluster toward (its
+  // team's AoE-buffer), or null when the team fields none (term inert).
+  const anchor = cohesionAnchor(actor, allies, catalog);
+
   let best: MoveScore | null = null;
+  const candidates: MoveScore[] = [];
 
   for (const [key, path] of moves.reachable) {
     const dest = path.destination;
@@ -2790,8 +2871,10 @@ function pickBestMove(
       distanceToPriority,
       positionalValue,
       incomingDanger: coverage === null ? 0 : coverage.expectedIncoming(dest),
+      distanceToBuffer: anchor === null ? 0 : horizontalDistance(dest, anchor),
       key,
     };
+    candidates.push(candidate);
 
     const better = positionalActive
       ? compareMovesPositional(candidate, best, distanceCost)
@@ -2800,6 +2883,17 @@ function pickBestMove(
   }
 
   if (best === null) return null;
+
+  // Buff-aware cohesion (S73 chunk 2): when the team fields an AoE-buffer and
+  // the actor is purely advancing (no attack reachable from any tile, and not
+  // a height-seeker chasing a perch), prefer a destination that keeps it
+  // grouped with the buffer — bounded to a small forward-progress sacrifice
+  // so the advance never halts. Subordinate by construction: combat tiles
+  // (bestOffensiveScore > 0) and the height-seeker perch approach are left
+  // untouched, so cohesion only shapes the otherwise-pure distance-close.
+  if (anchor !== null && !positionalActive && best.bestOffensiveScore === 0) {
+    best = selectClusteredAdvance(candidates);
+  }
 
   const proposed: ProposedAction = {
     type: 'move',
@@ -2976,6 +3070,8 @@ export const _basicAiInternals = {
   isControlOverridden,
   controlOverrideRemainingTurns,
   enumerateOffensiveAbilities,
+  isAoeBuffer,
+  pickBestMove,
 };
 
 // Type re-exports needed by the test internals.
