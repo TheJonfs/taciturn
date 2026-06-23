@@ -1577,3 +1577,28 @@ AI battles, so every item below needs Chris's in-battle feel pass.
   some terrain should be "low" cover). Bows still clear implausibly tall obstacles
   / a mountain doesn't stop them → raise/lower `ARC_LOB_CLEARANCE`. High ground
   visibly opens shots and bows lob over walls but not peaks → close.
+
+### AI MP-bottleneck gate + buff-aware cohesion (S73, ADR-0123)
+
+- **What to watch.** (a) **No-loop confidence:** an MP-light unit that can make
+  MP (Alchemist with Ether) at low MP should advance/engage, never re-brew-and-
+  refill in place — the constructed repro proves the single decision, but watch a
+  live battle for any residual idling. (b) **No over-correction:** a genuinely
+  MP-dependent caster at low MP should *still* value an Ether (it gates on the
+  kit, not current MP). (c) **Cohesion:** an AI team with an Enchanter should
+  advance *grouped* so Auramancy hits 2+ allies — without any unit sitting in
+  place to soak, and without packing so tightly that one enemy AoE kills several
+  (Chris already saw two Enchanters die to one AoE; the AI can't yet weigh enemy
+  AoE threat — that's the deferred positional threat-model).
+- **Why it matters.** Both are refinements to the (good) advance-to-engage
+  default; neither should make the AI more passive. Feel is unverified — the
+  PixiJS harness can't drive both-AI battles (since S70).
+- **Dials**: cohesion strength = `COHESION_BAND` (1, `src/ai/basic.ts`) — raise
+  for tighter packing (watch enemy-AoE clustering). The gate is binary (kit-keyed)
+  with no numeric dial.
+- **Signal for adjustment.** AI still idles on self-restore → the gate isn't
+  reaching the path (re-audit `bestThrowCandidate`). A low-MP caster stops valuing
+  Ether → over-correction (the kit check is too strict). Enchanter team still
+  scatters → raise `COHESION_BAND`. Units pack into one-spell-kills-several → it's
+  too high, or the deferred enemy-AoE term is now needed. Grouped advance + multi-
+  ally Auramancy + no stall → close.

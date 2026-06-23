@@ -44,6 +44,13 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 73 (2026-06-23)
+
+_No player-facing changes._ AI-only tuning (ADR-0123): the AI no longer loops on
+self-restoring MP it doesn't need (a low-MP Alchemist now advances instead of
+re-brewing Ether), and a team with an Enchanter advances grouped so Auramancy
+lands on more allies. No game rule, content, or UX changed.
+
 ## Session 72 follow-up — Aura Mastery (new Enchanter Support) (2026-06-22)
 
 Commits: `f4b08a3`. ADR-0122.
