@@ -189,9 +189,13 @@ describe('S66 chunk 2 — Ether restore-valuation rises as MP drops', () => {
       loadout: { actionBuckets: { [FIRST]: [ALCHEMY] }, passiveBuckets: {} },
       stockpile: new Map([[ETHER, 1]]),
     });
+    // The ally is a real Fire Mage with its MP-gated spell kit — so MP is a
+    // genuine bottleneck for it and the S73 restore gate keeps the throw
+    // valued (an empty-loadout unit can't spend MP, and rightly scores 0).
     const ally = makeUnit({
       id: 'ally', team: 'team_a', spd: 10, classId: 'fire_mage', maxMpBase: 48, mp: allyMp,
       position: { x: 1, y: 2, layer: 0 },
+      loadout: { actionBuckets: { [FIRST]: [FIRE_SPELLS] }, passiveBuckets: {} },
     });
     const state = makeGameState({
       units: [alch, ally], map: { width: 6, height: 6, tiles: flatGround(6, 6) },

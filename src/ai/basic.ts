@@ -625,11 +625,18 @@ function bestThrowCandidate(
       if (ally.baseStats.maxMpBase <= 20) continue;
       const missingMp = Math.max(0, ally.baseStats.maxMpBase - ally.vitals.mp);
       if (missingMp <= 0) continue;
+      // S73 chunk 1: gate on whether MP is a genuine bottleneck for the
+      // recipient's best play. A unit whose offense is MP-free (a bow
+      // Alchemist) gains nothing from a refill, so restoring its MP scores 0
+      // and it advances rather than looping on self-restore. A real caster
+      // keeps the full value — the gate keys on the kit, not current MP.
+      const bottleneck = mpBottleneckFactor(state, catalog, ally);
+      if (bottleneck <= 0) continue;
       const restored = Math.min(missingMp, pa * ETHER_MP_COEFFICIENT);
       // S66 chunk 2: restore-valuation — Ether is worth more as the
       // recipient's MP runs low, the mirror of the MP-spend penalty.
       const scarcityMult = 1 + MP_RESTORE_SCARCITY_BONUS * mpScarcity(state, catalog, ally);
-      consider(restored * ETHER_VALUE_FACTOR * scarcityMult, ETHER, ally.id, `throw|ether|${ally.id}`);
+      consider(restored * ETHER_VALUE_FACTOR * scarcityMult * bottleneck, ETHER, ally.id, `throw|ether|${ally.id}`);
     }
   }
 
@@ -1078,6 +1085,52 @@ function mpScarcity(state: GameState, catalog: Catalog, unit: Unit): number {
   const ratio = Math.max(0, Math.min(1, unit.vitals.mp / maxMp));
   const deficit = 1 - ratio;
   return deficit * deficit;
+}
+
+// MP-bottleneck gate (S73 chunk 1). Restoring a unit's MP is only valuable
+// if MP is a genuine bottleneck for *that unit's* best play — keyed on its
+// kit, not its current MP. Returns 1 when MP gates the unit's best play, 0
+// when its best play is MP-free.
+//
+// The gate compares the unit's best MP-gated play against its best MP-free
+// play (Chris's S73 call):
+//   - Any MP-gated heal or ally-buff → 1. Support has no free substitute, so
+//     MP genuinely fuels it (a low-MP White Mage stays a bottleneck unit).
+//   - Any MP-gated debuff-only offensive → 1. Same: the debuff has no free
+//     equivalent.
+//   - MP-gated damage that out-powers the best MP-free damage → 1. A mage
+//     whose spells beat its weak basic attack needs MP.
+//   - Otherwise → 0. A bow Alchemist (only offense is the 0-MP bow, items
+//     cost no MP) has no MP bottleneck, so restoring its MP scores ~0 and
+//     the AI advances rather than looping on self-restore.
+//
+// Range-independent by construction (it inspects the kit, not reachable
+// targets), so it gates correctly while the unit is advancing to engage —
+// exactly when no offensive scores this turn. Power is compared via
+// `power_coefficient`, the same proxy the leaf scorers fall back to.
+function mpBottleneckFactor(state: GameState, catalog: Catalog, unit: Unit): number {
+  let bestFreeDamage = 0;
+  let bestPaidDamage = 0;
+  for (const ability of enumerateActiveAbilities(unit, catalog)) {
+    const paid = computeMpCost(state, catalog, unit.id, ability.id) > 0;
+    // Heals and ally-buffs: no free substitute, so any MP-gated one means
+    // MP fuels the unit's support play.
+    if (isHealingSingleUnit(ability) || isAllyBuff(ability, catalog)) {
+      if (paid) return 1;
+      continue;
+    }
+    if (!isOffensive(ability, catalog)) continue;
+    const damage = ability.effects.damage;
+    if (damage === undefined) {
+      // Debuff-only offensive (e.g. Brine, Magnetic Mark) — no free version.
+      if (paid) return 1;
+      continue;
+    }
+    const coeff = damage.power_coefficient ?? 1; // engine default (handlers.ts)
+    if (paid) bestPaidDamage = Math.max(bestPaidDamage, coeff);
+    else bestFreeDamage = Math.max(bestFreeDamage, coeff);
+  }
+  return bestPaidDamage > bestFreeDamage ? 1 : 0;
 }
 
 // Scarcity-scaled penalty for spending `ability`'s MP cost, subtracted from
@@ -2906,6 +2959,7 @@ export const _basicAiInternals = {
   expectedKnockbackFallValue,
   computeMaxMp,
   mpScarcity,
+  mpBottleneckFactor,
   mpSpendPenalty,
   bestThrowCandidate,
   targetIsInAbilityRange,
