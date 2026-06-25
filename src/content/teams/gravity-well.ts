@@ -1,28 +1,27 @@
 // Gravity Well — Chris-authored default template. S50 added a Calculator
-// (Thessaly) to reach 5; S51/S55 reworked equipment and bucket picks; S63 (this
-// pass) re-authors per Chris's playtest export — most notably Chris swaps Knight
-// → Templar.
+// (Thessaly) to reach 5; S51/S55 reworked equipment and bucket picks; S63
+// re-authored per playtest; S74 (this pass) re-authors again from a planner
+// export — a control/burst mix with heavy CT-manipulation and magic.
 //
 // 5-unit composition under the variable-length BuiltTeam shape. Slot levels
 // follow the alternating-outward pattern (25 / 24 / 26 / 23 / 27) for slots
 // 0–4; per-unit `level` matches its slot.
 //
-// Concept (per Chris's S63 authoring):
-//   - Sera (Assassin) leads at slot 0 (L25). Sai + Chef's Knife dual-wield under
-//     Two Weapons; Worldcraft secondary. Golden Hairpin + Soul Vest + Boots of
-//     Haste. (Unchanged this pass.)
-//   - Thessaly (Calculator) at slot 1 (L24) — Math Skill + Earth Spells
-//     secondary. Mathematician + Conductor + Earth Communion; Staff of Power +
-//     Tome of Power + Focus Band + Silvered Vest + Ironfoot.
-//   - Lumen (Pyromancer) at slot 2 (L26). Fire Spells + Templar Arts secondary.
-//     Wand of Lumen + Livre of Urgency + Pointy Hat + Wizard's Robe + Lightfoot.
-//   - Chris (Templar) at slot 3 (L23) — was a Knight. Templar Arts + Shadow Arts
-//     secondary. Monkeygrip + Emissary support; Managuard off-hand alongside the
-//     two-handed Imp Halberd (legal via Monkeygrip). Tactical Mask + Soldier's
-//     Leathers + Diamond Bracelet.
-//   - Clio (Hydrologist) at slot 4 (L27). Water Spells + Math Skill secondary.
-//     Wand of the Depths + Battle Dictionary + Guard Cap + Sorcerer's Robe +
-//     Augmentor.
+// Concept (per the S74 export):
+//   - Sera (Assassin) at slot 0 (L25). Shadow Arts + Thievery secondary; Sai +
+//     Chef's Knife dual-wield under Two Weapons. Martial Expertise + Biomastery;
+//     Speed Save / Counter / Combat Focus / Earth Resilience survival.
+//   - Thessaly (Calculator) at slot 1 (L24). Math Skill + Auramancy secondary;
+//     Conductor + Aura Mastery amplifying the math/buff line. Staff + Tome of
+//     Power.
+//   - Lumen (Pyromancer) at slot 2 (L26). Fire Spells + Templar Arts secondary;
+//     Ignition / Aether Bloom / Conductor / Flow State burn engine.
+//   - Chris (Templar) at slot 3 (L23). Templar Arts + Thievery secondary;
+//     Monkeygrip pairs the two-handed Imp Halberd with a Managuard off-hand;
+//     Emissary / Unified Calling sustain.
+//   - Clio (Hydrologist) at slot 4 (L27). Water Spells + Math Skill secondary;
+//     Flow State / Conductor / Mathematician; Wand of the Depths + Battle
+//     Dictionary.
 //
 // Authored unit names are personal picks; the team builder respects authored
 // values on template load (S38 naming convention).
@@ -50,7 +49,7 @@ export const gravityWell: BuiltTeam = {
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('shadow_arts')],
-          [bucketId('secondary_command_sets')]: [commandSetId('worldcraft')],
+          [bucketId('secondary_command_sets')]: [commandSetId('thief_arts')],
         },
         passiveBuckets: {
           [bucketId('reaction')]: [
@@ -75,7 +74,7 @@ export const gravityWell: BuiltTeam = {
         leftHand: itemId('sai'),
         rightHand: itemId('chefs_knife'),
         headgear: itemId('golden_hairpin'),
-        armor: itemId('soul_vest'),
+        armor: itemId('battle_gear'),
         accessory: itemId('boots_of_haste'),
       },
     },
@@ -87,7 +86,7 @@ export const gravityWell: BuiltTeam = {
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('math_skill')],
-          [bucketId('secondary_command_sets')]: [commandSetId('earth_spells')],
+          [bucketId('secondary_command_sets')]: [commandSetId('auramancy')],
         },
         passiveBuckets: {
           [bucketId('reaction')]: [
@@ -98,7 +97,7 @@ export const gravityWell: BuiltTeam = {
           [bucketId('support')]: [
             abilityId('mathematician'),
             abilityId('conductor'),
-            abilityId('earth_communion'),
+            abilityId('aura_mastery'),
           ],
           [bucketId('movement')]: [
             abilityId('thoughtful_pacing'),
@@ -161,7 +160,7 @@ export const gravityWell: BuiltTeam = {
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('templar_arts')],
-          [bucketId('secondary_command_sets')]: [commandSetId('shadow_arts')],
+          [bucketId('secondary_command_sets')]: [commandSetId('thief_arts')],
         },
         passiveBuckets: {
           [bucketId('reaction')]: [
@@ -188,7 +187,7 @@ export const gravityWell: BuiltTeam = {
         rightHand: itemId('imp_halberd'),
         headgear: itemId('tactical_mask'),
         armor: itemId('soldiers_leathers'),
-        accessory: itemId('diamond_bracelet'),
+        accessory: itemId('gauntlet_of_might'),
       },
     },
     {
