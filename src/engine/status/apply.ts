@@ -107,6 +107,23 @@ export function applyStatus(
     else otherTypes.push(s);
   }
 
+  // Mutual-exclusion group (S74, ADR-0124). If this status declares an
+  // `exclusivityGroup` and the unit already holds a DIFFERENT-typed status in
+  // the same group, reject the application — the two represent one conceptual
+  // effect and must not compound (e.g. Boots-of-Haste `haste` + a cast
+  // `quickening` → ×2.25 Speed). First holder wins: equipment grants apply at
+  // battle start, so the permanent form takes the slot and the later timed
+  // cast is the one rejected. Same-type re-application is NOT affected here —
+  // it falls through to the per-type stacking rule (re-casting refreshes).
+  if (type.exclusivityGroup !== undefined) {
+    const occupied = otherTypes.some(
+      (s) => catalog.getStatusType(s.typeId).exclusivityGroup === type.exclusivityGroup,
+    );
+    if (occupied) {
+      return { newState: state, result: { kind: 'rejected', reason: 'exclusivity_group' } };
+    }
+  }
+
   // Session 45 follow-up (ADR-0084): source-side stack-count modifier
   // hook fires here so a +N delta (Wand of Lumen on Burn) is folded into
   // `requestedStackQuantity` before the type's composer reads it — Burn

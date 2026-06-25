@@ -47,6 +47,7 @@ export const protect: StatusEffectType = {
   tags: ['positive', 'dispellable'],
   durationMode: 'permanent_per_unit_ct',
   stackingRule: 'REFRESH',
+  exclusivityGroup: 'protect',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
   hooks: [protectMitigationHook],

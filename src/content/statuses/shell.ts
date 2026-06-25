@@ -57,6 +57,7 @@ export const shell: StatusEffectType = {
   tags: ['positive', 'dispellable'],
   durationMode: 'permanent_per_unit_ct',
   stackingRule: 'REFRESH',
+  exclusivityGroup: 'shell',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
   hooks: [shellMitigationHook],

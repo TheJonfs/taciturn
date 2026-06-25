@@ -41,6 +41,7 @@ export const haste: StatusEffectType = {
   tags: ['positive', 'time', 'dispellable'],
   durationMode: 'permanent_per_unit_ct',
   stackingRule: 'REFRESH',
+  exclusivityGroup: 'haste',
   defaultMagnitude: 1.5,
   aiHints: { polarity: 'buff' },
   hooks: [hasteSpeedHook],

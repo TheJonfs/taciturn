@@ -28,6 +28,7 @@ export const quickening: StatusEffectType = {
   tags: ['positive', 'time', 'dispellable'],
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
+  exclusivityGroup: 'haste',
   defaultMagnitude: 1.5,
   aiHints: { polarity: 'buff' },
   // Aura Mastery amplifies cast Haste (ADR-0122). magnitude is a Speed

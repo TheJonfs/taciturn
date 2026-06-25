@@ -79,6 +79,19 @@ export interface StatusEffectType {
   readonly tags: ReadonlyArray<StatusTag>;
   readonly durationMode: DurationMode;
   readonly stackingRule: StackingRule;
+  // Mutual-exclusion group (S74, ADR-0124). The `stackingRule` only resolves
+  // applications of the *same* `typeId`; this groups *different* types that
+  // represent the same conceptual effect so they can't compound on one unit.
+  // When set, applying this status is rejected if the unit already holds a
+  // DIFFERENT-typed status with the same group string (the first holder wins —
+  // equipment/permanent grants apply at battle start, so they take the slot and
+  // a later timed cast of the sibling form is the one rejected). v1 groups the
+  // permanent equipment forms with their timed Auramancy/cast siblings:
+  // 'haste' (haste/quickening), 'protect' (protect/protect_cast), 'shell'
+  // (shell/shell_cast), 'regen' (regen_auto/regen) — so e.g. Boots of Haste +
+  // a cast Haste no longer stack to ×2.25 Speed. Same-type re-application still
+  // follows `stackingRule` (re-casting refreshes, not rejects).
+  readonly exclusivityGroup?: string;
   readonly defaultMagnitude?: number;
   // Buff-amplification opt-in (S72, ADR-0122). When `true`, a caster-side
   // magnitude amplifier (the Enchanter's Aura Mastery support, via the

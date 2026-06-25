@@ -27,6 +27,7 @@ export const shellCast: StatusEffectType = {
   tags: ['positive', 'dispellable'],
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
+  exclusivityGroup: 'shell',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
   // Aura Mastery amplifies cast Shell (ADR-0122). magnitude is the % damage

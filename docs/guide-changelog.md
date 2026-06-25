@@ -74,6 +74,23 @@ the bundled teams.
 - The enemy AI also aims Charged Attack at a tile now, so it can whiff if you
   move the targeted unit during the charge.
 
+### Buff forms no longer stack with their cast versions
+
+- **The "always-on" equipment buffs and their spell versions no longer
+  compound.** Haste, Protect, Shell, and Regen each come in two forms — a
+  permanent one from gear (Boots of Haste, Defender, Sorcerer's Robe,
+  Tintinibar) and a timed one from a spell (the Enchanter's Auramancy Haste /
+  Protect / Shell, the Geosage's Life from the Loam). Previously a unit could
+  hold **both** and get the effect twice (e.g. Boots of Haste + cast Haste →
+  ~×2.25 Speed instead of ×1.5).
+- **Now only one applies at a time.** If a unit already has the gear form,
+  casting the spell version on it does nothing to that unit (the cast still
+  buffs other allies in its area). So you can't double up Haste/Protect/Shell/
+  Regen on one unit anymore.
+- **Player takeaway:** put your buff spells on allies who *don't* already carry
+  the equipment form — doubling no longer pays off. A Boots-of-Haste user is
+  already Hasted; spend the cast elsewhere.
+
 ## Session 73 (2026-06-23)
 
 _No player-facing changes._ AI-only tuning (ADR-0123): the AI no longer loops on

@@ -26,6 +26,7 @@ export const protectCast: StatusEffectType = {
   tags: ['positive', 'dispellable'],
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
+  exclusivityGroup: 'protect',
   defaultMagnitude: 50,
   aiHints: { polarity: 'buff' },
   // Aura Mastery amplifies cast Protect (ADR-0122). magnitude is the % damage

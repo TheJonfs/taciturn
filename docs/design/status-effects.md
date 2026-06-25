@@ -94,6 +94,16 @@ When a status is applied to a unit that already has an instance of the same type
 
 The stacking rule is consulted at application time, after resistance checks. Adding new rule kinds is a small engine change; the existing list covers ~95% of common cases.
 
+### Exclusivity groups (mutual exclusion across types) — ADR-0124
+
+`stackingRule` only resolves applications of the **same** `typeId`. When two **different** status types represent one conceptual effect — typically a permanent equipment/auto form and its timed cast sibling, which must be separate types because `durationMode` is a type-level field — they would otherwise coexist and compound. The optional `exclusivityGroup: string` field groups them: applying a status is **rejected** (`{ kind: 'rejected', reason: 'exclusivity_group' }`) if the unit already holds a *different-typed* status with the same group string. Same-type re-application is unaffected (it still follows `stackingRule`).
+
+Resolution is **first-holder-wins**: equipment/auto grants apply at battle start, so the permanent form takes the slot and a later timed cast of the sibling is the one rejected. (Consequence, by design: a stronger Aura-Mastery-amplified cast cannot upgrade a unit that already wears the weaker equipment form — but the cast's AoE still buffs un-buffed allies.) Checked at application time, before the per-type stacking dispatch.
+
+v1 groups: `'haste'` (haste / quickening), `'protect'` (protect / protect_cast), `'shell'` (shell / shell_cast), `'regen'` (regen_auto / regen). This is what keeps Boots of Haste + a cast Haste from reaching ×2.25 Speed.
+
+**Authoring note:** when adding a new status that is a second source/duration of an effect a unit already has another form of, give both forms the same `exclusivityGroup` so they don't compound.
+
 ## Tags
 
 Status types carry tags used for category-based interactions:
@@ -161,6 +171,7 @@ Hooks are bidirectional — they take a context and may return a modified contex
 When an action attempts to apply a status, the pipeline runs:
 
 1. **Resistance check** — does the target's resistance/immunity tags reject the status? Hits are stochastic for resistance; immunity is hard rejection.
+1b. **Exclusivity check** (ADR-0124) — if the status declares an `exclusivityGroup` and the unit already holds a *different-typed* status in that group, the application is rejected. See "Exclusivity groups" above.
 2. **Stacking check** — does an instance of this type already exist? If yes, apply the stacking rule (which may reject, refresh, replace, or stack the new application).
 3. **Instantiation** — create the StatusInstance with type ref, source, duration, magnitude.
 4. **onApply hooks** — fire onApply hooks for the new instance.

@@ -90,6 +90,7 @@ export const regen: StatusEffectType = {
   tags: ['positive'],
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
+  exclusivityGroup: 'regen',
   // Coefficient scalar on the per-tick heal (default 1 = current behavior).
   defaultMagnitude: 1,
   aiHints: { polarity: 'buff' },

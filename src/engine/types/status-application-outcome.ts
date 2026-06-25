@@ -23,7 +23,13 @@ export type StatusApplicationOutcome =
       readonly instance: StatusInstance;
     }
   | { readonly kind: 'resisted' }
-  | { readonly kind: 'rejected'; readonly reason: 'stacking_rule' }
+  | {
+      readonly kind: 'rejected';
+      // 'stacking_rule' — a same-type REJECT rule. 'exclusivity_group' — a
+      // different-typed sibling in the same exclusivity group already holds
+      // the slot (S74, ADR-0124).
+      readonly reason: 'stacking_rule' | 'exclusivity_group';
+    }
   // Application chance roll failed — `chance` is the computed
   // post-modifier value in [0, 1], `roll` is the unit float drawn from
   // the seed. The status was not applied. Emitted by the status

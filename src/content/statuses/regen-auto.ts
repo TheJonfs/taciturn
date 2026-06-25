@@ -29,6 +29,7 @@ export const regenAuto: StatusEffectType = {
   tags: ['positive'],
   durationMode: 'permanent_per_unit_ct',
   stackingRule: 'REFRESH',
+  exclusivityGroup: 'regen',
   // Coefficient scalar (default 1). NOT `amplifiable` — equipment Auto-Regen
   // (Tintinibar) is outside the Aura-Mastery curation, so it stays at 1×.
   defaultMagnitude: 1,
