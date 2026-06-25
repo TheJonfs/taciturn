@@ -8,9 +8,10 @@
 // 0–4; per-unit `level` matches its slot.
 //
 // Concept (per the S74 export):
-//   - Sera (Assassin) at slot 0 (L25). Shadow Arts + Thievery secondary; Sai +
-//     Chef's Knife dual-wield under Two Weapons. Martial Expertise + Biomastery;
-//     Speed Save / Counter / Combat Focus / Earth Resilience survival.
+//   - Sera (Assassin) at slot 0 (L25). Shadow Arts + Auramancy secondary; Sai +
+//     Scimitar dual-wield under Two Weapons. Biomastery + Aura Mastery + Flow
+//     State support; Speed Save / Counter / Combat Focus / Earth Resilience
+//     survival.
 //   - Thessaly (Calculator) at slot 1 (L24). Math Skill + Auramancy secondary;
 //     Conductor + Aura Mastery amplifying the math/buff line. Staff + Tome of
 //     Power.
@@ -49,7 +50,7 @@ export const gravityWell: BuiltTeam = {
       loadout: {
         actionBuckets: {
           [bucketId('first_action')]: [commandSetId('shadow_arts')],
-          [bucketId('secondary_command_sets')]: [commandSetId('thief_arts')],
+          [bucketId('secondary_command_sets')]: [commandSetId('auramancy')],
         },
         passiveBuckets: {
           [bucketId('reaction')]: [
@@ -60,8 +61,9 @@ export const gravityWell: BuiltTeam = {
           ],
           [bucketId('support')]: [
             abilityId('two_weapons'),
-            abilityId('martial_expertise'),
             abilityId('earth_communion'),
+            abilityId('aura_mastery'),
+            abilityId('flow_state'),
           ],
           [bucketId('movement')]: [
             abilityId('fleet_of_foot'),
@@ -72,7 +74,7 @@ export const gravityWell: BuiltTeam = {
       },
       equipment: {
         leftHand: itemId('sai'),
-        rightHand: itemId('chefs_knife'),
+        rightHand: itemId('scimitar'),
         headgear: itemId('golden_hairpin'),
         armor: itemId('battle_gear'),
         accessory: itemId('boots_of_haste'),
