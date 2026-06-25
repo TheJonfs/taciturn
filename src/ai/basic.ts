@@ -2545,8 +2545,27 @@ function bestActFromSource(
         const candidate = { score, action: proposed, key: `${ability.id}|unit|${enemy.id}` };
         if (best === null || compareScored(candidate, best) > 0) best = candidate;
       }
+    } else if (ability.targeting.kind === 'tile') {
+      // Single-target tile-anchored offensive (Charged Attack, S74): aim at
+      // the enemy's *current* tile via a tile-pin payload — the shot hits
+      // whoever's there at resolution and misses if they've moved off (the
+      // positional gamble; the AI optimistically scores it against the
+      // enemy standing there now). Distinct from the unit-pin branch above,
+      // which tracks the unit by id.
+      for (const enemy of enemies) {
+        const score = scoreSingleUnitOffensive(state, catalog, actor, source, enemy, ability);
+        if (score <= 0) continue;
+        const anchor: Position = { ...enemy.position };
+        const proposed: ProposedAction = {
+          type: 'use_ability',
+          source: 'player',
+          actorId: actor.id,
+          payload: { abilityId: ability.id, target: { kind: 'tile', position: anchor } as AbilityTarget },
+        };
+        const candidate = { score, action: proposed, key: `${ability.id}|tile|${enemy.id}` };
+        if (best === null || compareScored(candidate, best) > 0) best = candidate;
+      }
     }
-    // Tile-targeted, no AoE (Bolt) — not in any v1 class loadout.
     // Self-anchored AoEs (cone, line) — see `bestSelfAnchoredAoeFromSource`.
   }
   return best;
@@ -3028,6 +3047,16 @@ function bestOffensiveScoreFrom(
         const score = scoreSingleUnitOffensive(state, catalog, actor, from, enemy, ability);
         if (score > best) best = score;
       }
+    } else if (ability.targeting.kind === 'tile') {
+      // Single-target tile-anchored offensive (Charged Attack, S74). Scored
+      // against the enemy on its current tile, mirroring the unit branch —
+      // so a destination that brings such an ability into range is valued
+      // and the AI advances to use it. (Payload is tile-pinned in
+      // `bestActFromSource`.)
+      for (const enemy of enemies) {
+        const score = scoreSingleUnitOffensive(state, catalog, actor, from, enemy, ability);
+        if (score > best) best = score;
+      }
     }
   }
   return best;
@@ -3072,6 +3101,7 @@ export const _basicAiInternals = {
   enumerateOffensiveAbilities,
   isAoeBuffer,
   pickBestMove,
+  bestActFromSource,
 };
 
 // Type re-exports needed by the test internals.

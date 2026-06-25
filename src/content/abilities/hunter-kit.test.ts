@@ -222,7 +222,9 @@ describe('Charged Attack', () => {
       state,
       {
         type: 'use_ability', source: 'player', actorId: attacker.id,
-        payload: { abilityId: abilityId('charged_attack'), target: { kind: 'unit', unitId: target.id } },
+        // S74: Charged Attack is tile-targeted (the positional aimed shot) —
+        // pin the tile the target stands on, not the unit.
+        payload: { abilityId: abilityId('charged_attack'), target: { kind: 'tile', position: target.position } },
         sequenceNumber: 0, seed: 1, timestamp: { tick: 0, ct: 0 }, chainDepth: 0, isReaction: false,
       },
       catalog,

@@ -19,9 +19,13 @@
 // Tags ['physical', 'weapon'] make it weapon-sourced across the board:
 // the equipped bow supplies WP, accuracy (`hitRoll: {}` → weapon
 // accuracy), the height-delta variance band, AND — via the weapon-range
-// fork — the 2-5 range. `unit_or_tile` arc targeting is the FFT
-// pin-a-tile-or-unit charged pattern: pin a tile and the shot hits
-// whoever stands there at resolution (nothing if they've moved off).
+// fork — the 2-5 range. Pure `tile` arc targeting (S74): the aimed shot
+// commits to a *tile*, not a unit. At resolution it hits whoever stands on
+// that tile — and nothing if the target has moved off it. This is the
+// deliberate positional gamble that distinguishes Charged Attack from the
+// charged spells (which are `unit_or_tile` and track their unit by id). It
+// is NOT `unit_or_tile`: there is no pin-the-unit-and-track option, so the
+// AI can't claim a free guaranteed hit by following a displaced target.
 
 import {
   abilityId,
@@ -40,7 +44,7 @@ export const chargedAttack: ActiveAbilityDefinition = {
   targeting: {
     // Fallback band (no bow equipped); the weapon-range fork overrides
     // to the equipped bow's range for this weapon-tagged attack.
-    kind: 'unit_or_tile',
+    kind: 'tile',
     range: { horizontal: 5, minHorizontal: 2, vertical: 99 },
     rangeMode: 'arc',
   },

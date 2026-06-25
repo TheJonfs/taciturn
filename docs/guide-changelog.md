@@ -60,6 +60,20 @@ Default teams are convenience presets built from existing content, not new
 mechanics — noted only so the picker's roster stays accurate if the guide lists
 the bundled teams.
 
+### Charged Attack is now a tile-targeted aimed shot
+
+- **Charged Attack (Hunter, Marksmanship) now commits to a tile, not a unit.**
+  You pick the tile the target is standing on; the shot resolves after the
+  charge and hits **whoever is on that tile at resolution** — so if the target
+  **moves off the tile before it resolves, the attack misses**. Previously it
+  could pin the unit and follow it (guaranteed hit even if the target moved).
+- **Player takeaway:** Charged Attack is now a positional gamble — lead the
+  target or fire when they're pinned/committed, because a mobile target can
+  step out of it. (Other charged spells still track their target as before;
+  this change is specific to Charged Attack.)
+- The enemy AI also aims Charged Attack at a tile now, so it can whiff if you
+  move the targeted unit during the charge.
+
 ## Session 73 (2026-06-23)
 
 _No player-facing changes._ AI-only tuning (ADR-0123): the AI no longer loops on
