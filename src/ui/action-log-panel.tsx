@@ -33,6 +33,7 @@ import {
   type LogSegment,
   type TurnGroup,
 } from './action-log-format.ts';
+import { CopyLogButton } from './copy-log-button.tsx';
 
 // Per-team text color for unit-name segments + actor-tinted icons. Mirrors
 // the renderer's TEAM_COLORS and the queue-tower's border palette so the
@@ -135,13 +136,16 @@ export function ActionLogPanel({
       <div style={headerRowStyle}>
         <span style={headerLabelStyle}>Action Log</span>
         {!isEmpty && (
-          <button
-            type="button"
-            style={toggleButtonStyle}
-            onClick={() => setShowAllLedgers((v) => !v)}
-          >
-            {showAllLedgers ? 'Events only' : 'Show ledger'}
-          </button>
+          <span style={{ display: 'flex', gap: '6px' }}>
+            <button
+              type="button"
+              style={toggleButtonStyle}
+              onClick={() => setShowAllLedgers((v) => !v)}
+            >
+              {showAllLedgers ? 'Events only' : 'Show ledger'}
+            </button>
+            <CopyLogButton state={state} />
+          </span>
         )}
       </div>
       <div style={listScrollStyle} ref={scrollRef} onScroll={onScroll}>

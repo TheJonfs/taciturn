@@ -16,6 +16,7 @@ import { useEffect, type CSSProperties, type ReactElement } from 'react';
 import type { BattleOutcome, Catalog, GameState, UnitId } from '@engine/index.ts';
 import { derivePerUnitStats, deriveKoEvents } from './derived-events.ts';
 import { finalTurnNumber } from './action-log-format.ts';
+import { CopyLogButton } from './copy-log-button.tsx';
 
 export interface ResultsScreenProps {
   readonly state: GameState;
@@ -128,6 +129,11 @@ export function ResultsScreen(props: ResultsScreenProps): ReactElement {
         </Section>
 
         <div style={buttonRowStyle}>
+          <CopyLogButton
+            state={state}
+            label="Copy battle log"
+            style={{ fontSize: '14px', padding: '8px 16px' }}
+          />
           <button
             type="button"
             style={buttonDisabledStyle}
