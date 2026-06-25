@@ -44,6 +44,22 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 74 (2026-06-25)
+
+Two new bundled teams in the builder's "Load Default" picker (alongside Gravity
+Well, High Ground, Mage War, Chain Reaction, The Irregulars):
+
+- **"Claude's Bulwark"** — Enchanter / Knight / Templar / Earth Mage / Alchemist.
+  A sustain-and-buff bulwark (uniform Damage Split + Earth Communion, heavy
+  support spine).
+- **"Claude's Answers"** — Hunter / Lightning Mage / Knight / Assassin /
+  Calculator. An offense-focused counter to the Bulwark (burst / reach / tempo,
+  no dedicated healer).
+
+Default teams are convenience presets built from existing content, not new
+mechanics — noted only so the picker's roster stays accurate if the guide lists
+the bundled teams.
+
 ## Session 73 (2026-06-23)
 
 _No player-facing changes._ AI-only tuning (ADR-0123): the AI no longer loops on
