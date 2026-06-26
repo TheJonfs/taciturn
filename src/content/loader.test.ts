@@ -221,7 +221,10 @@ describe('loadDefaultCatalog', () => {
     expect(cat.abilities()).toHaveLength(111);
     expect(cat.commandSets()).toHaveLength(15);
     expect(cat.classes()).toHaveLength(13);
-    expect(cat.items()).toHaveLength(77);
+    // Session 74 (caster-accessory batch): 77 → 78 so far
+    // (greaves_of_seraphis); climbs to 81 as ring_of_caliora /
+    // glove_of_metria / pendant_of_lumara land.
+    expect(cat.items()).toHaveLength(78);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

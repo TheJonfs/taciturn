@@ -580,7 +580,11 @@ export interface SystemSetCtOutcome {
   readonly ct: number; // post-clamp applied value
   readonly previousCt: number;
 }
-export type SystemSetCtSource = { readonly kind: 'initial_ct' };
+export type SystemSetCtSource =
+  | { readonly kind: 'initial_ct' }
+  // S74 (ADR-0125): a battle-start CT seed from equipment (Greaves of
+  // Seraphis). Overrides the initial_ct formula draw for the wearer.
+  | { readonly kind: 'equipment'; readonly itemId: ItemId };
 
 // `status_remove` — engine-emitted action that removes a named status
 // instance from a target unit. Idempotent: a no-op if the status is

@@ -79,6 +79,8 @@ import { viciousDagger } from './vicious-dagger.ts';
 import { scimitar } from './scimitar.ts';
 import { wandOfPotential } from './wand-of-potential.ts';
 import { gauntletOfMight } from './gauntlet-of-might.ts';
+// Session 74 — caster-accessory batch (CT throughline + Burn/AoE riders)
+import { greavesOfSeraphis } from './greaves-of-seraphis.ts';
 
 export const items: ReadonlyArray<ItemDefinition> = [
   // Session 17c / 19 originals
@@ -201,4 +203,8 @@ export const items: ReadonlyArray<ItemDefinition> = [
   // Session 62 — Lance weapon class (two-handed, pierces; ADR-0102).
   lance,
   impHalberd,
+  // Session 74 — caster accessories. Greaves of Seraphis: Speed +2 +
+  // battle-start CT seed (acts first). Ring of Caliora / Glove of Metria /
+  // Pendant of Lumara land alongside as the batch completes.
+  greavesOfSeraphis,
 ];

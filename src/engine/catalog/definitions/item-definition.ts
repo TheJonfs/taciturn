@@ -310,6 +310,27 @@ interface EquipmentBase {
   // damage pipeline so it can't infinite-loop. The contributor wires
   // into the new `onFinalDamageReceived` hook.
   readonly physicalReflectPercent?: number;
+
+  // S74 (ADR-0125): battle-start CT seed. When present, the wearer's CT
+  // is set to this value once during the pre-battle phase
+  // (`enumeratePreBattleActions` emits a `system_set_ct` with
+  // `source: { kind: 'equipment', itemId }`), overriding both the
+  // ruleset's initial-CT formula draw and any explicit
+  // `placement.initialCT`. Greaves of Seraphis authors `100` (the wearer
+  // acts first). Applied exactly once at setup — it does not re-trigger.
+  // When two equipped items both declare it (no v1 case), the larger
+  // value wins.
+  readonly battleStartCt?: number;
+
+  // S74 (ADR-0126): magical-damage CT drain. When present, a magical
+  // (spell) hit from this item's wearer that lands also reduces the
+  // target's CT by `floor(damageDealt × percent / 100)` via a negative
+  // `system_ct_push`. Ring of Caliora authors `20`. Gated to magical-
+  // tagged, non-absorbed hits; the CT-push reducer floors the target's
+  // CT at 0 (the only guardrail — no per-hit cap, per Chris's S74 call).
+  // The contributor wires into the existing `onFinalDamage` hook
+  // alongside `damageMpDrainPercent`.
+  readonly damageCtDrainPercent?: number;
 }
 
 // Weapon-sourced variance source (per ADR-0067 + Session 40 extension).

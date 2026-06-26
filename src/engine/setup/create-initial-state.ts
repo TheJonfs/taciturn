@@ -134,16 +134,37 @@ export function enumeratePreBattleActions(
     }
   }
 
-  // (2) Initial-CT randomization. Skip units with an explicit
-  // `placement.initialCT` — those are authoring choices, not formula
-  // derivations, and the value already lives on `unit.ct`. The
-  // remaining units get a `system_set_ct` action with the resolved CT.
+  // (2) Initial CT. Precedence (S74, ADR-0125):
+  //   (a) equipment `battleStartCt` (Greaves of Seraphis → 100) — a
+  //       costed, deliberate seed; wins over everything and emits a
+  //       `system_set_ct` with `source: { kind: 'equipment' }`.
+  //   (b) explicit `placement.initialCT` — an authoring choice; the
+  //       value already lives on `unit.ct`, so no formula draw and no
+  //       `system_set_ct` (existing behavior).
+  //   (c) otherwise the ruleset formula draw, recorded as a
+  //       `system_set_ct` with `source: { kind: 'initial_ct' }`.
+  // The `system_set_ct` reducer clamps to [0, 99], so a 100-seed lands at
+  // the pre-trigger ceiling (still "acts first").
   const ruleset = catalog.getRuleset(battleConfig.rulesetId);
   const explicitCtIds = new Set<UnitId>();
   for (const p of battleConfig.units) {
     if (p.initialCT !== undefined) explicitCtIds.add(p.id);
   }
   for (const placement of battleConfig.units) {
+    const unit = state.units.get(placement.id);
+    const seed = unit === undefined ? null : equipmentBattleStartCt(unit, catalog);
+    if (seed !== null) {
+      actions.push({
+        type: 'system_set_ct',
+        source: 'system',
+        payload: {
+          targetId: placement.id,
+          ct: seed.ct,
+          source: { kind: 'equipment', itemId: seed.itemId },
+        },
+      });
+      continue;
+    }
     if (explicitCtIds.has(placement.id)) continue;
     const ct = resolveInitialCT(ruleset, placement, battleConfig.masterSeed);
     actions.push({
@@ -188,6 +209,28 @@ export function runPreBattlePhase(
     current = result.newState;
   }
   return current;
+}
+
+// The strongest battle-start CT seed across a unit's equipped items, or
+// null if none declare one (S74, ADR-0125). When two items both declare
+// `battleStartCt` (no v1 case), the larger value wins; ties break on the
+// item id for determinism.
+function equipmentBattleStartCt(
+  unit: Unit,
+  catalog: Catalog,
+): { ct: number; itemId: ItemId } | null {
+  let best: { ct: number; itemId: ItemId } | null = null;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.battleStartCt === undefined) continue;
+    if (
+      best === null ||
+      item.battleStartCt > best.ct ||
+      (item.battleStartCt === best.ct && item.id < best.itemId)
+    ) {
+      best = { ct: item.battleStartCt, itemId: item.id };
+    }
+  }
+  return best;
 }
 
 function placementToUnit(
