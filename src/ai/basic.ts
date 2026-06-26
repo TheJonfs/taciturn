@@ -1653,11 +1653,50 @@ function aoeTilesAffected(
   });
 }
 
-// Score for casting an ally-buff ability (Static Embrace) on an
-// ally. The buff's value is proportional to the ally's "damage
-// potential" — an ally with high MA and offensive abilities benefits
-// from a Crit_modifier more than a meatshield. Already-buffed allies
-// score lower (no compounding bonus needed).
+// True when `target` already carries every buff status `ability` would
+// apply. Re-casting then only refreshes duration — marginal value, so
+// the AI treats such a unit as a non-beneficiary (it shouldn't steer an
+// AoE-buff anchor toward an already-buffed ally). Reads polarity from
+// the catalog (`isBuffStatus`) so only the buff effects gate; a mixed
+// buff+debuff ability isn't dismissed just because the debuff half is
+// absent.
+function alreadyHasAllBuffs(
+  target: Unit,
+  ability: ActiveAbilityDefinition,
+  catalog: Catalog,
+): boolean {
+  const statusEffects = ability.effects.statusEffects;
+  if (statusEffects === undefined) return false;
+  const buffs = statusEffects.filter((s) => isBuffStatus(catalog, s.typeId));
+  if (buffs.length === 0) return false;
+  return buffs.every((s) => hasStatus(target, s.typeId));
+}
+
+// The raw value of landing `ability`'s buff on `target`, ignoring team,
+// range, and MP cost. The buff's effect is applying status_effects; we
+// use the recipient's "damage potential" as a proxy — high MA + many
+// offensive abilities benefits from a Crit_modifier / Haste far more
+// than a meatshield does. A Mage with MA 9 and 5 offensive spells scores
+// 45; a Knight with MA 4 and 1 attack scores 4. Zero when the unit
+// wouldn't benefit: no offensive output to amplify, or already carrying
+// every buff the ability applies. Shared by the single-target scorer and
+// the AoE coverage scorer (AI A, S74).
+function buffPotency(
+  state: GameState,
+  catalog: Catalog,
+  target: Unit,
+  ability: ActiveAbilityDefinition,
+): number {
+  if (alreadyHasAllBuffs(target, ability, catalog)) return 0;
+  const offensives = enumerateOffensiveAbilities(state, target, catalog);
+  if (offensives.length === 0) return 0;
+  // The dampening factor scales this into the same range as
+  // direct-damage scores so buffs don't always dominate.
+  return target.baseStats.ma * offensives.length * BUFF_SCORE_DAMPING_FACTOR;
+}
+
+// Score for casting a single-target ally-buff (Static Embrace) on an
+// ally. AoE buffs route through `scoreAoeBuff` instead (S74 AI A).
 function scoreAllyBuff(
   state: GameState,
   catalog: Catalog,
@@ -1670,20 +1709,76 @@ function scoreAllyBuff(
   if (!targetIsInAbilityRange(state, actor, source, target, ability, catalog)) {
     return Number.NEGATIVE_INFINITY;
   }
-  // The buff's effect is applying status_effects; we don't know which
-  // status without name-matching, but we can use the actor-side intent
-  // (declared by ability.effects.statusEffects) as a proxy. For tier
-  // 1.5, score by ally's projected damage output: high MA + has
-  // offensive abilities = high value to buff.
-  const offensives = enumerateOffensiveAbilities(state, target, catalog);
-  if (offensives.length === 0) return 0;
-  // Damage potential = MA × number of offensive abilities. A Mage
-  // with MA 9 and 5 offensive spells scores 45; a Knight with MA 4
-  // and 1 attack scores 4. The dampening factor scales this into the
-  // same range as direct-damage scores so buffs don't always dominate.
-  const value = target.baseStats.ma * offensives.length * BUFF_SCORE_DAMPING_FACTOR;
+  const value = buffPotency(state, catalog, target, ability);
+  if (value <= 0) return 0;
   // S66 chunk 2: subordinate MP-spend penalty (0 for free / 0-MP casts).
   return value - mpSpendPenalty(state, catalog, actor, ability);
+}
+
+// Score for casting an AoE ally-buff (Auramancy's Haste / Protect /
+// Shell — a diamond-1 footprint) anchored at `anchor` (S74 AI A). The
+// anchor is the *value* of the cast: the AI sums the buff potency over
+// every beneficiary the footprint covers, so it aims the diamond at the
+// gathering rather than at a lonely ally. Subordinate by construction —
+// it competes on the same scale as every other Act, and it doesn't stall
+// for a better cluster (that's the move-phase cohesion's job, S73). The
+// caster is a beneficiary when `excludeCaster` is false (Auramancy's
+// case). Enemies caught in the footprint are an own-goal (friendly fire +
+// excludeCaster:false buff an enemy too) and deduct their would-be
+// potency — mirroring the offensive scorer's friendly-fire deduction.
+function scoreAoeBuff(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  source: Position,
+  anchor: Position,
+  ability: ActiveAbilityDefinition,
+  enemies: ReadonlyArray<Unit>,
+  allies: ReadonlyArray<Unit>,
+): number {
+  if (!positionInAbilityRange(state, actor, source, anchor, ability, catalog)) {
+    return Number.NEGATIVE_INFINITY;
+  }
+  const aoe = ability.effects.aoe;
+  if (aoe === undefined) return Number.NEGATIVE_INFINITY;
+
+  const tiles = aoeTilesAffected(state, catalog, actor, source, anchor, ability, aoe);
+  if (tiles.length === 0) return 0;
+  const tileKeys = new Set(tiles.map(positionKey));
+
+  const repositioned: Unit = samePosition(source, actor.position)
+    ? actor
+    : { ...actor, position: source };
+
+  let total = 0;
+  let beneficiaries = 0;
+
+  // The caster itself, when the footprint reaches its (hypothetical) tile
+  // and the buff doesn't exclude the caster.
+  if (aoe.excludeCaster !== true && tileKeys.has(positionKey(source))) {
+    const v = buffPotency(state, catalog, repositioned, ability);
+    if (v > 0) {
+      total += v;
+      beneficiaries += 1;
+    }
+  }
+  for (const ally of allies) {
+    if (ally.id === actor.id) continue; // caster handled above
+    if (!tileKeys.has(positionKey(ally.position))) continue;
+    const v = buffPotency(state, catalog, ally, ability);
+    if (v > 0) {
+      total += v;
+      beneficiaries += 1;
+    }
+  }
+  if (beneficiaries === 0) return 0;
+
+  for (const enemy of enemies) {
+    if (!tileKeys.has(positionKey(enemy.position))) continue;
+    total -= buffPotency(state, catalog, enemy, ability);
+  }
+  // S66 chunk 2: subordinate MP-spend penalty (0 for free / 0-MP casts).
+  return total - mpSpendPenalty(state, catalog, actor, ability);
 }
 
 // =====================
@@ -2488,7 +2583,14 @@ function bestActFromSource(
 
   for (const ability of buffs) {
     for (const ally of allies) {
-      const score = scoreAllyBuff(state, catalog, actor, source, ally, ability);
+      // AoE buffs (Auramancy) score by coverage — the footprint anchored
+      // at the ally's tile, summed over every beneficiary it reaches —
+      // so the AI aims the diamond at the cluster, not a stray (S74 AI A).
+      // Single-target buffs score the one recipient.
+      const score =
+        ability.effects.aoe !== undefined
+          ? scoreAoeBuff(state, catalog, actor, source, ally.position, ability, enemies, allies)
+          : scoreAllyBuff(state, catalog, actor, source, ally, ability);
       if (score <= 0) continue;
       const proposed: ProposedAction = {
         type: 'use_ability',
@@ -3077,6 +3179,8 @@ export const _basicAiInternals = {
   scoreSingleUnitOffensive,
   scoreAoeOffensive,
   scoreAllyBuff,
+  scoreAoeBuff,
+  buffPotency,
   scoreWorldcraftFall,
   fallValueForOccupant,
   expectedKnockbackFallValue,
