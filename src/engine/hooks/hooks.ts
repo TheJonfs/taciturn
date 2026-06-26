@@ -380,10 +380,15 @@ export interface HookSignatures {
   // caster's equipment, so only the equipper's casts benefit. Composes
   // through `runDamagePipeline`, so the AI projection / UI forecast
   // (which reuse the live pipeline) inherit it for free. Per ADR-0113.
+  // S74: `targetCount` is the size of the cast's resolved cluster (1 for a
+  // single-target spell; >1 for AoE / Math Skill, threaded from the
+  // dispatcher). Glove of Metria reads it to scale its +1 SP per target
+  // beyond the first; flat contributors (Wand of Potential) ignore it.
   modifySpellPower: {
     args: {
       unit: Unit;
       ability: ActiveAbilityDefinition;
+      targetCount: number;
       baseValue: number;
     };
     return: number;

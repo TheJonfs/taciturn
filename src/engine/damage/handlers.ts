@@ -285,6 +285,7 @@ export const magicalMaPower: DamageHandler = (ctx, env) => {
   const spellPowerDelta = runModifySpellPower(env.state, env.catalog, {
     unit: ctx.attacker,
     ability,
+    targetCount: ctx.targetCount ?? 1,
     baseValue: 0,
   });
   const power =

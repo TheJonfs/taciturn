@@ -54,6 +54,14 @@ export interface ActionSpeedModifier {
 export interface SpellPowerModifier {
   readonly delta: number;
   readonly tagFilter?: ReadonlyArray<DamageTag>;
+  // S74 (ADR-0127): when true, `delta` is the per-extra-target bonus —
+  // the contribution scales as `delta × max(0, targetCount - 1)`, so a
+  // single-target cast gets nothing and a 5-target cast gets +4×delta.
+  // Glove of Metria authors `{ delta: 1, perExtraTarget: true }` (every
+  // magical multi-target cast — including field-wide Math Skill, which
+  // threads targetCount like AoE). Omitted/false → the flat per-cast
+  // delta (Wand of Potential).
+  readonly perExtraTarget?: boolean;
 }
 
 // Per-axis ability-range delta, optionally gated on the ability's damage

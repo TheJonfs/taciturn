@@ -271,6 +271,7 @@ export function runModifySpellPower(
   args: {
     unit: Unit;
     ability: ActiveAbilityDefinition;
+    targetCount: number;
     baseValue: number;
   },
 ): number {
@@ -280,6 +281,7 @@ export function runModifySpellPower(
     value = h.invoke({
       unit: args.unit,
       ability: args.ability,
+      targetCount: args.targetCount,
       baseValue: value,
     });
   }

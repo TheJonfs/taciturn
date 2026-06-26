@@ -227,6 +227,7 @@ function* spellPowerContributor(
       const localIndex = tieBreakIndex++;
       const localDelta = mod.delta;
       const localFilter = mod.tagFilter;
+      const localPerExtraTarget = mod.perExtraTarget === true;
       yield {
         tier: 'equipment',
         priority: DEFAULT_HOOK_PRIORITY,
@@ -238,7 +239,12 @@ function* spellPowerContributor(
             const matches = localFilter.some((t: DamageTag) => abilityTags.includes(t));
             if (!matches) return args.baseValue;
           }
-          return args.baseValue + localDelta;
+          // S74: Glove of Metria's per-extra-target scaling — +delta for
+          // each target beyond the first (single-target casts get nothing).
+          const effectiveDelta = localPerExtraTarget
+            ? localDelta * Math.max(0, args.targetCount - 1)
+            : localDelta;
+          return args.baseValue + effectiveDelta;
         },
       };
     }
