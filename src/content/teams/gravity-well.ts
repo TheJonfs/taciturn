@@ -1,28 +1,32 @@
 // Gravity Well — Chris-authored default template. S50 added a Calculator
 // (Thessaly) to reach 5; S51/S55 reworked equipment and bucket picks; S63
-// re-authored per playtest; S74 (this pass) re-authors again from a planner
-// export — a control/burst mix with heavy CT-manipulation and magic.
+// re-authored per playtest; S74 re-authored from a planner export and then
+// (this update) distributed the four new S74 caster accessories one-per-unit:
+// Greaves of Seraphis (Sera), Glove of Metria (Thessaly), Pendant of Lumara
+// (Lumen), Ring of Caliora (Clio) — a control/burst mix with heavy
+// CT-manipulation and magic.
 //
 // 5-unit composition under the variable-length BuiltTeam shape. Slot levels
 // follow the alternating-outward pattern (25 / 24 / 26 / 23 / 27) for slots
 // 0–4; per-unit `level` matches its slot.
 //
-// Concept (per the S74 export):
+// Concept:
 //   - Sera (Assassin) at slot 0 (L25). Shadow Arts + Auramancy secondary; Sai +
-//     Scimitar dual-wield under Two Weapons. Biomastery + Aura Mastery + Flow
-//     State support; Speed Save / Counter / Combat Focus / Earth Resilience
-//     survival.
+//     Chef's Knife dual-wield under Two Weapons. Earth Communion + Aura Mastery
+//     + Flow State support; Speed Save / Counter / Combat Focus / Earth
+//     Resilience survival. Greaves of Seraphis → opens the battle acting first.
 //   - Thessaly (Calculator) at slot 1 (L24). Math Skill + Auramancy secondary;
 //     Conductor + Aura Mastery amplifying the math/buff line. Staff + Tome of
-//     Power.
+//     Power. Glove of Metria → +SP per extra target on field-wide Math casts.
 //   - Lumen (Pyromancer) at slot 2 (L26). Fire Spells + Templar Arts secondary;
-//     Ignition / Aether Bloom / Conductor / Flow State burn engine.
+//     Ignition / Aether Bloom / Conductor / Flow State burn engine. Pendant of
+//     Lumara → doubles the Burn it lays down.
 //   - Chris (Templar) at slot 3 (L23). Templar Arts + Thievery secondary;
-//     Monkeygrip pairs the two-handed Imp Halberd with a Managuard off-hand;
-//     Emissary / Unified Calling sustain.
+//     Monkeygrip pairs the two-handed Imp Halberd with a Warriors' Aegis
+//     off-hand; Emissary / Unified Calling sustain.
 //   - Clio (Hydrologist) at slot 4 (L27). Water Spells + Math Skill secondary;
-//     Flow State / Conductor / Mathematician; Wand of the Depths + Battle
-//     Dictionary.
+//     Flow State / Conductor / Earth Communion; Wand of the Depths + Battle
+//     Dictionary. Ring of Caliora → her spells drain enemy CT.
 //
 // Authored unit names are personal picks; the team builder respects authored
 // values on template load (S38 naming convention).
@@ -74,10 +78,10 @@ export const gravityWell: BuiltTeam = {
       },
       equipment: {
         leftHand: itemId('sai'),
-        rightHand: itemId('scimitar'),
-        headgear: itemId('golden_hairpin'),
+        rightHand: itemId('chefs_knife'),
+        headgear: itemId('lookouts_hood'),
         armor: itemId('battle_gear'),
-        accessory: itemId('boots_of_haste'),
+        accessory: itemId('greaves_of_seraphis'),
       },
     },
     {
@@ -105,7 +109,6 @@ export const gravityWell: BuiltTeam = {
             abilityId('thoughtful_pacing'),
             abilityId('quickstep'),
             abilityId('hotfoot'),
-            abilityId('fleet_of_foot'),
           ],
         },
       },
@@ -114,7 +117,7 @@ export const gravityWell: BuiltTeam = {
         rightHand: itemId('tome_of_power'),
         headgear: itemId('focus_band'),
         armor: itemId('silvered_vest'),
-        accessory: itemId('ironfoot'),
+        accessory: itemId('glove_of_metria'),
       },
     },
     {
@@ -151,7 +154,7 @@ export const gravityWell: BuiltTeam = {
         rightHand: itemId('livre_of_urgency'),
         headgear: itemId('pointy_hat'),
         armor: itemId('wizards_robe'),
-        accessory: itemId('lightfoot'),
+        accessory: itemId('pendant_of_lumara'),
       },
     },
     {
@@ -185,7 +188,7 @@ export const gravityWell: BuiltTeam = {
         },
       },
       equipment: {
-        leftHand: itemId('managuard'),
+        leftHand: itemId('warriors_aegis'),
         rightHand: itemId('imp_halberd'),
         headgear: itemId('tactical_mask'),
         armor: itemId('soldiers_leathers'),
@@ -211,7 +214,7 @@ export const gravityWell: BuiltTeam = {
           [bucketId('support')]: [
             abilityId('flow_state'),
             abilityId('conductor'),
-            abilityId('mathematician'),
+            abilityId('earth_communion'),
           ],
           [bucketId('movement')]: [
             abilityId('tidewalker'),
@@ -225,7 +228,7 @@ export const gravityWell: BuiltTeam = {
         rightHand: itemId('battle_dictionary'),
         headgear: itemId('guard_cap'),
         armor: itemId('sorcerers_robe'),
-        accessory: itemId('augmentor'),
+        accessory: itemId('ring_of_caliora'),
       },
     },
   ],
