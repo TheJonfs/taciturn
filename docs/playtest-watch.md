@@ -1652,3 +1652,29 @@ AI battles, so every item below needs Chris's in-battle feel pass.
   enemy AoE → A needs the deferred enemy-AoE term (not a coverage bug). Hunter
   never charges, or charges into obvious whiffs → tune the 0.35 penalty. Both
   read as intended in live play → close.
+
+### Knife `attacker_speed` variance is an uncapped speed→damage multiplier (audited S74)
+
+- **What to watch.** The knife weapon class (`physicalVariance: { kind:
+  'attacker_speed' }`, Sai / Chef's Knife / Magebane) resolves its variance band
+  as `center = Speed / 10`, **with no upper clamp** (`resolvePhysicalVarianceBand`,
+  `src/engine/damage/handlers.ts`). At the design's intended Speed (~9–11) that's
+  ~1.0× (neutral, as the Sai comment describes). Under Haste (×1.5) or
+  speed-stacking it scales without bound: a verified case — Assassin, PA 5,
+  Hasted to **Speed 28** — gave the Sai (WP 4) a **2.8× multiplier → ~56 dmg**,
+  out-hitting her Scimitar (WP 7, flat ~1.0× → ~37). Damage formulas are
+  **correct**; the surprise is that "variance" has become the dominant damage
+  term for fast knife-wielders.
+- **Why it matters.** A WP-4 knife out-damaging a WP-7 sword inverts the
+  WP-leads-damage intuition, and the scaling is invisible (it rides the variance
+  slot, not a stated multiplier). Haste + knife is effectively a hidden,
+  uncapped damage amplifier that swords/axes never get. Chris's S74 call:
+  **confirm and leave it for now** — flag, don't change.
+- **Dials (if/when adjusted).** Clamp the `attacker_speed` center band near 1.0,
+  or normalize around a baseline Speed (`1 + (Speed - 10) × k`), both in
+  `resolvePhysicalVarianceBand`. Note the AI projection reuses the same band
+  (`projectExpectedDamage`), so a fix updates AI valuation for free.
+- **Signal for adjustment.** Fast knife builds (Haste / Assassin / Thief)
+  dominate via raw weapon damage, or knife WP becomes irrelevant next to Speed →
+  clamp/normalize the band. Plays fine because high Speed is itself costly/rare →
+  leave as-is and close.
