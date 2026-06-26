@@ -324,6 +324,10 @@ via this kind. Per-item `classRestrictions` enforces who can equip what
 | `the_offering` | The Offering | S42 — attack-swing multiplier (each weapon swings 2× on basic Attack) | `src/content/items/the-offering.ts` |
 | `mantle_of_protection` | Mantle of Protection | S45 follow-up — +25 resistance across elemental tags + +25 evasion on every facing | `src/content/items/mantle-of-protection.ts` |
 | `ironfoot` | Ironfoot | S45 follow-up — −Move/−Jump/−Speed in exchange for +PA/+MA + Movement-bucket capacity | `src/content/items/ironfoot.ts` |
+| `greaves_of_seraphis` | Greaves of Seraphis | S74 — Speed +2 + battle-start CT seed (wearer acts first; `battleStartCt: 100` → clamped to 99) | `src/content/items/greaves-of-seraphis.ts` |
+| `ring_of_caliora` | Ring of Caliora | S74 — MA +2 + magical hit drains 20% of damage from target CT (uncapped; floors at 0) | `src/content/items/ring-of-caliora.ts` |
+| `glove_of_metria` | Glove of Metria | S74 — MA +1 + spells gain +1 SP per target beyond the first (incl. Math Skill) | `src/content/items/glove-of-metria.ts` |
+| `pendant_of_lumara` | Pendant of Lumara | S74 — MA +2 + doubles the per-stack damage of Burn the wearer applies | `src/content/items/pendant-of-lumara.ts` |
 
 ### Consumables
 
@@ -402,7 +406,7 @@ catalog totals.
 | Command sets | 15 | S72 `auramancy`; S62 `templar_arts`; Thief `thief_arts` |
 | Abilities (active + passive + hidden) | 111 | S72 +7 (`enchant_haste/protect/shell`, `esuna`, `resistance_save`, `short_charge`, `aura_mastery`; `float` revived, already counted) |
 | Status types | 39 | S72 +4 (`quickening`, `protect_cast`, `shell_cast`, `resistance_save`); S65 `mana_font` |
-| Equipment + consumables | 77 | S68 +4 (`vicious_dagger`, `scimitar`, `wand_of_potential`, `gauntlet_of_might`) |
+| Equipment + consumables | 81 | S74 +4 caster accessories (`greaves_of_seraphis`, `ring_of_caliora`, `glove_of_metria`, `pendant_of_lumara`) |
 | Rulesets | 1 | — |
 | Maps | 4 | S70 `mountainPass` |
 | Terrain types | 6 | S70 `rock` (elev ≥ 7) + `grass_rock` (elev 5-6) on Mountain Pass |

@@ -1602,3 +1602,53 @@ AI battles, so every item below needs Chris's in-battle feel pass.
   scatters → raise `COHESION_BAND`. Units pack into one-spell-kills-several → it's
   too high, or the deferred enemy-AoE term is now needed. Grouped advance + multi-
   ally Auramancy + no stall → close.
+
+### S74 caster-accessory batch — field-wide Calculator interactions (ADRs 0125–0128)
+
+- **What to watch.** (a) **Ring of Caliora soft-lock** — Ring drains 20% of
+  magical damage from target CT, **uncapped** (floors at 0). On a Calculator's
+  field-wide Math Skill (Precision Fire) it drains CT off the *whole* matched
+  enemy team per cast; repeated casts can perpetually deny tempo. (b) **Glove of
+  Metria field-wide blowup** — +1 SP per target beyond the first applies to Math
+  Skill too, so a 5-target Precision Fire gains +4 SP; stacked with the Ring on
+  one Calculator, the field-wide curve is the batch epicenter. (c) **Pendant of
+  Lumara multi-amp** — doubled Burn vs. healing economy; watch a Burn-stacking
+  build (Spark/Flame Lance/Precision Fire + Pendant) outrunning heals. (d)
+  **Greaves opener feel** — one guaranteed first action in 5v5; watch for a
+  guaranteed-first Stop/alpha feeling oppressive (probably fine — one opener).
+- **Why it matters.** Chris deliberately shipped the *strong* versions of Ring
+  (no cap) and Glove (applies to Math Skill) to feel them out rather than
+  pre-capping. The Calculator is the known curve-breaker; these two compound on
+  it.
+- **Dials.** Ring: `damageCtDrainPercent` (20) + the cheapest guardrail is a
+  per-hit cap `min(floor(pct×dmg), CAP)` or a CT floor > 0, both localizable to
+  `finalDamageCtDrainContributor`. Glove: `perExtraTarget` delta (1), or
+  gate the contributor to exclude `math_skill` dispatch if field-wide is too
+  much. Pendant: the `factor` (2) on the Burn entry.
+- **Signal for adjustment.** A Ring-Calculator perpetually freezes the enemy
+  team → cap or floor it. Glove makes field-wide Math the dominant strategy →
+  exclude Math Skill or drop the per-target delta. Doubled Burn trivializes a
+  no-cleanse comp → revisit the factor. Greaves opener decides games on turn 1 →
+  reconsider the 100-seed. All feel fine across a few engagements → close.
+
+### S74 AI increments — buff coverage + charged CT-race (ADR-0129)
+
+- **What to watch.** (a) **AI A (buff coverage):** an AI Enchanter aims Auramancy
+  at the densest reachable ally cluster (covers 2+), not a stray; doesn't stall
+  for a better cluster; doesn't buff an already-buffed ally or splash an enemy
+  when a cleaner anchor exists. Pairs with S73 cohesion (allies gather → caster
+  aims at the gathering). (b) **AI B (charged CT-race):** a Hunter declines a
+  tile-pinned Charged Attack on a target that will act (and move off the tile)
+  before the charge resolves, preferring a non-acting target or another action —
+  but still charges freely vs. slow / Stopped targets (no never-charge
+  regression).
+- **Why it matters.** Both are AI-scoring-only and **feel-unverified** — both-AI
+  battles still can't be auto-driven in the preview (since S70); validation is
+  unit-test-only.
+- **Dials.** AI A coverage is subordinate (no constant — it competes on the
+  shared scale). AI B penalty = `CHARGED_TILE_PIN_DODGE_PENALTY` (0.35,
+  `src/ai/basic.ts`).
+- **Signal for adjustment.** Enchanter buffs a lonely ally / over-packs into
+  enemy AoE → A needs the deferred enemy-AoE term (not a coverage bug). Hunter
+  never charges, or charges into obvious whiffs → tune the 0.35 penalty. Both
+  read as intended in live play → close.

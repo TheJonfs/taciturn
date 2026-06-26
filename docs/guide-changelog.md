@@ -46,6 +46,26 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ## Session 74 (2026-06-25)
 
+### Four new caster accessories (2026-06-26)
+
+Commits `9ac8a49` (Greaves), `126f72d` (Ring), `352c014` (Glove), `981e065`
+(Pendant). All four are **accessories** (any class may equip; unique-per-team by
+the usual catalog rule). ADRs 0125–0128.
+
+- **Greaves of Seraphis** — Speed +2, and the wearer **starts the battle acting
+  first** (begins at maximum CT). One guaranteed opener per battle.
+- **Ring of Caliora** — MA +2, and the wearer's damaging **spells** also drain
+  the target's CT by **20% of the damage dealt** (pushing the target's next turn
+  later). Spell damage only; no effect from weapon hits. On a Calculator's
+  field-wide Math Skill this drains CT off every matched enemy at once.
+- **Glove of Metria** — MA +1, and the wearer's spells gain **+1 Spell Power for
+  each target beyond the first** (a 3-target cast is +2 SP, a 5-target cast +4).
+  Applies to AoE spells **and** field-wide Math Skill — casting wide hits harder.
+- **Pendant of Lumara** — MA +2, and **Burn the wearer applies deals double
+  damage per stack**. Fire resistance still reduces the (doubled) Burn ticks.
+
+### Two new bundled teams + Charged Attack retargeting (2026-06-25)
+
 Two new bundled teams in the builder's "Load Default" picker (alongside Gravity
 Well, High Ground, Mage War, Chain Reaction, The Irregulars):
 
