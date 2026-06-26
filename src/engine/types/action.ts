@@ -557,7 +557,10 @@ export type SystemCtPushSource =
   | { readonly kind: 'damage_rider'; readonly abilityId: AbilityId; readonly attackerId: UnitId }
   | { readonly kind: 'ct_effect'; readonly abilityId: AbilityId; readonly attackerId: UnitId }
   | { readonly kind: 'reaction'; readonly abilityId: AbilityId; readonly attackerId: UnitId }
-  | { readonly kind: 'support'; readonly abilityId: AbilityId; readonly unitId: UnitId };
+  | { readonly kind: 'support'; readonly abilityId: AbilityId; readonly unitId: UnitId }
+  // S74 (ADR-0126): Ring of Caliora's magical-hit CT drain — a negative
+  // push fired from the wearer's `onFinalDamage` hook.
+  | { readonly kind: 'equipment_ct_drain'; readonly itemId: ItemId; readonly attackerId: UnitId };
 
 // `system_set_ct` — engine-emitted action that sets a unit's CT to an
 // absolute value. Distinct from `system_ct_push` (delta-based): set is

@@ -666,6 +666,73 @@ function* finalDamageDrainContributor(
   }
 }
 
+// onFinalDamage CT-drain contributor (S74, ADR-0126): each item's
+// `damageCtDrainPercent` declares a percentage (0-100) of final *magical*
+// damage to drain from the target's CT. Ring of Caliora authors `20`.
+//
+// Gates (mirror the MP-drain contributor, plus the magical gate):
+//  - the hit was magical (`damageTags.has('magical')`) — the Ring rewards
+//    spellcasting, not weapon hits.
+//  - not absorbed (resistance > 100 flip — no drain when nothing landed).
+//  - `damageDealt > 0`.
+//  - `floor(damageDealt × percent / 100) > 0` (log cleanliness).
+//  - the target is not KO'd (the CT-push reducer also no-ops on KO'd
+//    targets; gating here keeps the log free of zero-effect entries).
+//
+// Emission: `system_ct_push { targetId, delta: -amount, source: {
+// kind: 'equipment_ct_drain', itemId, attackerId } }`. The reducer floors
+// the target's CT at 0 — the only guardrail (no per-hit cap, per Chris's
+// S74 call). Field-wide on a Calculator's Math Skill this drains CT off
+// every matched enemy per cast (the flagged tempo soft-lock — a
+// playtest-watch item, deliberately shipped uncapped to feel out).
+function* finalDamageCtDrainContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'onFinalDamage'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.damageCtDrainPercent === undefined) continue;
+    if (item.damageCtDrainPercent <= 0) continue;
+    const localIndex = tieBreakIndex++;
+    const localPercent = item.damageCtDrainPercent;
+    const localItemId = item.id;
+    const localAttackerId = unit.id;
+    yield {
+      tier: 'equipment',
+      priority: DEFAULT_HOOK_PRIORITY,
+      tieBreakIndex: localIndex,
+      invoke: (args) => {
+        if (args.absorbed) return {};
+        if (args.damageDealt <= 0) return {};
+        if (!args.damageTags.has('magical')) return {};
+        if (args.target.vitals.hp <= 0) return {};
+        const amount = Math.floor((args.damageDealt * localPercent) / 100);
+        if (amount <= 0) return {};
+        const emission: ProposedAction = {
+          type: 'system_ct_push',
+          source: 'system',
+          payload: {
+            targetId: args.target.id,
+            delta: -amount,
+            source: { kind: 'equipment_ct_drain', itemId: localItemId, attackerId: localAttackerId },
+          },
+        };
+        return { emittedActions: [emission] };
+      },
+    };
+  }
+}
+
+// Composes the two equipment `onFinalDamage` riders (MP drain + CT drain)
+// into one contributor, since the hook map holds a single entry per hook.
+function* finalDamageContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'onFinalDamage'>> {
+  yield* finalDamageDrainContributor(unit, catalog);
+  yield* finalDamageCtDrainContributor(unit, catalog);
+}
+
 // onFinalDamageReceived contributor (Session 37): each item's
 // `physicalReflectPercent` declares a percentage (0-100) of incoming
 // physical damage to reflect back at the attacker as a revenge-sourced
@@ -782,7 +849,8 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   // ADR-0064 (Session 30): weapon spell-cast riders.
   onDamageDealt: attackProcContributor,
   // ADR-0065 (Session 30): damage-to-MP-drain on equipment.
-  onFinalDamage: finalDamageDrainContributor,
+  // S74 (ADR-0126): + Ring of Caliora's magical CT drain, composed in.
+  onFinalDamage: finalDamageContributor,
   // Session 37: physical-reflect on body armor (Spiked Mail).
   onFinalDamageReceived: physicalReflectContributor,
 };
