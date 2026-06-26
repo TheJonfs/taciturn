@@ -450,6 +450,27 @@ surer, and more of those strikes tell.`,
 Armorer issues exactly one, and notes with care who comes to ask.`,
     tactical: 'A flat, generous lift to Physical Attack — the most direct boost to every weapon strike, charged shot, and physical-power ability in the racks. Unique per team, so it crowns a single striker; choose her with care.',
   },
+  greaves_of_seraphis: {
+    flavor: `Greaves wrought for the cadet who means to move before the
+field has settled — light, and quicker past reason than their weight
+admits.`,
+    tactical: 'A step of Speed, and the first move of the engagement: the wearer opens at full charge and acts before any other cadet. For the opener who means to strike, buff, or seize ground while the field still stands still.',
+  },
+  ring_of_caliora: {
+    flavor: `A ring that turns a wound into a delay. What it takes in
+blood it takes again in time.`,
+    tactical: 'Magical Attack, and a wielder whose damaging spells push the struck foe’s next turn later — a fifth of the damage drained from the target’s clock. Spell damage only; on a Calculator’s field-wide Math Skill it delays every matched enemy at once.',
+  },
+  glove_of_metria: {
+    flavor: `A caster’s glove that rewards ambition: the wider she throws
+her art, the harder each strand of it bites.`,
+    tactical: 'Magical Attack, and a Spell Power that climbs with the count of targets — every foe beyond the first adds to the cast’s force. The glove for the AoE caster and the Calculator’s field-wide Math; wasted on a single-target build.',
+  },
+  pendant_of_lumara: {
+    flavor: `A pendant that feeds a fire already lit. The ember the
+wearer sets burns twice as fierce as another’s.`,
+    tactical: 'Magical Attack, and Burn the wearer applies that bites twice as hard per stack — the Pyromancer’s amplifier above all, though a target’s fire resistance still tempers the doubled tick. Pairs with anything that stacks Burn.',
+  },
   lightfoot: {
     flavor: `Everything that makes a cadet difficult to pin, gathered
 into a single band. The Armorer's quiet favourite.`,

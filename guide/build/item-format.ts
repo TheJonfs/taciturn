@@ -253,7 +253,38 @@ function hookEffects(item: ItemDefinition): string[] {
   // magical power coefficient, tag-gated to the holder's matching casts.
   for (const mod of item.spellPowerModifiers ?? []) {
     const gate = mod.tagFilter ? ` (${mod.tagFilter.join('/')})` : '';
-    out.push(`Spell Power ${signed(mod.delta)}${gate}`);
+    const per = mod.perExtraTarget ? ' per target beyond the first' : '';
+    out.push(`Spell Power ${signed(mod.delta)}${gate}${per}`);
+  }
+
+  // Battle-start CT seed (Greaves of Seraphis): a unit begins the battle
+  // at this CT. A full 100 means it acts first; lesser values are a head
+  // start. Surfaced so the armory communicates the opener-guarantee.
+  if (item.battleStartCt !== undefined) {
+    out.push(
+      item.battleStartCt >= 100
+        ? 'Begins the battle at full CT (acts first)'
+        : `Begins the battle at ${item.battleStartCt} CT`,
+    );
+  }
+
+  // Spell-damage CT drain (Ring of Caliora): the wielder's damaging
+  // spells push the target's CT back by this fraction of the damage
+  // dealt. Spell damage only — weapon hits don't trigger it.
+  if (item.damageCtDrainPercent !== undefined) {
+    out.push(`Spell damage drains target CT by ${item.damageCtDrainPercent}% of damage dealt`);
+  }
+
+  // Outgoing-status magnitude modifiers (Pendant of Lumara): scale the
+  // magnitude of a status the wielder applies — by status type or by
+  // tag. Composes through the same chain Aura Mastery uses.
+  for (const mod of item.outgoingStatusMagnitudeMods ?? []) {
+    const subject = mod.statusTypeId
+      ? catalog().getStatusType(mod.statusTypeId).name
+      : mod.statusTag
+        ? `${mod.statusTag}-tagged status`
+        : 'status';
+    out.push(`Applied ${subject} magnitude ×${mod.factor}`);
   }
 
   for (const mod of item.abilityRangeModifiers ?? []) {
