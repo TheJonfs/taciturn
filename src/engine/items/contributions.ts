@@ -314,6 +314,41 @@ function* incomingStatusChanceContributor(
   }
 }
 
+// modifyOutgoingStatusMagnitude contributor (S74, ADR-0128): each item's
+// `outgoingStatusMagnitudeMods` declares multiplicative factors on the
+// magnitude of a status the WEARER applies, gated on the outgoing status's
+// type or tag set (both omitted → every outgoing status). Pendant of
+// Lumara: `[{ statusTypeId: 'burn', factor: 2 }]` doubles the wearer's
+// Burn. Composes multiplicatively alongside Aura Mastery's buff amplifier
+// — which gates on `amplifiable` (Burn isn't), so they don't collide.
+function* outgoingStatusMagnitudeContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'modifyOutgoingStatusMagnitude'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.outgoingStatusMagnitudeMods === undefined) continue;
+    for (const mod of item.outgoingStatusMagnitudeMods) {
+      const localIndex = tieBreakIndex++;
+      const localMod = mod;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (localMod.statusTypeId !== undefined && args.statusType.id !== localMod.statusTypeId) {
+            return args.baseMagnitude;
+          }
+          if (localMod.statusTag !== undefined && !args.statusType.tags.includes(localMod.statusTag)) {
+            return args.baseMagnitude;
+          }
+          return args.baseMagnitude * localMod.factor;
+        },
+      };
+    }
+  }
+}
+
 // modifyBucketCapacity contributor: each item's `bucketCapacityMods`
 // declares per-bucket additive deltas (Steel Helm `{ reaction: 1 }`,
 // Augmentor `{ support: 1 }`, Magus Crown `{ first_action: 1 }`).
@@ -841,6 +876,8 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   modifySpellPower: spellPowerContributor,
   modifyResistance: resistanceContributor,
   modifyIncomingStatusApplicationChance: incomingStatusChanceContributor,
+  // S74 (ADR-0128): Pendant of Lumara's outgoing-Burn amplifier.
+  modifyOutgoingStatusMagnitude: outgoingStatusMagnitudeContributor,
   modifyBucketCapacity: bucketCapacityContributor,
   modifyStatusTickAmount: statusTickAmountContributor,
   modifyStatusApplicationStackCount: statusApplicationStackCountContributor,

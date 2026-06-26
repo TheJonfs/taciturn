@@ -47,6 +47,13 @@ export interface ComposeApplyStateArgs {
   readonly catalog: Catalog;
   // null when applied without a unit caster (system-driven applications).
   readonly caster: Unit | null;
+  // The unit receiving the status. S74: composers that route a magnitude
+  // through `modifyOutgoingStatusMagnitude` (Burn's per-stack damage) need
+  // the target for the hook args.
+  readonly target: Unit;
+  // This status's own type. S74: passed so composers can name themselves
+  // to `modifyOutgoingStatusMagnitude` without a self-referential const.
+  readonly statusType: StatusEffectType;
   // null when there's no existing same-type instance on the target.
   // STACK_COUNT_ADDITIVE composers read this to merge with prior state.
   readonly existingInstance: StatusInstance | null;

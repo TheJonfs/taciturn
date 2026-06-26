@@ -38,6 +38,7 @@ export {
   runModifyMathSkillSpBonus,
   runModifyMpCost,
   runModifyOutgoingHitChance,
+  runModifyOutgoingStatusMagnitude,
   runModifyResistance,
   runModifySpecialMovement,
   runModifyStatQuery,

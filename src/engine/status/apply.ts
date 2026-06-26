@@ -179,6 +179,8 @@ export function applyStatus(
       state,
       catalog,
       caster,
+      target: targetUnit,
+      statusType: type,
       existingInstance: existingOfType[0] ?? null,
       requestedStackQuantity,
     });

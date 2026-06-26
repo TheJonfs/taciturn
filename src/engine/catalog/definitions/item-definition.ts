@@ -95,6 +95,19 @@ export interface EvasionMods {
   readonly back?: number;
 }
 
+// S74 (ADR-0128): caster-side outgoing-status-magnitude multiplier. A
+// multiplicative factor on the magnitude of a status the *wearer* applies,
+// gated per-status-type (`statusTypeId`) or per-status-tag (`statusTag`);
+// both undefined means "every outgoing status." Pendant of Lumara authors
+// `[{ statusTypeId: 'burn', factor: 2 }]` (doubles the Burn it applies).
+// Composed through the `modifyOutgoingStatusMagnitude` chain alongside
+// Aura Mastery — which gates on `amplifiable`, so the two don't collide.
+export interface OutgoingStatusMagnitudeModifier {
+  readonly factor: number;
+  readonly statusTypeId?: StatusTypeId;
+  readonly statusTag?: StatusTag;
+}
+
 // Target-side incoming-status-application chance modifier. Either
 // per-status-type (Pointy Hat: × 0.5 on Silence) or per-status-tag
 // (Focus Band: × 0.75 on any negative-tagged status).
@@ -339,6 +352,12 @@ interface EquipmentBase {
   // The contributor wires into the existing `onFinalDamage` hook
   // alongside `damageMpDrainPercent`.
   readonly damageCtDrainPercent?: number;
+
+  // S74 (ADR-0128): caster-side outgoing-status-magnitude multipliers.
+  // Each entry contributes one `modifyOutgoingStatusMagnitude` handler
+  // that multiplies the magnitude of a matching status the wearer applies.
+  // Pendant of Lumara: `[{ statusTypeId: 'burn', factor: 2 }]`.
+  readonly outgoingStatusMagnitudeMods?: ReadonlyArray<OutgoingStatusMagnitudeModifier>;
 }
 
 // Weapon-sourced variance source (per ADR-0067 + Session 40 extension).

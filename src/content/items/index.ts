@@ -83,6 +83,7 @@ import { gauntletOfMight } from './gauntlet-of-might.ts';
 import { greavesOfSeraphis } from './greaves-of-seraphis.ts';
 import { ringOfCaliora } from './ring-of-caliora.ts';
 import { gloveOfMetria } from './glove-of-metria.ts';
+import { pendantOfLumara } from './pendant-of-lumara.ts';
 
 export const items: ReadonlyArray<ItemDefinition> = [
   // Session 17c / 19 originals
@@ -208,8 +209,9 @@ export const items: ReadonlyArray<ItemDefinition> = [
   // Session 74 — caster accessories. Greaves of Seraphis: Speed +2 +
   // battle-start CT seed (acts first). Ring of Caliora: MA +2 + magical
   // CT drain. Glove of Metria: MA +1 + per-extra-target Spell Power.
-  // Pendant of Lumara lands alongside as the batch completes.
+  // Pendant of Lumara: MA +2 + doubles the wearer's outgoing Burn.
   greavesOfSeraphis,
   ringOfCaliora,
   gloveOfMetria,
+  pendantOfLumara,
 ];

@@ -24,6 +24,7 @@
 // 10 + 5 = 15 damage over two triggers; ~25% HP toll over two turns.
 
 import {
+  runModifyOutgoingStatusMagnitude,
   runModifyStatQuery,
   runModifyStatusTickAmount,
   statusHook,
@@ -61,7 +62,7 @@ export const burn: StatusEffectType = {
   // Per ADR-0030: snapshot the applier's MA into N copies (where N is
   // the requested stack quantity), append to existing stacks, and
   // return the merged customState plus the resulting stack count.
-  composeApplyState: ({ state, catalog, caster, existingInstance, requestedStackQuantity }) => {
+  composeApplyState: ({ state, catalog, caster, target, statusType, existingInstance, requestedStackQuantity }) => {
     const ma =
       caster !== null
         ? runModifyStatQuery(state, catalog, {
@@ -70,7 +71,27 @@ export const burn: StatusEffectType = {
             baseValue: caster.baseStats.ma,
           })
         : 0;
-    const perStackDamage = Math.max(1, Math.floor(ma * BURN_COEFFICIENT));
+    let perStackDamage = Math.max(1, Math.floor(ma * BURN_COEFFICIENT));
+    // S74 (ADR-0128): route the per-stack magnitude through the
+    // caster-side `modifyOutgoingStatusMagnitude` hook so equipment /
+    // passives can amplify the wearer's outgoing Burn (Pendant of Lumara
+    // doubles it). Aura Mastery's handler no-ops here — it gates on
+    // `amplifiable`, which Burn does not declare — so buff-amplification
+    // and Burn-amplification stay independent. Skipped for source-less
+    // (system) applies, where there's no caster whose gear could amplify.
+    if (caster !== null) {
+      perStackDamage = Math.max(
+        1,
+        Math.floor(
+          runModifyOutgoingStatusMagnitude(state, catalog, {
+            caster,
+            target,
+            statusType,
+            baseMagnitude: perStackDamage,
+          }),
+        ),
+      );
+    }
     const newStackValues = Array.from({ length: requestedStackQuantity }, () => perStackDamage);
     const existingStackValues = readStackDamages(existingInstance?.customState);
     const merged = [...existingStackValues, ...newStackValues];
