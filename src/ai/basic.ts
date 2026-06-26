@@ -86,6 +86,7 @@ import {
   computeAbilityChance,
   computeThiefContestChance,
   computeWorldcraftEffectCap,
+  estimateChargedTiming,
   FALLING_DAMAGE_PER_LEVEL,
   type KnockbackDirection,
   type Catalog,
@@ -2554,6 +2555,46 @@ function bestMathCandidate(
   return { score, action: m.action, key: 'math' };
 }
 
+// AI B (S74): CT-race devaluation for tile-pinned charged attacks. A
+// charged offensive committed to a *tile* (Charged Attack) hits whoever
+// stands there at resolution and misses if they've moved off. If the
+// target reaches its next turn before the charge resolves, it can act —
+// and step off the pinned tile — so the optimistic "they're standing here
+// now" score is a gamble that probably whiffs. This devalues (doesn't
+// ban) such a pick: a target that won't act before the resolve, or a
+// different action, is preferred — but charges stay good against slow /
+// Stopped / non-acting targets (the race is won, or the target has no
+// upcoming turn). A pure CT-race check via `estimateChargedTiming` (the
+// same forecast the UI's resolve-timeline uses); no movement prediction
+// (the target's *likely tile* is out of scope — B is the race only).
+const CHARGED_TILE_PIN_DODGE_PENALTY = 0.35;
+
+function chargedTilePinValueFactor(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  target: Unit,
+  ability: ActiveAbilityDefinition,
+): number {
+  if (ability.actionSpeed <= 0) return 1; // instant tile shot — no charge, no race
+  const timing = estimateChargedTiming({
+    state,
+    catalog,
+    caster: actor,
+    ability,
+    anchor: target.position,
+    concernedUnitId: target.id,
+  });
+  // null → un-projectable (target Stopped, or no upcoming turn within the
+  // horizon): it won't vacate the tile, so no penalty. `false` → the
+  // target acts before the charge lands and can dodge → devalue. `true`
+  // → the charge resolves first (target pinned) → full value.
+  if (timing !== null && timing.resolvesBeforeTargetTurn === false) {
+    return CHARGED_TILE_PIN_DODGE_PENALTY;
+  }
+  return 1;
+}
+
 // Best Act candidate from `source` — a (score, action, key) triple
 // for the highest-scoring offensive or buff that the actor could
 // commit IF they were standing at `source`. No validation against the
@@ -2655,8 +2696,11 @@ function bestActFromSource(
       // enemy standing there now). Distinct from the unit-pin branch above,
       // which tracks the unit by id.
       for (const enemy of enemies) {
-        const score = scoreSingleUnitOffensive(state, catalog, actor, source, enemy, ability);
-        if (score <= 0) continue;
+        const base = scoreSingleUnitOffensive(state, catalog, actor, source, enemy, ability);
+        if (base <= 0) continue;
+        // S74 AI B: devalue the pin if the target can act (and step off the
+        // tile) before the charge resolves — the CT-race check.
+        const score = base * chargedTilePinValueFactor(state, catalog, actor, enemy, ability);
         const anchor: Position = { ...enemy.position };
         const proposed: ProposedAction = {
           type: 'use_ability',
@@ -3204,6 +3248,7 @@ export const _basicAiInternals = {
   controlOverrideRemainingTurns,
   enumerateOffensiveAbilities,
   isAoeBuffer,
+  chargedTilePinValueFactor,
   pickBestMove,
   bestActFromSource,
 };
