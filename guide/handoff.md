@@ -1,99 +1,78 @@
 # Handoff
 
-*Outgoing notes from the Session-70→72 pass — the **Enchanter** (13th
-class), the **Protect/Shell ×0.5** + **Aura Mastery** status shifts, the
-**Mountain Pass** training field (4th), and a handful of S71 stale-prose
-fixes. Both artifacts updated. Driven by `docs/guide-changelog.md`.
-Overwritten each session — read every item, then act / promote / drop.*
+*Outgoing notes from the Session 74 pass — four new caster accessories
+(the headline), plus two S74 rules changes (Charged Attack tile-targeting
+and buff non-stacking). Both artifacts updated. Driven by
+`docs/guide-changelog.md`. Overwritten each session — read every item,
+then act / promote / drop.*
 
 ## Changelog cursor
 
-**Processed through Session 72 (2026-06-22)** — the whole span above the
-prior cursor: all three S72 entries (Enchanter, Protect/Shell, Aura
-Mastery), the S71 follow-ups/chunks, and S70 (Mountain Pass + split
-deployment). The S69 follow-up and below were already processed. Next
-guide session starts **above** the topmost "Session 72 follow-up — Aura
-Mastery" heading.
+**Processed through Session 74 (2026-06-26).** S73 was a no-op (AI-only).
+Processed all of S74: the four accessories, the two bundled teams
+(no guide surface — skipped), Charged Attack retargeting, and buff
+non-stacking. Next guide session starts **above** the "Session 74"
+heading.
 
 ## What landed (this session)
 
-PDF rebuilt to **61 pages** (+4: Enchanter spread +2, Mountain Pass +2).
-Reference rebuilt clean. **Parity verified across all 13 spreads.**
+PDF stayed at **61 pages** (the four accessory entries fit within the
+Armory's existing pages); parity verified across all 13 spreads. The
+reference rebuilt clean.
 
-### Enchanter — thirteenth Specialization spread
+### Four new accessories (the headline)
 
-Full 6-step recipe, wired as the prior classes. `content/classes/
-enchanter.ts` (slotted alphabetically between Calculator and Geosage in
-`SPREAD_ORDER`), `classes/index.ts`, `build/spread-context.ts` (portrait
-`enchantress_1.png` + ElementId + CLASS_META + order), `styles/
-variant-e.css` (**jewel emerald/viridian** `#1f6b54` — Chris's pick, a
-bluer/richer green distinct from the Geosage olive and Hunter forest),
-`pages/layout.ts` (half-title clause + `thirteen` in NUMBER_WORDS).
-Auramancy `commandSetIntro` + notes for the 4 wards/cleanse and the 4
-passives; Attack omitted (PA 3 footnote; offence comes from a secondary
-set). **Required extra wiring:** added `'enchanter'` to
-`MAGICAL_ANCHOR_IDS` in `build/item-format.ts` (it joined the mage-gear
-tier — without this the build throws on mage-gear items).
+Three of the four carry **new hook fields** the shared `item-format.ts`
+didn't render — so, like the Wand of Potential before them, they'd have
+silently shown only their stat mod. Extended `hookEffects` to render all
+four (one fix, both artifacts):
+- `battleStartCt` → "Begins the battle at full CT (acts first)" (Greaves
+  of Seraphis, +Speed).
+- `damageCtDrainPercent` → "Spell damage drains target CT by N% of
+  damage dealt" (Ring of Caliora, +MA).
+- `spellPowerModifiers.perExtraTarget` → "Spell Power +1 per target
+  beyond the first" (Glove of Metria, +MA) — extended the existing
+  spell-power rendering.
+- `outgoingStatusMagnitudeMods` → "Applied Burn magnitude ×2" (Pendant
+  of Lumara, +MA).
+Hand-authored flavor+tactical notes for all four in
+`content/items/index.ts` (after Gauntlet of Might). Verified on PDF
+armory p47 and reference §3.
 
-**Fit:** the densest spread in the book (intro + 4 actives + 4 passives).
-First draft spilled to 3 pages and broke parity for everything after it;
-recovered by tightening every note to ~2 sentences + trimming the brief
-and strategy. A header NOTE in the file warns the next editor to budget a
-trim before adding anything.
+### S74 rules changes
 
-### Status shifts (S72)
-
-- **Protect/Shell ×0.5** (ADR-0121): captured in the Enchanter's
-  Protect/Shell notes ("halves … stacking with resistance, not
-  competing") and a new **reference §1** line. **Audit was clean** — the
-  Defender note already said "halves every physical blow," the Sorcerer's
-  Robe note only says "a free Shell"; no "+50 resistance" framing existed
-  anywhere, so no fix was needed.
-- **Aura Mastery** (ADR-0122): Enchanter spread note + reference §7.
-
-### S71 stale-prose fixes
-
-- **Calculator** (`content/classes/calculator.ts`): Exact Rhythm was
-  "Faith and Magical Attack" → now MA-only (heavier); Sculpted
-  Enhancement "half-chance" and Engineered Defenses "four-in-five" → both
-  reworded to MA-scaled qualitative phrasing (the base chances dropped to
-  25/40%, which the §6 facts chips now show — the old fractions would
-  have contradicted them).
-- **Templar** (`content/classes/templar.ts`): Jump now spends the turn's
-  Move — added to the Jump note.
-
-### Mountain Pass — fourth training field (S70)
-
-3-step recipe: `content/training-fields/mountain-pass.ts` (intro, 3
-terrain + 2 zone sections, knockback, counsel, legend matching the
-elevation ramp), `build/data.ts` (`mountainPassMap()`), `build/
-training-fields.ts` (registry). Documents **split deployment zones** (the
-new S70 mechanic) in the zone sections — the single-block valley vs the
-3-on-SW-massif / 2-on-NE-edge ambush crossfire. Ties to the S69
-terrain-as-cover lesson.
+- **Charged Attack now tile-targeted** (Hunter): rewrote the
+  `charged_attack` note — it commits to a tile and whiffs if the target
+  steps off before it resolves (was a unit-tracking guaranteed hit).
+  Kept length-neutral to protect the Hunter spread's 2-page fit.
+- **Buff forms don't stack** (ADR-0124): a new Enchanter marginalia
+  ("a gear buff and its cast twin no longer stack — bless the cadet who
+  carries none") and a reference §1 line. The at-capacity Enchanter
+  spread absorbed the marginalia without spilling (marginalia render in
+  the margin, not the recto flow).
 
 ## Watch-for / flag
 
-- **PDF now ~96 MB** (13 portraits + the Enchantress at 5 MB + plates).
-  Art downsample remains the standing top-priority cleanup — now well
-  overdue.
-- **Same-named status variants in reference §8:** Haste / Protect / Shell
-  each now appear **twice** — a timed *cast* version (`per_unit_ct`) and a
-  permanent *equipment-grant* version (`permanent_per_unit_ct`, e.g.
-  Defender's Auto-Protect). Real catalog data (distinct status ids, same
-  display name), like the two "Regen". Not a bug. If it ever confuses the
-  planner, §8 could show the status id to disambiguate — a reference-
-  format change, not done here.
-- **Enchanter spread is at capacity** (see the file's NOTE). Any future
-  tweak to its kit will spill — budget a compensating trim.
-- **Vantage +2 → +1** still pending game-side (carried) — four edit spots.
+- **PDF ~96 MB** — art downsample remains the standing top-priority
+  cleanup (overdue).
+- **`item-format.ts` is now the catch-all for item hook rendering** —
+  five S70+ item mechanics (spell power, per-extra-target SP, battle CT
+  seed, CT drain, outgoing-status magnitude) live in `hookEffects`. A new
+  item mechanic that adds a field will again need a rendering branch here
+  or it drops silently. This is the recurring "Wand of Potential" trap;
+  check `item-format` whenever the changelog adds an item with a rider.
+- **Enchanter spread at capacity** (carried) — now with a 5th marginalia;
+  still 2 pages, but no slack. Budget a trim before adding.
+- **Same-named status variants** in reference §8 (Haste/Protect/Shell ×2)
+  and **Vantage +2→+1** game-side tuning — both carried, unchanged.
 
 ## Considered and rejected
 
-- **Fuller Calculator rewrite** for the Faith-sweep — unneeded; only the
-  three contradicting lines wanted fixing.
+- **Listing the two new bundled teams** (Claude's Bulwark / Answers).
+  The guide doesn't enumerate team-builder presets anywhere, so there's
+  no surface to update — skipped, as the changelog itself allowed.
 
 ## Suggested next scope
 
-- Resume changelog-driven maintenance as S73+ lands.
-- **Art downsample** — now ~96 MB; overdue.
+- Resume changelog-driven maintenance as S75+ lands.
+- **Art downsample** — ~96 MB; overdue.

@@ -58,12 +58,13 @@ from the high ground.`,
       compact: 'Ranged, free Slow, carried on the bow — so it cannot reach an adjacent foe, and it reaches farther shot from above.',
     },
     charged_attack: {
-      full: `*Charged Attack* is the aimed shot — a charged bow strike
-that lands at twice the force of an ordinary draw. It asks her to
-commit a turn to the wind-up and a measure of her MP besides; in
-exchange it is the heaviest single shot in her quiver, and on the
-perch with the height behind it, devastating.`,
-      compact: 'Charged bow shot at ×2 damage, paid in MP and a turn’s wait. From the perch, the engagement’s decisive strike.',
+      full: `*Charged Attack* is the aimed shot — a charged bow strike at
+twice an ordinary draw's force, the heaviest single shot in her quiver
+and, from the perch, devastating. It commits to a *tile*, not a unit:
+it strikes whoever stands there when it lands, so a target who steps
+off before it resolves escapes it clean. Lead the mark, or loose it
+when she is pinned.`,
+      compact: 'Charged bow shot at ×2 damage, aimed at a tile — a target who steps off before it lands escapes. Lead them, or fire when they’re pinned.',
     },
     scramble: {
       full: `A short hop — one tile across, but as much as five tiles

@@ -118,5 +118,6 @@ one, time a ward for the turn it pays rather than banking it early.`,
     'A faithless ally is a hard ally to bless. The wards find the devout first; Esuna finds everyone.',
     'Short Charge and Aura Mastery both — faster and stronger. The capacity is there for the pair.',
     'Her buffs can be stolen. A Thief across the field is reason enough to hold a ward a beat.',
+    'A gear buff and its cast twin no longer stack. Haste a Boots-of-Haste ally and the cast is wasted — bless the cadet who carries none.',
   ],
 };
