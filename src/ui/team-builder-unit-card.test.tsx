@@ -97,9 +97,10 @@ describe('TeamBuilderUnitCard — Pass 1', () => {
     // The card shows slot pills, not the open list yet.
     expect(container.textContent).not.toContain('choose equipment');
 
-    // Open the right-hand slot (the Assassin holds the Scimitar).
+    // Open the right-hand slot (the Assassin holds the Chef's Knife since
+    // the S74 Gravity Well retune; was the Scimitar pre-S74).
     const pill = [...container.querySelectorAll('button')].find((b) =>
-      b.textContent?.includes('Scimitar'),
+      b.textContent?.includes("Chef's Knife"),
     );
     expect(pill).toBeDefined();
     act(() => pill!.click());
