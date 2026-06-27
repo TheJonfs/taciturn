@@ -18,12 +18,18 @@
 // Pre-S48: no exporter; templates were hand-authored from scratch.
 
 import type { BuiltTeam } from '@content/teams/index.ts';
+import type { Gender } from '@engine/index.ts';
 
 export interface TeamExportThinUnit {
   readonly name: string;
   readonly classId: string;
   readonly brave: number;
   readonly faith: number;
+  // S55 cosmetic gender → portrait variant. Carried through the export so
+  // a hand-set gender survives the round-trip (pre-S75 the exporter
+  // dropped it and the re-loaded team fell back to the class default).
+  // Omitted when the BuiltUnit didn't set one (absent = class default).
+  readonly gender?: Gender;
   // Level system. The team-builder assigns level by slot *position*
   // (slot 0 = L25 baseline; outward steps per `slotLevelFor` — S71, fixed
   // per slot), and the exporter preserves whatever value the BuiltUnit
@@ -78,6 +84,7 @@ export function exportBuiltTeamThin(team: BuiltTeam): TeamExportThin {
         brave: u.baseStats.brave,
         faith: u.baseStats.faith,
         level: u.level,
+        ...(u.gender !== undefined ? { gender: u.gender } : {}),
         loadout: {
           actionBuckets: bucketsAsStrings(u.loadout.actionBuckets),
           passiveBuckets: bucketsAsStrings(u.loadout.passiveBuckets),

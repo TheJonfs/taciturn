@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildBaseStats,
+  chainReaction,
   currentTestTeam,
 } from '@content/teams/index.ts';
 import { classId } from '@engine/index.ts';
@@ -74,6 +75,25 @@ describe('exportBuiltTeamThin', () => {
       );
       expect(reassembled).toEqual(source.baseStats);
     });
+  });
+
+  it('carries each unit’s set gender through the export (S75 fix)', () => {
+    // chainReaction sets a gender on every unit; the export must preserve
+    // it rather than dropping it (pre-S75 the re-loaded team fell back to
+    // the class default portrait).
+    const out = exportBuiltTeamThin(chainReaction);
+    out.units.forEach((unitOut, i) => {
+      expect(unitOut.gender).toBe(chainReaction.units[i]!.gender);
+    });
+  });
+
+  it('omits gender for units that didn’t set one (absent = class default)', () => {
+    // currentTestTeam sets no genders, so the thin form must not carry the
+    // key (keeping "absent means class default" semantics on reload).
+    const out = exportBuiltTeamThin(currentTestTeam);
+    for (const unit of out.units) {
+      expect('gender' in unit).toBe(false);
+    }
   });
 
   it('preserves equipment slot fills (null + non-null) by id', () => {
