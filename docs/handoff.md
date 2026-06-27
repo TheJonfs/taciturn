@@ -71,6 +71,15 @@ toggle to observe a full both-AI battle. `tsc -b` + `vite build` clean; suite
   status (reads the generic flag, not a content id), so the AI stops fearing a
   Stopped reactor's dead reaction. Tested in `basic.test.ts`.
 
+## Also S75 — exporter fix + new team
+- **Team-export gender fix.** `exportBuiltTeamThin` now carries each unit's
+  hand-set `gender` (omits it when unset = class default). Pre-S75 the exporter
+  dropped it and a re-loaded team fell back to class-default portraits. Tested
+  in `team-export.test.ts`.
+- **New bundled team "T-Munny"** (`src/content/teams/t-munny.ts`, in
+  `defaultTeamTemplates`): Knight/Thief/Enchanter/Templar/Water Mage,
+  transcribed from Chris's export JSON. Passes `assertTemplateCompliance`.
+
 ## Still open, NOT touched (carried — in `playtest-watch.md`)
 - **Predictive positional threat-model** — the remaining large AI gap. Only the
   protective/anti-AoE half is wanted (camping/high-ground half unwanted per S73).

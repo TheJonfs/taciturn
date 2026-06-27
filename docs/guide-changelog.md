@@ -55,9 +55,15 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
     *plan* to act, but reflexes happen). Stop suppresses them. If you want to
     shut down an enemy's Counter/Damage Split, Stop does it; Don't Act does not.
   - ADR-0131.
+- **New bundled team: "T-Munny"** in the builder's "Load Default" picker
+  (alongside Gravity Well, High Ground, Mage War, Chain Reaction, The
+  Irregulars, Claude's Bulwark, Claude's Answers). Knight / Thief / Enchanter /
+  Templar / Water Mage — a sustain-and-control roster (team-wide Damage Split,
+  Speed/Resistance Saves, Earth Communion + Flow State + Short Charge spine).
 
 _(Also this session, not player-facing: a test/debug-only headless both-AI
-battle runner + action-log inspection seam for AI feel-verification. ADR-0130.)_
+battle runner + action-log inspection seam for AI feel-verification, ADR-0130;
+and the team-export tool now preserves hand-set unit genders.)_
 
 ---
 

@@ -38,6 +38,7 @@ import { chainReaction } from './chain-reaction.ts';
 import { theIrregulars } from './the-irregulars.ts';
 import { claudesBulwark } from './claudes-bulwark.ts';
 import { claudesAnswers } from './claudes-answers.ts';
+import { tMunny } from './t-munny.ts';
 
 export { currentTestTeam } from './current-test-team.ts';
 export { defensiveFront } from './defensive-front.ts';
@@ -51,6 +52,7 @@ export { chainReaction } from './chain-reaction.ts';
 export { theIrregulars } from './the-irregulars.ts';
 export { claudesBulwark } from './claudes-bulwark.ts';
 export { claudesAnswers } from './claudes-answers.ts';
+export { tMunny } from './t-munny.ts';
 
 // A loadable template: a stable id (for React keys / selection state)
 // paired with its `BuiltTeam`. The display label is the team's `name`.
@@ -71,6 +73,7 @@ export const defaultTeamTemplates: ReadonlyArray<TeamTemplate> = [
   { id: 'the-irregulars', team: theIrregulars },
   { id: 'claudes-bulwark', team: claudesBulwark },
   { id: 'claudes-answers', team: claudesAnswers },
+  { id: 't-munny', team: tMunny },
 ];
 
 // S38 templates retained for tests + scenario configs that reference
