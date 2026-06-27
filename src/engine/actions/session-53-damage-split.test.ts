@@ -424,6 +424,37 @@ describe('Session 55 — Damage Split self-heal survives the reaction cap (commi
     expect(result.committed.some((x) => x.type === 'system_heal')).toBe(true);
   });
 
+  it('does NOT reflect/heal when a real attack KOs the reactor (commit-path survival gate)', () => {
+    // The emission-level KO test (above) fakes hp 0 by constructing the
+    // reactor that way. This drives a REAL lethal attack through commit, so
+    // the survival gate reads the post-damage unit from workingState — the
+    // path Chris flagged ("Damage Split dealt damage even though the hit
+    // KO'd the splitter"). Reactor at 1 HP: any positive damage KOs it.
+    const cat = makeCatProd();
+    const reactor = makeUnit({
+      id: 'reactor', spd: 10, brave: 100, hp: 1,
+      position: { x: 0, y: 0, layer: 0 },
+      loadout: loadoutWithReaction(abilityId('damage_split')),
+    });
+    const attacker = makeUnit({ id: 'attacker', spd: 10, team: 'team_b', hp: 100, position: { x: 1, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [reactor, attacker], map: flatMap(4, 4), turnState: activeTurnFor(attacker.id) });
+    const incoming: ProposedAction = {
+      type: 'use_ability', source: 'player', actorId: attacker.id,
+      payload: { abilityId: abilityId('attack'), target: { kind: 'unit', unitId: reactor.id } },
+    };
+    const result = commitAction(state, incoming, cat);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const r = result.newState.units.get(reactor.id)!;
+    const a = result.newState.units.get(attacker.id)!;
+    // The reactor died...
+    expect(r.vitals.hp).toBe(0);
+    // ...so neither half of Damage Split fires: attacker untouched, no heal.
+    expect(a.vitals.hp).toBe(100);
+    expect(result.committed.some((x) => x.type === 'system_damage')).toBe(false);
+    expect(result.committed.some((x) => x.type === 'system_heal')).toBe(false);
+  });
+
   it('drops the WHOLE reaction (reflect and heal) when the reactor is already at the cap', () => {
     const { cat, state, attacker, incoming } = commitSetup({ reactionsUsed: 1 });
     const result = commitAction(state, incoming, cat);
