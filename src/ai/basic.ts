@@ -963,6 +963,19 @@ function isVulnerable(unit: Unit): boolean {
   return hasStatus(unit, VULNERABLE_TYPE_ID);
 }
 
+// True when the unit carries a status that suppresses all its reactions
+// (Stop — "frozen in time", ADR-0131). A suppressed target can't react,
+// so the AI should fear no reaction from attacking it. Reads the engine's
+// generic `suppressesReactions` flag, not a content id, so it covers any
+// future frozen-type status automatically.
+function reactionsSuppressed(unit: Unit, catalog: Catalog): boolean {
+  for (const s of unit.statuses) {
+    if (!catalog.hasStatusType(s.typeId)) continue;
+    if (catalog.getStatusType(s.typeId).suppressesReactions === true) return true;
+  }
+  return false;
+}
+
 // True when the cast's selfDamage cost would drop the actor to 0 HP
 // or below. Storm Caller's 25% maxHpBase fires after per-target
 // dispatch (per ADR-0032); refusing here prevents the AI from
@@ -992,6 +1005,8 @@ function reactionPenalty(
   ability: ActiveAbilityDefinition,
   catalog: Catalog,
 ): number {
+  // A frozen target (Stop, ADR-0131) fires no reactions — no penalty.
+  if (reactionsSuppressed(target, catalog)) return 0;
   const damageTags = ability.effects.damage?.tags;
   let count = 0;
   for (const bucketAbilities of Object.values(target.loadout.passiveBuckets)) {

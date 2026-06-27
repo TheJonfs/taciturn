@@ -35,7 +35,7 @@ import {
 // via `projectExpectedDamage`. The default test ruleset ships with an
 // empty pipeline; we override here so the projection has handlers to run.
 const aiTestRulesets = [makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE })];
-import { decideBasicAi } from './basic.ts';
+import { decideBasicAi, _basicAiInternals } from './basic.ts';
 
 const TEAM_A = teamId('team_a');
 const TEAM_B = teamId('team_b');
@@ -781,6 +781,31 @@ describe('decideBasicAi tier 1.5 — Lightning content + scoring refinements', (
     } else {
       throw new Error(`unexpected target kind: ${target.kind}`);
     }
+  });
+
+  it('reaction penalty drops to zero against a Stopped target (ADR-0131)', async () => {
+    // A Stopped unit fires no reactions, so the AI should fear none —
+    // reactionPenalty must return 0 even for a Counter-equipped target.
+    const { loadDefaultCatalog } = await import('../content/index.ts');
+    const { makeUnit } = await import('../engine/ct/test-fixtures.ts');
+    const cat = loadDefaultCatalog();
+    const attack = cat.getAbility(ATTACK_ID) as ActiveAbilityDefinition; // physical
+    const counterTarget = (statuses?: ReadonlyArray<import('@engine/index.ts').StatusInstance>) =>
+      makeUnit({
+        id: 'tgt', team: 'team_b', spd: 10, hp: 30, classId: 'knight', brave: 100,
+        loadout: {
+          actionBuckets: { [bucketId('first_action')]: [commandSetId('battle_skill')] },
+          passiveBuckets: { [bucketId('reaction')]: [abilityId('counter')] },
+        },
+        ...(statuses !== undefined ? { statuses } : {}),
+      });
+    // Baseline: an un-Stopped Counter-user does draw a penalty.
+    expect(_basicAiInternals.reactionPenalty(counterTarget(), attack, cat)).toBeGreaterThan(0);
+    // Stopped: no penalty.
+    const stopped = counterTarget([
+      { typeId: statusTypeId('stop'), source: { unitId: null, actionSeq: null }, remainingDuration: 12 },
+    ]);
+    expect(_basicAiInternals.reactionPenalty(stopped, attack, cat)).toBe(0);
   });
 
   it('proc-target aware: Magebane-wielding Knight prefers a Mage target over an equally-vulnerable Knight target', async () => {

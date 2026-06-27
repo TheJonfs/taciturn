@@ -26,23 +26,6 @@ shouldn't drift out of memory between sessions.
 
 ## Active entries
 
-### S75 — AI doesn't yet know Stop suppresses reactions (ADR-0131 follow-on)
-
-- **What to watch.** ADR-0131 made Stop suppress all of a unit's reactions. The
-  AI's `reactionPenalty` (`src/ai/basic.ts`) still assumes reactions fire, so it
-  over-fears attacking a **Stopped** Counter / Damage Split / Discharge user —
-  it may waste a turn avoiding a reaction that can no longer happen, or decline a
-  good hit on a Stopped reactor.
-- **Why it matters.** It's a (small) AI mis-valuation introduced by the rules
-  change: the AI leaves value on the table around Stopped reactors. Localized —
-  `reactionPenalty` should return 0 when the target carries a
-  `suppressesReactions` status.
-- **What signal would indicate adjustment.** Watch a both-AI battle (via
-  `npm run sim:both-ai`, or live) where a reactor gets Stopped: if the attacking
-  AI still routes around the Stopped reactor's (now-dead) reaction, fix
-  `reactionPenalty` to read the suppression. Cheap, deterministic — could just be
-  done proactively next AI pass.
-
 ### S71 — Math Skill status application bases (25/25/40 after the Faith sweep)
 
 - **What to watch.** S71 (#15, ADR-0119 update) made the three Math Skill status

@@ -66,10 +66,11 @@ under a predicate), promote to a hook then.
   Logged in `guide-changelog.md`.
 - Don't Act / Don't Move behaviour is unchanged (reactions still fire — Don't
   Act's reflex exemption is intact; regression-tested).
-- **AI follow-on (flagged, not done):** the AI's `reactionPenalty` still assumes
-  reactions fire, so it over-fears attacking a Stopped Counter-user. A Stopped
-  target should drop the penalty. Minor mis-valuation, non-blocking; verifiable
-  via the S75 both-AI sim seam. Noted in `playtest-watch.md`.
+- **AI awareness (done this session):** the AI's `reactionPenalty`
+  (`src/ai/basic.ts`) now returns 0 against a target carrying a
+  `suppressesReactions` status, so the AI no longer over-fears attacking a
+  Stopped Counter / Damage Split user. Reads the generic flag, not a content id,
+  so it covers any future frozen-type status. Tested in `basic.test.ts`.
 - Any future "frozen" status (Petrify, Freeze, Sleep-as-frozen) opts in by
   setting `suppressesReactions: true`.
 

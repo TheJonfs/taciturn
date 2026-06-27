@@ -66,8 +66,10 @@ toggle to observe a full both-AI battle. `tsc -b` + `vite build` clean; suite
   flag, gated at the `runOnActionTargeted` choke point (covers all reaction kinds
   uniformly — Counter, Damage Split reflect, ct_push, apply_status). Stop sets
   it; Don't Act deliberately does NOT (reflex vs. volition preserved). **Player-
-  facing** (guide-changelog updated). **AI follow-on flagged in playtest-watch:**
-  `reactionPenalty` should return 0 vs. a Stopped target — cheap, do it next AI pass.
+  facing** (guide-changelog updated). **AI awareness folded in same session:**
+  `reactionPenalty` now returns 0 vs. a target with a `suppressesReactions`
+  status (reads the generic flag, not a content id), so the AI stops fearing a
+  Stopped reactor's dead reaction. Tested in `basic.test.ts`.
 
 ## Still open, NOT touched (carried — in `playtest-watch.md`)
 - **Predictive positional threat-model** — the remaining large AI gap. Only the
