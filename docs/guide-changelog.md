@@ -46,9 +46,18 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ## Session 75 (2026-06-27)
 
-_No player-facing changes._ (A test/debug-only headless both-AI battle runner +
-action-log inspection seam, to feel-verify AI behaviour in full battles. No game
-rules, content, or player-visible UX touched. ADR-0130.)
+- **Stop now disables reactions, not just turns.** A **Stopped** unit no longer
+  fires **any** reaction — **Counter**, **Damage Split**, **Discharge**, **Tidal
+  Pull**, **Smolder**, **Earth Resilience**, etc. are all suppressed for the
+  duration of Stop. Previously a Stopped unit skipped its turn but still reacted
+  normally when attacked. Stop is now a full "frozen in time" lockdown.
+  - **Contrast with Don't Act:** Don't Act still **allows** reactions (you can't
+    *plan* to act, but reflexes happen). Stop suppresses them. If you want to
+    shut down an enemy's Counter/Damage Split, Stop does it; Don't Act does not.
+  - ADR-0131.
+
+_(Also this session, not player-facing: a test/debug-only headless both-AI
+battle runner + action-log inspection seam for AI feel-verification. ADR-0130.)_
 
 ---
 

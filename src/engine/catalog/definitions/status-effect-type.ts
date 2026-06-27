@@ -165,6 +165,16 @@ export interface StatusEffectType {
   // content id, so the engine stays decoupled from specific content). v1
   // consumer: `heartwarded`. Default `false`.
   readonly controlOverrideImmune?: boolean;
+  // When `true`, a unit carrying this status fires NO reactions — every
+  // reaction kind (Counter's use_ability, Damage Split's reflect, Tidal
+  // Pull's ct_push, apply_status reactions) is suppressed at the
+  // `runOnActionTargeted` choke point. The "frozen in time" gate: Stop in
+  // FFT disables both action and reaction, and this expresses the second
+  // half (the turn-skip half is `queryTurnSkipped`). Contrast Don't Act,
+  // which deliberately ALLOWS reactions (reflex vs. volition) and so does
+  // NOT set this. Default `false` — every other disabling status keeps its
+  // reactions. v1 consumer: Stop (per ADR-0131).
+  readonly suppressesReactions?: boolean;
   // Required when `durationMode === 'custom'` (ADR-0030). The kind
   // names which engine event drives the trigger; the engine routes
   // the firing through the corresponding existing hook. v1 supports

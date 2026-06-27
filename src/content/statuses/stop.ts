@@ -1,6 +1,9 @@
 // Stop — the canonical session-9 turn-skip status. Registers a
 // `queryTurnSkipped` handler that returns `{ reason: 'stopped' }` while
-// active. The reducer (`reduceTurnStart`) reads the query, sets up a
+// active. It also sets `suppressesReactions` (ADR-0131): a Stopped unit
+// is frozen in time — it neither takes its turn NOR fires reactions
+// (Counter, Damage Split, etc.). The turn half and the reaction half
+// together match FFT's Stop. The reducer (`reduceTurnStart`) reads the query, sets up a
 // minimal turnState with zeroed budget, marks the outcome `skipped:
 // true`, and emits a `turn_end` as a generated action. The unit's
 // per-unit-CT statuses skip their tick this turn; turn-based statuses
@@ -21,6 +24,12 @@ export const stop: StatusEffectType = {
   tags: ['negative', 'time', 'mental'],
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
+  // Frozen in time: a Stopped unit fires no reactions (Counter, Damage
+  // Split, Discharge, etc.). This is the reaction half of FFT's Stop;
+  // `queryTurnSkipped` below is the turn half. Gated uniformly at
+  // `runOnActionTargeted`. Per ADR-0131. (Contrast Don't Act, which
+  // allows reactions.)
+  suppressesReactions: true,
   hooks: [
     statusHook('queryTurnSkipped', () => ({
       reason: 'stopped',

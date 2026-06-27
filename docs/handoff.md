@@ -53,6 +53,22 @@ toggle to observe a full both-AI battle. `tsc -b` + `vite build` clean; suite
   Chef's Knife). Pointed the pill finder at the current weapon. Pre-existing
   failure, unrelated to the seam — fixed to restore suite-green.
 
+## Also S75 — two reaction audits (Chris-requested)
+- **Damage Split reflect-on-KO: investigated, NOT a bug.** The survival gate
+  (`reaction-compiler.ts` reflect_damage branch) reads the post-damage unit from
+  `workingState` and correctly suppresses both halves on a KO. Coverage had a gap
+  — the existing KO test faked `hp 0` at the emission level — so added a
+  commit-path test driving a real lethal attack (`c2d5d1c`). Passes; the
+  suspected bug is absent.
+- **Stop now suppresses reactions (ADR-0131, shipped).** Audit found Stop had
+  ZERO reaction interaction (only `queryTurnSkipped`); a Stopped unit reacted
+  fully. Made it FFT-faithful: new general `StatusEffectType.suppressesReactions`
+  flag, gated at the `runOnActionTargeted` choke point (covers all reaction kinds
+  uniformly — Counter, Damage Split reflect, ct_push, apply_status). Stop sets
+  it; Don't Act deliberately does NOT (reflex vs. volition preserved). **Player-
+  facing** (guide-changelog updated). **AI follow-on flagged in playtest-watch:**
+  `reactionPenalty` should return 0 vs. a Stopped target — cheap, do it next AI pass.
+
 ## Still open, NOT touched (carried — in `playtest-watch.md`)
 - **Predictive positional threat-model** — the remaining large AI gap. Only the
   protective/anti-AoE half is wanted (camping/high-ground half unwanted per S73).

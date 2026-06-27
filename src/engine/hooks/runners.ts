@@ -793,6 +793,18 @@ export function runOnActionTargeted(
     seed: number;
   },
 ): ReadonlyArray<GeneratedReaction> {
+  // ADR-0131: a "frozen in time" status (Stop) suppresses ALL of the
+  // reactor's reactions. This is the single choke point every reaction
+  // kind flows through — use_ability (Counter), reflect system_damage
+  // (Damage Split), apply_status (Earth Resilience), ct_push (Tidal
+  // Pull) — so gating here covers them uniformly. (onActionAttempted
+  // would only catch use_ability reactions; the system-action kinds
+  // bypass it.) Contrast Don't Act, which deliberately ALLOWS reactions
+  // (reflex vs. volition) and so doesn't carry `suppressesReactions`.
+  for (const inst of args.unit.statuses) {
+    if (catalog.getStatusType(inst.typeId).suppressesReactions === true) return [];
+  }
+
   // Session 29 (ADR-0062): skip reactions when the incoming action's
   // actor is on the same team as the reacting unit. Reactions are
   // adversarial by default; allies shouldn't trigger each other's
