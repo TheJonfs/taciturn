@@ -44,6 +44,14 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 75 (2026-06-27)
+
+_No player-facing changes._ (A test/debug-only headless both-AI battle runner +
+action-log inspection seam, to feel-verify AI behaviour in full battles. No game
+rules, content, or player-visible UX touched. ADR-0130.)
+
+---
+
 ## Session 74 (2026-06-25)
 
 ### Four new caster accessories (2026-06-26)

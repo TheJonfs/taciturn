@@ -11,58 +11,69 @@ been processed.
 
 ---
 
-## From S74 — AI position/CT increments + caster-accessory batch (2026-06-26)
+## From S75 — both-AI auto-drive seam (2026-06-27)
 
-All six brief items shipped in six commits on main. Suite 2050 → 2075; `tsc -b`
-+ `vite build` clean. Five new ADRs (0125–0129). The brief estimated ~1.5
-sessions; it fit in one. Sequencing followed the audit's regrouping (A + B →
-Ring + Greaves → Glove + Pendant), not the brief's original carve.
+Shipped the S75 brief in full: a **test/debug-only headless both-AI battle
+runner** + action-log inspection seam that unblocks AI feel-verification. The
+S70 in-app auto-drive block (the single biggest AI testing gap, carried since
+S70) is now **resolved from the headless side** — we no longer need the setup
+toggle to observe a full both-AI battle. `tsc -b` + `vite build` clean; suite
+2075 passed / 1 skipped (the gated sim). ADR-0130.
 
 ### What landed
-- **AI A — coverage-weighted AoE-buff targeting** (`873ec5d`). `scoreAoeBuff` +
-  shared `buffPotency`; `bestActFromSource` routes AoE buffs through it.
-- **AI B — charged-attack CT-race devaluation** (`32cf17f`).
-  `chargedTilePinValueFactor` via `estimateChargedTiming`; ×0.35 when the target
-  acts before the charge resolves.
-- **Greaves of Seraphis** (`9ac8a49`, ADR-0125) — Speed +2 + `battleStartCt`
-  data field on `EquipmentBase` (pre-battle `system_set_ct`, equipment > explicit
-  > formula; clamps to 99).
-- **Ring of Caliora** (`126f72d`, ADR-0126) — MA +2 + `damageCtDrainPercent` on
-  `onFinalDamage` → negative `system_ct_push`. **Uncapped** (0-floor only).
-- **Glove of Metria** (`352c014`, ADR-0127) — MA +1 + `SpellPowerModifier.perExtraTarget`;
-  `targetCount` threaded into `modifySpellPower`. **Applies to Math Skill.**
-- **Pendant of Lumara** (`981e065`, ADR-0128) — MA +2 + generalized
-  `modifyOutgoingStatusMagnitude` to cover Burn (Burn's `composeApplyState` now
-  routes per-stack through the caster-side hook; `ComposeApplyStateArgs` gained
-  `target` + `statusType`); `outgoingStatusMagnitudeMods` equipment field.
+- `src/app/demo/headless-battle.ts` — `runHeadlessBattle({teamA, teamB, mapId,
+  seed})`: composes the *live* orchestration path (team fold → AI deployment →
+  initial state → pre-battle queue → `DemoOrchestrator` + two AI controllers)
+  minus React/Pixi, returns the full action log + outcome. Reuses the real
+  wiring, so it can't drift from what the app runs.
+- `src/app/demo/battle-log-inspect.ts` — generic log readers (`aoeBuffCasts`,
+  `chargedTilePinResolutions`). The durable seam: a future AI feel-check adds
+  one reader and runs the sim.
+- `src/app/demo/both-ai-sim.test.ts` — env-gated dev harness
+  (`describe.runIf(TACITURN_SIM)`). Default suite SKIPS it (no permanent A/B
+  assertions, per Chris). Run with **`npm run sim:both-ai`**.
+- **Nothing in production imports these** — they tree-shake out; no backdoor.
 
-### Deliberate scoping / watch-fors (all in `playtest-watch.md`)
-- **Chris chose the STRONG versions of Ring (no per-hit cap) and Glove (applies
-  to Math Skill)** to playtest the field-wide-Calculator interactions rather than
-  pre-capping. The Calculator is the epicenter — Ring (team-wide CT drain) and
-  Glove (per-target SP) both compound on Precision Fire. The cheapest guardrails
-  if oppressive: Ring per-hit cap / CT floor in `finalDamageCtDrainContributor`;
-  Glove exclude `math_skill` or drop the per-target delta. Both localized.
-- **AI A/B feel is UNVERIFIED** — both-AI battles still can't be auto-driven in
-  the preview (the S70 setup-screen Human/AI toggle DOM-click blocker persists).
-  Validation is unit-test-only again. The S70 in-app auto-drive block is the
-  single biggest testing gap for AI work — worth a dedicated look.
-- **Equipment is in the catalog but not equipped on any demo/default team.** The
-  four accessories ship available but untuned in live builds; Chris may want to
-  slot them into a default team (e.g. Ring/Glove on the Calculator in "Claude's
-  Answers") to actually exercise the field-wide case.
+### First dividend — S74 A/B feel read (claudesBulwark vs claudesAnswers, River Ridge, 5 seeds)
+- **B (charged-attack dodge devaluation, ADR-0129 B): VERIFIED.** 5/5 committed
+  `charged_attack` charges landed, 0% whiff. The AI declined the dodgeable ones.
+- **A (coverage-weighted AoE buffs, ADR-0129 A): surfaced but CONFOUNDED, not a
+  bug.** Enchanter clustered 0/3 casts on ≥2 allies (avg 0.67 in footprint;
+  coverage == buffs-landed, so NOT a buff-exclusivity artifact). But the enchant
+  buffs are diamond **radius 1** → two allies must be adjacent to co-cover, and
+  on an open map they rarely were; the Enchanter also cast rarely (3 casts / 5
+  battles, 0 in two). **Follow-up tune candidates (out of S75 scope):** does the
+  AI position allies to *create* cluster-buff opportunities (the protective
+  half of the threat-model)? why the low cast frequency? Re-run `sim:both-ai`
+  after any tune to re-read.
+
+### Incidental fix (own commit)
+- `src/ui/team-builder-unit-card.test.tsx` was **stale, broken by the S74
+  Gravity Well retune** (slot-0 Sera no longer holds a Scimitar; she now holds a
+  Chef's Knife). Pointed the pill finder at the current weapon. Pre-existing
+  failure, unrelated to the seam — fixed to restore suite-green.
 
 ## Still open, NOT touched (carried — in `playtest-watch.md`)
 - **Predictive positional threat-model** — the remaining large AI gap. Only the
-  protective/anti-AoE half is wanted (camping/high-ground half is unwanted per
-  S73). AI A's over-cluster risk + AI B's deferred *dodge-incoming* half both
-  want it. S70 Mountain Pass is the test bed.
+  protective/anti-AoE half is wanted (camping/high-ground half unwanted per S73).
+  S74 AI A's cluster opportunity (above) + AI B's deferred *dodge-incoming* half
+  both want it. **The S75 seam is now the tool to verify it.** S70 Mountain Pass
+  is the test bed — but note that map only authors 2 slots/team, so a 5v5
+  cluster test needs River Ridge (or bump the map's authored slots).
 - **S72 Enchanter feel-pass pile** (AoE Protect/Shell TTK, Aura Mastery K, buff→
   Steal-Buffs loop, low-Faith penalty, Auramancy friendly-fire splash, etc.).
 - **S70/S69 carries:** S70 in-battle verification (ambush/split-zone); S69
   feel-passes (charm/steal, Math re-base, terrain-occlusion LoS + bounded arc,
   Vantage). **Taunt redesign** (needs Chris to pin intent — `taunt-audit.md`).
   **Templar/Thief** feel passes; **S68 equipment** tunables.
+- **S74 strong-version watch-fors** (in `playtest-watch.md`): Ring of Caliora
+  (uncapped CT drain) + Glove of Metria (per-target SP, applies to Math Skill)
+  compounding on the Calculator; knife `attacker_speed` variance as an uncapped
+  speed→damage multiplier. All "confirm, leave for now" per Chris.
+- **S74 accessories not yet equipped on a default team** — the four caster
+  accessories ship in-catalog but untuned in live builds; Chris may want to slot
+  Ring/Glove onto the Calculator in "Claude's Answers" to exercise the field-wide
+  case.
 - **Action-log redesign** (render-layer, approved, unbuilt).
 - Minor: `lightning-mage.ts` stale S20 header; `draft-terraformer-substrate-audit.md`
   archival.
