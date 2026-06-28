@@ -41,8 +41,10 @@ export const serpentsCoil: ActiveAbilityDefinition = {
     clearCasterExclusivityGroup: 'stance',
     setStance: statusTypeId('serpent_stance'),
     damage: {
+      // S76 tune: 3 → 5. Competitive with the punch while a notch below Foxfire
+      // — Serpent's Coil's upside is the Speed×2 CT refund (strong tempo).
       tags: ['physical', 'water'],
-      power_coefficient: 3,
+      power_coefficient: 5,
       variance: { min: 0.9, max: 1.1 },
     },
     selfCtRefund: { factor: 2, stat: 'spd' },

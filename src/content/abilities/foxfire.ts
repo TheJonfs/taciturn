@@ -44,8 +44,12 @@ export const foxfire: ActiveAbilityDefinition = {
     clearCasterExclusivityGroup: 'stance',
     setStance: statusTypeId('fox_stance'),
     damage: {
+      // S76 tune: 3 → 6. The Fists were only ~⅓ of the PA² punch; bumped so a
+      // Fist is a live choice (damage + stance + rider) vs sellout-punching.
+      // Foxfire gets the highest direct damage of the Fists because its Burn
+      // rider is weak (ticks off the Monk's dumped MA 4).
       tags: ['physical', 'fire'],
-      power_coefficient: 3,
+      power_coefficient: 6,
       variance: { min: 0.9, max: 1.1 },
     },
     statusEffects: [

@@ -37,8 +37,10 @@ export const stormStoop: ActiveAbilityDefinition = {
     clearCasterExclusivityGroup: 'stance',
     setStance: statusTypeId('falcon_stance'),
     damage: {
+      // S76 tune: 3 → 5. Competitive with the punch while a notch below Foxfire
+      // — Storm Stoop's upside is the line AoE (it can catch a whole lane).
       tags: ['physical', 'lightning'],
-      power_coefficient: 3,
+      power_coefficient: 5,
       variance: { min: 0.9, max: 1.1 },
     },
     aoe: {

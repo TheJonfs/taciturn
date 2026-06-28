@@ -191,10 +191,10 @@ const ACTIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   // resistance in that element — absorbed if they resist it past 100), sets a
   // stance, and replaces any stance already up.
   [abilityId('chakra'), 'Heal HP and restore MP for yourself and everyone in a 1-square diamond, scaling off PA (no Faith, never crits). Friendly fire: also mends enemies in the area. Clears your stance to neutral — the turn you heal, your elemental guard drops.'],
-  [abilityId('foxfire'), 'Fire Fist (PA × 3): a melee strike tagged Fire with a 50% chance to apply Burn, landing via the PA + Brave path. Sets Fox Stance (+50 Fire / −50 Earth).'],
+  [abilityId('foxfire'), 'Fire Fist (PA × 6): a melee strike tagged Fire with a 50% chance to apply Burn, landing via the PA + Brave path. Sets Fox Stance (+50 Fire / −50 Earth).'],
   [abilityId('bears_heave'), 'Grapple-throw: grab an adjacent unit (enemy or ally) and place it on any tile within 2 — onto a hazard, off a ledge (the fall hurts), or an ally to safety. No direct damage. Sets Bear Stance (+50 Earth / −50 Lightning).'],
-  [abilityId('storm_stoop'), 'Lightning Fist (PA × 3): a 3-tile line tagged Lightning — reach down a lane and hit everyone in it. Sets Falcon Stance (+50 Lightning / −50 Water).'],
-  [abilityId('serpents_coil'), 'Water Fist (PA × 3): a melee strike tagged Water that, on a hit, refunds Speed × 2 CT so your next turn comes sooner. Sets Serpent Stance (+50 Water / −50 Fire).'],
+  [abilityId('storm_stoop'), 'Lightning Fist (PA × 5): a 3-tile line tagged Lightning — reach down a lane and hit everyone in it. Sets Falcon Stance (+50 Lightning / −50 Water).'],
+  [abilityId('serpents_coil'), 'Water Fist (PA × 5): a melee strike tagged Water that, on a hit, refunds Speed × 2 CT so your next turn comes sooner. Sets Serpent Stance (+50 Water / −50 Fire).'],
 ]);
 
 // Tiny formatting helpers — kept inline rather than a regex zoo so the
@@ -669,7 +669,11 @@ function formatActiveDetail(ability: ActiveAbilityDefinition, catalog: Catalog):
     const tagSeg = dmg.tags.map(String).join(', ');
     const power = dmg.power_coefficient ?? 1;
     if (dmg.tags.includes('healing')) {
-      lines.push(`Heal: MA × ${power} × Faith`);
+      // S76: respect the heal's scaling stat (Chakra reads PA, not MA) and
+      // whether Faith applies (Chakra is noFaithScaling).
+      const healStat = dmg.healingStat === 'pa' ? 'PA' : 'MA';
+      const faithSeg = dmg.noFaithScaling === true ? '' : ' × Faith';
+      lines.push(`Heal: ${healStat} × ${power}${faithSeg}`);
     } else if (dmg.tags.includes('magical')) {
       lines.push(`Damage: MA × ${power} × Faith [${tagSeg}]`);
     } else if (dmg.tags.includes('physical')) {
@@ -691,6 +695,13 @@ function formatActiveDetail(ability: ActiveAbilityDefinition, catalog: Catalog):
     if (dmg.chainBonus !== undefined) {
       lines.push(`Chain bonus: +${dmg.chainBonus.powerPerAdditionalTarget} power per extra target`);
     }
+  }
+
+  // S76: MP restore (Chakra) — a non-damage refill, shown alongside the heal.
+  if (ability.effects.mpRestore !== undefined) {
+    const mp = ability.effects.mpRestore;
+    const mpStat = mp.stat === 'ma' ? 'MA' : 'PA';
+    lines.push(`Restore MP: ${mpStat} × ${mp.power_coefficient}`);
   }
 
   // AoE.
