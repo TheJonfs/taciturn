@@ -175,6 +175,18 @@
   --band-label: #a9d8c4;
 }
 
+/* The Monk's palette is saffron / marigold gold — the martial-artist's
+   habit. A clear yellow-gold accent over a deep amber-bronze stat band,
+   with a pale wheat label. Distinct from its book-neighbours (the
+   Knight's oxblood and the Pyromancer's burnt-orange-red) by being
+   yellow rather than red, and yellower/brighter than the Alchemist's
+   earthy brass (#8a5a1e) — the disciplined ascetic, not the elements. */
+.v-e--monk {
+  --accent: #c0902f;
+  --band: #8a6320;
+  --band-label: #ecd9a6;
+}
+
 .v-e .spread__verso {
   position: relative;
 }

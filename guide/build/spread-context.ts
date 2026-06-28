@@ -28,6 +28,7 @@ import templarPortraitUrl from '../art/templar_1.png';
 import terraformerPortraitUrl from '../art/terraformer_1.png';
 import thiefPortraitUrl from '../art/thief_1.png';
 import enchanterPortraitUrl from '../art/enchantress_1.png';
+import monkPortraitUrl from '../art/monk_1.png';
 
 // Prefer a provided raster seal (art/seal.png) over the inline SVG.
 // import.meta.glob resolves to {} when the file is absent.
@@ -52,7 +53,8 @@ export type ElementId =
   | 'templar'
   | 'terraformer'
   | 'thief'
-  | 'enchanter';
+  | 'enchanter'
+  | 'monk';
 
 interface ClassMeta {
   readonly element: ElementId;
@@ -77,7 +79,11 @@ interface ClassMeta {
 // The Enchanter's is jewel emerald / viridian — a richer, bluer green
 // than the Geosage's olive and the Hunter's forest, reading as the
 // gemstone-bright aura-caster (the Enchantress) rather than any element.
-// The elemental wheel's four hues finish the set.
+// The Monk's is saffron / marigold gold — the martial-artist's habit, a
+// clear yellow-gold that reads distinct from its book-neighbours (the
+// Knight's oxblood and the Pyromancer's burnt-orange-red) and yellower
+// than the Alchemist's earthy brass. The elemental wheel's four hues
+// finish the set.
 const CLASS_META: Record<string, ClassMeta> = {
   knight: { element: 'knight', portraitUrl: knightPortraitUrl },
   alchemist: { element: 'alchemist', portraitUrl: alchemistPortraitUrl },
@@ -92,6 +98,7 @@ const CLASS_META: Record<string, ClassMeta> = {
   terraformer: { element: 'terraformer', portraitUrl: terraformerPortraitUrl },
   thief: { element: 'thief', portraitUrl: thiefPortraitUrl },
   enchanter: { element: 'enchanter', portraitUrl: enchanterPortraitUrl },
+  monk: { element: 'monk', portraitUrl: monkPortraitUrl },
 };
 
 /** Everything a variant template needs to render one class spread. */
@@ -144,7 +151,7 @@ export function spreadContextFor(id: ClassId): SpreadContext {
 }
 
 /**
- * The thirteen classes, in handbook order — alphabetical by display name.
+ * The fourteen classes, in handbook order — alphabetical by display name.
  * The order is intentionally not grouped by physical/magical or by
  * pedagogical sequence; a reader looking for a discipline finds it by
  * name and the alphabet, and any in-spread cross-references mention the
@@ -160,6 +167,7 @@ export function spreadContextFor(id: ClassId): SpreadContext {
  *   Hunter         → hunter
  *   Hydrologist    → water_mage
  *   Knight         → knight
+ *   Monk           → monk
  *   Pyromancer     → fire_mage
  *   Templar        → templar
  *   Terraformer    → terraformer
@@ -175,6 +183,7 @@ export const SPREAD_ORDER: ReadonlyArray<ClassId> = [
   classId('hunter'),
   classId('water_mage'),     // Hydrologist
   classId('knight'),
+  classId('monk'),
   classId('fire_mage'),      // Pyromancer
   classId('templar'),
   classId('terraformer'),

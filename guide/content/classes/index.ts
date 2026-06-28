@@ -16,6 +16,7 @@ import { templarProse } from './templar.ts';
 import { terraformerProse } from './terraformer.ts';
 import { thiefProse } from './thief.ts';
 import { enchanterProse } from './enchanter.ts';
+import { monkProse } from './monk.ts';
 
 export const classProse: Record<string, ClassProse> = {
   knight: knightProse,
@@ -31,4 +32,5 @@ export const classProse: Record<string, ClassProse> = {
   terraformer: terraformerProse,
   thief: thiefProse,
   enchanter: enchanterProse,
+  monk: monkProse,
 };

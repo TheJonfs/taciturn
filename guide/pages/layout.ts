@@ -82,6 +82,7 @@ export function tableOfContents(): string {
 const NUMBER_WORDS = [
   'zero', 'one', 'two', 'three', 'four', 'five', 'six',
   'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen',
+  'fourteen',
 ];
 function numberWord(n: number): string {
   return NUMBER_WORDS[n] ?? String(n);
@@ -115,7 +116,8 @@ export function specializationsHalfTitle(): string {
         answers it with her arithmetic, the Templar, who answers it with
         mending and the holy leap, the Terraformer, who answers it by
         remaking the ground beneath them all, the Enchanter, who answers
-        it by strengthening those who fight beside her, and the Thief, who
+        it by strengthening those who fight beside her, the Monk, who
+        answers it with nothing but her own two hands, and the Thief, who
         answers it by taking what the others rely upon. The spreads are arranged
         alphabetically; each is the same in form — stats imported from
         the Academy&rsquo;s records, the full repertoire annotated, the

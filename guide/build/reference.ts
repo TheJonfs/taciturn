@@ -189,6 +189,10 @@ const PASSIVE_EFFECTS: Record<string, string> = {
   resistance_save: 'On taking magical damage: +10 to every elemental resistance, accumulating & permanent (uncapped; persists through KO)',
   short_charge: 'Your charged spells resolve ~33% sooner (×1.33 action speed); any class, any charged ability; instants unaffected',
   aura_mastery: 'The buffs you *cast* land ~33% stronger (Haste/Protect/Shell, Regen, Engineered Defenses, Crit Modifier). Not equipment-granted buffs or flat stat-point buffs',
+  // Monk (S76, ADR-0129/0132).
+  counterpunch: 'On an adjacent non-healing *physical* hit: counter for PA×4 with a PA-scaled chance to knock the attacker back (Brave-gated). Ranged hits and magic don\'t trigger it',
+  barehanded: 'While both hands are empty, Weapon Power = PA — so the basic Attack punch hits for PA² (uncapped). The Fists aren\'t weapon-tagged, so they stay PA×coefficient',
+  vigilance: '+½ PA evasion on all facings including the back (anti-flank); reads base PA, so PA buffs don\'t compound into it',
   // Generic / cross-class movement.
   move_plus_1: '+1 Move Range',
   float: 'Cross shallow & deep water at no extra move cost, and take no fall damage. No flight / elevation change (Enchanter, revived S72)',
@@ -210,6 +214,12 @@ const ACTIVE_EFFECTS: Record<string, string> = {
   hill: 'raise a 3×3 area (centre +3 / edge +2 / corner +1)',
   valley: 'lower a 3×3 area (centre −3 / edge −2 / corner −1)',
   barrier: 'spawn a line of 3–5 destructible walls (HP = PA × MA; blocks line of sight & movement)',
+  // Monk Martial Arts (S76) — element + stance + rider live outside the structured fields.
+  chakra: 'also restores MP (PA×2); clears your stance to neutral; PA-scaled, no Faith, never crits; friendly-fire AoE',
+  foxfire: 'fire-tagged; sets Fox Stance (+50 Fire / −50 Earth)',
+  bears_heave: 'sets Bear Stance (+50 Earth / −50 Lightning); grapple-throw — place an adjacent unit (ally or enemy) on any tile within 2; no direct damage, but a ledge drop deals unmitigated fall damage',
+  storm_stoop: 'lightning-tagged; sets Falcon Stance (+50 Lightning / −50 Water)',
+  serpents_coil: 'water-tagged; sets Serpent Stance (+50 Water / −50 Fire); refunds Speed×2 CT on a hit',
 };
 
 // --- section builders -------------------------------------------------
@@ -274,6 +284,7 @@ function systemConstants(): string {
     '**Line of sight** (straight-line / `straight_line` attacks): blocked by an interposed unit, a barrier, *or terrain rising above the caster→target sightline*. The attacker\'s elevation raises the sightline (earned high ground, or Vantage\'s +2), so height sees over a ridge that blocks a ground-level caster. Lobbed/`arc` attacks (bows, Rock Toss, Earthquake, Cataclysm, Tidal Wave, Maelstrom, Discharge Strike) ignore cover but are blocked by terrain rising >5 above the higher of caster/target. — ADR-0117 (refines ADR-0097).',
     '**Protect / Shell**: directional ×0.5 incoming-damage multipliers applied *after* resistance (Protect halves physical, Shell halves magical) — they stack with resistance rather than competing, and never touch damage you *absorb* (resistance >100). Sources: Enchanter casts (amplifiable by Aura Mastery), Defender\'s Auto-Protect, Sorcerer\'s Robe\'s Auto-Shell. — ADR-0121.',
     '**Buff forms don\'t stack** (ADR-0124): the permanent gear forms of Haste / Protect / Shell / Regen (Boots of Haste, Defender, Sorcerer\'s Robe, Tintinibar) and their timed cast forms (Auramancy, Life from the Loam) no longer compound — a unit already holding the gear form gains nothing from the cast version (the cast still buffs other allies in its area).',
+    '**Stop vs Don\'t Act** (ADR-0131): a *Stopped* unit fires **no reactions** at all (Counter, Damage Split, Discharge, Tidal Pull, Smolder, Counterpunch, …) for the duration — a full "frozen in time" lockdown, on top of skipping its turns. *Don\'t Act* still **allows** reactions (it blocks only planned actions). To shut down an enemy\'s reactions, Stop does it; Don\'t Act does not.',
     '**Status-application chance**: `base_chance × ∏selected_factors × (1 − target_resistance/100) × ∏modifiers`. Default selected factors `{ faith, ma }`. — `src/engine/status/chance.ts`.',
     '  - `Faith_factor = (Faith_user/100) × (Faith_target/100)`; `Brave_factor` likewise; `MA_factor = 0.9 + MA_caster/10`; `PA_factor = 0.9 + PA_caster/10`; `Speed_factor = 0.9 + Speed_caster/20`.',
     '**Thief contest** (Steal Buffs / Steal Heart): `clamp(base + 3·PA + 0.5·(Thief_Brave − Target_Brave), [1, 95])`. Base 33 (Steal Buffs), 10 (Steal Heart). Target Brave is the resistance term. — `src/engine/status/chance.ts`, `src/content/abilities/steal-*.ts`.',
@@ -334,8 +345,16 @@ function armor(): string {
   return ['## 4. Armor — head / body / shield', '', table(['Name', 'Slot', 'Tier', 'Stat mods / riders'], rows)].join('\n');
 }
 
-/** A class's restricted-gear access, derived from item restrictions (data-driven). */
+/**
+ * A class's gear access. Two axes: which *slots* it may fill (the Monk is
+ * head + accessory only — no weapon, off-hand, or body), and which gear
+ * *tiers* it can draw on (heavy / magical). A slot restriction dominates
+ * the story, so it leads; otherwise the tier string stands as before.
+ */
 function gearAccess(cls: ClassDefinition): string {
+  const s = cls.equipmentSlots;
+  const fullSlots = s.leftHand && s.rightHand && s.headgear && s.armor && s.accessory;
+
   const tiers = new Set<string>();
   for (const i of items()) {
     if (i.classRestrictions?.some((r) => String(r) === String(cls.id))) {
@@ -343,7 +362,17 @@ function gearAccess(cls: ClassDefinition): string {
       if (label) tiers.add(label.toLowerCase());
     }
   }
-  return tiers.size === 0 ? 'universal' : `universal + ${[...tiers].join('/')}`;
+  const tierStr = tiers.size === 0 ? 'universal' : `universal + ${[...tiers].join('/')}`;
+
+  if (fullSlots) return tierStr;
+
+  // Slot-restricted (Monk): name the slots it may fill.
+  const allowed: string[] = [];
+  if (s.leftHand || s.rightHand) allowed.push('weapon/off-hand');
+  if (s.headgear) allowed.push('head');
+  if (s.armor) allowed.push('body');
+  if (s.accessory) allowed.push('accessory');
+  return `${allowed.join(' + ')} only`;
 }
 
 function classStatLines(): string {
