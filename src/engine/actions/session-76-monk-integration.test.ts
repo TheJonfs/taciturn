@@ -23,6 +23,7 @@ import { runModifyResistance, runModifyEvasion } from '../hooks/index.ts';
 import { makeGameState, makeUnit, activeTurnFor } from '../ct/test-fixtures.ts';
 import { flatMap } from '../map/test-fixtures.ts';
 import { reduceUseAbility } from './reducers.ts';
+import { decideBasicAi } from '../../ai/basic.ts';
 import {
   abilityId,
   bucketId,
@@ -375,6 +376,53 @@ describe("Serpent's Coil", () => {
     expect(push).toBeDefined();
     expect(push!.payload.targetId).toBe(monk.id);
     expect(push!.payload.delta).toBe(20); // Speed 10 × factor 2
+  });
+});
+
+// ===== AI basic competence (no crash; uses Fists / Chakra) =====
+
+describe('Monk — basic AI', () => {
+  it('commits an offensive action against an adjacent enemy (and never crashes on grapple_throw)', () => {
+    const monk = makeMonk({ position: { x: 1, y: 1, layer: 0 } });
+    const enemy = makeUnit({
+      id: 'enemy',
+      team: 'team_b',
+      spd: 8,
+      hp: 100,
+      maxHpBase: 100,
+      position: { x: 2, y: 1, layer: 0 },
+    });
+    const state = makeGameState({
+      units: [monk, enemy],
+      map: flatMap(6, 6),
+      turnState: activeTurnFor(monk.id),
+    });
+    const decision = decideBasicAi(state, catalog);
+    expect(decision.kind).toBe('commit');
+  });
+
+  it('casts Chakra on itself when badly wounded with no reachable enemy', () => {
+    const monk = makeMonk({ hp: 40, position: { x: 0, y: 0, layer: 0 } });
+    // Enemy parked far away — unreachable this turn, so no offensive option.
+    const enemy = makeUnit({
+      id: 'enemy',
+      team: 'team_b',
+      spd: 8,
+      hp: 100,
+      position: { x: 5, y: 5, layer: 0 },
+    });
+    const state = makeGameState({
+      units: [monk, enemy],
+      map: flatMap(6, 6),
+      turnState: activeTurnFor(monk.id),
+    });
+    const decision = decideBasicAi(state, catalog);
+    expect(decision.kind).toBe('commit');
+    expect(
+      decision.kind === 'commit' && decision.action.type === 'use_ability'
+        ? decision.action.payload.abilityId
+        : null,
+    ).toBe(abilityId('chakra'));
   });
 });
 

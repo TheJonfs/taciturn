@@ -428,6 +428,13 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
     const heal = bestHealCandidate(state, catalog, actor, allies, healing);
     if (heal !== null) candidates.push(heal);
 
+    // S76: self-target healing AoE (the Monk's Chakra) — basic competence
+    // only (cast it on yourself when wounded; the AI is not expected to
+    // stance-manage or value the MP-restore / nearby-ally splash). Scored in
+    // the unified currency so a lethal Fist still outranks a marginal heal.
+    const selfHeal = bestSelfHealCandidate(state, catalog, actor);
+    if (selfHeal !== null) candidates.push(selfHeal);
+
     // Alchemist item throws (Potion / Phoenix Down / Remedy / Ether).
     if (isAlchemistActor(actor, catalog)) {
       const throwCand = bestThrowCandidate(state, catalog, actor, allies);
@@ -2519,6 +2526,46 @@ function bestBarrierDenialCandidate(
 //
 // No HP-ratio cliff: full-HP allies fall out naturally via missingHP, so
 // the old HEAL_THRESHOLD gate is gone — the score decides.
+// S76: a self-target healing AoE (the Monk's Chakra). The heal enumeration
+// only handles single-unit / unit_or_tile heals; Chakra is `targeting: 'self'`
+// with a healing AoE, so it needs its own candidate. Basic: cast on self when
+// wounded, valued by the actor's own missing HP (the MP-restore and nearby-ally
+// splash are deliberately not valued — AI awareness is kept basic per S76).
+function isSelfHealAoe(ability: ActiveAbilityDefinition): boolean {
+  return (
+    ability.targeting.kind === 'self' &&
+    ability.effects.damage?.tags.includes('healing') === true
+  );
+}
+
+function bestSelfHealCandidate(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+): ScoredAction | null {
+  const missing = Math.max(0, readMaxHpProxy(actor) - actor.vitals.hp);
+  if (missing <= 0) return null;
+  let best: ScoredAction | null = null;
+  for (const ability of enumerateActiveAbilities(actor, catalog)) {
+    if (!isSelfHealAoe(ability)) continue;
+    if (!canAfford(state, catalog, actor, ability)) continue;
+    const projectedHeal = projectExpectedDamage({ state, catalog, attacker: actor, target: actor, ability });
+    const effectiveHeal = Math.min(projectedHeal, missing);
+    if (effectiveHeal <= 0) continue;
+    const score = effectiveHeal * killValue(actor) * HEAL_WEIGHT;
+    const action: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: actor.id,
+      payload: { abilityId: ability.id, target: { kind: 'self' } },
+    };
+    if (!canCommitAction(state, catalog, actor, action)) continue;
+    const cand: ScoredAction = { score, action, key: `selfheal|${ability.id}` };
+    if (best === null || compareScored(cand, best) > 0) best = cand;
+  }
+  return best;
+}
+
 function bestHealCandidate(
   state: GameState,
   catalog: Catalog,
