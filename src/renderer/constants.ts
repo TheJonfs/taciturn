@@ -257,8 +257,13 @@ export const HIGHLIGHT_COLORS: Readonly<
   Record<'move' | 'attack' | 'heal' | 'aoe' | 'target', number>
 > = {
   move: 0x4a90e2,   // blue — reachable destinations
-  attack: 0xff5252, // saturated red — valid attack targets (an enemy you picked)
-  heal: 0x4ade80,   // saturated lime — valid heal targets
+  // S75: offensive-target tint (damage / debuff casts). Was saturated red
+  // (0xff5252), which collided with Team B's brick-red — a damage highlight
+  // on an enemy read as team allegiance, not aim. Vivid magenta contrasts
+  // with both blue (move / Team A) and red (Team B), and is distinct from
+  // heal-lime, aoe-gold, target-amber, and the soft barrier-violet.
+  attack: 0xff3df0, // magenta — valid offensive (damage / debuff) targets
+  heal: 0x4ade80,   // saturated lime — valid beneficial (heal / buff / revive) targets
   aoe: 0xf6e5a8,    // gold — area-of-effect preview
   // S71 #12: a distinct amber "aim" tint for target previews whose tiles
   // land on units of *either* team — Math Skill (formula-matched, can hit

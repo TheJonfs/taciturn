@@ -80,6 +80,26 @@ toggle to observe a full both-AI battle. `tsc -b` + `vite build` clean; suite
   `defaultTeamTemplates`): Knight/Thief/Enchanter/Templar/Water Mage,
   transcribed from Chris's export JSON. Passes `assertTemplateCompliance`.
 
+## Also S75 — target-highlight pass (UI)
+- **Polarity-driven highlight tint** (`use-turn-flow.ts` `targetHighlightKind`):
+  beneficial (heal/revive/buff) → green, offensive (damage/debuff) → the
+  recolored **magenta** `attack` tint (was Team-B-red, `constants.ts`), neutral
+  utility → amber. Replaces the old binary heal-green/else-red, so ally buffs
+  no longer read as hostile.
+- **Revive targeting fix** (`computeLegalTargets`): KO'd-but-not-removed allies
+  are now offered for `removeKO` abilities (Raise); non-revive abilities still
+  pre-skip corpses (validateAction has no general "can't target a corpse" rule,
+  so the filter is load-bearing there). Fixes Raise highlighting nothing.
+- Tested in `revive-targeting.test.ts` (9 tests). **Not visually verified in
+  the preview** — highlights paint only on human-team input, and driving the
+  setup→builder→deployment→in-battle target-select path on the Pixi canvas
+  isn't reliably automatable here. Logic + kind→color mapping are unit-tested;
+  worth an eyeball on the magenta shade in a manual run (easy to retint in
+  `HIGHLIGHT_COLORS.attack`).
+- **Color taxonomy now:** move=blue, beneficial=lime-green, offensive=magenta,
+  neutral=amber, AoE-preview=gold (overlay). Math Skill / Barrier kept their
+  amber (neutral) — deliberate, unchanged.
+
 ## Still open, NOT touched (carried — in `playtest-watch.md`)
 - **Predictive positional threat-model** — the remaining large AI gap. Only the
   protective/anti-AoE half is wanted (camping/high-ground half unwanted per S73).

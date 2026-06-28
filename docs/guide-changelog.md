@@ -60,6 +60,19 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
   Irregulars, Claude's Bulwark, Claude's Answers). Knight / Thief / Enchanter /
   Templar / Water Mage — a sustain-and-control roster (team-wide Damage Split,
   Speed/Resistance Saves, Earth Communion + Flow State + Short Charge spine).
+- **Target highlights now reflect intent by color.** When you pick an ability,
+  the valid-target tiles are tinted by what the ability *does*:
+  - **Green** — beneficial: heals, **revives (Raise)**, and **buffs** cast on
+    allies (Protect / Shell / Haste / etc.). Buffs used to highlight **red**,
+    which wrongly read as a hostile aim.
+  - **Magenta** — offensive: damage and debuff casts. (Damage targets were red,
+    which clashed with Team B's red — a highlight read as team color, not aim.)
+  - **Amber** — neutral/utility: Math Skill previews, Barrier placement, and
+    other casts that aren't clearly helpful or harmful.
+- **Revive abilities now highlight KO'd allies.** **Raise** (and Phoenix Down)
+  now show downed allies as valid targets when you're aiming them. Previously
+  Raise highlighted nothing — KO'd units were filtered out of every target
+  preview, so the one thing Raise can target was invisible.
 
 _(Also this session, not player-facing: a test/debug-only headless both-AI
 battle runner + action-log inspection seam for AI feel-verification, ADR-0130;

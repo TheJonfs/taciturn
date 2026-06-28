@@ -449,10 +449,12 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     if (flowState.kind === 'move-select' || flowState.kind === 'move-await-confirm') {
       renderer.setHighlights(legalMoveDestinations, 'move');
     } else if (flowState.kind === 'target-select' || flowState.kind === 'await-confirm') {
-      // Pick a highlight kind that hints intent: heal-tag → green,
-      // otherwise attack-tag red. Mirrors the legacy `use-battle-ui`.
+      // S75: tint by polarity — beneficial (heal / revive / buff) → green,
+      // offensive (damage / debuff) → magenta, pure utility → amber. Replaces
+      // the old binary heal-green / else-red, so a buff cast on allies no
+      // longer reads as a hostile aim.
       const ability = catalog.getAbility((flowState as { abilityId: AbilityId }).abilityId);
-      const kind = isHealingAbility(ability) ? 'heal' : 'attack';
+      const kind = ability.kind === 'active' ? targetHighlightKind(ability, catalog) : 'attack';
       renderer.setHighlights(legalTargetsState.positions, kind);
     } else if (flowState.kind === 'math-skill-target-select') {
       // Session 49: Math Skill preview. When both parameter and value
@@ -999,6 +1001,41 @@ function isHealingAbility(ability: ActiveAbilityDefinition | { kind: string }): 
   return dmg !== undefined && dmg.tags.includes('healing');
 }
 
+// S75: choose the target-highlight tint from the ability's *polarity*
+// rather than the old binary "healing → green, else red". Three buckets:
+//   - beneficial (heal / revive / pure buff) → 'heal' (green)
+//   - offensive  (damage / debuff)           → 'attack' (magenta)
+//   - neutral    (pure utility: CT nudges, knockback, terrain, unknown) →
+//     'target' (amber)
+// This fixes a buff cast on allies reading as a hostile aim, and pairs with
+// the recolored 'attack' tint (no longer Team-B red). Buff/debuff polarity
+// is read from each applied status's `aiHints.polarity`; an unspecified
+// polarity counts as non-buff (the safe, hostile-leaning default).
+export function targetHighlightKind(
+  ability: ActiveAbilityDefinition,
+  catalog: Catalog,
+): 'heal' | 'attack' | 'target' {
+  const effects = ability.effects;
+  if (isHealingAbility(ability) || effects.removeKO === true) return 'heal';
+  // Non-healing damage (isHealingAbility already claimed the healing case).
+  if (effects.damage !== undefined) return 'attack';
+  const specs = effects.statusEffects ?? [];
+  if (specs.length > 0) {
+    let anyBuff = false;
+    let anyNonBuff = false;
+    for (const spec of specs) {
+      const polarity = catalog.hasStatusType(spec.typeId)
+        ? catalog.getStatusType(spec.typeId).aiHints?.polarity
+        : undefined;
+      if (polarity === 'buff') anyBuff = true;
+      else anyNonBuff = true; // debuff or unspecified → treat as offensive
+    }
+    if (anyBuff && !anyNonBuff) return 'heal'; // pure buff → beneficial
+    if (anyNonBuff) return 'attack'; // any debuff → offensive
+  }
+  return 'target'; // pure utility (CT / knockback / terrain) → neutral amber
+}
+
 export function computeAbilityDisableReason(
   state: GameState,
   catalog: Catalog,
@@ -1081,8 +1118,18 @@ export function computeLegalTargets(
       }
       return { positions, unitIds, tilePositions: tileKeys };
     }
+    // Revive abilities (the Templar's Raise, `effects.removeKO`) target ONLY
+    // KO'd allies — so for those we must include corpses as candidates and
+    // let validateAction confirm (it requires KO'd + rejects living for
+    // removeKO). For every other ability we pre-skip KO'd-but-not-removed
+    // units: validateAction has no general "can't target a corpse" rule (a
+    // Cure on a KO'd unit "validates" as a no-op), so without this filter
+    // corpses would wrongly light up for heals/attacks. `removed` (permadeath)
+    // units are never targetable. (S75 — fixes Raise highlighting nothing.)
+    const reviveTargeting = ability.effects.removeKO === true;
     for (const candidate of state.units.values()) {
-      if (candidate.vitals.hp <= 0) continue;
+      if (candidate.removed) continue;
+      if (candidate.vitals.hp <= 0 && !reviveTargeting) continue;
       const proposed: ProposedAction = {
         type: 'use_ability',
         source: 'player',
