@@ -230,6 +230,27 @@ export interface HookSignatures {
     return: number;
   };
 
+  // Weapon-power override — chain over the effective Weapon Power used by
+  // the physical base-stage formula (`PA × WP × coefficient`). Fired
+  // against the *attacker's* hooks inside `physicalPaWp`, but ONLY for
+  // weapon-tagged damage (the basic Attack / weapon strikes). Element-
+  // tagged spell-strikes (the Monk's Fists) omit the `'weapon'` tag, so
+  // they never trigger this chain and keep the unarmed WP=1 baseline —
+  // that's what makes a Fist `PA × coef` while the bare punch is `PA²`.
+  //
+  // `pa` is the attacker's already-modified PA (post-`modifyStatQuery`),
+  // passed so a WP=PA override (the Monk's Barehanded) composes with PA
+  // buffs without re-querying. Composition is last-handler-wins on the
+  // running value; v1's only consumer (Barehanded) is singular per unit.
+  modifyWeaponPower: {
+    args: {
+      unit: Unit;        // the attacker whose hooks fire
+      baseValue: number; // running WP (weapon.wp ?? 1)
+      pa: number;        // attacker's modified PA, for WP=PA overrides
+    };
+    return: number;
+  };
+
   // Movement-profile structural modifiers — chain hooks over the
   // class-baseline values. Float adds water-tagged terrains to
   // canEnter; Fly sets specialMovement = 'fly'; future: marsh-walking,

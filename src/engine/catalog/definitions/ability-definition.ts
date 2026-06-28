@@ -137,6 +137,25 @@ export type TargetingSpec =
       // No `mathSkillCost` lives on the spec; per-target MP scaling is
       // declared on the active ability via `mathSkillMpCost`.
       readonly kind: 'math_skill';
+    }
+  | {
+      // Session 76: grapple-throw targeting — the Monk's Bear's Heave. The
+      // player picks a unit to grab (within `range` / `rangeMode`, like
+      // single_unit) AND a destination tile within `throwRadius` (a diamond
+      // in Manhattan distance) of the THROWEE's current position. Validation
+      // enforces the grab reach, the throw radius, an existing + unoccupied
+      // destination, and an upward vertical-tolerance ceiling. Both enemies
+      // (displace onto hazards / ledges) and allies (reposition) are legal
+      // throwees; the throw deals no direct damage — a ledge drop emits
+      // unmitigated falling damage via the shared fall-damage path.
+      readonly kind: 'grapple_throw';
+      readonly range: AbilityRange;
+      readonly rangeMode: RangeMode;
+      readonly throwRadius: number;
+      // Max upward elevation delta (destination above throwee start) the
+      // throw may place onto. Downward is unbounded (the point of a ledge
+      // throw); upward is capped so you can't hoist a unit up a cliff.
+      readonly throwVerticalTolerance: number;
     };
 
 // Per-ability factor selection for the status application formula.
@@ -282,6 +301,13 @@ export interface DamageSpec {
   // left unchanged. Does NOT affect status-application chances on the
   // same ability (those run the separate Faith × MA gate).
   readonly noFaithScaling?: boolean;
+  // Session 76: which stat scales a 'healing' effect's magnitude. Defaults
+  // to `'ma'` (the BMG-canonical `MA × power_coefficient × Faith`). The
+  // Monk's Chakra sets `'pa'` — its self-sustain reads off the PA monostat
+  // (`PA × power_coefficient`, paired with `noFaithScaling`), since the Monk
+  // dumps MA. Only consulted by the `healing_base` handler; physical /
+  // magical damage ignore it.
+  readonly healingStat?: 'pa' | 'ma';
   // Session 62 (Dragoon Jump, ADR-0103): when true, the damage is doubled
   // if the attacker wields a Lance — `PA × WP × (1 + isLance)`, the
   // canonical Dragoon/Lance reward. A ×2 multiplier pushed by the
@@ -552,6 +578,45 @@ export interface AbilityEffects {
   // strike on the target tile) and `chargeSpeedFromUnitSpeed`. Charged-only
   // (an instant jumpLeap would have no airborne window).
   readonly jumpLeap?: boolean;
+  // Session 76: grapple-throw marker (the Monk's Bear's Heave). When set,
+  // resolving this `grapple_throw`-targeted ability relocates the THROWEE
+  // (the grabbed unit) to the chosen destination tile — 0 direct damage; a
+  // drop of > 1 elevation emits unmitigated falling damage. Parallel to
+  // `selfMove` (which relocates the caster instead). Validation handles
+  // reach / radius / legal-destination; resolution lives in
+  // `resolveGrappleThrow`.
+  readonly grappleThrow?: boolean;
+  // Session 76: MP-restore effect (the Monk's Chakra). When set, each
+  // affected (living, non-removed) target is refilled by
+  // `caster_stat × power_coefficient` MP — deterministic (no Faith), emitted
+  // as a `system_mp_restore` alongside any HP heal. `stat` defaults to `'pa'`
+  // (Chakra's PA monostat). Composes with AoE: every unit in the footprint
+  // gets the refill, the same friendly-fire surface as the heal.
+  readonly mpRestore?: {
+    readonly power_coefficient: number;
+    readonly stat?: 'pa' | 'ma';
+  };
+  // Session 76: on cast, clear every status on the CASTER that belongs to
+  // this exclusivity group. The Monk's Chakra and every Fist set `'stance'`
+  // — the clear runs PRE-resolve, so a Fist that also declares `setStance`
+  // re-applies cleanly (replace semantics) and Chakra (no `setStance`) ends
+  // neutral. Equipment-sourced instances are immune (removeStatus skips
+  // them) — stances are never equipment-granted, so this is a non-issue.
+  readonly clearCasterExclusivityGroup?: string;
+  // Session 76: apply this status to the CASTER on cast (the Monk's Fists
+  // setting their elemental stance). Applied PRE-resolve and deterministically
+  // (no chance roll), right after `clearCasterExclusivityGroup` runs, so it
+  // works uniformly across damage Fists, the grapple-throw (Bear's Heave),
+  // and any instant cast. The status's own `exclusivityGroup` keeps the four
+  // stances mutually exclusive as a safety net.
+  readonly setStance?: StatusTypeId;
+  // Session 76: deterministic self-CT refund after a successful hit (the
+  // Monk's Serpent's Coil — tempo). When set, a landed hit emits a
+  // `system_ct_push` on the CASTER of `+floor(factor × caster_stat)` CT
+  // (default stat `'spd'` → Speed × factor — the Monk's next turn comes
+  // sooner). Fired once per cast (gated on `applyCasterEffects`) and only on
+  // a hit. Distinct from `ctEffects`, which is chance-gated and target-facing.
+  readonly selfCtRefund?: { readonly factor: number; readonly stat?: 'pa' | 'ma' | 'spd' };
 }
 
 export interface ActiveAbilityDefinition extends AbilityCommon {

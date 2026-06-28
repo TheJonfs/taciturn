@@ -77,6 +77,12 @@ const STATUS_DESCRIPTIONS: ReadonlyMap<StatusTypeId, string> = new Map([
   [statusTypeId('cornered_focus'), '+1 MA per stack — granted by the Calculator’s Cornered Focus reaction on enemy damage taken. Permanent through KO.'],
   [statusTypeId('engineered_defenses'), '+10 per elemental resistance and +5% per-facing evade per stack — granted by the Calculator’s Engineered Defenses cast. Permanent.'],
   [statusTypeId('resistance_save'), '+10 to each elemental resistance (earth/water/fire/lightning) per stack — granted by the Enchanter’s Resistance Save reaction on magical damage taken. Permanent through KO; uncapped.'],
+  // S76 — the Monk's four mutually-exclusive elemental stances. Holding one
+  // replaces any other; Chakra clears to neutral. Resistance only; no tick.
+  [statusTypeId('fox_stance'), 'Fox Stance: +50 Fire resistance, −50 Earth. Set by Foxfire. Replaced by another Fist; cleared by Chakra.'],
+  [statusTypeId('bear_stance'), 'Bear Stance: +50 Earth resistance, −50 Lightning. Set by Bear’s Heave. Replaced by another Fist; cleared by Chakra.'],
+  [statusTypeId('falcon_stance'), 'Falcon Stance: +50 Lightning resistance, −50 Water. Set by Storm Stoop. Replaced by another Fist; cleared by Chakra.'],
+  [statusTypeId('serpent_stance'), 'Serpent Stance: +50 Water resistance, −50 Fire. Set by Serpent’s Coil. Replaced by another Fist; cleared by Chakra.'],
 ]);
 
 // Short authored placeholders for the demo passives. Each line is the
@@ -143,6 +149,10 @@ const PASSIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('slip_free'), 'When a debuff lands on you, immediately advance it one tick — a 1-turn debuff is shrugged off entirely. Brave-gated, like a reaction.'],
   [abilityId('momentum'), 'After any non-magical action — the basic Attack included — refund a little CT. Keeps MP-banking turns tempo-positive.'],
   [abilityId('move_plus_2'), '+2 Move Range.'],
+  // S76 — the Monk's three innate passives.
+  [abilityId('barehanded'), 'While both hands are empty, your Weapon Power becomes your PA — so the basic Attack (punch) hits for PA² instead of the unarmed PA × 1. The four Fists are NOT weapon strikes, so they stay at PA × coefficient and never PA²-explode.'],
+  [abilityId('counterpunch'), 'On taking a non-healing physical hit from an adjacent attacker, swing back for PA × 4 with a PA-scaled chance to knock them back 1 tile. Ranged and magical hits don’t trigger it. Brave-gated like any reaction.'],
+  [abilityId('vigilance'), 'Raises evasion on ALL facings — front, side, and back — by half your PA. Lifting back evasion off the floor means you resist flanking, the core of the Monk’s anti-physical profile.'],
 ]);
 
 // Authored lead-lines for active abilities whose mechanics don't read off
@@ -176,6 +186,15 @@ const ACTIVE_DESCRIPTIONS: ReadonlyMap<AbilityId, string> = new Map([
   [abilityId('enchant_protect'), 'Buff a 1-square diamond with Protect (half incoming physical damage) for several turns. ~90% to land on a normal-Faith ally, scaling with MA / target Faith. Friendly fire: also buffs you and any enemy in the area.'],
   [abilityId('enchant_shell'), 'Buff a 1-square diamond with Shell (half incoming magical damage) for several turns. ~90% to land on a normal-Faith ally, scaling with MA / target Faith. Friendly fire: also buffs you and any enemy in the area.'],
   [abilityId('esuna'), 'Cleanse a 1-square diamond — strip every ailment (Poison, Blind, Silence, Stop, Don’t Act/Move, Slow, Burn…) from each unit. Always works; ignores Faith. Leaves committed stat-downs (PA/MA Down, etc.) alone. Friendly fire: also cleanses you and any enemy in the area.'],
+  // S76 — Martial Arts (Monk). Chakra plus the four elemental Fists. Each Fist
+  // hits for PA × coefficient (element-tagged, reduced by the target's
+  // resistance in that element — absorbed if they resist it past 100), sets a
+  // stance, and replaces any stance already up.
+  [abilityId('chakra'), 'Heal HP and restore MP for yourself and everyone in a 1-square diamond, scaling off PA (no Faith, never crits). Friendly fire: also mends enemies in the area. Clears your stance to neutral — the turn you heal, your elemental guard drops.'],
+  [abilityId('foxfire'), 'Fire Fist (PA × 3): a melee strike tagged Fire with a 50% chance to apply Burn, landing via the PA + Brave path. Sets Fox Stance (+50 Fire / −50 Earth).'],
+  [abilityId('bears_heave'), 'Grapple-throw: grab an adjacent unit (enemy or ally) and place it on any tile within 2 — onto a hazard, off a ledge (the fall hurts), or an ally to safety. No direct damage. Sets Bear Stance (+50 Earth / −50 Lightning).'],
+  [abilityId('storm_stoop'), 'Lightning Fist (PA × 3): a 3-tile line tagged Lightning — reach down a lane and hit everyone in it. Sets Falcon Stance (+50 Lightning / −50 Water).'],
+  [abilityId('serpents_coil'), 'Water Fist (PA × 3): a melee strike tagged Water that, on a hit, refunds Speed × 2 CT so your next turn comes sooner. Sets Serpent Stance (+50 Water / −50 Fire).'],
 ]);
 
 // Tiny formatting helpers — kept inline rather than a regex zoo so the

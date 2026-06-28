@@ -31,6 +31,8 @@ import knightFemale from './knight-female.png';
 import knightMale from './knight-male.png';
 import lightningMageFemale from './lightning-mage-female.png';
 import lightningMageMale from './lightning-mage-male.png';
+import monkFemale from './monk-female.png';
+import monkMale from './monk-male.png';
 import templarFemale from './templar-female.png';
 import templarMale from './templar-male.png';
 import thiefFemale from './thief-female.png';
@@ -59,6 +61,7 @@ const PORTRAITS: ReadonlyMap<ClassId, PortraitPair> = new Map([
   [classId('hunter'), { male: hunterMale, female: hunterFemale, defaultGender: 'male' }],
   [classId('knight'), { male: knightMale, female: knightFemale, defaultGender: 'male' }],
   [classId('lightning_mage'), { male: lightningMageMale, female: lightningMageFemale, defaultGender: 'male' }],
+  [classId('monk'), { male: monkMale, female: monkFemale, defaultGender: 'male' }],
   [classId('templar'), { male: templarMale, female: templarFemale, defaultGender: 'male' }],
   [classId('thief'), { male: thiefMale, female: thiefFemale, defaultGender: 'female' }],
   [classId('terraformer'), { male: terraformerMale, female: terraformerFemale, defaultGender: 'male' }],

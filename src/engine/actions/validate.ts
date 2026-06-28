@@ -323,6 +323,90 @@ function validateUseAbility(
     baseValue: sourceTile.elevation,
   });
 
+  // Session 76: grapple-throw targeting — the Monk's Bear's Heave. Validates
+  // the grab reach (throwee within range, like single_unit), the throw radius
+  // (destination within a Manhattan diamond of the throwee's CURRENT tile), an
+  // existing + unoccupied + barrier-free destination, and an upward-elevation
+  // ceiling (downward is unbounded — ledge throws are the point).
+  if (targetingKind === 'grapple_throw') {
+    if (payloadTargetKind !== 'grapple_throw') {
+      return invalid(`Ability ${JSON.stringify(ability.id)} requires a grapple_throw target`);
+    }
+    const throwPayload = action.payload.target as Extract<
+      AbilityTarget,
+      { kind: 'grapple_throw' }
+    >;
+    let throwee: Unit;
+    try {
+      throwee = getUnit(state, throwPayload.unitId);
+    } catch {
+      return invalid(`Throw target ${JSON.stringify(throwPayload.unitId)} does not exist`);
+    }
+    if (throwee.id === actor.id) {
+      return invalid('Cannot throw yourself');
+    }
+    if (throwee.airborne) {
+      return invalid(`Throw target ${JSON.stringify(throwPayload.unitId)} is airborne and cannot be grabbed`);
+    }
+    if (throwee.vitals.hp <= 0) {
+      return invalid("Cannot grab a KO'd unit");
+    }
+    const throweeTile = tileAt(
+      state.map,
+      throwee.position.x,
+      throwee.position.y,
+      throwee.position.layer,
+    );
+    if (throweeTile === undefined) {
+      return invalid('Throw target stands on a non-existent tile');
+    }
+    // Grab reach — parallel to single_unit. Skipped for rider casts (no v1
+    // rider throws, but the bypass keeps the shape uniform).
+    if (!isRider) {
+      const grabRange = computeAbilityRange(state, catalog, actor.id, ability);
+      const grabOk = inRange({
+        source: endpointFrom(actor.position, sourceTile.elevation),
+        target: endpointFrom(throwee.position, throweeTile.elevation),
+        params: {
+          horizontalMax: grabRange.horizontal,
+          horizontalMin: grabRange.minHorizontal ?? ruleset.rangeDefaults.minHorizontal,
+          verticalMax: grabRange.vertical,
+        },
+      });
+      if (!grabOk) return invalid('Throw target is out of grab range');
+    }
+    // Destination: in-bounds, exists, unoccupied, barrier-free.
+    const dest = throwPayload.destination;
+    if (dest.x < 0 || dest.y < 0 || dest.x >= state.map.width || dest.y >= state.map.height) {
+      return invalid(`Destination tile (${dest.x},${dest.y},${dest.layer}) does not exist`);
+    }
+    const throwDestTile = tileAt(state.map, dest.x, dest.y, dest.layer);
+    if (throwDestTile === undefined) {
+      return invalid(`Destination tile (${dest.x},${dest.y},${dest.layer}) does not exist`);
+    }
+    const destOccupant = unitAt(state, dest.x, dest.y, dest.layer);
+    if (destOccupant !== undefined && destOccupant.id !== throwee.id) {
+      return invalid('Cannot throw onto an occupied tile');
+    }
+    if (throwDestTile.barrier !== undefined) {
+      return invalid('Cannot throw onto a barrier tile');
+    }
+    // Throw radius — Manhattan diamond around the throwee's current tile.
+    const manhattan =
+      Math.abs(dest.x - throwee.position.x) + Math.abs(dest.y - throwee.position.y);
+    if (manhattan === 0) {
+      return invalid('Destination must differ from the current tile');
+    }
+    if (manhattan > ability.targeting.throwRadius) {
+      return invalid('Destination is outside the throw radius');
+    }
+    // Upward elevation ceiling (downward unbounded — ledge throws are the point).
+    if (throwDestTile.elevation - throweeTile.elevation > ability.targeting.throwVerticalTolerance) {
+      return invalid('Cannot throw a unit up that high');
+    }
+    return VALID;
+  }
+
   // Session 54: barrier-as-target. A damaging ability aimed at a tile that
   // bears a barrier is valid even if its declared targeting requires a unit
   // (a basic Attack is `single_unit`, but you can swing at a wall). Range /

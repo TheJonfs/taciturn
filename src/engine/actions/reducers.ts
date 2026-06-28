@@ -414,8 +414,54 @@ export function reduceUseAbility(
   // update knockback uses, applied to the actor instead of a victim. No
   // damage / status / reaction surface, so it returns directly rather
   // than threading the target-resolution pipeline.
+  // Session 76: stance management (the Monk's Chakra + the four Fists). Run
+  // PRE-resolve, uniformly across damage Fists / the grapple-throw / Chakra:
+  //   1. `clearCasterExclusivityGroup` drops every same-group status on the
+  //      caster (the four stances share `exclusivityGroup: 'stance'`).
+  //   2. `setStance` then applies this Fist's stance deterministically (no
+  //      chance roll) — with the incumbent already cleared, the apply lands.
+  // Chakra clears but sets nothing (ends neutral); each Fist clears then sets
+  // its own. Doing both here means Bear's Heave (which short-circuits to
+  // `resolveGrappleThrow` below) still manages stance.
+  if (ability.effects.clearCasterExclusivityGroup !== undefined) {
+    const group = ability.effects.clearCasterExclusivityGroup;
+    const liveActor = workingState.units.get(actor.id) ?? actor;
+    const groupTypeIds = new Set<StatusTypeId>();
+    for (const inst of liveActor.statuses) {
+      if (catalog.getStatusType(inst.typeId).exclusivityGroup === group) {
+        groupTypeIds.add(inst.typeId);
+      }
+    }
+    for (const typeId of groupTypeIds) {
+      workingState = removeStatus(workingState, { targetId: actor.id, typeId }, catalog).newState;
+    }
+  }
+  if (ability.effects.setStance !== undefined) {
+    workingState = applyStatus(
+      workingState,
+      {
+        targetId: actor.id,
+        typeId: ability.effects.setStance,
+        sourceUnitId: actor.id,
+        sourceActionSeq: action.sequenceNumber,
+        sourceAbilityTags: ability.tags ?? [],
+      },
+      catalog,
+    ).newState;
+  }
+  const stanceActor = workingState.units.get(actor.id) ?? actor;
+
   if (ability.effects.selfMove === true) {
-    return resolveSelfMove(workingState, action, ability, actor, mpCost);
+    return resolveSelfMove(workingState, action, ability, stanceActor, mpCost);
+  }
+
+  // Session 76: grapple-throw (the Monk's Bear's Heave). Relocates the
+  // *throwee* (the grabbed unit) to the chosen destination — a dedicated
+  // path parallel to selfMove. 0 direct damage; a ledge drop emits falling
+  // damage. Reach / radius / legal-destination were checked at validation.
+  // Caster stance was already managed above.
+  if (ability.effects.grappleThrow === true) {
+    return resolveGrappleThrow(workingState, action, ability, stanceActor, mpCost);
   }
 
   // Session 54: a Worldcraft cast (Pillar/Pit/Hill/Valley/Barrier) is a
@@ -460,7 +506,7 @@ export function reduceUseAbility(
 
   const resolved = resolveAbilityTargets(workingState, catalog, {
     ability,
-    attacker: actor,
+    attacker: stanceActor,
     payloadTarget: action.payload.target,
     incomingProposed,
     sourceActionSeq: action.sequenceNumber,
@@ -540,6 +586,64 @@ function resolveSelfMove(
     casterMove: { path: [from, dest], facingAfter: actor.facing },
   };
   return { newState, outcome, generatedActions: [] };
+}
+
+// Session 76: grapple-throw resolution (the Monk's Bear's Heave). Relocates
+// the THROWEE (the grabbed unit) to the chosen destination tile — 0 direct
+// damage. A drop of > 1 elevation emits unmitigated falling damage via the
+// shared fall-damage path. Parallel to `resolveSelfMove` (which moves the
+// caster). Reach / radius / legal-destination were checked at validation; the
+// throwee's displacement is recorded on a per-target result via `displacedTo`
+// (the knockback render path) so the renderer settles the sprite. No
+// reactions / hooks fire — a throw is forced movement, not an attack.
+function resolveGrappleThrow(
+  state: GameState,
+  action: Extract<Action, { type: 'use_ability' }>,
+  ability: ActiveAbilityDefinition,
+  actor: Unit,
+  mpCost: number,
+): ReduceResult<UseAbilityOutcome> {
+  const target = action.payload.target;
+  if (target.kind !== 'grapple_throw') {
+    throw new Error(
+      `resolveGrappleThrow: ability ${JSON.stringify(ability.id)} has grappleThrow but no grapple_throw target`,
+    );
+  }
+  const throwee = state.units.get(target.unitId);
+  if (throwee === undefined) {
+    throw new Error(
+      `resolveGrappleThrow: throwee ${JSON.stringify(target.unitId)} not found`,
+    );
+  }
+  void actor; // the thrower; no self-mutation — kept for signature parity.
+  const from = throwee.position;
+  const dest = target.destination;
+  const fromTile = tileAt(state.map, from.x, from.y, from.layer);
+  const destTile = tileAt(state.map, dest.x, dest.y, dest.layer);
+  if (fromTile === undefined || destTile === undefined) {
+    throw new Error('resolveGrappleThrow: throwee or destination tile does not exist');
+  }
+  const newState = withUnit(state, { ...throwee, position: dest });
+  const dropDistance = fromTile.elevation - destTile.elevation;
+  const fall = fallDamageAction(throwee.id, dropDistance);
+  const outcome: UseAbilityOutcome = {
+    kind: 'use_ability',
+    abilityId: ability.id,
+    perTargetResults: [
+      {
+        target: { kind: 'unit', unitId: throwee.id },
+        hit: true,
+        displacedTo: dest,
+        hpAfter: throwee.vitals.hp,
+      },
+    ],
+    mpSpent: mpCost,
+  };
+  return {
+    newState,
+    outcome,
+    generatedActions: fall !== null ? [fall] : [],
+  };
 }
 
 // Session 54: Worldcraft cast resolution (Pillar/Pit/Hill/Valley/Barrier).
@@ -741,6 +845,12 @@ function buildTargetRefs(target: AbilityTarget): TargetRef[] {
       throw new Error(
         'buildTargetRefs: charged math_skill abilities are out of v1 scope — Math Skill is instant-cast',
       );
+    case 'grapple_throw':
+      // Session 76: Bear's Heave is instant-cast — it never spawns a
+      // ChargedAction, so this path is unreachable. Mirror the tile_set guard.
+      throw new Error(
+        "buildTargetRefs: charged grapple_throw abilities are out of scope — Bear's Heave is instant-cast",
+      );
   }
 }
 
@@ -933,6 +1043,70 @@ function resolveAbilityEffect(
         pipelineEmissions.push(a);
       }
       workingState = clearChargedActionsForCaster(workingState, args.targetUnit.id);
+    }
+  }
+
+  // Session 76: MP-restore effect (the Monk's Chakra). Refills MP on each
+  // affected living, non-removed target by `caster_stat × power_coefficient`
+  // (deterministic — no Faith), emitted alongside the HP heal. Composes with
+  // AoE: every unit in the footprint gets the refill.
+  const mpRestoreSpec = args.ability.effects.mpRestore;
+  if (mpRestoreSpec !== undefined && args.targetUnit !== null) {
+    const live = workingState.units.get(args.targetUnit.id);
+    if (live !== undefined && live.vitals.hp > 0 && !live.removed) {
+      const mpStat: 'pa' | 'ma' = mpRestoreSpec.stat ?? 'pa';
+      const statValue = runModifyStatQuery(workingState, catalog, {
+        unit: args.attacker,
+        statName: mpStat,
+        baseValue: mpStat === 'pa' ? args.attacker.baseStats.pa : args.attacker.baseStats.ma,
+      });
+      const amount = Math.floor(statValue * mpRestoreSpec.power_coefficient);
+      if (amount > 0) {
+        pipelineEmissions.push({
+          type: 'system_mp_restore',
+          source: 'system',
+          payload: {
+            targetId: args.targetUnit.id,
+            amount,
+            source: { kind: 'ability', abilityId: args.ability.id, casterId: args.attacker.id },
+          },
+        });
+      }
+    }
+  }
+
+  // Session 76: self-CT refund (the Monk's Serpent's Coil — tempo). On a
+  // landed hit, push the caster's own CT forward by `factor × caster_stat`
+  // (default Speed). Once per cast (gated on `applyCasterEffects`).
+  const selfCtRefund = args.ability.effects.selfCtRefund;
+  if (
+    selfCtRefund !== undefined &&
+    (args.applyCasterEffects ?? true) &&
+    damageContext !== null &&
+    damageContext.hit
+  ) {
+    const ctStat = selfCtRefund.stat ?? 'spd';
+    const statValue = runModifyStatQuery(workingState, catalog, {
+      unit: args.attacker,
+      statName: ctStat,
+      baseValue:
+        ctStat === 'spd'
+          ? args.attacker.baseStats.spd
+          : ctStat === 'pa'
+            ? args.attacker.baseStats.pa
+            : args.attacker.baseStats.ma,
+    });
+    const delta = Math.floor(selfCtRefund.factor * statValue);
+    if (delta !== 0) {
+      pipelineEmissions.push({
+        type: 'system_ct_push',
+        source: 'system',
+        payload: {
+          targetId: args.attacker.id,
+          delta,
+          source: { kind: 'ct_effect', abilityId: args.ability.id, attackerId: args.attacker.id },
+        },
+      });
     }
   }
 
@@ -2062,6 +2236,13 @@ function resolveSingleTargetUnit(
       throw new Error(
         `resolveSingleTargetUnit: tile_set targets must route through resolveWorldcraft`,
       );
+    case 'grapple_throw':
+      // grapple_throw targets only Bear's Heave, which short-circuits to
+      // `resolveGrappleThrow` before this path — reaching here is a routing
+      // error.
+      throw new Error(
+        `resolveSingleTargetUnit: grapple_throw targets must route through resolveGrappleThrow`,
+      );
   }
 }
 
@@ -2452,6 +2633,12 @@ function resolveAoeAnchor(
       // resolves through `resolveWorldcraft` and never expands an AoE.
       throw new Error(
         `resolveAoeAnchor: tile_set targets don't expand from an anchor`,
+      );
+    case 'grapple_throw':
+      // grapple_throw targets only Bear's Heave, which resolves through
+      // `resolveGrappleThrow` and never expands an AoE.
+      throw new Error(
+        `resolveAoeAnchor: grapple_throw targets don't expand from an anchor`,
       );
   }
 }

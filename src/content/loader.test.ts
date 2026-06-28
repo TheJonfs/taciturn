@@ -217,10 +217,17 @@ describe('loadDefaultCatalog', () => {
     //   - commandSets: 14 → 15 (auramancy)
     // Session 72 (Aura Mastery — 2nd Enchanter Support, ADR-0122):
     //   - abilities: 110 → 111 (aura_mastery)
-    expect(cat.statusTypes()).toHaveLength(39);
-    expect(cat.abilities()).toHaveLength(111);
-    expect(cat.commandSets()).toHaveLength(15);
-    expect(cat.classes()).toHaveLength(13);
+    // Session 76 (Monk — 14th class, 6th physical):
+    //   - statusTypes: 39 → 43 (fox/bear/falcon/serpent stances)
+    //   - abilities: 111 → 120 (barehanded, vigilance, counterpunch +
+    //     counterpunch_strike, chakra, foxfire, bears_heave, storm_stoop,
+    //     serpents_coil)
+    //   - commandSets: 15 → 16 (martial_arts)
+    //   - classes: 13 → 14 (monk)
+    expect(cat.statusTypes()).toHaveLength(43);
+    expect(cat.abilities()).toHaveLength(120);
+    expect(cat.commandSets()).toHaveLength(16);
+    expect(cat.classes()).toHaveLength(14);
     // Session 74 (caster-accessory batch): 77 → 81 (greaves_of_seraphis,
     // ring_of_caliora, glove_of_metria, pendant_of_lumara).
     // Session 75: 81 → 82 (twist_headband).

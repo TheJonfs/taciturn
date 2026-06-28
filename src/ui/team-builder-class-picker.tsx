@@ -27,6 +27,7 @@ const CLASS_TAGLINES: ReadonlyMap<string, string> = new Map([
   ['templar', 'Healer and dragoon hybrid'],
   ['thief', 'Resource-stealing skirmisher'],
   ['enchanter', 'Ally-buffing aura caster'],
+  ['monk', 'Barehanded stance-dancing bruiser'],
 ]);
 
 export interface TeamBuilderClassPickerProps {

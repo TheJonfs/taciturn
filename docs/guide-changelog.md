@@ -44,6 +44,52 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 76 (2026-06-28)
+
+- **New class: the Monk** (14th class, 6th physical) — a barehanded, PA-scaling,
+  stance-dancing martial artist with self-sustain and a grapple-throw. Squares
+  the roster to 6 physical / 6 magical (+2 hybrids).
+  - **Stats:** HP 190 / MP 26 / PA 9 / MA 4 / Speed 10, Move 3 / Jump 3, evasion
+    11/8/3 (the highest base in the roster). **Gear: Universal Head + Accessory
+    only — NO body armor, NO off-hand, NO weapon.** HP reads high but nets only
+    ~210 effective (no body slot to stack) — an evasion-and-sustain bruiser, not
+    an HP wall. Near-hard-counters physical; genuinely fragile to magic.
+  - **PA is the monostat:** it drives damage, evasion (Vigilance), and the
+    counter (Counterpunch).
+  - **Innate passives** (free, one per bucket): **Counterpunch** (Reaction — on
+    an adjacent non-healing physical hit, swing back for PA×4 with a PA-scaled
+    chance to knock the attacker back 1; ranged/magic don't trigger it),
+    **Barehanded** (Support — while both hands are empty, Weapon Power = PA, so
+    the basic Attack punch hits for **PA²**), **Vigilance** (Movement — raises
+    evasion on **all** facings, including the back, by half your PA → anti-flank).
+  - **Command set: Martial Arts** — **Chakra** (heal HP **and** restore MP for
+    yourself + a 1-diamond, PA-scaled, no Faith, never crits; clears your stance
+    to neutral — the heal-but-expose tradeoff; friendly-fire AoE like Cure) plus
+    the four elemental **Fists**, each `PA × coefficient`, element-tagged
+    (reduced by the target's resistance in that element; absorbed if they resist
+    it past 100), each setting a **stance** and carrying a rider:
+    - **Foxfire** → **Fox Stance** (+50 Fire / −50 Earth), 50% Burn (lands via
+      PA+Brave).
+    - **Bear's Heave** → **Bear Stance** (+50 Earth / −50 Lightning) — a
+      **grapple-throw**: grab an adjacent unit (enemy or ally) and place it on
+      any tile within 2; 0 direct damage, but a ledge drop deals unmitigated
+      falling damage. Throw enemies onto hazards / off ledges, or reposition allies.
+    - **Storm Stoop** → **Falcon Stance** (+50 Lightning / −50 Water) — a 3-tile
+      line attack.
+    - **Serpent's Coil** → **Serpent Stance** (+50 Water / −50 Fire) — refunds
+      Speed×2 CT on a hit (your next turn comes sooner).
+  - **Stances are mutually exclusive:** a new Fist replaces the prior stance;
+    Chakra clears to neutral. The basic punch sets **no** stance — so the harder
+    a Monk leans on the PA² punch for raw damage, the more magic-exposed it is.
+    The Monk's only elemental resistance is its active stance + a resistance head.
+  - **The PA² punch is uncapped by design** — melee-committal and self-punishing
+    (no stance up while punching), countered by magic and by kiting it down.
+- _(Tuning note: the Monk's coefficients — Fist power, Chakra magnitude, Burn
+  rate, CT-refund, Vigilance evasion — are starting values and may shift after
+  playtest.)_
+
+---
+
 ## Session 75 (2026-06-27)
 
 - **Stop now disables reactions, not just turns.** A **Stopped** unit no longer

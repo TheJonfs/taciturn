@@ -38,11 +38,19 @@ import { updraft } from './updraft.ts';
 import { taggedResistanceShift } from './tagged-resistance-shift.ts';
 import { taunted } from './taunted.ts';
 import { vulnerable } from './vulnerable.ts';
+import { foxStance } from './fox-stance.ts';
+import { bearStance } from './bear-stance.ts';
+import { falconStance } from './falcon-stance.ts';
+import { serpentStance } from './serpent-stance.ts';
 
 export const statusTypes: ReadonlyArray<StatusEffectType> = [
   blind,
   braveDown,
   burn,
+  foxStance,
+  bearStance,
+  falconStance,
+  serpentStance,
   charging,
   combatFocus,
   corneredFocus,

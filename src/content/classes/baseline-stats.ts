@@ -57,6 +57,9 @@ export const classDominantStats: ReadonlyMap<ClassId, DominantStat> = new Map([
   // is the identity stat even though Speed is the higher raw number — the
   // class is deliberately PA-centric (concept-notes "Build axis").
   [classId('thief'),          'pa'],
+  // S76: Monk — PA is the monostat (damage via Barehanded WP=PA, evasion via
+  // Vigilance, retaliation via Counterpunch). PA is the obvious dominant pick.
+  [classId('monk'),           'pa'],
 ]);
 
 export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new Map([
@@ -151,4 +154,12 @@ export const classBaselineStats: ReadonlyMap<ClassId, ClassBaselineStats> = new 
   // MA 3 (tied lowest) — no magical scaling. Speed 11 — fast skirmisher, a
   // touch under the Assassin (the speed-for-PA trade).
   [classId('thief'),          { maxHpBase: 90,  maxMpBase: 28, pa: 7,  ma: 3,  spd: 11 }],
+  // S76: Monk (14th class, 6th physical). HP 190 is the highest base, but the
+  // class wears no body and no off-hand, so effective durability (~210 with a
+  // head) lands below the Knight (~314) and Hunter (~226) — an evasion-and-
+  // sustain bruiser, not an HP wall. MP 26 funds the cheap Fists / Chakra is
+  // free. PA 9 is the monostat (damage, evasion, counter all read it). MA 4 is
+  // dumped (Burn ticks weakly; that's fine — the punch is the damage). Speed
+  // 10 is mid-tempo.
+  [classId('monk'),           { maxHpBase: 190, maxMpBase: 26, pa: 9,  ma: 4,  spd: 10 }],
 ]);

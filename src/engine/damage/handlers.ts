@@ -26,6 +26,7 @@ import {
   runModifyOutgoingHitChance,
   runModifySpellPower,
   runModifyStatQuery,
+  runModifyWeaponPower,
   runOnDamageDealt,
   runOnDamageReceived,
   runOnFinalDamage,
@@ -183,7 +184,14 @@ export const physicalPaWp: DamageHandler = (ctx, env) => {
   // the designated swing slot's weapon when set, else the dominant weapon
   // (bit-identical for every single-weapon / pre-S42 caller).
   const weapon = getSwingWeapon(ctx.attacker, ctx.attackingWeaponSlot, env.catalog);
-  const wp = weapon?.wp ?? 1;
+  // Weapon-power override (Session 76): only weapon strikes run the chain —
+  // the basic Attack carries the `'weapon'` tag, so the Monk's Barehanded
+  // can set WP=PA there (punch → PA²). Element-tagged Fists omit `'weapon'`,
+  // so they keep the unarmed WP=1 baseline (Fist → PA × coef, no explosion).
+  const baseWp = weapon?.wp ?? 1;
+  const wp = ctx.damageTags.has('weapon')
+    ? runModifyWeaponPower(env.state, env.catalog, { unit: ctx.attacker, baseValue: baseWp, pa })
+    : baseWp;
   const baseDamage = pa * wp * power_coefficient;
 
   // Weapon tag composition: merge the weapon's declared tags into the
@@ -223,10 +231,13 @@ export const healingBase: DamageHandler = (ctx, env) => {
   const power =
     (ability.effects.damage?.power_coefficient ?? 1) +
     (ctx.additionalPowerCoefficient ?? 0);
+  // S76: a healing effect may scale off PA instead of MA (the Monk's Chakra
+  // — its sustain reads the PA monostat). Defaults to MA (BMG-canonical).
+  const healStat: 'pa' | 'ma' = ability.effects.damage?.healingStat ?? 'ma';
   const ma = runModifyStatQuery(env.state, env.catalog, {
     unit: ctx.attacker,
-    statName: 'ma',
-    baseValue: ctx.attacker.baseStats.ma,
+    statName: healStat,
+    baseValue: healStat === 'pa' ? ctx.attacker.baseStats.pa : ctx.attacker.baseStats.ma,
   });
   // S63: `noFaithScaling` forces the Faith term to 1 (deterministic
   // `MA × power`). Targeted Treatment opts out; standard heals keep Faith.

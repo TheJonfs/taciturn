@@ -44,6 +44,7 @@ export {
   runModifyStatQuery,
   runModifyStatusApplicationChance,
   runModifySwingsPerWeapon,
+  runModifyWeaponPower,
   runModifyStatusTickAmount,
   runModifySystemDamage,
   runModifyTerrainCosts,

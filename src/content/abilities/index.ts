@@ -11,6 +11,15 @@ import { pinDown } from './pin-down.ts';
 import { scramble } from './scramble.ts';
 import { undertow } from './undertow.ts';
 import { updraftReaction } from './updraft.ts';
+import { barehanded } from './barehanded.ts';
+import { bearsHeave } from './bears-heave.ts';
+import { chakra } from './chakra.ts';
+import { counterpunch } from './counterpunch.ts';
+import { counterpunchStrike } from './counterpunch-strike.ts';
+import { foxfire } from './foxfire.ts';
+import { serpentsCoil } from './serpents-coil.ts';
+import { stormStoop } from './storm-stoop.ts';
+import { vigilance } from './vigilance.ts';
 import { bedrockStride } from './bedrock-stride.ts';
 import { blowdart } from './blowdart.ts';
 import { bolt } from './bolt.ts';
@@ -116,6 +125,15 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   applyBurnProc,
   applySilenceProc,
   attack,
+  barehanded,
+  bearsHeave,
+  chakra,
+  counterpunch,
+  counterpunchStrike,
+  foxfire,
+  serpentsCoil,
+  stormStoop,
+  vigilance,
   bedrockStride,
   blowdart,
   bolt,

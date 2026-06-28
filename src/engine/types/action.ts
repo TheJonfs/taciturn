@@ -91,6 +91,16 @@ export type AbilityTarget =
       readonly kind: 'math_skill';
       readonly parameter: MathSkillParameter;
       readonly value: MathSkillValue;
+    }
+  // Session 76: grapple-throw (the Monk's Bear's Heave) — grab a unit and
+  // place it on a chosen destination tile. `unitId` is the throwee;
+  // `destination` is the tile to set them on (validated within the throw
+  // radius of the throwee's current position by the `grapple_throw`
+  // targeting kind).
+  | {
+      readonly kind: 'grapple_throw';
+      readonly unitId: UnitId;
+      readonly destination: Position;
     };
 
 // Per-target result inside a UseAbility outcome. Damage is populated
@@ -419,7 +429,10 @@ export type SystemMpRestoreSource =
   // Session 62 (Unified Calling, ADR-0101): on receiving a one-time heal, a
   // reaction passive restores MP equal to the recipient's PA.
   | { readonly kind: 'heal_reaction'; readonly abilityId: AbilityId; readonly unitId: UnitId }
-  | { readonly kind: 'status_tick'; readonly statusTypeId: StatusTypeId; readonly unitId: UnitId };
+  | { readonly kind: 'status_tick'; readonly statusTypeId: StatusTypeId; readonly unitId: UnitId }
+  // Session 76: an ability's `mpRestore` effect (the Monk's Chakra) refills
+  // each affected target's MP by `caster_stat × coefficient`.
+  | { readonly kind: 'ability'; readonly abilityId: AbilityId; readonly casterId: UnitId };
 
 // `system_mp_drain` — engine-emitted MP transfer used by Rasp Pendant
 // (Session 31) and any future damage-to-MP-drain effects. Distinct from

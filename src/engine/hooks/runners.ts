@@ -108,6 +108,25 @@ export function runModifyEvasion(
   return value;
 }
 
+// Chain over the effective Weapon Power for the physical base formula.
+// Fired against the *attacker's* registrations from inside `physicalPaWp`,
+// gated there on the `'weapon'` damage tag so only weapon strikes (the
+// basic Attack) run it — element-tagged Fists keep the unarmed WP=1.
+// `pa` carries the attacker's already-modified PA so a WP=PA override
+// (Barehanded) reflects PA buffs. Each handler returns the next WP value.
+export function runModifyWeaponPower(
+  state: GameState,
+  catalog: Catalog,
+  args: { unit: Unit; baseValue: number; pa: number },
+): number {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyWeaponPower');
+  let value = args.baseValue;
+  for (const h of handlers) {
+    value = h.invoke({ unit: args.unit, baseValue: value, pa: args.pa });
+  }
+  return value;
+}
+
 // Multiplicative chain over status-application-chance modifiers. Each
 // handler returns a multiplier (1.0 = no change). Hooks fire against
 // the *caster's* registrations — Earth Communion lives on the caster.

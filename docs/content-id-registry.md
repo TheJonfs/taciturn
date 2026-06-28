@@ -32,6 +32,7 @@ The four-school mage display names are flavored (Geosage / Hydrologist / Pyroman
 | `templar` | Templar | `src/content/classes/templar.ts` |
 | `thief` | Thief | `src/content/classes/thief.ts` |
 | `enchanter` | Enchanter | `src/content/classes/enchanter.ts` |
+| `monk` | Monk | `src/content/classes/monk.ts` |
 
 ## Command sets
 
@@ -52,6 +53,7 @@ The four-school mage display names are flavored (Geosage / Hydrologist / Pyroman
 | `templar_arts` | Templar Arts | `cure`, `raise`, `jump` | `src/content/command-sets/templar-arts.ts` |
 | `thief_arts` | Thievery | `steal_hp`, `steal_mp`, `steal_buffs`, `steal_heart` | `src/content/command-sets/thief-arts.ts` |
 | `auramancy` | Auramancy | `enchant_haste`, `enchant_protect`, `enchant_shell`, `esuna` | `src/content/command-sets/auramancy.ts` |
+| `martial_arts` | Martial Arts | `chakra`, `foxfire`, `bears_heave`, `storm_stoop`, `serpents_coil` | `src/content/command-sets/martial-arts.ts` |
 
 The `attack` ability is universal — surfaced through every class's `freeAbilities` rather than as a command-set member, so the action menu shows it alongside the player's First Action set.
 
@@ -124,6 +126,12 @@ The display names of the elemental-spell suite were re-flavored (S40 name pass a
 | `enchant_protect` | Protect | first_action | yes (actionSpeed 30, S72 Auramancy — AoE Protect, baseChance 95; MP 8) | available | `src/content/abilities/enchant-protect.ts` |
 | `enchant_shell` | Shell | first_action | yes (actionSpeed 30, S72 Auramancy — AoE Shell, baseChance 95; MP 8) | available | `src/content/abilities/enchant-shell.ts` |
 | `esuna` | Esuna | first_action | yes (actionSpeed 30, S72 Auramancy — AoE cleanse via `effects.cleanse`, 100%/Faith-independent, Remedy's debuff set; MP 8) | available | `src/content/abilities/esuna.ts` |
+| `chakra` | Chakra | first_action | no (S76 Monk — self+diamond-1 AoE; PA-scaled HP heal + MP restore, noFaithScaling; clears caster stance; MP 0) | available | `src/content/abilities/chakra.ts` |
+| `foxfire` | Foxfire | first_action | no (S76 Monk Fist — PA×3 physical+fire; 50% Burn via PA+Brave; sets Fox Stance) | available | `src/content/abilities/foxfire.ts` |
+| `bears_heave` | Bear's Heave | first_action | no (S76 Monk Fist — `grapple_throw` targeting; place a unit in a 2-diamond, 0 damage; sets Bear Stance) | available | `src/content/abilities/bears-heave.ts` |
+| `storm_stoop` | Storm Stoop | first_action | no (S76 Monk Fist — PA×3 physical+lightning line length 3; sets Falcon Stance) | available | `src/content/abilities/storm-stoop.ts` |
+| `serpents_coil` | Serpent's Coil | first_action | no (S76 Monk Fist — PA×3 physical+water; `selfCtRefund` Speed×2 on hit; sets Serpent Stance) | available | `src/content/abilities/serpents-coil.ts` |
+| `counterpunch_strike` | Counterpunch | first_action | no (S76 hidden — PA×4 emitted by the Counterpunch reaction; knockback rider) | hidden | `src/content/abilities/counterpunch-strike.ts` |
 
 ## Passive abilities
 
@@ -173,6 +181,9 @@ Reaction / Support / Movement passives are equipped through their respective R/S
 | `resistance_save` | Resistance Save | reaction | 1 (S72 Enchanter native — +10 all-elem-res per magical hit, uncapped; Speed Save family) | `src/content/abilities/resistance-save.ts` |
 | `short_charge` | Short Charge | support | 1 (S72 Enchanter native — universal charged-action speed × 1.33 via `modifyActionSpeed`) | `src/content/abilities/short-charge.ts` |
 | `aura_mastery` | Aura Mastery | support | 1 (S72 Enchanter native — amplifies the magnitude of `amplifiable` cast buffs × 1.33 via `modifyOutgoingStatusMagnitude`; ADR-0122) | `src/content/abilities/aura-mastery.ts` |
+| `barehanded` | Barehanded | support | 1 (S76 Monk native — `modifyWeaponPower`: WP=PA while both hands empty → PA² punch) | `src/content/abilities/barehanded.ts` |
+| `counterpunch` | Counterpunch | reaction | 1 (S76 Monk native — on adjacent non-healing physical hit, emit `counterpunch_strike` PA×4) | `src/content/abilities/counterpunch.ts` |
+| `vigilance` | Vigilance | movement | 1 (S76 Monk native — `modifyEvasion` +floor(PA/2) on all facings) | `src/content/abilities/vigilance.ts` |
 
 S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive without a class home; the `modifyEvasion` hook it introduced stays for equipment-side consumers). **S50 suppressed Damage Reduction** under the same "support without a class home" pattern — `damage_reduction` is now `'hidden'` (the catalog still resolves the id for historical action-log replays; the picker just doesn't surface it).
 
@@ -219,6 +230,10 @@ S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive w
 | `protect_cast` | Protect | positive, dispellable | REFRESH | per_unit_ct | `src/content/statuses/protect-cast.ts` (S72 timed cast-Protect) |
 | `shell_cast` | Shell | positive, dispellable | REFRESH | per_unit_ct | `src/content/statuses/shell-cast.ts` (S72 timed cast-Shell) |
 | `resistance_save` | Resistance Save | positive | STACK_ADDITIVE | permanent | `src/content/statuses/resistance-save.ts` (S72 +10 all-elem-res accumulator, uncapped) |
+| `fox_stance` | Fox Stance | neutral | REFRESH | permanent | `src/content/statuses/fox-stance.ts` (S76 Monk — +50 Fire / −50 Earth; `exclusivityGroup: 'stance'`) |
+| `bear_stance` | Bear Stance | neutral | REFRESH | permanent | `src/content/statuses/bear-stance.ts` (S76 Monk — +50 Earth / −50 Lightning; `exclusivityGroup: 'stance'`) |
+| `falcon_stance` | Falcon Stance | neutral | REFRESH | permanent | `src/content/statuses/falcon-stance.ts` (S76 Monk — +50 Lightning / −50 Water; `exclusivityGroup: 'stance'`) |
+| `serpent_stance` | Serpent Stance | neutral | REFRESH | permanent | `src/content/statuses/serpent-stance.ts` (S76 Monk — +50 Water / −50 Fire; `exclusivityGroup: 'stance'`) |
 
 A status's `aiHints.polarity` (`'buff' | 'debuff'`) drives AI scoring; the polarity is independent of the `negative`/`positive` *tag* (which steers resistance application). Buff statuses include haste, regen, movement_self_buff, pa_up, ma_up, crit_modifier, and the S42 `speed_save` / Hunter `updraft` self-stacking buffs.
 
@@ -396,18 +411,18 @@ Registered in `default.ts`'s `terrain.tags` map; see ADR-0073 (tag abstraction) 
 
 ---
 
-## Catalog counts (as of S72 — Enchanter class)
+## Catalog counts (as of S76 — Monk class)
 
 The authoritative pin is `src/content/loader.test.ts`; these are the current
 catalog totals.
 
 | Kind | Count | Notes |
 |---|---|---|
-| Classes | 13 | S72 `enchanter`; S62 `templar`; Thief `thief` |
-| Command sets | 15 | S72 `auramancy`; S62 `templar_arts`; Thief `thief_arts` |
-| Abilities (active + passive + hidden) | 111 | S72 +7 (`enchant_haste/protect/shell`, `esuna`, `resistance_save`, `short_charge`, `aura_mastery`; `float` revived, already counted) |
-| Status types | 39 | S72 +4 (`quickening`, `protect_cast`, `shell_cast`, `resistance_save`); S65 `mana_font` |
-| Equipment + consumables | 81 | S74 +4 caster accessories (`greaves_of_seraphis`, `ring_of_caliora`, `glove_of_metria`, `pendant_of_lumara`) |
+| Classes | 14 | S76 `monk`; S72 `enchanter`; S62 `templar`; Thief `thief` |
+| Command sets | 16 | S76 `martial_arts`; S72 `auramancy`; S62 `templar_arts`; Thief `thief_arts` |
+| Abilities (active + passive + hidden) | 120 | S76 +9 (`chakra`, `foxfire`, `bears_heave`, `storm_stoop`, `serpents_coil`, `counterpunch_strike`, `barehanded`, `counterpunch`, `vigilance`); S72 +7 |
+| Status types | 43 | S76 +4 stances (`fox_stance`, `bear_stance`, `falcon_stance`, `serpent_stance`); S72 +4 |
+| Equipment + consumables | 82 | S75 `twist_headband`; S74 +4 caster accessories |
 | Rulesets | 1 | — |
 | Maps | 4 | S70 `mountainPass` |
 | Terrain types | 6 | S70 `rock` (elev ≥ 7) + `grass_rock` (elev 5-6) on Mountain Pass |
