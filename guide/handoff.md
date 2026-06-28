@@ -1,78 +1,92 @@
 # Handoff
 
-*Outgoing notes from the Session 74 pass — four new caster accessories
-(the headline), plus two S74 rules changes (Charged Attack tile-targeting
-and buff non-stacking). Both artifacts updated. Driven by
-`docs/guide-changelog.md`. Overwritten each session — read every item,
-then act / promote / drop.*
+*Outgoing notes from the Session 75–76 pass — the **Monk** (14th class),
+the **Twist Headband** (headgear), and the S75 **Stop-disables-reactions**
+rule. Both artifacts updated. Driven by `docs/guide-changelog.md`.
+Overwritten each session — read every item, then act / promote / drop.*
 
 ## Changelog cursor
 
-**Processed through Session 74 (2026-06-26).** S73 was a no-op (AI-only).
-Processed all of S74: the four accessories, the two bundled teams
-(no guide surface — skipped), Charged Attack retargeting, and buff
-non-stacking. Next guide session starts **above** the "Session 74"
-heading.
+**Processed through Session 76 (2026-06-28).** Processed all of S76 (the
+Monk) and S75 (Stop reactions, Twist Headband; the T-Munny team, the
+target-color UX, and the revive-highlight fix have no guide surface and
+were skipped; the test-runner / gender-export items are non-player-facing).
+Next guide session starts **above** the "Session 76" heading.
 
 ## What landed (this session)
 
-PDF stayed at **61 pages** (the four accessory entries fit within the
-Armory's existing pages); parity verified across all 13 spreads. The
-reference rebuilt clean.
+PDF rebuilt to **63 pages** (+2 for the Monk spread; the Twist Headband
+fit within the Armory's existing pages). Parity verified across all 14
+spreads. Reference rebuilt clean.
 
-### Four new accessories (the headline)
+### Monk — fourteenth Specialization spread
 
-Three of the four carry **new hook fields** the shared `item-format.ts`
-didn't render — so, like the Wand of Potential before them, they'd have
-silently shown only their stat mod. Extended `hookEffects` to render all
-four (one fix, both artifacts):
-- `battleStartCt` → "Begins the battle at full CT (acts first)" (Greaves
-  of Seraphis, +Speed).
-- `damageCtDrainPercent` → "Spell damage drains target CT by N% of
-  damage dealt" (Ring of Caliora, +MA).
-- `spellPowerModifiers.perExtraTarget` → "Spell Power +1 per target
-  beyond the first" (Glove of Metria, +MA) — extended the existing
-  spell-power rendering.
-- `outgoingStatusMagnitudeMods` → "Applied Burn magnitude ×2" (Pendant
-  of Lumara, +MA).
-Hand-authored flavor+tactical notes for all four in
-`content/items/index.ts` (after Gauntlet of Might). Verified on PDF
-armory p47 and reference §3.
+Full 6-step recipe. `content/classes/monk.ts` (slotted alphabetically
+between Knight and Pyromancer in `SPREAD_ORDER`), `classes/index.ts`,
+`build/spread-context.ts` (portrait `monk_1.png` + ElementId + CLASS_META
++ order), `styles/variant-e.css` (**saffron / marigold gold** `#c0902f` —
+Chris's pick, a clear yellow-gold distinct from the Knight oxblood and
+Pyromancer burnt-orange that flank it), `pages/layout.ts` (half-title
+clause + `fourteen`). Martial Arts `commandSetIntro` + the 5 actives
+(Chakra + 4 Fists) and 3 passives; **Attack omitted** — the PA² punch is
+explained in the Barehanded note instead, saving a recto slot.
 
-### S74 rules changes
+**Two Monk-specific wrinkles handled:**
+- **Slot restriction:** the Monk is *head + accessory only* (no body /
+  weapon / off-hand). Enhanced `gearAccess()` in `build/reference.ts` to
+  read `equipmentSlots` and surface this — §5 now reads "head + accessory
+  only" instead of a misleading "universal". No gear-tier anchor change
+  (the Monk isn't in any item's restrictions).
+- **Reference ⚠ markers:** the loud-marker discipline caught the gaps —
+  Counterpunch / Barehanded / Vigilance needed `PASSIVE_EFFECTS` entries,
+  and Bear's Heave (a grapple-throw with no structured damage/status) an
+  `ACTIVE_EFFECTS` one. Also augmented the 4 Fists + Chakra so §6 shows
+  the **element + stance** each sets (the Monk's defining mechanic, which
+  the structured fields don't carry). Reference now clean.
 
-- **Charged Attack now tile-targeted** (Hunter): rewrote the
-  `charged_attack` note — it commits to a tile and whiffs if the target
-  steps off before it resolves (was a unit-tracking guaranteed hit).
-  Kept length-neutral to protect the Hunter spread's 2-page fit.
-- **Buff forms don't stack** (ADR-0124): a new Enchanter marginalia
-  ("a gear buff and its cast twin no longer stack — bless the cadet who
-  carries none") and a reference §1 line. The at-capacity Enchanter
-  spread absorbed the marginalia without spilling (marginalia render in
-  the margin, not the recto flow).
+**Fit:** as dense as the Enchanter (intro + 5 actives + 3 passives).
+First draft spilled to 3 pages; trimmed every note tight (the Enchanter
+lesson) to land 2 pages.
+
+### Twist Headband (S75)
+
+Universal headgear, +10 HP / +2 PA — armory note in
+`content/items/index.ts` (after Guard Cap). The note flags it as the
+Monk's natural head (PA monostat, head + accessory the only slots).
+Auto-flows to reference §4. Renders on armory p46.
+
+### Stop now disables reactions (S75, ADR-0131)
+
+A reference §1 line (Stop suppresses all reactions; Don't Act doesn't),
+and folded into the Assassin's **Shadow Stitch** note ("stilled of every
+reaction while it holds — its Counter, its Damage Split, silent").
+
+## Parity — two spills caught and fixed
+
+The Monk (new, dense) **and** the Assassin (my Shadow Stitch clause grew
+an already-at-capacity spread) both spilled to 3 pages — Calculator
+through Monk went RECTO-FAIL. Fixed by tightening the Monk's notes and
+compressing the Shadow Stitch note *below* its original length. Re-ran
+the §6 parity check: all 14 spreads back on even/verso. Lesson stands:
+the Assassin (5 actives) is as tight as the dense intro-block spreads;
+budget a trim before touching it.
 
 ## Watch-for / flag
 
-- **PDF ~96 MB** — art downsample remains the standing top-priority
-  cleanup (overdue).
-- **`item-format.ts` is now the catch-all for item hook rendering** —
-  five S70+ item mechanics (spell power, per-extra-target SP, battle CT
-  seed, CT drain, outgoing-status magnitude) live in `hookEffects`. A new
-  item mechanic that adds a field will again need a rendering branch here
-  or it drops silently. This is the recurring "Wand of Potential" trap;
-  check `item-format` whenever the changelog adds an item with a rider.
-- **Enchanter spread at capacity** (carried) — now with a 5th marginalia;
-  still 2 pages, but no slack. Budget a trim before adding.
-- **Same-named status variants** in reference §8 (Haste/Protect/Shell ×2)
-  and **Vantage +2→+1** game-side tuning — both carried, unchanged.
+- **PDF ~98 MB** (14 portraits + plates) — art downsample is now well
+  overdue; the standing top-priority cleanup.
+- **Monk spread at capacity** (note in the file) — any kit tweak spills.
+- **The Assassin spread is also at capacity** — re-confirmed this session.
+- Carried: same-named status variants in §8 (Haste/Protect/Shell ×2 +
+  the four Stances now too), `item-format` as the item-rider catch-all,
+  Vantage +2→+1 pending game-side.
 
 ## Considered and rejected
 
-- **Listing the two new bundled teams** (Claude's Bulwark / Answers).
-  The guide doesn't enumerate team-builder presets anywhere, so there's
-  no surface to update — skipped, as the changelog itself allowed.
+- **A separate Attack note for the Monk** — folded the PA² punch into
+  Barehanded instead (density; the punch *is* Barehanded's effect).
 
 ## Suggested next scope
 
-- Resume changelog-driven maintenance as S75+ lands.
-- **Art downsample** — ~96 MB; overdue.
+- Resume changelog-driven maintenance as S77+ lands.
+- **Art downsample** — ~98 MB; overdue.

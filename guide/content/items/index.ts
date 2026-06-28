@@ -358,6 +358,12 @@ shocked, and buried in the same exercise — and the Academy's exercises
 do, in fact, arrange exactly that.`,
     tactical: 'A modest HP gain and resistance to every element at once. Broad insurance, for any class.',
   },
+  twist_headband: {
+    flavor: `A plain band of twisted cloth, knotted at the brow. No ward
+and no reserve — only a steadier arm, and a little more to spend before
+the fall.`,
+    tactical: 'Universal: a touch of HP and a flat +2 Physical Attack, no class restriction. The plain martial head — and the Monk’s in particular, who lives on Physical Attack and has only a head and a trinket to raise it with.',
+  },
   steel_helm: {
     flavor: `Room for one more reaction, bought with a blind spot. The
 Armorer issues it with the same advice every year: keep your front to

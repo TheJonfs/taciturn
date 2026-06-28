@@ -45,12 +45,11 @@ deals damage by volume, never by the weight of any single blow.`,
       compact: 'A light melee blow. Its worth is in number — dual-wielded and doubled, not in any one strike.',
     },
     shadow_stitch: {
-      full: `The discipline's signature: a thread of shadow cast across
-the field that pins a foe *Stopped* — lifted clean from the turn order
-for a span. It rolls on the Assassin's own Brave and Speed rather than
-on spell-craft, so the faster and bolder the cadet, the surer the pin.
-It flies straight now, so cover turns it aside.`,
-      compact: 'Ranged Stop — pins a foe out of the turn order. Rolls on her Brave and Speed; her speed makes it stick. Cover blocks it.',
+      full: `The discipline's signature: a thread of shadow that pins a
+foe *Stopped* — out of the turn order, and now stilled of every reaction
+while it holds (its Counter, its Damage Split, silent). It rolls on her
+Brave and Speed, and flies straight, so cover turns it aside.`,
+      compact: 'Ranged Stop — pins a foe out of the turn order and stills its reactions. Rolls on her Brave and Speed. Cover blocks it.',
     },
     blowdart: {
       full: `A dart of venom sent across the field — Poison, applied at

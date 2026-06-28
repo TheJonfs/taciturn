@@ -201,7 +201,7 @@ carries the line you're cutting.
 
 ```bash
 for name in Aethurge Alchemist Assassin Calculator Enchanter Geosage \
-            Hunter Hydrologist Knight Pyromancer Templar Terraformer Thief; do
+            Hunter Hydrologist Knight Monk Pyromancer Templar Terraformer Thief; do
   pg=$(for p in $(seq 10 40); do
     if pdftotext -f $p -l $p output/guide.pdf - 2>/dev/null \
        | grep -v '^\s*$' | grep -v '^[0-9]*$' | sed -n '2p' \
