@@ -164,9 +164,9 @@ describe('Barehanded WP=PA', () => {
       seed: 0xabc,
       registry: defaultDamageHandlers,
     });
-    // PA 9 × WP 1 × coefficient 6 = 54 (Barehanded's WP=PA never fires — the
+    // PA 9 × WP 1 × coefficient 8 = 72 (Barehanded's WP=PA never fires — the
     // Fist isn't 'weapon'-tagged, so no PA² explosion).
-    expect(ctx.baseDamage).toBe(54);
+    expect(ctx.baseDamage).toBe(72);
   });
 
   it("a Fist's element tag is reduced by the target's resistance", () => {

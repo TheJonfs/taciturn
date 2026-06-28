@@ -44,12 +44,15 @@ export const foxfire: ActiveAbilityDefinition = {
     clearCasterExclusivityGroup: 'stance',
     setStance: statusTypeId('fox_stance'),
     damage: {
-      // S76 tune: 3 → 6. The Fists were only ~⅓ of the PA² punch; bumped so a
-      // Fist is a live choice (damage + stance + rider) vs sellout-punching.
-      // Foxfire gets the highest direct damage of the Fists because its Burn
-      // rider is weak (ticks off the Monk's dumped MA 4).
+      // S76 tune: 3 → 6 → 8. The Fists were only ~⅓ of the PA² punch; bumped so
+      // a Fist is a live choice (damage + stance + rider) vs sellout-punching.
+      // Pushed further (8) because the Fists cost MP where the punch is free
+      // (and refilling via Chakra burns a turn), so the resource asymmetry lets
+      // them close the gap more. Foxfire gets the highest of the Fists — its
+      // Burn rider is weak (ticks off the Monk's dumped MA 4). At PA 9 that's
+      // ~89% of the punch; the quadratic still pulls ahead as PA climbs.
       tags: ['physical', 'fire'],
-      power_coefficient: 6,
+      power_coefficient: 8,
       variance: { min: 0.9, max: 1.1 },
     },
     statusEffects: [
