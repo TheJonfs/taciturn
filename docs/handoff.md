@@ -11,120 +11,67 @@ been processed.
 
 ---
 
-## From S75 — both-AI auto-drive seam (2026-06-27)
+## From S76 — the Monk (2026-06-28)
 
-Shipped the S75 brief in full: a **test/debug-only headless both-AI battle
-runner** + action-log inspection seam that unblocks AI feel-verification. The
-S70 in-app auto-drive block (the single biggest AI testing gap, carried since
-S70) is now **resolved from the headless side** — we no longer need the setup
-toggle to observe a full both-AI battle. `tsc -b` + `vite build` clean; suite
-2075 passed / 1 skipped (the gated sim). ADR-0130.
+Shipped the S76 brief in full: the Monk (14th class, 6th physical) + its
+net-new substrate + 19 tests + basic AI awareness + the Bear's Heave two-stage
+targeting UI + 512×512 portraits. `tsc -b` + `vite build` clean; suite green
+(1 skipped sim). ADR-0132. Four commits on `main` (substrate+class+content; AI;
+grapple-throw UI; docs).
 
-### What landed
-- `src/app/demo/headless-battle.ts` — `runHeadlessBattle({teamA, teamB, mapId,
-  seed})`: composes the *live* orchestration path (team fold → AI deployment →
-  initial state → pre-battle queue → `DemoOrchestrator` + two AI controllers)
-  minus React/Pixi, returns the full action log + outcome. Reuses the real
-  wiring, so it can't drift from what the app runs.
-- `src/app/demo/battle-log-inspect.ts` — generic log readers (`aoeBuffCasts`,
-  `chargedTilePinResolutions`). The durable seam: a future AI feel-check adds
-  one reader and runs the sim.
-- `src/app/demo/both-ai-sim.test.ts` — env-gated dev harness
-  (`describe.runIf(TACITURN_SIM)`). Default suite SKIPS it (no permanent A/B
-  assertions, per Chris). Run with **`npm run sim:both-ai`**.
-- **Nothing in production imports these** — they tree-shake out; no backdoor.
+### The ONE thing left — live-verify Bear's Heave's throw UI
+- The `grapple_throw` two-stage picker IS built (turn-flow route mirroring
+  tile_set/Barrier: phase 1 highlights grabbable units magenta → click to grab;
+  phase 2 highlights legal landing tiles amber → click to throw; two-stage
+  cancel). Helpers + FSM are unit-tested (`grapple-throw-targeting.test.ts`),
+  and the app loads error-free, **but the in-battle Pixi target-select wasn't
+  driven here** (not reliably automatable). **Please verify live:** add a Monk
+  to a human team, reach its turn, pick Martial Arts → Bear's Heave, confirm the
+  grab-highlight → place-highlight → throw lands (and a ledge throw deals fall
+  damage). Easy to retint if the magenta/amber reads wrong.
+- The other 4 Martial Arts abilities + the punch already play through the
+  standard targeting flow (Chakra=self, Foxfire/Serpent's Coil=single_unit,
+  Storm Stoop=unit_or_tile line) — verify those too while you're in there.
+- The AI uses the Fists + self-heal Chakra and skips Bear's Heave (out of AI
+  scope per the brief).
 
-### First dividend — S74 A/B feel read (claudesBulwark vs claudesAnswers, River Ridge, 5 seeds)
-- **B (charged-attack dodge devaluation, ADR-0129 B): VERIFIED.** 5/5 committed
-  `charged_attack` charges landed, 0% whiff. The AI declined the dodgeable ones.
-- **A (coverage-weighted AoE buffs, ADR-0129 A): surfaced but CONFOUNDED, not a
-  bug.** Enchanter clustered 0/3 casts on ≥2 allies (avg 0.67 in footprint;
-  coverage == buffs-landed, so NOT a buff-exclusivity artifact). But the enchant
-  buffs are diamond **radius 1** → two allies must be adjacent to co-cover, and
-  on an open map they rarely were; the Enchanter also cast rarely (3 casts / 5
-  battles, 0 in two). **Follow-up tune candidates (out of S75 scope):** does the
-  AI position allies to *create* cluster-buff opportunities (the protective
-  half of the threat-model)? why the low cast frequency? Re-run `sim:both-ai`
-  after any tune to re-read.
+### Tuning flags to read via `sim:both-ai` + hand-play (all shipped at sane defaults)
+- **Fist coefficients** PA×3 (Foxfire/Storm Stoop/Serpent's Coil); Bear's Heave
+  0 (throw is the point).
+- **Chakra** heal PA×4, MP restore PA×2, mpCost 0 (gated by the Act economy —
+  spend your turn to sustain). Watch the self-sustain ceiling on a 190-HP,
+  no-body, high-evasion bruiser (the brief's flagged "self-sustain" watch-for).
+- **Foxfire Burn** 50% via PA+Brave (lands reliably despite MA 4; the Burn
+  *tick* damage is MA-scaled → weak for the Monk, by design — chip, not the point).
+- **Serpent's Coil CT refund** Speed×2 (~+20 CT at Speed 10). Watch for a
+  dominant tempo loop (S76 D4).
+- **Vigilance** evasion +floor(PA/2) = +4 at PA 9 → 15/12/7. Reads base PA only
+  (the `modifyEvasion` hook isn't handed state, so PA buffs don't compound into
+  evasion — deliberately conservative vs the brief's swingiest interaction).
+  The brief frames the Monk as deliberately evasion-strong, so this can climb.
+- **Counterpunch** PA×4 strike, knockback baseChance 20 × `{pa}` ≈ PA×4% at PA 9.
 
-### Incidental fix (own commit)
-- `src/ui/team-builder-unit-card.test.tsx` was **stale, broken by the S74
-  Gravity Well retune** (slot-0 Sera no longer holds a Scimitar; she now holds a
-  Chef's Knife). Pointed the pill finder at the current weapon. Pre-existing
-  failure, unrelated to the seam — fixed to restore suite-green.
+### Watch-fors (from the brief, for hand-play)
+- The **stance system is AI-illegible** — the Monk will read weaker in
+  `sim:both-ai` than in skilled hands. Don't tune the class *down* off an
+  AI-vs-AI floor read.
+- **Anti-physical hard-counter profile** (all-facing PA-evasion + Counterpunch +
+  Chakra) concentrates counterplay onto magic. Confirm it isn't oppressive on
+  magic-light maps.
+- **The self-balancing must hold** — the punch-sellout's exposure (no stance, no
+  body) should let magic/kiting run it down. First real balance signal.
+- The Monk isn't on any default team yet — slot it into a bundled team (and run
+  `sim:both-ai`) to get a floor read.
 
-## Also S75 — two reaction audits (Chris-requested)
-- **Damage Split reflect-on-KO: investigated, NOT a bug.** The survival gate
-  (`reaction-compiler.ts` reflect_damage branch) reads the post-damage unit from
-  `workingState` and correctly suppresses both halves on a KO. Coverage had a gap
-  — the existing KO test faked `hp 0` at the emission level — so added a
-  commit-path test driving a real lethal attack (`c2d5d1c`). Passes; the
-  suspected bug is absent.
-- **Stop now suppresses reactions (ADR-0131, shipped).** Audit found Stop had
-  ZERO reaction interaction (only `queryTurnSkipped`); a Stopped unit reacted
-  fully. Made it FFT-faithful: new general `StatusEffectType.suppressesReactions`
-  flag, gated at the `runOnActionTargeted` choke point (covers all reaction kinds
-  uniformly — Counter, Damage Split reflect, ct_push, apply_status). Stop sets
-  it; Don't Act deliberately does NOT (reflex vs. volition preserved). **Player-
-  facing** (guide-changelog updated). **AI awareness folded in same session:**
-  `reactionPenalty` now returns 0 vs. a target with a `suppressesReactions`
-  status (reads the generic flag, not a content id), so the AI stops fearing a
-  Stopped reactor's dead reaction. Tested in `basic.test.ts`.
+### Loose end (carried from S72, still untracked)
+- `guide/art/enchantress_1.png` (5.2 MB) and now `guide/art/monk_1.png` —
+  untracked **guide** assets, left unstaged for the guide-writing lineage.
 
-## Also S75 — exporter fix + new team
-- **Team-export gender fix.** `exportBuiltTeamThin` now carries each unit's
-  hand-set `gender` (omits it when unset = class default). Pre-S75 the exporter
-  dropped it and a re-loaded team fell back to class-default portraits. Tested
-  in `team-export.test.ts`.
-- **New bundled team "T-Munny"** (`src/content/teams/t-munny.ts`, in
-  `defaultTeamTemplates`): Knight/Thief/Enchanter/Templar/Water Mage,
-  transcribed from Chris's export JSON. Passes `assertTemplateCompliance`.
-
-## Also S75 — target-highlight pass (UI)
-- **Polarity-driven highlight tint** (`use-turn-flow.ts` `targetHighlightKind`):
-  beneficial (heal/revive/buff) → green, offensive (damage/debuff) → the
-  recolored **magenta** `attack` tint (was Team-B-red, `constants.ts`), neutral
-  utility → amber. Replaces the old binary heal-green/else-red, so ally buffs
-  no longer read as hostile.
-- **Revive targeting fix** (`computeLegalTargets`): KO'd-but-not-removed allies
-  are now offered for `removeKO` abilities (Raise); non-revive abilities still
-  pre-skip corpses (validateAction has no general "can't target a corpse" rule,
-  so the filter is load-bearing there). Fixes Raise highlighting nothing.
-- Tested in `revive-targeting.test.ts` (9 tests). **Not visually verified in
-  the preview** — highlights paint only on human-team input, and driving the
-  setup→builder→deployment→in-battle target-select path on the Pixi canvas
-  isn't reliably automatable here. Logic + kind→color mapping are unit-tested;
-  worth an eyeball on the magenta shade in a manual run (easy to retint in
-  `HIGHLIGHT_COLORS.attack`).
-- **Color taxonomy now:** move=blue, beneficial=lime-green, offensive=magenta,
-  neutral=amber, AoE-preview=gold (overlay). Math Skill / Barrier kept their
-  amber (neutral) — deliberate, unchanged.
-
-## Still open, NOT touched (carried — in `playtest-watch.md`)
-- **Predictive positional threat-model** — the remaining large AI gap. Only the
-  protective/anti-AoE half is wanted (camping/high-ground half unwanted per S73).
-  S74 AI A's cluster opportunity (above) + AI B's deferred *dodge-incoming* half
-  both want it. **The S75 seam is now the tool to verify it.** S70 Mountain Pass
-  is the test bed — but note that map only authors 2 slots/team, so a 5v5
-  cluster test needs River Ridge (or bump the map's authored slots).
-- **S72 Enchanter feel-pass pile** (AoE Protect/Shell TTK, Aura Mastery K, buff→
-  Steal-Buffs loop, low-Faith penalty, Auramancy friendly-fire splash, etc.).
-- **S70/S69 carries:** S70 in-battle verification (ambush/split-zone); S69
-  feel-passes (charm/steal, Math re-base, terrain-occlusion LoS + bounded arc,
-  Vantage). **Taunt redesign** (needs Chris to pin intent — `taunt-audit.md`).
-  **Templar/Thief** feel passes; **S68 equipment** tunables.
-- **S74 strong-version watch-fors** (in `playtest-watch.md`): Ring of Caliora
-  (uncapped CT drain) + Glove of Metria (per-target SP, applies to Math Skill)
-  compounding on the Calculator; knife `attacker_speed` variance as an uncapped
-  speed→damage multiplier. All "confirm, leave for now" per Chris.
-- **S74 accessories not yet equipped on a default team** — the four caster
-  accessories ship in-catalog but untuned in live builds; Chris may want to slot
-  Ring/Glove onto the Calculator in "Claude's Answers" to exercise the field-wide
-  case.
+## Still open from prior sessions (carried — in `playtest-watch.md`)
+- **Predictive positional threat-model** (protective/anti-AoE half only) — the
+  remaining large AI gap. S70 Mountain Pass is the test bed; the S75 both-AI
+  seam is the verification tool.
+- S72 Enchanter feel-pass pile; S70/S69 carries (Taunt redesign needs Chris to
+  pin intent — `taunt-audit.md`); Templar/Thief feel passes; S68 equipment
+  tunables; S74 strong-version watch-fors (Ring of Caliora, Glove of Metria).
 - **Action-log redesign** (render-layer, approved, unbuilt).
-- Minor: `lightning-mage.ts` stale S20 header; `draft-terraformer-substrate-audit.md`
-  archival.
-
-## Loose end (carried from S72, still untracked)
-- `guide/art/enchantress_1.png` (5.2 MB) — untracked **guide** asset, left
-  unstaged. Leave it for the guide-writing lineage.
