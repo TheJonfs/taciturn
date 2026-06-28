@@ -223,7 +223,8 @@ describe('loadDefaultCatalog', () => {
     expect(cat.classes()).toHaveLength(13);
     // Session 74 (caster-accessory batch): 77 → 81 (greaves_of_seraphis,
     // ring_of_caliora, glove_of_metria, pendant_of_lumara).
-    expect(cat.items()).toHaveLength(81);
+    // Session 75: 81 → 82 (twist_headband).
+    expect(cat.items()).toHaveLength(82);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

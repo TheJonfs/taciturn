@@ -22,6 +22,7 @@ import { focusBand } from './focus-band.ts';
 import { goldenHairpin } from './golden-hairpin.ts';
 import { guardCap } from './guard-cap.ts';
 import { ironHelm } from './iron-helm.ts';
+import { twistHeadband } from './twist-headband.ts';
 import { ironMail } from './iron-mail.ts';
 import { lightRobe } from './light-robe.ts';
 import { lightfoot } from './lightfoot.ts';
@@ -91,6 +92,7 @@ export const items: ReadonlyArray<ItemDefinition> = [
   strengthRing,
   bootsOfHaste,
   ironHelm,
+  twistHeadband,
   ironMail,
   // Session 29 batch A — weapons
   flametongue,

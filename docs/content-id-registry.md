@@ -292,6 +292,7 @@ via this kind. Per-item `classRestrictions` enforces who can equip what
 | ID | Display Name | Notes | File |
 |---|---|---|---|
 | `iron_helm` | Iron Helm | +20 maxHpBase | `src/content/items/iron-helm.ts` |
+| `twist_headband` | Twist Headband | S75 universal head — +10 maxHpBase, +2 PA | `src/content/items/twist-headband.ts` |
 | `guard_cap` | Guard Cap | basic balanced headgear | `src/content/items/guard-cap.ts` |
 | `focus_band` | Focus Band | × 0.75 incoming negative-status apply chance | `src/content/items/focus-band.ts` |
 | `steel_helm` | Steel Helm | Knight-only. +40 maxHpBase, +1 Reaction-bucket capacity, −20 side/back evasion (positive-feedback "Knight wants to get hit" identity) | `src/content/items/steel-helm.ts` |

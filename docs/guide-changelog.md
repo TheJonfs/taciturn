@@ -69,6 +69,9 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
     which clashed with Team B's red — a highlight read as team color, not aim.)
   - **Amber** — neutral/utility: Math Skill previews, Barrier placement, and
     other casts that aren't clearly helpful or harmful.
+- **New equipment: Twist Headband** (headgear). Universal — any class can equip
+  it. **+10 Max HP, +2 PA.** A generically-useful martial head option with no
+  class restriction.
 - **Revive abilities now highlight KO'd allies.** **Raise** (and Phoenix Down)
   now show downed allies as valid targets when you're aiming them. Previously
   Raise highlighted nothing — KO'd units were filtered out of every target
