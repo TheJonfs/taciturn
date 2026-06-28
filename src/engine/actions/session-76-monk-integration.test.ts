@@ -195,6 +195,56 @@ describe('Barehanded WP=PA', () => {
   });
 });
 
+// ===== 1b. Barehanded + Two Weapons → punch twice =====
+
+describe('Barehanded + Two Weapons', () => {
+  function dualFistMonk(): Unit {
+    return makeUnit({
+      id: 'monk',
+      spd: 10,
+      pa: 9,
+      mp: 26,
+      maxMpBase: 26,
+      classId: 'monk',
+      equipment: EMPTY_HANDS,
+      hp: 190,
+      maxHpBase: 190,
+      position: { x: 0, y: 0, layer: 0 },
+      loadout: {
+        actionBuckets: { [bucketId('first_action')]: [commandSetId('martial_arts')] },
+        passiveBuckets: {
+          [bucketId('support')]: [abilityId('barehanded'), abilityId('two_weapons')],
+        },
+      },
+    });
+  }
+
+  it('a Barehanded dual-wielder swings the basic punch twice (two empty fists = two weapons)', () => {
+    const monk = dualFistMonk();
+    const target = makeUnit({ id: 'target', spd: 8, hp: 400, maxHpBase: 400, position: { x: 1, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [monk, target], map: flatMap(4, 4), turnState: activeTurnFor(monk.id) });
+    const result = reduceUseAbility(
+      state,
+      useAbility('monk', abilityId('attack'), { kind: 'unit', unitId: target.id }),
+      catalog,
+    );
+    // Two fist swings against the same target.
+    expect(result.outcome.perTargetResults).toHaveLength(2);
+  });
+
+  it('Barehanded alone (no Two Weapons) swings once', () => {
+    const monk = makeMonk({ position: { x: 0, y: 0, layer: 0 } });
+    const target = makeUnit({ id: 'target', spd: 8, hp: 400, maxHpBase: 400, position: { x: 1, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [monk, target], map: flatMap(4, 4), turnState: activeTurnFor(monk.id) });
+    const result = reduceUseAbility(
+      state,
+      useAbility('monk', abilityId('attack'), { kind: 'unit', unitId: target.id }),
+      catalog,
+    );
+    expect(result.outcome.perTargetResults).toHaveLength(1);
+  });
+});
+
 // ===== 2. Counterpunch Strike =====
 
 describe('Counterpunch Strike', () => {

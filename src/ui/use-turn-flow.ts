@@ -399,10 +399,19 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
   // AoE footprint for the hovered target (target-select only).
   const aoePreviewPositions = useMemo<ReadonlyArray<Position>>(() => {
     if (flowState.kind !== 'target-select') return [];
-    if (flowState.hoverTarget === null) return [];
     if (state === null || activeUnit === null) return [];
     const ability = catalog.getAbility(flowState.abilityId);
     if (ability.kind !== 'active') return [];
+    // S76: a self-targeting AoE (the Monk's Chakra) is ALWAYS centered on the
+    // caster — lock the preview to the caster's tile rather than letting it
+    // follow the cursor (which read as "pick a tile to center on"). The
+    // committed target is `{ kind: 'self' }` regardless of where the player
+    // clicks, so the engine already centers on the caster; this aligns the
+    // preview with that truth and shows immediately (no hover required).
+    if (ability.targeting.kind === 'self') {
+      return computeAoeFootprint(state, catalog, activeUnit, ability, activeUnit.position);
+    }
+    if (flowState.hoverTarget === null) return [];
     return computeAoeFootprint(state, catalog, activeUnit, ability, flowState.hoverTarget);
   }, [flowState, state, activeUnit, catalog]);
 
@@ -595,12 +604,28 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       renderer.setHighlightOverlay(line ?? [], line !== undefined ? 'aoe' : 'none');
       return;
     }
+    if (flowState.kind === 'grapple-throw-target-select') {
+      // Session 76: accent the hovered tile when it's a valid throwee (phase 1)
+      // or a valid destination (phase 2) — a cursor-follow highlight parallel to
+      // move-select / the tile_set anchor hover, so travelling over eligible
+      // tiles reads as responsive.
+      const h = flowState.hoverTarget;
+      const candidates =
+        grappleTargeting?.phase === 'throwee'
+          ? grappleTargeting.throwees
+          : grappleTargeting?.phase === 'destination'
+            ? grappleTargeting.destinations
+            : [];
+      const onCandidate = h !== null && candidates.some((p) => samePosition(p, h));
+      renderer.setHighlightOverlay(onCandidate ? [h] : [], onCandidate ? 'aoe' : 'none');
+      return;
+    }
     if (aoePreviewPositions.length === 0) {
       renderer.setHighlightOverlay([], 'none');
       return;
     }
     renderer.setHighlightOverlay(aoePreviewPositions, 'aoe');
-  }, [renderer, flowState, aoePreviewPositions, worldcraftKernelPreview, tileSetTargeting, legalMoveDestinations]);
+  }, [renderer, flowState, aoePreviewPositions, worldcraftKernelPreview, tileSetTargeting, grappleTargeting, legalMoveDestinations]);
 
   // ===== Renderer side effects: tile click =====
 

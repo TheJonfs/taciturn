@@ -32,6 +32,7 @@ import {
   runModifyStatQuery,
   runOnHealingReceived,
   runModifySwingsPerWeapon,
+  runModifyWeaponPower,
   runModifyStatusTickAmount,
   runModifySystemDamage,
   runOnActionAttempted,
@@ -1829,7 +1830,10 @@ function swingReachesTarget(
   weapon: WeaponEquipment | null,
   target: Unit,
 ): boolean {
-  if (weapon === null) return false;
+  // S76: a null weapon is a Barehanded fist (an empty off-hand under the
+  // dual-fist path), not "no reach" — it connects at the ability's own melee
+  // range. (Real dual-wielders always have an off-hand weapon here, so this
+  // null branch is exclusively the fist case.)
   const sourceTile = tileAt(
     state.map,
     attacker.position.x,
@@ -1843,7 +1847,7 @@ function swingReachesTarget(
     target.position.layer,
   );
   if (sourceTile === undefined || targetTile === undefined) return false;
-  const range = computeAbilityRange(state, catalog, attacker.id, ability, weapon);
+  const range = computeAbilityRange(state, catalog, attacker.id, ability, weapon ?? undefined);
   const ruleset = catalog.getRuleset(state.ruleset.id);
   return inRange({
     source: endpointFrom(attacker.position, sourceTile.elevation),
@@ -1989,7 +1993,23 @@ function attackingWeaponSlots(
   if (ability.multiWeapon === true && runModifyDualWield(state, catalog, { unit: attacker })) {
     const right = getWeaponInSlot(attacker, 'rightHand', catalog);
     const left = getWeaponInSlot(attacker, 'leftHand', catalog);
-    if (right !== null && left !== null) slots = ['rightHand', 'leftHand'];
+    if (right !== null && left !== null) {
+      slots = ['rightHand', 'leftHand'];
+    } else if (right === null && left === null) {
+      // S76: a Barehanded dual-wielder's two empty fists count as two weapons,
+      // so a Monk with Two Weapons (or an Assassin with Barehanded) punches
+      // twice. Probe `modifyWeaponPower` (the WP=PA override): when it lifts
+      // the unarmed WP above 1, both hands are "armed" fists → two swings.
+      // Barehanded only fires while BOTH hands are empty, so this can't catch
+      // a one-weapon hand. Each swing reads its own empty slot → WP=PA again.
+      const pa = runModifyStatQuery(state, catalog, {
+        unit: attacker,
+        statName: 'pa',
+        baseValue: attacker.baseStats.pa,
+      });
+      const fistWp = runModifyWeaponPower(state, catalog, { unit: attacker, baseValue: 1, pa });
+      if (fistWp > 1) slots = ['rightHand', 'leftHand'];
+    }
   }
 
   // Axis 2: swings per weapon — basic Attack command, non-reaction only.
