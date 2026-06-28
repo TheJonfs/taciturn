@@ -66,7 +66,7 @@ const THROW_ITEM_ABILITY_ID = abilityId('throw_item');
 export function abilityRoute(
   abilityIdValue: AbilityId,
   catalog?: Catalog,
-): 'compound' | 'throw_item' | 'math_skill' | 'tile_set' | undefined {
+): 'compound' | 'throw_item' | 'math_skill' | 'tile_set' | 'grapple_throw' | undefined {
   if (abilityIdValue === COMPOUND_ABILITY_ID) return 'compound';
   if (abilityIdValue === THROW_ITEM_ABILITY_ID) return 'throw_item';
   if (catalog !== undefined && catalog.hasAbility(abilityIdValue)) {
@@ -76,6 +76,8 @@ export function abilityRoute(
       // tile_set (Worldcraft Barrier) → anchor → extent line picker.
       if (ability.targeting.kind === 'math_skill') return 'math_skill';
       if (ability.targeting.kind === 'tile_set') return 'tile_set';
+      // Session 76: grapple_throw (Bear's Heave) → throwee → destination picker.
+      if (ability.targeting.kind === 'grapple_throw') return 'grapple_throw';
     }
   }
   return undefined;
@@ -114,7 +116,10 @@ export function shouldDeferToConfirm(
   if (
     action.type === 'use_ability' &&
     (action.payload.target.kind === 'math_skill' ||
-      action.payload.target.kind === 'tile_set')
+      action.payload.target.kind === 'tile_set' ||
+      // Session 76: the grapple-throw picker (throwee + destination) is itself
+      // the confirm surface, like tile_set / Math Skill.
+      action.payload.target.kind === 'grapple_throw')
   ) {
     return false;
   }
@@ -442,6 +447,29 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     };
   }, [flowState, state, activeUnit, actsAvailable, catalog]);
 
+  // Session 76: grapple-throw (Bear's Heave) candidates. Throwee phase exposes
+  // the units in grab range; destination phase exposes the legal destination
+  // tiles for the chosen throwee. Null outside the grapple-throw picker.
+  const grappleTargeting = useMemo<
+    | { readonly phase: 'throwee'; readonly throwees: ReadonlyArray<Position>; readonly destinations: ReadonlyArray<Position> }
+    | { readonly phase: 'destination'; readonly throwees: ReadonlyArray<Position>; readonly destinations: ReadonlyArray<Position> }
+    | null
+  >(() => {
+    if (flowState.kind !== 'grapple-throw-target-select') return null;
+    if (state === null || activeUnit === null) return null;
+    if (actsAvailable <= 0) return null;
+    const ability = catalog.getAbility(flowState.abilityId);
+    if (ability.kind !== 'active' || ability.targeting.kind !== 'grapple_throw') return null;
+    if (flowState.throweeId === null) {
+      return { phase: 'throwee', throwees: validGrappleThrowees(state, catalog, activeUnit, ability), destinations: [] };
+    }
+    return {
+      phase: 'destination',
+      throwees: [],
+      destinations: validGrappleDestinations(state, catalog, activeUnit, ability, flowState.throweeId),
+    };
+  }, [flowState, state, activeUnit, actsAvailable, catalog]);
+
   // ===== Renderer side effects: highlights =====
 
   useEffect(() => {
@@ -497,10 +525,22 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
         const anchor = flowState.anchor;
         renderer.setHighlights(anchor !== null ? [anchor, ...farEnds] : farEnds, 'target');
       }
+    } else if (flowState.kind === 'grapple-throw-target-select') {
+      // Session 76: Bear's Heave. Throwee phase paints the grabbable units
+      // (magenta 'attack' — you're picking who to seize); destination phase
+      // paints the legal landing tiles (neutral 'target' amber — placement,
+      // not an attack).
+      if (grappleTargeting === null) {
+        renderer.setHighlights([], 'none');
+      } else if (grappleTargeting.phase === 'throwee') {
+        renderer.setHighlights(grappleTargeting.throwees, 'attack');
+      } else {
+        renderer.setHighlights(grappleTargeting.destinations, 'target');
+      }
     } else {
       renderer.setHighlights([], 'none');
     }
-  }, [renderer, flowState, legalMoveDestinations, legalTargetsState, tileSetTargeting, catalog, state]);
+  }, [renderer, flowState, legalMoveDestinations, legalTargetsState, tileSetTargeting, grappleTargeting, catalog, state]);
 
   // Overlay channel: AoE preview during target-select, single-tile move
   // hover during move-select, locked-destination highlight during move-
@@ -716,11 +756,44 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
         dispatch({ kind: 'cancel' });
         return;
       }
+
+      if (flowState.kind === 'grapple-throw-target-select') {
+        const ability = catalog.getAbility(flowState.abilityId);
+        if (ability.kind !== 'active' || ability.targeting.kind !== 'grapple_throw') return;
+        if (flowState.throweeId === null) {
+          // Throwee phase: clicking a highlighted unit grabs it. Anything else
+          // cancels out (matches the target-select click-outside behavior).
+          const isThrowee =
+            occupant !== null &&
+            grappleTargeting?.phase === 'throwee' &&
+            grappleTargeting.throwees.some((p) => samePosition(p, pos));
+          if (!isThrowee || occupant === null) {
+            dispatch({ kind: 'cancel' });
+            return;
+          }
+          dispatch({ kind: 'pickGrappleThrowee', throweeId: occupant.id });
+          return;
+        }
+        // Destination phase: a legal landing tile commits the throw; any other
+        // click cancels back to throwee re-pick (the two-stage cancel).
+        const isDest =
+          grappleTargeting?.phase === 'destination' &&
+          grappleTargeting.destinations.some((p) => samePosition(p, pos));
+        if (isDest) {
+          const action = grappleThrowAction(activeUnit.id, ability.id, flowState.throweeId, pos);
+          if (canCommitAction(state, catalog, activeUnit, action)) {
+            submitTargetedActionInternal(action);
+            return;
+          }
+        }
+        dispatch({ kind: 'cancel' });
+        return;
+      }
     };
     renderer.setOnTileClick(handler);
     return () => renderer.setOnTileClick(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renderer, flowState, state, activeUnit, legalMoveDestinations, tileSetTargeting, catalog, confirmStep, onInspectUnit]);
+  }, [renderer, flowState, state, activeUnit, legalMoveDestinations, tileSetTargeting, grappleTargeting, catalog, confirmStep, onInspectUnit]);
 
   // ===== Renderer side effects: tile hover =====
 
@@ -740,9 +813,13 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     // event when in target-select / move-select.
     const handler = (pos: Position | null): void => {
       setCursorTile(pos);
-      if (flowState.kind === 'target-select' || flowState.kind === 'tile-set-target-select') {
-        // Session 55: tile-set extent phase reuses `hoverTarget` to drive the
-        // candidate-line preview overlay.
+      if (
+        flowState.kind === 'target-select' ||
+        flowState.kind === 'tile-set-target-select' ||
+        flowState.kind === 'grapple-throw-target-select'
+      ) {
+        // Session 55/76: tile-set / grapple-throw reuse `hoverTarget` for their
+        // hover overlays.
         dispatch({ kind: 'hoverTarget', position: pos });
       } else if (flowState.kind === 'move-select') {
         dispatch({ kind: 'hoverMove', position: pos });
@@ -1489,5 +1566,82 @@ export function validTileSetAnchors(
     }
   }
   return anchors;
+}
+
+// =====================
+// Session 76: grapple_throw (Bear's Heave) targeting
+// =====================
+
+function grappleThrowAction(
+  actorId: UnitId,
+  abilityIdValue: AbilityId,
+  throweeId: UnitId,
+  destination: Position,
+): ProposedAction {
+  return {
+    type: 'use_ability',
+    source: 'player',
+    actorId,
+    payload: {
+      abilityId: abilityIdValue,
+      target: { kind: 'grapple_throw', unitId: throweeId, destination },
+    },
+  };
+}
+
+// Every legal destination tile for throwing `throweeId` — the diamond of
+// radius `throwRadius` around the throwee, each tile run through the engine's
+// authoritative `grapple_throw` validation (in-bounds / unoccupied / barrier-
+// free / within the upward-elevation tolerance, plus the grab reach). Exported
+// for testing.
+export function validGrappleDestinations(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  ability: ActiveAbilityDefinition,
+  throweeId: UnitId,
+): Position[] {
+  if (ability.targeting.kind !== 'grapple_throw') return [];
+  const throwee = state.units.get(throweeId);
+  if (throwee === undefined) return [];
+  const radius = ability.targeting.throwRadius;
+  const out: Position[] = [];
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (Math.abs(dx) + Math.abs(dy) > radius) continue; // Manhattan diamond
+      if (dx === 0 && dy === 0) continue;
+      const x = throwee.position.x + dx;
+      const y = throwee.position.y + dy;
+      if (x < 0 || y < 0 || x >= state.map.width || y >= state.map.height) continue;
+      const dest: Position = { x, y, layer: throwee.position.layer };
+      if (tileAt(state.map, x, y, dest.layer) === undefined) continue;
+      const action = grappleThrowAction(actor.id, ability.id, throweeId, dest);
+      if (!validateAction(state, action, catalog).valid) continue;
+      out.push(dest);
+    }
+  }
+  return out;
+}
+
+// The units the actor can grab right now — those with at least one legal
+// destination (which subsumes the grab-reach + liveness + non-self gates the
+// engine enforces). Returns their positions for the throwee-phase highlight.
+// Exported for testing.
+export function validGrappleThrowees(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  ability: ActiveAbilityDefinition,
+): Position[] {
+  if (ability.targeting.kind !== 'grapple_throw') return [];
+  const out: Position[] = [];
+  for (const u of state.units.values()) {
+    if (u.id === actor.id) continue;
+    if (u.removed || u.vitals.hp <= 0 || u.airborne) continue;
+    if (validGrappleDestinations(state, catalog, actor, ability, u.id).length > 0) {
+      out.push(u.position);
+    }
+  }
+  return out;
 }
 

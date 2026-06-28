@@ -174,6 +174,20 @@ export type TurnFlowState =
       readonly anchor: Position | null;
       readonly hoverTarget: Position | null;
     }
+  // Session 76: grapple-throw picker — the Monk's Bear's Heave. Two-phase
+  // click UX parallel to tile_set: phase 1 (`throweeId === null`) picks the
+  // unit to grab (a highlighted in-grab-range unit); phase 2 picks the
+  // destination tile in the throw radius, which the hook turns into the
+  // committed `grapple_throw` action. Cancel is two-stage (destination →
+  // re-pick throwee; throwee → leave the picker, routing like target-select).
+  | {
+      readonly kind: 'grapple-throw-target-select';
+      readonly commandSetId: CommandSetId | null;
+      readonly commandSetCount: number;
+      readonly abilityId: AbilityId;
+      readonly throweeId: UnitId | null;
+      readonly hoverTarget: Position | null;
+    }
   | { readonly kind: 'animation' };
 
 export type TurnFlowEvent =
@@ -193,11 +207,11 @@ export type TurnFlowEvent =
   //   - 'throw_item' → target-select (Throw Item; the item picker
   //                     follows the target pick via `pickThrowTarget`)
   //   - undefined    → target-select (standard ability flow)
-  | { readonly kind: 'pickFreeAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' | 'math_skill' | 'tile_set' }
+  | { readonly kind: 'pickFreeAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' | 'math_skill' | 'tile_set' | 'grapple_throw' }
   | { readonly kind: 'pickWait' }
   // Sub-picks.
   | { readonly kind: 'pickCommandSet'; readonly commandSetId: CommandSetId }
-  | { readonly kind: 'pickAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' | 'math_skill' | 'tile_set' }
+  | { readonly kind: 'pickAbility'; readonly abilityId: AbilityId; readonly route?: 'compound' | 'throw_item' | 'math_skill' | 'tile_set' | 'grapple_throw' }
   // Session 39b: Throw Item target selection. Distinct from
   // `commitTarget` because the action isn't built yet (item is
   // picked next).
@@ -248,7 +262,11 @@ export type TurnFlowEvent =
   // Session 55: tile_set anchor pick (first click of the Barrier line). The
   // far-end pick rides the existing `commitTarget` event (the hook builds the
   // tile_set action once both ends are known), as Math Skill commits do.
-  | { readonly kind: 'pickTileSetAnchor'; readonly anchor: Position };
+  | { readonly kind: 'pickTileSetAnchor'; readonly anchor: Position }
+  // Session 76: grapple-throw phase-1 pick — the unit to grab. The phase-2
+  // destination pick rides the existing `commitTarget` event (the hook builds
+  // the grapple_throw action once both the throwee and destination are known).
+  | { readonly kind: 'pickGrappleThrowee'; readonly throweeId: UnitId };
 
 export const INITIAL_TURN_FLOW: TurnFlowState = { kind: 'idle' };
 
@@ -284,6 +302,16 @@ export function transition(
             kind: 'compound-item-select',
             commandSetId: null,
             commandSetCount: 0,
+          };
+        }
+        if (event.route === 'grapple_throw') {
+          return {
+            kind: 'grapple-throw-target-select',
+            commandSetId: null,
+            commandSetCount: 0,
+            abilityId: event.abilityId,
+            throweeId: null,
+            hoverTarget: null,
           };
         }
         // 'throw_item' falls through to target-select (the item picker
@@ -365,6 +393,16 @@ export function transition(
         if (event.route === 'compound') {
           return { kind: 'compound-item-select', commandSetId: null, commandSetCount: 2 };
         }
+        if (event.route === 'grapple_throw') {
+          return {
+            kind: 'grapple-throw-target-select',
+            commandSetId: null,
+            commandSetCount: 2,
+            abilityId: event.abilityId,
+            throweeId: null,
+            hoverTarget: null,
+          };
+        }
         return {
           kind: 'target-select',
           commandSetId: null,
@@ -413,6 +451,17 @@ export function transition(
             commandSetCount: state.commandSetCount,
             abilityId: event.abilityId,
             anchor: null,
+            hoverTarget: null,
+          };
+        }
+        // Session 76: grapple_throw (Bear's Heave) → throwee → destination picker.
+        if (event.route === 'grapple_throw') {
+          return {
+            kind: 'grapple-throw-target-select',
+            commandSetId: state.commandSetId,
+            commandSetCount: state.commandSetCount,
+            abilityId: event.abilityId,
+            throweeId: null,
             hoverTarget: null,
           };
         }
@@ -586,6 +635,38 @@ export function transition(
         // The line-building picker is itself the confirm surface (the player
         // placed both ends with the candidate line previewed), so bypass
         // await-confirm — same convention as Math Skill / the item pickers.
+        return { kind: 'animation' };
+      }
+      return state;
+
+    case 'grapple-throw-target-select':
+      // Session 76. Two-stage cancel parallel to tile_set: a destination-phase
+      // cancel (throwee set) drops back to throwee re-pick; a throwee-phase
+      // cancel leaves the picker, routing like target-select.
+      if (event.kind === 'cancel') {
+        if (state.throweeId !== null) {
+          return { ...state, throweeId: null, hoverTarget: null };
+        }
+        if (state.commandSetId === null) {
+          return state.commandSetCount > 1
+            ? { kind: 'command-set-select' }
+            : { kind: 'action-menu' };
+        }
+        return {
+          kind: 'ability-list',
+          commandSetId: state.commandSetId,
+          commandSetCount: state.commandSetCount,
+        };
+      }
+      if (event.kind === 'hoverTarget') {
+        return { ...state, hoverTarget: event.position };
+      }
+      if (event.kind === 'pickGrappleThrowee') {
+        return { ...state, throweeId: event.throweeId, hoverTarget: null };
+      }
+      if (event.kind === 'commitTarget') {
+        // The two-phase picker (throwee + destination, both highlighted) is the
+        // confirm surface — bypass await-confirm, as tile_set / Math Skill do.
         return { kind: 'animation' };
       }
       return state;

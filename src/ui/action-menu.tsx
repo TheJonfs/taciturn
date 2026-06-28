@@ -178,6 +178,24 @@ export function ActionMenu({ turnFlow, catalog, engineState, onOpenUnitDetail }:
       );
     }
 
+    case 'grapple-throw-target-select': {
+      // Session 76: Bear's Heave. Two-phase pick — grab a unit, then place it.
+      // The hint switches once the throwee is chosen; cancel backs out one
+      // stage (destination → re-pick throwee; throwee → leave the picker).
+      const ability = catalog.getAbility(state.abilityId);
+      const label = ability.kind === 'active' ? ability.name : String(state.abilityId);
+      const hint =
+        state.throweeId === null
+          ? 'Click a highlighted unit to grab'
+          : 'Click a highlighted tile to throw them to';
+      return (
+        <Panel header={`Target — ${label}`}>
+          <StatusLine>{hint}</StatusLine>
+          <CancelButton onClick={turnFlow.cancel} />
+        </Panel>
+      );
+    }
+
     case 'wait-confirm':
       return <WaitConfirm turnFlow={turnFlow} />;
 
