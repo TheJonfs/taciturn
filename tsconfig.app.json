@@ -30,6 +30,7 @@
     "baseUrl": ".",
     "paths": {
       "@app/*": ["src/app/*"],
+      "@campaign/*": ["src/campaign/*"],
       "@engine/*": ["src/engine/*"],
       "@ai/*": ["src/ai/*"],
       "@renderer/*": ["src/renderer/*"],

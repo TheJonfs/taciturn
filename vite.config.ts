@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@app': fileURLToPath(new URL('./src/app', import.meta.url)),
+      '@campaign': fileURLToPath(new URL('./src/campaign', import.meta.url)),
       '@engine': fileURLToPath(new URL('./src/engine', import.meta.url)),
       '@ai': fileURLToPath(new URL('./src/ai', import.meta.url)),
       '@renderer': fileURLToPath(new URL('./src/renderer', import.meta.url)),
