@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { flushSync } from 'react-dom';
 import { BattleView } from './BattleView.tsx';
+import { CampaignApp } from './CampaignApp.tsx';
 import { TitleScreen } from './TitleScreen.tsx';
 import { BattleSetupScreen } from './BattleSetupScreen.tsx';
 import { TeamBuilderScreen } from './TeamBuilderScreen.tsx';
@@ -30,11 +31,20 @@ import { stonebridgeBattle } from '@content/battles/stonebridge-battle.ts';
 import { marshmoorBattle } from '@content/battles/marshmoor-battle.ts';
 import { mountainPassBattle } from '@content/battles/mountain-pass-battle.ts';
 import { buildTeamBattleConfig, type BuiltTeam } from '@content/teams/index.ts';
+import {
+  M0_NODE_GRAPH,
+  m0Roster,
+  startCampaign,
+  saveCampaign,
+  loadCampaign,
+  hasSavedCampaign,
+  type CampaignState,
+} from '@campaign/index.ts';
 import type { BattleConfig, Catalog, TeamControl, TeamId } from '@engine/index.ts';
 import { TEAM_PALETTE, TEAM_PALETTE_FALLBACK_CSS } from '@renderer/index.ts';
 import { SettingsProvider, useSettings, type TeamBuilderState } from '@ui/index.ts';
 
-type Screen = 'title' | 'setup' | 'teamBuilder' | 'deployment' | 'battle';
+type Screen = 'title' | 'setup' | 'teamBuilder' | 'deployment' | 'battle' | 'campaign';
 type Slot = 0 | 1;
 
 // S47: two maps live; the setup screen picks between them. Both configs
@@ -143,6 +153,23 @@ function AppInner() {
     handoffNextRef.current = () => {};
     setHandoff(null);
     next();
+  }, []);
+
+  // TABA campaign (ADR-0133): the durable state the CampaignApp drives. A
+  // separate, self-contained flow from the MW setup pipeline above — it
+  // reuses DeploymentScreen + BattleView but owns its own roster/graph/loop.
+  const [campaignState, setCampaignState] = useState<CampaignState | null>(null);
+  const startNewCampaign = useCallback((): void => {
+    const fresh = startCampaign(M0_NODE_GRAPH, m0Roster, catalog);
+    saveCampaign(fresh); // initial autosave = the node-A retry checkpoint
+    setCampaignState(fresh);
+    setScreen('campaign');
+  }, [catalog]);
+  const resumeCampaign = useCallback((): void => {
+    const saved = loadCampaign();
+    if (saved === null) return; // button is hidden without a save; defensive
+    setCampaignState(saved);
+    setScreen('campaign');
   }, []);
 
   const [transitioning, setTransitioning] = useState<boolean>(false);
@@ -299,7 +326,24 @@ function AppInner() {
 
   return (
     <div style={shellStyle}>
-      {screen === 'title' && <TitleScreen onStart={() => setScreen('setup')} />}
+      {screen === 'title' && (
+        <TitleScreen
+          onStart={() => setScreen('setup')}
+          onNewCampaign={startNewCampaign}
+          onResumeCampaign={hasSavedCampaign() ? resumeCampaign : undefined}
+        />
+      )}
+
+      {screen === 'campaign' && campaignState !== null && (
+        <CampaignApp
+          initialState={campaignState}
+          catalog={catalog}
+          onExitToTitle={() => {
+            setCampaignState(null);
+            goToTitle(true);
+          }}
+        />
+      )}
 
       {screen === 'setup' && (
         <BattleSetupScreen

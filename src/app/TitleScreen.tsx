@@ -13,9 +13,17 @@ import splashUrl from '../assets/title/splash.png';
 
 export interface TitleScreenProps {
   readonly onStart: () => void;
+  // TABA campaign entries (ADR-0133). `onResumeCampaign` is undefined when
+  // no autosave exists, which disables the Resume button.
+  readonly onNewCampaign: () => void;
+  readonly onResumeCampaign?: (() => void) | undefined;
 }
 
-export function TitleScreen({ onStart }: TitleScreenProps): ReactElement {
+export function TitleScreen({
+  onStart,
+  onNewCampaign,
+  onResumeCampaign,
+}: TitleScreenProps): ReactElement {
   // Enter / Space start the game — parallel to the New Battle button.
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
@@ -34,8 +42,17 @@ export function TitleScreen({ onStart }: TitleScreenProps): ReactElement {
         <button type="button" style={primaryButtonStyle} onClick={onStart}>
           New Battle
         </button>
-        <button type="button" style={disabledButtonStyle} disabled title="Coming soon">
-          Continue
+        <button type="button" style={primaryButtonStyle} onClick={onNewCampaign}>
+          New Campaign
+        </button>
+        <button
+          type="button"
+          style={onResumeCampaign !== undefined ? primaryButtonStyle : disabledButtonStyle}
+          disabled={onResumeCampaign === undefined}
+          title={onResumeCampaign !== undefined ? undefined : 'No saved campaign'}
+          onClick={onResumeCampaign}
+        >
+          Resume Campaign
         </button>
         <button type="button" style={disabledButtonStyle} disabled title="Coming soon">
           Settings

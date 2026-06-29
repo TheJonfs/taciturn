@@ -91,6 +91,12 @@ export interface BattleViewProps {
   // Navigation out of the battle, surfaced on the results screen.
   readonly onExitToSetup: () => void;
   readonly onExitToTitle: () => void;
+  // TABA campaign hook (ADR-0133): fired once with the terminal `GameState`
+  // when the battle decides. When provided, the caller (the campaign loop)
+  // owns the post-battle flow, so BattleView's own `ResultsScreen` is
+  // suppressed. Mage War passes nothing and behaves exactly as before —
+  // "emit superset, consume subset" at the component boundary.
+  readonly onBattleEnd?: (finalState: GameState) => void;
 }
 
 export function BattleView(props: BattleViewProps) {
@@ -109,6 +115,7 @@ function BattleViewInner({
   deploymentResult,
   onExitToSetup,
   onExitToTitle,
+  onBattleEnd,
 }: BattleViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -527,7 +534,23 @@ function BattleViewInner({
   const detailUnit = detailUnitId !== null && latestState !== null
     ? latestState.units.get(detailUnitId) ?? null
     : null;
-  const showResults = outcome !== undefined && !paused && !resultsDismissed;
+  // Campaign hook: when an `onBattleEnd` consumer owns the post-battle flow,
+  // BattleView's own ResultsScreen stays out of the way.
+  const showResults = outcome !== undefined && !paused && !resultsDismissed && onBattleEnd === undefined;
+
+  // Fire `onBattleEnd` exactly once with the terminal state. Ref-held so a
+  // changing callback identity never re-fires it; `latestState` at first
+  // `outcome` IS the final state (the `battle_end` commit is terminal).
+  const onBattleEndRef = useRef(onBattleEnd);
+  onBattleEndRef.current = onBattleEnd;
+  const battleEndFiredRef = useRef(false);
+  useEffect(() => {
+    if (outcome === undefined || latestState === null || battleEndFiredRef.current) return;
+    const cb = onBattleEndRef.current;
+    if (cb === undefined) return;
+    battleEndFiredRef.current = true;
+    cb(latestState);
+  }, [outcome, latestState]);
 
   // Active-team signaling inputs (S43): whose turn it is, and that team's
   // display name + canonical color. Drives the banner, the menu glow, and
