@@ -26,6 +26,13 @@ export {
   m0Roster,
 } from './roster.ts';
 
+// Chunk 2 — the pure loop core (snapshot-fold in, summarize + apply-back out).
+export { foldCampaignRoster } from './snapshot-fold.ts';
+export { summarizeBattleResult } from './battle-result.ts';
+export type { BattleResult, UnitBattleSummary, UnitOutcome } from './battle-result.ts';
+export { applyBattleResult } from './apply-back.ts';
+export { effectiveMaxVitals } from './vitals.ts';
+
 import { CAMPAIGN_SCHEMA_VERSION } from './serialization.ts';
 import type { CampaignState, CampaignUnit } from './types.ts';
 
