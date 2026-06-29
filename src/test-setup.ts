@@ -15,3 +15,36 @@ HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElemen
 // configured when this global is set; without it every `act` call
 // emits a "not configured to support act(...)" stderr line.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+// jsdom (as configured) does not expose Web Storage, but the TABA campaign
+// autosave (`src/campaign/persistence.ts`) needs `localStorage`. Install a
+// minimal in-memory Storage so persistence round-trips are testable; the
+// real app uses the browser's localStorage. Defined unconditionally via
+// `defineProperty` so we never read Node's experimental `localStorage`
+// getter (which warns about `--localstorage-file`).
+class MemoryStorage {
+  private store = new Map<string, string>();
+  get length(): number {
+    return this.store.size;
+  }
+  clear(): void {
+    this.store.clear();
+  }
+  getItem(key: string): string | null {
+    return this.store.has(key) ? this.store.get(key)! : null;
+  }
+  key(index: number): string | null {
+    return [...this.store.keys()][index] ?? null;
+  }
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+  setItem(key: string, value: string): void {
+    this.store.set(key, String(value));
+  }
+}
+Object.defineProperty(globalThis, 'localStorage', {
+  value: new MemoryStorage() as unknown as Storage,
+  configurable: true,
+  writable: true,
+});

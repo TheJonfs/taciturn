@@ -22,10 +22,10 @@
 import { buildBaseStats } from '@content/teams/index.ts';
 import { createInitialState } from '@engine/index.ts';
 import type {
-  BaseStats,
   BattleConfig,
   Catalog,
   TeamId,
+  UnitId,
   UnitPlacement,
   Vitals,
 } from '@engine/index.ts';
@@ -42,7 +42,7 @@ export function foldCampaignRoster(
   playerTeam: TeamId,
   catalog: Catalog,
 ): BattleConfig {
-  const slots = template.units.filter((u) => u.team === playerTeam);
+  const slots = playerSlots(template, playerTeam);
   if (selected.length > slots.length) {
     throw new Error(
       `foldCampaignRoster: ${selected.length} units selected but template team ` +
@@ -50,49 +50,74 @@ export function foldCampaignRoster(
     );
   }
 
-  // baseStats recomputed once per unit (D-A) — reused across both passes.
-  const recomputed = selected.map((unit) => ({
-    unit,
-    baseStats: buildBaseStats(unit.classId, unit.brave, unit.faith, unit.level),
-  }));
-
+  // Probe the effective (equipment/class/passive-composed) max for each
+  // selected unit, then supply carried vitals EXPLICITLY (D-E), clamped to
+  // that max. M0 heals to full so the clamp is a no-op today; the explicit
+  // supply exercises the carry path either way.
+  const maxes = probeEffectiveMaxes(template, selected, playerTeam, catalog);
   const others = template.units.filter((u) => u.team !== playerTeam);
-
-  // Pass 1 — probe. Build placements with vitals OMITTED so
-  // `createInitialState` fills each unit's effective max (equipment/class/
-  // passive-composed). We read those maxes back to clamp carried vitals.
-  // This is the same throwaway-state trick `computeAiDeploymentResult` uses.
-  const probePlacements = recomputed.map(({ unit, baseStats }, i) =>
-    placementFor(unit, baseStats, slots[i]!, playerTeam, undefined),
-  );
-  const probeState = createInitialState({ ...template, units: [...probePlacements, ...others] }, catalog);
-
-  // Pass 2 — final. Supply carried vitals EXPLICITLY (D-E), clamped to the
-  // probed effective max.
-  const finalPlacements = recomputed.map(({ unit, baseStats }, i) => {
-    const max = probeState.units.get(unit.id);
-    if (max === undefined) {
-      // Shouldn't happen — we keyed the probe by these exact ids. Fail loud.
-      throw new Error(
-        `foldCampaignRoster: probe state missing unit ${JSON.stringify(unit.id)}`,
-      );
-    }
+  const placements = selected.map((unit, i) => {
+    const max = maxes.get(unit.id)!;
     const vitals: Vitals = {
-      hp: Math.min(unit.vitals.hp, max.vitals.hp),
-      mp: Math.min(unit.vitals.mp, max.vitals.mp),
+      hp: Math.min(unit.vitals.hp, max.hp),
+      mp: Math.min(unit.vitals.mp, max.mp),
     };
-    return placementFor(unit, baseStats, slots[i]!, playerTeam, vitals);
+    return campaignPlacement(unit, slots[i]!, playerTeam, vitals);
   });
-
-  return { ...template, units: [...finalPlacements, ...others] };
+  return { ...template, units: [...placements, ...others] };
 }
 
-// Build one `UnitPlacement` from a durable unit. `vitals === undefined`
-// produces the probe placement (engine auto-fills to effective max); a
-// supplied `vitals` is the real, carry-exercising placement.
-function placementFor(
+// Effective max vitals (HP/MP, equipment-composed) for each unit, keyed by
+// stable id. Built by running probe placements (vitals OMITTED, so
+// `createInitialState` fills each unit to its effective max — the same
+// throwaway-state trick `computeAiDeploymentResult` uses) through the
+// unchanged engine. Chunked by the template's player-slot count so each
+// probe unit gets a distinct placeholder tile — lets the campaign-start
+// bootstrap probe a full roster larger than one node's slot count.
+//
+// Reused by the fold (clamp carried vitals) and the campaign-start
+// bootstrap (heal the roster to effective full). Throws if the template
+// authors no player slots.
+export function probeEffectiveMaxes(
+  template: BattleConfig,
+  units: ReadonlyArray<CampaignUnit>,
+  playerTeam: TeamId,
+  catalog: Catalog,
+): Map<UnitId, Vitals> {
+  const slots = playerSlots(template, playerTeam);
+  if (slots.length === 0) {
+    throw new Error(
+      `probeEffectiveMaxes: template team ${JSON.stringify(playerTeam)} authors no slots`,
+    );
+  }
+  const others = template.units.filter((u) => u.team !== playerTeam);
+  const maxes = new Map<UnitId, Vitals>();
+  for (let start = 0; start < units.length; start += slots.length) {
+    const chunk = units.slice(start, start + slots.length);
+    const probes = chunk.map((unit, i) => campaignPlacement(unit, slots[i]!, playerTeam, undefined));
+    const state = createInitialState({ ...template, units: [...probes, ...others] }, catalog);
+    for (const unit of chunk) {
+      const live = state.units.get(unit.id);
+      if (live === undefined) {
+        throw new Error(`probeEffectiveMaxes: probe state missing unit ${JSON.stringify(unit.id)}`);
+      }
+      maxes.set(unit.id, { hp: live.vitals.hp, mp: live.vitals.mp });
+    }
+  }
+  return maxes;
+}
+
+function playerSlots(template: BattleConfig, playerTeam: TeamId): ReadonlyArray<UnitPlacement> {
+  return template.units.filter((u) => u.team === playerTeam);
+}
+
+// Build one `UnitPlacement` from a durable unit. Injects the unit's OWN
+// stable id (D-B, not the slot id) and RECOMPUTES baseStats from inputs
+// (D-A). `vitals === undefined` produces a probe placement (engine
+// auto-fills to effective max); a supplied `vitals` is the real,
+// carry-exercising placement.
+function campaignPlacement(
   unit: CampaignUnit,
-  baseStats: BaseStats,
   slot: UnitPlacement,
   team: TeamId,
   vitals: Vitals | undefined,
@@ -104,7 +129,7 @@ function placementFor(
     classId: unit.classId,
     position: slot.position, // placeholder; deployment overwrites
     facing: slot.facing,
-    baseStats,
+    baseStats: buildBaseStats(unit.classId, unit.brave, unit.faith, unit.level), // recomputed (D-A)
     loadout: unit.loadout,
     equipment: unit.equipment,
     level: unit.level,
