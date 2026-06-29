@@ -1678,3 +1678,37 @@ AI battles, so every item below needs Chris's in-battle feel pass.
   dominate via raw weapon damage, or knife WP becomes irrelevant next to Speed →
   clamp/normalize the band. Plays fine because high Speed is itself costly/rare →
   leave as-is and close.
+
+### S76 — Monk shipped at default tunings (awaiting playtest signal)
+
+*Migrated from the S76 handoff so it survives into content sessions. The Monk
+(14th class, ADR-0132) shipped at sane defaults; these are the live dials and
+watch-fors that want real hand-play before any adjustment. The Bear's Heave
+two-stage throw UI was **live-verified by Chris (2026-06-29) — resolved**, not
+pending.*
+
+- **What to watch (live coefficients).**
+  - **Fists** PA×3 (Foxfire / Storm Stoop / Serpent's Coil); **Bear's Heave** 0
+    (the throw + fall damage is the point). S76 bumped these 6/5/5 → 8/7/7 then
+    settled; confirm the punch-vs-Fist economy reads right in hand-play.
+  - **Chakra** heal PA×4 / MP restore PA×2 / mpCost 0 — gated by spending the
+    turn. **Watch the self-sustain ceiling** on a 190-HP, no-body, high-evasion
+    bruiser (the brief's flagged self-sustain risk).
+  - **Foxfire Burn** 50% via PA+Brave (lands reliably; the Burn *tick* is
+    MA-scaled → weak for the Monk by design — chip, not the point).
+  - **Serpent's Coil CT refund** Speed×2 (~+20 CT at Speed 10) — watch for a
+    dominant tempo loop.
+  - **Vigilance** evasion +floor(PA/2) (reads base PA only; deliberately
+    conservative — can climb if the Monk should be more evasion-strong).
+  - **Counterpunch** PA×4 strike + knockback ~PA×4% at PA 9.
+- **Why it matters.** The stance system is **AI-illegible** — the Monk reads
+  weaker in `sim:both-ai` than in skilled hands, so don't tune it *down* off an
+  AI-vs-AI floor. The anti-physical hard-counter profile (all-facing PA-evasion +
+  Counterpunch + Chakra) concentrates counterplay onto magic — confirm it isn't
+  oppressive on magic-light maps. The punch-sellout's exposure (no stance, no
+  body) is the intended self-balancer.
+- **What signal would indicate adjustment.** Self-sustain runs away on the
+  bruiser build; the Monk dominates magic-light maps; a Serpent's Coil tempo loop
+  emerges → tune the relevant dial. The Monk reading weak only in `sim:both-ai`
+  is **not** signal (stance illegibility). The Monk isn't on a default team yet —
+  slot it into a bundled team to get a floor read.
