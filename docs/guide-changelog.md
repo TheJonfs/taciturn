@@ -44,6 +44,35 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 77 (2026-06-29) — TABA campaign M0 (the spine slice)
+
+Commits: `731c421` (design docs), `f0cbe9b` (Chunk 1), `44e44c0` (Chunk 2),
+`382ac6d` (Chunk 3a), `13fe997` (Chunk 3b). ADR-0133.
+
+First milestone of **TABA** ("There and Back Again"), the campaign mode: a unit
+roster that persists across an authored sequence of battles. M0 is the minimal
+two-battle vertical slice that proves the spine; progression, economy, the shop,
+story, and branching are later milestones.
+
+- **New: a campaign mode** reachable from the title screen — **New Campaign** and
+  **Resume Campaign** (the latter enabled only when a save exists).
+- **Two linear battles** (River Ridge → Stonebridge) fought by **one persistent
+  company of 8 units**. The same units carry from battle to battle.
+- **Formation screen:** before each battle, pick **up to 5 of your 8** units to
+  deploy; the rest sit out. Then the normal deployment + battle play out.
+- **Between battles:** survivors and the downed are **healed to full**; a unit
+  that was permanently removed (crystallized) is **marked lost and can't be
+  deployed again** (its record is kept). *Note: wounds do not yet carry between
+  battles in M0 — everyone is healed.*
+- **Save/resume:** the campaign **autosaves between battles** (one slot); Resume
+  Campaign continues it. **Losing a battle** lets you **retry it from your last
+  save** (the failed attempt is discarded) or quit to the title.
+- **Win both battles** → a campaign-complete screen.
+- *Not yet in the campaign:* leveling/XP, JP/ability unlocks, money/shops/gear
+  changes, recruiting, story, and branching paths. Units fight at a fixed level
+  with their authored loadouts. The single-battle "New Battle" (Mage War) mode is
+  unchanged.
+
 ## Session 76 (2026-06-28)
 
 - **New class: the Monk** (14th class, 6th physical) — a barehanded, PA-scaling,

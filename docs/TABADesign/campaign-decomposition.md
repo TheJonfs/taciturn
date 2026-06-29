@@ -137,6 +137,14 @@ Operationalizes the §4 layering as a **vertical-slice-first** build order. The 
 any feature layer stands on it; everything after is additive thickening. Battle-engine / Mage War
 work continues in parallel — it lands in the shared core and feeds this.
 
+- **M0 — Spine slice (the de-risker). ✅ SHIPPED 2026-06-29 (S77, ADR-0133).** Built as
+  authored: `src/campaign/` shell region (durable `CampaignUnit` + container + serialization;
+  snapshot-fold / `summarizeBattleResult` / apply-back; node graph + loop + localStorage
+  save/resume) + a Formation screen and a `BattleView` `onBattleEnd` hook, all reusing the
+  unchanged engine. Two linear nodes (River Ridge → Stonebridge), roster N=8 / deploy K=5,
+  heal-to-full between battles, lost-unit marking, retry-on-loss. **No engine changes.** The
+  delta boundary is established (summarizer emits the superset; M0 consumes win/loss + survival).
+  Original scope below.
 - **M0 — Spine slice (the de-risker).** Two hand-authored battles, one persistent roster,
   deploy-K-of-N, fight node A → carry the *same units with their state* → fight node B, with
   **save/resume** and win/loss. Exercises every hard part at once: serialization, persistent unit

@@ -11,67 +11,61 @@ been processed.
 
 ---
 
-## From S76 — the Monk (2026-06-28)
+## From S77 — TABA campaign M0, the spine slice (2026-06-29)
 
-Shipped the S76 brief in full: the Monk (14th class, 6th physical) + its
-net-new substrate + 19 tests + basic AI awareness + the Bear's Heave two-stage
-targeting UI + 512×512 portraits. `tsc -b` + `vite build` clean; suite green
-(1 skipped sim). ADR-0132. Four commits on `main` (substrate+class+content; AI;
-grapple-throw UI; docs).
+Shipped M0 end to end — the first TABA campaign milestone. New `src/campaign/`
+shell region + a Formation screen + a `BattleView.onBattleEnd` hook, all reusing
+the **unchanged** engine (no engine changes, as the audit predicted). ADR-0133.
+Five commits on `main` (design docs; Chunk 1 spine; Chunk 2 pure loop core;
+Chunk 3a node graph/loop/persistence; Chunk 3b React flow). `tsc -b` + `vite
+build` clean; suite green (2173, +58 campaign tests). Guide-changelog updated
+(S77); decomposition §8 marks M0 shipped.
 
-### The ONE thing left — live-verify Bear's Heave's throw UI
-- The `grapple_throw` two-stage picker IS built (turn-flow route mirroring
-  tile_set/Barrier: phase 1 highlights grabbable units magenta → click to grab;
-  phase 2 highlights legal landing tiles amber → click to throw; two-stage
-  cancel). Helpers + FSM are unit-tested (`grapple-throw-targeting.test.ts`),
-  and the app loads error-free, **but the in-battle Pixi target-select wasn't
-  driven here** (not reliably automatable). **Please verify live:** add a Monk
-  to a human team, reach its turn, pick Martial Arts → Bear's Heave, confirm the
-  grab-highlight → place-highlight → throw lands (and a ledge throw deals fall
-  damage). Easy to retint if the magenta/amber reads wrong.
-- The other 4 Martial Arts abilities + the punch already play through the
-  standard targeting flow (Chakra=self, Foxfire/Serpent's Coil=single_unit,
-  Storm Stoop=unit_or_tile line) — verify those too while you're in there.
-- The AI uses the Fists + self-heal Chakra and skips Bear's Heave (out of AI
-  scope per the brief).
+### The ONE thing left — live-verify the full two-battle playthrough
+I live-verified everything up to battle launch (title → New Campaign → autosave +
+vitals bootstrap → Formation N=8/K=5 → Deploy → fold → DeploymentScreen with
+recomputed-stat units; no console errors). **What I could NOT drive via tooling**
+is the interactive Pixi battle itself, so please hand-verify:
+- Play node A (River Ridge) to a **win** → confirm it heals/advances → Formation
+  for node B (Stonebridge) → win → **campaign-complete** screen.
+- Force a **loss** (forfeit/let the company die) → confirm the **Defeat** screen,
+  **Retry** re-enters the node from the autosave (full roster back), **Quit**
+  returns to title.
+- Reload mid-campaign (after winning node A) → **Resume Campaign** continues at
+  node B with the post-node-A roster.
+- Confirm a unit that **crystallizes (permadeath)** in a won battle comes back
+  marked **lost** and is absent from the next Formation list.
+The pure loop (win/advance/save, fate classification, retry) is unit-tested
+hard; this is the UI-integration confirmation only.
 
-### Tuning flags to read via `sim:both-ai` + hand-play (all shipped at sane defaults)
-- **Fist coefficients** PA×3 (Foxfire/Storm Stoop/Serpent's Coil); Bear's Heave
-  0 (throw is the point).
-- **Chakra** heal PA×4, MP restore PA×2, mpCost 0 (gated by the Act economy —
-  spend your turn to sustain). Watch the self-sustain ceiling on a 190-HP,
-  no-body, high-evasion bruiser (the brief's flagged "self-sustain" watch-for).
-- **Foxfire Burn** 50% via PA+Brave (lands reliably despite MA 4; the Burn
-  *tick* damage is MA-scaled → weak for the Monk, by design — chip, not the point).
-- **Serpent's Coil CT refund** Speed×2 (~+20 CT at Speed 10). Watch for a
-  dominant tempo loop (S76 D4).
-- **Vigilance** evasion +floor(PA/2) = +4 at PA 9 → 15/12/7. Reads base PA only
-  (the `modifyEvasion` hook isn't handed state, so PA buffs don't compound into
-  evasion — deliberately conservative vs the brief's swingiest interaction).
-  The brief frames the Monk as deliberately evasion-strong, so this can climb.
-- **Counterpunch** PA×4 strike, knockback baseChance 20 × `{pa}` ≈ PA×4% at PA 9.
+### Encounter winnability (needs a play read, not a code fix)
+M0 reuses the shipped battle templates' enemy teams (River Ridge / Stonebridge
+`team_b`) at their authored stats vs the campaign roster at **level 25** (a tuning
+value in `roster.ts` / `M0_BASELINE_LEVEL`). The spine doesn't care about balance,
+but the **loop test needs both outcomes reachable** — i.e. the fights should be
+*winnable by competent play* and *losable*. If a node is unwinnable or trivial,
+bump `M0_BASELINE_LEVEL` or hand-author small enemy teams (the brief's fallback).
 
-### Watch-fors (from the brief, for hand-play)
-- The **stance system is AI-illegible** — the Monk will read weaker in
-  `sim:both-ai` than in skilled hands. Don't tune the class *down* off an
-  AI-vs-AI floor read.
-- **Anti-physical hard-counter profile** (all-facing PA-evasion + Counterpunch +
-  Chakra) concentrates counterplay onto magic. Confirm it isn't oppressive on
-  magic-light maps.
-- **The self-balancing must hold** — the punch-sellout's exposure (no stance, no
-  body) should let magic/kiting run it down. First real balance signal.
-- The Monk isn't on any default team yet — slot it into a bundled team (and run
-  `sim:both-ai`) to get a floor read.
+### Known M0 simplifications (by design — not bugs)
+- **Wounds don't carry yet** — heal-to-full each boundary (D-E). The carry
+  plumbing is built + exercised (the fold supplies explicit clamped vitals);
+  switching it on is a one-line change in `apply-back.ts` (write final vitals
+  instead of effective-full). Deferred to an attrition pass.
+- **Initial-roster vitals bootstrap:** the authored roster carries *provisional*
+  base-max vitals; `startCampaign` normalizes them to effective-full via the
+  fold's probe (`bootstrapRosterVitals`). Verified live (casters show
+  equipment-boosted MP). See ADR-0133 §6.
+- Formation / victory / defeat screens are **minimal styling** — polish later.
 
-### Loose end (carried from S72, still untracked)
-- `guide/art/enchantress_1.png` (5.2 MB) and now `guide/art/monk_1.png` —
-  untracked **guide** assets, left unstaged for the guide-writing lineage.
+### Next TABA milestones (decomposition §8)
+M1 = branching battle-graph (M0 is linear A→B). M2 = progression (XP/JP/level/
+unlock) — the "growth before gear" call. M3 = economy + acquisition. The
+delta-summary superset already emits per-unit survival/vitals; M2 extends
+`UnitBattleSummary` with XP/JP once the battle *tracks* them (don't pre-build the
+empty fields).
 
-## Still open from prior sessions (carried — in `playtest-watch.md`)
-- **Predictive positional threat-model** (protective/anti-AoE half only) — the
-  remaining large AI gap. S70 Mountain Pass is the test bed; the S75 both-AI
-  seam is the verification tool.
-- S72 Enchanter feel-pass pile; S70/S69 carries (Taunt redesign needs Chris to
-  pin intent — `taunt-audit.md`); Templar/Thief feel passes; S68 equipment
-  tunables; S74 strong-version watch-fors (Ring of Caliora, Glove of Metria).
-- **Action-log redesign** (render-layer, approved, unbuilt).
+### Carried from S76 — RESOLVED, do not re-carry
+Bear's Heave throw UI was **live-verified by Chris** (resolved). The remaining
+S76 content-tuning watch-fors (Fist/Chakra/Serpent's Coil coefficients, etc.)
+were **migrated to `docs/playtest-watch.md`** (commit `38fe826`) so they survive
+into content sessions. Nothing from S76 carries forward here.
