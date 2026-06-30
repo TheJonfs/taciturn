@@ -11,32 +11,30 @@ been processed.
 
 ---
 
-## From S77 — TABA campaign M0, the spine slice (2026-06-29)
+## From S77 — TABA campaign M0, the spine slice (2026-06-29) — COMPLETE & HAND-VERIFIED
 
 Shipped M0 end to end — the first TABA campaign milestone. New `src/campaign/`
 shell region + a Formation screen + a `BattleView.onBattleEnd` hook, all reusing
 the **unchanged** engine (no engine changes, as the audit predicted). ADR-0133.
-Five commits on `main` (design docs; Chunk 1 spine; Chunk 2 pure loop core;
-Chunk 3a node graph/loop/persistence; Chunk 3b React flow). `tsc -b` + `vite
-build` clean; suite green (2173, +58 campaign tests). Guide-changelog updated
-(S77); decomposition §8 marks M0 shipped.
+Commits on `main`: design docs; Chunk 1 spine; Chunk 2 pure loop core; Chunk 3a
+node graph/loop/persistence; Chunk 3b React flow; clear-autosave-on-completion
+fix. `tsc -b` + `vite build` clean; suite green (2173, +58 campaign tests).
+Guide-changelog updated (S77); decomposition §8 marks M0 shipped.
 
-### The ONE thing left — live-verify the full two-battle playthrough
-I live-verified everything up to battle launch (title → New Campaign → autosave +
-vitals bootstrap → Formation N=8/K=5 → Deploy → fold → DeploymentScreen with
-recomputed-stat units; no console errors). **What I could NOT drive via tooling**
-is the interactive Pixi battle itself, so please hand-verify:
-- Play node A (River Ridge) to a **win** → confirm it heals/advances → Formation
-  for node B (Stonebridge) → win → **campaign-complete** screen.
-- Force a **loss** (forfeit/let the company die) → confirm the **Defeat** screen,
-  **Retry** re-enters the node from the autosave (full roster back), **Quit**
-  returns to title.
-- Reload mid-campaign (after winning node A) → **Resume Campaign** continues at
-  node B with the post-node-A roster.
-- Confirm a unit that **crystallizes (permadeath)** in a won battle comes back
-  marked **lost** and is absent from the next Formation list.
-The pure loop (win/advance/save, fate classification, retry) is unit-tested
-hard; this is the UI-integration confirmation only.
+### Acceptance — ALL hand-verified by Chris (the M0 report is going to the planner)
+- ✅ Two-battle happy path: win River Ridge → advance → win Stonebridge →
+  campaign-complete; autosave fired after each node; reload + Resume works.
+- ✅ Loss path: lost a battle → reload + Resume re-entered the node from the last
+  save (failed attempt discarded).
+- ✅ Permadeath: forced a unit to crystallize in battle 1 → it carried over as
+  **lost** and was dropped from battle 2's Formation.
+- ✅ Clear-on-completion: winning the final node now clears the save (Resume goes
+  dark on a finished run) — fixed after Chris flagged Resume relaunching victory.
+
+No open M0 items. (Live walkthrough up to battle launch was also tool-verified:
+New Campaign autosave + vitals bootstrap with equipment-boosted caster MP,
+Formation N=8/K=5, fold → DeploymentScreen with recomputed stats, no console
+errors.)
 
 ### Encounter winnability (needs a play read, not a code fix)
 M0 reuses the shipped battle templates' enemy teams (River Ridge / Stonebridge
