@@ -24,6 +24,7 @@ import {
   M0_NODE_GRAPH,
   advanceOnWin,
   battleWasWon,
+  clearSavedCampaign,
   currentNode,
   deployableRoster,
   foldCampaignRoster,
@@ -79,7 +80,14 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
       return;
     }
     const next = advanceOnWin(state, M0_NODE_GRAPH, result, finalState, catalog);
-    saveCampaign(next); // autosave positioned at the next node (the retry checkpoint)
+    if (isComplete(next)) {
+      // Run finished — leave no resumable save, so "Resume Campaign" goes
+      // dark and New Campaign is the obvious next action. (The victory screen
+      // is shown in-session; reloading on it returns to a clean title.)
+      clearSavedCampaign();
+    } else {
+      saveCampaign(next); // autosave positioned at the next node (the retry checkpoint)
+    }
     setState(next);
     setFightConfig(null);
     setSub(isComplete(next) ? 'victory' : 'formation');
