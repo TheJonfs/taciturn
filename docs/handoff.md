@@ -44,23 +44,30 @@ win/loss isn't automatable here, so **please hand-verify:**
 5. The **result-summary** unit lines read right (Survived / KO / Lost), and
    permadeath (a crystallized unit) shows **Lost** + drops from later Formations.
 
-### ⏳ OWED: the M1 test-roster exchange (collaboration, not a build task)
-The brief wants **Chris to hand-pick the M1 playthrough roster** from the existing
-**14-class lineup** (knight, geosage, hydrologist, pyromancer, aethurge,
-alchemist, assassin, hunter, calculator, terraformer, templar, thief, enchanter,
-monk) rather than inherit M0's implementer-chosen default. **This is still open —
-I did not change the roster.** M1 currently still runs on `m0Roster` (N=8, drawn
-from the mageWar + irregulars templates, uniform **Lv 25** via `M0_BASELINE_LEVEL`
-in `roster.ts`). When Chris names classes/levels (and whether N should grow — the
-fork+side-node graph deploys K=5 per node), author them into `roster.ts`. Small
-QoL for playtesting; **not** the M3 roster-builder.
+### ✅ RESOLVED: the M1 test roster (Chris-picked)
+`m1Roster` in `roster.ts` is now the campaign roster (App points at it; `m0Roster`
+kept only for tests that need N>K). **N=8, deploy K=5, uniform Lv 25** via
+`M0_BASELINE_LEVEL` (the single difficulty knob — change it and the whole roster
+moves). Composition: the Mage War **Gravity Well** five (Sera/Assassin,
+Thessaly/Calculator, Lumen/Pyromancer, Chris/Templar, Clio/Hydrologist —
+rescaled off their authored per-slot levels to 25) + three hand-authored units
+(Alice/Alchemist ♀, Miluda/Knight ♀, Can'tano/Terraformer ♂) with Chris-specified
+loadouts + equipment. All fold clean; verified live to Formation.
+- **Equipment uniqueness is intentionally NOT held** for this roster (Chris's
+  call — it's unenforced in campaign anyway, and the economy will own gear
+  availability later). Miluda overlaps the Templar (Chris) on Warrior's Aegis /
+  Tactical Mask / Soldier's Leathers / Gauntlet of Might; Can'tano overlaps on
+  Tome of Power (Thessaly) / Skullclamp (Alice) / Wizard Robe (Lumen). Runs fine;
+  the unique-per-team convention just doesn't hold if a colliding pair is
+  co-deployed. Don't "fix" it — it's deliberate.
 
 ### Encounter winnability (carried from M0, still relevant)
 M1 reuses the shipped battle templates' enemy teams at their authored stats vs the
-roster at **Lv 25**. The loop needs both outcomes reachable per node. The **finale
-(The Return) reuses the River Ridge template** — same enemies as the opener, which
-may feel easy by then; if it plays trivially, hand-author its enemy team or bump
-levels (encounter authoring is M4, but a one-off tune is cheap).
+`m1Roster` at **Lv 25**. The loop needs both outcomes reachable per node. The
+**finale (The Return) reuses the River Ridge template** — same enemies as the
+opener, which may feel easy by then; if it plays trivially, hand-author its enemy
+team or bump `M0_BASELINE_LEVEL` (encounter authoring is M4, but a one-off tune is
+cheap).
 
 ### Known simplifications (by design — not bugs)
 - **Old M0 (v1) saves don't resume** — the position widening bumped the save to

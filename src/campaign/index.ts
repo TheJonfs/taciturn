@@ -24,6 +24,7 @@ export {
   M0_BASELINE_LEVEL,
   campaignUnitFromBuilt,
   m0Roster,
+  m1Roster,
 } from './roster.ts';
 
 // Chunk 2 — the pure loop core (snapshot-fold in, summarize + apply-back out).

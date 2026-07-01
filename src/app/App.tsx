@@ -33,7 +33,7 @@ import { mountainPassBattle } from '@content/battles/mountain-pass-battle.ts';
 import { buildTeamBattleConfig, type BuiltTeam } from '@content/teams/index.ts';
 import {
   M1_CAMPAIGN_GRAPH,
-  m0Roster,
+  m1Roster,
   startCampaign,
   saveCampaign,
   loadCampaign,
@@ -160,7 +160,7 @@ function AppInner() {
   // reuses DeploymentScreen + BattleView but owns its own roster/graph/loop.
   const [campaignState, setCampaignState] = useState<CampaignState | null>(null);
   const startNewCampaign = useCallback((): void => {
-    const fresh = startCampaign(M1_CAMPAIGN_GRAPH, m0Roster, catalog);
+    const fresh = startCampaign(M1_CAMPAIGN_GRAPH, m1Roster, catalog);
     saveCampaign(fresh); // initial autosave = the node-A retry checkpoint
     setCampaignState(fresh);
     setScreen('campaign');
