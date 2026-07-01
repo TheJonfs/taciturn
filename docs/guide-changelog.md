@@ -46,7 +46,7 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ## Session 79 (2026-07-01) — TABA campaign M1.5 (story scenes)
 
-Commit: _see session commit_. ADR-0135.
+Commit: `c1dd956`. ADR-0135.
 
 The campaign now weaves **story scenes** between and around battles. A node in
 the campaign is no longer always "one battle" — it's an authored sequence, where
