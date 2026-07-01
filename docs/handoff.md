@@ -36,16 +36,23 @@ Via the dev server (localStorage-save + Resume, since Pixi deployment isn't
 script-drivable): the **pre-battle scene** (River Ridge intro) → Formation; the
 **standalone node** "The Crossing" → world map; the **new 6-node map** + active
 edge highlight; **routing** (The Crossing → The Return) → next node's Formation +
-autosave. Fixed one bug found here: a TDZ crash (`planEntry` read `nonce` before
-its `useState` initialized) — `nonce` is now declared before `screen`.
+autosave. **Chris then hand-played the full flow** and confirmed the pre-River-
+Ridge scene, the **post-Stonebridge aftermath scene**, and the standalone node
+all work.
 
-### 🔎 NOT yet hand-verified end-to-end (Chris — a real playthrough)
-The **battle → result-summary → post-battle aftermath scene** path. It's covered
-by pure tests + the runner test, and the battle sub-flow itself is unchanged M1
-machinery, but a full deploy→fight→win of **Stonebridge** (to see its
-`[battle, story(aftermath)]` aftermath scene) wasn't walked (deployment placement
-needs the canvas). Use the S78 debug menu (Force Win) to traverse fast. Also
-worth eyeballing: the **terminal victory** result-summary at The Return.
+Two bugs found + fixed this session:
+- A TDZ crash (`planEntry` read `nonce` before its `useState` initialized) —
+  `nonce` now declared before `screen`.
+- **Routed-into story nodes skipped their dialogue** (`83f1db8`): a run→run
+  route transition reused the runner nonce, so React kept the just-finished
+  world-map runner mounted with a stale cursor and The Crossing jumped straight
+  to the next map. Fix: thread an explicit nonce through `planEntry`/
+  `resolutionRun` and bump it on the route transition (every new run remounts).
+  Regression guard: `CampaignApp.test.tsx` (world-map → route → standalone-node
+  dialogue; stays in presentational runs, no Pixi).
+
+Still worth an eyeball on a future playthrough (not blocking): the **terminal
+victory** result-summary at The Return.
 
 ### 🧭 Deferred by the seam-audit (NOT a bug — a scoped cut)
 **Multi-battle-node machinery.** The *model* supports `[battle, story, battle]`
@@ -56,19 +63,19 @@ such node, so it's unexercised. When consecutive battles are actually authored,
 add a beat-cursor + resolved-battle persistence (the "v3" the audit deferred).
 Save schema stays **v2**; old v1 saves still fail loud.
 
-### 🖼️ Portrait override seam laid (durable field + engine threading deferred)
-Groundwork for **plot characters with a fixed portrait independent of their
-current class** (units reclass freely). Added `PortraitRef` (`{kind:'class',...}`
-| `{kind:'fixed', key}`) + `resolvePortraitUrl` in `src/assets/portraits/
-index.ts` — the single override-aware entry point, layered over the pure
-class-derived `portraitUrlFor`. Story-scene `DialogueLine.portrait` now takes a
-`PortraitRef` (content points at a *portrait*, not a class). **Deferred to when
-the first plot character + art land (M5):** the durable `CampaignUnit.portrait?`
-override, threading it fold → `UnitPlacement` → engine `Unit` → renderer (the
-`gender`-cosmetic precedent, S55), and populating the empty `FIXED_PORTRAITS`
-registry. The 7 other `portraitUrlFor` call sites (renderer, roster/deploy
-panels) stay class-derived until that durable field exists — then they migrate
-to `resolvePortraitUrl(unit.portrait ?? {kind:'class', ...})`.
+### 🖼️ Portrait override seam laid (ADR-0136) — M5 completion documented
+Groundwork for **plot characters with a portrait independent of their current
+class** (units reclass freely). Shipped: `PortraitRef` (`{kind:'class',...}` |
+`{kind:'fixed', key}`) + `resolvePortraitUrl` in `src/assets/portraits/index.ts`
+(single override-aware entry point over the pure class-derived `portraitUrlFor`);
+story-scene `DialogueLine.portrait` now takes a `PortraitRef`. **The explicit M5
+to-do list lives in ADR-0136** — the two additive connections that make "a roster
+unit speaks with their enduring portrait + automatic class fallback": (1) durable
+`CampaignUnit.portrait?` override threaded fold → `UnitPlacement` → engine `Unit`
+→ renderer (the `gender`-cosmetic precedent, S55) + populating `FIXED_PORTRAITS`;
+(2) a speaker→roster-unit link on `DialogueLine` (today `speaker` is free text +
+an independent portrait ref — no tie to a `CampaignUnit`). Plus a small
+fallback-chain call for bespoke NPCs with missing art (ADR-0136 §3).
 
 ### Known simplifications (by design)
 - **Loss retry** re-enters the battle beat in-session (state unchanged, no story

@@ -185,7 +185,13 @@ work continues in parallel — it lands in the shared core and feeds this.
   (the unit-acquisition subsystem). The Steal-Equipment plant.
 - **M4 — Authoring + generation.** Encounter authoring matures (the S70 seam is the down-payment),
   the one-per-class relaxation (both sides), generative enemy teams.
-- **M5 — Story.** The TABA narrative layer (§1).
+- **M5 — Story.** The TABA narrative layer (§1). Groundwork from M1.5: the
+  story-scene beat + dialogue authoring shape ship, and the **portrait override
+  seam** (`PortraitRef` + `resolvePortraitUrl`, ADR-0136) is laid — plot
+  characters get a class-independent enduring portrait. M5 completes it: the
+  durable `CampaignUnit.portrait?` override + engine threading, and the
+  speaker→roster-unit link on `DialogueLine` (both additive; the explicit to-do
+  is in ADR-0136).
 
 **Dependency logic:** L0 hard-blocks everything; L1 needs L0; M2/M3/M4 each need L0+L1 but are
 loosely ordered *relative to each other* (reorderable by what makes it feel like a game soonest —
