@@ -1,43 +1,60 @@
-// CampaignApp — the TABA M0 campaign flow driver.
+// CampaignApp — the TABA campaign flow driver (M1: branching + interstitial).
 //
 // Wraps the pure battle as a state machine (campaign-decomposition §3),
 // reusing the existing DeploymentScreen + BattleView through the additive
-// `onBattleEnd` hook (ADR-0133). It owns the campaign sub-flow; the MW
-// setup chain is untouched.
+// `onBattleEnd` hook (ADR-0133). It owns the campaign sub-flow; the MW setup
+// chain is untouched.
 //
 //   formation → (fold roster) → deployment → battle → onBattleEnd
-//     win  → apply-back + advance + autosave → next node's formation,
-//            or the victory screen past the last node
-//     loss → defeat screen → retry (re-enter the node from the autosave) /
-//            quit. A loss runs no apply-back, so the failed attempt is
-//            discarded wholesale.
+//     win  → resolveWin (apply-back) → interstitial beats:
+//              result-summary → (non-terminal) world-map-choice →
+//              routeToNode + autosave → next node's formation
+//              (terminal) → result-summary is the victory → Title
+//     loss → interstitial: result-summary(loss) → Retry (re-enter the node
+//            from the autosave) / Quit. A loss runs no apply-back, so the
+//            failed attempt is discarded wholesale.
 //
-// The catalog, roster, node graph, and persistence all come from the
-// campaign shell; this component is just the React glue.
+// The between-node interstitial is an ordered beat-sequence run by a generic
+// runner (taba-m1-brief Chunk 2) — the slot M1.5 story-scenes plug into.
 
-import { useState, type CSSProperties, type ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { BattleView } from './BattleView.tsx';
 import { DeploymentScreen } from './DeploymentScreen.tsx';
 import { FormationScreen } from './FormationScreen.tsx';
+import { InterstitialRunner } from './interstitial/InterstitialRunner.tsx';
 import { buildDeployedBattleConfig, type DeploymentResult } from './deployment-config.ts';
 import {
-  M0_NODE_GRAPH,
-  advanceOnWin,
+  M1_CAMPAIGN_GRAPH,
   battleWasWon,
+  buildInterstitial,
   clearSavedCampaign,
   currentNode,
   deployableRoster,
   foldCampaignRoster,
   isComplete,
+  requireBattle,
+  resolveWin,
+  routeToNode,
   saveCampaign,
   summarizeBattleResult,
-  type CampaignNode,
+  type BeatOutput,
   type CampaignState,
   type CampaignUnit,
+  type InterstitialBeat,
 } from '@campaign/index.ts';
 import type { BattleConfig, Catalog, GameState, TeamId } from '@engine/index.ts';
 
-type SubScreen = 'formation' | 'deployment' | 'battle' | 'victory' | 'defeat';
+type SubScreen = 'formation' | 'deployment' | 'battle' | 'interstitial';
+
+// The captured between-node phase: the beats to run plus the resolved state
+// the completion handler routes from. `resolved` is the post-apply-back state
+// on a win, or the unchanged state on a loss (retry).
+interface InterstitialSession {
+  readonly beats: ReadonlyArray<InterstitialBeat>;
+  readonly resolved: CampaignState;
+  readonly won: boolean;
+  readonly complete: boolean;
+}
 
 export interface CampaignAppProps {
   // The starting state — a fresh `startCampaign(...)` or a resumed save.
@@ -47,23 +64,26 @@ export interface CampaignAppProps {
   readonly onExitToTitle: () => void;
 }
 
+const GRAPH = M1_CAMPAIGN_GRAPH;
+
 export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAppProps): ReactElement {
   const [state, setState] = useState<CampaignState>(initialState);
-  const [sub, setSub] = useState<SubScreen>(() =>
-    isComplete(initialState) ? 'victory' : 'formation',
-  );
+  const [sub, setSub] = useState<SubScreen>('formation');
   // The fold + deployment-in-progress config for the current node.
   const [fightConfig, setFightConfig] = useState<BattleConfig | null>(null);
+  // The active between-node interstitial (null outside it). A nonce keys the
+  // runner so each interstitial mounts fresh (resets its beat cursor).
+  const [interstitial, setInterstitial] = useState<InterstitialSession | null>(null);
+  const [interstitialNonce, setInterstitialNonce] = useState(0);
 
-  // Safe while in progress; the victory branch never reads it.
-  const node: CampaignNode | null = isComplete(state)
-    ? null
-    : currentNode(M0_NODE_GRAPH, state);
+  // Position always resolves — currentNodeId holds at the (possibly terminal)
+  // node; the phase, not the node lookup, carries completion.
+  const node = currentNode(GRAPH, state);
+  const battle = requireBattle(node);
 
   function handleFormationConfirm(selected: ReadonlyArray<CampaignUnit>): void {
-    if (node === null) return;
-    const folded = foldCampaignRoster(node.template, selected, node.playerTeam, catalog);
-    setFightConfig(stampControls(folded, node.playerTeam));
+    const folded = foldCampaignRoster(battle.template, selected, battle.playerTeam, catalog);
+    setFightConfig(stampControls(folded, battle.playerTeam));
     setSub('deployment');
   }
 
@@ -73,63 +93,64 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
   }
 
   function handleBattleEnd(finalState: GameState): void {
-    if (node === null) return;
     const result = summarizeBattleResult(finalState);
-    if (!battleWasWon(result, node)) {
-      setSub('defeat');
-      return;
-    }
-    const next = advanceOnWin(state, M0_NODE_GRAPH, result, finalState, catalog);
-    if (isComplete(next)) {
-      // Run finished — leave no resumable save, so "Resume Campaign" goes
-      // dark and New Campaign is the obvious next action. (The victory screen
-      // is shown in-session; reloading on it returns to a clean title.)
-      clearSavedCampaign();
-    } else {
-      saveCampaign(next); // autosave positioned at the next node (the retry checkpoint)
-    }
-    setState(next);
-    setFightConfig(null);
-    setSub(isComplete(next) ? 'victory' : 'formation');
+    const won = battleWasWon(result, node);
+    const resolved = won ? resolveWin(state, GRAPH, result, finalState, catalog) : state;
+    const complete = won && isComplete(resolved);
+    // Terminal win: drop the save immediately (M0 parity — Resume goes dark,
+    // reloading on the victory beat returns to a clean title).
+    if (complete) clearSavedCampaign();
+
+    const beats = buildInterstitial({
+      graph: GRAPH,
+      node,
+      roster: resolved.roster,
+      result,
+      won,
+      campaignComplete: complete,
+    });
+
+    setInterstitial({ beats, resolved, won, complete });
+    setInterstitialNonce((n) => n + 1);
+    setState(resolved);
+    setSub('interstitial');
   }
 
-  // Retry re-enters the current node from the autosave. `state` was not
-  // advanced on the loss, so it already equals that checkpoint.
-  function handleRetry(): void {
+  function handleInterstitialComplete(output: BeatOutput): void {
+    const session = interstitial;
+    setInterstitial(null);
+    if (session === null) return;
+
+    if (!session.won) {
+      // Loss → retry the same node from the unchanged state (== the autosave).
+      setFightConfig(null);
+      setSub('formation');
+      return;
+    }
+    if (session.complete) {
+      // Terminal win — the victory beat was shown, the save already cleared.
+      onExitToTitle();
+      return;
+    }
+    // Non-terminal win → route along the chosen win-edge, autosave at the next
+    // node (the retry checkpoint), and enter its formation.
+    const nextNodeId = output.nextNodeId;
+    if (nextNodeId === undefined) {
+      throw new Error('CampaignApp: non-terminal win interstitial produced no route');
+    }
+    const routed = routeToNode(session.resolved, GRAPH, nextNodeId);
+    saveCampaign(routed);
+    setState(routed);
     setFightConfig(null);
     setSub('formation');
   }
 
-  if (sub === 'victory') {
+  if (sub === 'interstitial' && interstitial !== null) {
     return (
-      <EndScreen
-        kind="victory"
-        title="Campaign Complete"
-        body="Your company fought through every battle and made it there — and back again."
-        onExitToTitle={onExitToTitle}
-      />
-    );
-  }
-
-  if (sub === 'defeat' && node !== null) {
-    return (
-      <EndScreen
-        kind="defeat"
-        title="Defeat"
-        body={`Your company was routed at ${node.name}. Retry from your last save, or return to the title.`}
-        onRetry={handleRetry}
-        onExitToTitle={onExitToTitle}
-      />
-    );
-  }
-
-  if (node === null) {
-    // Defensive: in-progress with no node would be a graph/index bug.
-    return (
-      <EndScreen
-        kind="defeat"
-        title="Campaign Error"
-        body="The campaign reached an invalid node. Returning to the title is safe."
+      <InterstitialRunner
+        key={interstitialNonce}
+        beats={interstitial.beats}
+        onComplete={handleInterstitialComplete}
         onExitToTitle={onExitToTitle}
       />
     );
@@ -139,10 +160,8 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     return (
       <FormationScreen
         nodeName={node.name}
-        nodeIndex={state.nodeIndex}
-        nodeCount={M0_NODE_GRAPH.length}
         roster={deployableRoster(state)}
-        deployCap={node.deployCap}
+        deployCap={battle.deployCap}
         catalog={catalog}
         onConfirm={handleFormationConfirm}
         onQuit={onExitToTitle}
@@ -154,8 +173,8 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     return (
       <DeploymentScreen
         template={fightConfig}
-        zones={node.zones}
-        deployingTeam={node.playerTeam}
+        zones={battle.zones}
+        deployingTeam={battle.playerTeam}
         onCommit={handleDeploymentCommit}
         onBack={() => setSub('formation')}
       />
@@ -194,90 +213,3 @@ function stampControls(config: BattleConfig, playerTeam: TeamId): BattleConfig {
     })),
   };
 }
-
-// ---- end screens (victory / defeat) ----
-
-interface EndScreenProps {
-  readonly kind: 'victory' | 'defeat';
-  readonly title: string;
-  readonly body: string;
-  readonly onRetry?: () => void;
-  readonly onExitToTitle: () => void;
-}
-
-function EndScreen({ kind, title, body, onRetry, onExitToTitle }: EndScreenProps): ReactElement {
-  return (
-    <div style={endRootStyle}>
-      <div style={endPanelStyle}>
-        <h1 style={{ ...endTitleStyle, color: kind === 'victory' ? '#9fe0a8' : '#e09f9f' }}>
-          {title}
-        </h1>
-        <p style={endBodyStyle}>{body}</p>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-          {onRetry !== undefined && (
-            <button type="button" style={endPrimaryStyle} onClick={onRetry}>
-              Retry Battle
-            </button>
-          )}
-          <button
-            type="button"
-            style={onRetry !== undefined ? endSecondaryStyle : endPrimaryStyle}
-            onClick={onExitToTitle}
-          >
-            Return to Title
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const endRootStyle: CSSProperties = {
-  width: '100%',
-  height: '100%',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: '#0e0f12',
-};
-
-const endPanelStyle: CSSProperties = {
-  width: 460,
-  padding: '28px 32px',
-  textAlign: 'center',
-  background: '#16181d',
-  border: '1px solid #2c2f36',
-  borderRadius: 8,
-};
-
-const endTitleStyle: CSSProperties = { margin: '0 0 12px', fontSize: 24, fontWeight: 700 };
-const endBodyStyle: CSSProperties = {
-  margin: '0 0 22px',
-  fontSize: 14,
-  lineHeight: 1.5,
-  color: '#c7ccd6',
-};
-
-const endButtonBaseStyle: CSSProperties = {
-  padding: '10px 18px',
-  fontSize: 14,
-  borderRadius: 5,
-  borderWidth: 1,
-  borderStyle: 'solid',
-  fontFamily: 'inherit',
-  cursor: 'pointer',
-};
-
-const endPrimaryStyle: CSSProperties = {
-  ...endButtonBaseStyle,
-  background: '#2a3140',
-  color: '#e7e9ee',
-  borderColor: '#3a4150',
-};
-
-const endSecondaryStyle: CSSProperties = {
-  ...endButtonBaseStyle,
-  background: '#1c1e23',
-  color: '#c7ccd6',
-  borderColor: '#2c2f36',
-};

@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { newCampaign } from './index.ts';
+import { M1_NODES } from './node.ts';
 import { m0Roster } from './roster.ts';
 import {
   CAMPAIGN_SCHEMA_VERSION,
@@ -13,20 +14,23 @@ import {
 } from './serialization.ts';
 import type { CampaignState } from './types.ts';
 
+const START = M1_NODES.riverRidge;
+
 function sampleState(): CampaignState {
-  // A mid-run state: advanced past node A, one unit lost, one wounded.
-  const base = newCampaign(m0Roster);
+  // A mid-run state: routed past the start to a fork branch, one unit lost,
+  // one wounded.
+  const base = newCampaign(m0Roster, START);
   const roster = base.roster.map((u, i) => {
     if (i === 0) return { ...u, fate: 'lost' as const };
     if (i === 1) return { ...u, vitals: { hp: 3, mp: 0 } };
     return u;
   });
-  return { ...base, roster, nodeIndex: 1 };
+  return { ...base, roster, currentNodeId: M1_NODES.stonebridge };
 }
 
 describe('campaign serialization', () => {
   it('round-trips a fresh campaign losslessly', () => {
-    const state = newCampaign(m0Roster);
+    const state = newCampaign(m0Roster, START);
     const restored = deserializeCampaign(serializeCampaign(state));
     expect(restored).toEqual(state);
   });
@@ -38,7 +42,7 @@ describe('campaign serialization', () => {
   });
 
   it('preserves stable unit identity across the round-trip', () => {
-    const state = newCampaign(m0Roster);
+    const state = newCampaign(m0Roster, START);
     const restored = deserializeCampaign(serializeCampaign(state));
     expect(restored.roster.map((u) => u.id)).toEqual(state.roster.map((u) => u.id));
   });
@@ -54,7 +58,7 @@ describe('campaign serialization', () => {
 
   it('omits gender entirely for units without one (no `gender: undefined`)', () => {
     // Author a unit without gender, confirm the key is absent post-parse.
-    const state = newCampaign(m0Roster);
+    const state = newCampaign(m0Roster, START);
     const json = serializeCampaign(state);
     const generic = JSON.parse(json) as { roster: Array<Record<string, unknown>> };
     for (const u of generic.roster) {
@@ -66,7 +70,7 @@ describe('campaign serialization', () => {
   });
 
   it('rejects a wrong schemaVersion loudly', () => {
-    const state = newCampaign(m0Roster);
+    const state = newCampaign(m0Roster, START);
     const tampered = JSON.stringify({ ...state, schemaVersion: CAMPAIGN_SCHEMA_VERSION + 1 });
     expect(() => deserializeCampaign(tampered)).toThrow(/unsupported schemaVersion/);
   });
@@ -79,18 +83,18 @@ describe('campaign serialization', () => {
     expect(() => deserializeCampaign('[]')).toThrow(/must be an object/);
   });
 
-  it('rejects a negative nodeIndex', () => {
-    const state = { ...newCampaign(m0Roster), nodeIndex: -1 };
-    expect(() => deserializeCampaign(JSON.stringify(state))).toThrow(/nodeIndex/);
+  it('rejects a missing/empty currentNodeId', () => {
+    const state = { ...newCampaign(m0Roster, START), currentNodeId: '' };
+    expect(() => deserializeCampaign(JSON.stringify(state))).toThrow(/currentNodeId/);
   });
 
   it('rejects an unknown phase', () => {
-    const state = { ...newCampaign(m0Roster), phase: 'paused' };
+    const state = { ...newCampaign(m0Roster, START), phase: 'paused' };
     expect(() => deserializeCampaign(JSON.stringify(state))).toThrow(/phase/);
   });
 
   it('rejects an unknown fate on a roster unit', () => {
-    const state = newCampaign(m0Roster);
+    const state = newCampaign(m0Roster, START);
     const broken = {
       ...state,
       roster: [{ ...state.roster[0], fate: 'fled' }, ...state.roster.slice(1)],
@@ -99,7 +103,7 @@ describe('campaign serialization', () => {
   });
 
   it('rejects a unit missing its id', () => {
-    const state = newCampaign(m0Roster);
+    const state = newCampaign(m0Roster, START);
     const firstWithoutId = { ...state.roster[0] } as Record<string, unknown>;
     delete firstWithoutId['id'];
     const broken = { ...state, roster: [firstWithoutId, ...state.roster.slice(1)] };
@@ -107,7 +111,7 @@ describe('campaign serialization', () => {
   });
 
   it('rejects malformed vitals', () => {
-    const state = newCampaign(m0Roster);
+    const state = newCampaign(m0Roster, START);
     const broken = {
       ...state,
       roster: [{ ...state.roster[0], vitals: { hp: 'full', mp: 0 } }, ...state.roster.slice(1)],

@@ -82,17 +82,21 @@ export interface CampaignUnit {
 // The persistent campaign container — the ENTIRE between-battle save
 // target (D-C). Plain-serializable by construction.
 //
-// The node-GRAPH definition (maps, enemy teams, deploy zones per node) is
+// The node-GRAPH definition (maps, enemy teams, deploy zones, edges) is
 // static authored content referenced by position, NOT serialized here —
-// only the *position* into it (`nodeIndex`) lives in the save, per
-// "identity by ID" (CLAUDE.md rule 4). M0's graph is linear A→B.
+// only the *position* into it (`currentNodeId`) lives in the save, per
+// "identity by ID" (CLAUDE.md rule 4). M1's graph is a branching DAG, so
+// position is a node ID, not M0's linear index (a branch can't be an integer
+// offset — taba-m1-brief).
 export interface CampaignState {
   // Bumped when the persisted shape changes; `deserializeCampaign`
   // rejects unknown versions loudly rather than silently migrating.
   readonly schemaVersion: number;
   readonly roster: ReadonlyArray<CampaignUnit>;
-  // 0 = node A, 1 = node B, … Advances on a win.
-  readonly nodeIndex: number;
+  // The node the campaign is currently at (the next battle to fight, or the
+  // just-won node while its interstitial runs). Advances along a win-edge
+  // when the player picks at the world map.
+  readonly currentNodeId: string;
   readonly phase: CampaignPhase;
 }
 

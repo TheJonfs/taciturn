@@ -3,7 +3,10 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { newCampaign } from './loop.ts';
+import { M1_NODES } from './node.ts';
 import { m0Roster } from './roster.ts';
+
+const START = M1_NODES.riverRidge;
 import {
   clearSavedCampaign,
   hasSavedCampaign,
@@ -16,7 +19,7 @@ afterEach(() => clearSavedCampaign(KEY));
 
 describe('campaign persistence', () => {
   it('round-trips a campaign through localStorage', () => {
-    const state = { ...newCampaign(m0Roster), nodeIndex: 1 };
+    const state = { ...newCampaign(m0Roster, START), currentNodeId: M1_NODES.stonebridge };
     expect(hasSavedCampaign(KEY)).toBe(false);
     saveCampaign(state, KEY);
     expect(hasSavedCampaign(KEY)).toBe(true);
@@ -28,7 +31,7 @@ describe('campaign persistence', () => {
   });
 
   it('clear removes the slot', () => {
-    saveCampaign(newCampaign(m0Roster), KEY);
+    saveCampaign(newCampaign(m0Roster, START), KEY);
     clearSavedCampaign(KEY);
     expect(hasSavedCampaign(KEY)).toBe(false);
     expect(loadCampaign(KEY)).toBeNull();

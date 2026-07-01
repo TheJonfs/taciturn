@@ -12,8 +12,6 @@ import type { Catalog, ClassId } from '@engine/index.ts';
 
 export interface FormationScreenProps {
   readonly nodeName: string;
-  readonly nodeIndex: number;
-  readonly nodeCount: number;
   readonly roster: ReadonlyArray<CampaignUnit>; // `active` units only
   readonly deployCap: number; // K
   // For class display names — kept consistent with the deployment roster
@@ -25,8 +23,6 @@ export interface FormationScreenProps {
 
 export function FormationScreen({
   nodeName,
-  nodeIndex,
-  nodeCount,
   roster,
   deployCap,
   catalog,
@@ -59,9 +55,7 @@ export function FormationScreen({
       <div style={panelStyle}>
         <div style={headerStyle}>
           <h1 style={titleStyle}>Formation — {nodeName}</h1>
-          <div style={subtitleStyle}>
-            Battle {nodeIndex + 1} of {nodeCount} · deploy up to {deployCap} of {roster.length}
-          </div>
+          <div style={subtitleStyle}>Deploy up to {deployCap} of {roster.length} units</div>
         </div>
 
         <ul style={listStyle}>

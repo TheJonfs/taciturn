@@ -154,6 +154,16 @@ work continues in parallel — it lands in the shared core and feeds this.
   battle-result emits the superset (XP/JP/wounds/outcome); M0 consumes only win/loss + unit survival
   (proves "emit superset, consume subset" on day one). *Head-start:* the **S70 registry/combiner seam
   is DRAWN** — it already defines a battle node as map + deployment zones + teams.
+- **M1 — The loop. ✅ SHIPPED 2026-06-30 (S78, ADR-0134).** Generalized M0's linear array into a
+  forward-branching graph (`src/campaign/graph.ts`: nodes + outcome-aware directed edges, where a
+  node's win-edges *are* the player's map choices — fork / skippable side-node / terminal all fall
+  out of one rule). Position widened `nodeIndex` → `currentNodeId` (save format v2; old v1 saves
+  don't resume). Built the **interstitial framework**: an open-set, typed beat-sequence run by a
+  type-agnostic runner (the slot M1.5 story-scenes plug into), shipping `result-summary` (one beat,
+  win/loss/complete variants — victory/defeat/result unified, not forked) + `world-map-choice` (a
+  placeholder SVG choose-next map). Authored a 5-node graph (River Ridge → fork → Stonebridge's
+  skippable Mountain Pass → convergent "The Return" finale). Player-choice-on-win + retry-on-loss
+  (D1); forward DAG (D2). **No engine changes.** Still no progression. Original scope below.
 - **M1 — The loop.** Thicken L1 into a branching battle-graph (required + optional nodes, win/loss
   routing) — navigable flow, not hard-coded A→B. Still no progression.
 - **M2 — Progression.** XP/JP, leveling, JP-gated unlock; "everything unlocked" → earned. The RPG

@@ -33,9 +33,25 @@ export type { BattleResult, UnitBattleSummary, UnitOutcome } from './battle-resu
 export { applyBattleResult } from './apply-back.ts';
 export { effectiveMaxVitals } from './vitals.ts';
 
-// Chunk 3 — the node graph, the loop transitions, and persistence.
-export type { CampaignNode } from './node.ts';
-export { M0_NODE_GRAPH } from './node.ts';
+// The branching graph model + routing (M1) and the authored M1 graph.
+export type {
+  CampaignNode,
+  NodeBattle,
+  CampaignEdge,
+  CampaignOutcome,
+  CampaignGraph,
+} from './graph.ts';
+export {
+  getNode,
+  nextNodes,
+  winChoices,
+  isTerminal,
+  isWinChoice,
+  requireBattle,
+} from './graph.ts';
+export { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+
+// The loop transitions + selectors.
 export {
   startCampaign,
   newCampaign,
@@ -43,9 +59,21 @@ export {
   currentNode,
   deployableRoster,
   battleWasWon,
-  advanceOnWin,
+  resolveWin,
+  routeToNode,
   isComplete,
 } from './loop.ts';
+
+// The interstitial beat-sequence (the between-node phase) — pure half.
+export { buildInterstitial, buildUnitResultLines } from './interstitial.ts';
+export type {
+  InterstitialBeat,
+  ResultSummaryBeat,
+  WorldMapChoiceBeat,
+  UnitResultLine,
+  NodeResolution,
+  BeatOutput,
+} from './interstitial.ts';
 export {
   CAMPAIGN_SAVE_KEY,
   saveCampaign,

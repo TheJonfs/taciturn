@@ -16,7 +16,11 @@ import type { CampaignPhase, CampaignState, CampaignUnit, UnitFate } from './typ
 // Persisted-shape version. Bump when `CampaignState`/`CampaignUnit` change
 // in a way that invalidates old saves; `deserializeCampaign` rejects any
 // other version rather than guessing a migration.
-export const CAMPAIGN_SCHEMA_VERSION = 1;
+//
+// v2 (M1): position widened from a linear `nodeIndex: number` to a branching
+// `currentNodeId: string`. Old v1 saves hard-fail to load (loud) rather than
+// migrate — acceptable for dev-only localStorage, deliberate not silent.
+export const CAMPAIGN_SCHEMA_VERSION = 2;
 
 const VALID_FATES: ReadonlyArray<UnitFate> = ['active', 'lost'];
 const VALID_PHASES: ReadonlyArray<CampaignPhase> = ['in_progress', 'won', 'lost'];
@@ -49,12 +53,7 @@ export function deserializeCampaign(json: string): CampaignState {
     );
   }
 
-  const nodeIndex = asNumber(root['nodeIndex'], 'nodeIndex');
-  if (!Number.isInteger(nodeIndex) || nodeIndex < 0) {
-    throw new Error(
-      `deserializeCampaign: nodeIndex must be a non-negative integer, got ${nodeIndex}`,
-    );
-  }
+  const currentNodeId = asNonEmptyString(root['currentNodeId'], 'currentNodeId');
 
   const phase = root['phase'];
   if (!isPhase(phase)) {
@@ -70,7 +69,7 @@ export function deserializeCampaign(json: string): CampaignState {
   }
   const roster = rawRoster.map((u, i) => validateUnit(u, i));
 
-  return { schemaVersion, roster, nodeIndex, phase };
+  return { schemaVersion, roster, currentNodeId, phase };
 }
 
 function validateUnit(raw: unknown, index: number): CampaignUnit {
