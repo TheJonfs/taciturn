@@ -158,16 +158,34 @@ export class DemoOrchestrator {
   // Remove a single unit mid-battle via the SAME reducer path normal
   // crystallization uses (`system_unit_removed`), so turn order, CT, and the
   // victory check all stay consistent and the renderer can animate it from the
-  // returned committed actions. The battle continues (unless this empties a
-  // team, in which case the reducer's victory check ends it). Returns null if
-  // the commit is refused (e.g. the unit is already removed).
+  // returned committed actions. The battle continues, UNLESS this empties a
+  // team — then the reducer's victory check ends it (a fully-removed side =
+  // rout). Returns null if the commit is refused (e.g. already removed).
+  //
+  // The engine only ever crystallizes ALREADY-KO'd units, so `removed ⟹ hp 0`
+  // is an invariant the hp-based `defeat_all` victory check depends on. A debug
+  // removal may target a healthy unit, so KO it first (hp/mp → 0) — otherwise a
+  // removed-but-hp>0 unit is still counted "alive" and clearing a side never
+  // routs.
   debugRemoveUnit(targetId: UnitId): { committed: ReadonlyArray<Action>; newState: GameState } | null {
+    const target = this.state.units.get(targetId);
+    if (target === undefined || target.removed) return null;
+    const koState: GameState =
+      target.vitals.hp > 0
+        ? {
+            ...this.state,
+            units: new Map(this.state.units).set(targetId, {
+              ...target,
+              vitals: { hp: 0, mp: 0 },
+            }),
+          }
+        : this.state;
     const proposed: ProposedAction = {
       type: 'system_unit_removed',
       source: 'system',
       payload: { targetId },
     };
-    const result = commitAction(this.state, proposed, this.catalog);
+    const result = commitAction(koState, proposed, this.catalog);
     if (!result.ok) return null;
     this.state = result.newState;
     return { committed: result.committed, newState: result.newState };

@@ -46,6 +46,50 @@ describe('DemoOrchestrator', () => {
     expect(finalState.outcome).toBeDefined();
   });
 
+  // Debug tooling (S78): debugRemoveUnit must KO the target (hp→0) as well as
+  // flag it removed, so the hp-based `defeat_all` victory check sees a fully-
+  // removed side as routed. Regression: removing a healthy unit left hp>0, so
+  // clearing the enemy side never ended the battle.
+  it('debugRemoveUnit KOs + removes, and clearing a side routs (victory fires)', () => {
+    const catalog = loadDefaultCatalog();
+    const initial = createInitialState(demoBattle, catalog);
+    const controllers = new Map(
+      demoBattle.teams.map((t) => [t.id, greedyMeleeController()] as const),
+    );
+    const orchestrator = new DemoOrchestrator(initial, catalog, controllers);
+
+    const enemyTeam = demoBattle.teams[1]!.id;
+    const enemies = [...initial.units.values()].filter((u) => u.team === enemyTeam);
+    expect(enemies.length).toBeGreaterThan(0);
+
+    for (const e of enemies) {
+      expect(orchestrator.getState().outcome).toBeUndefined(); // undecided until the last falls
+      const res = orchestrator.debugRemoveUnit(e.id);
+      expect(res).not.toBeNull();
+      const after = orchestrator.getState().units.get(e.id)!;
+      expect(after.removed).toBe(true);
+      expect(after.vitals.hp).toBe(0); // invariant restored (removed ⟹ hp 0)
+    }
+
+    // The final removal emptied the enemy side → rout → decided for team A.
+    const outcome = orchestrator.getState().outcome;
+    expect(outcome).toBeDefined();
+    expect(outcome!.winner).toBe(demoBattle.teams[0]!.id);
+  });
+
+  it('debugRemoveUnit returns null for an already-removed unit', () => {
+    const catalog = loadDefaultCatalog();
+    const initial = createInitialState(demoBattle, catalog);
+    const controllers = new Map(
+      demoBattle.teams.map((t) => [t.id, greedyMeleeController()] as const),
+    );
+    const orchestrator = new DemoOrchestrator(initial, catalog, controllers);
+    const victim = [...initial.units.values()][0]!;
+
+    expect(orchestrator.debugRemoveUnit(victim.id)).not.toBeNull();
+    expect(orchestrator.debugRemoveUnit(victim.id)).toBeNull(); // idempotent guard
+  });
+
   // Session 31.5 regression: pre-31.5 the orchestrator threw on any
   // commit failure — including legitimate runtime refusals like Don't
   // Move's onActionAttempted hook block. The throw propagated through
