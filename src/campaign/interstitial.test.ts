@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { UnitId } from '@engine/index.ts';
-import { buildInterstitial, buildUnitResultLines } from './interstitial.ts';
+import { buildInterstitial, buildRouteChoice, buildUnitResultLines } from './interstitial.ts';
 import type { BattleResult, UnitBattleSummary } from './battle-result.ts';
 import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
 import { getNode } from './graph.ts';
@@ -76,6 +76,18 @@ describe('buildInterstitial', () => {
     const summary = beats[0]!;
     if (summary.type === 'result-summary') {
       expect(summary.campaignComplete).toBe(true);
+    }
+  });
+
+  it('buildRouteChoice → [world-map-choice] only (resume into awaiting_route)', () => {
+    // On resume the transient result is gone: no result-summary, straight to
+    // the map choice for the cleared node.
+    const beats = buildRouteChoice(GRAPH, M1_NODES.riverRidge);
+    expect(beats.map((b) => b.type)).toEqual(['world-map-choice']);
+    const map = beats[0]!;
+    if (map.type === 'world-map-choice') {
+      expect(map.fromNodeId).toBe(M1_NODES.riverRidge);
+      expect(map.choices.map((c) => c.id)).toEqual([M1_NODES.stonebridge, M1_NODES.marshmoor]);
     }
   });
 

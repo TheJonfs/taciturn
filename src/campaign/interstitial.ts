@@ -111,10 +111,24 @@ export function buildInterstitial(params: {
   if (!won || campaignComplete) return [summary];
 
   // Non-terminal win: result, then the world-map choose-next beat.
-  const mapBeat: WorldMapChoiceBeat = {
+  return [summary, routeChoiceBeat(graph, node.id)];
+}
+
+// The world-map-choice beat for a node, standalone. Used both inside
+// `buildInterstitial` (after a fresh win) and on RESUME into an `awaiting_route`
+// save — where the transient BattleResult is gone, so there's no result-summary
+// to replay and the player resumes directly at the map choice.
+export function buildRouteChoice(
+  graph: CampaignGraph,
+  nodeId: string,
+): ReadonlyArray<InterstitialBeat> {
+  return [routeChoiceBeat(graph, nodeId)];
+}
+
+function routeChoiceBeat(graph: CampaignGraph, nodeId: string): WorldMapChoiceBeat {
+  return {
     type: 'world-map-choice',
-    fromNodeId: node.id,
-    choices: winChoices(graph, node.id).map((n) => ({ id: n.id, name: n.name })),
+    fromNodeId: nodeId,
+    choices: winChoices(graph, nodeId).map((n) => ({ id: n.id, name: n.name })),
   };
-  return [summary, mapBeat];
 }

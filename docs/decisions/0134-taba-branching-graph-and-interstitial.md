@@ -66,10 +66,21 @@ integer offset. `CAMPAIGN_SCHEMA_VERSION` bumps 1→2; the deserializer validate
 `currentNodeId` as a non-empty string. Per M0's fail-loud discipline, **old v1
 saves hard-fail to load** rather than silently migrate — acceptable for the
 dev-only localStorage slot, and deliberate (a wrong version is rejected, not
-guessed). The autosave lands at each *node-entry* checkpoint (start, and after
-each map-choice route), so it doubles as the retry checkpoint; a reload *during*
-an interstitial re-enters the just-won node (the known M0 "save = node entry"
-simplification, carried forward).
+guessed).
+
+**Save-after-battle (revised from the initial M1 cut).** The autosave lands at
+two checkpoints: node *entry* (start + after each map-choice route → the retry
+point for that battle) **and immediately after a won battle resolves**. The
+post-win save carries a new phase, **`awaiting_route`** — "this node is cleared
+(roster already healed via apply-back); pick the next node at the world map."
+This is added to `CampaignPhase` (a backward-compatible enum addition — old v2
+saves still read); `routeToNode` clears it back to `in_progress` at the chosen
+node. On **resume** into `awaiting_route`, the driver drops the player straight
+at a **map-only** interstitial (`buildRouteChoice`) — the transient `BattleResult`
+is gone on reload, so there's no result-summary to replay, only the actionable
+choice. This fixes the initial cut's "reload during the interstitial re-fights
+the won node" behavior: a reload after winning now resumes at the map, not the
+re-fight.
 
 ### 4. The win transition splits into `resolveWin` + `routeToNode`
 

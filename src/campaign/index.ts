@@ -66,7 +66,7 @@ export {
 } from './loop.ts';
 
 // The interstitial beat-sequence (the between-node phase) — pure half.
-export { buildInterstitial, buildUnitResultLines } from './interstitial.ts';
+export { buildInterstitial, buildRouteChoice, buildUnitResultLines } from './interstitial.ts';
 export type {
   InterstitialBeat,
   ResultSummaryBeat,

@@ -27,6 +27,7 @@ import {
   M1_CAMPAIGN_GRAPH,
   battleWasWon,
   buildInterstitial,
+  buildRouteChoice,
   clearSavedCampaign,
   currentNode,
   deployableRoster,
@@ -68,12 +69,26 @@ const GRAPH = M1_CAMPAIGN_GRAPH;
 
 export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAppProps): ReactElement {
   const [state, setState] = useState<CampaignState>(initialState);
-  const [sub, setSub] = useState<SubScreen>('formation');
+  // Resuming a save taken right after a won battle (`awaiting_route`) drops the
+  // player back at the world-map choice, not into a re-fight of the won node.
+  // The transient BattleResult is gone on reload, so there's no result-summary
+  // to replay — resume goes straight to a map-only interstitial.
+  const resumingAtRoute = initialState.phase === 'awaiting_route';
+  const [sub, setSub] = useState<SubScreen>(resumingAtRoute ? 'interstitial' : 'formation');
   // The fold + deployment-in-progress config for the current node.
   const [fightConfig, setFightConfig] = useState<BattleConfig | null>(null);
   // The active between-node interstitial (null outside it). A nonce keys the
   // runner so each interstitial mounts fresh (resets its beat cursor).
-  const [interstitial, setInterstitial] = useState<InterstitialSession | null>(null);
+  const [interstitial, setInterstitial] = useState<InterstitialSession | null>(() =>
+    resumingAtRoute
+      ? {
+          beats: buildRouteChoice(GRAPH, initialState.currentNodeId),
+          resolved: initialState,
+          won: true,
+          complete: false,
+        }
+      : null,
+  );
   const [interstitialNonce, setInterstitialNonce] = useState(0);
 
   // Position always resolves — currentNodeId holds at the (possibly terminal)
@@ -97,9 +112,18 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     const won = battleWasWon(result, node);
     const resolved = won ? resolveWin(state, GRAPH, result, finalState, catalog) : state;
     const complete = won && isComplete(resolved);
-    // Terminal win: drop the save immediately (M0 parity — Resume goes dark,
-    // reloading on the victory beat returns to a clean title).
-    if (complete) clearSavedCampaign();
+    // Save-after-battle: persist the resolved state the moment the battle ends,
+    // so a reload before the map pick doesn't discard the win.
+    //   - terminal win → drop the save (M0 parity — Resume goes dark, reloading
+    //     on the victory beat returns to a clean title).
+    //   - non-terminal win → save the `awaiting_route` checkpoint at the cleared
+    //     node (resume drops the player back at the world map).
+    //   - loss → no save; the existing node-entry checkpoint is the retry point.
+    if (complete) {
+      clearSavedCampaign();
+    } else if (won) {
+      saveCampaign(resolved);
+    }
 
     const beats = buildInterstitial({
       graph: GRAPH,

@@ -76,9 +76,12 @@ cheap).
   practice, a small "obsolete-version → treat as no save" guard in `App`'s resume
   path is the fix (deferred — didn't want an ad-hoc catch that could mask real
   corruption).
-- **Interstitial reload re-fights** — the autosave lands at node *entry* (start +
-  after each map pick), so reloading *during* an interstitial (won, not yet
-  picked) re-enters the just-won node. Carried M0 "save = node entry" discipline.
+- **Save-after-battle** (fixed after Chris hit the re-fight on reload) — the
+  autosave now also fires the moment a won battle resolves, carrying an
+  `awaiting_route` phase (node cleared, choosing next). Reloading after a win
+  resumes at the **world map**, not a re-fight. Resume into `awaiting_route` shows
+  a **map-only** interstitial (the transient BattleResult is gone, so no
+  result-summary replay). Node-entry saves still checkpoint the retry point.
 - **Wounds still don't carry** (M0 D-E) — heal-to-full each boundary; the carry
   plumbing is built, switch-on is one line in `apply-back.ts`. Deferred to an
   attrition pass.

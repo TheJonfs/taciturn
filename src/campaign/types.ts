@@ -100,7 +100,13 @@ export interface CampaignState {
   readonly phase: CampaignPhase;
 }
 
-// Where the campaign run stands. `in_progress` until the last node is
-// cleared (`won`) or the player is wiped at a node (`lost`). Resume reads
-// this to know whether to continue or show the end screen.
-export type CampaignPhase = 'in_progress' | 'won' | 'lost';
+// Where the campaign run stands. Resume reads this to know where to drop the
+// player back in:
+//   - `in_progress`    — at a node, about to fight it (Formation).
+//   - `awaiting_route` — the current node is CLEARED (roster already healed via
+//     apply-back); the player must pick the next node at the world map. Saved
+//     right after a winning battle so a reload doesn't re-fight the won node.
+//     `routeToNode` clears it back to `in_progress` at the chosen next node.
+//   - `won`            — the terminal node was cleared; campaign complete.
+//   - `lost`           — reserved (player wiped at a node); unused in M1.
+export type CampaignPhase = 'in_progress' | 'awaiting_route' | 'won' | 'lost';

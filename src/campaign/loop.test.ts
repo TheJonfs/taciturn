@@ -113,16 +113,18 @@ describe('selectors', () => {
 describe('resolveWin', () => {
   const deployed = m0Roster.slice(0, 3);
 
-  it('applies the result back and stays in progress at a non-terminal node', () => {
+  it('applies the result back and enters awaiting_route at a non-terminal node', () => {
     const start = startCampaign(GRAPH, m0Roster, catalog);
     const finalState = terminalState(START, deployed, 'player');
     const result = summarizeBattleResult(finalState);
     const resolved = resolveWin(start, GRAPH, result, finalState, catalog);
 
-    // Position does NOT move on resolveWin — it holds at the won node for the
-    // interstitial; routeToNode advances it.
+    // Position does NOT move on resolveWin — it holds at the won node, now in
+    // `awaiting_route` (cleared, choosing next); routeToNode advances it. This
+    // is the state saved right after the battle.
     expect(resolved.currentNodeId).toBe(START.id);
-    expect(resolved.phase).toBe('in_progress');
+    expect(resolved.phase).toBe('awaiting_route');
+    expect(isComplete(resolved)).toBe(false);
     // The forced-lost first deployed unit is marked on the durable roster.
     expect(resolved.roster.find((u) => u.id === deployed[0]!.id)!.fate).toBe('lost');
   });
@@ -143,12 +145,14 @@ describe('resolveWin', () => {
 });
 
 describe('routeToNode', () => {
-  it('advances position along a legal win-choice', () => {
-    const start = startCampaign(GRAPH, m0Roster, catalog);
-    const routed = routeToNode(start, GRAPH, M1_NODES.marshmoor);
+  it('advances position along a legal win-choice and clears awaiting_route', () => {
+    // Simulate the real sequence: a resolved (awaiting_route) state, then pick.
+    const awaiting = { ...startCampaign(GRAPH, m0Roster, catalog), phase: 'awaiting_route' as const };
+    const routed = routeToNode(awaiting, GRAPH, M1_NODES.marshmoor);
     expect(routed.currentNodeId).toBe(M1_NODES.marshmoor);
+    expect(routed.phase).toBe('in_progress'); // ready to fight the chosen node
     // The roster is carried unchanged (resolveWin already healed it).
-    expect(routed.roster).toBe(start.roster);
+    expect(routed.roster).toBe(awaiting.roster);
   });
 
   it('throws on an illegal route (not a win-choice from the current node)', () => {

@@ -23,7 +23,12 @@ import type { CampaignPhase, CampaignState, CampaignUnit, UnitFate } from './typ
 export const CAMPAIGN_SCHEMA_VERSION = 2;
 
 const VALID_FATES: ReadonlyArray<UnitFate> = ['active', 'lost'];
-const VALID_PHASES: ReadonlyArray<CampaignPhase> = ['in_progress', 'won', 'lost'];
+const VALID_PHASES: ReadonlyArray<CampaignPhase> = [
+  'in_progress',
+  'awaiting_route',
+  'won',
+  'lost',
+];
 
 export function serializeCampaign(state: CampaignState): string {
   return JSON.stringify(state);

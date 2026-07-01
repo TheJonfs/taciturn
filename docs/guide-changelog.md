@@ -66,10 +66,12 @@ come later).
   is the same screen for a win, a loss (**Defeat**, with Retry), and the final
   **Campaign Complete** victory.
 - **Losing** still lets you **retry the battle from your last save** (unchanged).
-- **Save note:** the campaign save format changed this milestone, so an
-  **in-progress M0 campaign won't resume** — start a new campaign. (Between-battle
-  autosave + Resume otherwise work as before, now remembering your place in the
-  branching map.)
+- **Autosave & resume:** the campaign autosaves **right after you win a battle**
+  (as well as when you start the next one), so if you close the game after a win
+  but before choosing your next destination, **Resume drops you back at the world
+  map** — you won't have to re-fight the battle you already won. (Save note: the
+  save format changed this milestone, so an **in-progress M0 campaign won't
+  resume** — start a new campaign.)
 - *Still not in the campaign:* leveling/XP, JP/ability unlocks, money/shops/gear,
   recruiting, story. The single-battle "New Battle" (Mage War) mode is unchanged.
 

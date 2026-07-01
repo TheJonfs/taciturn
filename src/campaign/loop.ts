@@ -87,11 +87,14 @@ export function battleWasWon(result: BattleResult, node: CampaignNode): boolean 
 }
 
 // The first half of the win transition: apply the battle result back to the
-// roster (heal survivors/downed, mark lost) and decide whether the won node
-// was terminal (campaign complete). POSITION DOES NOT MOVE here — it stays at
-// the won node while its interstitial (result summary, then the world-map
-// choice) runs; routeToNode advances it once the player picks. Call ONLY on a
-// win; a loss leaves the state untouched (retry re-enters the same node).
+// roster (heal survivors/downed, mark lost) and mark where the run stands.
+// POSITION DOES NOT MOVE here — it stays at the won node. A non-terminal win
+// enters `awaiting_route` (the node is cleared; the player picks the next node
+// at the world map); a terminal win is `won` (campaign complete). This
+// resolved state is what's saved right after the battle, so a reload before
+// the player picks resumes at the world map rather than re-fighting the won
+// node. Call ONLY on a win; a loss leaves the state untouched (retry re-enters
+// the same node).
 export function resolveWin(
   state: CampaignState,
   graph: CampaignGraph,
@@ -100,14 +103,15 @@ export function resolveWin(
   catalog: Catalog,
 ): CampaignState {
   const roster = applyBattleResult(state.roster, result, finalState, catalog);
-  const phase = isTerminal(graph, state.currentNodeId) ? 'won' : 'in_progress';
+  const phase = isTerminal(graph, state.currentNodeId) ? 'won' : 'awaiting_route';
   return { ...state, roster, phase };
 }
 
 // The second half of the win transition: the player picked `nextNodeId` at the
 // world map. Validate it is a legal win-choice from the current node (fail
-// loud on an illegal route) and advance position to it. The roster already
-// carries the resolveWin apply-back; this only moves position.
+// loud on an illegal route), advance position to it, and clear `awaiting_route`
+// back to `in_progress` (about to fight the chosen node). The roster already
+// carries the resolveWin apply-back; this only moves position + phase.
 export function routeToNode(
   state: CampaignState,
   graph: CampaignGraph,
@@ -118,7 +122,7 @@ export function routeToNode(
       `routeToNode: "${nextNodeId}" is not a win-choice from "${state.currentNodeId}"`,
     );
   }
-  return { ...state, currentNodeId: nextNodeId };
+  return { ...state, currentNodeId: nextNodeId, phase: 'in_progress' };
 }
 
 export function isComplete(state: CampaignState): boolean {

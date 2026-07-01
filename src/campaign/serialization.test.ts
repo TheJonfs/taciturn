@@ -88,6 +88,13 @@ describe('campaign serialization', () => {
     expect(() => deserializeCampaign(JSON.stringify(state))).toThrow(/currentNodeId/);
   });
 
+  it('round-trips an awaiting_route save (cleared node, choosing next)', () => {
+    const state = { ...newCampaign(m0Roster, START), phase: 'awaiting_route' as const };
+    const restored = deserializeCampaign(serializeCampaign(state));
+    expect(restored.phase).toBe('awaiting_route');
+    expect(restored).toEqual(state);
+  });
+
   it('rejects an unknown phase', () => {
     const state = { ...newCampaign(m0Roster, START), phase: 'paused' };
     expect(() => deserializeCampaign(JSON.stringify(state))).toThrow(/phase/);
