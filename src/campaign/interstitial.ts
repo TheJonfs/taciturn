@@ -1,30 +1,38 @@
-// TABA campaign — the interstitial beat-sequence (the between-node phase).
+// TABA campaign — the presentational interstitial beats + their builders.
 //
-// After a node resolves, the campaign plays an ORDERED SEQUENCE OF TYPED BEATS
-// before routing to the next node (taba-m1-brief Chunk 2). This module owns
-// the PURE half: the beat *descriptors* (plain data) and the builder that
-// assembles the sequence for a resolved node. The React *runner* + per-type
-// renderers live in the app layer (src/app/interstitial/); the runner walks
-// the sequence generically and never switches on a beat type — so M1.5's
-// story beat (and later rewards/shops) plug in by adding a descriptor variant
-// + a renderer, never by editing the runner (watch-for: keep the set open).
+// A node is a beat sequence (M1.5 battle-as-beat, sequence.ts). Its `battle`
+// beats are the structural, engine-launching kind; its OTHER beats are
+// PRESENTATIONAL — single screens the generic runner dispatches by type and
+// never switches on. This module owns those presentational descriptors (plain
+// data) + the small builders the driver composes runs from. The React runner +
+// per-type renderers live in the app layer (src/app/interstitial/); adding a
+// beat type (M1.5's story-scene, later rewards/shops) is a descriptor variant +
+// a renderer + a registry entry, never a runner edit (watch-for: keep the set
+// open).
 //
-// M1 ships two beat types:
+// The presentational beats:
+//   - `story-scene` — authored dialogue (sequence.ts; authored on the node AND
+//     replayed here as a presentational beat — same descriptor, one renderer).
 //   - `result-summary` — the post-battle screen. ONE beat type with win /
 //     loss / campaign-complete variants, so victory, defeat, and the
 //     between-node result are a single path, not three forked screens
-//     (watch-for: don't fork the result screen).
-//   - `world-map-choice` — the choose-next screen (Chunk 3). Present only on a
-//     non-terminal win; its advance carries the chosen next-node id.
+//     (watch-for: don't fork the result screen). Injected by the driver after a
+//     battle beat (outcome-built — brief D2), never authored.
+//   - `world-map-choice` — the choose-next screen. Injected by the driver when a
+//     non-terminal node resolves; its advance carries the chosen next-node id.
 //
-// Sequences M1 builds:
-//   win, non-terminal → [result-summary(win), world-map-choice]
-//   win, terminal     → [result-summary(win, campaignComplete)]
-//   loss              → [result-summary(loss)]   (advance = retry; no routing)
+// Runs the driver composes (taba-m1_5-brief):
+//   pre-battle story        → [story-scene, ...]                (authored, verbatim)
+//   post-battle, non-terminal → [result-summary(win), ...trailing story, world-map-choice]
+//   post-battle, terminal   → [result-summary(win, campaignComplete)]
+//   loss                    → [result-summary(loss)]            (advance = retry)
+//   standalone story, non-terminal → [...story, world-map-choice]
+//   resume at awaiting_route → [world-map-choice]               (result is gone)
 
 import type { UnitId, Vitals } from '@engine/index.ts';
 import type { BattleResult, UnitOutcome } from './battle-result.ts';
 import { winChoices, type CampaignGraph, type CampaignNode } from './graph.ts';
+import type { StorySceneBeat } from './sequence.ts';
 import type { CampaignUnit } from './types.ts';
 
 // How a resolved node turned out, from the campaign's point of view.
@@ -58,9 +66,12 @@ export interface WorldMapChoiceBeat {
   readonly choices: ReadonlyArray<{ readonly id: string; readonly name: string }>;
 }
 
-// The open set of beat descriptors. M1.5 extends this union (story-scene
-// beat); the runner doesn't change.
-export type InterstitialBeat = ResultSummaryBeat | WorldMapChoiceBeat;
+// The open set of PRESENTATIONAL beat descriptors the runner dispatches by
+// type. `story-scene` is authored (sequence.ts) but replayed here as a peer;
+// `result-summary` / `world-map-choice` are driver-injected runtime beats.
+// (The structural `battle` beat is NOT here — it launches the engine and is
+// walked by the driver, not rendered by the runner.)
+export type InterstitialBeat = StorySceneBeat | ResultSummaryBeat | WorldMapChoiceBeat;
 
 // What a beat hands back when it advances. Only world-map-choice produces a
 // route in M1; the field is optional so other beats advance with no output.
@@ -84,51 +95,47 @@ export function buildUnitResultLines(
   return lines;
 }
 
-// Assemble the interstitial beat sequence for a just-resolved node. Pure: the
-// caller (the app driver) feeds the resolved state's roster + the battle
-// result; this decides the beats. `won` comes from `battleWasWon`;
-// `campaignComplete` from `isComplete(resolveWin(...))`.
-export function buildInterstitial(params: {
-  readonly graph: CampaignGraph;
+// Build the post-battle-beat result-summary. Pure: the caller (the app driver)
+// feeds the roster it should show (the battle's final vitals, via the result)
+// + whether the battle was won + whether winning it completes the campaign.
+// `won` comes from `battleWasWon`; `campaignComplete` is true only when this is
+// the node's LAST battle beat AND the node is terminal (`isComplete` after
+// `resolveNode`). The driver decides what FOLLOWS this beat (trailing story,
+// world-map, retry) — this only builds the one screen.
+export function buildResultSummaryBeat(params: {
   readonly node: CampaignNode;
   readonly roster: ReadonlyArray<CampaignUnit>;
   readonly result: BattleResult;
   readonly won: boolean;
   readonly campaignComplete: boolean;
-}): ReadonlyArray<InterstitialBeat> {
-  const { graph, node, roster, result, won, campaignComplete } = params;
-  const units = buildUnitResultLines(roster, result);
-
-  const summary: ResultSummaryBeat = {
+}): ResultSummaryBeat {
+  const { node, roster, result, won, campaignComplete } = params;
+  return {
     type: 'result-summary',
     resolution: won ? 'win' : 'loss',
     nodeName: node.name,
-    units,
+    units: buildUnitResultLines(roster, result),
     campaignComplete: won && campaignComplete,
   };
-
-  // Loss, or a terminal win: the result-summary is the whole interstitial.
-  if (!won || campaignComplete) return [summary];
-
-  // Non-terminal win: result, then the world-map choose-next beat.
-  return [summary, routeChoiceBeat(graph, node.id)];
 }
 
-// The world-map-choice beat for a node, standalone. Used both inside
-// `buildInterstitial` (after a fresh win) and on RESUME into an `awaiting_route`
-// save — where the transient BattleResult is gone, so there's no result-summary
-// to replay and the player resumes directly at the map choice.
-export function buildRouteChoice(
-  graph: CampaignGraph,
-  nodeId: string,
-): ReadonlyArray<InterstitialBeat> {
-  return [routeChoiceBeat(graph, nodeId)];
-}
-
-function routeChoiceBeat(graph: CampaignGraph, nodeId: string): WorldMapChoiceBeat {
+// The world-map-choice beat for a node. Built by the driver when a non-terminal
+// node resolves, and on RESUME into an `awaiting_route` save (where the
+// transient BattleResult is gone, so there's no result-summary to replay and
+// the player resumes directly at the map choice).
+export function buildRouteChoiceBeat(graph: CampaignGraph, nodeId: string): WorldMapChoiceBeat {
   return {
     type: 'world-map-choice',
     fromNodeId: nodeId,
     choices: winChoices(graph, nodeId).map((n) => ({ id: n.id, name: n.name })),
   };
+}
+
+// The world-map-choice as a single-beat run — the RESUME-at-`awaiting_route`
+// entry (kept as a run for the runner's `beats` prop).
+export function buildRouteChoice(
+  graph: CampaignGraph,
+  nodeId: string,
+): ReadonlyArray<InterstitialBeat> {
+  return [buildRouteChoiceBeat(graph, nodeId)];
 }

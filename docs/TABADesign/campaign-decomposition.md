@@ -166,6 +166,18 @@ work continues in parallel — it lands in the shared core and feeds this.
   (D1); forward DAG (D2). **No engine changes.** Still no progression. Original scope below.
 - **M1 — The loop.** Thicken L1 into a branching battle-graph (required + optional nodes, win/loss
   routing) — navigable flow, not hard-coded A→B. Still no progression.
+- **M1.5 — Story-scenes (battle-as-beat). ✅ SHIPPED 2026-07-01 (S79, ADR-0135).** Generalized M1's
+  fixed formation→deployment→battle→post-battle pipeline into a node-owned **beat sequence** where a
+  battle is one beat-type among others (`src/campaign/sequence.ts`: `story-scene` / `battle` beats;
+  `NodeBattle` moved here; `requireBattle` deleted). The driver (`CampaignApp`) walks the sequence —
+  presentational beats through the type-agnostic runner, battle beats launching formation/deployment
+  for their own `NodeBattle` and resuming after. Story scenes now play **pre-battle**, **post-battle**,
+  or **standalone** (a scene, no fight). `resolveWin` split into per-battle `applyBattleBeatWin` +
+  per-node `resolveNode`; result-summary auto-inserted after a battle beat (D2). Authored a boilerplate
+  storyline (River Ridge `[story,battle]`, Stonebridge `[battle,story]`, standalone "The Crossing").
+  **Persistence stays node-granular — no v3** (the seam-audit found mid-sequence save is only needed for
+  multi-battle nodes M1.5 doesn't author); routing stays edge-driven (D3, choice-routing deferred).
+  **No engine changes.** Still no progression.
 - **M2 — Progression.** XP/JP, leveling, JP-gated unlock; "everything unlocked" → earned. The RPG
   heart and the design-identity shift to a tuned curve / deliberately asymmetric power.
   **(Before M3 — locked: growth before gear.)**

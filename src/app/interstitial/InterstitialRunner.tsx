@@ -14,6 +14,7 @@
 import { useRef, useState, type ReactElement } from 'react';
 import type { BeatOutput, InterstitialBeat } from '@campaign/index.ts';
 import { ResultSummaryBeatView } from './ResultSummaryBeatView.tsx';
+import { StorySceneBeatView } from './StorySceneBeatView.tsx';
 import { WorldMapBeatView } from './WorldMapBeatView.tsx';
 
 export interface BeatRendererProps {
@@ -27,6 +28,7 @@ export type BeatRenderer = (props: BeatRendererProps) => ReactElement;
 // The open registry — exhaustive over the current beat union (a new variant
 // forces a new entry here, by type), but the runner reads it by string.
 const BEAT_RENDERERS: Readonly<Record<InterstitialBeat['type'], BeatRenderer>> = {
+  'story-scene': StorySceneBeatView,
   'result-summary': ResultSummaryBeatView,
   'world-map-choice': WorldMapBeatView,
 };

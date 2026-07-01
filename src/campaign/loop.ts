@@ -6,31 +6,36 @@
 // Side effects (localStorage, the interactive battle) live in the app layer;
 // everything here is testable in isolation.
 //
-// M1 flow (branching — taba-m1-brief): startCampaign → [node: deploy K-of-N →
-//   fight → summarize] →
-//   win  → resolveWin (apply-back heals, mark terminal) → interstitial beats
-//          (result → world-map choice) → routeToNode (follow the chosen
-//          win-edge) → save → next node, or `won` at a terminal node.
-//   loss → state UNCHANGED; the driver re-enters the same node (retry from the
-//          between-battle autosave, which is exactly this state). No
-//          apply-back runs, so a failed attempt is discarded wholesale.
+// M1.5 flow (battle-as-beat — taba-m1_5-brief): startCampaign → [node: walk its
+//   authored beat sequence] where each beat is played in turn:
+//     story-scene beat → the driver runs the scene (presentational).
+//     battle beat      → deploy K-of-N → fight → summarize:
+//        win  → applyBattleBeatWin (apply-back heals/marks-lost; PHASE holds)
+//               → continue the sequence.
+//        loss → state UNCHANGED; retry re-enters the battle (no apply-back, so
+//               the failed attempt is discarded wholesale).
+//   When the sequence finishes (all battle beats won, or a standalone story
+//   node ends) → resolveNode sets phase: `awaiting_route` (non-terminal — pick
+//   the next node at the world map) or `won` (terminal). routeToNode follows
+//   the chosen win-edge → save → next node.
 //
-// The win is split into resolveWin (apply-back; position holds at the won node
-// while its interstitial runs) and routeToNode (the player's map choice
-// advances position) — M0's single advanceOnWin couldn't branch because the
-// next node wasn't a choice.
+// The node win is split into applyBattleBeatWin (apply-back, once per battle
+// beat) and resolveNode (phase, once per node) — M1's single resolveWin fused
+// them because a node had exactly one battle. routeToNode (the player's map
+// choice advances position) stays separate — M0's single advanceOnWin couldn't
+// branch because the next node wasn't a choice.
 
-import type { Catalog, GameState } from '@engine/index.ts';
+import type { Catalog, GameState, TeamId } from '@engine/index.ts';
 import { applyBattleResult } from './apply-back.ts';
 import type { BattleResult } from './battle-result.ts';
 import {
   getNode,
   isTerminal,
   isWinChoice,
-  requireBattle,
   type CampaignGraph,
   type CampaignNode,
 } from './graph.ts';
+import { firstBattleBeat } from './sequence.ts';
 import { probeEffectiveMaxes } from './snapshot-fold.ts';
 import { CAMPAIGN_SCHEMA_VERSION } from './serialization.ts';
 import type { CampaignState, CampaignUnit } from './types.ts';
@@ -59,13 +64,24 @@ export function startCampaign(
 // at true full, the same value apply-back maintains thereafter (D-E). Uses
 // the fold's probe, chunked so a roster larger than one node's slot count
 // still resolves.
+//
+// The probe needs *a* battle template to read equipment-adjusted maxes; it
+// uses the start node's FIRST battle beat. A standalone story start node has
+// none — bootstrap fails loud (M1.5's start is a battle node). A future
+// story-only start would need a template source passed explicitly.
 export function bootstrapRosterVitals(
   roster: ReadonlyArray<CampaignUnit>,
   node: CampaignNode,
   catalog: Catalog,
 ): ReadonlyArray<CampaignUnit> {
-  const battle = requireBattle(node);
-  const maxes = probeEffectiveMaxes(battle.template, roster, battle.playerTeam, catalog);
+  const first = firstBattleBeat(node.beats);
+  if (first === undefined) {
+    throw new Error(
+      `bootstrapRosterVitals: start node "${node.id}" has no battle beat to probe effective maxes from`,
+    );
+  }
+  const { template, playerTeam } = first.battle;
+  const maxes = probeEffectiveMaxes(template, roster, playerTeam, catalog);
   return roster.map((unit) => ({ ...unit, vitals: maxes.get(unit.id)! }));
 }
 
@@ -81,37 +97,47 @@ export function deployableRoster(state: CampaignState): ReadonlyArray<CampaignUn
   return state.roster.filter((u) => u.fate === 'active');
 }
 
-// Did the player win this battle? (Rout outcome — winner is the player team.)
-export function battleWasWon(result: BattleResult, node: CampaignNode): boolean {
-  return result.outcome.winner === requireBattle(node).playerTeam;
+// Did the player win this battle beat? (Rout outcome — winner is the battle
+// beat's player team.)
+export function battleWasWon(result: BattleResult, playerTeam: TeamId): boolean {
+  return result.outcome.winner === playerTeam;
 }
 
-// The first half of the win transition: apply the battle result back to the
-// roster (heal survivors/downed, mark lost) and mark where the run stands.
-// POSITION DOES NOT MOVE here — it stays at the won node. A non-terminal win
-// enters `awaiting_route` (the node is cleared; the player picks the next node
-// at the world map); a terminal win is `won` (campaign complete). This
-// resolved state is what's saved right after the battle, so a reload before
-// the player picks resumes at the world map rather than re-fighting the won
-// node. Call ONLY on a win; a loss leaves the state untouched (retry re-enters
-// the same node).
-export function resolveWin(
+// Apply a single battle-beat WIN back to the roster: heal survivors/downed to
+// effective full, mark lost. PHASE IS UNTOUCHED — the NODE resolves separately
+// (resolveNode), once its whole beat sequence has played. Under battle-as-beat
+// a node may hold several battle beats; this runs after each winning one so the
+// next beat sees the healed/thinned roster. Call ONLY on a win; a loss leaves
+// state untouched (retry re-enters the battle).
+export function applyBattleBeatWin(
   state: CampaignState,
-  graph: CampaignGraph,
   result: BattleResult,
   finalState: GameState,
   catalog: Catalog,
 ): CampaignState {
   const roster = applyBattleResult(state.roster, result, finalState, catalog);
+  return { ...state, roster };
+}
+
+// Resolve the current NODE once its beat sequence has fully played (every
+// battle beat won, or a standalone story node finished). Sets the phase and
+// nothing else — POSITION DOES NOT MOVE; it holds at the resolved node until
+// routeToNode advances it. A terminal node → `won` (campaign complete); a
+// non-terminal node → `awaiting_route` (the player picks the next node at the
+// world map). The `awaiting_route` state is saved so a reload resumes at the
+// world map rather than replaying the node. Battle-agnostic: works for a
+// standalone story node (no apply-back ran, roster unchanged) exactly as for a
+// battle node.
+export function resolveNode(state: CampaignState, graph: CampaignGraph): CampaignState {
   const phase = isTerminal(graph, state.currentNodeId) ? 'won' : 'awaiting_route';
-  return { ...state, roster, phase };
+  return { ...state, phase };
 }
 
 // The second half of the win transition: the player picked `nextNodeId` at the
 // world map. Validate it is a legal win-choice from the current node (fail
 // loud on an illegal route), advance position to it, and clear `awaiting_route`
 // back to `in_progress` (about to fight the chosen node). The roster already
-// carries the resolveWin apply-back; this only moves position + phase.
+// carries the applyBattleBeatWin apply-back; this only moves position + phase.
 export function routeToNode(
   state: CampaignState,
   graph: CampaignGraph,

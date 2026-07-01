@@ -352,7 +352,8 @@ These are noted to make their absence intentional rather than accidental:
 - Isometric rendering (orthographic top-down for v1).
 - ~~Campaign / between-battle progression~~ — **now the active TABA expansion
   track** (`docs/TABADesign/campaign-decomposition.md`). M0 spine + M1 branching
-  graph shipped; progression (M2), economy (M3), authoring (M4), story (M5) follow.
+  graph + M1.5 story-scenes (battle-as-beat) shipped; progression (M2), economy
+  (M3), authoring (M4), story (M5) follow.
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.
 

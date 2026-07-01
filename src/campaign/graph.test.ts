@@ -11,22 +11,23 @@ import {
   isTerminal,
   isWinChoice,
   nextNodes,
-  requireBattle,
   winChoices,
   type CampaignGraph,
 } from './graph.ts';
+import { firstBattleBeat, isStandalone } from './sequence.ts';
 import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
 
 // A minimal graph: A forks to B (side) or C; B rejoins C; C is terminal. A
 // has a loss-edge to a retry node R (exercises outcome-awareness, which M1
-// content doesn't author).
+// content doesn't author). Nodes carry empty beat sequences — the graph
+// machinery is beat-agnostic (only the driver walks the beats).
 const TINY: CampaignGraph = {
   startId: 'a',
   nodes: [
-    { id: 'a', name: 'A' },
-    { id: 'b', name: 'B' },
-    { id: 'c', name: 'C' },
-    { id: 'r', name: 'R' },
+    { id: 'a', name: 'A', beats: [] },
+    { id: 'b', name: 'B', beats: [] },
+    { id: 'c', name: 'C', beats: [] },
+    { id: 'r', name: 'R', beats: [] },
   ],
   edges: [
     { from: 'a', to: 'b', on: 'win' },
@@ -85,10 +86,19 @@ describe('the authored M1 graph', () => {
     }
   });
 
-  it('every node carries a battle (M1 nodes are battles)', () => {
+  it('battle nodes carry a battle beat; The Crossing is a standalone story node', () => {
     for (const n of g.nodes) {
-      expect(() => requireBattle(n)).not.toThrow();
+      if (n.id === M1_NODES.theCrossing) {
+        expect(isStandalone(n.beats)).toBe(true);
+      } else {
+        expect(firstBattleBeat(n.beats)).toBeDefined();
+      }
     }
+  });
+
+  it('the standalone story node sits on the south route (Marshmoor → Crossing → Return)', () => {
+    expect(winChoices(g, M1_NODES.marshmoor).map((n) => n.id)).toEqual([M1_NODES.theCrossing]);
+    expect(winChoices(g, M1_NODES.theCrossing).map((n) => n.id)).toEqual([M1_NODES.theReturn]);
   });
 
   it('the start node is a genuine player-choice fork (>= 2 win-choices)', () => {

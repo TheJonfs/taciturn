@@ -34,10 +34,9 @@ export type { BattleResult, UnitBattleSummary, UnitOutcome } from './battle-resu
 export { applyBattleResult } from './apply-back.ts';
 export { effectiveMaxVitals } from './vitals.ts';
 
-// The branching graph model + routing (M1) and the authored M1 graph.
+// The branching graph model + routing (M1) and the authored graph.
 export type {
   CampaignNode,
-  NodeBattle,
   CampaignEdge,
   CampaignOutcome,
   CampaignGraph,
@@ -48,9 +47,26 @@ export {
   winChoices,
   isTerminal,
   isWinChoice,
-  requireBattle,
 } from './graph.ts';
 export { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+
+// The node beat-sequence model (M1.5 battle-as-beat) — descriptors + pure
+// cursor helpers.
+export type {
+  NodeBattle,
+  NodeBeat,
+  BattleBeat,
+  StorySceneBeat,
+  StoryScene,
+  DialogueLine,
+} from './sequence.ts';
+export {
+  takeStoryRun,
+  battleBeats,
+  firstBattleBeat,
+  hasBattleAtOrAfter,
+  isStandalone,
+} from './sequence.ts';
 
 // The loop transitions + selectors.
 export {
@@ -60,13 +76,19 @@ export {
   currentNode,
   deployableRoster,
   battleWasWon,
-  resolveWin,
+  applyBattleBeatWin,
+  resolveNode,
   routeToNode,
   isComplete,
 } from './loop.ts';
 
-// The interstitial beat-sequence (the between-node phase) — pure half.
-export { buildInterstitial, buildRouteChoice, buildUnitResultLines } from './interstitial.ts';
+// The presentational interstitial beats (the between-beat screens) — pure half.
+export {
+  buildResultSummaryBeat,
+  buildRouteChoiceBeat,
+  buildRouteChoice,
+  buildUnitResultLines,
+} from './interstitial.ts';
 export type {
   InterstitialBeat,
   ResultSummaryBeat,

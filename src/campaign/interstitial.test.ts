@@ -1,16 +1,22 @@
-// TABA campaign — interstitial beat-sequence builder tests (the pure half).
+// TABA campaign — presentational interstitial builder tests (the pure half).
 
 import { describe, expect, it } from 'vitest';
 import type { UnitId } from '@engine/index.ts';
-import { buildInterstitial, buildRouteChoice, buildUnitResultLines } from './interstitial.ts';
+import {
+  buildResultSummaryBeat,
+  buildRouteChoice,
+  buildRouteChoiceBeat,
+  buildUnitResultLines,
+} from './interstitial.ts';
 import type { BattleResult, UnitBattleSummary } from './battle-result.ts';
 import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
 import { getNode } from './graph.ts';
+import { firstBattleBeat } from './sequence.ts';
 import { m0Roster } from './roster.ts';
 
 const GRAPH = M1_CAMPAIGN_GRAPH;
 const START = getNode(GRAPH, M1_NODES.riverRidge);
-const TERMINAL = getNode(GRAPH, M1_NODES.theReturn);
+const START_TEAM = firstBattleBeat(START.beats)!.battle.playerTeam;
 
 // A battle result where the first two roster units fought (survived / downed)
 // and the rest sat in reserve (absent from the result).
@@ -19,7 +25,7 @@ function resultFor(roster = m0Roster): BattleResult {
   units.set(roster[0]!.id, { id: roster[0]!.id, outcome: 'survived', vitals: { hp: 20, mp: 5 } });
   units.set(roster[1]!.id, { id: roster[1]!.id, outcome: 'downed', vitals: { hp: 0, mp: 0 } });
   return {
-    outcome: { winner: START.battle!.playerTeam, conditionIndex: 0, description: 'test' },
+    outcome: { winner: START_TEAM, conditionIndex: 0, description: 'test' },
     units,
   };
 }
@@ -35,76 +41,57 @@ describe('buildUnitResultLines', () => {
   });
 });
 
-describe('buildInterstitial', () => {
-  it('non-terminal win → [result-summary(win), world-map-choice] with the fork choices', () => {
-    const beats = buildInterstitial({
-      graph: GRAPH,
+describe('buildResultSummaryBeat', () => {
+  it('win (non-terminal) → a win result-summary, not campaign-complete', () => {
+    const beat = buildResultSummaryBeat({
       node: START,
       roster: m0Roster,
       result: resultFor(),
       won: true,
       campaignComplete: false,
     });
-    expect(beats.map((b) => b.type)).toEqual(['result-summary', 'world-map-choice']);
-
-    const summary = beats[0]!;
-    expect(summary.type).toBe('result-summary');
-    if (summary.type === 'result-summary') {
-      expect(summary.resolution).toBe('win');
-      expect(summary.campaignComplete).toBe(false);
-      expect(summary.units).toHaveLength(2);
-    }
-
-    const map = beats[1]!;
-    if (map.type === 'world-map-choice') {
-      expect(map.fromNodeId).toBe(START.id);
-      // The start node's fork: Stonebridge + Marshmoor.
-      expect(map.choices.map((c) => c.id)).toEqual([M1_NODES.stonebridge, M1_NODES.marshmoor]);
-    }
+    expect(beat.type).toBe('result-summary');
+    expect(beat.resolution).toBe('win');
+    expect(beat.campaignComplete).toBe(false);
+    expect(beat.units).toHaveLength(2);
+    expect(beat.nodeName).toBe(START.name);
   });
 
-  it('terminal win → [result-summary(win, campaignComplete)] only (no map beat)', () => {
-    const beats = buildInterstitial({
-      graph: GRAPH,
-      node: TERMINAL,
+  it('terminal win → campaignComplete flag set (the victory screen)', () => {
+    const beat = buildResultSummaryBeat({
+      node: getNode(GRAPH, M1_NODES.theReturn),
       roster: m0Roster,
       result: resultFor(),
       won: true,
       campaignComplete: true,
     });
-    expect(beats.map((b) => b.type)).toEqual(['result-summary']);
-    const summary = beats[0]!;
-    if (summary.type === 'result-summary') {
-      expect(summary.campaignComplete).toBe(true);
-    }
+    expect(beat.campaignComplete).toBe(true);
   });
 
-  it('buildRouteChoice → [world-map-choice] only (resume into awaiting_route)', () => {
-    // On resume the transient result is gone: no result-summary, straight to
-    // the map choice for the cleared node.
-    const beats = buildRouteChoice(GRAPH, M1_NODES.riverRidge);
-    expect(beats.map((b) => b.type)).toEqual(['world-map-choice']);
-    const map = beats[0]!;
-    if (map.type === 'world-map-choice') {
-      expect(map.fromNodeId).toBe(M1_NODES.riverRidge);
-      expect(map.choices.map((c) => c.id)).toEqual([M1_NODES.stonebridge, M1_NODES.marshmoor]);
-    }
-  });
-
-  it('loss → [result-summary(loss)] only (advance = retry; no routing)', () => {
-    const beats = buildInterstitial({
-      graph: GRAPH,
+  it('loss → a loss result-summary (advance = retry; never campaign-complete)', () => {
+    const beat = buildResultSummaryBeat({
       node: START,
       roster: m0Roster,
       result: resultFor(),
       won: false,
       campaignComplete: false,
     });
-    expect(beats.map((b) => b.type)).toEqual(['result-summary']);
-    const summary = beats[0]!;
-    if (summary.type === 'result-summary') {
-      expect(summary.resolution).toBe('loss');
-      expect(summary.campaignComplete).toBe(false);
-    }
+    expect(beat.resolution).toBe('loss');
+    expect(beat.campaignComplete).toBe(false);
+  });
+});
+
+describe('buildRouteChoiceBeat / buildRouteChoice', () => {
+  it('builds a world-map-choice with the cleared node’s win-edge choices', () => {
+    const beat = buildRouteChoiceBeat(GRAPH, M1_NODES.riverRidge);
+    expect(beat.type).toBe('world-map-choice');
+    expect(beat.fromNodeId).toBe(M1_NODES.riverRidge);
+    // The start node's fork: Stonebridge + Marshmoor.
+    expect(beat.choices.map((c) => c.id)).toEqual([M1_NODES.stonebridge, M1_NODES.marshmoor]);
+  });
+
+  it('buildRouteChoice wraps it as a single-beat run (resume into awaiting_route)', () => {
+    const beats = buildRouteChoice(GRAPH, M1_NODES.riverRidge);
+    expect(beats.map((b) => b.type)).toEqual(['world-map-choice']);
   });
 });

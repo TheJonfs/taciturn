@@ -1,21 +1,29 @@
-// CampaignApp — the TABA campaign flow driver (M1: branching + interstitial).
+// CampaignApp — the TABA campaign flow driver (M1.5: battle-as-beat).
 //
-// Wraps the pure battle as a state machine (campaign-decomposition §3),
-// reusing the existing DeploymentScreen + BattleView through the additive
-// `onBattleEnd` hook (ADR-0133). It owns the campaign sub-flow; the MW setup
-// chain is untouched.
+// A node is an ORDERED BEAT SEQUENCE (sequence.ts). This driver WALKS that
+// sequence: it plays presentational beats (story scenes, and the driver-
+// injected result-summary / world-map) through the generic InterstitialRunner,
+// and when it reaches a `battle` beat it runs formation → deployment → battle
+// for THAT beat's `NodeBattle` and resumes the sequence on battle end. M1's
+// fixed formation → deployment → battle → post-battle pipeline is gone;
+// `requireBattle` is gone. (campaign-decomposition §3; ADR for battle-as-beat.)
 //
-//   formation → (fold roster) → deployment → battle → onBattleEnd
-//     win  → resolveWin (apply-back) → interstitial beats:
-//              result-summary → (non-terminal) world-map-choice →
-//              routeToNode + autosave → next node's formation
-//              (terminal) → result-summary is the victory → Title
-//     loss → interstitial: result-summary(loss) → Retry (re-enter the node
-//            from the autosave) / Quit. A loss runs no apply-back, so the
-//            failed attempt is discarded wholesale.
+//   node entry → walk beats:
+//     story-scene  → run the scene (presentational), advance.
+//     battle       → formation → deployment → battle → onBattleEnd:
+//        win  → applyBattleBeatWin (apply-back) → result-summary → resume.
+//               last battle → resolveNode → (non-terminal) trailing story +
+//               world-map-choice → route + autosave → next node;
+//               (terminal) → result-summary(campaignComplete) → Title.
+//        loss → result-summary(loss) → Retry (re-enter this battle beat, state
+//               unchanged) / Quit. A loss runs no apply-back.
+//     standalone story node (no battle) → run its scenes → world-map / Title.
 //
-// The between-node interstitial is an ordered beat-sequence run by a generic
-// runner (taba-m1-brief Chunk 2) — the slot M1.5 story-scenes plug into.
+// PERSISTENCE stays node-granular (M1.5 call — no v3): the only checkpoints are
+// node entry (in_progress, saved by the prior route) and `awaiting_route`
+// (saved right after a node's LAST battle wins — preserves "never re-fight a
+// won battle"). A reload mid-sequence (e.g. during a post-battle scene) resumes
+// at the world map. Save schema is unchanged (v2).
 
 import { useState, type ReactElement } from 'react';
 import { BattleView } from './BattleView.tsx';
@@ -25,37 +33,48 @@ import { InterstitialRunner } from './interstitial/InterstitialRunner.tsx';
 import { buildDeployedBattleConfig, type DeploymentResult } from './deployment-config.ts';
 import {
   M1_CAMPAIGN_GRAPH,
+  applyBattleBeatWin,
   battleWasWon,
-  buildInterstitial,
-  buildRouteChoice,
+  buildResultSummaryBeat,
+  buildRouteChoiceBeat,
   clearSavedCampaign,
-  currentNode,
   deployableRoster,
   foldCampaignRoster,
+  getNode,
+  hasBattleAtOrAfter,
   isComplete,
-  requireBattle,
-  resolveWin,
+  resolveNode,
   routeToNode,
   saveCampaign,
   summarizeBattleResult,
+  takeStoryRun,
+  type BattleBeat,
   type BeatOutput,
+  type CampaignNode,
   type CampaignState,
   type CampaignUnit,
   type InterstitialBeat,
 } from '@campaign/index.ts';
 import type { BattleConfig, Catalog, GameState, TeamId } from '@engine/index.ts';
 
-type SubScreen = 'formation' | 'deployment' | 'battle' | 'interstitial';
+const GRAPH = M1_CAMPAIGN_GRAPH;
 
-// The captured between-node phase: the beats to run plus the resolved state
-// the completion handler routes from. `resolved` is the post-apply-back state
-// on a win, or the unchanged state on a loss (retry).
-interface InterstitialSession {
-  readonly beats: ReadonlyArray<InterstitialBeat>;
-  readonly resolved: CampaignState;
-  readonly won: boolean;
-  readonly complete: boolean;
-}
+// What to do when the current presentational run completes. Each carries the
+// state snapshot it acts on (captured at run creation — a presentational run
+// never mutates campaign state, so the snapshot stays fresh).
+type RunDone =
+  | { readonly kind: 'walk'; readonly state: CampaignState; readonly cursor: number }
+  | { readonly kind: 'retry'; readonly battleIndex: number }
+  | { readonly kind: 'route'; readonly state: CampaignState } // state = resolved awaiting_route
+  | { readonly kind: 'exit' };
+
+// The one screen the driver shows. A single discriminated state replaces M1's
+// separate sub/fightConfig/interstitial fields.
+type Screen =
+  | { readonly kind: 'run'; readonly beats: ReadonlyArray<InterstitialBeat>; readonly done: RunDone; readonly nonce: number }
+  | { readonly kind: 'formation'; readonly battleIndex: number }
+  | { readonly kind: 'deployment'; readonly battleIndex: number; readonly config: BattleConfig }
+  | { readonly kind: 'battle'; readonly battleIndex: number; readonly config: BattleConfig };
 
 export interface CampaignAppProps {
   // The starting state — a fresh `startCampaign(...)` or a resumed save.
@@ -65,152 +84,255 @@ export interface CampaignAppProps {
   readonly onExitToTitle: () => void;
 }
 
-const GRAPH = M1_CAMPAIGN_GRAPH;
-
 export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAppProps): ReactElement {
   const [state, setState] = useState<CampaignState>(initialState);
-  // Resuming a save taken right after a won battle (`awaiting_route`) drops the
-  // player back at the world-map choice, not into a re-fight of the won node.
-  // The transient BattleResult is gone on reload, so there's no result-summary
-  // to replay — resume goes straight to a map-only interstitial.
-  const resumingAtRoute = initialState.phase === 'awaiting_route';
-  const [sub, setSub] = useState<SubScreen>(resumingAtRoute ? 'interstitial' : 'formation');
-  // The fold + deployment-in-progress config for the current node.
-  const [fightConfig, setFightConfig] = useState<BattleConfig | null>(null);
-  // The active between-node interstitial (null outside it). A nonce keys the
-  // runner so each interstitial mounts fresh (resets its beat cursor).
-  const [interstitial, setInterstitial] = useState<InterstitialSession | null>(() =>
-    resumingAtRoute
-      ? {
-          beats: buildRouteChoice(GRAPH, initialState.currentNodeId),
-          resolved: initialState,
-          won: true,
-          complete: false,
+  // Monotonic key so each new presentational run remounts the runner fresh
+  // (resets its beat cursor). Bumped by `showRun`. Declared BEFORE `screen` so
+  // it is initialized when `planEntry` (the screen initializer) reads it.
+  const [nonce, setNonce] = useState(0);
+  const [screen, setScreen] = useState<Screen>(() => planEntry(initialState));
+
+  // The battle beat currently in the formation/deployment/battle sub-flow reads
+  // its NodeBattle from the node's beats by index (fresh across renders).
+  const node = getNode(GRAPH, state.currentNodeId);
+
+  // --- run plumbing ---
+
+  // The first screen for a starting/resumed state — PURE (no save/setState).
+  // Node entry is already persisted by the caller (startCampaign owner / the
+  // prior route), so entry needs no save of its own.
+  function planEntry(st: CampaignState): Screen {
+    if (st.phase === 'awaiting_route') {
+      // Resumed right after a won battle: drop straight to the world map (the
+      // transient result is gone — nothing to replay before it).
+      return runScreen([buildRouteChoiceBeat(GRAPH, st.currentNodeId)], { kind: 'route', state: st });
+    }
+    const entryNode = getNode(GRAPH, st.currentNodeId);
+    const { scenes, next } = takeStoryRun(entryNode.beats, 0);
+    if (next >= entryNode.beats.length) {
+      // A standalone story node (no battle ahead): play its scenes, then route.
+      // (A battle START node can't reach here — bootstrapRosterVitals requires
+      // one. This is the resume-into-a-story-node case.)
+      return resolutionRun(st, entryNode, scenes);
+    }
+    if (scenes.length > 0) return runScreen(scenes, { kind: 'walk', state: st, cursor: next });
+    return { kind: 'formation', battleIndex: next };
+  }
+
+  // Build a run screen (does NOT bump the nonce — see showRun for the live path;
+  // planEntry uses the initial nonce).
+  function runScreen(beats: ReadonlyArray<InterstitialBeat>, done: RunDone): Screen {
+    return { kind: 'run', beats, done, nonce };
+  }
+
+  // Show a presentational run now (bumping the nonce). An empty run would stall
+  // the runner, so finish its `done` immediately instead (defensive — authoring
+  // never yields one).
+  function showRun(beats: ReadonlyArray<InterstitialBeat>, done: RunDone): void {
+    if (beats.length === 0) {
+      finishRun(done, {});
+      return;
+    }
+    const key = nonce + 1;
+    setNonce(key);
+    setScreen({ kind: 'run', beats, done, nonce: key });
+  }
+
+  // A node whose sequence has ended (standalone / trailing story with no more
+  // battles) — set the phase and show its closing run. No `awaiting_route`
+  // checkpoint save here (a battle-less resolution has nothing to protect from
+  // a re-fight); the route/exit persists on completion.
+  function resolutionRun(
+    st: CampaignState,
+    resolvedNode: CampaignNode,
+    prefixScenes: ReadonlyArray<InterstitialBeat>,
+  ): Screen {
+    const resolved = resolveNode(st, GRAPH);
+    if (isComplete(resolved)) return runScreen([...prefixScenes], { kind: 'exit' });
+    return runScreen(
+      [...prefixScenes, buildRouteChoiceBeat(GRAPH, resolvedNode.id)],
+      { kind: 'route', state: resolved },
+    );
+  }
+
+  // --- the sequence walk ---
+
+  // Walk the sequence of `st`'s node from `cursor`. Called mid-flow only, where
+  // a battle beat is always ahead (pre-battle story → its battle; a post-battle
+  // "more battles" summary → the next battle). Node resolution is handled by
+  // handleBattleEnd (after a battle) and resolutionRun (standalone), never here.
+  function advance(st: CampaignState, cursor: number): void {
+    const walkNode = getNode(GRAPH, st.currentNodeId);
+    const { scenes, next } = takeStoryRun(walkNode.beats, cursor);
+    if (next >= walkNode.beats.length) {
+      // Shouldn't happen from a mid-flow caller — fail loud rather than stall.
+      throw new Error(
+        `CampaignApp.advance: no battle beat ahead of cursor ${cursor} in node "${walkNode.id}"`,
+      );
+    }
+    if (scenes.length > 0) {
+      showRun(scenes, { kind: 'walk', state: st, cursor: next });
+    } else {
+      setScreen({ kind: 'formation', battleIndex: next });
+    }
+  }
+
+  function finishRun(done: RunDone, output: BeatOutput): void {
+    switch (done.kind) {
+      case 'walk':
+        advance(done.state, done.cursor);
+        return;
+      case 'retry':
+        // Loss → re-enter this battle beat from the unchanged state.
+        setScreen({ kind: 'formation', battleIndex: done.battleIndex });
+        return;
+      case 'exit':
+        onExitToTitle();
+        return;
+      case 'route': {
+        const nextNodeId = output.nextNodeId;
+        if (nextNodeId === undefined) {
+          throw new Error('CampaignApp: world-map run produced no route');
         }
-      : null,
-  );
-  const [interstitialNonce, setInterstitialNonce] = useState(0);
+        const routed = routeToNode(done.state, GRAPH, nextNodeId);
+        saveCampaign(routed);
+        setState(routed);
+        setScreen(planEntry(routed));
+        return;
+      }
+    }
+  }
 
-  // Position always resolves — currentNodeId holds at the (possibly terminal)
-  // node; the phase, not the node lookup, carries completion.
-  const node = currentNode(GRAPH, state);
-  const battle = requireBattle(node);
+  // --- battle beat sub-flow ---
 
-  function handleFormationConfirm(selected: ReadonlyArray<CampaignUnit>): void {
+  function battleBeatAt(index: number): BattleBeat {
+    const beat = node.beats[index];
+    if (beat === undefined || beat.type !== 'battle') {
+      throw new Error(`CampaignApp: expected a battle beat at index ${index} of node "${node.id}"`);
+    }
+    return beat;
+  }
+
+  function handleFormationConfirm(battleIndex: number, selected: ReadonlyArray<CampaignUnit>): void {
+    const battle = battleBeatAt(battleIndex).battle;
     const folded = foldCampaignRoster(battle.template, selected, battle.playerTeam, catalog);
-    setFightConfig(stampControls(folded, battle.playerTeam));
-    setSub('deployment');
+    setScreen({ kind: 'deployment', battleIndex, config: stampControls(folded, battle.playerTeam) });
   }
 
-  function handleDeploymentCommit(result: DeploymentResult): void {
-    setFightConfig((prev) => (prev === null ? prev : buildDeployedBattleConfig(prev, result)));
-    setSub('battle');
+  function handleDeploymentCommit(battleIndex: number, config: BattleConfig, result: DeploymentResult): void {
+    setScreen({ kind: 'battle', battleIndex, config: buildDeployedBattleConfig(config, result) });
   }
 
-  function handleBattleEnd(finalState: GameState): void {
+  function handleBattleEnd(battleIndex: number, finalState: GameState): void {
+    const battle = battleBeatAt(battleIndex).battle;
     const result = summarizeBattleResult(finalState);
-    const won = battleWasWon(result, node);
-    const resolved = won ? resolveWin(state, GRAPH, result, finalState, catalog) : state;
-    const complete = won && isComplete(resolved);
-    // Save-after-battle: persist the resolved state the moment the battle ends,
-    // so a reload before the map pick doesn't discard the win.
-    //   - terminal win → drop the save (M0 parity — Resume goes dark, reloading
-    //     on the victory beat returns to a clean title).
-    //   - non-terminal win → save the `awaiting_route` checkpoint at the cleared
-    //     node (resume drops the player back at the world map).
-    //   - loss → no save; the existing node-entry checkpoint is the retry point.
-    if (complete) {
-      clearSavedCampaign();
-    } else if (won) {
-      saveCampaign(resolved);
+    const won = battleWasWon(result, battle.playerTeam);
+
+    if (!won) {
+      // Loss: no apply-back. Show how the battle left the deployed units, then
+      // retry this same battle beat (state unchanged == the node-entry save).
+      const summary = buildResultSummaryBeat({
+        node,
+        roster: state.roster,
+        result,
+        won: false,
+        campaignComplete: false,
+      });
+      showRun([summary], { kind: 'retry', battleIndex });
+      return;
     }
 
-    const beats = buildInterstitial({
-      graph: GRAPH,
+    // Win: apply-back for this battle beat (heal survivors, mark lost).
+    const applied = applyBattleBeatWin(state, result, finalState, catalog);
+
+    if (hasBattleAtOrAfter(node.beats, battleIndex + 1)) {
+      // More battles in this node (a future multi-battle shape): show the
+      // result, then resume the walk into the next battle. No node resolution
+      // yet; phase stays in_progress.
+      const summary = buildResultSummaryBeat({
+        node,
+        roster: applied.roster,
+        result,
+        won: true,
+        campaignComplete: false,
+      });
+      setState(applied);
+      showRun([summary], { kind: 'walk', state: applied, cursor: battleIndex + 1 });
+      return;
+    }
+
+    // Last battle of the node → resolve it. Save the `awaiting_route` checkpoint
+    // (or clear on a terminal win) BEFORE the closing run, so a reload doesn't
+    // re-fight this won battle.
+    const resolved = resolveNode(applied, GRAPH);
+    const complete = isComplete(resolved);
+    const summary = buildResultSummaryBeat({
       node,
       roster: resolved.roster,
       result,
-      won,
+      won: true,
       campaignComplete: complete,
     });
-
-    setInterstitial({ beats, resolved, won, complete });
-    setInterstitialNonce((n) => n + 1);
+    if (complete) clearSavedCampaign();
+    else saveCampaign(resolved);
     setState(resolved);
-    setSub('interstitial');
+
+    const { scenes: trailing } = takeStoryRun(node.beats, battleIndex + 1);
+    if (complete) {
+      // Terminal win — the result-summary is the victory screen; then Title.
+      showRun([summary, ...trailing], { kind: 'exit' });
+    } else {
+      showRun([summary, ...trailing, buildRouteChoiceBeat(GRAPH, node.id)], { kind: 'route', state: resolved });
+    }
   }
 
-  function handleInterstitialComplete(output: BeatOutput): void {
-    const session = interstitial;
-    setInterstitial(null);
-    if (session === null) return;
+  // --- render ---
 
-    if (!session.won) {
-      // Loss → retry the same node from the unchanged state (== the autosave).
-      setFightConfig(null);
-      setSub('formation');
-      return;
-    }
-    if (session.complete) {
-      // Terminal win — the victory beat was shown, the save already cleared.
-      onExitToTitle();
-      return;
-    }
-    // Non-terminal win → route along the chosen win-edge, autosave at the next
-    // node (the retry checkpoint), and enter its formation.
-    const nextNodeId = output.nextNodeId;
-    if (nextNodeId === undefined) {
-      throw new Error('CampaignApp: non-terminal win interstitial produced no route');
-    }
-    const routed = routeToNode(session.resolved, GRAPH, nextNodeId);
-    saveCampaign(routed);
-    setState(routed);
-    setFightConfig(null);
-    setSub('formation');
-  }
-
-  if (sub === 'interstitial' && interstitial !== null) {
+  if (screen.kind === 'run') {
     return (
       <InterstitialRunner
-        key={interstitialNonce}
-        beats={interstitial.beats}
-        onComplete={handleInterstitialComplete}
+        key={screen.nonce}
+        beats={screen.beats}
+        onComplete={(output) => finishRun(screen.done, output)}
         onExitToTitle={onExitToTitle}
       />
     );
   }
 
-  if (sub === 'formation') {
+  if (screen.kind === 'formation') {
+    const battle = battleBeatAt(screen.battleIndex).battle;
     return (
       <FormationScreen
         nodeName={node.name}
         roster={deployableRoster(state)}
         deployCap={battle.deployCap}
         catalog={catalog}
-        onConfirm={handleFormationConfirm}
+        onConfirm={(selected) => handleFormationConfirm(screen.battleIndex, selected)}
         onQuit={onExitToTitle}
       />
     );
   }
 
-  if (sub === 'deployment' && fightConfig !== null) {
+  if (screen.kind === 'deployment') {
+    const battle = battleBeatAt(screen.battleIndex).battle;
     return (
       <DeploymentScreen
-        template={fightConfig}
+        template={screen.config}
         zones={battle.zones}
         deployingTeam={battle.playerTeam}
-        onCommit={handleDeploymentCommit}
-        onBack={() => setSub('formation')}
+        onCommit={(result) => handleDeploymentCommit(screen.battleIndex, screen.config, result)}
+        onBack={() => setScreen({ kind: 'formation', battleIndex: screen.battleIndex })}
       />
     );
   }
 
-  if (sub === 'battle' && fightConfig !== null) {
+  if (screen.kind === 'battle') {
+    const battleIndex = screen.battleIndex;
     return (
       <BattleView
-        template={fightConfig}
+        template={screen.config}
         deploymentResult={null}
-        onBattleEnd={handleBattleEnd}
+        onBattleEnd={(finalState) => handleBattleEnd(battleIndex, finalState)}
         // Campaign owns the post-battle flow via onBattleEnd; these exits
         // are unused fallbacks (ResultsScreen is suppressed), but the prop
         // contract requires them.
@@ -227,7 +349,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
 // Stamp control flags so BattleView wires a human controller for the player
 // team and AI for everyone else. The shipped node templates already set
 // these (demoBattle: team_a human / team_b ai), but stamping keeps
-// CampaignApp correct regardless of which template a node reuses.
+// CampaignApp correct regardless of which template a beat reuses.
 function stampControls(config: BattleConfig, playerTeam: TeamId): BattleConfig {
   return {
     ...config,

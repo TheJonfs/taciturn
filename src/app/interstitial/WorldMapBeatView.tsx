@@ -22,6 +22,7 @@ const NODE_LAYOUT: Readonly<Record<string, { x: number; y: number }>> = {
   [M1_NODES.riverRidge]: { x: 70, y: 175 },
   [M1_NODES.stonebridge]: { x: 245, y: 85 },
   [M1_NODES.marshmoor]: { x: 245, y: 265 },
+  [M1_NODES.theCrossing]: { x: 430, y: 265 },
   [M1_NODES.mountainPass]: { x: 430, y: 85 },
   [M1_NODES.theReturn]: { x: 570, y: 175 },
 };

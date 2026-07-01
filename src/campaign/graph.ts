@@ -1,4 +1,4 @@
-// TABA campaign — the branching node-graph model + routing (M1).
+// TABA campaign — the branching node-graph model + routing (M1 / M1.5).
 //
 // M0 shipped a linear A→B graph as a flat array walked by index. M1
 // generalizes that to **nodes + outcome-aware directed edges** (taba-m1-brief
@@ -15,39 +15,26 @@
 //     side-node needs NO special machinery: the node before it has win-edges
 //     to BOTH the side-node and the rejoin target, and the side-node has a
 //     win-edge to the rejoin target. "Skip" is just picking the rejoin edge.
-//   - BATTLE IS LOOSELY OPTIONAL. A node's `battle` is optional so M1.5
-//     story-only nodes drop in without reworking the graph (watch-for). M1
-//     authors a battle on every node; the graph machinery here is entirely
-//     battle-agnostic — only the driver reads `node.battle`.
+//   - A NODE IS A BEAT SEQUENCE (M1.5). A node owns an ordered `beats:
+//     NodeBeat[]` where a battle is one beat-type among others (see
+//     sequence.ts). A node with no battle beat is a standalone story node;
+//     `requireBattle` is gone — the graph machinery is entirely beat-agnostic,
+//     and only the driver walks the sequence.
 //
-// This module is PURE: types + structural lookups + routing. The authored M1
+// This module is PURE: types + structural lookups + routing. The authored
 // graph lives in node.ts; the loop transitions that consume routing live in
-// loop.ts.
+// loop.ts. The beat model (incl. `NodeBattle`) lives in sequence.ts.
 
-import type { BattleConfig, DeploymentZoneConfig, TeamId } from '@engine/index.ts';
-
-// The per-node battle definition: map + enemy team (in the template) +
-// placeholder player slots the snapshot-fold replaces + deploy zones + K.
-// Optional on a node (story-only nodes at M1.5 omit it); M1 authors one on
-// every node.
-export interface NodeBattle {
-  // Map + enemy team + placeholder player slots. The fold replaces the
-  // `playerTeam` placements; everything else (enemies, victory conditions)
-  // is consumed as-authored.
-  readonly template: BattleConfig;
-  readonly playerTeam: TeamId;
-  readonly zones: DeploymentZoneConfig;
-  // K — the per-node deploy cap. The Formation screen selects up to this
-  // many `active` roster units. (N — roster size — is a campaign property.)
-  readonly deployCap: number;
-}
+import type { NodeBeat } from './sequence.ts';
 
 export interface CampaignNode {
   readonly id: string;
   readonly name: string;
-  // M1: present on every node. M1.5 story-only nodes omit it. The graph
-  // machinery never reads this — only the driver does, on node entry.
-  readonly battle?: NodeBattle;
+  // The node's authored beat sequence (M1.5): `story-scene` + `battle` beats
+  // in authored order (see sequence.ts). A node with no battle beat is a
+  // standalone story node. The graph machinery never reads this — only the
+  // driver does, walking the sequence on node entry.
+  readonly beats: ReadonlyArray<NodeBeat>;
 }
 
 // Which battle outcome an edge fires on. M1 authors only `win`.
@@ -109,14 +96,4 @@ export function isTerminal(graph: CampaignGraph, nodeId: string): boolean {
 // so the driver can't route to an unreachable node.)
 export function isWinChoice(graph: CampaignGraph, fromId: string, nextId: string): boolean {
   return winChoices(graph, fromId).some((n) => n.id === nextId);
-}
-
-// Assert a node has a battle and return it. M1 invariant: every node a
-// player fights is a battle node. Throws loudly if a (future story-only)
-// node without a battle reaches the battle path.
-export function requireBattle(node: CampaignNode): NodeBattle {
-  if (node.battle === undefined) {
-    throw new Error(`requireBattle: node "${node.id}" has no battle (story-only nodes are M1.5)`);
-  }
-  return node.battle;
 }

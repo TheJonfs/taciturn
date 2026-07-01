@@ -44,6 +44,28 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 79 (2026-07-01) — TABA campaign M1.5 (story scenes)
+
+Commit: _see session commit_. ADR-0135.
+
+The campaign now weaves **story scenes** between and around battles. A node in
+the campaign is no longer always "one battle" — it's an authored sequence, where
+a battle is one kind of moment among others.
+
+- **Story scenes before, after, and instead of battles.** You'll now read
+  click-through dialogue (speaker portrait + lines) at several points:
+  - a **pre-battle scene** before **River Ridge** (the opening march-out);
+  - a **post-battle scene** after **Stonebridge** (the aftermath);
+  - a **standalone story node, "The Crossing,"** on the southern route (via
+    Marshmoor) — a scene with **no fight**, then onward to the finale.
+- **A new stop on the world map.** "The Crossing" appears on the map between
+  Marshmoor and The Return; the south route now passes through it.
+- **Prose is placeholder.** The scenes are Ivalician-flavored filler spoken by
+  your roster — the point this milestone proves is the *slots*, not the writing;
+  real story is a later milestone (M5).
+- **No mechanics changed.** No leveling, gear, or battle-rule changes — story
+  scenes are narrative only. (Reloading mid-scene resumes you at the world map.)
+
 ## Session 78 (2026-06-30) — TABA campaign M1 (branching + world map)
 
 Commit: `1009bb1`. ADR-0134.
