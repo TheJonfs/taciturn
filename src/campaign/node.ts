@@ -73,17 +73,17 @@ const introScene: StorySceneBeat = {
     lines: [
       {
         speaker: 'Chris',
-        portrait: { classId: classId('templar') },
+        portrait: { kind: 'class', classId: classId('templar') },
         text: 'Fifty years of war, and it comes to this ridge. Ivalice bleeds behind us; the ford lies ahead.',
       },
       {
         speaker: 'Sera',
-        portrait: { classId: classId('assassin') },
+        portrait: { kind: 'class', classId: classId('assassin') },
         text: 'Scouts count a full company across the water. They hold the high ground — for now.',
       },
       {
         speaker: 'Chris',
-        portrait: { classId: classId('templar') },
+        portrait: { kind: 'class', classId: classId('templar') },
         text: 'Then we take it back. Form up. We go out — and we come home.',
       },
     ],
@@ -97,12 +97,12 @@ const aftermathScene: StorySceneBeat = {
     lines: [
       {
         speaker: 'Thessaly',
-        portrait: { classId: classId('calculator') },
+        portrait: { kind: 'class', classId: classId('calculator') },
         text: 'The bridge holds. By my count we lost less than the ledger feared. Rare, that.',
       },
       {
         speaker: 'Lumen',
-        portrait: { classId: classId('fire_mage') },
+        portrait: { kind: 'class', classId: classId('fire_mage') },
         text: 'Rare and welcome. Warm yourselves — the mountain road runs cold, if we take it.',
       },
     ],
@@ -116,12 +116,12 @@ const crossingScene: StorySceneBeat = {
     lines: [
       {
         speaker: 'Clio',
-        portrait: { classId: classId('water_mage') },
+        portrait: { kind: 'class', classId: classId('water_mage') },
         text: 'The river is quiet here. It remembers every army that ever forded it, and forgets them all the same.',
       },
       {
         speaker: 'Clio',
-        portrait: { classId: classId('water_mage') },
+        portrait: { kind: 'class', classId: classId('water_mage') },
         text: 'One more bank to cross, and the road bends back the way we came. Rest a moment. Then — the return.',
       },
     ],

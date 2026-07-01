@@ -56,6 +56,20 @@ such node, so it's unexercised. When consecutive battles are actually authored,
 add a beat-cursor + resolved-battle persistence (the "v3" the audit deferred).
 Save schema stays **v2**; old v1 saves still fail loud.
 
+### 🖼️ Portrait override seam laid (durable field + engine threading deferred)
+Groundwork for **plot characters with a fixed portrait independent of their
+current class** (units reclass freely). Added `PortraitRef` (`{kind:'class',...}`
+| `{kind:'fixed', key}`) + `resolvePortraitUrl` in `src/assets/portraits/
+index.ts` — the single override-aware entry point, layered over the pure
+class-derived `portraitUrlFor`. Story-scene `DialogueLine.portrait` now takes a
+`PortraitRef` (content points at a *portrait*, not a class). **Deferred to when
+the first plot character + art land (M5):** the durable `CampaignUnit.portrait?`
+override, threading it fold → `UnitPlacement` → engine `Unit` → renderer (the
+`gender`-cosmetic precedent, S55), and populating the empty `FIXED_PORTRAITS`
+registry. The 7 other `portraitUrlFor` call sites (renderer, roster/deploy
+panels) stay class-derived until that durable field exists — then they migrate
+to `resolvePortraitUrl(unit.portrait ?? {kind:'class', ...})`.
+
 ### Known simplifications (by design)
 - **Loss retry** re-enters the battle beat in-session (state unchanged, no story
   replay); a *reload* replays the node from its first beat (node-granularity).

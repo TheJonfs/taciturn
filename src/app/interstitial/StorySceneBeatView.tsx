@@ -12,7 +12,7 @@
 
 import { useState, type CSSProperties, type ReactElement } from 'react';
 import type { DialogueLine, StoryScene } from '@campaign/index.ts';
-import { portraitUrlFor } from '../../assets/portraits/index.ts';
+import { resolvePortraitUrl } from '../../assets/portraits/index.ts';
 import type { BeatRendererProps } from './InterstitialRunner.tsx';
 
 export function StorySceneBeatView({ beat, onAdvance, onExitToTitle }: BeatRendererProps): ReactElement {
@@ -36,9 +36,7 @@ export function StorySceneBeatView({ beat, onAdvance, onExitToTitle }: BeatRende
     else setLineIndex((i) => i + 1);
   };
 
-  const portraitUrl = line.portrait
-    ? portraitUrlFor(line.portrait.classId, line.portrait.gender)
-    : null;
+  const portraitUrl = line.portrait ? resolvePortraitUrl(line.portrait) : null;
 
   return (
     <div style={rootStyle}>

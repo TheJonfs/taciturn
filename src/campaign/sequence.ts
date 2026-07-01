@@ -26,13 +26,8 @@
 // `NodeBattle` lives here (not graph.ts) so graph.ts can import the beat types
 // without a cycle: sequence.ts → engine only; graph.ts → sequence.ts.
 
-import type {
-  BattleConfig,
-  ClassId,
-  DeploymentZoneConfig,
-  Gender,
-  TeamId,
-} from '@engine/index.ts';
+import type { BattleConfig, DeploymentZoneConfig, TeamId } from '@engine/index.ts';
+import type { PortraitRef } from '../assets/portraits/index.ts';
 
 // The per-battle-beat definition: map + enemy team (in the template) +
 // placeholder player slots the snapshot-fold replaces + deploy zones + K.
@@ -51,14 +46,16 @@ export interface NodeBattle {
 }
 
 // One line of authored dialogue. Placeholder-friendly: a display name + text,
-// with an optional portrait sourced from the existing class-portrait pipeline
-// (`portraitUrlFor`). No branching / choices in M1.5 (brief D3).
+// with an optional portrait named as a `PortraitRef` — so a line points at a
+// PORTRAIT (a class portrait today, a plot character's enduring face later via
+// the `fixed` variant), not hard-coded class derivation. No branching / choices
+// in M1.5 (brief D3).
 export interface DialogueLine {
   readonly speaker: string;
   readonly text: string;
-  // Optional portrait — reuses a class portrait (+ optional gender). Absent
-  // means a nameplate with no portrait (a narrator line, an unseen speaker).
-  readonly portrait?: { readonly classId: ClassId; readonly gender?: Gender };
+  // Optional portrait ref. Absent means a nameplate with no portrait (a
+  // narrator line, an unseen speaker); an unresolved ref falls back to a plate.
+  readonly portrait?: PortraitRef;
 }
 
 // An authored story scene: an optional heading + an ordered set of lines the

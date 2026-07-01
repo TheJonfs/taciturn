@@ -85,3 +85,49 @@ export function portraitUrlFor(id: ClassId, gender?: Gender): string | null {
 export function defaultGenderFor(id: ClassId): Gender | null {
   return PORTRAITS.get(id)?.defaultGender ?? null;
 }
+
+// --- Portrait REFERENCE + resolution (the override seam) ---------------------
+//
+// `portraitUrlFor` above is the pure CLASS-DERIVED primitive. A `PortraitRef`
+// is the layer over it: "which portrait", expressed as a first-class value so a
+// consumer can name a portrait that is NOT derived from a unit's current class.
+// Two variants:
+//   - `class` — derive from a class (+ optional gender). Today's behavior, and
+//     what generic units use. Also serves as a "pin": an authored ref that
+//     always shows, say, the Templar face even after the unit reclasses.
+//   - `fixed` — a plot character's ENDURING portrait, a stable key independent
+//     of class/gender. The key space + backing art are FUTURE (M5 plot
+//     characters); the seam exists now so content references a portrait, not a
+//     class, and the override lands in ONE resolver rather than an N-site edit.
+//
+// The intended durable home of an override is `CampaignUnit.portrait?` (added
+// when the first plot character lands), threaded to the engine `Unit` alongside
+// `gender` — the exact cosmetic-field-the-engine-carries-but-never-acts-on
+// precedent (S55). Until then, only authored content (story-scene dialogue)
+// carries a ref, and only this resolver + the `fixed` registry grow.
+
+// A stable key for a bespoke/plot portrait. Plain string for now (no entries
+// yet); a branded id can replace it when the fixed registry is populated.
+export type PortraitKey = string;
+
+export type PortraitRef =
+  | { readonly kind: 'class'; readonly classId: ClassId; readonly gender?: Gender }
+  | { readonly kind: 'fixed'; readonly key: PortraitKey };
+
+// Bespoke/plot portraits by stable key. EMPTY until M5 authors plot characters
+// with their own art; an unknown key resolves to `null` (colored-circle
+// fallback), same as an unregistered class.
+const FIXED_PORTRAITS: ReadonlyMap<PortraitKey, string> = new Map();
+
+// Resolve a portrait ref to a URL (or `null` → colored-circle fallback). The
+// single override-aware entry point: when durable `portrait` overrides exist,
+// consumers resolve `unit.portrait ?? { kind: 'class', classId, gender }`
+// through here, so an enduring face wins over class derivation in one place.
+export function resolvePortraitUrl(ref: PortraitRef): string | null {
+  switch (ref.kind) {
+    case 'class':
+      return portraitUrlFor(ref.classId, ref.gender);
+    case 'fixed':
+      return FIXED_PORTRAITS.get(ref.key) ?? null;
+  }
+}

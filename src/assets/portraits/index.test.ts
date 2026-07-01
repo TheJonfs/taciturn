@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { classId, type ClassId } from '@engine/index.ts';
-import { portraitUrlFor, defaultGenderFor } from './index.ts';
+import { portraitUrlFor, defaultGenderFor, resolvePortraitUrl } from './index.ts';
 
 const CLASSES: ReadonlyArray<ClassId> = [
   'alchemist', 'assassin', 'calculator', 'earth_mage', 'enchanter', 'fire_mage',
@@ -51,5 +51,23 @@ describe('portraitUrlFor — class + gender resolution', () => {
     expect(defaultGenderFor(classId('fire_mage'))).toBe('female');
     expect(defaultGenderFor(classId('water_mage'))).toBe('female');
     expect(defaultGenderFor(classId('thief'))).toBe('female');
+  });
+});
+
+describe('resolvePortraitUrl — the override seam', () => {
+  it('a class ref resolves to the same URL as the class-derived primitive', () => {
+    expect(resolvePortraitUrl({ kind: 'class', classId: classId('templar'), gender: 'male' })).toBe(
+      portraitUrlFor(classId('templar'), 'male'),
+    );
+    // Omitted gender falls back to the class default, same as the primitive.
+    expect(resolvePortraitUrl({ kind: 'class', classId: classId('knight') })).toBe(
+      portraitUrlFor(classId('knight')),
+    );
+  });
+
+  it('a fixed ref resolves to null until plot portraits are registered (M5)', () => {
+    // The seam exists; the fixed registry is empty, so any key → colored-circle
+    // fallback (null), not a crash.
+    expect(resolvePortraitUrl({ kind: 'fixed', key: 'ramza' })).toBeNull();
   });
 });
