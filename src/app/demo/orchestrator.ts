@@ -136,6 +136,43 @@ export class DemoOrchestrator {
     return this.state;
   }
 
+  // --- Debug-only escape hatches (dev tooling; NOT part of normal flow) ---
+  // Gated behind `import.meta.env.DEV` at the call site (the DebugBattleMenu),
+  // so they never reach a production build.
+
+  // Force the battle to a terminal outcome with `winner`, bypassing the
+  // victory-condition system so an ARBITRARY side can "win" regardless of the
+  // board. Stamps `state.outcome` directly (not through the reducer — the
+  // battle is ending, so consistency for further steps doesn't matter). The
+  // pump's next `step()` sees the outcome and stops; BattleView's onBattleEnd /
+  // ResultsScreen consume it. Returns the new state so the caller can mirror it
+  // into React.
+  debugForceOutcome(winner: TeamId): GameState {
+    this.state = {
+      ...this.state,
+      outcome: { winner, conditionIndex: 0, description: 'debug: forced outcome' },
+    };
+    return this.state;
+  }
+
+  // Remove a single unit mid-battle via the SAME reducer path normal
+  // crystallization uses (`system_unit_removed`), so turn order, CT, and the
+  // victory check all stay consistent and the renderer can animate it from the
+  // returned committed actions. The battle continues (unless this empties a
+  // team, in which case the reducer's victory check ends it). Returns null if
+  // the commit is refused (e.g. the unit is already removed).
+  debugRemoveUnit(targetId: UnitId): { committed: ReadonlyArray<Action>; newState: GameState } | null {
+    const proposed: ProposedAction = {
+      type: 'system_unit_removed',
+      source: 'system',
+      payload: { targetId },
+    };
+    const result = commitAction(this.state, proposed, this.catalog);
+    if (!result.ok) return null;
+    this.state = result.newState;
+    return { committed: result.committed, newState: result.newState };
+  }
+
   step(): OrchestratorStep {
     if (this.state.outcome !== undefined) {
       return { newState: this.state, committed: [], done: true };

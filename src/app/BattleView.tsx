@@ -60,6 +60,7 @@ import {
   useTurnFlow,
 } from '@ui/index.ts';
 import { HandoffScreen } from './HandoffScreen.tsx';
+import { DebugBattleMenu } from './DebugBattleMenu.tsx';
 import {
   createBasicAiController,
   createUiController,
@@ -134,6 +135,9 @@ function BattleViewInner({
   // Engine state surfaced to React. Updated from inside the pump after
   // each commit. Renderer's visual state is independent.
   const [latestState, setLatestState] = useState<GameState | null>(null);
+  // Held so the dev-only DebugBattleMenu can reach the authoritative engine
+  // state (force outcome / remove a unit). Set in the mount effect.
+  const orchestratorRef = useRef<DemoOrchestrator | null>(null);
   const [renderer, setRenderer] = useState<BattleRenderer | null>(null);
   // `paused` is the modal ESC pause (opens the overlay menu). `halted` is
   // the lightweight on-screen Pause/Play toggle: it freezes the
@@ -309,6 +313,7 @@ function BattleViewInner({
         controllers,
         preBattleActions,
       );
+      orchestratorRef.current = orchestrator;
 
       // Camera input — keyboard for pan, wheel for zoom.
       const panState: { left: boolean; right: boolean; up: boolean; down: boolean } = {
@@ -552,6 +557,23 @@ function BattleViewInner({
     cb(latestState);
   }, [outcome, latestState]);
 
+  // Dev-only debug hooks (DebugBattleMenu; rendered only under
+  // import.meta.env.DEV). Force an outcome, or crystallize one unit mid-battle.
+  const handleDebugForceOutcome = (winner: TeamId): void => {
+    const orch = orchestratorRef.current;
+    if (orch === null) return;
+    setLatestState(orch.debugForceOutcome(winner));
+  };
+  const handleDebugRemoveUnit = (unitId: UnitId): void => {
+    const orch = orchestratorRef.current;
+    if (orch === null) return;
+    const res = orch.debugRemoveUnit(unitId);
+    if (res === null) return;
+    // Animate the removal from the committed action, then mirror into React.
+    renderer?.playActions(res.committed, res.newState);
+    setLatestState(res.newState);
+  };
+
   // Active-team signaling inputs (S43): whose turn it is, and that team's
   // display name + canonical color. Drives the banner, the menu glow, and
   // the turn-transition alert. Keyed off the EFFECTIVE controller (not the
@@ -691,6 +713,21 @@ function BattleViewInner({
           />
         </div>
       )}
+
+      {/* Dev-only debug tools — never built into production. Shown during an
+          active, un-paused battle (not over a handoff / pause / results). */}
+      {import.meta.env.DEV &&
+        latestState !== null &&
+        outcome === undefined &&
+        !paused &&
+        battleHandoff === null && (
+          <DebugBattleMenu
+            state={latestState}
+            teams={template.teams.map((t) => ({ id: t.id, name: t.name, control: t.control }))}
+            onForceOutcome={handleDebugForceOutcome}
+            onRemoveUnit={handleDebugRemoveUnit}
+          />
+        )}
     </div>
   );
 }
