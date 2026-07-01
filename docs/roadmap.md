@@ -350,7 +350,11 @@ These are noted to make their absence intentional rather than accidental:
 
 - Online play (the action-log model supports it; no implementation in v1).
 - Isometric rendering (orthographic top-down for v1).
-- Campaign / between-battle progression (single battles only in v1).
-- Save/load (single-session play only).
+- ~~Campaign / between-battle progression~~ — **now the active TABA expansion
+  track** (`docs/TABADesign/campaign-decomposition.md`). M0 spine + M1 branching
+  graph shipped; progression (M2), economy (M3), authoring (M4), story (M5) follow.
+- ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
+  autosave/resume, M0). Single-battle Mage War remains single-session.
 
-The architecture has been built to allow these later without rework.
+The architecture has been built to allow these later without rework — the TABA
+expansion is that "later" arriving as new shell code on the unchanged core.

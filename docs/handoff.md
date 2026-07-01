@@ -11,59 +11,82 @@ been processed.
 
 ---
 
-## From S77 — TABA campaign M0, the spine slice (2026-06-29) — COMPLETE & HAND-VERIFIED
+## From S78 — TABA campaign M1, the loop / branching + interstitial (2026-06-30)
 
-Shipped M0 end to end — the first TABA campaign milestone. New `src/campaign/`
-shell region + a Formation screen + a `BattleView.onBattleEnd` hook, all reusing
-the **unchanged** engine (no engine changes, as the audit predicted). ADR-0133.
-Commits on `main`: design docs; Chunk 1 spine; Chunk 2 pure loop core; Chunk 3a
-node graph/loop/persistence; Chunk 3b React flow; clear-autosave-on-completion
-fix. `tsc -b` + `vite build` clean; suite green (2173, +58 campaign tests).
-Guide-changelog updated (S77); decomposition §8 marks M0 shipped.
+Shipped M1 end to end (commit `1009bb1`, ADR-0134): generalized M0's linear A→B
+into a **forward-branching graph** navigated at a **world map**, and built the
+**interstitial beat-sequence framework** the map plugs into. **No engine
+changes** (as M0 predicted). `tsc -b` + `vite build` clean; suite green (**2192**,
++19 campaign tests). Decomposition §8 marks M1 shipped; guide-changelog S78;
+roadmap "out of scope" section updated (campaign + save/load moved into the TABA
+track).
 
-### Acceptance — ALL hand-verified by Chris (the M0 report is going to the planner)
-- ✅ Two-battle happy path: win River Ridge → advance → win Stonebridge →
-  campaign-complete; autosave fired after each node; reload + Resume works.
-- ✅ Loss path: lost a battle → reload + Resume re-entered the node from the last
-  save (failed attempt discarded).
-- ✅ Permadeath: forced a unit to crystallize in battle 1 → it carried over as
-  **lost** and was dropped from battle 2's Formation.
-- ✅ Clear-on-completion: winning the final node now clears the save (Resume goes
-  dark on a finished run) — fixed after Chris flagged Resume relaunching victory.
+New: `src/campaign/graph.ts` (model + routing), `interstitial.ts` (pure beat
+builder), `src/app/interstitial/` (runner + `ResultSummaryBeatView` +
+`WorldMapBeatView`). Rewired: `node.ts` (authored M1 graph), `loop.ts`
+(`resolveWin`/`routeToNode`), `types.ts`/`serialization.ts` (position → node id,
+save **v2**), `CampaignApp.tsx`, `FormationScreen.tsx`, `App.tsx`.
 
-No open M0 items. (Live walkthrough up to battle launch was also tool-verified:
-New Campaign autosave + vitals bootstrap with equipment-boosted caster MP,
-Formation N=8/K=5, fold → DeploymentScreen with recomputed stats, no console
-errors.)
+### ⏳ OWED: Chris's hand-verify (the M1 acceptance the tools can't drive)
+I tool-verified only to **battle launch** (boot clean, New Campaign → **v2**
+autosave at `node-river-ridge`, Formation N8/K5 with bootstrapped caster MP, the
+reused deployment screen — no new console errors). Driving the Pixi battle to a
+win/loss isn't automatable here, so **please hand-verify:**
+1. **Branching playthrough:** win River Ridge → result-summary → **world map
+   offers Stonebridge + Marshmoor** → pick one → fight → … → reach **The Return**
+   → **Campaign Complete**.
+2. **The skippable side-node:** on the Stonebridge route, the map offers **both**
+   Mountain Pass *and* skip-to-finale; taking the Pass then rejoins the finale.
+3. **Loss = retry:** lose a battle → **Defeat** result screen → Retry re-enters
+   the node from the autosave (failed attempt discarded).
+4. **Mid-graph save/resume:** after routing to a branch, reload → **Resume**
+   re-enters that node (the save is node-id based now).
+5. The **result-summary** unit lines read right (Survived / KO / Lost), and
+   permadeath (a crystallized unit) shows **Lost** + drops from later Formations.
 
-### Encounter winnability (needs a play read, not a code fix)
-M0 reuses the shipped battle templates' enemy teams (River Ridge / Stonebridge
-`team_b`) at their authored stats vs the campaign roster at **level 25** (a tuning
-value in `roster.ts` / `M0_BASELINE_LEVEL`). The spine doesn't care about balance,
-but the **loop test needs both outcomes reachable** — i.e. the fights should be
-*winnable by competent play* and *losable*. If a node is unwinnable or trivial,
-bump `M0_BASELINE_LEVEL` or hand-author small enemy teams (the brief's fallback).
+### ⏳ OWED: the M1 test-roster exchange (collaboration, not a build task)
+The brief wants **Chris to hand-pick the M1 playthrough roster** from the existing
+**14-class lineup** (knight, geosage, hydrologist, pyromancer, aethurge,
+alchemist, assassin, hunter, calculator, terraformer, templar, thief, enchanter,
+monk) rather than inherit M0's implementer-chosen default. **This is still open —
+I did not change the roster.** M1 currently still runs on `m0Roster` (N=8, drawn
+from the mageWar + irregulars templates, uniform **Lv 25** via `M0_BASELINE_LEVEL`
+in `roster.ts`). When Chris names classes/levels (and whether N should grow — the
+fork+side-node graph deploys K=5 per node), author them into `roster.ts`. Small
+QoL for playtesting; **not** the M3 roster-builder.
 
-### Known M0 simplifications (by design — not bugs)
-- **Wounds don't carry yet** — heal-to-full each boundary (D-E). The carry
-  plumbing is built + exercised (the fold supplies explicit clamped vitals);
-  switching it on is a one-line change in `apply-back.ts` (write final vitals
-  instead of effective-full). Deferred to an attrition pass.
-- **Initial-roster vitals bootstrap:** the authored roster carries *provisional*
-  base-max vitals; `startCampaign` normalizes them to effective-full via the
-  fold's probe (`bootstrapRosterVitals`). Verified live (casters show
-  equipment-boosted MP). See ADR-0133 §6.
-- Formation / victory / defeat screens are **minimal styling** — polish later.
+### Encounter winnability (carried from M0, still relevant)
+M1 reuses the shipped battle templates' enemy teams at their authored stats vs the
+roster at **Lv 25**. The loop needs both outcomes reachable per node. The **finale
+(The Return) reuses the River Ridge template** — same enemies as the opener, which
+may feel easy by then; if it plays trivially, hand-author its enemy team or bump
+levels (encounter authoring is M4, but a one-off tune is cheap).
 
-### Next TABA milestones (decomposition §8)
-M1 = branching battle-graph (M0 is linear A→B). M2 = progression (XP/JP/level/
-unlock) — the "growth before gear" call. M3 = economy + acquisition. The
-delta-summary superset already emits per-unit survival/vitals; M2 extends
-`UnitBattleSummary` with XP/JP once the battle *tracks* them (don't pre-build the
-empty fields).
+### Known simplifications (by design — not bugs)
+- **Old M0 (v1) saves don't resume** — the position widening bumped the save to
+  **v2**; a v1 slot fails loud on load (deliberate, no migration). Start a new
+  campaign. If a *throwing* Resume button on a stale v1 save bothers you in
+  practice, a small "obsolete-version → treat as no save" guard in `App`'s resume
+  path is the fix (deferred — didn't want an ad-hoc catch that could mask real
+  corruption).
+- **Interstitial reload re-fights** — the autosave lands at node *entry* (start +
+  after each map pick), so reloading *during* an interstitial (won, not yet
+  picked) re-enters the just-won node. Carried M0 "save = node entry" discipline.
+- **Wounds still don't carry** (M0 D-E) — heal-to-full each boundary; the carry
+  plumbing is built, switch-on is one line in `apply-back.ts`. Deferred to an
+  attrition pass.
+- **Map is a placeholder SVG** — structure over art, meant to be reskinned.
 
-### Carried from S76 — RESOLVED, do not re-carry
-Bear's Heave throw UI was **live-verified by Chris** (resolved). The remaining
-S76 content-tuning watch-fors (Fist/Chakra/Serpent's Coil coefficients, etc.)
-were **migrated to `docs/playtest-watch.md`** (commit `38fe826`) so they survive
-into content sessions. Nothing from S76 carries forward here.
+### Flagged (pre-existing, NOT M1): border-shorthand console warnings
+The deployment + formation roster rows mix CSS `border` shorthand with a
+`borderColor` override on select/disable, so React logs "mixing shorthand and
+non-shorthand" dev warnings. This predates M1 (M0's `FormationScreen` + the reused
+`DeploymentScreen`); my new beat views use longhand and don't add to it. Cosmetic,
+dev-only — left as-is (out of M1 scope); worth a small cleanup pass someday.
+
+### Next TABA milestone
+**M1.5 — story-scenes:** a `story-scene` beat type dropped into the framework this
+session built (the runner is already an open set; add a descriptor variant + a
+renderer + a registry entry — don't touch the runner). Then **M2 — progression**
+(XP/JP/level/unlock), which extends `UnitBattleSummary` once the battle *tracks*
+XP/JP (don't pre-build the empty fields).

@@ -44,6 +44,35 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 78 (2026-06-30) — TABA campaign M1 (branching + world map)
+
+Commit: `1009bb1`. ADR-0134.
+
+Second TABA milestone: the campaign is now a **branching path** you navigate at a
+**world map**, not a fixed two-battle line. Still no progression (leveling/gear
+come later).
+
+- **Branching campaign.** After winning a battle you choose your next
+  destination at a **world map** — a stylized map showing your position and the
+  routes open to you. The campaign is a forward path of battles that ends at a
+  final "The Return" battle.
+- **A real fork + an optional detour.** The opening battle (**River Ridge**)
+  branches into two routes — **Stonebridge** (north) or **Marshmoor** (south).
+  The Stonebridge route offers an **optional side battle** (**Mountain Pass**)
+  you can take or skip; both ways rejoin the finale. (The map is a placeholder
+  visual — structure over art, to be reskinned later.)
+- **Post-battle result screen.** Winning a battle now shows a **result summary**
+  — each deployed unit listed as **Survived / KO / Lost** — before the map. This
+  is the same screen for a win, a loss (**Defeat**, with Retry), and the final
+  **Campaign Complete** victory.
+- **Losing** still lets you **retry the battle from your last save** (unchanged).
+- **Save note:** the campaign save format changed this milestone, so an
+  **in-progress M0 campaign won't resume** — start a new campaign. (Between-battle
+  autosave + Resume otherwise work as before, now remembering your place in the
+  branching map.)
+- *Still not in the campaign:* leveling/XP, JP/ability unlocks, money/shops/gear,
+  recruiting, story. The single-battle "New Battle" (Mage War) mode is unchanged.
+
 ## Session 77 (2026-06-29) — TABA campaign M0 (the spine slice)
 
 Commits: `731c421` (design docs), `f0cbe9b` (Chunk 1), `44e44c0` (Chunk 2),
