@@ -87,10 +87,12 @@ export interface CampaignAppProps {
 export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAppProps): ReactElement {
   const [state, setState] = useState<CampaignState>(initialState);
   // Monotonic key so each new presentational run remounts the runner fresh
-  // (resets its beat cursor). Bumped by `showRun`. Declared BEFORE `screen` so
-  // it is initialized when `planEntry` (the screen initializer) reads it.
+  // (resets its beat cursor). EVERY new run must get a fresh key — a run→run
+  // transition that reused the key would keep the prior runner mounted with a
+  // stale cursor (it would skip the new run's leading beats). Bumped by
+  // `showRun` and by the route transition; the initial mount uses 0.
   const [nonce, setNonce] = useState(0);
-  const [screen, setScreen] = useState<Screen>(() => planEntry(initialState));
+  const [screen, setScreen] = useState<Screen>(() => planEntry(initialState, 0));
 
   // The battle beat currently in the formation/deployment/battle sub-flow reads
   // its NodeBattle from the node's beats by index (fresh across renders).
@@ -98,31 +100,33 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
 
   // --- run plumbing ---
 
-  // The first screen for a starting/resumed state — PURE (no save/setState).
+  // The first screen for a starting/routed-into node — PURE (no save/setState).
   // Node entry is already persisted by the caller (startCampaign owner / the
-  // prior route), so entry needs no save of its own.
-  function planEntry(st: CampaignState): Screen {
+  // prior route), so entry needs no save of its own. `key` is the runner nonce
+  // any run screen it returns must carry (0 at initial mount; a FRESH value on a
+  // route transition, so the runner remounts rather than reusing a stale cursor).
+  function planEntry(st: CampaignState, key: number): Screen {
     if (st.phase === 'awaiting_route') {
       // Resumed right after a won battle: drop straight to the world map (the
       // transient result is gone — nothing to replay before it).
-      return runScreen([buildRouteChoiceBeat(GRAPH, st.currentNodeId)], { kind: 'route', state: st });
+      return runScreen([buildRouteChoiceBeat(GRAPH, st.currentNodeId)], { kind: 'route', state: st }, key);
     }
     const entryNode = getNode(GRAPH, st.currentNodeId);
     const { scenes, next } = takeStoryRun(entryNode.beats, 0);
     if (next >= entryNode.beats.length) {
       // A standalone story node (no battle ahead): play its scenes, then route.
       // (A battle START node can't reach here — bootstrapRosterVitals requires
-      // one. This is the resume-into-a-story-node case.)
-      return resolutionRun(st, entryNode, scenes);
+      // one. This is the routed-into / resumed story-node case.)
+      return resolutionRun(st, entryNode, scenes, key);
     }
-    if (scenes.length > 0) return runScreen(scenes, { kind: 'walk', state: st, cursor: next });
+    if (scenes.length > 0) return runScreen(scenes, { kind: 'walk', state: st, cursor: next }, key);
     return { kind: 'formation', battleIndex: next };
   }
 
-  // Build a run screen (does NOT bump the nonce — see showRun for the live path;
-  // planEntry uses the initial nonce).
-  function runScreen(beats: ReadonlyArray<InterstitialBeat>, done: RunDone): Screen {
-    return { kind: 'run', beats, done, nonce };
+  // Build a run screen with an explicit nonce. Callers pass a FRESH nonce for a
+  // new run (planEntry at a route transition; showRun for the live path).
+  function runScreen(beats: ReadonlyArray<InterstitialBeat>, done: RunDone, key: number): Screen {
+    return { kind: 'run', beats, done, nonce: key };
   }
 
   // Show a presentational run now (bumping the nonce). An empty run would stall
@@ -146,12 +150,14 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     st: CampaignState,
     resolvedNode: CampaignNode,
     prefixScenes: ReadonlyArray<InterstitialBeat>,
+    key: number,
   ): Screen {
     const resolved = resolveNode(st, GRAPH);
-    if (isComplete(resolved)) return runScreen([...prefixScenes], { kind: 'exit' });
+    if (isComplete(resolved)) return runScreen([...prefixScenes], { kind: 'exit' }, key);
     return runScreen(
       [...prefixScenes, buildRouteChoiceBeat(GRAPH, resolvedNode.id)],
       { kind: 'route', state: resolved },
+      key,
     );
   }
 
@@ -197,7 +203,12 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
         const routed = routeToNode(done.state, GRAPH, nextNodeId);
         saveCampaign(routed);
         setState(routed);
-        setScreen(planEntry(routed));
+        // Fresh nonce so the next node's run remounts the runner (it must NOT
+        // reuse the just-finished world-map runner's cursor — that stale cursor
+        // was the bug where a routed-into story node skipped its dialogue).
+        const key = nonce + 1;
+        setNonce(key);
+        setScreen(planEntry(routed, key));
         return;
       }
     }
