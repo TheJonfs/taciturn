@@ -21,11 +21,7 @@ import type {
   Loadout,
   UnitEquipment,
 } from '@engine/index.ts';
-import {
-  classBaselineStats,
-  classDominantStats,
-  type ClassBaselineStats,
-} from '../classes/baseline-stats.ts';
+import { leveledClassStats } from '../classes/stat-curves.ts';
 
 export interface BuiltUnit {
   readonly name: string;
@@ -95,62 +91,41 @@ export function slotLevelFor(slotIndex: number): number {
     : BASELINE_LEVEL - halfStep; // odd: -N
 }
 
-// Assemble a full `BaseStats` for a class: the class-differentiated
-// baseline (single source of truth in `baseline-stats.ts`) plus the
-// player-chosen Brave / Faith, the uniform crit defaults, and the
-// Session 49 Level modifier. Mirrors `demo.ts`'s `baseStatsFor`, but
-// takes Brave / Faith / level as arguments since the team builder
-// makes Brave / Faith per-unit editable and level is slot-derived.
+// Assemble a full `BaseStats` for a class at a given level: the five
+// level-driven base stats from the M2 per-class curve (`leveledClassStats`,
+// single source of truth for the curve math + §5 anchors) plus the
+// player-chosen Brave / Faith and the uniform crit defaults. Mirrors
+// `demo.ts`'s `baseStatsFor`, but takes Brave / Faith / level as arguments
+// since the team builder makes Brave / Faith per-unit editable and level is
+// slot-derived (Mage War) or progression-derived (campaign).
 //
-// Level modifier (per Session 49 / ADR-0087, S50 retune):
-//   - HP_modified = round(maxHpBase × (1 + 0.1 × sign(level − 25)))
-//   - MP_modified = round(maxMpBase × (1 + 0.1 × sign(level − 25)))
-//   - dominant_stat += 1 if level >= 27, -1 if level <= 23, else 0
+// The curve (ADR-0137, `docs/TABADesign/m2-stat-curves-brief.md`) is
+// anchored so **L25 reproduces the §5 stat block exactly** — Mage War's
+// L25 Knight is byte-identical; its off-L25 mages (L23/24/26/27) re-tune to
+// the curve, a blessed change from the S49/S50 ±10% modifier this replaces.
 //
-// S50 capped the HP/MP shift at ±10% regardless of slot distance from
-// baseline. Pre-S50 the multiplier was linear (`1 + 0.1 × (level − 25)`),
-// so slot 3 / slot 4 (L23 / L27) lifted to ±20% HP/MP — heavier than
-// Chris's design intent. The dominant-stat shift still ratchets at the
-// ±2 boundary (so slot 3 vs slot 1 still differ on the dominant axis),
-// preserving the slot-distance signal where it matters most.
+// Level defaults to 25 (the anchor) so legacy callers that haven't adopted
+// Level yet keep the exact §5 values.
 //
-// Rounding is `Math.round` (banker's-style nearest, half-up); the v1
-// numbers all round cleanly. Floor-only would systematically bias the
-// negative-modifier side; round is symmetric and matches FFT's tradition.
-//
-// Level defaults to 25 (no-op modifier) so legacy callers that haven't
-// adopted Level yet keep their existing behavior.
+// FORWARD SEAM — per-unit stat override (do NOT wire here; ADR-0137 §seam).
+// TABA will later give unique characters (protagonists, guests) per-character
+// stat overrides layered on top of this class-derived base — e.g. a flat
+// MaxMP modifier keyed by the unit's stable id. That layer is a *future
+// additive slice*, and it must arrive as **another `modifyStatQuery`
+// handler**, NOT by re-baking values into this stored block. The insertion
+// point: a per-character source registered at the engine `class` hook tier
+// (conceptually alongside the class layer — the tier already exists in the
+// collector's ordering, currently dormant), reading `{ flat, mult }` per
+// stat keyed by unit id. Effective stat reads already compose through
+// `modifyStatQuery` (Equipment → Class → Passive → Statuses); the override
+// is just one more handler in that chain. This function stays the class
+// *seed*; nothing here needs to change when the override lands.
 export function buildBaseStats(
   classId: ClassId,
   brave: number,
   faith: number,
   level: number = BASELINE_LEVEL,
 ): BaseStats {
-  const baseline = classBaselineStats.get(classId);
-  if (baseline === undefined) {
-    throw new Error(
-      `buildBaseStats: no baseline stats registered for class ${String(classId)}`,
-    );
-  }
-  const dominantStat = classDominantStats.get(classId);
-  if (dominantStat === undefined) {
-    throw new Error(
-      `buildBaseStats: no dominant stat registered for class ${String(classId)}`,
-    );
-  }
-  const levelOffset = level - BASELINE_LEVEL;
-  // S50: cap HP/MP shift at ±10% — slot ±1 and slot ±2+ all land at the
-  // same magnitude. Dominant stat still steps at ±2 (below).
-  const hpMpMultiplier = 1 + 0.1 * Math.sign(levelOffset);
-  const dominantStatDelta =
-    levelOffset >= 2 ? 1 : levelOffset <= -2 ? -1 : 0;
-
-  const leveled: ClassBaselineStats = {
-    maxHpBase: Math.max(1, Math.round(baseline.maxHpBase * hpMpMultiplier)),
-    maxMpBase: Math.max(0, Math.round(baseline.maxMpBase * hpMpMultiplier)),
-    pa: baseline.pa + (dominantStat === 'pa' ? dominantStatDelta : 0),
-    ma: baseline.ma + (dominantStat === 'ma' ? dominantStatDelta : 0),
-    spd: baseline.spd + (dominantStat === 'spd' ? dominantStatDelta : 0),
-  };
+  const leveled = leveledClassStats(classId, level);
   return { ...leveled, brave, faith, ...CRIT_DEFAULTS };
 }

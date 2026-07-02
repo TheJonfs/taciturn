@@ -11,88 +11,62 @@ been processed.
 
 ---
 
-## From S79 — TABA campaign M1.5 (story-scenes / battle-as-beat) (2026-07-01)
+## From S80 — TABA M2: per-class level→stat curves (2026-07-02)
 
-**M1.5 shipped.** Generalized M1's fixed formation→deployment→battle→post-battle
-pipeline into a node-owned **beat sequence** where a battle is one beat-type among
-others. Story scenes now play pre-battle, post-battle, or standalone.
-`requireBattle` is gone. **No engine changes.** Suite green (**2211**), `tsc -b` +
-`vite build` clean. ADR-0135. Decomposition §8 + roadmap + guide-changelog
-updated.
+**Shipped** the base-stat-curve piece of M2 (ADR-0137, brief
+`docs/TABADesign/m2-stat-curves-brief.md`). `buildBaseStats(class, brave, faith,
+level)` now composes a real per-class curve for the five level-driven stats,
+replacing the S49/S50 ±10% slot modifier. Suite green (**2271**, +60 curve
+tests), `tsc -b` + `vite build` clean.
 
-New/changed code: `src/campaign/sequence.ts` (new — beat model + cursor helpers,
-now owns `NodeBattle`), `graph.ts` (node.beats, requireBattle deleted), `loop.ts`
-(`resolveWin` → `applyBattleBeatWin` + `resolveNode`; `battleWasWon(result,
-playerTeam)`), `interstitial.ts` (`buildInterstitial` → `buildResultSummaryBeat`
-+ `buildRouteChoiceBeat`; `story-scene` in the presentational union), `node.ts`
-(beat sequences + authored scenes + the standalone "The Crossing" node),
-`CampaignApp.tsx` (rewritten as a beat-sequence walker), `StorySceneBeatView.tsx`
-(new renderer), `InterstitialRunner.tsx` (registered story-scene). Tests:
-`sequence.test.ts`, `InterstitialRunner.test.tsx` (new), plus graph/loop/
-interstitial updated.
+New/changed code:
+- `src/content/classes/stat-curves.ts` (**new**) — curve constants + pure
+  `leveledClassStats(classId, level)` (linear PA/HP/MP · quadratic uncapped MA ·
+  piecewise floored Speed with L50 plateau + 99 cap). Also exports `paCurve` /
+  `maCurve` / `spdCurve` etc. (pre-round floats) for tests/tooling.
+- `src/content/teams/built-team.ts` — `buildBaseStats` is now a thin composition
+  over `leveledClassStats` + Brave/Faith + crit defaults; dropped the ±10% /
+  dominant-stat modifier and the `classBaselineStats`/`classDominantStats`
+  imports. **The per-unit stat-override seam is documented in its docblock**
+  (future unique-character override = a `modifyStatQuery` handler at the `class`
+  tier, keyed by unit id — NOT wired).
+- Tests: `stat-curves.test.ts` (new, 61 assertions — full L1/L25/L50 tables +
+  L25=§5 + past-L50 MA-runaway/Speed-plateau); `level-substrate.test.ts`
+  rewritten (its old ±10% assertions gone; now covers slotLevelFor +
+  buildBaseStats-delegates-to-curve + the dominantStat parity check).
 
-### ✅ Verified in-browser this session (S79)
-Via the dev server (localStorage-save + Resume, since Pixi deployment isn't
-script-drivable): the **pre-battle scene** (River Ridge intro) → Formation; the
-**standalone node** "The Crossing" → world map; the **new 6-node map** + active
-edge highlight; **routing** (The Crossing → The Return) → next node's Formation +
-autosave. **Chris then hand-played the full flow** and confirmed the pre-River-
-Ridge scene, the **post-Stonebridge aftermath scene**, and the standalone node
-all work.
+### Two decisions confirmed with Chris (in ADR-0137)
+- **MW re-tunes its off-L25 mages.** The brief's "byte-identical MW" premise was
+  wrong — MW deploys the Knight at L25 but the mages at L24/26/23/27, whose
+  *current* numbers came from the modifier we removed. Chris chose **keep 23–27,
+  adopt the curve** (blessed re-tune; Knight unchanged). Old→new numbers are in
+  ADR-0137 §Decision 4 and the guide-changelog. Player-facing → logged.
+- **Stat seam = pragmatic.** `buildBaseStats` stays the class *seed*; the future
+  per-unit override arrives as another `modifyStatQuery` handler (class tier),
+  not by re-baking. Did **not** activate the dormant `class` hook tier as a live
+  handler (out of scope / risky).
 
-Two bugs found + fixed this session:
-- A TDZ crash (`planEntry` read `nonce` before its `useState` initialized) —
-  `nonce` now declared before `screen`.
-- **Routed-into story nodes skipped their dialogue** (`83f1db8`): a run→run
-  route transition reused the runner nonce, so React kept the just-finished
-  world-map runner mounted with a stale cursor and The Crossing jumped straight
-  to the next map. Fix: thread an explicit nonce through `planEntry`/
-  `resolutionRun` and bump it on the route transition (every new run remounts).
-  Regression guard: `CampaignApp.test.tsx` (world-map → route → standalone-node
-  dialogue; stays in presentational runs, no Pixi).
+### Finding worth carrying: the "99 cap" is a guide fiction
+No 99 clamp on pa/ma/hp/mp exists in code, and `RulesetSpeedBounds.ceiling` is
+`null`. We honored the spec minimally (Speed `min(99,…)` at the curve output; MA
+uncapped) rather than build a clamp subsystem. If the mechanics guide still
+claims a global 99 cap, it's inaccurate — worth a guide-doc correction someday
+(not done this session).
 
-Still worth an eyeball on a future playthrough (not blocking): the **terminal
-victory** result-summary at The Return.
+### Next M2 pieces (not started)
+- **XP → level** mechanics (feeds the `level` this consumes; extend
+  `UnitBattleSummary` to *track* XP/JP once the battle emits it — don't pre-build
+  empty fields, per the standing S78 note).
+- **JP → ability unlock** ("everything unlocked" → earned).
 
-### 🧭 Deferred by the seam-audit (NOT a bug — a scoped cut)
-**Multi-battle-node machinery.** The *model* supports `[battle, story, battle]`
-(battle is a peer beat; the driver already loops over battle beats), but the
-*driver/save* don't persist mid-node: only node-entry (`in_progress`) and
-`awaiting_route` are saved, so reloading mid-node would re-fight. M1.5 authors no
-such node, so it's unexercised. When consecutive battles are actually authored,
-add a beat-cursor + resolved-battle persistence (the "v3" the audit deferred).
-Save schema stays **v2**; old v1 saves still fail loud.
-
-### 🖼️ Portrait override seam laid (ADR-0136) — M5 completion documented
-Groundwork for **plot characters with a portrait independent of their current
-class** (units reclass freely). Shipped: `PortraitRef` (`{kind:'class',...}` |
-`{kind:'fixed', key}`) + `resolvePortraitUrl` in `src/assets/portraits/index.ts`
-(single override-aware entry point over the pure class-derived `portraitUrlFor`);
-story-scene `DialogueLine.portrait` now takes a `PortraitRef`. **The explicit M5
-to-do list lives in ADR-0136** — the two additive connections that make "a roster
-unit speaks with their enduring portrait + automatic class fallback": (1) durable
-`CampaignUnit.portrait?` override threaded fold → `UnitPlacement` → engine `Unit`
-→ renderer (the `gender`-cosmetic precedent, S55) + populating `FIXED_PORTRAITS`;
-(2) a speaker→roster-unit link on `DialogueLine` (today `speaker` is free text +
-an independent portrait ref — no tie to a `CampaignUnit`). Plus a small
-fallback-chain call for bespoke NPCs with missing art (ADR-0136 §3).
-
-### Known simplifications (by design)
-- **Loss retry** re-enters the battle beat in-session (state unchanged, no story
-  replay); a *reload* replays the node from its first beat (node-granularity).
-- **Reload mid-sequence** (e.g. during a post-battle scene, before the map)
-  resumes at the world map — the trailing scene is skipped, not replayed.
-- Everything from the S78 handoff that was **by-design** still holds: wounds
-  don't carry (heal-to-full each boundary), the finale reuses River Ridge's enemy
-  team, the map is a placeholder SVG.
-
-### Still pending from S78 (dropped/carried explicitly)
-- **Border-shorthand console warnings** (M1 `FormationScreen`/`DeploymentScreen`
-  rows mixing CSS `border` shorthand + `borderColor`) — cosmetic, dev-only, NOT
-  touched this session. Still worth a small cleanup someday.
-- The S78 "persist last result to replay the summary on resume" nicety — still
-  not done; even less relevant now (mid-sequence reload → map by design).
-
-### Next TABA milestone
-**M2 — progression** (XP/JP/level/JP-gated unlock). Extends `UnitBattleSummary`
-once the battle *tracks* XP/JP — don't pre-build the empty fields (S78 note holds).
+### Carried from S79 (still open, still by-design/low-priority)
+- **Multi-battle-node persistence (the deferred "v3")** — only needed when
+  consecutive battle beats in one node are authored; M1.5 authors none. Save
+  schema stays v2.
+- **Portrait override seam (ADR-0136)** — M5 completion to-do (durable
+  `CampaignUnit.portrait?` + engine threading + speaker→roster-unit link) lives
+  in ADR-0136; untouched.
+- **Border-shorthand console warnings** (M1 Formation/Deployment rows) — cosmetic,
+  dev-only, still not cleaned up.
+- Terminal-victory result-summary at "The Return" still worth an eyeball on a
+  future playthrough.

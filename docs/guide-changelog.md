@@ -44,6 +44,34 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 80 (2026-07-02) — per-class level→stat curves (ADR-0137)
+
+Level now drives a **real per-class stat curve** for the five level-driven base
+stats (PA, MA, HP, MP, Speed), replacing the old ±10%-HP/MP + ±1-dominant-stat
+slot modifier. **At L25 every class is unchanged** (the curve is anchored to
+today's stat block), so the tuning baseline is identical. The curves only diverge
+*away* from L25.
+
+Two things a guide reader should note:
+
+- **Mage War's mages re-tune slightly.** The Knight (L25) is unchanged; the four
+  mages deploy off-L25 and shift to the curve's values:
+  - **Earth Mage** (L24): HP 101→**109**, MP 43→**47**, Speed 8→**7**.
+  - **Fire Mage** (L26): HP 107→**100**, MP 53→**50**, PA 4→**5**, MA 13→**14**.
+  - **Lightning Mage** (L23): HP 78→**83**, MP 43→**46**, Speed 9→**8**.
+  - **Water Mage** (L27): HP 112→**108**, MP 53→**51**, PA 4→**5**, MA 13→**14**.
+- **Team-builder units at non-baseline slots** (slots 1–4, which map to
+  L24/26/23/27) shift the same way — a player building a team sees these curve
+  values, not the old modifier's.
+
+Curve shape, for the guide's stat section: PA/HP/MP grow **linearly**, MA grows
+**quadratically and is uncapped** (a high-level mage's MA accelerates — by
+design), and Speed grows to a **plateau at L50** and never exceeds it from base
+growth (fast builds come from Haste/gear, not levels). Full per-class L1/L25/L50
+tables are in ADR-0137 / the M2 brief.
+
+---
+
 ## Session 79 (2026-07-01) — TABA campaign M1.5 (story scenes)
 
 Commit: `c1dd956`. ADR-0135.
