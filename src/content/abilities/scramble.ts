@@ -7,9 +7,10 @@
 // entirely in the targeting range — horizontal 1 (adjacent), vertical 5
 // (the leap cap). Validation additionally requires the destination to be
 // enterable terrain for the Hunter's class and free of any other unit.
-// No damage, no MP — its value is escaping a melee threat the bow's
-// 2-tile minimum range can't answer, or hopping onto the high ground the
-// Hunter's height-delta variance rewards.
+// No damage; its value is escaping a melee threat the bow's 2-tile
+// minimum range can't answer, or hopping onto the high ground the
+// Hunter's height-delta variance rewards. mpCost 2 — a light tax so the
+// repositioning hop isn't a free every-turn reset.
 
 import {
   abilityId,
@@ -30,6 +31,6 @@ export const scramble: ActiveAbilityDefinition = {
     rangeMode: 'melee',
   },
   actionSpeed: 0,
-  mpCost: 0,
+  mpCost: 2,
   effects: { selfMove: true },
 };

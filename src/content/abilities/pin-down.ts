@@ -17,8 +17,11 @@
 // equipped the reach derives from the weapon (so it tracks the actual bow and
 // gains extended horizontal range when shooting from high ground); the
 // authored 2-5 band is the no-bow fallback (matching Charged Attack's shape).
-// mpCost 0: the Hunter's bow kit doesn't spend MP, and D2's EV calibration
-// assumes Pin Down costs only the action.
+// mpCost 6: the pin is a strong action-economy swing (a reliable Slow with
+// no damage-reaction risk), so it carries a real MP cost — the Hunter's
+// 28 base MP funds ~4 pins a battle, making it a resource to spend rather
+// than a free every-turn debuff. (Supersedes the original action-only cost;
+// D2's EV was calibrated pre-cost.)
 
 import {
   abilityId,
@@ -41,7 +44,7 @@ export const pinDown: ActiveAbilityDefinition = {
     rangeMode: 'arc',
   },
   actionSpeed: 0,
-  mpCost: 0,
+  mpCost: 6,
   effects: {
     statusEffects: [
       {

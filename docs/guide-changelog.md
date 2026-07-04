@@ -44,6 +44,21 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 82 (2026-07-04) — Hunter MP costs (Scramble, Pin Down)
+
+Two Hunter Marksmanship commands that had been shipping at **0 MP** now carry a
+cost:
+
+- **Scramble** — now **2 MP** (was free). A light tax so the ignore-jump-limit
+  repositioning hop isn't a free every-turn reset.
+- **Pin Down** — now **6 MP** (was free). The reliable no-damage Slow is a real
+  action-economy swing, so it's now a resource to spend — the Hunter's 28 base MP
+  funds roughly four pins a battle.
+
+No change to either ability's effect, range, or hit formula — only the MP cost.
+
+---
+
 ## Session 81 (2026-07-04) — TABA M2 XP & mid-battle level-up (ADR-0139)
 
 **Player-facing (campaign mode).** Units now earn **XP** and **level up
