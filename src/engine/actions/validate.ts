@@ -243,6 +243,21 @@ function validateUseAbility(
     );
   }
 
+  // TABA M2 progression gating: a VOLITIONAL cast must be in the actor's
+  // active allowlist when one is present (`usableActives === undefined` ⇒
+  // ungated — the Mage War default, so the engine stays progression-ignorant).
+  // Rider casts (weapon procs) and reactions are engine-generated, not player-
+  // chosen, so they bypass the gate — the same carve-out as the MP / budget
+  // bypasses above. The allowlist already includes the class's free abilities.
+  if (
+    !isReaction &&
+    !isRider &&
+    actor.usableActives !== undefined &&
+    !actor.usableActives.has(ability.id)
+  ) {
+    return invalid(`Ability ${JSON.stringify(ability.id)} is locked for this unit`);
+  }
+
   // MP cost — routed through `computeMpCost` so equipment / status /
   // passive `modifyMpCost` contributors compose into the affordability
   // check (per ADR-0056). Per ADR-0064 (Session 30): rider casts skip

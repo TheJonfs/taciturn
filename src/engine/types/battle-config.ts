@@ -16,7 +16,7 @@
 import type { VictoryCondition } from './battle-outcome.ts';
 import type { DamageTag } from './damage.ts';
 import type { UnitEquipment } from './equipment-slot.ts';
-import type { ClassId, RulesetId, TeamId, UnitId } from './ids.ts';
+import type { AbilityId, ClassId, RulesetId, TeamId, UnitId } from './ids.ts';
 import type { Gender } from './unit.ts';
 import type { Loadout } from './loadout.ts';
 import type { Direction, Position } from './spatial.ts';
@@ -67,6 +67,12 @@ export interface UnitPlacement {
   // Session 55: cosmetic gender → portrait variant. Optional; absent means
   // the class's default portrait. Threaded through to `Unit.gender`.
   readonly gender?: Gender;
+  // TABA M2 progression: per-unit active-ability allowlist. Optional — when
+  // omitted (Mage War / demo / hand-authored battles), every active is usable
+  // (`Unit.usableActives` stays `undefined`). The campaign fold stamps it from
+  // the durable unit's unlocked set; `createInitialState` threads it onto the
+  // `Unit` as a `Set`. Plain array here (declarative config); see `Unit`.
+  readonly usableActives?: ReadonlyArray<AbilityId>;
 }
 
 // Victory conditions are data-as-config. The shape lives in

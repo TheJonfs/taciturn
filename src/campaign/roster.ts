@@ -17,6 +17,7 @@ import type { BuiltUnit } from '@content/teams/index.ts';
 import { abilityId, bucketId, classId, commandSetId, itemId, unitId } from '@engine/index.ts';
 import type { Vitals } from '@engine/index.ts';
 import type { CampaignUnit } from './types.ts';
+import { EMPTY_JP_LEDGER } from './types.ts';
 
 // M0 roster size (N) and the per-node deploy cap (K) are parameters, not
 // the hardcoded team-of-5 (watch-for in the brief). N is a roster
@@ -79,6 +80,10 @@ export function campaignUnitFromBuilt(
     loadout: built.loadout,
     equipment: built.equipment,
     vitals: provisionalFullVitals(built.classId, brave, faith, level),
+    // M2 progression: fresh units carry no JP and no unlocks. Authored
+    // pre-unlocks (plot-uniques) would set these here; M0/M1 authors none.
+    jpLedger: EMPTY_JP_LEDGER,
+    unlocks: [],
     fate: 'active',
   };
 

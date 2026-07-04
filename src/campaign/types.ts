@@ -31,6 +31,23 @@ import type {
   UnitId,
   Vitals,
 } from '@engine/index.ts';
+import type { UnlockToken } from './progression/tokens.ts';
+
+// Per-unit JP (job points) ledger — the M2 economy's stored state. Both
+// fields are irreducible inputs (D-A / rule 5), not derived:
+//   - `earned` accumulates from battles (per-action, applied at apply-back)
+//     and from tier-scaled unlock grants.
+//   - `spent` accumulates as the unit buys unlocks.
+// `spent` is NOT derivable from `unlocks` alone once grants/spillover exist
+// (a grant raises `earned` without a purchase), so both are stored;
+// `available = earned − spent` is the only derived value. See
+// `progression/ledger.ts`.
+export interface JpLedger {
+  readonly earned: number;
+  readonly spent: number;
+}
+
+export const EMPTY_JP_LEDGER: JpLedger = { earned: 0, spent: 0 };
 
 // Terminal-fate marker on a durable unit. M0 distinguishes only:
 //   - `active` — on the roster, deployable.
@@ -75,6 +92,22 @@ export interface CampaignUnit {
   // apply-back (Chunk 2 — needs the catalog to read equipment-adjusted
   // maxes, so it is NOT computed here).
   readonly vitals: Vitals;
+
+  // --- M2 progression (stored inputs; D-A / rule 5). ---
+  // The JP ledger (earned / spent). Fresh units start EMPTY_JP_LEDGER.
+  readonly jpLedger: JpLedger;
+  // The purchase record — every component (ability / item / math parameter /
+  // value) this unit has unlocked. The source of truth for BOTH ability-use
+  // gating and the per-tier-per-half spend accumulators (which are DERIVED
+  // from this + the static component catalog, never stored). Array, not Set,
+  // per D-C plain-serializable. Fresh units start `[]`.
+  readonly unlocks: ReadonlyArray<UnlockToken>;
+  // Plot-unique relief valve: classes this unit may reclass into REGARDLESS of
+  // the tier thresholds (an early-Ch1 Assassin/Calculator "taste" without
+  // opening that tier for generics). The first consumer of the unique-character
+  // override layer. Optional — omitted for generic units (under
+  // exactOptionalPropertyTypes; omitted, not `undefined`).
+  readonly classAccessOverride?: ReadonlyArray<ClassId>;
 
   readonly fate: UnitFate;
 }

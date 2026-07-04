@@ -10,8 +10,10 @@
 // malformed or wrong-version save throws; we never silently coerce a
 // half-valid blob into a `CampaignState`.
 
-import { EMPTY_LOADOUT, EMPTY_UNIT_EQUIPMENT } from '@engine/index.ts';
-import type { CampaignPhase, CampaignState, CampaignUnit, UnitFate } from './types.ts';
+import { classId as toClassId, EMPTY_LOADOUT, EMPTY_UNIT_EQUIPMENT } from '@engine/index.ts';
+import type { CampaignPhase, CampaignState, CampaignUnit, JpLedger, UnitFate } from './types.ts';
+import { EMPTY_JP_LEDGER } from './types.ts';
+import type { UnlockToken, UnlockTokenKind } from './progression/tokens.ts';
 
 // Persisted-shape version. Bump when `CampaignState`/`CampaignUnit` change
 // in a way that invalidates old saves; `deserializeCampaign` rejects any
@@ -20,7 +22,16 @@ import type { CampaignPhase, CampaignState, CampaignUnit, UnitFate } from './typ
 // v2 (M1): position widened from a linear `nodeIndex: number` to a branching
 // `currentNodeId: string`. Old v1 saves hard-fail to load (loud) rather than
 // migrate — acceptable for dev-only localStorage, deliberate not silent.
-export const CAMPAIGN_SCHEMA_VERSION = 2;
+// v3 (M2): `CampaignUnit` gained the JP progression state (`jpLedger`,
+// `unlocks`, optional `classAccessOverride`). Old v2 saves hard-fail.
+export const CAMPAIGN_SCHEMA_VERSION = 3;
+
+const VALID_UNLOCK_KINDS: ReadonlyArray<UnlockTokenKind> = [
+  'ability',
+  'item',
+  'mathParameter',
+  'mathValue',
+];
 
 const VALID_FATES: ReadonlyArray<UnitFate> = ['active', 'lost'];
 const VALID_PHASES: ReadonlyArray<CampaignPhase> = [
@@ -112,6 +123,12 @@ function validateUnit(raw: unknown, index: number): CampaignUnit {
   asRecord(loadout, `${where}.loadout`);
   asRecord(equipment, `${where}.equipment`);
 
+  // M2 progression state. Omitted fields default (lenient, matching the
+  // loadout/equipment handling) so a hand-trimmed save stays loadable; a
+  // present value is validated structurally.
+  const jpLedger = validateJpLedger(u['jpLedger'], `${where}.jpLedger`);
+  const unlocks = validateUnlocks(u['unlocks'], `${where}.unlocks`);
+
   const gender = u['gender'];
   const base = {
     id,
@@ -123,19 +140,76 @@ function validateUnit(raw: unknown, index: number): CampaignUnit {
     loadout,
     equipment,
     vitals,
+    jpLedger,
+    unlocks,
     fate,
   } as CampaignUnit;
 
-  // exactOptionalPropertyTypes: only attach `gender` when present.
+  // exactOptionalPropertyTypes: attach optional fields only when present.
+  let result = base;
   if (gender === 'male' || gender === 'female') {
-    return { ...base, gender };
-  }
-  if (gender !== undefined) {
+    result = { ...result, gender };
+  } else if (gender !== undefined) {
     throw new Error(
       `${where}.gender must be 'male' | 'female' when present, got ${JSON.stringify(gender)}`,
     );
   }
-  return base;
+
+  const rawOverride = u['classAccessOverride'];
+  if (rawOverride !== undefined) {
+    if (!Array.isArray(rawOverride)) {
+      throw new Error(`deserializeCampaign: ${where}.classAccessOverride must be an array`);
+    }
+    const classAccessOverride = rawOverride.map((c, i) =>
+      toClassId(asNonEmptyString(c, `${where}.classAccessOverride[${i}]`)),
+    );
+    result = { ...result, classAccessOverride };
+  }
+
+  return result;
+}
+
+// jpLedger: `{ earned, spent }` numbers. Omitted → EMPTY_JP_LEDGER.
+function validateJpLedger(raw: unknown, where: string): JpLedger {
+  if (raw === undefined) return EMPTY_JP_LEDGER;
+  const rec = asRecord(raw, where);
+  return {
+    earned: asNumber(rec['earned'], `${where}.earned`),
+    spent: asNumber(rec['spent'], `${where}.spent`),
+  };
+}
+
+// unlocks: array of `{ kind, id }`. Omitted → `[]`. `kind` is validated
+// against the closed set; `id` is trusted as a string|number (the component
+// catalog re-validates every token when spend is computed — a lenient walk
+// here mirrors the loadout-id handling and avoids duplicating that gate).
+function validateUnlocks(raw: unknown, where: string): ReadonlyArray<UnlockToken> {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    throw new Error(`deserializeCampaign: ${where} must be an array`);
+  }
+  return raw.map((t, i) => {
+    const rec = asRecord(t, `${where}[${i}]`);
+    const kind = rec['kind'];
+    if (!isUnlockKind(kind)) {
+      throw new Error(
+        `deserializeCampaign: ${where}[${i}].kind must be one of ` +
+          `${VALID_UNLOCK_KINDS.join(' | ')}, got ${JSON.stringify(kind)}`,
+      );
+    }
+    const id = rec['id'];
+    if (typeof id !== 'string' && typeof id !== 'number') {
+      throw new Error(
+        `deserializeCampaign: ${where}[${i}].id must be a string or number, ` +
+          `got ${JSON.stringify(id)}`,
+      );
+    }
+    return { kind, id } as UnlockToken;
+  });
+}
+
+function isUnlockKind(v: unknown): v is UnlockTokenKind {
+  return typeof v === 'string' && (VALID_UNLOCK_KINDS as ReadonlyArray<string>).includes(v);
 }
 
 // --- small typed guards / coercions (each throws loudly) ---

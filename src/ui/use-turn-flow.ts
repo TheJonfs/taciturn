@@ -1144,6 +1144,14 @@ export function computeAbilityDisableReason(
   actor: Unit,
   ability: ActiveAbilityDefinition,
 ): string | null {
+  // TABA M2 progression: a locked active (present in the command set but not
+  // unlocked for this unit) is greyed. `usableActives === undefined` ⇒ ungated
+  // (the Mage War default). Checked FIRST so a locked ability reads as
+  // "Locked", not "Insufficient MP"; the engine's `validateUseAbility`
+  // enforces the same gate — this is the legible menu-side mirror.
+  if (actor.usableActives !== undefined && !actor.usableActives.has(ability.id)) {
+    return 'Locked — not unlocked for this unit';
+  }
   if (state.turnState === null || state.turnState.budget.actsAvailable <= 0) {
     return 'No Act budget remaining';
   }

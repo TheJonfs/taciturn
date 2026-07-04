@@ -11,7 +11,7 @@
 
 import type { DamageTag } from './damage.ts';
 import type { UnitEquipment } from './equipment-slot.ts';
-import type { ClassId, ItemId, TeamId, UnitId } from './ids.ts';
+import type { AbilityId, ClassId, ItemId, TeamId, UnitId } from './ids.ts';
 import type { Loadout } from './loadout.ts';
 import type { Direction, Position } from './spatial.ts';
 import type { BaseStats, Vitals } from './stats.ts';
@@ -40,6 +40,16 @@ export interface Unit {
   readonly classState: UnitClassState;
   readonly loadout: Loadout;
   readonly equipment: UnitEquipment;
+
+  // Per-unit active-ability allowlist (TABA M2 progression gating). When
+  // present, ONLY these ability ids may be invoked via `use_ability` — a
+  // command-set member not in the set is "locked" (greyed in the menu,
+  // rejected by validation). When ABSENT (`undefined`), every active is
+  // usable — the Mage War / demo default, so the engine stays progression-
+  // ignorant and only the campaign fold ever stamps it. The engine treats
+  // this as an opaque allowlist; it knows nothing of JP. See the M2
+  // substrate audit (Option B) and `campaign/progression/usable-actives.ts`.
+  readonly usableActives?: ReadonlySet<AbilityId>;
 
   // Cosmetic gender (Session 55) — selects the male/female portrait variant.
   // Optional; absent means "the class's default portrait." See `Gender`.

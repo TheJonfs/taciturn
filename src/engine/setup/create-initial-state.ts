@@ -303,6 +303,13 @@ function placementToUnit(
     // Session 55: cosmetic gender (portrait variant). Omitted when the
     // placement doesn't specify it — the renderer then uses the class default.
     ...(placement.gender !== undefined ? { gender: placement.gender } : {}),
+    // TABA M2: per-unit active allowlist. Omitted when the placement doesn't
+    // set it → `usableActives` stays absent → every active usable (Mage War
+    // default). The campaign fold stamps the array; store it as a Set for O(1)
+    // membership at the menu / validation gates.
+    ...(placement.usableActives !== undefined
+      ? { usableActives: new Set(placement.usableActives) }
+      : {}),
     // Session 49: level defaults to 25 when the placement omits it
     // (demo / hand-authored configs). The team-builder pipeline
     // always sets it; `baseStats` should already reflect the level

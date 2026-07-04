@@ -37,7 +37,8 @@ export function applyBattleResult(
       return { ...unit, fate: 'lost' };
     }
 
-    // survived | downed → heal to effective full.
+    // survived | downed → heal to effective full, and BANK the JP earned this
+    // battle (a `lost` unit above banks nothing — its JP is moot).
     const finalUnit = finalState.units.get(unit.id);
     if (finalUnit === undefined) {
       // The summary was built from this exact map; absence is a bug.
@@ -46,6 +47,11 @@ export function applyBattleResult(
           `that the result summarized`,
       );
     }
-    return { ...unit, fate: 'active', vitals: effectiveMaxVitals(finalState, catalog, finalUnit) };
+    return {
+      ...unit,
+      fate: 'active',
+      vitals: effectiveMaxVitals(finalState, catalog, finalUnit),
+      jpLedger: { ...unit.jpLedger, earned: unit.jpLedger.earned + summary.earnedJp },
+    };
   });
 }

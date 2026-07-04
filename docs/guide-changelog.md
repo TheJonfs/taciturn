@@ -44,6 +44,18 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 81 (2026-07-04) — TABA M2 JP progression substrate (ADR-0138)
+
+No player-facing changes. Substrate only: the JP ledger / unlock-token / class-
+tier tree, the per-action JP earning seam, and the active-use gating *mechanism*
+(a per-unit allowlist the engine consumes opaquely) — none of it is wired into
+playable battles yet (no reclass/spend UI, no real ability costs, no combinator
+changes; Mage War and the M0/M1 campaign play byte-unchanged). Player-facing JP
+mechanics land with the content half (costs + combinator reworks) and the
+reclass/spend UI.
+
+---
+
 ## Session 80 (2026-07-02) — per-class level→stat curves (ADR-0137)
 
 Level now drives a **real per-class stat curve** for the five level-driven base

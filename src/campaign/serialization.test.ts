@@ -125,4 +125,61 @@ describe('campaign serialization', () => {
     };
     expect(() => deserializeCampaign(JSON.stringify(broken))).toThrow(/vitals\.hp/);
   });
+
+  // --- M2 progression state (v3) ---
+
+  it('round-trips a unit carrying JP ledger, unlocks, and a class-access override', () => {
+    const state = newCampaign(m0Roster, START);
+    const progressed = {
+      ...state,
+      roster: [
+        {
+          ...state.roster[0]!,
+          jpLedger: { earned: 800, spent: 500 },
+          unlocks: [
+            { kind: 'ability', id: 'chakra' },
+            { kind: 'item', id: 'potion' },
+            { kind: 'mathParameter', id: 'level' },
+            { kind: 'mathValue', id: 3 },
+          ],
+          classAccessOverride: ['calculator'],
+        },
+        ...state.roster.slice(1),
+      ],
+    } as unknown as CampaignState;
+    const restored = deserializeCampaign(serializeCampaign(progressed));
+    expect(restored).toEqual(progressed);
+  });
+
+  it('defaults omitted jpLedger/unlocks (lenient, like loadout) for hand-trimmed saves', () => {
+    const state = newCampaign(m0Roster, START);
+    const trimmed = { ...state.roster[0] } as Record<string, unknown>;
+    delete trimmed['jpLedger'];
+    delete trimmed['unlocks'];
+    const broken = { ...state, roster: [trimmed, ...state.roster.slice(1)] };
+    const restored = deserializeCampaign(JSON.stringify(broken));
+    expect(restored.roster[0]!.jpLedger).toEqual({ earned: 0, spent: 0 });
+    expect(restored.roster[0]!.unlocks).toEqual([]);
+  });
+
+  it('rejects a malformed jpLedger', () => {
+    const state = newCampaign(m0Roster, START);
+    const broken = {
+      ...state,
+      roster: [{ ...state.roster[0], jpLedger: { earned: 'lots', spent: 0 } }, ...state.roster.slice(1)],
+    };
+    expect(() => deserializeCampaign(JSON.stringify(broken))).toThrow(/jpLedger\.earned/);
+  });
+
+  it('rejects an unlock token with an unknown kind', () => {
+    const state = newCampaign(m0Roster, START);
+    const broken = {
+      ...state,
+      roster: [
+        { ...state.roster[0], unlocks: [{ kind: 'spell', id: 'x' }] },
+        ...state.roster.slice(1),
+      ],
+    };
+    expect(() => deserializeCampaign(JSON.stringify(broken))).toThrow(/unlocks\[0\]\.kind/);
+  });
 });
