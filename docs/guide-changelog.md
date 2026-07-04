@@ -50,10 +50,11 @@ No player-facing changes. Built the JP economy under the hood: the per-class JP
 ledger / unlock-token / class-tier tree, the per-action earning rule (actor +
 1/8 roster spillover), the active-use gating *mechanism* (a per-unit allowlist
 the engine consumes opaquely), and the real per-ability JP costs (~110, from the
-budget doc). None of it is surfaced to the player yet — no reclass/spend UI, the
-gating mask isn't stamped in play, and the Alchemist/Calculator pickers don't yet
-filter by unlock; Mage War and the M0/M1 campaign play byte-unchanged. Player-
-facing JP mechanics land once the reclass/spend UI + combinator filtering ship.
+budget doc). None of it is surfaced to the player yet — the gating masks (for both actives
+and the Alchemist/Calculator combinator pickers) are built and enforced but not
+stamped in play, and there's no reclass/spend UI; Mage War and the M0/M1 campaign
+play byte-unchanged. Player-facing JP mechanics land once the fold stamps the
+masks + the reclass/spend UI ships.
 
 ---
 

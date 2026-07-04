@@ -16,7 +16,13 @@
 // usable`), knowing nothing about JP — so Mage War, whose fold never stamps
 // it, is unaffected. See the M2 substrate audit (Option B).
 
-import type { AbilityId, Catalog } from '@engine/index.ts';
+import type {
+  AbilityId,
+  Catalog,
+  ItemId,
+  MathSkillParameter,
+  MathSkillValue,
+} from '@engine/index.ts';
 import type { CampaignUnit } from '../types.ts';
 
 export function usableActiveIds(
@@ -29,4 +35,27 @@ export function usableActiveIds(
     if (token.kind === 'ability') out.add(token.id);
   }
   return [...out];
+}
+
+// Combinator-component projections — the item / math-parameter / math-value
+// siblings. Unlike actives, combinator components have NO free/innate members
+// (the combinator is an always-on-but-EMPTY shell), so the usable set is
+// exactly the unlocked tokens of that kind. These stamp the battle-unit's
+// `usableItems` / `usableMathParameters` / `usableMathValues` allowlists.
+export function usableItemIds(unit: CampaignUnit): ReadonlyArray<ItemId> {
+  const out: ItemId[] = [];
+  for (const token of unit.unlocks) if (token.kind === 'item') out.push(token.id);
+  return out;
+}
+
+export function usableMathParameterIds(unit: CampaignUnit): ReadonlyArray<MathSkillParameter> {
+  const out: MathSkillParameter[] = [];
+  for (const token of unit.unlocks) if (token.kind === 'mathParameter') out.push(token.id);
+  return out;
+}
+
+export function usableMathValueIds(unit: CampaignUnit): ReadonlyArray<MathSkillValue> {
+  const out: MathSkillValue[] = [];
+  for (const token of unit.unlocks) if (token.kind === 'mathValue') out.push(token.id);
+  return out;
 }

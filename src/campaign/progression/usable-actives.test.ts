@@ -10,7 +10,12 @@ import {
 } from '@engine/index.ts';
 import type { CampaignUnit } from '../types.ts';
 import { EMPTY_EARNED_BY_CLASS } from '../types.ts';
-import { usableActiveIds } from './usable-actives.ts';
+import {
+  usableActiveIds,
+  usableItemIds,
+  usableMathParameterIds,
+  usableMathValueIds,
+} from './usable-actives.ts';
 import type { UnlockToken } from './tokens.ts';
 
 const catalog = loadDefaultCatalog();
@@ -56,5 +61,29 @@ describe('usableActiveIds', () => {
     const before = new Set(usableActiveIds(unit(), catalog).map(String));
     const after = new Set(usableActiveIds(unit({ unlocks }), catalog).map(String));
     expect(after).toEqual(before); // no change — none are abilities
+  });
+});
+
+describe('combinator-component projections', () => {
+  const unlocks: ReadonlyArray<UnlockToken> = [
+    { kind: 'ability', id: abilityId('precision_fire') }, // ignored by all three
+    { kind: 'item', id: itemId('potion') },
+    { kind: 'item', id: itemId('ether') },
+    { kind: 'mathParameter', id: 'level' },
+    { kind: 'mathValue', id: 3 },
+    { kind: 'mathValue', id: 'prime' },
+  ];
+  const u = unit({ unlocks });
+
+  it('usableItemIds returns only unlocked item tokens (no free/innate items)', () => {
+    expect(new Set(usableItemIds(u).map(String))).toEqual(new Set(['potion', 'ether']));
+    expect(usableItemIds(unit())).toEqual([]); // empty combinator until unlocked
+  });
+
+  it('usableMathParameterIds / usableMathValueIds return only their kind', () => {
+    expect(usableMathParameterIds(u)).toEqual(['level']);
+    expect(new Set(usableMathValueIds(u))).toEqual(new Set([3, 'prime']));
+    expect(usableMathParameterIds(unit())).toEqual([]);
+    expect(usableMathValueIds(unit())).toEqual([]);
   });
 });

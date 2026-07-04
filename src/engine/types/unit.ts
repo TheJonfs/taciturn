@@ -12,6 +12,7 @@
 import type { DamageTag } from './damage.ts';
 import type { UnitEquipment } from './equipment-slot.ts';
 import type { AbilityId, ClassId, ItemId, TeamId, UnitId } from './ids.ts';
+import type { MathSkillParameter, MathSkillValue } from './action.ts';
 import type { Loadout } from './loadout.ts';
 import type { Direction, Position } from './spatial.ts';
 import type { BaseStats, Vitals } from './stats.ts';
@@ -50,6 +51,18 @@ export interface Unit {
   // this as an opaque allowlist; it knows nothing of JP. See the M2
   // substrate audit (Option B) and `campaign/progression/usable-actives.ts`.
   readonly usableActives?: ReadonlySet<AbilityId>;
+
+  // Per-unit combinator-component allowlists (TABA M2 progression gating) —
+  // the item / math-parameter / math-value siblings of `usableActives`. Same
+  // opaque-allowlist contract: when present, only these components are usable
+  // (locked ones greyed in the Compound / Math pickers, rejected by the
+  // matching validators); when ABSENT (`undefined`), all are usable (Mage War /
+  // demo default). The combinators (Compound/Throw Item, Math cast) stay
+  // always-on shells reading whatever these permit. See
+  // `campaign/progression/usable-actives.ts`.
+  readonly usableItems?: ReadonlySet<ItemId>;
+  readonly usableMathParameters?: ReadonlySet<MathSkillParameter>;
+  readonly usableMathValues?: ReadonlySet<MathSkillValue>;
 
   // Cosmetic gender (Session 55) — selects the male/female portrait variant.
   // Optional; absent means "the class's default portrait." See `Gender`.

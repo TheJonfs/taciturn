@@ -310,6 +310,15 @@ function placementToUnit(
     ...(placement.usableActives !== undefined
       ? { usableActives: new Set(placement.usableActives) }
       : {}),
+    ...(placement.usableItems !== undefined
+      ? { usableItems: new Set(placement.usableItems) }
+      : {}),
+    ...(placement.usableMathParameters !== undefined
+      ? { usableMathParameters: new Set(placement.usableMathParameters) }
+      : {}),
+    ...(placement.usableMathValues !== undefined
+      ? { usableMathValues: new Set(placement.usableMathValues) }
+      : {}),
     // Session 49: level defaults to 25 when the placement omits it
     // (demo / hand-authored configs). The team-builder pipeline
     // always sets it; `baseStats` should already reflect the level

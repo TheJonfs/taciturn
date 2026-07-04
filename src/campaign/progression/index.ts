@@ -49,7 +49,12 @@ export {
   GRANT_RANDOM_RANGE,
 } from './unlock.ts';
 
-export { usableActiveIds } from './usable-actives.ts';
+export {
+  usableActiveIds,
+  usableItemIds,
+  usableMathParameterIds,
+  usableMathValueIds,
+} from './usable-actives.ts';
 
 export {
   computeEarnedJp,

@@ -45,21 +45,32 @@ usable-actives, earning, index. Touched: `campaign/types.ts` (`earnedByClass` +
   `validateUseAbility`, greyed via `computeAbilityDisableReason`. `usableActiveIds`
   projects unlocks → mask.
 
-### REMAINING M2 content-half wiring (NOT done — next up)
-1. **Combinator enumeration filters** — the tokens are now PRICED, but the
-   pickers don't filter by unlock. Add `item`/`mathParameter`/`mathValue`
-   filtering at `action-menu.tsx:794` (Alchemist items) + `:537-548` (Calculator
-   params/values, + a trivial id→label registry extraction). Combinators stay
-   0-JP always-on shells. Optional defensive re-checks in `validateUseCompound`/
-   `validateUseThrowItem`/math-skill validation. (Audit confirmed: NOT an engine
-   rework — same mask mechanism, UI-enumeration only.)
-2. **Flip the fold to stamp `usableActives`** — currently unstamped (M0/M1
-   ungated → play unchanged). Project via `usableActiveIds` in `snapshot-fold.ts`
-   once authored unlock states + a reclass/spend UI exist. The "make gating live"
-   step.
-3. **Reclass / spend UI** (M2 UI) — `reclassableClasses` + `unlockComponent` +
+### DONE (S81 cont.) — combinator picker filtering
+- `Unit`/`UnitPlacement` gained `usableItems` / `usableMathParameters` /
+  `usableMathValues` (opaque allowlists, siblings of `usableActives`; threaded in
+  `placementToUnit`). Alchemist Compound greys locked items, Throw hides them,
+  the Calculator Math picker greys locked params/values; the three engine
+  validators (`validateUseCompound`/`validateUseThrowItem`/math-skill target)
+  re-check. Projections `usableItemIds`/`usableMathParameterIds`/
+  `usableMathValueIds`. Dormant until the fold stamps (below).
+
+### REMAINING M2 (NOT done — next up)
+1. **Flip the fold to stamp the `usable*` allowlists** — currently unstamped
+   (M0/M1 ungated → play unchanged) for BOTH actives and combinator components.
+   Project via `usableActiveIds` / `usableItemIds` / `usableMathParameterIds` /
+   `usableMathValueIds` in `snapshot-fold.ts` once authored unlock states + a
+   reclass/spend UI exist. The "make gating live" step.
+2. **Reclass / spend UI** (M2 UI) — `reclassableClasses` + `unlockComponent` +
    `grantOnClassUnlock` are the model; no UI consumes them yet.
-4. **Spillover on over-threshold spend** — brief seam, still TBD.
+3. **Spillover on over-threshold spend** — brief seam, still TBD.
+4. **XP→level** — brief now in the folder (unread); reuses the earning trigger.
+
+**Watch-for (Field Kit vs item unlocks):** Field Kit (`field_kit`, Alchemist
+Support) grants Potion/Phoenix/Remedy into the stockpile at battle SETUP,
+regardless of item unlocks — so when gating goes live a unit could have a
+stockpiled item it hasn't unlocked. The Throw validator now gates on
+`usableItems` so it can't be *thrown*, but the stockpile still contains it
+(harmless). If that's undesired, gate the `stockpileGrants` application too.
 
 ### XP brief now present
 Chris added `docs/TABADesign/m2-progression-xp-jobtree-brief.md` (the XP→level

@@ -16,7 +16,8 @@
 import type { VictoryCondition } from './battle-outcome.ts';
 import type { DamageTag } from './damage.ts';
 import type { UnitEquipment } from './equipment-slot.ts';
-import type { AbilityId, ClassId, RulesetId, TeamId, UnitId } from './ids.ts';
+import type { AbilityId, ClassId, ItemId, RulesetId, TeamId, UnitId } from './ids.ts';
+import type { MathSkillParameter, MathSkillValue } from './action.ts';
 import type { Gender } from './unit.ts';
 import type { Loadout } from './loadout.ts';
 import type { Direction, Position } from './spatial.ts';
@@ -73,6 +74,12 @@ export interface UnitPlacement {
   // the durable unit's unlocked set; `createInitialState` threads it onto the
   // `Unit` as a `Set`. Plain array here (declarative config); see `Unit`.
   readonly usableActives?: ReadonlyArray<AbilityId>;
+  // TABA M2: combinator-component allowlists (Alchemist items; Calculator math
+  // parameters/values). Optional — omitted ⇒ all usable. Threaded onto the
+  // `Unit` as Sets; the campaign fold stamps them from the durable unlocks.
+  readonly usableItems?: ReadonlyArray<ItemId>;
+  readonly usableMathParameters?: ReadonlyArray<MathSkillParameter>;
+  readonly usableMathValues?: ReadonlyArray<MathSkillValue>;
 }
 
 // Victory conditions are data-as-config. The shape lives in

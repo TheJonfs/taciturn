@@ -147,13 +147,19 @@ non-exportable rows, and per-class sums equal the budget-doc near-master totals
 
 ## Consequences / seams left open (content half remainder + later)
 
-- **The campaign fold does not stamp `usableActives` yet** — M0/M1 units fold
-  ungated (`undefined`), so existing campaign play is unchanged. Flipping real
-  masks on happens when authored unlock states + a reclass/spend UI exist.
-- **Combinator enumeration filters** (Alchemist items; Calculator params/values +
-  a trivial id→label registry extraction) + defensive validator re-checks are
-  the remaining content-half wiring — the tokens are now PRICED (in the catalog),
-  but the pickers don't yet filter by unlock.
+- **The campaign fold does not stamp any of the `usable*` allowlists yet** —
+  M0/M1 units fold ungated (`undefined ⇒ all usable`), so existing play is
+  unchanged for BOTH actives and combinator components. Flipping real masks on
+  (projecting via `usableActiveIds` / `usableItemIds` / `usableMathParameterIds`
+  / `usableMathValueIds` in `snapshot-fold.ts`) happens when authored unlock
+  states + a reclass/spend UI exist.
+- **Combinator picker filtering is DONE** (S81 cont.): the Alchemist Compound /
+  Throw pickers and the Calculator Math picker grey/hide locked
+  items/parameters/values, and `validateUseCompound` / `validateUseThrowItem` /
+  the math-skill target validation re-check the same per-unit allowlists
+  (`usableItems` / `usableMathParameters` / `usableMathValues` on `Unit`). As the
+  audit found, this was UI-enumeration + validator wiring, NOT an engine rework.
+  Dormant until the fold stamps (above).
 - **Spillover on over-threshold spend** (brief seam, unbuilt) — still TBD.
 - **XP→level** (`m2-progression-xp-jobtree-brief.md`) reuses the earning trigger
   with a different `base` equation; unbuilt.

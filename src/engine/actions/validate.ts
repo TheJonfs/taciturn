@@ -320,6 +320,19 @@ function validateUseAbility(
     if (!validValues.includes(mathPayload.value)) {
       return invalid(`Invalid Math Skill value ${JSON.stringify(mathPayload.value)}`);
     }
+    // TABA M2: combinator gate — the picked Parameter and Value must be
+    // unlocked for this unit. Ungated when the allowlists are undefined.
+    if (
+      actor.usableMathParameters !== undefined &&
+      !actor.usableMathParameters.has(mathPayload.parameter)
+    ) {
+      return invalid(
+        `Math Skill parameter ${JSON.stringify(mathPayload.parameter)} is locked for this unit`,
+      );
+    }
+    if (actor.usableMathValues !== undefined && !actor.usableMathValues.has(mathPayload.value)) {
+      return invalid(`Math Skill value ${JSON.stringify(mathPayload.value)} is locked for this unit`);
+    }
     return VALID;
   }
 
@@ -823,6 +836,11 @@ function validateUseCompound(
       `Item ${JSON.stringify(action.payload.itemId)} is not a consumable — cannot Compound`,
     );
   }
+  // TABA M2: combinator gate — a locked Alchemist item can't be compounded.
+  // `usableItems === undefined` ⇒ ungated (Mage War default).
+  if (actor.usableItems !== undefined && !actor.usableItems.has(item.id)) {
+    return invalid(`Item ${JSON.stringify(item.id)} is locked for this unit`);
+  }
   if (actor.vitals.mp < item.compoundMpCost) {
     return invalid(
       `Insufficient MP for Compound (${item.name}): have ${actor.vitals.mp}, need ${item.compoundMpCost}`,
@@ -865,6 +883,11 @@ function validateUseThrowItem(
     return invalid(
       `Item ${JSON.stringify(action.payload.itemId)} is not a consumable — cannot Throw`,
     );
+  }
+  // TABA M2: combinator gate — a locked item can't be thrown either (a Field
+  // Kit could stock an item the unit never unlocked). Ungated when undefined.
+  if (actor.usableItems !== undefined && !actor.usableItems.has(item.id)) {
+    return invalid(`Item ${JSON.stringify(item.id)} is locked for this unit`);
   }
 
   // Stockpile gate: must have at least one of the item.

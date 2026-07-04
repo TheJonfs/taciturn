@@ -565,6 +565,16 @@ function MathSkillPicker({
 
   const canCast = state.parameter !== null && state.value !== null;
 
+  // TABA M2: grey Parameters / Values this unit hasn't unlocked. The Math cast
+  // is the always-on combinator; the components are the JP-unlocks. Allowlists
+  // `undefined` ⇒ ungated (Mage War default).
+  const usableParams = turnFlow.activeUnit?.usableMathParameters;
+  const usableValues = turnFlow.activeUnit?.usableMathValues;
+  const paramLocked = (id: 'ct' | 'height' | 'level' | 'current_hp'): boolean =>
+    usableParams !== undefined && !usableParams.has(id);
+  const valueLocked = (id: 'prime' | 3 | 4 | 5): boolean =>
+    usableValues !== undefined && !usableValues.has(id);
+
   return (
     <Panel header={`Math Skill — ${label}`}>
       <StatusLine>Pick a parameter, then a value</StatusLine>
@@ -573,7 +583,7 @@ function MathSkillPicker({
           <Button
             key={p.id}
             label={p.label}
-            disabled={false}
+            disabled={paramLocked(p.id)}
             onClick={() => turnFlow.pickMathSkillParameter(p.id)}
             variant={state.parameter === p.id ? 'primary' : 'secondary'}
           />
@@ -585,7 +595,7 @@ function MathSkillPicker({
             <Button
               key={String(v.id)}
               label={v.label}
-              disabled={false}
+              disabled={valueLocked(v.id)}
               onClick={() => turnFlow.pickMathSkillValue(v.id)}
               variant={state.value === v.id ? 'primary' : 'secondary'}
             />
@@ -797,9 +807,17 @@ function CompoundItemPicker({
       {consumables.length === 0 && <StatusLine>(no consumable items in catalog)</StatusLine>}
       {actor !== null && consumables.map((item) => {
         const have = actor.stockpile.get(item.id) ?? 0;
+        // TABA M2: a locked (not-unlocked) Alchemist item is greyed. Locked
+        // takes precedence over the MP reason. `usableItems === undefined` ⇒
+        // ungated (Mage War default).
+        const locked = actor.usableItems !== undefined && !actor.usableItems.has(item.id);
         const affordable = actor.vitals.mp >= item.compoundMpCost;
-        const disabled = !affordable;
-        const reason = affordable ? null : `Need ${item.compoundMpCost} MP (have ${actor.vitals.mp})`;
+        const disabled = locked || !affordable;
+        const reason = locked
+          ? 'Locked — not unlocked for this unit'
+          : affordable
+            ? null
+            : `Need ${item.compoundMpCost} MP (have ${actor.vitals.mp})`;
         return (
           <ItemPickerButton
             key={String(item.id)}
@@ -849,7 +867,10 @@ function ThrowItemItemPicker({
   if (actor === null) return <Panel header="Throw Item" />;
   const consumables = collectConsumables(catalog).filter((item) => {
     const have = actor.stockpile.get(item.id) ?? 0;
-    return have > 0;
+    // TABA M2: only throw items the unit has unlocked (a Field Kit can stock an
+    // item the unit never unlocked). `usableItems === undefined` ⇒ ungated.
+    const usable = actor.usableItems === undefined || actor.usableItems.has(item.id);
+    return have > 0 && usable;
   });
   return (
     <Panel header="Throw Item — pick item">
