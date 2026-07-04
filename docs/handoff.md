@@ -45,6 +45,25 @@ usable-actives, earning, index. Touched: `campaign/types.ts` (`earnedByClass` +
   `validateUseAbility`, greyed via `computeAbilityDisableReason`. `usableActiveIds`
   projects unlocks → mask.
 
+### DONE (S81 cont.) — XP & mid-battle level-up (ADR-0139)
+- New action type `system_xp_award` (5-site wired). Emitted from the resolver
+  (`buildXpAward` in the use_ability / throw / charged paths) for connecting,
+  effect-having actions by leveling units: `10 + (targetLvl − casterLvl)` min 1,
+  +10 KO; one grant/action; no-effect guard (caster MP excluded — it's the cost).
+- `reduceSystemXpAward` levels mid-battle: swaps `baseStats` to the next
+  precomputed entry, bumps HP/MP by the effective-max delta. `XP_PER_LEVEL=100`.
+- The boundary fix: the fold precomputes `statsByLevel` (the engine can't run the
+  curve). `LEVELUP_PRECOMPUTE_DEPTH=3`, PARAMETERIZED. Opt-in by field presence.
+- `CampaignUnit.xp` (save **v5**); apply-back carries final level+xp home.
+- **LIVE in campaign play** — the fold stamps every deployed player unit, so
+  campaign battles now show leveling. (Gating stays dormant; XP does not.)
+- Enemies don't level yet — their `statsByLevel` (+ JP/unlock tracking for a
+  future recruit-conversion) gets authored when battles are created. Model is
+  team-agnostic; don't assume player-only.
+- **Polish TODO:** animator is a no-op for level-up (log line + HP-bar jump only);
+  a floating "Level Up!" banner needs a new animator AnimKind. Also: KO purely
+  from knockback/fall damage isn't credited the +10 (direct hits are).
+
 ### DONE (S81 cont.) — combinator picker filtering
 - `Unit`/`UnitPlacement` gained `usableItems` / `usableMathParameters` /
   `usableMathValues` (opaque allowlists, siblings of `usableActives`; threaded in
@@ -61,9 +80,12 @@ usable-actives, earning, index. Touched: `campaign/types.ts` (`earnedByClass` +
    `usableMathValueIds` in `snapshot-fold.ts` once authored unlock states + a
    reclass/spend UI exist. The "make gating live" step.
 2. **Reclass / spend UI** (M2 UI) — `reclassableClasses` + `unlockComponent` +
-   `grantOnClassUnlock` are the model; no UI consumes them yet.
-3. **Spillover on over-threshold spend** — brief seam, still TBD.
-4. **XP→level** — brief now in the folder (unread); reuses the earning trigger.
+   `grantOnClassUnlock` are the model; no UI consumes them yet. (This + #1 are
+   what "turn JP gating on" needs.)
+3. **Spillover on over-threshold spend** (JP) — brief seam, still TBD.
+4. **Enemy progression authoring** — statsByLevel + per-class JP + unlocks on
+   authored enemy placements (deferred to battle-creation, per Chris).
+5. **"Level Up!" banner** — animator polish (see XP TODO above).
 
 **Watch-for (Field Kit vs item unlocks):** Field Kit (`field_kit`, Alchemist
 Support) grants Potion/Phoenix/Remedy into the stockpile at battle SETUP,

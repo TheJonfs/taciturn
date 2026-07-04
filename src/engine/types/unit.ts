@@ -82,8 +82,22 @@ export interface Unit {
 
   ct: number;
 
-  readonly baseStats: BaseStats;
+  // Session 49 `baseStats` are level-derived. NON-readonly so a mid-battle
+  // level-up (TABA M2, `system_xp_award`) can swap them to the next
+  // precomputed entry. Every other mutator treats them as fixed.
+  baseStats: BaseStats;
   vitals: Vitals;
+
+  // TABA M2 mid-battle XP. `xp` is the accumulating job/level XP (mutable;
+  // seeded from the durable unit's carry, 0 for non-campaign units). It rolls
+  // over `per_level` on each level-up. `statsByLevel` maps each level ABOVE
+  // the unit's current one to its precomputed `BaseStats` (built content-side
+  // in the campaign fold, since the engine can't run the stat curve). Its
+  // PRESENCE is the opt-in: a unit without it never earns XP or levels (Mage
+  // War / demo). Bounded (a few levels — see the fold's precompute depth); an
+  // exhausted table just stops leveling (surplus XP carries to the boundary).
+  xp: number;
+  readonly statsByLevel?: ReadonlyMap<number, BaseStats>;
 
   // Per-tag resistance map. Sparse — missing tags default to 0 (no
   // resistance). Range per-entry is [-100, 200] per the Battle Mechanics

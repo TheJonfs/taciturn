@@ -80,8 +80,9 @@ export function campaignUnitFromBuilt(
     loadout: built.loadout,
     equipment: built.equipment,
     vitals: provisionalFullVitals(built.classId, brave, faith, level),
-    // M2 progression: fresh units carry no JP and no unlocks. Authored
+    // M2 progression: fresh units carry no XP, no JP, and no unlocks. Authored
     // pre-unlocks (plot-uniques) would set these here; M0/M1 authors none.
+    xp: 0,
     earnedByClass: EMPTY_EARNED_BY_CLASS,
     unlocks: [],
     fate: 'active',

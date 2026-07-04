@@ -103,6 +103,7 @@ export function validateAction(
     case 'system_ct_push':
     case 'system_set_ct':
     case 'system_ko_tick':
+    case 'system_xp_award':
     case 'system_unit_removed':
     case 'system_terrain_change':
     case 'system_barrier_change':

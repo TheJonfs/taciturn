@@ -92,6 +92,7 @@ import {
   type SystemHealOutcome,
   type SystemMpDrainOutcome,
   type SystemKoTickOutcome,
+  type SystemXpAwardOutcome,
   type SystemMpRestoreOutcome,
   type SystemUnitRemovedOutcome,
   type SystemTerrainChangeOutcome,
@@ -273,6 +274,71 @@ export function reduceSetFacing(
 }
 
 // --- UseAbility ---
+
+// TABA M2 (ADR-0139): the settled XP equation constants (base + level-delta,
+// +KO bonus). Engine-side because XP awards emit during resolution; a candidate
+// to move onto the ruleset if per-ruleset tuning is ever wanted.
+export const XP_BASE_VALUE = 10;
+export const XP_KO_BONUS = 10;
+
+// Level of the action's primary target — the XP delta term reads it. Self /
+// tile / math-skill targets have no representative unit, so the caster's own
+// level stands in (delta 0 → flat base).
+function primaryTargetLevel(state: GameState, target: AbilityTarget, casterLevel: number): number {
+  if (target.kind === 'unit') return state.units.get(target.unitId)?.level ?? casterLevel;
+  return casterLevel;
+}
+
+// The XP no-effect guard: did the action actually change the caster or a
+// targeted unit (HP, MP, or status count)? Heal-on-full, a re-applied buff
+// (status count unchanged), and total misses all read as no-effect → no XP,
+// closing the delta-0 self-spam grind.
+function actionHadEffect(
+  before: GameState,
+  after: GameState,
+  casterId: UnitId,
+  results: ReadonlyArray<AbilityTargetResult>,
+): boolean {
+  const ids = new Set<UnitId>([casterId]);
+  for (const r of results) {
+    if (r.target.kind === 'unit') ids.add(r.target.unitId);
+    else if (r.target.kind === 'tile' && (r.damage ?? 0) > 0) return true;
+  }
+  for (const id of ids) {
+    const b = before.units.get(id);
+    const a = after.units.get(id);
+    if (b === undefined || a === undefined) continue;
+    if (b.vitals.hp !== a.vitals.hp) return true;
+    if (b.statuses.length !== a.statuses.length) return true;
+    // The CASTER's MP change is the cast COST, not an effect — excluding it
+    // keeps "heal a full-HP ally" (spends MP, heals nothing) a no-effect no-XP
+    // action. A TARGET's MP change IS an effect (e.g. Steal MP's drain).
+    if (id !== casterId && b.vitals.mp !== a.vitals.mp) return true;
+  }
+  return false;
+}
+
+// Build the `system_xp_award` for a connecting action, or null when no XP is
+// owed. Skips reactions and non-leveling units (no `statsByLevel` → opt-out).
+// ONE award per action (the AoE-single-grant rule — this is emitted once per
+// resolve, not per target); delta from the primary target; +KO bonus if any
+// target was killed. Shared by the use_ability / throw / charged-resolve paths.
+function buildXpAward(
+  before: GameState,
+  after: GameState,
+  caster: Unit,
+  target: AbilityTarget,
+  results: ReadonlyArray<AbilityTargetResult>,
+  isReaction: boolean,
+): ProposedAction | null {
+  if (isReaction) return null;
+  if (caster.statsByLevel === undefined) return null; // opt-in: leveling units only
+  if (!actionHadEffect(before, after, caster.id, results)) return null;
+  const delta = primaryTargetLevel(before, target, caster.level) - caster.level;
+  const koed = results.some((r) => (r.damage ?? 0) > 0 && r.hpAfter === 0);
+  const amount = Math.max(1, XP_BASE_VALUE + delta) + (koed ? XP_KO_BONUS : 0);
+  return { type: 'system_xp_award', source: 'system', payload: { unitId: caster.id, amount } };
+}
 
 export function reduceUseAbility(
   state: GameState,
@@ -531,6 +597,18 @@ export function reduceUseAbility(
     });
     for (const a of resolvedEmissions) generatedActions.push(a);
   }
+
+  // TABA M2: award XP to the caster for this connecting, effect-having action
+  // (one grant per cast; skipped for reactions / non-leveling units / no-effect).
+  const xpAward = buildXpAward(
+    state,
+    resolved.newState,
+    actor,
+    action.payload.target,
+    resolved.perTargetResults,
+    action.isReaction === true,
+  );
+  if (xpAward !== null) generatedActions.push(xpAward);
 
   // ADR-0074 amendment: record the caster's actual post-cast MP from the
   // committed state, so the renderer settles its MP bar from this absolute
@@ -3968,7 +4046,33 @@ export function reduceChargedActionResolve(
     for (const a of resolvedEmissions) allEmissions.push(a);
   }
 
-  return finalizeResolution(workingState, catalog, ca, caster, allResults, allReactions, allEmissions);
+  const resolved = finalizeResolution(
+    workingState,
+    catalog,
+    ca,
+    caster,
+    allResults,
+    allReactions,
+    allEmissions,
+  );
+  // TABA M2: XP for the resolved charged cast (the big nukes land here, not in
+  // reduceUseAbility). `state` is pre-resolution, `resolved.newState` post; the
+  // primary target is the charge's first unit ref (else self → delta 0).
+  const firstTarget = ca.targets[0];
+  const primaryTarget: AbilityTarget =
+    firstTarget !== undefined && firstTarget.kind === 'unit'
+      ? { kind: 'unit', unitId: firstTarget.unitId }
+      : { kind: 'self' };
+  const xpAward = buildXpAward(
+    state,
+    resolved.newState,
+    caster,
+    primaryTarget,
+    allResults,
+    action.isReaction === true,
+  );
+  if (xpAward === null) return resolved;
+  return { ...resolved, generatedActions: [...resolved.generatedActions, xpAward] };
 }
 
 // Synthesize the ProposedAction passed into hook chains at resolution
@@ -4246,7 +4350,20 @@ export function reduceUseThrowItem(
     perTargetResults: [result.targetResult],
     stockpileAfter,
   };
-  return { newState, outcome, generatedActions: result.generatedActions };
+  // TABA M2: XP for a connecting throw (a revive / heal / cleanse that changed
+  // the target). A no-op throw (e.g. Potion on a full unit) awards nothing.
+  const xpAward = buildXpAward(
+    state,
+    newState,
+    actor,
+    action.payload.target,
+    [result.targetResult],
+    action.isReaction === true,
+  );
+  const generatedActions = xpAward !== null
+    ? [...result.generatedActions, xpAward]
+    : result.generatedActions;
+  return { newState, outcome, generatedActions };
 }
 
 // Apply a consumable's effects to a single target. Returns the new
@@ -4676,6 +4793,67 @@ export type { ItemId };
 // for a now-living unit, and the counter is moot. If the unit is
 // already removed, also a no-op (the scheduler shouldn't have ticked
 // them; defensive).
+// TABA M2: XP required per level (rollover threshold). Tunable; a candidate to
+// move onto the ruleset if per-ruleset variation is ever wanted. See ADR-0139.
+export const XP_PER_LEVEL = 100;
+
+// TABA M2 (ADR-0139): apply an XP award and any mid-battle level-ups it
+// triggers. The unit's `xp` accrues; while it clears `XP_PER_LEVEL` AND another
+// precomputed level exists in `statsByLevel`, the unit levels: `baseStats` swap
+// to the next entry and current HP/MP rise by the effective-max delta (so the
+// unit doesn't just get a bigger empty bar). An exhausted table stops leveling
+// — surplus XP stays banked and carries to the between-battle boundary. A unit
+// with no `statsByLevel` never levels (the emitter only fires for those that do).
+export function reduceSystemXpAward(
+  state: GameState,
+  action: Extract<Action, { type: 'system_xp_award' }>,
+  catalog: Catalog,
+): ReduceResult<SystemXpAwardOutcome> {
+  const { unitId, amount } = action.payload;
+  const unit = state.units.get(unitId);
+  if (unit === undefined) {
+    throw new Error(`reduceSystemXpAward: unit ${JSON.stringify(unitId)} not in state`);
+  }
+
+  const maxOf = (u: Unit, stat: 'maxHp' | 'maxMp', base: number): number =>
+    runModifyStatQuery(state, catalog, { unit: u, statName: stat, baseValue: base });
+
+  let working: Unit = { ...unit, xp: unit.xp + amount };
+  let levelsGained = 0;
+  while (working.xp >= XP_PER_LEVEL && working.statsByLevel !== undefined) {
+    const next = working.statsByLevel.get(working.level + 1);
+    if (next === undefined) break; // precompute exhausted — surplus XP carries
+    const leveled: Unit = { ...working, level: working.level + 1, baseStats: next };
+    const hpGain = Math.max(
+      0,
+      maxOf(leveled, 'maxHp', next.maxHpBase) - maxOf(working, 'maxHp', working.baseStats.maxHpBase),
+    );
+    const mpGain = Math.max(
+      0,
+      maxOf(leveled, 'maxMp', next.maxMpBase) - maxOf(working, 'maxMp', working.baseStats.maxMpBase),
+    );
+    working = {
+      ...leveled,
+      xp: working.xp - XP_PER_LEVEL,
+      vitals: { hp: working.vitals.hp + hpGain, mp: working.vitals.mp + mpGain },
+    };
+    levelsGained += 1;
+  }
+
+  return {
+    newState: withUnit(state, working),
+    outcome: {
+      kind: 'system_xp_award',
+      unitId,
+      amount,
+      xpAfter: working.xp,
+      levelsGained,
+      newLevel: working.level,
+    },
+    generatedActions: [],
+  };
+}
+
 export function reduceSystemKoTick(
   state: GameState,
   action: Extract<Action, { type: 'system_ko_tick' }>,

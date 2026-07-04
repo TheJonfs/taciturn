@@ -464,6 +464,13 @@ export class Animator {
         // in the unit-detail panel and the action log.
         return null;
 
+      case 'system_xp_award':
+        // TABA M2. XP gain / mid-battle level-up. No tween in this pass — the
+        // stat change lands in state (the HP/MP bars jump on the next snapshot)
+        // and a level-up shows in the action log ("reached Level N!"). A
+        // floating "Level Up!" banner is a future polish primitive.
+        return null;
+
       case 'system_unit_removed':
         // Session 39b. Terminal — the unit is permanently out of
         // battle. A short pause lets the previous beat read; the

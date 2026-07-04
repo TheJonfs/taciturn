@@ -135,6 +135,7 @@ describe('campaign serialization', () => {
       roster: [
         {
           ...state.roster[0]!,
+          xp: 42,
           earnedByClass: { monk: 800, knight: 200 },
           unlocks: [
             { kind: 'ability', id: 'chakra' },
@@ -156,10 +157,12 @@ describe('campaign serialization', () => {
     const trimmed = { ...state.roster[0] } as Record<string, unknown>;
     delete trimmed['earnedByClass'];
     delete trimmed['unlocks'];
+    delete trimmed['xp'];
     const broken = { ...state, roster: [trimmed, ...state.roster.slice(1)] };
     const restored = deserializeCampaign(JSON.stringify(broken));
     expect(restored.roster[0]!.earnedByClass).toEqual({});
     expect(restored.roster[0]!.unlocks).toEqual([]);
+    expect(restored.roster[0]!.xp).toBe(0); // omitted xp defaults to 0
   });
 
   it('rejects a malformed earnedByClass value', () => {

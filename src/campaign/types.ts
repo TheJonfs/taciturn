@@ -94,6 +94,10 @@ export interface CampaignUnit {
   readonly vitals: Vitals;
 
   // --- M2 progression (stored inputs; D-A / rule 5). ---
+  // Between-battle XP carry (the remainder below `per_level`). Accrues in
+  // battle via `system_xp_award`; `level` increments on rollover. Read back
+  // from the battle unit at apply-back. Fresh units start 0.
+  readonly xp: number;
   // Per-class earned JP. Fresh units start EMPTY_EARNED_BY_CLASS. Spent is
   // derived from `unlocks`, so only earnings are stored here.
   readonly earnedByClass: EarnedByClass;

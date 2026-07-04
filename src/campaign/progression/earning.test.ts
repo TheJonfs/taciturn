@@ -23,6 +23,7 @@ function ru(id: string, level = 25): CampaignUnit {
     loadout: EMPTY_LOADOUT,
     equipment: EMPTY_UNIT_EQUIPMENT,
     vitals: { hp: 1, mp: 1 },
+    xp: 0,
     earnedByClass: EMPTY_EARNED_BY_CLASS,
     unlocks: [],
     fate: 'active',

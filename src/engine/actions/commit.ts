@@ -162,6 +162,8 @@ function envelopeFor(
       return { ...envelope, type: 'system_mp_restore', payload: proposed.payload };
     case 'system_ko_tick':
       return { ...envelope, type: 'system_ko_tick', payload: proposed.payload };
+    case 'system_xp_award':
+      return { ...envelope, type: 'system_xp_award', payload: proposed.payload };
     case 'system_unit_removed':
       return { ...envelope, type: 'system_unit_removed', payload: proposed.payload };
     case 'system_terrain_change':

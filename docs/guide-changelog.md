@@ -44,6 +44,21 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 81 (2026-07-04) — TABA M2 XP & mid-battle level-up (ADR-0139)
+
+**Player-facing (campaign mode).** Units now earn **XP** and **level up
+mid-battle**, FFT-style:
+- Each connecting action that has an effect earns the acting unit XP =
+  **10 + (target's level − your level)** (minimum 1), **+10 for a KO**. Misses,
+  reactions, and no-effect actions (healing a full-HP unit, re-applying a buff
+  you already have) earn **nothing**.
+- At **100 XP** a unit **levels up on the spot** — its stats grow and its current
+  HP/MP jump by the increase (the action log shows "reached Level N!"). Leftover
+  XP rolls over. Levels carry between battles.
+- Only campaign units level (Mage War is unchanged). Enemies don't level yet.
+
+(Mechanics depth: ADR-0139. The stat growth per level is the ADR-0137 curve.)
+
 ## Session 81 (2026-07-04) — TABA M2 JP progression substrate + costs (ADR-0138)
 
 No player-facing changes. Built the JP economy under the hood: the per-class JP

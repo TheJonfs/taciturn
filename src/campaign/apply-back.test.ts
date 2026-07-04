@@ -127,6 +127,19 @@ describe('applyBattleResult', () => {
     expect(lost.earnedByClass).toEqual({});
   });
 
+  it('carries mid-battle level-ups (final level + xp) back onto the durable unit', () => {
+    const base = terminalState();
+    const units = new Map(base.units);
+    const survivor = deployed[0]!.id; // survived branch in terminalState()
+    units.set(survivor, { ...units.get(survivor)!, level: 26, xp: 40 });
+    const finalState: GameState = { ...base, units };
+    const updated = applyBattleResult(roster, summarizeBattleResult(finalState), finalState, catalog);
+
+    const after = updated.find((u) => u.id === survivor)!;
+    expect(after.level).toBe(26); // leveled level is the new durable input
+    expect(after.xp).toBe(40); // rollover remainder carries
+  });
+
   it('ignores enemy final-state units (player-side only, matched by id)', () => {
     const finalState = terminalState();
     const result = summarizeBattleResult(finalState);

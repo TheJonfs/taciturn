@@ -80,6 +80,7 @@ export function makeUnit(overrides: {
       crit_chance: overrides.crit_chance ?? 0,
       crit_multiplier: overrides.crit_multiplier ?? 1,
     },
+    xp: 0,
     vitals: { hp: overrides.hp ?? 100, mp: overrides.mp ?? 0 },
     resistances: overrides.resistances ?? new Map(),
     statuses: overrides.statuses ?? [],

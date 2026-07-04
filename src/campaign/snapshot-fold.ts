@@ -111,6 +111,15 @@ function playerSlots(template: BattleConfig, playerTeam: TeamId): ReadonlyArray<
   return template.units.filter((u) => u.team === playerTeam);
 }
 
+// How many levels above the current one to precompute for mid-battle level-up
+// (TABA M2, ADR-0139). The engine can't run the stat curve, so the fold hands
+// it the next few levels' `BaseStats`; a unit gaining more than this in ONE
+// battle stops leveling and carries the surplus XP to the boundary. A unit
+// earns ~0–1 levels/battle, so 3 is ample headroom. PARAMETERIZED so it can be
+// dialed up cheaply if a use appears (e.g. an in-battle level-manipulation
+// effect). Precompute cost is a few `buildBaseStats` calls per deployed unit.
+export const LEVELUP_PRECOMPUTE_DEPTH = 3;
+
 // Build one `UnitPlacement` from a durable unit. Injects the unit's OWN
 // stable id (D-B, not the slot id) and RECOMPUTES baseStats from inputs
 // (D-A). `vitals === undefined` produces a probe placement (engine
@@ -133,6 +142,13 @@ function campaignPlacement(
     loadout: unit.loadout,
     equipment: unit.equipment,
     level: unit.level,
+    // TABA M2 mid-battle XP: carry the XP remainder + precompute the next few
+    // levels' stats (the engine can't run the curve). Consecutive from
+    // level+1; presence opts the unit into leveling.
+    xp: unit.xp,
+    statsByLevel: Array.from({ length: LEVELUP_PRECOMPUTE_DEPTH }, (_, i) =>
+      buildBaseStats(unit.classId, unit.brave, unit.faith, unit.level + 1 + i),
+    ),
   } satisfies UnitPlacement;
 
   // exactOptionalPropertyTypes: attach optional fields only when present.

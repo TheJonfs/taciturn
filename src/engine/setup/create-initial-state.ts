@@ -329,6 +329,16 @@ function placementToUnit(
     ct,
     baseStats: placement.baseStats,
     vitals,
+    // TABA M2 mid-battle XP: seed the carry (default 0); re-key the precomputed
+    // next-level stats to an absolute-level Map (index i ⇒ level + 1 + i).
+    xp: placement.xp ?? 0,
+    ...(placement.statsByLevel !== undefined
+      ? {
+          statsByLevel: new Map(
+            placement.statsByLevel.map((stats, i) => [(placement.level ?? 25) + 1 + i, stats]),
+          ),
+        }
+      : {}),
     resistances,
     statuses: placement.statuses ?? [],
     // Session 53: fresh battle starts with an empty Worldcraft effect queue;

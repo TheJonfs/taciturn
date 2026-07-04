@@ -575,6 +575,19 @@ function formatAction(
       return [row({ tag: '[tick]', segments, indent: true, tagKind: 'system' })];
     }
 
+    case 'system_xp_award': {
+      // TABA M2. Pure XP gains are bookkeeping (hidden); a level-up surfaces
+      // as "Ramza reached Level 26!".
+      const levels = action.outcome?.levelsGained ?? 0;
+      if (levels === 0) return [];
+      const newLevel = action.outcome?.newLevel ?? 0;
+      const segments: LogSegment[] = [
+        unitSeg(state, action.payload.unitId),
+        plain(levels === 1 ? ` reached Level ${newLevel}!` : ` reached Level ${newLevel}! (+${levels})`),
+      ];
+      return [row({ tag: '[level]', segments, indent: false, tagKind: 'system' })];
+    }
+
     case 'system_unit_removed': {
       // Session 39b. Terminal — "Marach removed from battle."
       const segments: LogSegment[] = [
@@ -821,6 +834,11 @@ function categorize(action: Action, catalog: Catalog): {
     }
     case 'system_unit_removed':
       return { category: 'event', icon: 'skull' };
+    case 'system_xp_award':
+      // A level-up is a ledger event; a pure XP gain is hidden bookkeeping.
+      return (action.outcome?.levelsGained ?? 0) > 0
+        ? { category: 'event', icon: null }
+        : { category: 'state', icon: null };
     case 'battle_end':
       return { category: 'event', icon: 'trophy' };
     case 'system_terrain_change':

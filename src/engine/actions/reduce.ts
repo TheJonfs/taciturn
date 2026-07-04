@@ -23,6 +23,7 @@ import {
   reduceSystemDamage,
   reduceSystemHeal,
   reduceSystemKoTick,
+  reduceSystemXpAward,
   reduceSystemMpDrain,
   reduceSystemMpRestore,
   reduceSystemUnitRemoved,
@@ -78,6 +79,8 @@ export function reduce(state: GameState, action: Action, catalog: Catalog): Redu
       return reduceSystemMpRestore(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_ko_tick':
       return reduceSystemKoTick(state, action, catalog) as ReduceResult<ActionOutcome>;
+    case 'system_xp_award':
+      return reduceSystemXpAward(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_unit_removed':
       return reduceSystemUnitRemoved(state, action) as ReduceResult<ActionOutcome>;
     case 'system_terrain_change':

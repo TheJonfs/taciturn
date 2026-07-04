@@ -62,6 +62,11 @@ export function applyBattleResult(
     const healed: CampaignUnit = {
       ...unit,
       fate: 'active',
+      // Carry back any mid-battle level-ups: the leveled `level` becomes the
+      // durable input, `xp` the rollover remainder. Heal reads the leveled
+      // final unit's effective max, so it fills to the new (larger) max.
+      level: finalUnit.level,
+      xp: finalUnit.xp,
       vitals: effectiveMaxVitals(finalState, catalog, finalUnit),
     };
     return grantJp(healed, unit.classId, earned.get(unit.id) ?? 0);

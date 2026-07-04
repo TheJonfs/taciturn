@@ -25,8 +25,8 @@ import type { UnlockToken, UnlockTokenKind } from './progression/tokens.ts';
 // v3 (M2): `CampaignUnit` gained the JP progression state (`unlocks`, optional
 // `classAccessOverride`, and the JP ledger). v4 (M2, per-class revision): the
 // JP ledger is per-class earnings (`earnedByClass`) rather than a single
-// `{earned, spent}`. Old saves hard-fail.
-export const CAMPAIGN_SCHEMA_VERSION = 4;
+// `{earned, spent}`. v5 (M2, XP): added the `xp` carry. Old saves hard-fail.
+export const CAMPAIGN_SCHEMA_VERSION = 5;
 
 const VALID_UNLOCK_KINDS: ReadonlyArray<UnlockTokenKind> = [
   'ability',
@@ -130,6 +130,7 @@ function validateUnit(raw: unknown, index: number): CampaignUnit {
   // present value is validated structurally.
   const earnedByClass = validateEarnedByClass(u['earnedByClass'], `${where}.earnedByClass`);
   const unlocks = validateUnlocks(u['unlocks'], `${where}.unlocks`);
+  const xp = u['xp'] === undefined ? 0 : asNumber(u['xp'], `${where}.xp`);
 
   const gender = u['gender'];
   const base = {
@@ -142,6 +143,7 @@ function validateUnit(raw: unknown, index: number): CampaignUnit {
     loadout,
     equipment,
     vitals,
+    xp,
     earnedByClass,
     unlocks,
     fate,

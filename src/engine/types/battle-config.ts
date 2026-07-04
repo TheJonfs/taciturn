@@ -80,6 +80,13 @@ export interface UnitPlacement {
   readonly usableItems?: ReadonlyArray<ItemId>;
   readonly usableMathParameters?: ReadonlyArray<MathSkillParameter>;
   readonly usableMathValues?: ReadonlyArray<MathSkillValue>;
+  // TABA M2 mid-battle XP. `xp` seeds the unit's XP carry (default 0).
+  // `statsByLevel` are the precomputed `BaseStats` for the CONSECUTIVE levels
+  // above `level` (index 0 = level+1, 1 = level+2, …). Optional — omitted ⇒ the
+  // unit never levels (Mage War / demo). `createInitialState` re-keys the array
+  // to an absolute-level `Map` on the `Unit`.
+  readonly xp?: number;
+  readonly statsByLevel?: ReadonlyArray<BaseStats>;
 }
 
 // Victory conditions are data-as-config. The shape lives in

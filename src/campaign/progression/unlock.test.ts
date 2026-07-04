@@ -54,6 +54,7 @@ function unit(over: Partial<CampaignUnit> = {}): CampaignUnit {
     loadout: EMPTY_LOADOUT,
     equipment: EMPTY_UNIT_EQUIPMENT,
     vitals: { hp: 100, mp: 20 },
+    xp: 0,
     earnedByClass: EMPTY_EARNED_BY_CLASS,
     unlocks: [],
     fate: 'active',
