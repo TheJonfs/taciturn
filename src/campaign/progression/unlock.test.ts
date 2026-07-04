@@ -21,16 +21,8 @@ import {
 import { availableInClass } from './ledger.ts';
 import { tokenKey, type UnlockToken } from './tokens.ts';
 
-function comp(
-  id: string,
-  cost: number,
-  nativeClass: string,
-  exportable?: boolean,
-): ComponentMeta {
-  const token: UnlockToken = { kind: 'ability', id: abilityId(id) };
-  return exportable === undefined
-    ? { token, cost, nativeClass: classId(nativeClass) }
-    : { token, cost, nativeClass: classId(nativeClass), exportable };
+function comp(id: string, cost: number, nativeClass: string): ComponentMeta {
+  return { token: { kind: 'ability', id: abilityId(id) }, cost, nativeClass: classId(nativeClass) };
 }
 function tok(id: string): UnlockToken {
   return { kind: 'ability', id: abilityId(id) };
@@ -39,8 +31,8 @@ function tok(id: string): UnlockToken {
 const CAT = buildComponentCatalog([
   comp('buyme', 150, 'monk'),
   comp('pricey', 300, 'monk'),
-  comp('export_ok', 200, 'monk'), // exportable (default)
-  comp('native_only', 200, 'terraformer', false),
+  comp('export_ok', 200, 'monk'),
+  comp('enabler', 200, 'terraformer'), // an "inert-without-its-set" passive
 ]);
 
 function unit(over: Partial<CampaignUnit> = {}): CampaignUnit {
@@ -138,12 +130,19 @@ describe('canEquipPassive — R/S/M export gating', () => {
     expect(canEquipPassive(paid, abilityId('export_ok'), classId('knight'), CAT).ok).toBe(true);
   });
 
-  it('a native-only passive can NEVER be equipped off its class, even if unlocked', () => {
-    const u = unit({ classId: classId('knight'), unlocks: [tok('native_only')] });
-    const gate = canEquipPassive(u, abilityId('native_only'), classId('knight'), CAT);
-    expect(gate.ok).toBe(false);
-    if (!gate.ok) expect(gate.reason).toMatch(/native-only/);
-    // ...but it IS equippable in its own native class (terraformer).
-    expect(canEquipPassive(u, abilityId('native_only'), classId('terraformer'), CAT).ok).toBe(true);
+  it('an enabler passive is exportable like any other — no hard class-lock', () => {
+    // "Inert without its Command Set" is a runtime property, NOT an equip block:
+    // buyable + equippable off-class once unlocked (it just does nothing without
+    // the set). Free in its own native class regardless.
+    const native = unit({ classId: classId('terraformer') });
+    expect(canEquipPassive(native, abilityId('enabler'), classId('terraformer'), CAT).ok).toBe(true);
+
+    const foreignLocked = unit({ classId: classId('knight') });
+    expect(canEquipPassive(foreignLocked, abilityId('enabler'), classId('knight'), CAT).ok).toBe(
+      false, // export tax unpaid
+    );
+
+    const foreignPaid = unit({ classId: classId('knight'), unlocks: [tok('enabler')] });
+    expect(canEquipPassive(foreignPaid, abilityId('enabler'), classId('knight'), CAT).ok).toBe(true);
   });
 });

@@ -70,19 +70,6 @@ describe('COMPONENT_CATALOG data integrity', () => {
     }
   });
 
-  it('non-exportable entries are native-only passives (Expert Former, Mathematician)', () => {
-    const nativeOnly = COMPONENT_ENTRIES.filter((e) => e.exportable === false);
-    expect(nativeOnly.map((e) => tokenKey(e.token)).sort()).toEqual([
-      'ability:expert_former',
-      'ability:mathematician',
-    ]);
-    for (const e of nativeOnly) {
-      if (e.token.kind === 'ability') {
-        expect(catalog.getAbility(e.token.id).kind).toBe('passive');
-      }
-    }
-  });
-
   it('per-class cost sums match the budget doc near-master totals', () => {
     const sums: Record<string, number> = {};
     for (const e of COMPONENT_ENTRIES) {

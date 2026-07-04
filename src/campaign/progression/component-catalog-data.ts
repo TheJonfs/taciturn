@@ -7,8 +7,9 @@
 // `component-catalog-data.test.ts` against the budget doc's near-master totals.
 //
 // `nativeClass` fixes the (half, tier) slot the cost accrues to for tier-
-// gating AND the class the JP is spent from (per-class pools). `exportable:
-// false` marks the two native-only enablers (Expert Former, Mathematician).
+// gating AND the class the JP is spent from (per-class pools). Every passive is
+// exportable — the enabler passives (Expert Former, Mathematician) equip
+// anywhere once unlocked, just inert without their Command Set.
 //
 // NOTE: the four `mathParameter` + four `mathValue` tokens are Calculator
 // COMPONENTS, not catalog abilities — their ids are the closed
@@ -26,9 +27,8 @@ import {
 import { buildComponentCatalog, type ComponentMeta } from './component-catalog.ts';
 
 // Compact constructors so the ~110 rows read as a cost table.
-function a(id: string, cost: number, nativeClass: string, exportable?: boolean): ComponentMeta {
-  const base = { token: { kind: 'ability', id: abilityId(id) } as const, cost, nativeClass: classId(nativeClass) };
-  return exportable === undefined ? base : { ...base, exportable };
+function a(id: string, cost: number, nativeClass: string): ComponentMeta {
+  return { token: { kind: 'ability', id: abilityId(id) }, cost, nativeClass: classId(nativeClass) };
 }
 function item(id: string, cost: number, nativeClass: string): ComponentMeta {
   return { token: { kind: 'item', id: itemId(id) }, cost, nativeClass: classId(nativeClass) };
@@ -154,7 +154,7 @@ export const COMPONENT_ENTRIES: ReadonlyArray<ComponentMeta> = [
   a('barrier', 200, 'terraformer'),
   a('damage_split', 400, 'terraformer'),
   a('ignore_height', 200, 'terraformer'),
-  a('expert_former', 200, 'terraformer', false), // native-only
+  a('expert_former', 200, 'terraformer'), // enabler — inert without Worldcraft, but equippable
 
   // Assassin — physical:3 — 1550
   a('undermine', 150, 'assassin'),
@@ -179,7 +179,7 @@ export const COMPONENT_ENTRIES: ReadonlyArray<ComponentMeta> = [
   mval(3, 100),
   mval(4, 75),
   mval(5, 75),
-  a('mathematician', 200, 'calculator', false), // native-only
+  a('mathematician', 200, 'calculator'), // enabler — inert without Math Skill, but equippable
   a('thoughtful_pacing', 250, 'calculator'),
   a('cornered_focus', 200, 'calculator'),
 ];

@@ -26,15 +26,13 @@ export interface ComponentMeta {
   // price; for R/S/M passives it is the export tax (free in the native class).
   readonly cost: number;
   // The class this component belongs to — determines which (half, tier) slot
-  // its `cost` accumulates into for tier-gating. Also the "native class" for
-  // passive export gating.
+  // its `cost` accumulates into for tier-gating, AND the "native class" for
+  // passive export gating (free in-class; the `cost` is the export tax to
+  // unlock it for equipping elsewhere). Every passive is exportable — even
+  // enabler passives (Expert Former, Mathematician) equip anywhere once
+  // unlocked; they're just inert without their Command Set. See
+  // `canEquipPassive`.
   readonly nativeClass: ClassId;
-  // Passive export legality (R/S/M only). `false` marks a native-only passive
-  // (Expert Former, Mathematician) that can NEVER be equipped off its class —
-  // no export path at any price. Omitted / `true` → exportable at `cost`.
-  // Ignored for actives / items / math components (those never equip as
-  // passives). See `canEquipPassive`.
-  readonly exportable?: boolean;
 }
 
 // tokenKey → meta. Built from an entry list so authors write one array and the

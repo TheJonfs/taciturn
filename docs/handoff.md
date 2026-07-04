@@ -41,9 +41,8 @@ All exported from `src/campaign/progression/` (see `index.ts`):
 - `reclassableClasses(unit, catalog)` → the classes a unit may become right now
   (already unions the plot-unique `classAccessOverride`). THE source of truth for
   the reclass screen.
-- `componentMetaOf(token, catalog)` → `{ cost, nativeClass, exportable }` for any
-  unlockable; `COMPONENT_ENTRIES` / `COMPONENT_CATALOG` are the full ~114-entry
-  price list.
+- `componentMetaOf(token, catalog)` → `{ cost, nativeClass }` for any unlockable;
+  `COMPONENT_ENTRIES` / `COMPONENT_CATALOG` are the full ~114-entry price list.
 - `CLASS_TIER_MAP` (classId → {half, tier}) for laying out the tree.
 - Ops (for when the UI commits a purchase/reclass): `unlockComponent`,
   `grantOnClassUnlock`, `canEquipPassive`.
@@ -61,10 +60,14 @@ Present these combinator components as buyable alongside abilities.
 ### Ability-type semantics the UI must convey
 - **Actives = unlock-to-USE**: buying one adds it to the class's Command Set you
   wield wholesale. Not individually splashable.
-- **R/S/M passives = FREE in the native class; JP is the EXPORT TAX** to equip on
-  another class. `canEquipPassive` returns the ruling. **Native-only** passives
-  (Expert Former, Mathematician) can NEVER be exported — show them as
-  class-locked, no price-to-export.
+- **R/S/M passives = FREE in the native class; JP is the EXPORT TAX** to unlock
+  for equipping on another class. `canEquipPassive` returns the ruling. There is
+  **NO hard class-lock** — every passive equips anywhere once unlocked. "Enabler"
+  passives (Expert Former, Mathematician) are buyable + equippable off-class but
+  are **INERT unless the unit also runs their Command Set as a secondary**
+  (Mathematician does nothing without Math Skill equipped; Expert Former nothing
+  without Worldcraft). The UI may want to *signal* that inertness (e.g. "needs
+  Math Skill"), but must not block the equip.
 
 ### Thresholds (for progress bars / "unlocks at" copy)
 500 in a half's T1 → that half's T2 + the OTHER half's T1. 1000 in T1 + 500 in

@@ -99,12 +99,16 @@ export type EquipGate = { readonly ok: true } | { readonly ok: false; readonly r
 // Whether the unit may equip a passive (`abilityId`) while in `targetClass`.
 // The R/S/M rule (brief item 3):
 //   - In the passive's NATIVE class → free, always allowed.
-//   - On a NON-native class → allowed only if (a) the passive is exportable
-//     and (b) the unit has paid the export tax (unlocked the token).
-//   - Native-only passives (`exportable: false`, e.g. Expert Former,
-//     Mathematician) → never equippable off their class, at any price.
-// Roster-side only: the engine's `validateLoadout` is structural and has no
-// native-class concept, so this gate lives here and the roster UI consults it.
+//   - On a NON-native class → allowed once the unit has paid the export tax
+//     (unlocked the token).
+// EVERY passive is equippable off-class once unlocked — there is NO hard
+// class-lock. Even "enabler" passives (Expert Former, Mathematician) are
+// buyable + equippable anywhere; they're simply INERT unless the unit also
+// runs their Command Set as a secondary (e.g. Mathematician does nothing
+// without Math Skill equipped). Whether it has an effect is a runtime
+// concern, not an equip gate. Roster-side only: the engine's `validateLoadout`
+// is structural and has no native-class concept, so this gate lives here and
+// the roster UI consults it.
 export function canEquipPassive(
   unit: CampaignUnit,
   abilityId: AbilityId,
@@ -116,9 +120,6 @@ export function canEquipPassive(
 
   if (targetClass === meta.nativeClass) {
     return { ok: true }; // free in-class
-  }
-  if (meta.exportable === false) {
-    return { ok: false, reason: `${String(abilityId)} is native-only (no export path)` };
   }
   const owned = new Set(unit.unlocks.map(tokenKey));
   if (!hasToken(owned, token)) {

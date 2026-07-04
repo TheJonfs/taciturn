@@ -141,9 +141,20 @@ same trigger with a different `base`** (Chris). Grant random bound = **50**.
 **The real ~110 costs (content half, item 1).** `component-catalog-data.ts`
 holds the verified cost table from `m2-jp-costing-budget.md` (114 entries),
 guarded by `component-catalog-data.test.ts`: every ability/item id resolves in
-the catalog, native classes are valid, the two native-only passives are the only
-non-exportable rows, and per-class sums equal the budget-doc near-master totals
-(Geosage 1800 with the settled Biomastery 450; Hunter 1350 authoritative).
+the catalog, native classes are valid, and per-class sums equal the budget-doc
+near-master totals (Geosage 1800 with the settled Biomastery 450; Hunter 1350
+authoritative).
+
+**Correction (S81 cont.) — no hard passive class-lock.** The initial cut had an
+`exportable: false` flag hard-blocking Expert Former / Mathematician from any
+foreign class. That was wrong (Chris): every passive is buyable + equippable
+anywhere once unlocked — these "enabler" passives are merely INERT off their
+native class (Mathematician does nothing without Math Skill equipped as a
+secondary; Expert Former nothing without Worldcraft). Inert-ness is a runtime
+property, not an equip gate — and it matched neither the engine's structural-only
+`validateLoadout` nor the secondary-command-set mechanic (which lets any unit run
+another class's set). The `exportable` field + the `canEquipPassive` block were
+removed; both passives are now normal exportable R/S/M at their `cost`.
 
 ## Consequences / seams left open (content half remainder + later)
 
