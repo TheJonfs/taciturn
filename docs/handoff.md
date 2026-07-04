@@ -11,6 +11,90 @@ been processed.
 
 ---
 
+## UI design notes — M2 progression (for the planner)
+
+The whole progression *engine* is built and tested; the remaining M2 work is the
+**UI** (reclass/spend screens) plus flipping gating live. What the UI designer
+needs to know from implementation:
+
+### The two currencies have DIFFERENT shapes — this is the core mental model
+- **JP is PER-CLASS.** A unit holds a separate JP pool per class it's earned in
+  (`earnedByClass: Record<classId, number>`). Knight JP buys only Knight
+  abilities. `available(class) = earned[class] − spent(class)`, where **spent is
+  DERIVED** (sum of that class's unlocked-component costs) — not stored. So a
+  unit screen shows N per-class balances, and each ability's affordability is
+  checked against *its native class's* pool.
+- **On top of JP, we track PHYSICAL/MAGICAL/HYBRID × TIER-1/2/3 aggregates** for
+  unlock gating (the fact Chris gave the planner). These are ALSO derived
+  (`spentByTierSlot` sums per-class spend into `${half}:${tier}` slots) — the
+  UI's "progress toward the next tier" bars read these, never a stored field.
+- **XP/level is SINGLE per-unit**, NOT per-class: one `xp` value + one `level`.
+  (Don't mirror the JP per-class UI for XP.)
+
+### JP / reclass / spend — the pure selectors the UI consumes
+All exported from `src/campaign/progression/` (see `index.ts`):
+- `earnedInClass` / `spentInClass` / `availableInClass(unit, classId, catalog)` —
+  the per-class balances.
+- `spentByTierSlot(unit, catalog)` → `Map<'${half}:${tier}', number>` — the tier
+  aggregates for threshold progress bars.
+- `unlockedTiers(unit, catalog)` → set of open `${half}:${tier}` slots.
+- `reclassableClasses(unit, catalog)` → the classes a unit may become right now
+  (already unions the plot-unique `classAccessOverride`). THE source of truth for
+  the reclass screen.
+- `componentMetaOf(token, catalog)` → `{ cost, nativeClass, exportable }` for any
+  unlockable; `COMPONENT_ENTRIES` / `COMPONENT_CATALOG` are the full ~114-entry
+  price list.
+- `CLASS_TIER_MAP` (classId → {half, tier}) for laying out the tree.
+- Ops (for when the UI commits a purchase/reclass): `unlockComponent`,
+  `grantOnClassUnlock`, `canEquipPassive`.
+
+### Unlockables are a TAGGED UNION, not just command-set abilities
+`UnlockToken = ability | item | mathParameter | mathValue`. So the spend UI for
+two classes includes non-ability components:
+- **Alchemist:** the 4 items (Potion/Phoenix Down/Remedy/Ether) are unlockables;
+  Compound/Throw are always-on 0-JP shells.
+- **Calculator:** the 4 Parameters (CT/Height/Level/Current-HP) and 4 Values
+  (Prime/3/4/5) are unlockables; the Math cast is the always-on shell. Its 5
+  payloads are normal command-set actives.
+Present these combinator components as buyable alongside abilities.
+
+### Ability-type semantics the UI must convey
+- **Actives = unlock-to-USE**: buying one adds it to the class's Command Set you
+  wield wholesale. Not individually splashable.
+- **R/S/M passives = FREE in the native class; JP is the EXPORT TAX** to equip on
+  another class. `canEquipPassive` returns the ruling. **Native-only** passives
+  (Expert Former, Mathematician) can NEVER be exported — show them as
+  class-locked, no price-to-export.
+
+### Thresholds (for progress bars / "unlocks at" copy)
+500 in a half's T1 → that half's T2 + the OTHER half's T1. 1000 in T1 + 500 in
+T2 → that half's T3. 500 in BOTH halves' T1 → Hybrid T2. Whole tier opens at
+once. (Constants in `progression/thresholds.ts`.)
+
+### Display names ≠ ids
+The tree UI shows display names; ids are generic. Notably: Pyromancer=`fire_mage`,
+Hydrologist=`water_mage`, Geosage=`earth_mage`, Aethurge=`lightning_mage`. Use
+the catalog's class `name`.
+
+### XP / level UI surfaces
+- Between-battle: XP progress toward next level (`xp` / 100) per unit; stat growth
+  per level follows the ADR-0137 curve.
+- **In-battle level-up has NO banner yet** — it only shows as an action-log line
+  ("reached Level N!") + the HP/MP bar jump. **A "Level Up!" banner is an open UI
+  design opportunity** (needs a new animator primitive to implement).
+
+### Gating is DORMANT until two things ship together
+The engine enforces gating (`validateUseAbility` + the combinator validators +
+menu greying all read per-unit `usable*` allowlists), but the **campaign fold
+does not stamp those masks yet**, so campaign units currently play with
+everything usable. "Turning JP gating on" = (a) the reclass/spend UI that writes
+unlock state, + (b) flipping `snapshot-fold.ts`'s `campaignPlacement` to stamp
+`usableActives` / `usableItems` / `usableMathParameters` / `usableMathValues` from
+the projections (`usableActiveIds` etc.). Design the UI assuming it will be the
+thing that makes unlock state matter. (XP/leveling, by contrast, is ALREADY live.)
+
+---
+
 ## From S81 — TABA M2: JP progression substrate + per-class pools + costs (2026-07-04)
 
 **Shipped** the JP-economy substrate AND most of its content half (ADR-0138,
