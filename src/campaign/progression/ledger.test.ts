@@ -8,9 +8,16 @@ import {
   type ClassId,
 } from '@engine/index.ts';
 import type { CampaignUnit } from '../types.ts';
-import { EMPTY_JP_LEDGER } from '../types.ts';
+import { EMPTY_EARNED_BY_CLASS } from '../types.ts';
 import { buildComponentCatalog, type ComponentMeta } from './component-catalog.ts';
-import { availableJp, reclassableClasses, spentByTierSlot, unlockedTiers } from './ledger.ts';
+import {
+  availableInClass,
+  earnedInClass,
+  reclassableClasses,
+  spentByTierSlot,
+  spentInClass,
+  unlockedTiers,
+} from './ledger.ts';
 import type { UnlockToken } from './tokens.ts';
 
 // A priced ability component owned by `nativeClass` (which fixes its slot).
@@ -42,7 +49,7 @@ function unit(over: Partial<CampaignUnit> = {}): CampaignUnit {
     loadout: EMPTY_LOADOUT,
     equipment: EMPTY_UNIT_EQUIPMENT,
     vitals: { hp: 100, mp: 20 },
-    jpLedger: EMPTY_JP_LEDGER,
+    earnedByClass: EMPTY_EARNED_BY_CLASS,
     unlocks: [],
     fate: 'active',
     ...over,
@@ -53,10 +60,26 @@ function set(ids: ReadonlyArray<ClassId>): ReadonlySet<string> {
   return new Set(ids.map((id) => String(id)));
 }
 
-describe('availableJp', () => {
-  it('is earned minus spent', () => {
-    expect(availableJp({ earned: 300, spent: 100 })).toBe(200);
-    expect(availableJp(EMPTY_JP_LEDGER)).toBe(0);
+describe('per-class available JP', () => {
+  it('available in a class = earned in it minus its unlock spend', () => {
+    const u = unit({
+      classId: classId('monk'),
+      earnedByClass: { monk: 900 },
+      unlocks: [tok('pT1a'), tok('pT1b')], // 1000 total, but both native = monk
+    });
+    expect(earnedInClass(u, classId('monk'))).toBe(900);
+    expect(spentInClass(u, classId('monk'), CAT)).toBe(1000);
+    expect(availableInClass(u, classId('monk'), CAT)).toBe(-100); // overspent-on-paper
+    // A class the unit has never earned in reads 0 across the board.
+    expect(availableInClass(u, classId('knight'), CAT)).toBe(0);
+  });
+
+  it('spend is attributed by the component native class, not the earner', () => {
+    const u = unit({ earnedByClass: { monk: 500, fire_mage: 500 }, unlocks: [tok('mT1a')] });
+    expect(spentInClass(u, classId('fire_mage'), CAT)).toBe(500); // mT1a is fire_mage
+    expect(spentInClass(u, classId('monk'), CAT)).toBe(0);
+    expect(availableInClass(u, classId('monk'), CAT)).toBe(500);
+    expect(availableInClass(u, classId('fire_mage'), CAT)).toBe(0);
   });
 });
 

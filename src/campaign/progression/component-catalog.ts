@@ -65,7 +65,7 @@ export function componentMetaOf(token: UnlockToken, catalog: ComponentCatalog): 
   return meta;
 }
 
-// The production registry. EMPTY until the content session enters the real
-// per-class cost tables from the budget doc. Consumers pass this (or a
-// fixture) into the selectors; nothing hard-codes it.
-export const COMPONENT_CATALOG: ComponentCatalog = buildComponentCatalog([]);
+// The production registry (`COMPONENT_CATALOG`) is built from the real
+// ~110-entry cost table in `./component-catalog-data.ts` — kept separate so
+// this file stays types + helpers. Consumers pass it (or a fixture) into the
+// selectors; nothing hard-codes it.

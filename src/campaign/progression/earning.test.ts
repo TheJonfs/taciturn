@@ -1,10 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { unitId, type Action, type UnitId } from '@engine/index.ts';
 import {
-  computeEarnedJp,
-  defaultConnectingPredicate,
-  DEFAULT_JP_PER_CONNECTING_ACTION,
-} from './earning.ts';
+  classId,
+  EMPTY_LOADOUT,
+  EMPTY_UNIT_EQUIPMENT,
+  unitId,
+  type Action,
+  type UnitId,
+} from '@engine/index.ts';
+import type { CampaignUnit } from '../types.ts';
+import { EMPTY_EARNED_BY_CLASS } from '../types.ts';
+import { computeEarnedJp, defaultConnectingPredicate, defaultJpBase } from './earning.ts';
+
+// A roster unit at a given level (all Monks; class doesn't matter to the walk).
+function ru(id: string, level = 25): CampaignUnit {
+  return {
+    id: unitId(id),
+    name: id,
+    classId: classId('monk'),
+    level,
+    brave: 70,
+    faith: 70,
+    loadout: EMPTY_LOADOUT,
+    equipment: EMPTY_UNIT_EQUIPMENT,
+    vitals: { hp: 1, mp: 1 },
+    earnedByClass: EMPTY_EARNED_BY_CLASS,
+    unlocks: [],
+    fate: 'active',
+  };
+}
 
 // Minimal Action factory. `computeEarnedJp` reads only actorId / isReaction /
 // outcome.kind / outcome.perTargetResults, so we build just those and cast —
@@ -42,7 +65,8 @@ function act(over: {
 
 const U1: UnitId = unitId('u1');
 const U2: UnitId = unitId('u2');
-const R = DEFAULT_JP_PER_CONNECTING_ACTION;
+const U3: UnitId = unitId('u3');
+const B25 = defaultJpBase(25); // floor(10 + 25/4) = 16
 
 describe('defaultConnectingPredicate', () => {
   it('accepts a non-reaction ability that landed at least one hit', () => {
@@ -66,45 +90,60 @@ describe('defaultConnectingPredicate', () => {
   });
 });
 
+describe('defaultJpBase', () => {
+  it('is floor(10 + level/4)', () => {
+    expect(defaultJpBase(1)).toBe(10);
+    expect(defaultJpBase(24)).toBe(16);
+    expect(defaultJpBase(25)).toBe(16);
+    expect(defaultJpBase(50)).toBe(22);
+  });
+});
+
 describe('computeEarnedJp', () => {
-  it('sums the rate per connecting action, keyed by actor', () => {
-    const log = [
-      act({ actor: 'u1', hits: [true] }),
-      act({ actor: 'u1', hits: [true] }),
-      act({ actor: 'u2', hits: [true] }),
-    ];
-    const earned = computeEarnedJp(log);
-    expect(earned.get(U1)).toBe(2 * R);
-    expect(earned.get(U2)).toBe(1 * R);
+  const roster = [ru('u1'), ru('u2'), ru('u3')];
+
+  it('the actor earns base(level); every OTHER roster unit earns 1/8 of it', () => {
+    const earned = computeEarnedJp([act({ actor: 'u1' })], roster);
+    expect(earned.get(U1)).toBe(B25); // 16
+    expect(earned.get(U2)).toBe(Math.floor(B25 / 8)); // floor(2) = 2
+    expect(earned.get(U3)).toBe(Math.floor(B25 / 8)); // bench spillover too
   });
 
-  it('excludes misses, reactions, non-offensive kinds, and actor-less actions', () => {
+  it('accumulates over actions; the spillover total is floored once', () => {
+    const log = [act({ actor: 'u1' }), act({ actor: 'u1' })]; // 2 actions × 16
+    const earned = computeEarnedJp(log, roster);
+    expect(earned.get(U1)).toBe(2 * B25); // 32
+    expect(earned.get(U2)).toBe(Math.floor((2 * B25) / 8)); // floor(4) = 4
+  });
+
+  it("scales the actor's share with the actor's level", () => {
+    const earned = computeEarnedJp([act({ actor: 'u2' })], [ru('u1', 1), ru('u2', 50)]);
+    expect(earned.get(U2)).toBe(defaultJpBase(50)); // 22
+    expect(earned.get(U1)).toBe(Math.floor(defaultJpBase(50) / 8)); // floor(2.75) = 2
+  });
+
+  it('excludes misses, reactions, non-offensive kinds — no one earns from them', () => {
     const log = [
       act({ actor: 'u1', hits: [false] }), // miss
       act({ actor: 'u1', isReaction: true, hits: [true] }), // reaction
       act({ actor: 'u1', type: 'move', kind: 'move', hits: [] }), // move
-      act({ actor: null, hits: [true] }), // no actor
     ];
-    expect(computeEarnedJp(log).get(U1)).toBeUndefined();
+    expect(computeEarnedJp(log, roster).size).toBe(0);
   });
 
-  it('is deterministic — same log yields the same result', () => {
+  it('only PLAYER-roster actions generate JP (enemy / actor-less actions do not)', () => {
+    const log = [act({ actor: 'enemy1', hits: [true] }), act({ actor: null, hits: [true] })];
+    expect(computeEarnedJp(log, roster).size).toBe(0);
+  });
+
+  it('is deterministic — same log + roster yields the same result', () => {
     const log = [act({ actor: 'u1' }), act({ actor: 'u2' })];
-    expect([...computeEarnedJp(log)]).toEqual([...computeEarnedJp(log)]);
+    expect([...computeEarnedJp(log, roster)]).toEqual([...computeEarnedJp(log, roster)]);
   });
 
-  it('honors an injected rate', () => {
-    const log = [act({ actor: 'u1' }), act({ actor: 'u1' })];
-    expect(computeEarnedJp(log, { rate: 10 }).get(U1)).toBe(20);
-  });
-
-  it('honors an injected connecting predicate (the mid-session seam)', () => {
-    // A predicate that only counts throws.
-    const log = [act({ actor: 'u1', kind: 'use_ability' }), act({ actor: 'u1', kind: 'use_throw_item' })];
-    const earned = computeEarnedJp(log, {
-      rate: 5,
-      connecting: (a) => a.outcome?.kind === 'use_throw_item',
-    });
-    expect(earned.get(U1)).toBe(5);
+  it('honors an injected base equation (the XP-reuse / mid-session seam)', () => {
+    const earned = computeEarnedJp([act({ actor: 'u1' })], roster, { base: () => 80 });
+    expect(earned.get(U1)).toBe(80);
+    expect(earned.get(U2)).toBe(10); // floor(80/8)
   });
 });

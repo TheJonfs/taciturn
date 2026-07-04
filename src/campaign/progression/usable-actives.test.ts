@@ -9,7 +9,7 @@ import {
   unitId,
 } from '@engine/index.ts';
 import type { CampaignUnit } from '../types.ts';
-import { EMPTY_JP_LEDGER } from '../types.ts';
+import { EMPTY_EARNED_BY_CLASS } from '../types.ts';
 import { usableActiveIds } from './usable-actives.ts';
 import type { UnlockToken } from './tokens.ts';
 
@@ -26,7 +26,7 @@ function unit(over: Partial<CampaignUnit> = {}): CampaignUnit {
     loadout: EMPTY_LOADOUT,
     equipment: EMPTY_UNIT_EQUIPMENT,
     vitals: { hp: 100, mp: 20 },
-    jpLedger: EMPTY_JP_LEDGER,
+    earnedByClass: EMPTY_EARNED_BY_CLASS,
     unlocks: [],
     fate: 'active',
     ...over,

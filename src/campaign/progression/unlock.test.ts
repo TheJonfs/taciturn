@@ -7,7 +7,7 @@ import {
   unitId,
 } from '@engine/index.ts';
 import type { CampaignUnit } from '../types.ts';
-import { EMPTY_JP_LEDGER } from '../types.ts';
+import { EMPTY_EARNED_BY_CLASS } from '../types.ts';
 import { buildComponentCatalog, type ComponentMeta } from './component-catalog.ts';
 import {
   canEquipPassive,
@@ -18,7 +18,7 @@ import {
   tierGrantAmount,
   unlockComponent,
 } from './unlock.ts';
-import { availableJp } from './ledger.ts';
+import { availableInClass } from './ledger.ts';
 import { tokenKey, type UnlockToken } from './tokens.ts';
 
 function comp(
@@ -54,7 +54,7 @@ function unit(over: Partial<CampaignUnit> = {}): CampaignUnit {
     loadout: EMPTY_LOADOUT,
     equipment: EMPTY_UNIT_EQUIPMENT,
     vitals: { hp: 100, mp: 20 },
-    jpLedger: EMPTY_JP_LEDGER,
+    earnedByClass: EMPTY_EARNED_BY_CLASS,
     unlocks: [],
     fate: 'active',
     ...over,
@@ -62,41 +62,41 @@ function unit(over: Partial<CampaignUnit> = {}): CampaignUnit {
 }
 
 describe('unlockComponent', () => {
-  it('appends the token and charges its cost to spent', () => {
-    const u = unit({ jpLedger: { earned: 300, spent: 0 } });
-    const after = unlockComponent(u, tok('buyme'), CAT);
+  it('appends the token; spend is derived from the unlock (no stored spent)', () => {
+    const u = unit({ earnedByClass: { monk: 300 } });
+    const after = unlockComponent(u, tok('buyme'), CAT); // 150, native monk
     expect(after.unlocks.map(tokenKey)).toEqual(['ability:buyme']);
-    expect(after.jpLedger).toEqual({ earned: 300, spent: 150 });
-    expect(availableJp(after.jpLedger)).toBe(150);
+    expect(availableInClass(after, classId('monk'), CAT)).toBe(150); // 300 − 150
   });
 
   it('does not mutate the input unit (immutable)', () => {
-    const u = unit({ jpLedger: { earned: 300, spent: 0 } });
+    const u = unit({ earnedByClass: { monk: 300 } });
     unlockComponent(u, tok('buyme'), CAT);
     expect(u.unlocks).toEqual([]);
-    expect(u.jpLedger.spent).toBe(0);
+    expect(availableInClass(u, classId('monk'), CAT)).toBe(300);
   });
 
   it('throws when the component is already unlocked', () => {
-    const u = unit({ jpLedger: { earned: 300, spent: 0 }, unlocks: [tok('buyme')] });
+    const u = unit({ earnedByClass: { monk: 300 }, unlocks: [tok('buyme')] });
     expect(() => unlockComponent(u, tok('buyme'), CAT)).toThrow(/already unlocked/);
   });
 
-  it('throws when the unit cannot afford it', () => {
-    const u = unit({ jpLedger: { earned: 200, spent: 0 } }); // 200 available
-    expect(() => unlockComponent(u, tok('pricey'), CAT)).toThrow(/costs 300 JP but only 200/);
+  it('throws when the unit cannot afford it in the native class', () => {
+    const u = unit({ earnedByClass: { monk: 200 } }); // 200 monk JP available
+    expect(() => unlockComponent(u, tok('pricey'), CAT)).toThrow(/costs 300 monk JP but only 200/);
   });
 
-  it('affordability counts already-spent JP', () => {
-    const u = unit({ jpLedger: { earned: 300, spent: 200 } }); // 100 available
-    expect(() => unlockComponent(u, tok('buyme'), CAT)).toThrow(/only 100 available/);
+  it('affordability is per-class — JP earned in another class does NOT count', () => {
+    // 500 fire_mage JP, 0 monk JP; buyme is a monk component.
+    const u = unit({ earnedByClass: { fire_mage: 500 } });
+    expect(() => unlockComponent(u, tok('buyme'), CAT)).toThrow(/only 0 available/);
   });
 });
 
 describe('grants', () => {
-  it('grantJp adds to earned and rejects negatives', () => {
-    expect(grantJp(unit(), 120).jpLedger).toEqual({ earned: 120, spent: 0 });
-    expect(() => grantJp(unit(), -1)).toThrow(/non-negative/);
+  it('grantJp adds into a class pool and rejects negatives', () => {
+    expect(grantJp(unit(), classId('monk'), 120).earnedByClass).toEqual({ monk: 120 });
+    expect(() => grantJp(unit(), classId('monk'), -1)).toThrow(/non-negative/);
   });
 
   it('tierGrantAmount is base(tier×100) + a bounded deterministic bonus', () => {
@@ -108,9 +108,10 @@ describe('grants', () => {
     }
   });
 
-  it('is deterministic in (tier, seed)', () => {
+  it('is deterministic in (tier, seed) and lands in the unlocked class pool', () => {
     expect(tierGrantAmount(3, 999)).toBe(tierGrantAmount(3, 999));
-    expect(grantOnClassUnlock(unit(), 2, 7).jpLedger.earned).toBe(tierGrantAmount(2, 7));
+    const after = grantOnClassUnlock(unit(), classId('knight'), 2, 7);
+    expect(after.earnedByClass['knight']).toBe(tierGrantAmount(2, 7));
   });
 
   it('different seeds generally yield different bonuses', () => {

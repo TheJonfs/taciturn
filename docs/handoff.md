@@ -11,62 +11,55 @@ been processed.
 
 ---
 
-## From S81 — TABA M2: JP progression substrate (2026-07-04)
+## From S81 — TABA M2: JP progression substrate + per-class pools + costs (2026-07-04)
 
-**Shipped** the JP-economy **substrate** (ADR-0138, brief
-`docs/TABADesign/m2-progression-jp-implementation-brief.md`). This was the
-first half of a deliberate substrate→content split (Chris's call: decide on
-carrying the content half by context spend — we stopped at substrate). Suite
-green (**2319**, +52 new), `tsc -b` + `vite build` clean. A three-agent
-substrate audit preceded the build; findings drove the design (see ADR-0138).
+**Shipped** the JP-economy substrate AND most of its content half (ADR-0138,
+briefs `m2-progression-jp-implementation-brief.md` + `m2-jp-costing-budget.md`),
+across **two commits** (substrate, then per-class + earning + costs). A three-
+agent substrate audit + a cost-mapping agent preceded the build. Suite green
+(**2330**), `tsc -b` + `vite build` clean.
 
-New: `src/campaign/progression/` (tokens, tier-map, thresholds,
-component-catalog, ledger, unlock, usable-actives, earning, index + tests).
-Touched: `campaign/types.ts` (`JpLedger` + 3 `CampaignUnit` fields),
-`serialization.ts` (**v2→v3**), `roster/battle-result/apply-back`; engine
-`unit.ts`/`battle-config.ts` (`usableActives?`), `create-initial-state.ts`
-(thread), `actions/validate.ts` (gate), `ui/use-turn-flow.ts` (grey).
+`src/campaign/progression/`: tokens, tier-map, thresholds, component-catalog
+(+data — the real 114-entry cost table + guard test), ledger, unlock,
+usable-actives, earning, index. Touched: `campaign/types.ts` (`earnedByClass` +
+`unlocks` + `classAccessOverride?`), `serialization.ts` (**v4**),
+`roster/battle-result/apply-back`; engine `unit.ts`/`battle-config.ts`
+(`usableActives?`), `create-initial-state.ts` (thread), `actions/validate.ts`
+(gate), `ui/use-turn-flow.ts` (grey).
 
-### What is DONE (mechanism, tested against fixtures)
-- **Durable state:** `jpLedger {earned,spent}`, `unlocks: UnlockToken[]` (one
-  tagged union over ability|item|mathParameter|mathValue), `classAccessOverride?`.
-- **Derived selectors:** `availableJp`, `spentByTierSlot`, `unlockedTiers`,
-  `reclassableClasses` (accumulators are DERIVED, never stored — rule 5).
-- **Ops:** `unlockComponent` (spend), `grantJp`/`grantOnClassUnlock`/
-  `tierGrantAmount` (deterministic-with-seed), `canEquipPassive` (R/S/M export
-  gating — native-free / export-tax / native-only).
-- **Gating mechanism:** `Unit.usableActives?` opaque allowlist (`undefined ⇒ all
-  usable`), enforced in `validateUseAbility`, greyed in the menu. `usableActiveIds`
-  projects the durable unlocks → the battle mask.
-- **Earning seam:** `computeEarnedJp(actionLog)` (post-hoc log read, NO new hook)
-  + `UnitBattleSummary.earnedJp` + apply-back banking (survived/downed, not lost).
+### DONE (mechanism + data, tested)
+- **Per-class JP** (Chris's call — revises ADR-0138's single pool): `earnedByClass:
+  Record<classId, number>` STORED; `spent` fully DERIVED (`spentInClass`). Buying
+  checks affordability in the component's native class; grants land in the
+  unlocked class's pool. Save **v4**.
+- **Earning mechanism** (Chris's rule): actor earns `floor(10 + level/4)` into
+  its current class; every other roster unit (in-battle + BENCHED) earns `1/8`
+  of that into its class; floored; only player-roster actions; `lost` banks
+  nothing. Runs in **apply-back** (needs the roster for bench spillover), not
+  the summarizer. `base` + `connecting` injectable — **XP reuses the trigger
+  with a different `base`**. Grant random bound = **50**.
+- **The ~110 real costs** — `component-catalog-data.ts` (114 entries), guarded
+  by `component-catalog-data.test.ts` (ids resolve, native classes valid,
+  per-class sums = budget-doc totals).
+- **Gating mechanism:** `Unit.usableActives?` opaque allowlist, enforced in
+  `validateUseAbility`, greyed via `computeAbilityDisableReason`. `usableActiveIds`
+  projects unlocks → mask.
 
-### DECISIONS NEEDING CHRIS (tunables / injections — none block the substrate)
-- **Per-action earning rate + final "connecting" predicate** — Chris said he'd
-  bring the exact mechanism *this session* (successful connects, not misses/
-  reactions). Built as an **injectable** seam defaulting to the budget anchor
-  (`DEFAULT_JP_PER_CONNECTING_ACTION = 14`, `defaultConnectingPredicate`). When
-  he brings it: thread `EarnOptions` through `summarizeBattleResult` callers.
-- **`GRANT_RANDOM_RANGE`** — brief says "N×100 + random" with no bound; I chose
-  `[0,100)`. Confirm.
-- **Spillover** on over-threshold / leftover-from-prior-class JP — brief seam,
-  unbuilt. Still TBD.
-
-### The CONTENT HALF (the other half of this brief — not started)
-1. **~110 real ability costs** from `m2-jp-costing-budget.md` into
-   `COMPONENT_CATALOG` (ships empty; selectors are table-driven → zero code
-   change to light up).
-2. **Combinator enumeration wiring** — the audit OVERTURNED the brief here:
-   Alchemist items + Calculator params/values are NOT an engine rework, they're
-   the SAME mask at their UI enumeration sites (`action-menu.tsx:794` items,
-   `:537-548` params/values, + a trivial id→label registry extraction). Add
-   `item`/`mathParameter`/`mathValue` tokens to the unlocked-set filter there;
-   combinators stay 0-JP always-on shells. Optional defensive re-checks in
-   `validateUseCompound`/`validateUseThrowItem`/math-skill validation.
-3. **Flip the fold to stamp `usableActives`** — the campaign fold currently
-   does NOT stamp the mask (M0/M1 fold ungated → existing play unchanged). Turn
-   it on (project via `usableActiveIds` in `snapshot-fold.ts`) once authored
-   unlock states + a reclass/spend UI exist. This is the "make gating live" step.
+### REMAINING M2 content-half wiring (NOT done — next up)
+1. **Combinator enumeration filters** — the tokens are now PRICED, but the
+   pickers don't filter by unlock. Add `item`/`mathParameter`/`mathValue`
+   filtering at `action-menu.tsx:794` (Alchemist items) + `:537-548` (Calculator
+   params/values, + a trivial id→label registry extraction). Combinators stay
+   0-JP always-on shells. Optional defensive re-checks in `validateUseCompound`/
+   `validateUseThrowItem`/math-skill validation. (Audit confirmed: NOT an engine
+   rework — same mask mechanism, UI-enumeration only.)
+2. **Flip the fold to stamp `usableActives`** — currently unstamped (M0/M1
+   ungated → play unchanged). Project via `usableActiveIds` in `snapshot-fold.ts`
+   once authored unlock states + a reclass/spend UI exist. The "make gating live"
+   step.
+3. **Reclass / spend UI** (M2 UI) — `reclassableClasses` + `unlockComponent` +
+   `grantOnClassUnlock` are the model; no UI consumes them yet.
+4. **Spillover on over-threshold spend** — brief seam, still TBD.
 
 ### XP brief now present
 Chris added `docs/TABADesign/m2-progression-xp-jobtree-brief.md` (the XP→level

@@ -15,7 +15,7 @@ import {
   type Unit,
   type UnitId,
 } from '@engine/index.ts';
-import { DEFAULT_JP_PER_CONNECTING_ACTION } from './progression/index.ts';
+import { defaultJpBase } from './progression/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import { applyBattleResult } from './apply-back.ts';
 import { summarizeBattleResult } from './battle-result.ts';
@@ -90,12 +90,12 @@ describe('applyBattleResult', () => {
     expect(after).toEqual(benched); // identical — didn't fight
   });
 
-  it('banks per-action JP into survived/downed ledgers, but NOT the lost unit', () => {
-    // A connecting use_ability by a unit; only actorId/isReaction/outcome are
-    // read by the earning walk, so we build just those.
-    const connect = (actor: UnitId, seq: number): Action =>
+  it('banks per-action JP per current class, with roster spillover, excluding lost', () => {
+    // One connecting use_ability by the survived unit. The earning walk reads
+    // only actorId/isReaction/outcome, so we build just those.
+    const connect = (actor: UnitId): Action =>
       ({
-        sequenceNumber: seq,
+        sequenceNumber: 0,
         source: { kind: 'player' },
         actorId: actor,
         timestamp: { tick: 0, ct: 0 },
@@ -107,26 +107,24 @@ describe('applyBattleResult', () => {
         outcome: { kind: 'use_ability', perTargetResults: [{ hit: true }] },
       }) as unknown as Action;
 
-    const base = terminalState();
-    const finalState: GameState = {
-      ...base,
-      actionLog: [
-        connect(deployed[0]!.id, 0), // survived — two connecting actions
-        connect(deployed[0]!.id, 1),
-        connect(deployed[1]!.id, 2), // downed — one
-        connect(deployed[2]!.id, 3), // lost — one (must NOT bank)
-      ],
-    };
-    const result = summarizeBattleResult(finalState);
-    const updated = applyBattleResult(roster, result, finalState, catalog);
+    const finalState: GameState = { ...terminalState(), actionLog: [connect(deployed[0]!.id)] };
+    const updated = applyBattleResult(roster, summarizeBattleResult(finalState), finalState, catalog);
 
-    const R = DEFAULT_JP_PER_CONNECTING_ACTION;
-    const earnedOf = (id: CampaignUnit['id']): number =>
-      updated.find((u) => u.id === id)!.jpLedger.earned;
-    expect(earnedOf(deployed[0]!.id)).toBe(2 * R); // survived banks
-    expect(earnedOf(deployed[1]!.id)).toBe(1 * R); // downed banks
-    expect(earnedOf(deployed[2]!.id)).toBe(0); // lost banks nothing
-    expect(updated.find((u) => u.id === deployed[2]!.id)!.fate).toBe('lost');
+    const base = defaultJpBase(deployed[0]!.level); // actor's share at L25 = 16
+    const share = Math.floor(base / 8); // spillover to every other roster unit = 2
+    const jpIn = (u: CampaignUnit): number => u.earnedByClass[u.classId] ?? 0;
+    const find = (id: CampaignUnit['id']): CampaignUnit => updated.find((u) => u.id === id)!;
+
+    // Actor (survived) banks the full base into ITS current class.
+    expect(jpIn(find(deployed[0]!.id))).toBe(base);
+    // Downed unit banks the spillover share.
+    expect(jpIn(find(deployed[1]!.id))).toBe(share);
+    // Benched unit (never fought) still banks the spillover share.
+    expect(jpIn(find(benched.id))).toBe(share);
+    // Lost unit banks NOTHING (its own actions still fed others' spillover).
+    const lost = find(deployed[2]!.id);
+    expect(lost.fate).toBe('lost');
+    expect(lost.earnedByClass).toEqual({});
   });
 
   it('ignores enemy final-state units (player-side only, matched by id)', () => {

@@ -11,7 +11,7 @@
 // and, independently, `jpLedger → availableJp`.
 
 import type { ClassId } from '@engine/index.ts';
-import type { CampaignUnit, JpLedger } from '../types.ts';
+import type { CampaignUnit } from '../types.ts';
 import type { ComponentCatalog } from './component-catalog.ts';
 import { componentMetaOf } from './component-catalog.ts';
 import {
@@ -31,14 +31,42 @@ import {
   TIER3_TIER2_SPEND,
 } from './thresholds.ts';
 
-// The only derived value off the ledger: JP the unit can still spend.
-export function availableJp(ledger: JpLedger): number {
-  return ledger.earned - ledger.spent;
+// JP earned in a class (0 if none). Reads the stored per-class pool.
+export function earnedInClass(unit: CampaignUnit, classId: ClassId): number {
+  return unit.earnedByClass[classId] ?? 0;
+}
+
+// JP already spent in a class — DERIVED: the sum of that class's unlocked
+// components' costs (rule 5, never stored). Buying an ability spends its
+// native class's JP.
+export function spentInClass(
+  unit: CampaignUnit,
+  classId: ClassId,
+  catalog: ComponentCatalog,
+): number {
+  let sum = 0;
+  for (const token of unit.unlocks) {
+    const meta = componentMetaOf(token, catalog);
+    if (meta.nativeClass === classId) sum += meta.cost;
+  }
+  return sum;
+}
+
+// JP the unit can still spend IN A CLASS: that class's earnings minus its
+// unlock spend. Affordability for buying a component reads this against the
+// component's native class.
+export function availableInClass(
+  unit: CampaignUnit,
+  classId: ClassId,
+  catalog: ComponentCatalog,
+): number {
+  return earnedInClass(unit, classId) - spentInClass(unit, classId, catalog);
 }
 
 // Cumulative JP spent, bucketed by the (half, tier) slot each unlock's native
 // class sits in. The tier-gating currency (brief: "JP spent in a tier, on a
-// half"). Derived from `unlocks` + the catalog — never stored.
+// half"). Derived from `unlocks` + the catalog — never stored. Unchanged by
+// the per-class split: spend was always attributed by native class.
 export function spentByTierSlot(
   unit: CampaignUnit,
   catalog: ComponentCatalog,

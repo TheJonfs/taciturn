@@ -22,18 +22,8 @@ const START_TEAM = firstBattleBeat(START.beats)!.battle.playerTeam;
 // and the rest sat in reserve (absent from the result).
 function resultFor(roster = m0Roster): BattleResult {
   const units = new Map<UnitId, UnitBattleSummary>();
-  units.set(roster[0]!.id, {
-    id: roster[0]!.id,
-    outcome: 'survived',
-    vitals: { hp: 20, mp: 5 },
-    earnedJp: 0,
-  });
-  units.set(roster[1]!.id, {
-    id: roster[1]!.id,
-    outcome: 'downed',
-    vitals: { hp: 0, mp: 0 },
-    earnedJp: 0,
-  });
+  units.set(roster[0]!.id, { id: roster[0]!.id, outcome: 'survived', vitals: { hp: 20, mp: 5 } });
+  units.set(roster[1]!.id, { id: roster[1]!.id, outcome: 'downed', vitals: { hp: 0, mp: 0 } });
   return {
     outcome: { winner: START_TEAM, conditionIndex: 0, description: 'test' },
     units,

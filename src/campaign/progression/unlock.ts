@@ -13,16 +13,18 @@ import { deriveActionSeed } from '@engine/index.ts';
 import type { CampaignUnit } from '../types.ts';
 import type { ComponentCatalog } from './component-catalog.ts';
 import { componentMetaOf } from './component-catalog.ts';
-import { availableJp } from './ledger.ts';
+import { availableInClass } from './ledger.ts';
 import { hasToken, tokenKey, type UnlockToken } from './tokens.ts';
 import type { ClassTier } from './tier-map.ts';
 
 // --- Spend -----------------------------------------------------------------
 
-// Buy an unlock: append the token and charge its catalog cost to `spent`.
-// Fails loud (CLAUDE.md: no silent fallbacks) if the token is already owned
-// or the unit can't afford it — a caller must pre-check with `availableJp`
-// for UX, but this is the authoritative gate.
+// Buy an unlock: append the token. Spend is DERIVED (the unlock IS the record
+// of spend), so nothing else is written — the component's cost is now counted
+// against its native class's pool by `spentInClass`. Fails loud (CLAUDE.md: no
+// silent fallbacks) if the token is already owned or the unit can't afford it
+// in the component's native class — a caller pre-checks `availableInClass` for
+// UX, but this is the authoritative gate.
 export function unlockComponent(
   unit: CampaignUnit,
   token: UnlockToken,
@@ -33,18 +35,14 @@ export function unlockComponent(
     throw new Error(`unlockComponent: '${tokenKey(token)}' is already unlocked`);
   }
   const meta = componentMetaOf(token, catalog);
-  const available = availableJp(unit.jpLedger);
+  const available = availableInClass(unit, meta.nativeClass, catalog);
   if (meta.cost > available) {
     throw new Error(
-      `unlockComponent: '${tokenKey(token)}' costs ${meta.cost} JP but only ` +
-        `${available} available`,
+      `unlockComponent: '${tokenKey(token)}' costs ${meta.cost} ${String(meta.nativeClass)} JP ` +
+        `but only ${available} available`,
     );
   }
-  return {
-    ...unit,
-    unlocks: [...unit.unlocks, token],
-    jpLedger: { ...unit.jpLedger, spent: unit.jpLedger.spent + meta.cost },
-  };
+  return { ...unit, unlocks: [...unit.unlocks, token] };
 }
 
 // --- Grant -----------------------------------------------------------------
@@ -66,21 +64,32 @@ export function tierGrantAmount(tier: ClassTier, seed: number): number {
   return base + bonus;
 }
 
-// Add JP to `earned` (the raw grant primitive; also the apply-back earn path).
-export function grantJp(unit: CampaignUnit, amount: number): CampaignUnit {
+// Add JP into a specific class's pool (the raw grant primitive; also the
+// apply-back per-action earn path). Earnings are always class-scoped.
+export function grantJp(unit: CampaignUnit, classId: ClassId, amount: number): CampaignUnit {
   if (amount < 0) {
     throw new Error(`grantJp: amount must be non-negative, got ${amount}`);
   }
-  return { ...unit, jpLedger: { ...unit.jpLedger, earned: unit.jpLedger.earned + amount } };
+  if (amount === 0) return unit;
+  return {
+    ...unit,
+    earnedByClass: {
+      ...unit.earnedByClass,
+      [classId]: (unit.earnedByClass[classId] ?? 0) + amount,
+    },
+  };
 }
 
-// Grant the tier-scaled head-start when a class is unlocked.
+// Grant the tier-scaled head-start INTO the newly-unlocked class's pool (so a
+// freshly-unlocked class can afford its intended entry — the T3 Calculator's
+// functional triple, etc.).
 export function grantOnClassUnlock(
   unit: CampaignUnit,
+  classId: ClassId,
   tier: ClassTier,
   seed: number,
 ): CampaignUnit {
-  return grantJp(unit, tierGrantAmount(tier, seed));
+  return grantJp(unit, classId, tierGrantAmount(tier, seed));
 }
 
 // --- Export gating (R/S/M passives) ----------------------------------------

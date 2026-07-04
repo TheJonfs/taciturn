@@ -46,6 +46,10 @@ kit comes online as JP is spent.
 
 ### 2. One tagged-union unlock token; accumulators derived, not stored
 
+> **Superseded in part by the Revision below:** the ledger is now **per-class**
+> (`earnedByClass`), and `spent` turned out fully derivable so it is not stored.
+> The `unlocks` tagged union and derived-accumulators decisions stand.
+
 `CampaignUnit` gains three **stored** fields:
 - `jpLedger: { earned, spent }` — both irreducible (a grant raises `earned`
   without a purchase, so `spent` isn't derivable). `available = earned − spent`
@@ -81,6 +85,10 @@ wiring. Confirmed with Chris.
 
 ### 4. Earning is a post-hoc action-log read, not a new hook
 
+> **Revised below:** the *mechanism* is now concrete (Chris's rule) and the
+> read moved to apply-back (it needs the full roster for bench spillover). The
+> "post-hoc log read, no new hook" architecture stands.
+
 JP is earned per connecting action (Chris: successful connects, not misses, not
 reactions; exact rule is a later mid-session injection). Rather than add to the
 closed hook surface (rule 8) or store JP mid-battle in the engine (rule 1), a
@@ -105,20 +113,50 @@ The tier-scaled unlock grant (Tier N = N×100 + bounded random) is **determinist
 with a passed seed** (Chris's call — no ambient RNG), reusing the engine's
 splitmix32 mixer.
 
-## Consequences / seams left open (content half + later)
+## Revision (S81 cont.) — per-class pools, the earning mechanism, and the real costs
+
+Landed immediately after the substrate, in the same session:
+
+**Per-class JP pools (revises Decision 2).** Chris's earning rule credits JP to
+named classes ("Knight JP", "Pyromancer JP"), which only has mechanical meaning
+as per-class pools (FFT model). So the single `jpLedger {earned, spent}` becomes
+`earnedByClass: Record<classId, number>` (stored) — and `spent` is now **fully
+derived** (`spentInClass` = Σ a class's unlocked-component costs), so it isn't
+stored at all. `available(class) = earned[class] − spent(class)`; buying a
+component checks affordability in its **native** class; grants land in the
+newly-unlocked class's pool. Tier-gating (`spentByTierSlot`) is unchanged — spend
+was always attributed by native class. Save schema **v3 → v4**.
+
+**The earning mechanism (revises Decision 4).** Per connecting action by a
+player-roster unit: the actor earns `base(level) = floor(10 + level/4)` into its
+current class; every OTHER roster unit (in battle **and benched**) earns `1/8`
+of that into ITS current class (spillover accumulated exactly, floored once).
+Only player-roster actions earn; a `lost` unit banks nothing (its actions still
+feed others' spillover). Because spillover reaches benched units absent from the
+battle, earning **moved from `summarizeBattleResult` to `applyBattleResult`**
+(which has the roster + the log); `UnitBattleSummary.earnedJp` was removed. The
+`base` equation and `connecting` predicate stay injectable — **XP reuses the
+same trigger with a different `base`** (Chris). Grant random bound = **50**.
+
+**The real ~110 costs (content half, item 1).** `component-catalog-data.ts`
+holds the verified cost table from `m2-jp-costing-budget.md` (114 entries),
+guarded by `component-catalog-data.test.ts`: every ability/item id resolves in
+the catalog, native classes are valid, the two native-only passives are the only
+non-exportable rows, and per-class sums equal the budget-doc near-master totals
+(Geosage 1800 with the settled Biomastery 450; Hunter 1350 authoritative).
+
+## Consequences / seams left open (content half remainder + later)
 
 - **The campaign fold does not stamp `usableActives` yet** — M0/M1 units fold
   ungated (`undefined`), so existing campaign play is unchanged. Flipping real
   masks on happens when authored unlock states + a reclass/spend UI exist.
-- **`COMPONENT_CATALOG` ships empty** — the ~110 real costs are content-session
-  data. All selectors are table-driven, so they pick up the numbers with zero
-  code change.
 - **Combinator enumeration filters** (Alchemist items; Calculator params/values +
   a trivial id→label registry extraction) + defensive validator re-checks are
-  content-session wiring on the mask built here.
-- **Tunable assumptions to confirm:** `GRANT_RANDOM_RANGE` (brief says "+ random"
-  without a bound); the per-action earning rate + final "connecting" predicate
-  (Chris's injection); spillover on over-threshold spend (brief seam, unbuilt).
+  the remaining content-half wiring — the tokens are now PRICED (in the catalog),
+  but the pickers don't yet filter by unlock.
+- **Spillover on over-threshold spend** (brief seam, unbuilt) — still TBD.
+- **XP→level** (`m2-progression-xp-jobtree-brief.md`) reuses the earning trigger
+  with a different `base` equation; unbuilt.
 
 ## Files
 

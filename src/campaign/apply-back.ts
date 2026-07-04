@@ -22,23 +22,35 @@ import type { Catalog, GameState } from '@engine/index.ts';
 import type { BattleResult } from './battle-result.ts';
 import type { CampaignUnit } from './types.ts';
 import { effectiveMaxVitals } from './vitals.ts';
+import { computeEarnedJp, grantJp, type EarnOptions } from './progression/index.ts';
 
 export function applyBattleResult(
   roster: ReadonlyArray<CampaignUnit>,
   result: BattleResult,
   finalState: GameState,
   catalog: Catalog,
+  earnOptions?: EarnOptions,
 ): ReadonlyArray<CampaignUnit> {
+  // Per-action JP for the WHOLE roster (actors + bench spillover), read from
+  // the terminal action log. Credited into each unit's CURRENT class below —
+  // but only for units that end active (a `lost` unit banks nothing, though
+  // its own actions still fed the roster's spillover). `earnOptions` is the
+  // mid-session rate/predicate injection seam; defaults to the working rule.
+  const earned = computeEarnedJp(finalState.actionLog, roster, earnOptions);
+
   return roster.map((unit) => {
     const summary = result.units.get(unit.id);
-    if (summary === undefined) return unit; // didn't fight this node
-
-    if (summary.outcome === 'lost') {
-      return { ...unit, fate: 'lost' };
+    if (summary === undefined) {
+      // Benched — didn't fight, but still earned spillover JP into its class.
+      return grantJp(unit, unit.classId, earned.get(unit.id) ?? 0);
     }
 
-    // survived | downed → heal to effective full, and BANK the JP earned this
-    // battle (a `lost` unit above banks nothing — its JP is moot).
+    if (summary.outcome === 'lost') {
+      return { ...unit, fate: 'lost' }; // banks nothing
+    }
+
+    // survived | downed → heal to effective full, and BANK earned JP into the
+    // unit's current class.
     const finalUnit = finalState.units.get(unit.id);
     if (finalUnit === undefined) {
       // The summary was built from this exact map; absence is a bug.
@@ -47,11 +59,11 @@ export function applyBattleResult(
           `that the result summarized`,
       );
     }
-    return {
+    const healed: CampaignUnit = {
       ...unit,
       fate: 'active',
       vitals: effectiveMaxVitals(finalState, catalog, finalUnit),
-      jpLedger: { ...unit.jpLedger, earned: unit.jpLedger.earned + summary.earnedJp },
     };
+    return grantJp(healed, unit.classId, earned.get(unit.id) ?? 0);
   });
 }

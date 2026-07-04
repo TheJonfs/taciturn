@@ -128,14 +128,14 @@ describe('campaign serialization', () => {
 
   // --- M2 progression state (v3) ---
 
-  it('round-trips a unit carrying JP ledger, unlocks, and a class-access override', () => {
+  it('round-trips a unit carrying per-class JP, unlocks, and a class-access override', () => {
     const state = newCampaign(m0Roster, START);
     const progressed = {
       ...state,
       roster: [
         {
           ...state.roster[0]!,
-          jpLedger: { earned: 800, spent: 500 },
+          earnedByClass: { monk: 800, knight: 200 },
           unlocks: [
             { kind: 'ability', id: 'chakra' },
             { kind: 'item', id: 'potion' },
@@ -151,24 +151,24 @@ describe('campaign serialization', () => {
     expect(restored).toEqual(progressed);
   });
 
-  it('defaults omitted jpLedger/unlocks (lenient, like loadout) for hand-trimmed saves', () => {
+  it('defaults omitted earnedByClass/unlocks (lenient, like loadout) for hand-trimmed saves', () => {
     const state = newCampaign(m0Roster, START);
     const trimmed = { ...state.roster[0] } as Record<string, unknown>;
-    delete trimmed['jpLedger'];
+    delete trimmed['earnedByClass'];
     delete trimmed['unlocks'];
     const broken = { ...state, roster: [trimmed, ...state.roster.slice(1)] };
     const restored = deserializeCampaign(JSON.stringify(broken));
-    expect(restored.roster[0]!.jpLedger).toEqual({ earned: 0, spent: 0 });
+    expect(restored.roster[0]!.earnedByClass).toEqual({});
     expect(restored.roster[0]!.unlocks).toEqual([]);
   });
 
-  it('rejects a malformed jpLedger', () => {
+  it('rejects a malformed earnedByClass value', () => {
     const state = newCampaign(m0Roster, START);
     const broken = {
       ...state,
-      roster: [{ ...state.roster[0], jpLedger: { earned: 'lots', spent: 0 } }, ...state.roster.slice(1)],
+      roster: [{ ...state.roster[0], earnedByClass: { monk: 'lots' } }, ...state.roster.slice(1)],
     };
-    expect(() => deserializeCampaign(JSON.stringify(broken))).toThrow(/jpLedger\.earned/);
+    expect(() => deserializeCampaign(JSON.stringify(broken))).toThrow(/earnedByClass\.monk/);
   });
 
   it('rejects an unlock token with an unknown kind', () => {

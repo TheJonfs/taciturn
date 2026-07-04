@@ -44,15 +44,16 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
-## Session 81 (2026-07-04) — TABA M2 JP progression substrate (ADR-0138)
+## Session 81 (2026-07-04) — TABA M2 JP progression substrate + costs (ADR-0138)
 
-No player-facing changes. Substrate only: the JP ledger / unlock-token / class-
-tier tree, the per-action JP earning seam, and the active-use gating *mechanism*
-(a per-unit allowlist the engine consumes opaquely) — none of it is wired into
-playable battles yet (no reclass/spend UI, no real ability costs, no combinator
-changes; Mage War and the M0/M1 campaign play byte-unchanged). Player-facing JP
-mechanics land with the content half (costs + combinator reworks) and the
-reclass/spend UI.
+No player-facing changes. Built the JP economy under the hood: the per-class JP
+ledger / unlock-token / class-tier tree, the per-action earning rule (actor +
+1/8 roster spillover), the active-use gating *mechanism* (a per-unit allowlist
+the engine consumes opaquely), and the real per-ability JP costs (~110, from the
+budget doc). None of it is surfaced to the player yet — no reclass/spend UI, the
+gating mask isn't stamped in play, and the Alchemist/Calculator pickers don't yet
+filter by unlock; Mage War and the M0/M1 campaign play byte-unchanged. Player-
+facing JP mechanics land once the reclass/spend UI + combinator filtering ship.
 
 ---
 

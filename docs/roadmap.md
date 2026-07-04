@@ -353,11 +353,12 @@ These are noted to make their absence intentional rather than accidental:
 - ~~Campaign / between-battle progression~~ — **now the active TABA expansion
   track** (`docs/TABADesign/campaign-decomposition.md`). M0 spine + M1 branching
   graph + M1.5 story-scenes (battle-as-beat) shipped; **M2 progression in
-  progress** (per-class level→stat curves shipped, ADR-0137; JP-economy
-  *substrate* shipped, ADR-0138 — ledger/unlock-tokens/tier-tree/gating-
-  mechanism/earning-seam; the JP *content* half — real ability costs +
-  Alchemist/Calculator combinator wiring + reclass UI — and XP→level still to
-  come); economy (M3), authoring (M4), story (M5) follow.
+  progress** (per-class level→stat curves shipped, ADR-0137; JP economy shipped,
+  ADR-0138 — per-class ledger, unlock-tokens, tier tree, gating mechanism,
+  per-action earning rule, and the real ~110 ability costs; still to wire:
+  combinator picker filtering + stamping the gating mask in play + the
+  reclass/spend UI, plus XP→level); economy (M3), authoring (M4), story (M5)
+  follow.
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.
 

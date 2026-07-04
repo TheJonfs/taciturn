@@ -11,8 +11,8 @@
 // half-valid blob into a `CampaignState`.
 
 import { classId as toClassId, EMPTY_LOADOUT, EMPTY_UNIT_EQUIPMENT } from '@engine/index.ts';
-import type { CampaignPhase, CampaignState, CampaignUnit, JpLedger, UnitFate } from './types.ts';
-import { EMPTY_JP_LEDGER } from './types.ts';
+import type { CampaignPhase, CampaignState, CampaignUnit, EarnedByClass, UnitFate } from './types.ts';
+import { EMPTY_EARNED_BY_CLASS } from './types.ts';
 import type { UnlockToken, UnlockTokenKind } from './progression/tokens.ts';
 
 // Persisted-shape version. Bump when `CampaignState`/`CampaignUnit` change
@@ -22,9 +22,11 @@ import type { UnlockToken, UnlockTokenKind } from './progression/tokens.ts';
 // v2 (M1): position widened from a linear `nodeIndex: number` to a branching
 // `currentNodeId: string`. Old v1 saves hard-fail to load (loud) rather than
 // migrate — acceptable for dev-only localStorage, deliberate not silent.
-// v3 (M2): `CampaignUnit` gained the JP progression state (`jpLedger`,
-// `unlocks`, optional `classAccessOverride`). Old v2 saves hard-fail.
-export const CAMPAIGN_SCHEMA_VERSION = 3;
+// v3 (M2): `CampaignUnit` gained the JP progression state (`unlocks`, optional
+// `classAccessOverride`, and the JP ledger). v4 (M2, per-class revision): the
+// JP ledger is per-class earnings (`earnedByClass`) rather than a single
+// `{earned, spent}`. Old saves hard-fail.
+export const CAMPAIGN_SCHEMA_VERSION = 4;
 
 const VALID_UNLOCK_KINDS: ReadonlyArray<UnlockTokenKind> = [
   'ability',
@@ -126,7 +128,7 @@ function validateUnit(raw: unknown, index: number): CampaignUnit {
   // M2 progression state. Omitted fields default (lenient, matching the
   // loadout/equipment handling) so a hand-trimmed save stays loadable; a
   // present value is validated structurally.
-  const jpLedger = validateJpLedger(u['jpLedger'], `${where}.jpLedger`);
+  const earnedByClass = validateEarnedByClass(u['earnedByClass'], `${where}.earnedByClass`);
   const unlocks = validateUnlocks(u['unlocks'], `${where}.unlocks`);
 
   const gender = u['gender'];
@@ -140,7 +142,7 @@ function validateUnit(raw: unknown, index: number): CampaignUnit {
     loadout,
     equipment,
     vitals,
-    jpLedger,
+    earnedByClass,
     unlocks,
     fate,
   } as CampaignUnit;
@@ -169,14 +171,17 @@ function validateUnit(raw: unknown, index: number): CampaignUnit {
   return result;
 }
 
-// jpLedger: `{ earned, spent }` numbers. Omitted → EMPTY_JP_LEDGER.
-function validateJpLedger(raw: unknown, where: string): JpLedger {
-  if (raw === undefined) return EMPTY_JP_LEDGER;
+// earnedByClass: a `Record<classId, number>` of per-class earned JP. Omitted →
+// EMPTY_EARNED_BY_CLASS. Each value must be a number; keys are trusted as
+// class-id strings (the component catalog re-validates on spend).
+function validateEarnedByClass(raw: unknown, where: string): EarnedByClass {
+  if (raw === undefined) return EMPTY_EARNED_BY_CLASS;
   const rec = asRecord(raw, where);
-  return {
-    earned: asNumber(rec['earned'], `${where}.earned`),
-    spent: asNumber(rec['spent'], `${where}.spent`),
-  };
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(rec)) {
+    out[key] = asNumber(value, `${where}.${key}`);
+  }
+  return out;
 }
 
 // unlocks: array of `{ kind, id }`. Omitted → `[]`. `kind` is validated

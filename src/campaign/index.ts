@@ -11,9 +11,9 @@ export type {
   CampaignState,
   CampaignPhase,
   UnitFate,
-  JpLedger,
+  EarnedByClass,
 } from './types.ts';
-export { EMPTY_JP_LEDGER } from './types.ts';
+export { EMPTY_EARNED_BY_CLASS } from './types.ts';
 
 // M2 progression — the JP economy subsystem (tables, selectors, ops).
 export * from './progression/index.ts';

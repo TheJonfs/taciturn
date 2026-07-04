@@ -26,14 +26,13 @@ export {
 } from './thresholds.ts';
 
 export type { ComponentMeta, ComponentCatalog } from './component-catalog.ts';
-export {
-  buildComponentCatalog,
-  componentMetaOf,
-  COMPONENT_CATALOG,
-} from './component-catalog.ts';
+export { buildComponentCatalog, componentMetaOf } from './component-catalog.ts';
+export { COMPONENT_CATALOG, COMPONENT_ENTRIES } from './component-catalog-data.ts';
 
 export {
-  availableJp,
+  earnedInClass,
+  spentInClass,
+  availableInClass,
   spentByTierSlot,
   unlockedTiers,
   reclassableClasses,
@@ -55,6 +54,7 @@ export { usableActiveIds } from './usable-actives.ts';
 export {
   computeEarnedJp,
   defaultConnectingPredicate,
-  DEFAULT_JP_PER_CONNECTING_ACTION,
+  defaultJpBase,
+  SPILLOVER_FRACTION,
 } from './earning.ts';
-export type { ConnectingActionPredicate, EarnOptions } from './earning.ts';
+export type { ConnectingActionPredicate, EarnOptions, JpBaseFn } from './earning.ts';
