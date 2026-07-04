@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { WebGLRenderer } from 'pixi.js';
 import { App } from './App.tsx';
+import { FormationDevHarness } from './formation/FormationDevHarness.tsx';
 import { installGlobalErrorListeners } from './error-surface.tsx';
 
 // Pin WebGLRenderer with a runtime reference so the production build
@@ -31,8 +32,12 @@ if (!rootElement) {
   throw new Error('Root element #root not found in index.html');
 }
 
+// Dev-only Formation UI harness (TABA M2): `?formation` mounts a rich seeded
+// roster/dossier instead of the app, for building/verifying the celestial UI.
+const useFormationHarness = new URLSearchParams(window.location.search).has('formation');
+
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    {useFormationHarness ? <FormationDevHarness /> : <App />}
   </StrictMode>,
 );
