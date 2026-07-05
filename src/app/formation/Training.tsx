@@ -11,7 +11,7 @@
 //     condition but are never blocked.
 
 import { type ReactElement } from 'react';
-import type { Catalog } from '@engine/index.ts';
+import type { Catalog, ClassId } from '@engine/index.ts';
 import { COMPONENT_CATALOG, type CampaignUnit, type ComponentCatalog, type UnlockToken } from '@campaign/index.ts';
 import { DOMAIN_COLOR } from './roster-view-model.ts';
 import { tierEntryOf } from '@campaign/index.ts';
@@ -25,25 +25,37 @@ import {
 export interface TrainingProps {
   readonly unit: CampaignUnit;
   readonly catalog: Catalog;
+  // The class whose tree is being viewed/spent — set by the constellation star
+  // click (or the unit's current class by default). Spending a class's JP does
+  // not require BEING that class (JP is per-class); you just need to have earned
+  // it, which happens by being that class in battle.
+  readonly classId: ClassId;
   readonly onBuy: (token: UnlockToken) => void;
+  // True when the viewed class isn't the unit's current class — surfaced as a note.
+  readonly isCurrentClass?: boolean;
   readonly componentCatalog?: ComponentCatalog;
 }
 
 export function Training({
   unit,
   catalog,
+  classId,
   onBuy,
+  isCurrentClass = true,
   componentCatalog = COMPONENT_CATALOG,
 }: TrainingProps): ReactElement {
-  const className = catalog.getClass(unit.classId).name;
-  const col = DOMAIN_COLOR[tierEntryOf(unit.classId).half];
-  const g = buildTrainingGroups(unit, unit.classId, catalog, componentCatalog);
+  const className = catalog.getClass(classId).name;
+  const col = DOMAIN_COLOR[tierEntryOf(classId).half];
+  const g = buildTrainingGroups(unit, classId, catalog, componentCatalog);
 
   return (
     <div>
       <div className="tf-train-head">
         {className} purse: <b>{g.purse.toLocaleString()} JP</b> · {g.affordableCount} affordable now ·
         spendable only on {className}
+        {isCurrentClass ? null : (
+          <span className="tf-train-note"> · not your current class — reclass on the Loadout tab to earn its JP</span>
+        )}
       </div>
 
       {g.items.length > 0 ? (

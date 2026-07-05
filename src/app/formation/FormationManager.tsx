@@ -47,7 +47,13 @@ export function FormationManager({
 
   if (opened !== null) {
     return (
-      <UnitDossier unit={opened} catalog={catalog} onBack={() => setOpenedId(null)} onChange={updateUnit} />
+      <UnitDossier
+        key={String(opened.id)} // remount per unit → reset tab / viewed-class state
+        unit={opened}
+        catalog={catalog}
+        onBack={() => setOpenedId(null)}
+        onChange={updateUnit}
+      />
     );
   }
 

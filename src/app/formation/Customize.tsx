@@ -7,8 +7,15 @@
 // `onChange`. Capacity is the ruleset baseline (secondary 1, R/S/M 3).
 
 import { type ReactElement } from 'react';
-import type { AbilityId, Catalog, CommandSetId } from '@engine/index.ts';
-import { COMPONENT_CATALOG, tierEntryOf, type CampaignUnit, type ComponentCatalog } from '@campaign/index.ts';
+import type { AbilityId, Catalog, ClassId, CommandSetId } from '@engine/index.ts';
+import {
+  COMPONENT_CATALOG,
+  reclassableClasses,
+  reclassUnit,
+  tierEntryOf,
+  type CampaignUnit,
+  type ComponentCatalog,
+} from '@campaign/index.ts';
 import { DOMAIN_COLOR } from './roster-view-model.ts';
 import {
   bucketCapacity,
@@ -45,28 +52,57 @@ export function Customize({
   const secondaryOptions = equippableSecondaryCommands(unit, catalog, componentCatalog);
   const passives = equippablePassives(unit, catalog, componentCatalog);
 
+  // Classes this unit can reclass INTO (excluding the current one) — the reclass
+  // control that replaces the constellation's old click-to-reclass.
+  const reclassOptions = reclassableClasses(unit, componentCatalog)
+    .filter((id) => id !== unit.classId)
+    .map((id) => ({ id, name: catalog.getClass(id).name, color: DOMAIN_COLOR[tierEntryOf(id).half] }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   function pickSecondary(id: CommandSetId | null): void {
     onChange(setSecondaryCommand(unit, id));
   }
   function toggle(id: AbilityId, bucket: PassiveBucket): void {
     onChange(togglePassive(unit, id, bucket, bucketCapacity(unit, bucket, catalog), catalog));
   }
+  function reclass(id: ClassId): void {
+    onChange(reclassUnit(unit, id, catalog, componentCatalog));
+  }
 
   return (
     <div>
       <div className="tf-load-sec">
         <div className="tf-load-h">
-          <h3 style={{ color: col }}>Primary Command</h3>
-          <span className="tf-load-c">set by class · reclass to change</span>
+          <h3 style={{ color: col }}>Class</h3>
+          <span className="tf-load-c">reclass rebinds your command &amp; frees now-illegal passives</span>
         </div>
         <div className="tf-opt locked">
           <span className="tf-opt-sw" style={{ background: col }} />
           <div className="tf-opt-info">
-            <div className="tf-opt-nm">{primary.name}</div>
-            <div className="tf-opt-fx">{catalog.getClass(unit.classId).name} command set</div>
+            <div className="tf-opt-nm">
+              {catalog.getClass(unit.classId).name}
+              <span className="tf-opt-tag innate">current</span>
+            </div>
+            <div className="tf-opt-fx">Primary command: {primary.name}</div>
           </div>
-          <span className="tf-opt-pin">innate</span>
         </div>
+        {reclassOptions.length > 0 ? (
+          <div className="tf-class-row">
+            {reclassOptions.map((c) => (
+              <button
+                key={String(c.id)}
+                type="button"
+                className="tf-class-chip"
+                style={{ ['--cc' as string]: c.color }}
+                onClick={() => reclass(c.id)}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="tf-load-empty">No other classes open yet — invest JP to unlock reclass options.</div>
+        )}
       </div>
 
       <div className="tf-load-sec">

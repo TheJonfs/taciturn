@@ -126,6 +126,7 @@ export const FORMATION_STYLE = `
 /* ---- Training (JP-spend) ---- */
 .tf-train-head{font-size:12px;color:var(--star3);margin:2px 0 4px}
 .tf-train-head b{color:var(--brass);font-family:var(--mono)}
+.tf-train-note{color:var(--hyb)}
 .tf-sec{margin-top:16px}
 .tf-sech{display:flex;align-items:baseline;gap:10px;margin-bottom:2px}
 .tf-sech h3{font-family:var(--serif);font-size:20px;font-weight:600}
@@ -170,6 +171,9 @@ export const FORMATION_STYLE = `
 .tf-opt-tag.innate{color:var(--afford);background:rgba(127,192,140,.12);border:1px solid rgba(127,192,140,.3)}
 .tf-opt-tag.exported{color:var(--brass);background:rgba(216,178,108,.1);border:1px solid var(--brass2)}
 .tf-opt-cost{flex:none;font-family:var(--mono);font-size:10.5px;color:var(--star3);white-space:nowrap}
+.tf-class-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+.tf-class-chip{font-family:var(--serif);font-size:14px;font-weight:600;padding:6px 14px;border-radius:20px;cursor:pointer;transition:.12s;background:color-mix(in srgb,var(--cc) 12%,var(--panel));color:var(--cc);border:1px solid color-mix(in srgb,var(--cc) 45%,var(--line))}
+.tf-class-chip:hover{background:color-mix(in srgb,var(--cc) 22%,var(--panel))}
 
 /* ---- Toast ---- */
 .tf-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(18px);opacity:0;background:var(--mist);border:1px solid var(--line2);color:var(--star);padding:10px 18px;border-radius:9px;font-size:13px;transition:.25s;pointer-events:none;z-index:30}

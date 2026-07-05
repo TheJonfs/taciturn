@@ -14,7 +14,7 @@
 // Training. A purchase that crosses a threshold ignites the newly-opened star(s)
 // and toasts.
 
-import { useCallback, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { buildBaseStats } from '@content/teams/index.ts';
 import type { Catalog, ClassId } from '@engine/index.ts';
 import {
@@ -22,7 +22,6 @@ import {
   availableInClass,
   earnedInClass,
   purchaseComponent,
-  reclassUnit,
   spentInClass,
   tierEntryOf,
   type CampaignUnit,
@@ -57,8 +56,22 @@ export function UnitDossier({
   componentCatalog = COMPONENT_CATALOG,
 }: UnitDossierProps): ReactElement {
   const [tab, setTab] = useState<DossierTab>('constellation');
+  // The class whose tree the Constellation/Training tabs are viewing — defaults
+  // to the current class; a star click points it at another OPEN class (view its
+  // Training without reclassing — reclass now lives on the Loadout tab).
+  const [viewClassId, setViewClassId] = useState<ClassId>(unit.classId);
   const [justIgnited, setJustIgnited] = useState<ClassId | null>(null);
   const [toast, showToast] = useToast();
+
+  // When the unit's ACTUAL class changes (a reclass committed on the Loadout
+  // tab), snap the viewed class to it and toast — but not on the initial mount.
+  const lastClass = useRef<ClassId>(unit.classId);
+  useEffect(() => {
+    if (lastClass.current === unit.classId) return;
+    lastClass.current = unit.classId;
+    setViewClassId(unit.classId);
+    showToast(`Reclassed to ${catalog.getClass(unit.classId).name}`);
+  }, [unit.classId, catalog, showToast]);
 
   const classDef = catalog.getClass(unit.classId);
   const entry = tierEntryOf(unit.classId);
@@ -69,11 +82,9 @@ export function UnitDossier({
   const spent = spentInClass(unit, unit.classId, componentCatalog);
   const earned = earnedInClass(unit, unit.classId);
 
-  function pickClass(id: ClassId): void {
-    if (id !== unit.classId) {
-      onChange(reclassUnit(unit, id, catalog));
-      showToast(`Now training as ${catalog.getClass(id).name}`);
-    }
+  // Star click: view that class's Training (no reclass).
+  function openClassTraining(id: ClassId): void {
+    setViewClassId(id);
     setJustIgnited(null);
     setTab('training');
   }
@@ -150,11 +161,18 @@ export function UnitDossier({
               unit={unit}
               catalog={catalog}
               componentCatalog={componentCatalog}
-              onPickClass={pickClass}
+              onPickClass={openClassTraining}
               justIgnited={justIgnited}
             />
           ) : tab === 'training' ? (
-            <Training unit={unit} catalog={catalog} onBuy={buy} componentCatalog={componentCatalog} />
+            <Training
+              unit={unit}
+              catalog={catalog}
+              classId={viewClassId}
+              isCurrentClass={viewClassId === unit.classId}
+              onBuy={buy}
+              componentCatalog={componentCatalog}
+            />
           ) : (
             <Customize unit={unit} catalog={catalog} onChange={onChange} componentCatalog={componentCatalog} />
           )}
