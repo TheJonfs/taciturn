@@ -16,7 +16,7 @@ import { activeTurnFor, makeGameState, makeUnit } from '../engine/ct/test-fixtur
 import { makeStatusInstance } from '../engine/status/test-fixtures.ts';
 import { flatMap } from '../engine/map/test-fixtures.ts';
 import { makeAbilitiesCatalog, knightLoadout } from '../engine/abilities/test-fixtures.ts';
-import { buildLogView, finalTurnNumber, formatActionLog } from './action-log-format.ts';
+import { buildLogView, finalTurnNumber, formatActionLog, uiJpBase } from './action-log-format.ts';
 
 function env(overrides: Partial<ActionEnvelope> & { sequenceNumber: number }): ActionEnvelope {
   return {
@@ -850,5 +850,57 @@ describe('buildLogView (Session 63 events view)', () => {
     expect(g.events.some((e) => e.text.includes('rejected'))).toBe(false);
     // The landed status is a flame event.
     expect(g.events.some((e) => e.icon === 'flame')).toBe(true);
+  });
+});
+
+describe('system_xp_award earn line', () => {
+  function stateWithTeams(): GameState {
+    const player = makeUnit({ id: 'p1', spd: 10, team: 'team_a' }); // level 25
+    const enemy = makeUnit({ id: 'e1', spd: 10, team: 'team_b' });
+    return makeGameState({
+      units: [player, enemy],
+      map: flatMap(3, 3),
+      turnState: activeTurnFor(player.id),
+      teams: [
+        { id: teamId('team_a'), name: 'Blue', control: 'human' },
+        { id: teamId('team_b'), name: 'Red', control: 'ai' },
+      ],
+    });
+  }
+  const award = (uid: string, amount: number, levels = 0): Action =>
+    ({
+      ...env({ sequenceNumber: 1, source: 'system' }),
+      type: 'system_xp_award',
+      payload: { unitId: unitId(uid), amount },
+      outcome: { kind: 'system_xp_award', unitId: unitId(uid), amount, levelsGained: levels, newLevel: 25 + levels, xpAfter: 0 },
+    }) as unknown as Action;
+
+  it('shows XP + JP earned as a ledger detail for a player (human-team) unit', () => {
+    const rows = formatActionLog([award('p1', 12)], stateWithTeams(), emptyCatalog());
+    const earn = rows.find((r) => r.text.includes('earned'));
+    expect(earn?.text).toContain('+12 XP · +16 JP'); // uiJpBase(25) = 16
+    expect(earn?.indent).toBe(true); // a collapsed ledger row, not a top-line event
+  });
+
+  it('suppresses the earn line for an enemy (ai-team) unit', () => {
+    const rows = formatActionLog([award('e1', 8)], stateWithTeams(), emptyCatalog());
+    expect(rows.some((r) => r.text.includes('earned'))).toBe(false);
+  });
+
+  it('still surfaces a level-up event, plus the earn line, for a player unit', () => {
+    const rows = formatActionLog([award('p1', 12, 1)], stateWithTeams(), emptyCatalog());
+    expect(rows.some((r) => r.text.includes('reached Level 26!'))).toBe(true);
+    expect(rows.some((r) => r.text.includes('earned +12 XP'))).toBe(true);
+  });
+});
+
+describe('uiJpBase (per-action JP readout)', () => {
+  it('mirrors the campaign defaultJpBase across the level range', async () => {
+    // Guard the deliberate duplication (the action log is core UI and can't
+    // import the campaign shell). If the earning formula changes, this fails.
+    const { defaultJpBase } = await import('../campaign/progression/earning.ts');
+    for (let level = 1; level <= 99; level++) {
+      expect(uiJpBase(level)).toBe(defaultJpBase(level));
+    }
   });
 });

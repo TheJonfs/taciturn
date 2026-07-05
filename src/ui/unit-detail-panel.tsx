@@ -29,6 +29,10 @@ import { DetailHover } from './detail-hover.tsx';
 import { formatAbilityDetail, formatItemDetail, formatStatusDetail } from './detail-text.ts';
 import { badgeStyleFor } from './status-polarity.ts';
 
+// XP required per level (mirrors the engine's XP_PER_LEVEL, ADR-0139). Used only
+// to render the "X / 100" progress readout; the engine owns the actual rollover.
+const XP_PER_LEVEL = 100;
+
 // Gender as a short glyph + word for the identity line. Resolves the
 // effective gender the same way the portrait / Steal Heart do — explicit
 // choice, else the class default, else male — so it's always concrete.
@@ -249,6 +253,11 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
             <StatPair label="Faith" value={String(faith)} />
             <StatPair label="Move" value={String(moveRange)} />
             <StatPair label="Jump" value={String(jump)} />
+            {/* XP toward next level — only for units that can level (TABA M2
+                campaign units carry `statsByLevel`; Mage War units never level). */}
+            {unit.statsByLevel !== undefined ? (
+              <StatPair label="XP" value={`${unit.xp} / ${XP_PER_LEVEL}`} />
+            ) : null}
           </StatGrid>
           <div style={evasionRowStyle}>
             <span style={statLabelStyle}>Evade</span>

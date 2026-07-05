@@ -276,6 +276,18 @@ function plain(text: string): LogSegment {
   return { text };
 }
 
+// Per-action JP the ACTOR earns — mirrors the campaign's `defaultJpBase`
+// (`floor(10 + level/4)`). Duplicated rather than imported: the action log is
+// core UI and must not depend on the campaign shell. `action-log-format.test.ts`
+// pins this in sync with `defaultJpBase`.
+export function uiJpBase(level: number): number {
+  return Math.floor(10 + level / 4);
+}
+
+function teamIsHuman(state: GameState, team: TeamId): boolean {
+  return state.teams.some((t) => t.id === team && t.control === 'human');
+}
+
 type ChargedCtx = ReturnType<typeof chargedContextTarget> extends infer _T
   ? {
       abilityId: AbilityId;
@@ -576,16 +588,50 @@ function formatAction(
     }
 
     case 'system_xp_award': {
-      // TABA M2. Pure XP gains are bookkeeping (hidden); a level-up surfaces
-      // as "Ramza reached Level 26!".
+      // TABA M2. Two facets from one action:
+      //   - a level-up is a ledger EVENT ("Ramza reached Level 26!"), shown for
+      //     any leveling unit (player or enemy);
+      //   - the XP + JP this connecting action earned show as a collapsed ledger
+      //     detail — but only for the PLAYER's units (human team). Enemies level
+      //     (they emit XP awards too) but bank no JP (they're not the roster), so
+      //     their earn-line is suppressed.
       const levels = action.outcome?.levelsGained ?? 0;
-      if (levels === 0) return [];
-      const newLevel = action.outcome?.newLevel ?? 0;
-      const segments: LogSegment[] = [
-        unitSeg(state, action.payload.unitId),
-        plain(levels === 1 ? ` reached Level ${newLevel}!` : ` reached Level ${newLevel}! (+${levels})`),
-      ];
-      return [row({ tag: '[level]', segments, indent: false, tagKind: 'system' })];
+      const uid = action.payload.unitId;
+      const actor = state.units.get(uid);
+      const rows: LogRow[] = [];
+
+      if (levels > 0) {
+        const newLevel = action.outcome?.newLevel ?? 0;
+        rows.push(
+          row({
+            tag: '[level]',
+            segments: [
+              unitSeg(state, uid),
+              plain(levels === 1 ? ` reached Level ${newLevel}!` : ` reached Level ${newLevel}! (+${levels})`),
+            ],
+            indent: false,
+            tagKind: 'system',
+            category: 'event',
+          }),
+        );
+      }
+
+      if (actor !== undefined && teamIsHuman(state, actor.team)) {
+        rows.push(
+          row({
+            tag: '[earn]',
+            segments: [
+              unitSeg(state, uid),
+              plain(` earned +${action.payload.amount} XP · +${uiJpBase(actor.level)} JP`),
+            ],
+            indent: true,
+            tagKind: 'system',
+            category: 'state',
+          }),
+        );
+      }
+
+      return rows;
     }
 
     case 'system_unit_removed': {
