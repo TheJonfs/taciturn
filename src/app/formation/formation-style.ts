@@ -147,6 +147,30 @@ export const FORMATION_STYLE = `
 .tf-havet .k{color:var(--afford)}
 .tf-havet .e{display:block;font-family:var(--mono);font-size:10px;color:var(--star3);margin-top:1px}
 
+/* ---- Loadout (Customize) ---- */
+.tf-load-sec{margin-top:16px}
+.tf-load-h{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+.tf-load-h h3{font-family:var(--serif);font-size:20px;font-weight:600}
+.tf-load-c{font-size:11px;color:var(--star3);font-family:var(--mono)}
+.tf-load-empty{font-size:12px;color:var(--star3);padding:8px 2px}
+.tf-opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 12px;margin:5px 0;background:var(--panel);border:1px solid var(--line);border-radius:9px;color:var(--star);font-family:inherit}
+.tf-opt.pick{cursor:pointer;transition:border-color .12s,background .12s}
+.tf-opt.pick:hover{border-color:var(--line2)}
+.tf-opt.on{border-color:var(--brass2);background:rgba(216,178,108,.07)}
+.tf-opt.locked{opacity:.9}
+.tf-opt.dis{opacity:.4;cursor:not-allowed}
+.tf-opt-sw{width:10px;height:10px;border-radius:3px;flex:none}
+.tf-opt-info{flex:1;min-width:0}
+.tf-opt-nm{font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px}
+.tf-opt-fx{font-size:12px;color:var(--star2);margin-top:1px}
+.tf-opt-check{flex:none;color:var(--brass);font-weight:700;width:16px;text-align:center}
+.tf-opt-check.lead{width:14px}
+.tf-opt-pin{flex:none;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--star3)}
+.tf-opt-tag{font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:1px 6px;border-radius:8px;font-weight:600}
+.tf-opt-tag.innate{color:var(--afford);background:rgba(127,192,140,.12);border:1px solid rgba(127,192,140,.3)}
+.tf-opt-tag.exported{color:var(--brass);background:rgba(216,178,108,.1);border:1px solid var(--brass2)}
+.tf-opt-cost{flex:none;font-family:var(--mono);font-size:10.5px;color:var(--star3);white-space:nowrap}
+
 /* ---- Toast ---- */
 .tf-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(18px);opacity:0;background:var(--mist);border:1px solid var(--line2);color:var(--star);padding:10px 18px;border-radius:9px;font-size:13px;transition:.25s;pointer-events:none;z-index:30}
 .tf-toast.show{transform:translateX(-50%) translateY(0);opacity:1}

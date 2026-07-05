@@ -32,12 +32,13 @@ import {
 import { DOMAIN_COLOR, DOMAIN_LABEL } from './roster-view-model.ts';
 import { Constellation } from './Constellation.tsx';
 import { Training } from './Training.tsx';
+import { Customize } from './Customize.tsx';
 import { FORMATION_STYLE } from './formation-style.ts';
 
 // XP per level (ADR-0139). Single per-unit currency, independent of JP.
 const XP_PER_LEVEL = 100;
 
-type DossierTab = 'constellation' | 'training';
+type DossierTab = 'constellation' | 'training' | 'loadout';
 
 export interface UnitDossierProps {
   readonly unit: CampaignUnit;
@@ -135,6 +136,9 @@ export function UnitDossier({
           <button type="button" className={`tf-tab${tab === 'training' ? ' on' : ''}`} onClick={() => setTab('training')}>
             Training
           </button>
+          <button type="button" className={`tf-tab${tab === 'loadout' ? ' on' : ''}`} onClick={() => setTab('loadout')}>
+            Loadout
+          </button>
           <button type="button" className="tf-tab dis" disabled>
             Equipment<span className="tf-tab-m">soon</span>
           </button>
@@ -149,8 +153,10 @@ export function UnitDossier({
               onPickClass={pickClass}
               justIgnited={justIgnited}
             />
-          ) : (
+          ) : tab === 'training' ? (
             <Training unit={unit} catalog={catalog} onBuy={buy} componentCatalog={componentCatalog} />
+          ) : (
+            <Customize unit={unit} catalog={catalog} onChange={onChange} componentCatalog={componentCatalog} />
           )}
         </div>
       </div>
