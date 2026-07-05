@@ -44,6 +44,42 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 83 (2026-07-04) — TABA Formation UI + JP-gating goes live (ADR-0140)
+
+Commits: `39d9d66`, `e196821`, `48d3491`, `42fb3b5`, `a4445a3`. **Campaign mode
+only** — Mage War single battles are unaffected (they stay fully unlocked).
+
+The between-battles **Formation** screen now exists, and JP progression finally
+*matters in battle*:
+
+- **Roster screen** — a gallery of your cadets: face, name, current class +
+  level, a glint badge on anyone holding unspent JP, and a "constellation trace"
+  of the classes they've invested in. Filter by All / Has-JP / Physical /
+  Magical / Hybrid; sort by Name / Level / Newest / Unspent JP.
+- **Unit dossier → Constellation** — the class tree as a star-chart across three
+  domains (Physical / Hybrid / Magical) and three altitudes (Horizon / Ascendant
+  / Zenith). Each class is a star; brightness = JP invested; locked stars say
+  what opens them. Tap a lit star to **reclass** into it (or train it).
+- **Unit dossier → Training** — spend that class's JP to learn its components
+  (actives, passives, and for Alchemist/Calculator their items / math
+  parameters+values). Crossing a spend threshold **opens a whole new tier of
+  classes** and grants them a starting JP head-start.
+- **Unit dossier → Loadout** — choose a **secondary command** (from a class
+  you've trained an active in) and slot your **Reaction / Support / Movement**
+  passives. Your own class's passives are free to slot; passives carried from
+  another class cost bucket space.
+
+- **JP-gating is now LIVE in campaign battles.** A unit can only use abilities /
+  items / math targeting it has **unlocked** — locked ones are greyed in the
+  action menu / filtered from pickers. Starting units are pre-unlocked with the
+  kit they already carry, so nothing you begin with is suddenly unusable; gating
+  bites on anything you gain access to but haven't trained yet.
+
+Reclassing rebinds a unit's primary command to the new class. XP/leveling
+(shipped S81) is unchanged.
+
+---
+
 ## Session 82 (2026-07-04) — Hunter MP costs (Scramble, Pin Down)
 
 Two Hunter Marksmanship commands that had been shipping at **0 MP** now carry a
