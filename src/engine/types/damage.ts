@@ -137,6 +137,13 @@ export interface DamageContext {
   // resolves the dominant weapon and procs fire from all equipped items.
   readonly attackingWeaponSlot?: EquipmentSlotId;
 
+  // TABA Seam 1: the battle's opaque `GameState.scenarioTier`, copied onto
+  // the context so source-tier damage hooks — which see `args.ctx`, not the
+  // full state — can read the battle-wide magnitude. Lumen's fire-multiplier
+  // (`onDamageDealt`) and Chris's cover fraction (`onDamageReceived`) scale
+  // off it. Defaults to `DEFAULT_SCENARIO_TIER` when the state omits it.
+  readonly scenarioTier?: number;
+
   // Session 49 / ADR-0086: additive bump applied to the ability's
   // effective `power_coefficient` for this cast. The Math Skill
   // dispatcher passes the resolved SP bonus (Mathematician returns +1)

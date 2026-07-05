@@ -19,6 +19,7 @@
 
 import type { Catalog } from '../catalog/index.ts';
 import {
+  DEFAULT_SCENARIO_TIER,
   EMPTY_UNIT_EQUIPMENT,
   type BattleConfig,
   type GameState,
@@ -61,6 +62,10 @@ export function createInitialState(
     chargedActions: [],
     globalEffects: [],
     victoryConditions: battleConfig.victoryConditions,
+    // Opaque scalar copied through (the campaign fills it with the chapter;
+    // MW/demo/test omit it → DEFAULT_SCENARIO_TIER). Set explicitly so real
+    // battles always carry a value; readers still default for hand-built states.
+    scenarioTier: battleConfig.scenarioTier ?? DEFAULT_SCENARIO_TIER,
     tick: 0,
     turnState: null,
     rng: { masterSeed: battleConfig.masterSeed, nextSeq: 0 },

@@ -1160,6 +1160,28 @@ export function runOnActionResolved(
   return emissions;
 }
 
+// Turn-start side effects (TABA Seam 1). Fires against the turn-taking
+// unit's hooks on a NON-skipped `turn_start`, so handlers can read `state`
+// (the scenario scalar + the ally roster) and emit follow-on actions. First
+// emitting consumer: Clio's team-CT signature (a `system_ct_push` per ally).
+// Mirrors `runOnTurnEnd`; the skipped-turn path deliberately does NOT call
+// this (a Stopped/Charging unit takes no real turn to "conduct" on).
+export function runOnTurnStart(
+  state: GameState,
+  catalog: Catalog,
+  args: { unit: Unit },
+): ReadonlyArray<ProposedAction> {
+  const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onTurnStart');
+  const emissions: ProposedAction[] = [];
+  for (const h of handlers) {
+    const result = h.invoke({ unit: args.unit, state, catalog });
+    if (result !== undefined && result.emittedActions !== undefined) {
+      for (const a of result.emittedActions) emissions.push(a);
+    }
+  }
+  return emissions;
+}
+
 // Turn-end side effects (per ADR-0053, session 26). Fires against the
 // unit-ending-its-turn's hooks just before `reduceTurnEnd` clears
 // `state.turnState`, so handlers can read `state.turnState.consumed` to

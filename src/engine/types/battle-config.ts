@@ -104,6 +104,14 @@ export interface BattleConfig {
 
   readonly victoryConditions: ReadonlyArray<VictoryCondition>;
 
+  // Opaque per-battle scalar threaded onto `GameState.scenarioTier` (which the
+  // engine carries but never interprets — see game-state.ts). The TABA campaign
+  // fold sets this to the node's chapter number so chapter-scaling signature
+  // abilities read a battle-wide magnitude; Mage War / demo / test configs omit
+  // it and run at `DEFAULT_SCENARIO_TIER`. Optional per the "campaign enriches,
+  // engine defaults" rule.
+  readonly scenarioTier?: number;
+
   // Per-action seed derivation root. Same input + same masterSeed always
   // produces the same battle outcome (per docs/design/action-resolution.md
   // "RNG model"). For ad-hoc test battles a fixed seed is fine; live

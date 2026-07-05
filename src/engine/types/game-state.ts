@@ -35,6 +35,11 @@ export interface RngState {
   readonly nextSeq: number;
 }
 
+// Default for the opaque `GameState.scenarioTier` when a battle config (or a
+// hand-built test state) omits it. 1 = "the baseline scenario" — the value
+// every non-campaign battle runs at, and the campaign's Chapter-1 value.
+export const DEFAULT_SCENARIO_TIER = 1;
+
 export interface GameState {
   readonly battleId: string;
 
@@ -50,6 +55,18 @@ export interface GameState {
   // time. The reducer reads them at turn_end via `evaluateBattleOutcome`;
   // first-satisfied-wins per `docs/design/turn-structure.md`.
   readonly victoryConditions: ReadonlyArray<VictoryCondition>;
+
+  // Opaque per-battle scalar the engine CARRIES BUT NEVER INTERPRETS — the
+  // exact `gender` cosmetic precedent (an input the engine threads through
+  // without acting on it). Copied from `BattleConfig.scenarioTier` at
+  // `createInitialState`. Its meaning is a *consumer* concern: the TABA
+  // campaign fills it with the current chapter number so chapter-scaling
+  // signature abilities (Lumen's fire multiplier, Chris's cover fraction) can
+  // read a battle-wide magnitude; Mage War leaves it at the default. Reaches
+  // ability hooks via `DamageContext.scenarioTier` (pipeline) and the widened
+  // `onTurnStart` args. Optional — absent on hand-built states reads as
+  // `DEFAULT_SCENARIO_TIER` (rule: engine defaults, campaign enriches).
+  readonly scenarioTier?: number;
 
   readonly tick: number;
   readonly turnState: TurnState;

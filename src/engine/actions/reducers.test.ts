@@ -3,10 +3,16 @@
 
 import {
   knightLoadout,
+  loadoutOf,
   makeAbilitiesCatalog,
   makeActive,
   makeKnight,
+  makePassive,
 } from '../abilities/test-fixtures.ts';
+import { passiveHook } from '../abilities/hooks.ts';
+import { statusHook } from '../status/hooks.ts';
+import { BUCKET_MOVEMENT } from '../abilities/constants.ts';
+import type { OnTurnStartResult } from '../hooks/hooks.ts';
 import { activeTurnFor, makeChargedAction, makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import { flatMap } from '../map/test-fixtures.ts';
 import { catalogWith, makeStatusInstance, makeStatusType } from '../status/test-fixtures.ts';
@@ -312,6 +318,87 @@ describe('reduceTurnStart', () => {
     const { generatedActions } = reduceTurnStart(state, action, cat);
     expect(generatedActions).toHaveLength(1);
     expect(generatedActions[0]!.type).toBe('status_tick');
+  });
+
+  // TABA Seam 1: onTurnStart fires on a non-skipped turn, receives `state`
+  // (so it can read the scenario scalar), and its emitted actions are
+  // forwarded onto generatedActions. Proves the widening + reducer wiring
+  // that Clio's team-CT signature stands on.
+  it('fires onTurnStart against the turn-taker and forwards its emissions', () => {
+    const conduct = makePassive({
+      id: 'conduct',
+      bucket: BUCKET_MOVEMENT,
+      hooks: [
+        passiveHook('onTurnStart', (args): OnTurnStartResult => ({
+          // Encode scenarioTier into the delta so the assertion proves the
+          // handler received `state` AND can read the scalar off it.
+          emittedActions: [
+            {
+              type: 'system_ct_push',
+              source: 'system',
+              payload: {
+                targetId: unitId('ally'),
+                delta: 3 * (args.state.scenarioTier ?? 1),
+                source: { kind: 'support', abilityId: abilityId('conduct'), unitId: args.unit.id },
+              },
+            },
+          ],
+        })),
+      ],
+    });
+    const cat = makeAbilitiesCatalog({ abilities: [conduct] });
+    const conductor = makeUnit({
+      id: 'u1',
+      spd: 10,
+      loadout: loadoutOf({ passive: [[BUCKET_MOVEMENT, [abilityId('conduct')]]] }),
+    });
+    const ally = makeUnit({ id: 'ally', spd: 8, loadout: knightLoadout() });
+    const state = { ...makeGameState({ units: [conductor, ally] }), scenarioTier: 2 };
+    const action = asAction('turn_start', { sequenceNumber: 1 }, { unitId: conductor.id });
+
+    const { generatedActions } = reduceTurnStart(state, action, cat);
+    const push = generatedActions.find((a) => a.type === 'system_ct_push');
+    expect(push).toBeDefined();
+    // scenarioTier 2 → delta 3 × 2 = 6, proving the scalar reached the handler.
+    expect((push as Extract<Action, { type: 'system_ct_push' }>).payload.delta).toBe(6);
+  });
+
+  it('does NOT fire onTurnStart on a skipped (Stopped) turn', () => {
+    let fired = false;
+    const conduct = makePassive({
+      id: 'conduct',
+      bucket: BUCKET_MOVEMENT,
+      hooks: [
+        passiveHook('onTurnStart', (): OnTurnStartResult => {
+          fired = true;
+          return {};
+        }),
+      ],
+    });
+    const stop = makeStatusType({
+      id: 'stop',
+      hooks: [
+        statusHook('queryTurnSkipped', () => ({ reason: 'stopped', suppressStatusTicks: true })),
+      ],
+    });
+    const catWithStop = createCatalog({
+      statusTypes: [stop],
+      abilities: [conduct],
+      commandSets: [],
+      classes: [makeKnight()],
+      items: [],
+      rulesets: defaultTestRulesets,
+    });
+    const u = makeUnit({
+      id: 'u1',
+      spd: 10,
+      loadout: loadoutOf({ passive: [[BUCKET_MOVEMENT, [abilityId('conduct')]]] }),
+      statuses: [makeStatusInstance({ typeId: 'stop', remainingDuration: 2 })],
+    });
+    const state = makeGameState({ units: [u] });
+    const action = asAction('turn_start', { sequenceNumber: 1 }, { unitId: u.id });
+    reduceTurnStart(state, action, catWithStop);
+    expect(fired).toBe(false);
   });
 });
 

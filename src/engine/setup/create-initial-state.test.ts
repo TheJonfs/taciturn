@@ -50,10 +50,12 @@ function configOf(overrides: {
   readonly teams?: ReadonlyArray<string>;
   readonly rulesetId?: string;
   readonly masterSeed?: number;
+  readonly scenarioTier?: number;
 }): BattleConfig {
   return {
     battleId: 'test-battle',
     rulesetId: rulesetId(overrides.rulesetId ?? 'default'),
+    ...(overrides.scenarioTier !== undefined ? { scenarioTier: overrides.scenarioTier } : {}),
     map: flatMap(5, 5),
     teams: (overrides.teams ?? ['team_a']).map((id) => ({
       id: teamId(id),
@@ -90,6 +92,19 @@ describe('createInitialState — basics', () => {
     expect(state.actionLog).toEqual([]);
     expect(state.chargedActions).toEqual([]);
     expect(state.rng).toEqual({ masterSeed: 42, nextSeq: 0 });
+  });
+
+  // TABA Seam 1: the opaque scenario scalar copies through, defaulting to 1.
+  it('copies BattleConfig.scenarioTier onto the state', () => {
+    const cat = makeAbilitiesCatalog({});
+    const state = createInitialState(configOf({ scenarioTier: 3 }), cat);
+    expect(state.scenarioTier).toBe(3);
+  });
+
+  it('defaults scenarioTier to DEFAULT_SCENARIO_TIER (1) when the config omits it', () => {
+    const cat = makeAbilitiesCatalog({});
+    const state = createInitialState(configOf({}), cat);
+    expect(state.scenarioTier).toBe(1);
   });
 
   it('seeds initial CT from the ruleset when no per-unit override is given', () => {

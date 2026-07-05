@@ -101,6 +101,16 @@ export interface OnTurnEndResult {
   readonly emittedActions?: ReadonlyArray<ProposedAction>;
 }
 
+// OnTurnStartResult — the symmetric widening of `onTurnStart` (TABA Seam 1,
+// the "v1 consumer" the original narrow-shape comment anticipated). Lets a
+// handler firing at the turn-taker's turn_start emit follow-on actions onto
+// the reducer's `generatedActions`. First emitting consumer is Clio's team-CT
+// signature (a `system_ct_push` of chapter-scaled CT to each ally on every
+// turn she takes). Mirrors `OnTurnEndResult` exactly.
+export interface OnTurnStartResult {
+  readonly emittedActions?: ReadonlyArray<ProposedAction>;
+}
+
 // Result of `onDamageReceived` (per ADR-0027). Handlers may either modify
 // the in-flight DamageContext (the legacy shape) or wrap it with
 // `emittedActions` to propose system actions in response — Sleep wake-on-
@@ -653,11 +663,14 @@ export interface HookSignatures {
   // use `catalog` for stat queries via `runModifyStatQuery`. Return is
   // `OnTurnEndResult | void`: existing void-returning handlers stay
   // valid, new emitting handlers (Quickstep) return an emittedActions
-  // wrapper. `onTurnStart` keeps its narrow shape until a v1 consumer
-  // needs to emit; widening it symmetrically is a follow-up if needed.
+  // wrapper. `onTurnStart` was widened symmetrically (TABA Seam 1) once a
+  // v1 consumer needed it — Clio's team-CT signature reads `state` (for the
+  // scenario scalar + the ally roster) and emits CT pushes. Args now carry
+  // `state` + `catalog`, matching `onTurnEnd`; the fan-out fires only on a
+  // NON-skipped turn (a Stopped/Charging unit takes no real turn).
   onTurnStart: {
-    args: { unit: Unit };
-    return: void;
+    args: { unit: Unit; state: GameState; catalog: Catalog };
+    return: OnTurnStartResult | void;
   };
   onTurnEnd: {
     args: { unit: Unit; state: GameState; catalog: Catalog };

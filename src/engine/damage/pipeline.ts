@@ -16,6 +16,7 @@
 // job, after this returns.
 
 import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
+import { DEFAULT_SCENARIO_TIER } from '../types/index.ts';
 import type {
   DamageContext,
   DamageStage,
@@ -92,6 +93,9 @@ export function runDamagePipeline(args: RunDamagePipelineArgs): DamageContext {
     variance,
     hit: true,
     targetCount: args.targetCount ?? 1,
+    // TABA Seam 1: carry the battle's opaque scenario scalar onto the context
+    // so damage hooks (Lumen's fire ×, Chris's cover) can read it.
+    scenarioTier: args.state.scenarioTier ?? DEFAULT_SCENARIO_TIER,
     // Expose the per-action seed so source-tier hook handlers (e.g.
     // `attackProcContributor`) can roll deterministically off the same
     // stream as pipeline-stage handlers. Per ADR-0064.

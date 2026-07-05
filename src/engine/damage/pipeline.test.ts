@@ -108,6 +108,40 @@ describe('runDamagePipeline — physical (PA × power)', () => {
     void cat;
   });
 
+  // TABA Seam 1: the pipeline stamps the battle's opaque scenario scalar onto
+  // the DamageContext so source-tier damage hooks (Lumen's fire ×, Chris's
+  // cover) can read it. Defaults to 1 when the state omits it.
+  it('carries state.scenarioTier onto the DamageContext (default 1)', () => {
+    const attack = basicAttack(/* power */ 4);
+    const attacker = makeUnit({ id: 'a', spd: 10, pa: 5, ma: 4 });
+    const target = makeUnit({ id: 'b', spd: 10, hp: 100, maxHpBase: 100 });
+    const ruleset = makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE });
+    const cat = createCatalog({
+      statusTypes: [],
+      abilities: [attack],
+      commandSets: [],
+      classes: [knightClass()],
+      items: [],
+      rulesets: [ruleset],
+    });
+    const base = makeGameState({ units: [attacker, target] });
+    const args = {
+      catalog: cat,
+      attacker,
+      target,
+      ability: attack,
+      sourceActionSeq: 0,
+      seed: 0,
+      registry: defaultDamageHandlers,
+    };
+    // Omitted → DEFAULT_SCENARIO_TIER.
+    expect(runDamagePipeline({ state: base, ...args }).scenarioTier).toBe(1);
+    // Set → carried verbatim.
+    expect(
+      runDamagePipeline({ state: { ...base, scenarioTier: 3 }, ...args }).scenarioTier,
+    ).toBe(3);
+  });
+
   it('does not run the physical formula when the tag is absent', () => {
     const heal = basicCure(/* power */ 5);
     const attacker = makeUnit({ id: 'a', spd: 10, pa: 5, ma: 4 });

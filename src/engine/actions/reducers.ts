@@ -41,6 +41,7 @@ import {
   runOnMoveCompleted,
   runOnTick,
   runOnTurnEnd,
+  runOnTurnStart,
   runQueryTurnSkipped,
   unitFloatFromSeed,
 } from '../hooks/runners.ts';
@@ -3023,6 +3024,14 @@ export function reduceTurnStart(
         payload: { unitId, statusTypeId: status.typeId },
       });
     }
+  }
+
+  // TABA Seam 1: fire `onTurnStart` against the turn-taker's hooks on this
+  // (non-skipped) turn, appending any emitted actions after the unit's own
+  // status ticks. Clio's team-CT signature is the v1 consumer (a
+  // `system_ct_push` per ally). No-op for units with no onTurnStart handlers.
+  for (const a of runOnTurnStart(stateAfterTtl, catalog, { unit: tickedUnit })) {
+    generated.push(a);
   }
 
   const newState: GameState = { ...stateAfterTtl, turnState: newTurn };
