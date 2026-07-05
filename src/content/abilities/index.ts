@@ -123,12 +123,14 @@ import { barrier } from './worldcraft/barrier.ts';
 import { ascendantFlame } from './ascendant-flame.ts';
 import { bulwarkOath } from './bulwark-oath.ts';
 import { tidalCadence } from './tidal-cadence.ts';
+import { hamstring } from './hamstring.ts';
 
 export const abilities: ReadonlyArray<AbilityDefinition> = [
   // TABA plot-unit signatures.
   ascendantFlame,
   bulwarkOath,
   tidalCadence,
+  hamstring,
   aetherBloom,
   applyBurnProc,
   applySilenceProc,

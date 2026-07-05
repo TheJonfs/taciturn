@@ -23,6 +23,10 @@ export const shadowArts: CommandSetDefinition = {
     abilityId('blowdart'),
     abilityId('undermine'),
     abilityId('sow_doubt'),
+    // TABA: Sera's Hamstring — a Shadow Arts member so she can wield it; gated
+    // to Sera in campaign (unit-restricted component + usableActives), hidden
+    // from the Mage War picker (availability 'hidden').
+    abilityId('hamstring'),
   ],
   baseCost: 1,
   availability: 'available',

@@ -5,6 +5,7 @@ import { burn } from './burn.ts';
 import { charging } from './charging.ts';
 import { combatFocus } from './combat-focus.ts';
 import { corneredFocus } from './cornered-focus.ts';
+import { hamstrung } from './hamstrung.ts';
 import { critModifier } from './crit-modifier.ts';
 import { engineeredDefenses } from './engineered-defenses.ts';
 import { dontAct } from './dont-act.ts';
@@ -87,4 +88,5 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   taggedResistanceShift,
   taunted,
   vulnerable,
+  hamstrung, // TABA: Sera's stacking Move/Jump permadebuff
 ];

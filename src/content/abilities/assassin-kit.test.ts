@@ -222,6 +222,7 @@ describe('Assassin class definition', () => {
       abilityId('blowdart'),
       abilityId('undermine'),
       abilityId('sow_doubt'),
+      abilityId('hamstring'), // TABA: Sera's signature (gated to Sera in campaign)
     ]);
   });
 });

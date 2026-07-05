@@ -224,9 +224,10 @@ describe('loadDefaultCatalog', () => {
     //     serpents_coil)
     //   - commandSets: 15 → 16 (martial_arts)
     //   - classes: 13 → 14 (monk)
-    expect(cat.statusTypes()).toHaveLength(43);
-    // +3 TABA plot-unit signatures (Ascendant Flame / Bulwark Oath / Tidal Cadence).
-    expect(cat.abilities()).toHaveLength(123);
+    // +1 TABA: Hamstrung (Sera's stacking Move/Jump permadebuff).
+    expect(cat.statusTypes()).toHaveLength(44);
+    // +3 TABA signatures (Ascendant Flame / Bulwark Oath / Tidal Cadence) + Hamstring.
+    expect(cat.abilities()).toHaveLength(124);
     expect(cat.commandSets()).toHaveLength(16);
     expect(cat.classes()).toHaveLength(14);
     // Session 74 (caster-accessory batch): 77 → 81 (greaves_of_seraphis,
