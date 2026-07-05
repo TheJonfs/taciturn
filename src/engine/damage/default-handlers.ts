@@ -19,6 +19,7 @@ import {
   resistanceCheck,
   varianceRoll,
 } from './handlers.ts';
+import { coverRedirect } from './cover.ts';
 import type { DamageHandler, DamageHandlerRegistry } from './registry.ts';
 
 export const defaultDamageHandlers: DamageHandlerRegistry = new Map<string, DamageHandler>([
@@ -29,9 +30,12 @@ export const defaultDamageHandlers: DamageHandlerRegistry = new Map<string, Dama
   ['magical_ma_power', magicalMaPower],
   // attacker
   ['fire_on_damage_dealt', fireOnDamageDealt],
-  // target — evasion_check fires first (ADR-0019), then resistance,
-  // then onDamageReceived hooks see the resolved hit + resistance.
+  // target — evasion_check fires first (ADR-0019); then cover_redirect
+  // (TABA Seam 2) soaks a fraction onto a nearby ally off the RAW base
+  // before mitigation; then resistance, then onDamageReceived hooks see the
+  // resolved hit + resistance.
   ['evasion_check', evasionCheck],
+  ['cover_redirect', coverRedirect],
   ['resistance_check', resistanceCheck],
   ['fire_on_damage_received', fireOnDamageReceived],
   // variance — variance_roll first, then crit_roll layered on top

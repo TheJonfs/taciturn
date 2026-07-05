@@ -65,7 +65,16 @@ const DEFAULT_DAMAGE_PIPELINE: Readonly<Record<DamageStage, ReadonlyArray<Damage
   // hit value. Pre-31.5, the handler fired at the `attacker` stage
   // before `evasion_check`, so `ctx.hit` was still its pipeline-default
   // `true` and procs (Bolt Hammer) fired on missed swings. ADR-0069.
-  target: ['evasion_check', 'fire_on_damage_dealt', 'resistance_check', 'fire_on_damage_received'],
+  // `cover_redirect` (TABA Seam 2) fires post-evasion (only a landed hit is
+  // soaked) but before resistance, so it reads the RAW base and subtracts the
+  // redirected share off it; the ally then mitigates the remainder.
+  target: [
+    'evasion_check',
+    'cover_redirect',
+    'fire_on_damage_dealt',
+    'resistance_check',
+    'fire_on_damage_received',
+  ],
   environment: [],
   variance: ['variance_roll', 'crit_roll'],
   cap: ['clamp_min_max'],

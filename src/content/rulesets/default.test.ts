@@ -71,6 +71,7 @@ describe('defaultRuleset', () => {
     // see the resolved hit + post-resistance ctx.
     expect(stages.target).toEqual([
       'evasion_check',
+      'cover_redirect',
       'fire_on_damage_dealt',
       'resistance_check',
       'fire_on_damage_received',

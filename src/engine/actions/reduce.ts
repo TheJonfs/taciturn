@@ -18,6 +18,7 @@ import {
   reduceStatusRemove,
   reduceStatusTick,
   reduceSystemApplyStatus,
+  reduceCoverRedirect,
   reduceSystemCtPush,
   reduceSystemSetCt,
   reduceSystemDamage,
@@ -93,6 +94,8 @@ export function reduce(state: GameState, action: Action, catalog: Catalog): Redu
       return reduceSystemApplyStatus(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_ct_push':
       return reduceSystemCtPush(state, action) as ReduceResult<ActionOutcome>;
+    case 'system_cover_redirect':
+      return reduceCoverRedirect(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_set_ct':
       return reduceSystemSetCt(state, action) as ReduceResult<ActionOutcome>;
     case 'status_remove':

@@ -746,6 +746,33 @@ export interface PassiveAbilityDefinition extends AbilityCommon {
   // equip legality is a static property settled at setup, so the validator
   // reads the flag rather than firing the closed runtime hook surface.
   readonly relaxesTwoHandedGrip?: boolean;
+  // TABA Seam 2 (cover). When present, a unit carrying this passive soaks a
+  // fraction of a nearby ally's incoming damage. A declarative capability the
+  // engine reads GENERICALLY (like `relaxesTwoHandedGrip`) — the `cover_redirect`
+  // damage handler scans for coverers by this field, so the engine never
+  // references any specific ability id (engine/content boundary). Chris is
+  // instance one; future generic tanks / boss minions reuse it with other
+  // params. See `src/engine/damage/cover.ts`.
+  readonly coverParams?: CoverParams;
+}
+
+// Parameters for the cover primitive (TABA Seam 2). The redirected fraction is
+// chapter-scaled: `min(maxFraction, redirectPerTier × scenarioTier)`. The
+// redirected RAW share runs a mitigation-only pass against the bearer, so the
+// bearer's own Protect / resistances / armor make the soak better (the point of
+// a tank). Reusable + parameterized so it isn't a one-off.
+export interface CoverParams {
+  // Redirected fraction added per scenario tier (chapter). Chris = 0.1 → 10 %
+  // per chapter (×1/×2/×3 → 10/20/30 % across the 3-chapter campaign).
+  readonly redirectPerTier: number;
+  // Max horizontal (Manhattan) distance from the bearer to a covered ally.
+  // Chris = 1 (strict adjacency).
+  readonly range: number;
+  // Max elevation difference (|layer − layer|) tolerated. Chris = 3.
+  readonly verticalTolerance: number;
+  // Hard cap on the redirected fraction (default 1.0 — full soak). Guards the
+  // degenerate high-tier case where `redirectPerTier × scenarioTier ≥ 1`.
+  readonly maxFraction?: number;
 }
 
 export type AbilityDefinition = ActiveAbilityDefinition | PassiveAbilityDefinition;

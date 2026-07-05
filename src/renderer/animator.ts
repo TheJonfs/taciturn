@@ -338,6 +338,27 @@ export class Animator {
         };
       }
 
+      case 'system_cover_redirect': {
+        // TABA Seam 2: flash the BEARER for the post-mitigation HP it soaked,
+        // mirroring `system_damage`'s short flash. No popup; settle from the
+        // snapshot minus the reported `damageDealt` (outcome carries no absolute).
+        const applied = action.outcome?.damageDealt ?? 0;
+        if (applied <= 0) return null;
+        const snap = this.snapshots.get(action.payload.coverId);
+        if (snap === undefined) return null;
+        const hpAfter = Math.max(0, snap.hp - applied);
+        return {
+          kind: 'flash',
+          targets: [{
+            unitId: action.payload.coverId,
+            hpAfter,
+            koAfter: hpAfter <= 0,
+          }],
+          totalMs: ATTACK_FLASH_DURATION_MS / 2,
+          elapsed: 0,
+        };
+      }
+
       case 'system_heal': {
         // ADR-0074 amendment: settle from the engine-reported
         // `outcome.hpAfter` absolute. The fallback `snap.hp + applied`

@@ -35,6 +35,7 @@ export type ActionType =
   | 'system_mp_drain'
   | 'system_apply_status'
   | 'system_ct_push'
+  | 'system_cover_redirect'
   | 'system_set_ct'
   | 'system_ko_tick'
   | 'system_xp_award'
@@ -576,6 +577,28 @@ export type SystemCtPushSource =
   // push fired from the wearer's `onFinalDamage` hook.
   | { readonly kind: 'equipment_ct_drain'; readonly itemId: ItemId; readonly attackerId: UnitId };
 
+// `system_cover_redirect` — TABA Seam 2 (cover). Engine-emitted by the
+// `cover_redirect` damage handler when a bearer soaks a fraction of a covered
+// ally's RAW incoming hit. The reducer runs `amount` through a mitigation-only
+// pass against the bearer (their Protect / resistances / armor reduce it — the
+// point of a tank), then applies the mitigated HP loss. `sourceAbilityId`
+// supplies the damage tags for resistance gating; `coveredId` is carried for
+// the action log. Distinct from `system_damage` (which bypasses mitigation):
+// cover DELIBERATELY mitigates, so it can't be a `system_damage` emission.
+export interface SystemCoverRedirectPayload {
+  readonly coverId: UnitId; // the bearer soaking the hit
+  readonly coveredId: UnitId; // the ally whose hit was redirected (log only)
+  readonly attackerId: UnitId; // original attacker (mitigation attribution)
+  readonly sourceAbilityId: AbilityId;
+  readonly amount: number; // RAW redirected amount (pre-mitigation)
+}
+export interface SystemCoverRedirectOutcome {
+  readonly kind: 'system_cover_redirect';
+  readonly coverId: UnitId;
+  readonly amountRaw: number; // pre-mitigation redirected amount
+  readonly damageDealt: number; // post-mitigation HP the bearer actually lost
+}
+
 // `system_set_ct` — engine-emitted action that sets a unit's CT to an
 // absolute value. Distinct from `system_ct_push` (delta-based): set is
 // "make this unit's CT exactly N." v1 producer is the orchestrator's
@@ -935,6 +958,11 @@ export type Action = ActionEnvelope &
         readonly outcome?: SystemCtPushOutcome;
       }
     | {
+        readonly type: 'system_cover_redirect';
+        readonly payload: SystemCoverRedirectPayload;
+        readonly outcome?: SystemCoverRedirectOutcome;
+      }
+    | {
         readonly type: 'system_set_ct';
         readonly payload: SystemSetCtPayload;
         readonly outcome?: SystemSetCtOutcome;
@@ -973,6 +1001,7 @@ export type ActionOutcome =
   | SystemMpDrainOutcome
   | SystemApplyStatusOutcome
   | SystemCtPushOutcome
+  | SystemCoverRedirectOutcome
   | SystemSetCtOutcome
   | SystemKoTickOutcome
   | SystemXpAwardOutcome
@@ -1136,6 +1165,11 @@ export type ProposedAction =
       readonly type: 'system_ct_push';
       readonly source: 'system';
       readonly payload: SystemCtPushPayload;
+    }
+  | {
+      readonly type: 'system_cover_redirect';
+      readonly source: 'system';
+      readonly payload: SystemCoverRedirectPayload;
     }
   | {
       readonly type: 'system_set_ct';

@@ -71,7 +71,16 @@ export const DEFAULT_TEST_DAMAGE_PIPELINE: Readonly<
   // stage so the contributor sees the post-evasion `ctx.hit`. Mirrors
   // the production ruleset (`src/content/rulesets/default.ts`).
   attacker: [],
-  target: ['evasion_check', 'fire_on_damage_dealt', 'resistance_check', 'fire_on_damage_received'],
+  // TABA Seam 2: `cover_redirect` runs post-evasion, pre-resistance (mirrors
+  // production). No-op unless a coverer is adjacent, so existing tests are
+  // unaffected; kept in lockstep for the structural-equivalence assertion.
+  target: [
+    'evasion_check',
+    'cover_redirect',
+    'fire_on_damage_dealt',
+    'resistance_check',
+    'fire_on_damage_received',
+  ],
   environment: [],
   variance: ['variance_roll', 'crit_roll'],
   cap: ['clamp_min_max'],

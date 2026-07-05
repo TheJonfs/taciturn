@@ -21,7 +21,7 @@ import type {
 } from '../catalog/index.ts';
 import { defaultDamageHandlers } from '../damage/default-handlers.ts';
 import { computeFaithFactor } from '../damage/handlers.ts';
-import { runDamagePipeline } from '../damage/pipeline.ts';
+import { runDamagePipeline, runMitigationOnlyPipeline } from '../damage/pipeline.ts';
 import {
   runModifyAoeShape,
   runModifyAoeVerticalTolerance,
@@ -88,6 +88,7 @@ import {
   type StatusTypeId,
   type SystemApplyStatusOutcome,
   type SystemCtPushOutcome,
+  type SystemCoverRedirectOutcome,
   type SystemSetCtOutcome,
   type SystemDamageOutcome,
   type SystemHealOutcome,
@@ -3353,6 +3354,66 @@ export function reduceSystemHeal(
 //
 // Floors HP at 0. KO'd / missing targets are silent no-ops. Does not
 // fire onActionTargeted, so reactions never trigger from system damage.
+// TABA Seam 2 (cover): apply a redirected soak to the bearer, mitigated by
+// their own defenses. `amount` is the RAW share the `cover_redirect` handler
+// carved off the covered ally's hit; here it runs through a mitigation-only
+// pass (the bearer's resistances + Protect, no evasion, no re-roll), so a
+// tankier bearer soaks better. KO handling mirrors `reduceSystemDamage` (a soak
+// that drops the bearer triggers the same source-KO / status-clear sweeps).
+export function reduceCoverRedirect(
+  state: GameState,
+  action: Extract<Action, { type: 'system_cover_redirect' }>,
+  catalog: Catalog,
+): ReduceResult<SystemCoverRedirectOutcome> {
+  const { coverId, attackerId, sourceAbilityId, amount } = action.payload;
+  const zero: ReduceResult<SystemCoverRedirectOutcome> = {
+    newState: state,
+    outcome: { kind: 'system_cover_redirect', coverId, amountRaw: amount, damageDealt: 0 },
+    generatedActions: [],
+  };
+  const cover = state.units.get(coverId);
+  const attacker = state.units.get(attackerId);
+  // A KO'd / removed / vanished bearer soaks nothing; a vanished attacker
+  // leaves no hit to mitigate. Record a 0 soak (the ally already kept its share).
+  if (cover === undefined || cover.removed || cover.vitals.hp <= 0) return zero;
+  if (attacker === undefined) return zero;
+  if (!catalog.hasAbility(sourceAbilityId)) return zero;
+  const ability = catalog.getAbility(sourceAbilityId);
+  if (ability.kind !== 'active' || ability.effects.damage === undefined) return zero;
+
+  const ctx = runMitigationOnlyPipeline({
+    state,
+    catalog,
+    attacker,
+    target: cover,
+    ability,
+    baseDamage: amount,
+    sourceActionSeq: action.sequenceNumber,
+    seed: action.seed,
+    registry: defaultDamageHandlers,
+  });
+  const emitted: ProposedAction[] = [...(ctx.emittedActions ?? [])];
+  const applied = Math.max(0, Math.min(ctx.finalDamage ?? 0, cover.vitals.hp));
+  if (applied === 0) {
+    return {
+      newState: state,
+      outcome: { kind: 'system_cover_redirect', coverId, amountRaw: amount, damageDealt: 0 },
+      generatedActions: emitted,
+    };
+  }
+  const newCover: Unit = { ...cover, vitals: { ...cover.vitals, hp: cover.vitals.hp - applied } };
+  const newState = withUnit(state, newCover);
+  if (detectKO(cover, newCover)) {
+    for (const a of collectSourceKoSweep(newState, coverId, catalog)) emitted.push(a);
+    for (const a of collectKoStatusClearSweep(newState, coverId)) emitted.push(a);
+  }
+  return {
+    newState,
+    outcome: { kind: 'system_cover_redirect', coverId, amountRaw: amount, damageDealt: applied },
+    generatedActions: emitted,
+  };
+}
+
 export function reduceSystemDamage(
   state: GameState,
   action: Extract<Action, { type: 'system_damage' }>,

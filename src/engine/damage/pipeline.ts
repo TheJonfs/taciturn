@@ -114,6 +114,79 @@ export function runDamagePipeline(args: RunDamagePipelineArgs): DamageContext {
   return ctx;
 }
 
+// TABA Seam 2 (cover): run a RAW injected amount through ONLY the target's
+// mitigation, so a redirected soak lands on the bearer reduced by their own
+// Protect / resistances / armor. Reuses the ruleset's real target/environment/
+// cap/finalize handlers (so it tracks the pipeline, not a hand-rolled copy),
+// but skips `evasion_check` (a soak isn't a dodgeable telegraphed attack) and
+// `fire_on_damage_dealt` (the ATTACKER's onDamageDealt already fired on the
+// original hit — Lumen's fire × must not re-multiply). Base/attacker/variance/
+// postFinalize stages are excluded: the base is injected, and reactions/reflect
+// are deferred (mitigation-only per the S84 cover ruling).
+const MITIGATION_SKIP_REFS: ReadonlySet<string> = new Set([
+  'evasion_check',
+  'fire_on_damage_dealt',
+]);
+const MITIGATION_STAGES: ReadonlyArray<DamageStage> = ['target', 'environment', 'cap', 'finalize'];
+
+export interface RunMitigationOnlyPipelineArgs {
+  readonly state: GameState;
+  readonly catalog: Catalog;
+  readonly attacker: Unit;
+  readonly target: Unit;
+  // The original ability — only its damage tags are read (for resistance /
+  // Protect gating); its base formula is NOT re-run.
+  readonly ability: ActiveAbilityDefinition;
+  // The RAW amount to mitigate (already `raw × fraction` from the cover handler).
+  readonly baseDamage: number;
+  readonly sourceActionSeq: number;
+  readonly seed: number;
+  readonly registry: DamageHandlerRegistry;
+}
+
+export function runMitigationOnlyPipeline(args: RunMitigationOnlyPipelineArgs): DamageContext {
+  const ruleset = args.catalog.getRuleset(args.state.ruleset.id);
+  const damageSpec = args.ability.effects.damage;
+  if (damageSpec === undefined) {
+    throw new Error(
+      `runMitigationOnlyPipeline: ability ${JSON.stringify(args.ability.id)} has no damage spec`,
+    );
+  }
+  const tags: ReadonlySet<DamageTag> = new Set(damageSpec.tags);
+  let ctx: DamageContext = {
+    attacker: args.attacker,
+    target: args.target,
+    sourceActionSeq: args.sourceActionSeq,
+    sourceAbilityId: args.ability.id,
+    damageTags: tags,
+    baseDamage: args.baseDamage,
+    multipliers: [],
+    additives: [],
+    variance: { min: 1, max: 1 },
+    hit: true,
+    targetCount: 1,
+    actionSeed: args.seed,
+    scenarioTier: args.state.scenarioTier ?? DEFAULT_SCENARIO_TIER,
+  };
+  for (const stage of MITIGATION_STAGES) {
+    const refs = (ruleset.damagePipeline.stages[stage] ?? []).filter(
+      (r) => !MITIGATION_SKIP_REFS.has(r),
+    );
+    if (refs.length === 0) continue;
+    const env: PipelineEnv = { state: args.state, catalog: args.catalog, seed: args.seed, stage };
+    for (const ref of refs) {
+      const handler = args.registry.get(ref);
+      if (handler === undefined) {
+        throw new Error(
+          `runMitigationOnlyPipeline: unknown handler ref ${JSON.stringify(ref)} at stage ${JSON.stringify(stage)}`,
+        );
+      }
+      ctx = handler(ctx, env);
+    }
+  }
+  return ctx;
+}
+
 function runStage(
   stage: DamageStage,
   ctx: DamageContext,

@@ -101,6 +101,7 @@ export function validateAction(
     case 'system_mp_drain':
     case 'system_apply_status':
     case 'system_ct_push':
+    case 'system_cover_redirect':
     case 'system_set_ct':
     case 'system_ko_tick':
     case 'system_xp_award':

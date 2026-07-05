@@ -539,6 +539,18 @@ function formatAction(
       return [row({ tag: '[tick]', segments, indent: true, tagKind: 'system' })];
     }
 
+    case 'system_cover_redirect': {
+      // TABA Seam 2: "Chris covers Ally (−N)" — the mitigated HP the bearer soaked.
+      const soaked = action.outcome?.damageDealt ?? 0;
+      const segments: LogSegment[] = [
+        unitSeg(state, action.payload.coverId),
+        plain(' covers '),
+        unitSeg(state, action.payload.coveredId),
+        plain(` (−${soaked})`),
+      ];
+      return [row({ tag: '[cover]', segments, indent: true, tagKind: 'system' })];
+    }
+
     case 'system_ct_push': {
       const delta = action.outcome?.applied ?? action.payload.delta;
       const sign = delta >= 0 ? '+' : '';
@@ -878,6 +890,9 @@ function categorize(action: Action, catalog: Catalog): {
       // ability_self_cost — the caster paying HP; bookkeeping.
       return { category: 'state', icon: null };
     }
+    case 'system_cover_redirect':
+      // TABA Seam 2: a bearer soaking a redirected hit is a visible event.
+      return { category: 'event', icon: 'spark' };
     case 'system_unit_removed':
       return { category: 'event', icon: 'skull' };
     case 'system_xp_award':
