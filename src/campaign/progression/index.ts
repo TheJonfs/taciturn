@@ -26,7 +26,7 @@ export {
 } from './thresholds.ts';
 
 export type { ComponentMeta, ComponentCatalog } from './component-catalog.ts';
-export { buildComponentCatalog, componentMetaOf } from './component-catalog.ts';
+export { buildComponentCatalog, componentMetaOf, isComponentAvailableTo } from './component-catalog.ts';
 export { COMPONENT_CATALOG, COMPONENT_ENTRIES } from './component-catalog-data.ts';
 
 export {

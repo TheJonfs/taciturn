@@ -8,7 +8,11 @@ import {
 } from '@engine/index.ts';
 import type { CampaignUnit } from '../types.ts';
 import { EMPTY_EARNED_BY_CLASS } from '../types.ts';
-import { buildComponentCatalog, type ComponentMeta } from './component-catalog.ts';
+import {
+  buildComponentCatalog,
+  isComponentAvailableTo,
+  type ComponentMeta,
+} from './component-catalog.ts';
 import {
   canEquipPassive,
   grantJp,
@@ -83,6 +87,35 @@ describe('unlockComponent', () => {
     // 500 fire_mage JP, 0 monk JP; buyme is a monk component.
     const u = unit({ earnedByClass: { fire_mage: 500 } });
     expect(() => unlockComponent(u, tok('buyme'), CAT)).toThrow(/only 0 available/);
+  });
+});
+
+// TABA Seam 3 — unit-restricted components.
+describe('unlockComponent — unit-restricted (Seam 3)', () => {
+  const RESTRICTED: ComponentMeta = {
+    token: { kind: 'ability', id: abilityId('signature') },
+    cost: 200,
+    nativeClass: classId('monk'),
+    restrictedToUnit: unitId('u1'),
+  };
+  const RCAT = buildComponentCatalog([RESTRICTED]);
+
+  it('isComponentAvailableTo: offered only to the restricted unit', () => {
+    expect(isComponentAvailableTo(RESTRICTED, unitId('u1'))).toBe(true);
+    expect(isComponentAvailableTo(RESTRICTED, unitId('u2'))).toBe(false);
+    // An unrestricted component is offered to anyone.
+    expect(isComponentAvailableTo(comp('buyme', 150, 'monk'), unitId('u2'))).toBe(true);
+  });
+
+  it('the restricted unit can buy its own component', () => {
+    const u = unit({ id: unitId('u1'), earnedByClass: { monk: 300 } });
+    const after = unlockComponent(u, tok('signature'), RCAT);
+    expect(after.unlocks.map(tokenKey)).toContain(tokenKey(tok('signature')));
+  });
+
+  it('another unit cannot buy it even with the JP (authoritative gate)', () => {
+    const other = unit({ id: unitId('u2'), earnedByClass: { monk: 300 } });
+    expect(() => unlockComponent(other, tok('signature'), RCAT)).toThrow(/restricted to unit/);
   });
 });
 

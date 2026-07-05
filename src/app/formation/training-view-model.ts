@@ -16,6 +16,7 @@ import type { Catalog, ClassId } from '@engine/index.ts';
 import {
   COMPONENT_ENTRIES,
   availableInClass,
+  isComponentAvailableTo,
   tokenKey,
   type CampaignUnit,
   type ComponentCatalog,
@@ -116,6 +117,8 @@ export function buildTrainingGroups(
 
   for (const meta of COMPONENT_ENTRIES) {
     if (meta.nativeClass !== classId) continue;
+    // TABA Seam 3: a unit-restricted component only appears in its unit's catalog.
+    if (!isComponentAvailableTo(meta, unit.id)) continue;
     const key = tokenKey(meta.token);
     const learned = owned.has(key);
     const type = typeOf(meta.token, catalog);

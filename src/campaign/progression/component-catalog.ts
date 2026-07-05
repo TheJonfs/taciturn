@@ -16,7 +16,7 @@
 // derivable data). Buying a Monk ability counts toward physical-Tier-1
 // because Monk sits there; the catalog only needs to name the owning class.
 
-import type { ClassId } from '@engine/index.ts';
+import type { ClassId, UnitId } from '@engine/index.ts';
 import type { UnlockToken } from './tokens.ts';
 import { tokenKey } from './tokens.ts';
 
@@ -33,6 +33,23 @@ export interface ComponentMeta {
   // unlocked; they're just inert without their Command Set. See
   // `canEquipPassive`.
   readonly nativeClass: ClassId;
+  // TABA Seam 3 (unit-restricted components). When set, this component is
+  // offered ONLY to the named plot-unique unit — present (buyable, curve-priced)
+  // in THAT unit's catalog, absent from every other unit's. Thessaly's XP /
+  // Square Math components and Sera's Hamstring are the first instances (they
+  // must NOT appear for generic Calculators / Assassins). Omitted for the ~110
+  // ordinary components (available to everyone in the native class). "Restricted
+  // + purchasable" keeps a prodigy's power *paced* — earned, not auto-granted.
+  readonly restrictedToUnit?: UnitId;
+}
+
+// Whether a component is offered to a given unit. Unrestricted components are
+// offered to everyone (in their native class); a `restrictedToUnit` component
+// only to that exact unit. The single source of truth for the Seam-3 filter —
+// used by both the buyable-list UI and the authoritative purchase gate, so they
+// can't drift.
+export function isComponentAvailableTo(meta: ComponentMeta, unitId: UnitId): boolean {
+  return meta.restrictedToUnit === undefined || meta.restrictedToUnit === unitId;
 }
 
 // tokenKey → meta. Built from an entry list so authors write one array and the

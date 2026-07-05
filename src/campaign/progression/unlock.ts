@@ -12,7 +12,7 @@ import type { AbilityId, ClassId } from '@engine/index.ts';
 import { deriveActionSeed } from '@engine/index.ts';
 import type { CampaignUnit } from '../types.ts';
 import type { ComponentCatalog } from './component-catalog.ts';
-import { componentMetaOf } from './component-catalog.ts';
+import { componentMetaOf, isComponentAvailableTo } from './component-catalog.ts';
 import { availableInClass } from './ledger.ts';
 import { hasToken, tokenKey, type UnlockToken } from './tokens.ts';
 import type { ClassTier } from './tier-map.ts';
@@ -35,6 +35,14 @@ export function unlockComponent(
     throw new Error(`unlockComponent: '${tokenKey(token)}' is already unlocked`);
   }
   const meta = componentMetaOf(token, catalog);
+  // TABA Seam 3: a unit-restricted component can only be bought by its unit —
+  // the authoritative gate behind the UI filter (which never offers it elsewhere).
+  if (!isComponentAvailableTo(meta, unit.id)) {
+    throw new Error(
+      `unlockComponent: '${tokenKey(token)}' is restricted to unit ` +
+        `${JSON.stringify(meta.restrictedToUnit)} and cannot be bought by ${JSON.stringify(unit.id)}`,
+    );
+  }
   const available = availableInClass(unit, meta.nativeClass, catalog);
   if (meta.cost > available) {
     throw new Error(
