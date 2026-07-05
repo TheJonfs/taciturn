@@ -13,9 +13,10 @@
 
 import { useMemo, useState, type ReactElement } from 'react';
 import { loadDefaultCatalog } from '@content/index.ts';
-import { abilityId, classId, itemId, unitId, type UnitId } from '@engine/index.ts';
-import { m1Roster, type CampaignUnit, type UnlockToken } from '@campaign/index.ts';
+import { abilityId, classId, itemId, unitId, type ClassId, type UnitId } from '@engine/index.ts';
+import { m1Roster, reclassUnit, type CampaignUnit, type UnlockToken } from '@campaign/index.ts';
 import { RosterView } from './RosterView.tsx';
+import { UnitDossier } from './UnitDossier.tsx';
 
 const catalog = loadDefaultCatalog();
 
@@ -84,32 +85,36 @@ function buildDemoRoster(): ReadonlyArray<CampaignUnit> {
 }
 
 export function FormationDevHarness(): ReactElement {
-  const roster = useMemo(buildDemoRoster, []);
-  const [opened, setOpened] = useState<UnitId | null>(null);
+  // Roster held in state so reclass/spend edits (which return new CampaignUnits)
+  // persist across navigation — the same write-back the campaign owner does.
+  const [roster, setRoster] = useState<ReadonlyArray<CampaignUnit>>(buildDemoRoster);
+  const [openedId, setOpenedId] = useState<UnitId | null>(null);
+
+  const opened = useMemo(
+    () => (openedId === null ? null : (roster.find((u) => u.id === openedId) ?? null)),
+    [roster, openedId],
+  );
+
+  function updateUnit(next: CampaignUnit): void {
+    setRoster((prev) => prev.map((u) => (u.id === next.id ? next : u)));
+  }
+
+  if (opened !== null) {
+    return (
+      <div style={{ position: 'fixed', inset: 0 }}>
+        <UnitDossier
+          unit={opened}
+          catalog={catalog}
+          onBack={() => setOpenedId(null)}
+          onReclass={(newClassId: ClassId) => updateUnit(reclassUnit(opened, newClassId, catalog))}
+        />
+      </div>
+    );
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0 }}>
-      <RosterView
-        roster={roster}
-        catalog={catalog}
-        onOpenUnit={(id) => {
-          setOpened(id);
-          // Dossier arrives in commit 2; log the selection until then.
-          // eslint-disable-next-line no-console
-          console.log('[formation-harness] open dossier for', String(id));
-        }}
-      />
-      {opened !== null ? (
-        <div
-          style={{
-            position: 'fixed', bottom: 12, left: 12, zIndex: 20, fontFamily: 'ui-monospace, monospace',
-            fontSize: 12, color: '#d8b26c', background: '#1b2247', border: '1px solid #404b80',
-            borderRadius: 8, padding: '6px 12px',
-          }}
-        >
-          opened: {String(opened)} — dossier lands in commit 2
-        </div>
-      ) : null}
+      <RosterView roster={roster} catalog={catalog} onOpenUnit={setOpenedId} />
     </div>
   );
 }

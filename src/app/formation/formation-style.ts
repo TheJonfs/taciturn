@@ -18,7 +18,7 @@ export const FORMATION_STYLE = `
   --void:#0c1024; --panel:#141a36; --mist:#1b2247; --line:#2a3260; --line2:#404b80;
   --star:#eee9dd; --star2:#98a1c8; --star3:#5f6997;
   --brass:#d8b26c; --brass2:#8f7644;
-  --phys:#e2965f; --mag:#a88fe4; --hyb:#5fc4ae;
+  --phys:#e2965f; --mag:#a88fe4; --hyb:#5fc4ae; --lock:#3d456e; --afford:#7fc08c;
   --serif:'Cormorant Garamond',Georgia,serif;
   --sans:system-ui,'Segoe UI',Roboto,sans-serif;
   --mono:'SF Mono',ui-monospace,Consolas,monospace;
@@ -69,4 +69,57 @@ export const FORMATION_STYLE = `
 .tf-foot{display:flex;align-items:center;justify-content:space-between;margin-top:13px;padding-top:11px;border-top:1px solid var(--line)}
 .tf-trace{display:flex;align-items:center;gap:5px;height:14px}
 .tf-uniq{font-size:9.5px;color:var(--brass);letter-spacing:.1em;text-transform:uppercase}
+
+/* ---- Dossier (View 2) ---- */
+.tf-doss-wrap{max-width:940px}
+.tf-doss{display:flex;gap:18px;align-items:center;background:linear-gradient(180deg,var(--panel),var(--void));border:1px solid var(--line);border-radius:16px;padding:16px 22px}
+.tf-seal{width:64px;height:64px;border-radius:50%;flex:none;background:var(--mist);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:31px;font-weight:600;border:1.5px solid}
+.tf-doss-who{flex:1;min-width:0}
+.tf-doss-name{font-family:var(--serif);font-size:29px;font-weight:600;line-height:1.05}
+.tf-doss-sub{font-size:12.5px;color:var(--star2);margin-top:2px}
+.tf-doss-stats{display:flex;gap:16px;margin-top:11px;flex-wrap:wrap}
+.tf-stat{font-size:10px;color:var(--star3);letter-spacing:.1em;text-transform:uppercase}
+.tf-stat b{display:block;font-family:var(--mono);font-size:15px;color:var(--star);font-weight:500;margin-top:1px}
+.tf-purse{text-align:right;flex:none}
+.tf-purse-lab{font-size:10px;color:var(--star3);letter-spacing:.11em;text-transform:uppercase}
+.tf-purse-val{font-family:var(--mono);font-size:25px;color:var(--brass);font-weight:500;margin-top:1px}
+.tf-purse-val .u{font-size:12px;color:var(--brass2)}
+.tf-purse-inv{font-size:10.5px;color:var(--star3);font-family:var(--mono);margin-top:3px}
+
+.tf-tabs{display:flex;gap:2px;margin:20px 0 8px;border-bottom:1px solid var(--line)}
+.tf-tab{font-family:var(--serif);font-size:19px;font-weight:600;color:var(--star3);padding:7px 18px 12px;cursor:pointer;background:none;border:none;position:relative;letter-spacing:.02em}
+.tf-tab:hover{color:var(--star2)}
+.tf-tab.on{color:var(--star)}
+.tf-tab.on::after{content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:2px;background:var(--brass)}
+.tf-tab.dis{color:var(--lock, #3d456e);cursor:default}
+.tf-tab-m{font-family:var(--sans);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#3d456e;margin-left:6px;vertical-align:2px}
+.tf-panel{margin-top:6px}
+.tf-panel svg{width:100%;height:auto;display:block}
+
+.tf-cap{font-size:11.5px;color:var(--star3);text-align:center;margin-top:4px;letter-spacing:.01em}
+.tf-cap b{color:var(--star2);font-weight:400}
+.tf-starg.pick{cursor:pointer}
+.tf-lbl{font-family:var(--serif);font-size:15px;font-weight:600;text-anchor:middle}
+.tf-jpt{font-family:var(--mono);font-size:10.5px;text-anchor:middle;fill:var(--star3)}
+.tf-why{font-size:10px;text-anchor:middle;fill:var(--brass2)}
+.tf-band{font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;fill:var(--star3)}
+.tf-dom{font-family:var(--serif);font-size:15px;font-weight:600;text-anchor:middle}
+@keyframes tf-ignite{0%{opacity:.2;transform:scale(.3)}60%{opacity:1;transform:scale(1.4)}100%{transform:scale(1)}}
+.tf-newly{transform-box:fill-box;transform-origin:center;animation:tf-ignite .75s ease}
+
+.tf-aggr{display:flex;gap:12px;margin-top:14px;flex-wrap:wrap}
+.tf-agg{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 13px}
+.tf-agg-t{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--star3)}
+.tf-agg-note{color:var(--star3);text-transform:none;letter-spacing:0}
+.tf-agg-nx{font-size:10px;color:var(--star3);margin-top:7px}
+.tf-slot{margin-top:8px}
+.tf-sl{display:flex;justify-content:space-between;font-size:11px;font-family:var(--mono)}
+.tf-sl span:first-child{color:var(--star2);font-family:var(--sans)}
+.tf-sl .ok{color:var(--afford, #7fc08c)}
+.tf-sl .sh{color:var(--brass)}
+.tf-bar{height:3px;border-radius:2px;background:var(--line);margin-top:4px;overflow:hidden}
+.tf-bar i{display:block;height:100%;border-radius:2px}
+
+.tf-note{font-size:13px;color:var(--star2);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:13px 15px;line-height:1.6}
+.tf-note b{color:var(--star)}
 `;

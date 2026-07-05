@@ -17,6 +17,7 @@ export { EMPTY_EARNED_BY_CLASS } from './types.ts';
 
 // M2 progression — the JP economy subsystem (tables, selectors, ops).
 export * from './progression/index.ts';
+export { reclassUnit } from './reclass.ts';
 
 export {
   CAMPAIGN_SCHEMA_VERSION,
