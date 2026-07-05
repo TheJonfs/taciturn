@@ -107,4 +107,26 @@ describe('reclassUnit', () => {
     expect(u.loadout.actionBuckets[bucketId('first_action')]).toEqual([commandSetId('battle_skill')]);
     expect(u.loadout.passiveBuckets[bucketId('reaction')]).toEqual([abilityId('counter')]);
   });
+
+  // TABA chapter-1 plot-units: the `classAccessOverride` is a DURABLE unit field
+  // (the plot-unique relief valve). It must survive the reclass round-trip — a
+  // plot-unique reclasses OUT to its Tier-1 fallback and BACK to its override
+  // class — else the anti-dead-end would evaporate on first reclass. This is the
+  // "one load-bearing mechanic" the brief flags to confirm.
+  it('preserves classAccessOverride across a reclass round-trip', () => {
+    const override = [classId('assassin'), classId('monk')] as const;
+    const thessaly = knight({
+      classId: classId('assassin'),
+      classAccessOverride: [...override],
+      loadout: {
+        actionBuckets: { [bucketId('first_action')]: [commandSetId('thief_arts')] },
+        passiveBuckets: {},
+      },
+    });
+    const toFallback = reclassUnit(thessaly, classId('monk'), catalog, CAT);
+    expect(toFallback.classAccessOverride).toEqual([...override]);
+    const back = reclassUnit(toFallback, classId('assassin'), catalog, CAT);
+    expect(back.classId).toBe(classId('assassin'));
+    expect(back.classAccessOverride).toEqual([...override]);
+  });
 });

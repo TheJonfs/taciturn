@@ -362,7 +362,13 @@ These are noted to make their absence intentional rather than accidental:
   team-agnostic path for curve stats + mid-battle leveling + gated kits, no
   engine change). Remaining M2 tails: JP spillover and the "Level Up!" banner
   (animator polish); plus the CONTENT task of authoring specific battles' enemy
-  teams. Then economy (M3), authoring (M4), story (M5).
+  teams. **Chapter-1 plot-unique units** (capability work + content bridging M2
+  and M5): the three reusable engine **seams** are shipped (ADR-0141) — battle
+  chapter context (`scenarioTier`), a parameterized cover/damage-soak primitive,
+  and unit-restricted purchasable components; the **five unit instantiations**
+  (signatures, portraits, Thessaly's Math-combinator extension, Sera's Hamstring)
+  are the next session (see `docs/handoff.md`). Then economy (M3), authoring
+  (M4), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.
 

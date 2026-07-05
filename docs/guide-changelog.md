@@ -44,6 +44,19 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 84 (2026-07-05) — TABA chapter-1 plot-unit seams (ADR-0141)
+
+Commits: `1df3efd`, `3eede12`, `c2201b3`. _No player-facing changes._
+
+Three reusable engine seams were built for the upcoming chapter-1 plot-unique
+units, but **nothing consumes them yet** — no ability, unit, or component uses
+them this session, so there is no visible behavior change (battles run exactly
+as before). They become player-facing next session when the five units are
+instantiated: a chapter-scaling magnitude for signature abilities, a "cover"
+damage-soak primitive, and per-unit-restricted purchasable components. Flagging
+now only so the guide side has the cursor; the mechanics to document arrive with
+the units.
+
 ## Session 83 (2026-07-04) — TABA Formation UI + JP-gating goes live (ADR-0140)
 
 Commits: `39d9d66`, `e196821`, `48d3491`, `42fb3b5`, `a4445a3`. **Campaign mode
