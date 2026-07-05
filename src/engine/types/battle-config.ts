@@ -68,6 +68,10 @@ export interface UnitPlacement {
   // Session 55: cosmetic gender → portrait variant. Optional; absent means
   // the class's default portrait. Threaded through to `Unit.gender`.
   readonly gender?: Gender;
+  // TABA (ADR-0136 completion): enduring portrait override key, threaded to
+  // `Unit.portrait`. Optional; absent → class+gender portrait. The campaign fold
+  // stamps it from the durable `CampaignUnit.portrait`; MW/demo omit it.
+  readonly portrait?: string;
   // TABA M2 progression: per-unit active-ability allowlist. Optional — when
   // omitted (Mage War / demo / hand-authored battles), every active is usable
   // (`Unit.usableActives` stays `undefined`). The campaign fold stamps it from

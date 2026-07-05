@@ -68,6 +68,15 @@ export interface Unit {
   // Optional; absent means "the class's default portrait." See `Gender`.
   readonly gender?: Gender;
 
+  // TABA (ADR-0136 completion): an ENDURING portrait override key. A cosmetic
+  // opaque field the engine CARRIES BUT NEVER INTERPRETS — the exact `gender`
+  // precedent (S55). When present, the renderer resolves this bespoke plot face
+  // (via `resolveUnitPortrait` → `FIXED_PORTRAITS`) instead of the class+gender
+  // portrait, so a plot character keeps their face across reclassing. Absent for
+  // generic units → class-derived portrait. Placeholder-tolerant: an unregistered
+  // key falls back to the class portrait, so art can land incrementally.
+  readonly portrait?: string;
+
   // Slot-based level assignment (Session 49). L25 is the baseline; each
   // step away modifies HP and MP by ±10% and, at ±2 or beyond, the
   // class's dominant stat (per `ClassDefinition.dominantStat`) by ±1.

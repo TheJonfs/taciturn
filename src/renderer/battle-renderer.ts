@@ -48,7 +48,7 @@ import {
 import { Animator } from './animator.ts';
 import { CameraController, type PanInput } from './camera-controller.ts';
 import { positionCenter, type ScreenPoint } from './world.ts';
-import { portraitUrlFor } from '../assets/portraits/index.ts';
+import { resolveUnitPortrait } from '../assets/portraits/index.ts';
 import { terrainTexturePoolFor } from '../assets/terrain/index.ts';
 
 export type TileClickHandler = (pos: Position, unit: Unit | null) => void;
@@ -256,7 +256,7 @@ export class BattleRenderer {
   private async loadPortraitAssets(state: GameState): Promise<void> {
     await Promise.all(
       [...state.units.values()].map((u) =>
-        this.loadPortraitForUnit(u.id, u.classState.currentClass, u.gender),
+        this.loadPortraitForUnit(u.id, u.classState.currentClass, u.gender, u.portrait),
       ),
     );
   }
@@ -270,8 +270,11 @@ export class BattleRenderer {
     spriteId: UnitId,
     classId: ClassId,
     gender: Gender | undefined,
+    portrait: string | undefined,
   ): Promise<void> {
-    const url = portraitUrlFor(classId, gender);
+    // TABA (ADR-0136): honor a plot unit's enduring portrait override; falls
+    // back to the class+gender portrait when absent or its art isn't registered.
+    const url = resolveUnitPortrait(portrait, classId, gender);
     if (url === null) return;
     const cached = this.portraitTextures.get(url);
     if (cached !== undefined) {
@@ -541,7 +544,7 @@ export class BattleRenderer {
       sprite = new UnitSprite(unit, { enemyTeam });
       this.sprites.set(unit.id, sprite);
       this.unitLayer.addChild(sprite.container);
-      void this.loadPortraitForUnit(unit.id, unit.classState.currentClass, unit.gender);
+      void this.loadPortraitForUnit(unit.id, unit.classState.currentClass, unit.gender, unit.portrait);
     }
     this.deploymentSprites.add(unit.id);
     sprite.setVisualState({

@@ -25,7 +25,7 @@ import {
   type StatName,
   type Unit,
 } from '@engine/index.ts';
-import { portraitUrlFor } from '../assets/portraits/index.ts';
+import { resolveUnitPortrait } from '../assets/portraits/index.ts';
 import type { DeploymentFlow } from './use-deployment-flow.ts';
 
 export interface DeploymentRosterPanelProps {
@@ -140,7 +140,7 @@ function RosterEntry({
   const className = catalog.hasClass(unit.classState.currentClass)
     ? catalog.getClass(unit.classState.currentClass).name
     : String(unit.classState.currentClass);
-  const portraitUrl = portraitUrlFor(unit.classState.currentClass, unit.gender);
+  const portraitUrl = resolveUnitPortrait(unit.portrait, unit.classState.currentClass, unit.gender);
   const clickable = isPlaced || isPickable;
 
   return (

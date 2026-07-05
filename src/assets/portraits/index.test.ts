@@ -5,7 +5,12 @@
 
 import { describe, expect, it } from 'vitest';
 import { classId, type ClassId } from '@engine/index.ts';
-import { portraitUrlFor, defaultGenderFor, resolvePortraitUrl } from './index.ts';
+import {
+  portraitUrlFor,
+  defaultGenderFor,
+  resolvePortraitUrl,
+  resolveUnitPortrait,
+} from './index.ts';
 
 const CLASSES: ReadonlyArray<ClassId> = [
   'alchemist', 'assassin', 'calculator', 'earth_mage', 'enchanter', 'fire_mage',
@@ -69,5 +74,24 @@ describe('resolvePortraitUrl — the override seam', () => {
     // The seam exists; the fixed registry is empty, so any key → colored-circle
     // fallback (null), not a crash.
     expect(resolvePortraitUrl({ kind: 'fixed', key: 'ramza' })).toBeNull();
+  });
+});
+
+// TABA (ADR-0136 completion) — the durable-override resolver used by unit render
+// sites. Placeholder-tolerant: an absent or unregistered key falls through to
+// the class portrait so plot units render sensibly before their art lands.
+describe('resolveUnitPortrait — durable override with class fallback', () => {
+  it('falls back to the class+gender portrait when no override key is given', () => {
+    expect(resolveUnitPortrait(undefined, classId('knight'), 'male')).toBe(
+      portraitUrlFor(classId('knight'), 'male'),
+    );
+  });
+
+  it('falls back to the class portrait for an UNREGISTERED key (art not yet landed)', () => {
+    // The whole point of placeholder-tolerance: a plot unit declares its key
+    // before the art exists and still renders its class face meanwhile.
+    expect(resolveUnitPortrait('plot-lumen', classId('fire_mage'), 'female')).toBe(
+      portraitUrlFor(classId('fire_mage'), 'female'),
+    );
   });
 });

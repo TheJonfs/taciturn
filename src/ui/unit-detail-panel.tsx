@@ -23,7 +23,7 @@ import {
   type Gender,
   type Unit,
 } from '@engine/index.ts';
-import { portraitUrlFor } from '../assets/portraits/index.ts';
+import { resolveUnitPortrait } from '../assets/portraits/index.ts';
 import { bucketLabel, slotLabel } from './labels.ts';
 import { DetailHover } from './detail-hover.tsx';
 import { formatAbilityDetail, formatItemDetail, formatStatusDetail } from './detail-text.ts';
@@ -191,7 +191,7 @@ export function UnitDetailPanel(props: UnitDetailPanelProps): ReactElement {
       <aside style={panelStyle} aria-label={`Detail: ${unit.name}`}>
         <header style={headerStyle}>
           <div style={headerLeftStyle}>
-            <PortraitImage classId={unit.classState.currentClass} gender={unit.gender} size={64} />
+            <PortraitImage classId={unit.classState.currentClass} gender={unit.gender} portrait={unit.portrait} size={64} />
             <div>
               <div style={nameStyle}>{unit.name}</div>
               <div style={subStyle}>
@@ -526,10 +526,12 @@ function Empty({ children }: { readonly children: React.ReactNode }): ReactEleme
 function PortraitImage(props: {
   readonly classId: import('@engine/index.ts').ClassId;
   readonly gender?: import('@engine/index.ts').Gender | undefined;
+  // TABA (ADR-0136): enduring portrait override key; wins over class+gender.
+  readonly portrait?: string | undefined;
   readonly size: number;
 }): ReactElement {
-  const { classId, gender, size } = props;
-  const url = portraitUrlFor(classId, gender);
+  const { classId, gender, portrait, size } = props;
+  const url = resolveUnitPortrait(portrait, classId, gender);
   if (url === null) {
     return (
       <div

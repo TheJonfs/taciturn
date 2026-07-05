@@ -308,6 +308,9 @@ function placementToUnit(
     // Session 55: cosmetic gender (portrait variant). Omitted when the
     // placement doesn't specify it — the renderer then uses the class default.
     ...(placement.gender !== undefined ? { gender: placement.gender } : {}),
+    // TABA (ADR-0136 completion): carry the enduring portrait override key
+    // through, mirroring `gender` (opaque cosmetic field the engine never reads).
+    ...(placement.portrait !== undefined ? { portrait: placement.portrait } : {}),
     // TABA M2: per-unit active allowlist. Omitted when the placement doesn't
     // set it → `usableActives` stays absent → every active usable (Mage War
     // default). The campaign fold stamps the array; store it as a Set for O(1)

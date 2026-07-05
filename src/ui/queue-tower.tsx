@@ -34,7 +34,7 @@ import {
   type Unit,
   type UnitId,
 } from '@engine/index.ts';
-import { portraitUrlFor } from '../assets/portraits/index.ts';
+import { portraitUrlFor, resolveUnitPortrait } from '../assets/portraits/index.ts';
 import { TEAM_PALETTE, TEAM_PALETTE_FALLBACK_CSS } from '@renderer/index.ts';
 
 // Number of *future* events rendered above the active-unit anchor. We
@@ -230,7 +230,7 @@ function ActiveUnitAnchor(props: {
   });
   const borderColor = teamColor(unit.team);
 
-  const portraitUrl = portraitUrlFor(unit.classState.currentClass, unit.gender);
+  const portraitUrl = resolveUnitPortrait(unit.portrait, unit.classState.currentClass, unit.gender);
   // Enemy-team portrait flip per session 25 (matches canvas convention).
   const portraitTransform = unit.team === 'team_b' ? 'scaleX(-1)' : undefined;
   return (

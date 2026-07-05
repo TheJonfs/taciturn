@@ -81,6 +81,14 @@ export interface CampaignUnit {
   // Cosmetic portrait variant. Optional — absent means the class default.
   // (Omitted, not set to `undefined`, under exactOptionalPropertyTypes.)
   readonly gender?: Gender;
+  // TABA (ADR-0136 completion): an ENDURING portrait override key for plot-unique
+  // units — a bespoke face that survives reclassing (the plot-unit whole point).
+  // A plain string (D-C plain-serializable), NOT the full `PortraitRef`: plot
+  // faces are always `fixed` keys, so the durable record stores just the key and
+  // the assets layer resolves it (with a class-portrait fallback when the key is
+  // unregistered → art can land incrementally). Threaded to `Unit.portrait` via
+  // the fold. Omitted for generic units.
+  readonly portrait?: string;
 
   // --- Carried state (stored, not derived). ---
   // Current HP/MP carried between nodes. The persist-vitals path is

@@ -131,3 +131,22 @@ export function resolvePortraitUrl(ref: PortraitRef): string | null {
       return FIXED_PORTRAITS.get(ref.key) ?? null;
   }
 }
+
+// TABA (ADR-0136 completion) — the durable-override resolver used by unit
+// render sites. Given a unit's optional enduring `portrait` KEY plus its class +
+// gender, return the bespoke plot face if the key is registered, else the
+// class+gender portrait. PLACEHOLDER-TOLERANT: an absent or not-yet-registered
+// key falls through to the class portrait, so plot units render sensibly before
+// their art lands. This is the one function the ~7 `portraitUrlFor` call sites
+// migrate to as they become override-aware.
+export function resolveUnitPortrait(
+  portraitKey: string | undefined,
+  classId: ClassId,
+  gender?: Gender,
+): string | null {
+  if (portraitKey !== undefined) {
+    const bespoke = FIXED_PORTRAITS.get(portraitKey);
+    if (bespoke !== undefined) return bespoke;
+  }
+  return portraitUrlFor(classId, gender);
+}

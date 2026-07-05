@@ -221,5 +221,8 @@ function campaignPlacement(
 
   // exactOptionalPropertyTypes: attach optional fields only when present.
   const withVitals: UnitPlacement = vitals !== undefined ? { ...base, vitals } : base;
-  return unit.gender !== undefined ? { ...withVitals, gender: unit.gender } : withVitals;
+  const withGender: UnitPlacement =
+    unit.gender !== undefined ? { ...withVitals, gender: unit.gender } : withVitals;
+  // TABA (ADR-0136 completion): carry the enduring portrait override into battle.
+  return unit.portrait !== undefined ? { ...withGender, portrait: unit.portrait } : withGender;
 }
