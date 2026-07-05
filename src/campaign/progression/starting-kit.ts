@@ -67,6 +67,11 @@ export function seedStartingKit(
   // primary + secondary classes. (Passives of those classes are handled below.)
   for (const meta of COMPONENT_ENTRIES) {
     if (!seedClasses.has(String(meta.nativeClass))) continue;
+    // TABA Seam 3: unit-restricted components are NEVER seeded — they are
+    // EARNED (buyable, paced), not part of any unit's starting kit (the brief's
+    // "not auto-unlocked"). Skipping them here also stops a restricted component
+    // leaking to a non-owner of the same native class.
+    if (meta.restrictedToUnit !== undefined) continue;
     if (meta.token.kind === 'ability') {
       if (!catalog.hasAbility(meta.token.id) || catalog.getAbility(meta.token.id).kind !== 'active') continue;
     }

@@ -152,7 +152,9 @@ export const MATH_DISPLAY_NAME: Readonly<Record<string, string>> = {
   level: 'Level',
   height: 'Height',
   current_hp: 'Current HP',
+  xp: 'XP', // TABA: Thessaly-exclusive parameter
   prime: 'Prime',
+  square: 'Square', // TABA: Thessaly-exclusive value
   '3': '3',
   '4': '4',
   '5': '5',

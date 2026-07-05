@@ -62,7 +62,17 @@ export function unitMatchesMathSkill(
 ): boolean {
   const reading = readParameter(state, unit, parameter);
   if (value === 'prime') return isPrime(reading);
+  if (value === 'square') return isPerfectSquare(reading);
   return reading % value === 0;
+}
+
+// Perfect-square test for the `'square'` value (TABA, Thessaly-exclusive):
+// selects units whose parameter is 0, 1, 4, 9, 16, 25, … Negatives are never
+// squares. Uses an integer-rounded sqrt then verifies (avoids float error).
+export function isPerfectSquare(n: number): boolean {
+  if (n < 0 || !Number.isInteger(n)) return false;
+  const r = Math.round(Math.sqrt(n));
+  return r * r === n;
 }
 
 function readParameter(
@@ -81,6 +91,9 @@ function readParameter(
       return unit.level;
     case 'current_hp':
       return unit.vitals.hp;
+    case 'xp':
+      // TABA (Thessaly-exclusive): the target's between-level XP carry.
+      return unit.xp;
   }
 }
 

@@ -12,85 +12,29 @@
 // author a uniform durable `level` per unit, overriding whatever level the
 // source `BuiltUnit` carried.
 
-import { buildBaseStats, gravityWell, mageWar, theIrregulars } from '@content/teams/index.ts';
+import { buildBaseStats, mageWar, theIrregulars } from '@content/teams/index.ts';
 import type { BuiltUnit } from '@content/teams/index.ts';
-import { abilityId, bucketId, classId, commandSetId, itemId, unitId } from '@engine/index.ts';
-import type { Vitals } from '@engine/index.ts';
+import { abilityId, bucketId, classId, commandSetId, itemId } from '@engine/index.ts';
 import type { CampaignUnit } from './types.ts';
-import { EMPTY_EARNED_BY_CLASS } from './types.ts';
+import { plotUnits } from './plot-units.ts';
+// Unit-building moved to its own module to break the roster ⇄ plot-units cycle;
+// re-exported here so existing `@campaign` importers keep resolving.
+import {
+  campaignUnitFromBuilt,
+  M0_BASELINE_LEVEL,
+  M0_DEFAULT_BRAVE,
+  M0_DEFAULT_FAITH,
+} from './campaign-unit-from-built.ts';
+export {
+  campaignUnitFromBuilt,
+  M0_BASELINE_LEVEL,
+  type CampaignUnitOverrides,
+} from './campaign-unit-from-built.ts';
 
 // M0 roster size (N) and the per-node deploy cap (K) are parameters, not
 // the hardcoded team-of-5 (watch-for in the brief). N is a roster
 // property; K is authored per node (Chunk 3). Illustrative M0 values.
 export const M0_ROSTER_SIZE = 8;
-
-// Uniform durable baseline level for the M0 roster. A tuning value — picked
-// so the reused enemy teams are winnable (Chunk 3 aligns the encounter).
-export const M0_BASELINE_LEVEL = 25;
-
-// Default Brave/Faith for authored units. Matches the team templates'
-// convention (70/70); per-unit overrides are expressible but M0 authors
-// flat.
-const M0_DEFAULT_BRAVE = 70;
-const M0_DEFAULT_FAITH = 70;
-
-export interface CampaignUnitOverrides {
-  readonly level?: number;
-  readonly brave?: number;
-  readonly faith?: number;
-}
-
-// Provisional full vitals from the *base* maxes (HP/MP before equipment
-// contributions). This is a catalog-free starting value; the true
-// effective-full normalization (which reads equipment-adjusted maxes via
-// the engine) happens at campaign start / between-battle apply-back in
-// Chunk 2. M0 heals to full each boundary, so the carried value is always
-// "full" — see CampaignUnit.vitals (D-E).
-function provisionalFullVitals(
-  classId: BuiltUnit['classId'],
-  brave: number,
-  faith: number,
-  level: number,
-): Vitals {
-  const stats = buildBaseStats(classId, brave, faith, level);
-  return { hp: stats.maxHpBase, mp: stats.maxMpBase };
-}
-
-// Convert a catalog-valid `BuiltUnit` into a durable `CampaignUnit`,
-// minting the stable id ONCE here (D-B). Pulls the stored *inputs*
-// (classId, loadout, equipment, gender, name) and assigns durable
-// level/brave/faith — deliberately NOT the source unit's `baseStats`,
-// which the campaign recomputes at fold time (D-A).
-export function campaignUnitFromBuilt(
-  built: BuiltUnit,
-  id: string,
-  overrides: CampaignUnitOverrides = {},
-): CampaignUnit {
-  const level = overrides.level ?? M0_BASELINE_LEVEL;
-  const brave = overrides.brave ?? M0_DEFAULT_BRAVE;
-  const faith = overrides.faith ?? M0_DEFAULT_FAITH;
-
-  const unit: CampaignUnit = {
-    id: unitId(id),
-    name: built.name,
-    classId: built.classId,
-    level,
-    brave,
-    faith,
-    loadout: built.loadout,
-    equipment: built.equipment,
-    vitals: provisionalFullVitals(built.classId, brave, faith, level),
-    // M2 progression: fresh units carry no XP, no JP, and no unlocks. Authored
-    // pre-unlocks (plot-uniques) would set these here; M0/M1 authors none.
-    xp: 0,
-    earnedByClass: EMPTY_EARNED_BY_CLASS,
-    unlocks: [],
-    fate: 'active',
-  };
-
-  // exactOptionalPropertyTypes: attach `gender` only when the source has it.
-  return built.gender !== undefined ? { ...unit, gender: built.gender } : unit;
-}
 
 // The authored M0 roster: N units drawn from two catalog-valid templates,
 // each given a stable campaign id (`taba-m0-<NN>-<name>`) and the uniform
@@ -247,18 +191,16 @@ const cantanoTerraformer: BuiltUnit = {
 };
 
 function buildM1Roster(): ReadonlyArray<CampaignUnit> {
-  const source: ReadonlyArray<BuiltUnit> = [
-    ...gravityWell.units,
-    aliceAlchemist,
-    miludaKnight,
-    cantanoTerraformer,
-  ];
-  return source.map((built, i) => {
-    const slug = built.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const id = `taba-m1-${String(i).padStart(2, '0')}-${slug}`;
-    // Uniform baseline level (default) — override intentionally NOT passed.
-    return campaignUnitFromBuilt(built, id);
+  // The five plot leads (authored CampaignUnits with durable `plot-*` ids,
+  // signatures, overrides, and portraits) replace the generic Gravity Well
+  // fixtures they used to stand in for; the three hand-authored extras
+  // (Alice / Miluda / Can'tano) still fold in via `campaignUnitFromBuilt`.
+  const extras: ReadonlyArray<BuiltUnit> = [aliceAlchemist, miludaKnight, cantanoTerraformer];
+  const built = extras.map((b, i) => {
+    const slug = b.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    return campaignUnitFromBuilt(b, `taba-m1-extra-${String(i).padStart(2, '0')}-${slug}`);
   });
+  return [...plotUnits, ...built];
 }
 
 export const m1Roster: ReadonlyArray<CampaignUnit> = buildM1Roster();

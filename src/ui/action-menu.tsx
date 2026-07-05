@@ -21,7 +21,7 @@
 // directly; the hook owns all validation.
 
 import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
-import { enumerateMathSkillTargets, projectTurnEndCt, statusTypeId, validateAction, type ActiveAbilityDefinition, type Catalog, type ConsumableDefinition, type Direction, type GameState, type ProposedAction, type Unit, type UnitId } from '@engine/index.ts';
+import { enumerateMathSkillTargets, projectTurnEndCt, statusTypeId, validateAction, type ActiveAbilityDefinition, type Catalog, type ConsumableDefinition, type Direction, type GameState, type MathSkillParameter, type MathSkillValue, type ProposedAction, type Unit, type UnitId } from '@engine/index.ts';
 import { abilityRoute, type TurnFlow } from './use-turn-flow.ts';
 import { DetailHover } from './detail-hover.tsx';
 import { formatAbilityDetail } from './detail-text.ts';
@@ -534,14 +534,18 @@ function MathSkillPicker({
   const ability = catalog.getAbility(state.abilityId);
   const label = ability.kind === 'active' ? ability.name : String(state.abilityId);
 
-  const parameters: ReadonlyArray<{ id: 'ct' | 'height' | 'level' | 'current_hp'; label: string }> = [
+  // TABA: `xp` / `square` are Thessaly-exclusive components — they show here for
+  // everyone but are locked (greyed) unless the unit unlocked them (usable* sets).
+  const parameters: ReadonlyArray<{ id: MathSkillParameter; label: string }> = [
     { id: 'ct', label: 'CT' },
     { id: 'height', label: 'Height' },
     { id: 'level', label: 'Level' },
     { id: 'current_hp', label: 'HP' },
+    { id: 'xp', label: 'XP' },
   ];
-  const values: ReadonlyArray<{ id: 'prime' | 3 | 4 | 5; label: string }> = [
+  const values: ReadonlyArray<{ id: MathSkillValue; label: string }> = [
     { id: 'prime', label: 'Prime' },
+    { id: 'square', label: 'Square' },
     { id: 3, label: '×3' },
     { id: 4, label: '×4' },
     { id: 5, label: '×5' },
@@ -570,9 +574,9 @@ function MathSkillPicker({
   // `undefined` ⇒ ungated (Mage War default).
   const usableParams = turnFlow.activeUnit?.usableMathParameters;
   const usableValues = turnFlow.activeUnit?.usableMathValues;
-  const paramLocked = (id: 'ct' | 'height' | 'level' | 'current_hp'): boolean =>
+  const paramLocked = (id: MathSkillParameter): boolean =>
     usableParams !== undefined && !usableParams.has(id);
-  const valueLocked = (id: 'prime' | 3 | 4 | 5): boolean =>
+  const valueLocked = (id: MathSkillValue): boolean =>
     usableValues !== undefined && !usableValues.has(id);
 
   return (

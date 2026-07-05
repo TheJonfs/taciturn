@@ -23,21 +23,39 @@ import {
   itemId,
   type MathSkillParameter,
   type MathSkillValue,
+  type UnitId,
 } from '@engine/index.ts';
 import { buildComponentCatalog, type ComponentMeta } from './component-catalog.ts';
+import { PLOT_UNIT_IDS } from '../plot-unit-ids.ts';
 
-// Compact constructors so the ~110 rows read as a cost table.
-function a(id: string, cost: number, nativeClass: string): ComponentMeta {
-  return { token: { kind: 'ability', id: abilityId(id) }, cost, nativeClass: classId(nativeClass) };
+// Compact constructors so the ~110 rows read as a cost table. `restrictedToUnit`
+// (TABA Seam 3) scopes a component to a single plot-unique unit.
+function a(id: string, cost: number, nativeClass: string, restrictedToUnit?: UnitId): ComponentMeta {
+  return {
+    token: { kind: 'ability', id: abilityId(id) },
+    cost,
+    nativeClass: classId(nativeClass),
+    ...(restrictedToUnit !== undefined ? { restrictedToUnit } : {}),
+  };
 }
 function item(id: string, cost: number, nativeClass: string): ComponentMeta {
   return { token: { kind: 'item', id: itemId(id) }, cost, nativeClass: classId(nativeClass) };
 }
-function mparam(id: MathSkillParameter, cost: number): ComponentMeta {
-  return { token: { kind: 'mathParameter', id }, cost, nativeClass: classId('calculator') };
+function mparam(id: MathSkillParameter, cost: number, restrictedToUnit?: UnitId): ComponentMeta {
+  return {
+    token: { kind: 'mathParameter', id },
+    cost,
+    nativeClass: classId('calculator'),
+    ...(restrictedToUnit !== undefined ? { restrictedToUnit } : {}),
+  };
 }
-function mval(id: MathSkillValue, cost: number): ComponentMeta {
-  return { token: { kind: 'mathValue', id }, cost, nativeClass: classId('calculator') };
+function mval(id: MathSkillValue, cost: number, restrictedToUnit?: UnitId): ComponentMeta {
+  return {
+    token: { kind: 'mathValue', id },
+    cost,
+    nativeClass: classId('calculator'),
+    ...(restrictedToUnit !== undefined ? { restrictedToUnit } : {}),
+  };
 }
 
 export const COMPONENT_ENTRIES: ReadonlyArray<ComponentMeta> = [
@@ -164,6 +182,9 @@ export const COMPONENT_ENTRIES: ReadonlyArray<ComponentMeta> = [
   a('speed_save', 200, 'assassin'),
   a('two_weapons', 400, 'assassin'),
   a('fleet_of_foot', 200, 'assassin'),
+  // TABA Seam 3 — Sera-exclusive signature (buyable only in Sera's catalog).
+  // ~200: her natural fifth active between the basic debuffs and Shadow Stitch.
+  a('hamstring', 200, 'assassin', PLOT_UNIT_IDS.sera),
 
   // Calculator — magical:3 — 2400 (payloads + parameters + values + R/S/M)
   a('precision_fire', 100, 'calculator'),
@@ -182,6 +203,12 @@ export const COMPONENT_ENTRIES: ReadonlyArray<ComponentMeta> = [
   a('mathematician', 200, 'calculator'), // enabler — inert without Math Skill, but equippable
   a('thoughtful_pacing', 250, 'calculator'),
   a('cornered_focus', 200, 'calculator'),
+  // TABA Seam 3 — Thessaly-exclusive Math components (buyable only in her
+  // catalog). Each opens a whole new row/column of triples (4×4 → 5×5 lattice),
+  // so both are priced ABOVE the premiere base component (150) per the
+  // accelerating-lattice curve. NOT auto-unlocked — the prodigy power is earned.
+  mparam('xp', 200, PLOT_UNIT_IDS.thessaly),
+  mval('square', 200, PLOT_UNIT_IDS.thessaly),
 ];
 
 export const COMPONENT_CATALOG = buildComponentCatalog(COMPONENT_ENTRIES);

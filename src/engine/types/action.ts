@@ -53,7 +53,11 @@ export type ActionSource = 'player' | 'system';
 // property of each candidate unit the predicate inspects. The four
 // canonical FFT-style parameters cover dynamic (CT, current HP) and
 // static (Height, Level) axes.
-export type MathSkillParameter = 'ct' | 'height' | 'level' | 'current_hp';
+// TABA: `xp` is a Thessaly-exclusive parameter (a unit-restricted Math
+// component) — targets read off `Unit.xp`. It extends the closed set; it is only
+// ever *buyable* by Thessaly (Seam 3), but the literal must live in the union so
+// the picker + evaluator can handle it.
+export type MathSkillParameter = 'ct' | 'height' | 'level' | 'current_hp' | 'xp';
 
 // Session 49: Math Skill value — the test the parameter is checked
 // against. `'prime'` selects units whose parameter is a prime number;
@@ -63,7 +67,12 @@ export type MathSkillParameter = 'ct' | 'height' | 'level' | 'current_hp';
 // Calculator picks among per Math cast. Future expansions (more
 // parameters or more divisors) extend the union; the engine's
 // predicate enumerator handles every (param, value) pair uniformly.
-export type MathSkillValue = 'prime' | 3 | 4 | 5;
+// TABA: `'square'` is a Thessaly-exclusive value (a unit-restricted Math
+// component) — selects units whose parameter is a perfect square (1, 4, 9, 16,
+// 25, …). With `xp` it lifts her lattice from the base 4×4 to 5×5. Only ever
+// buyable by Thessaly (Seam 3); the literal lives in the union for the picker +
+// evaluator.
+export type MathSkillValue = 'prime' | 'square' | 3 | 4 | 5;
 
 // What target an ability action is aimed at. `self` for `targeting.kind:
 // 'self'` abilities; `unit` for single-unit targeting; `tile` for

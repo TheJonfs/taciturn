@@ -29,13 +29,15 @@ const EXPECTED_CLASS_TOTALS: Readonly<Record<string, number>> = {
   calculator: 2400,
 };
 
-const MATH_PARAMS = new Set(['ct', 'height', 'level', 'current_hp']);
-const MATH_VALUES = new Set(['prime', 3, 4, 5]);
+// Includes the TABA Thessaly-exclusive `xp` / `square` components.
+const MATH_PARAMS = new Set(['ct', 'height', 'level', 'current_hp', 'xp']);
+const MATH_VALUES = new Set(['prime', 'square', 3, 4, 5]);
 
 describe('COMPONENT_CATALOG data integrity', () => {
   it('builds without duplicate tokens (entry count === catalog size)', () => {
     expect(COMPONENT_CATALOG.size).toBe(COMPONENT_ENTRIES.length);
-    expect(COMPONENT_ENTRIES.length).toBe(114);
+    // 114 base + 3 TABA unit-restricted (Hamstring, XP param, Square value).
+    expect(COMPONENT_ENTRIES.length).toBe(117);
   });
 
   it('every ability token resolves to a real catalog ability', () => {
@@ -71,11 +73,23 @@ describe('COMPONENT_CATALOG data integrity', () => {
   });
 
   it('per-class cost sums match the budget doc near-master totals', () => {
+    // TABA: unit-restricted components (Sera's Hamstring, Thessaly's XP/Square)
+    // are NOT part of a class's generic near-master budget — they're
+    // plot-unique earned extras — so they're excluded from the per-class sum.
     const sums: Record<string, number> = {};
     for (const e of COMPONENT_ENTRIES) {
+      if (e.restrictedToUnit !== undefined) continue;
       const key = String(e.nativeClass);
       sums[key] = (sums[key] ?? 0) + e.cost;
     }
     expect(sums).toEqual(EXPECTED_CLASS_TOTALS);
+  });
+
+  it('the three TABA unit-restricted components are scoped to their plot unit', () => {
+    const restricted = COMPONENT_ENTRIES.filter((e) => e.restrictedToUnit !== undefined);
+    expect(restricted).toHaveLength(3);
+    for (const e of restricted) {
+      expect(String(e.restrictedToUnit)).toMatch(/^plot-/);
+    }
   });
 });

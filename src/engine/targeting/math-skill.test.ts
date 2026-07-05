@@ -15,6 +15,7 @@ import {
 } from '@engine/index.ts';
 import {
   enumerateMathSkillTargets,
+  isPerfectSquare,
   isPrime,
   unitMatchesMathSkill,
 } from './math-skill.ts';
@@ -82,6 +83,51 @@ describe('isPrime', () => {
   });
 });
 
+// TABA — the Thessaly-exclusive `'square'` value predicate.
+describe('isPerfectSquare', () => {
+  it('accepts 0, 1, and the perfect squares', () => {
+    for (const n of [0, 1, 4, 9, 16, 25, 100, 144]) {
+      expect(isPerfectSquare(n), `${n}`).toBe(true);
+    }
+  });
+  it('rejects non-squares, negatives, and non-integers', () => {
+    for (const n of [2, 3, 5, 8, 10, 15, 24, -1, -4, 2.5, NaN, Infinity]) {
+      expect(isPerfectSquare(n), `${n}`).toBe(false);
+    }
+  });
+});
+
+// TABA — the Thessaly-exclusive `xp` parameter + `square` value in the
+// per-unit predicate + enumerator.
+describe('xp parameter + square value (Thessaly lattice extension)', () => {
+  it('matches units whose XP is a perfect square', () => {
+    const state = createInitialState(
+      makeBattleConfig([
+        { id: 'a', xp: 9 }, // square
+        { id: 'b', xp: 8 }, // not
+        { id: 'c', xp: 0 }, // square (0)
+      ]),
+      loadDefaultCatalog(),
+    );
+    const a = state.units.get(unitId('a'))!;
+    const b = state.units.get(unitId('b'))!;
+    expect(unitMatchesMathSkill(state, a, 'xp', 'square')).toBe(true);
+    expect(unitMatchesMathSkill(state, b, 'xp', 'square')).toBe(false);
+    expect(new Set(matchedIds(state, 'xp', 'square'))).toEqual(new Set(['a', 'c']));
+  });
+
+  it('the square value composes with the base parameters too (HP 16)', () => {
+    const state = createInitialState(
+      makeBattleConfig([
+        { id: 'a', hp: 16 },
+        { id: 'b', hp: 20 },
+      ]),
+      loadDefaultCatalog(),
+    );
+    expect(new Set(matchedIds(state, 'current_hp', 'square'))).toEqual(new Set(['a']));
+  });
+});
+
 // Build a 5-unit battle config with controllable CT / HP / Level /
 // position-elevation so the predicate tests can target each parameter.
 // `template` is one of the existing battle configs (River Ridge) loaded
@@ -110,6 +156,7 @@ function makeBattleConfig(units: ReadonlyArray<TestUnit>): BattleConfig {
     initialCT: u.ct ?? 0,
     level: u.level ?? 25,
     vitals: { hp: u.hp ?? 100, mp: 0 },
+    ...(u.xp !== undefined ? { xp: u.xp } : {}),
   }));
   return { ...riverRidgeBattle, units: placements };
 }
@@ -123,6 +170,7 @@ interface TestUnit {
   readonly ct?: number;
   readonly level?: number;
   readonly hp?: number;
+  readonly xp?: number;
 }
 
 function matchedIds(
