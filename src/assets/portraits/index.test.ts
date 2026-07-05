@@ -70,9 +70,10 @@ describe('resolvePortraitUrl — the override seam', () => {
     );
   });
 
-  it('a fixed ref resolves to null until plot portraits are registered (M5)', () => {
-    // The seam exists; the fixed registry is empty, so any key → colored-circle
-    // fallback (null), not a crash.
+  it('a fixed ref resolves a registered plot key, and null for an unknown one', () => {
+    // TABA chapter-1 registered the five plot leads.
+    expect(resolvePortraitUrl({ kind: 'fixed', key: 'plot-lumen' })).not.toBeNull();
+    // An unregistered key → colored-circle fallback (null), not a crash.
     expect(resolvePortraitUrl({ kind: 'fixed', key: 'ramza' })).toBeNull();
   });
 });
@@ -88,10 +89,16 @@ describe('resolveUnitPortrait — durable override with class fallback', () => {
   });
 
   it('falls back to the class portrait for an UNREGISTERED key (art not yet landed)', () => {
-    // The whole point of placeholder-tolerance: a plot unit declares its key
-    // before the art exists and still renders its class face meanwhile.
-    expect(resolveUnitPortrait('plot-lumen', classId('fire_mage'), 'female')).toBe(
+    // Placeholder-tolerance: a plot unit with a not-yet-registered key still
+    // renders its class face meanwhile.
+    expect(resolveUnitPortrait('plot-nobody', classId('fire_mage'), 'female')).toBe(
       portraitUrlFor(classId('fire_mage'), 'female'),
     );
+  });
+
+  it('resolves the bespoke plot face for a REGISTERED key (over the class portrait)', () => {
+    const bespoke = resolveUnitPortrait('plot-lumen', classId('fire_mage'), 'female');
+    expect(bespoke).not.toBeNull();
+    expect(bespoke).not.toBe(portraitUrlFor(classId('fire_mage'), 'female'));
   });
 });

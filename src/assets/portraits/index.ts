@@ -42,6 +42,13 @@ import terraformerMale from './terraformer-male.png';
 import waterMageFemale from './water-mage-female.png';
 import waterMageMale from './water-mage-male.png';
 import { classId, type ClassId, type Gender } from '@engine/index.ts';
+// TABA chapter-1 plot-unique portraits — one bespoke face per character (512×512,
+// top-anchored crop), keyed by the durable unit id (= portrait key = filename).
+import plotLumen from './plot-lumen.png';
+import plotChris from './plot-chris.png';
+import plotClio from './plot-clio.png';
+import plotThessaly from './plot-thessaly.png';
+import plotSera from './plot-sera.png';
 
 interface PortraitPair {
   readonly male: string;
@@ -114,10 +121,17 @@ export type PortraitRef =
   | { readonly kind: 'class'; readonly classId: ClassId; readonly gender?: Gender }
   | { readonly kind: 'fixed'; readonly key: PortraitKey };
 
-// Bespoke/plot portraits by stable key. EMPTY until M5 authors plot characters
-// with their own art; an unknown key resolves to `null` (colored-circle
-// fallback), same as an unregistered class.
-const FIXED_PORTRAITS: ReadonlyMap<PortraitKey, string> = new Map();
+// Bespoke/plot portraits by stable key (= the durable `plot-*` unit id). An
+// unknown key resolves to `null` (colored-circle fallback), same as an
+// unregistered class. TABA chapter-1 registered the five plot leads; more land
+// as M5 plot characters get art.
+const FIXED_PORTRAITS: ReadonlyMap<PortraitKey, string> = new Map([
+  ['plot-lumen', plotLumen],
+  ['plot-chris', plotChris],
+  ['plot-clio', plotClio],
+  ['plot-thessaly', plotThessaly],
+  ['plot-sera', plotSera],
+]);
 
 // Resolve a portrait ref to a URL (or `null` → colored-circle fallback). The
 // single override-aware entry point: when durable `portrait` overrides exist,

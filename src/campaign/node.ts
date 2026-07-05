@@ -26,7 +26,7 @@
 // class-portrait pipeline). M1 reuses the shipped battle templates + maps the
 // lazy way (M0 discipline); authored/generated encounters are M4.
 
-import { abilityId, classId, EMPTY_UNIT_EQUIPMENT, teamId } from '@engine/index.ts';
+import { abilityId, EMPTY_UNIT_EQUIPMENT, teamId } from '@engine/index.ts';
 import type { TeamId } from '@engine/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import { authoredEnemy } from './authored-enemy.ts';
@@ -123,17 +123,17 @@ const introScene: StorySceneBeat = {
     lines: [
       {
         speaker: 'Chris',
-        portrait: { kind: 'class', classId: classId('templar') },
+        portrait: { kind: 'fixed', key: 'plot-chris' },
         text: 'Fifty years of war, and it comes to this ridge. Ivalice bleeds behind us; the ford lies ahead.',
       },
       {
         speaker: 'Sera',
-        portrait: { kind: 'class', classId: classId('assassin') },
+        portrait: { kind: 'fixed', key: 'plot-sera' },
         text: 'Scouts count a full company across the water. They hold the high ground — for now.',
       },
       {
         speaker: 'Chris',
-        portrait: { kind: 'class', classId: classId('templar') },
+        portrait: { kind: 'fixed', key: 'plot-chris' },
         text: 'Then we take it back. Form up. We go out — and we come home.',
       },
     ],
@@ -147,12 +147,12 @@ const aftermathScene: StorySceneBeat = {
     lines: [
       {
         speaker: 'Thessaly',
-        portrait: { kind: 'class', classId: classId('calculator') },
+        portrait: { kind: 'fixed', key: 'plot-thessaly' },
         text: 'The bridge holds. By my count we lost less than the ledger feared. Rare, that.',
       },
       {
         speaker: 'Lumen',
-        portrait: { kind: 'class', classId: classId('fire_mage') },
+        portrait: { kind: 'fixed', key: 'plot-lumen' },
         text: 'Rare and welcome. Warm yourselves — the mountain road runs cold, if we take it.',
       },
     ],
@@ -166,12 +166,12 @@ const crossingScene: StorySceneBeat = {
     lines: [
       {
         speaker: 'Clio',
-        portrait: { kind: 'class', classId: classId('water_mage') },
+        portrait: { kind: 'fixed', key: 'plot-clio' },
         text: 'The river is quiet here. It remembers every army that ever forded it, and forgets them all the same.',
       },
       {
         speaker: 'Clio',
-        portrait: { kind: 'class', classId: classId('water_mage') },
+        portrait: { kind: 'fixed', key: 'plot-clio' },
         text: 'One more bank to cross, and the road bends back the way we came. Rest a moment. Then — the return.',
       },
     ],
