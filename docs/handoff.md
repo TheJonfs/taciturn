@@ -43,17 +43,32 @@ remains are small tails (below).
 
 ### Remaining M2 tails
 1. **JP spillover** on over-threshold spend — brief seam, still TBD.
-2. ~~Enemy progression authoring~~ — **ENABLER BUILT (S83, commit `1442061`).**
-   `authoredEnemy(spec)` + `foldEnemyTeam` + `foldBattle` + `NodeBattle.enemies?`:
-   an authored enemy is a `CampaignUnit` folded through the team-agnostic
-   `campaignPlacement`, so it gets curve stats at its level, `statsByLevel`
-   (enemies now LEVEL mid-battle — the XP mechanism was already team-agnostic),
-   and a kit GATED to its explicit `unlocks` (a SUBSET = a weak enemy). NO engine
-   change. The next step is the CONTENT/tuning task: author specific battles'
-   enemy teams (levels + kits) on their `battle` beats — nothing authored uses
-   `enemies` yet, so the path is dormant/backward-compatible until then. Verify
-   the first authored battle in-app (the fold is unit-tested; the live launch
-   path isn't yet exercised by content).
+2. ~~Enemy progression authoring~~ — **ENABLER + FIRST BATTLE DONE (S83, commits
+   `1442061`, `1eb9ee0`).** `authoredEnemy(spec)` + `foldEnemyTeam` + `foldBattle`
+   + `NodeBattle.enemies?`: an authored enemy is a `CampaignUnit` folded through
+   the team-agnostic `campaignPlacement` — curve stats at its level, `statsByLevel`
+   (enemies LEVEL mid-battle; the XP mechanism was already team-agnostic), and a
+   kit GATED to its explicit `unlocks` (a SUBSET = a weak enemy). NO engine
+   change. **River Ridge's opener** is authored (`node.ts` `riverRidgeEnemies()`):
+   the garrison is derived from the template's own placements, dropped to **L22**,
+   each gated to a **basic two-active kit** (per-class `RIVER_RIDGE_ENEMY_KITS` —
+   easy to retune). The finale keeps the template's default (stronger) enemies.
+   Next: tune the OTHER nodes' enemy teams (Stonebridge/Marshmoor/Mountain Pass)
+   the same way — pure content/data.
+
+**Verification note (Pixi deployment):** the campaign flow to an ACTUAL battle
+can't be fully driven by the preview tools — the deployment map is a Pixi canvas
+that ignores synthetic pointer events, so unit placement (and thus "Start Battle")
+can't be automated. Everything up to deployment verifies in-browser (fold runs,
+screen renders); the enemy correctness is covered by deterministic integration
+tests (`authored-enemy.test.ts`). Seeing the tuned enemies fight needs a **manual
+playtest**.
+
+**Watch-for (pre-existing, not this work):** advancing a story scene fast logs a
+React "Cannot update a component while rendering a different component"
+(`CampaignApp` ↔ `StorySceneBeatView`). Surfaced by rapid dialogue clicks; likely
+a latent setState-in-render in the interstitial advance. Benign in normal play
+(one click per line), but worth a look.
 3. **"Level Up!" banner** — animator polish (log line + HP-bar jump only today).
 
 ### Follow-ups the brief named that this session did / deferred

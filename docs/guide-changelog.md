@@ -78,6 +78,14 @@ The between-battles **Formation** screen now exists, and JP progression finally
 Reclassing rebinds a unit's primary command to the new class. XP/leveling
 (shipped S81) is unchanged.
 
+**Enemies can now be authored with progression too** (levels + limited kits),
+and they level up mid-battle like your units. First use: **River Ridge's opening
+battle** — its garrison is now a tuned **Level 22** team (a rung below your Level
+25 veterans), each enemy limited to a **basic two-ability kit** (no ultimates), so
+the opener is a teaching fight rather than a wall. The finale that revisits River
+Ridge keeps the tougher full-strength enemies. (Enemy tuning is data — expect it
+to shift as the campaign's difficulty curve is authored.)
+
 ---
 
 ## Session 82 (2026-07-04) — Hunter MP costs (Scramble, Pin Down)
