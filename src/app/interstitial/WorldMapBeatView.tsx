@@ -27,7 +27,7 @@ const NODE_LAYOUT: Readonly<Record<string, { x: number; y: number }>> = {
   [M1_NODES.theReturn]: { x: 570, y: 175 },
 };
 
-export function WorldMapBeatView({ beat, onAdvance, onExitToTitle }: BeatRendererProps): ReactElement {
+export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoster }: BeatRendererProps): ReactElement {
   if (beat.type !== 'world-map-choice') return <></>;
   const map: WorldMapChoiceBeat = beat;
 
@@ -86,9 +86,16 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle }: BeatRendere
 
         <div style={footerStyle}>
           <span style={hintStyle}>Click a highlighted destination to continue.</span>
-          <button type="button" style={secondaryStyle} onClick={onExitToTitle}>
-            Quit to Title
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {onManageRoster ? (
+              <button type="button" style={primaryStyle} onClick={onManageRoster}>
+                Manage Roster
+              </button>
+            ) : null}
+            <button type="button" style={secondaryStyle} onClick={onExitToTitle}>
+              Quit to Title
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -179,4 +186,11 @@ const secondaryStyle: CSSProperties = {
   background: '#1c1e23',
   color: '#c7ccd6',
   borderColor: '#2c2f36',
+};
+
+const primaryStyle: CSSProperties = {
+  ...secondaryStyle,
+  background: 'rgba(216,178,108,.1)',
+  color: '#d8b26c',
+  borderColor: '#8f7644',
 };

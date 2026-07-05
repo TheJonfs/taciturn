@@ -11,12 +11,11 @@
 // of the shipped campaign flow. Safe to keep — formation work keeps needing a
 // populated roster to look at.
 
-import { useMemo, useState, type ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { loadDefaultCatalog } from '@content/index.ts';
-import { abilityId, classId, itemId, unitId, type UnitId } from '@engine/index.ts';
+import { abilityId, classId, itemId, unitId } from '@engine/index.ts';
 import { m1Roster, type CampaignUnit, type UnlockToken } from '@campaign/index.ts';
-import { RosterView } from './RosterView.tsx';
-import { UnitDossier } from './UnitDossier.tsx';
+import { FormationManager } from './FormationManager.tsx';
 
 const catalog = loadDefaultCatalog();
 
@@ -103,33 +102,10 @@ export function FormationDevHarness(): ReactElement {
   // Roster held in state so reclass/spend edits (which return new CampaignUnits)
   // persist across navigation — the same write-back the campaign owner does.
   const [roster, setRoster] = useState<ReadonlyArray<CampaignUnit>>(buildDemoRoster);
-  const [openedId, setOpenedId] = useState<UnitId | null>(null);
-
-  const opened = useMemo(
-    () => (openedId === null ? null : (roster.find((u) => u.id === openedId) ?? null)),
-    [roster, openedId],
-  );
-
-  function updateUnit(next: CampaignUnit): void {
-    setRoster((prev) => prev.map((u) => (u.id === next.id ? next : u)));
-  }
-
-  if (opened !== null) {
-    return (
-      <div style={{ position: 'fixed', inset: 0 }}>
-        <UnitDossier
-          unit={opened}
-          catalog={catalog}
-          onBack={() => setOpenedId(null)}
-          onChange={updateUnit}
-        />
-      </div>
-    );
-  }
 
   return (
     <div style={{ position: 'fixed', inset: 0 }}>
-      <RosterView roster={roster} catalog={catalog} onOpenUnit={setOpenedId} />
+      <FormationManager roster={roster} catalog={catalog} onRosterChange={setRoster} />
     </div>
   );
 }

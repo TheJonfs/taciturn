@@ -21,6 +21,9 @@ export interface BeatRendererProps {
   readonly beat: InterstitialBeat;
   readonly onAdvance: (output?: BeatOutput) => void;
   readonly onExitToTitle: () => void;
+  // Ambient action (like onExitToTitle): open the roster-management screen. Only
+  // the world-map beat surfaces it; other beats ignore it.
+  readonly onManageRoster?: () => void;
 }
 
 export type BeatRenderer = (props: BeatRendererProps) => ReactElement;
@@ -37,12 +40,14 @@ export interface InterstitialRunnerProps {
   readonly beats: ReadonlyArray<InterstitialBeat>;
   readonly onComplete: (output: BeatOutput) => void;
   readonly onExitToTitle: () => void;
+  readonly onManageRoster?: () => void;
 }
 
 export function InterstitialRunner({
   beats,
   onComplete,
   onExitToTitle,
+  onManageRoster,
 }: InterstitialRunnerProps): ReactElement {
   const [index, setIndex] = useState(0);
   const accumulated = useRef<BeatOutput>({});
@@ -64,5 +69,12 @@ export function InterstitialRunner({
   };
 
   const Renderer = BEAT_RENDERERS[beat.type];
-  return <Renderer beat={beat} onAdvance={advance} onExitToTitle={onExitToTitle} />;
+  return (
+    <Renderer
+      beat={beat}
+      onAdvance={advance}
+      onExitToTitle={onExitToTitle}
+      {...(onManageRoster ? { onManageRoster } : {})}
+    />
+  );
 }

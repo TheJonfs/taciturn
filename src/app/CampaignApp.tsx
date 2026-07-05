@@ -29,6 +29,7 @@ import { useState, type ReactElement } from 'react';
 import { BattleView } from './BattleView.tsx';
 import { DeploymentScreen } from './DeploymentScreen.tsx';
 import { FormationScreen } from './FormationScreen.tsx';
+import { FormationManager } from './formation/FormationManager.tsx';
 import { InterstitialRunner } from './interstitial/InterstitialRunner.tsx';
 import { buildDeployedBattleConfig, type DeploymentResult } from './deployment-config.ts';
 import {
@@ -74,7 +75,10 @@ type Screen =
   | { readonly kind: 'run'; readonly beats: ReadonlyArray<InterstitialBeat>; readonly done: RunDone; readonly nonce: number }
   | { readonly kind: 'formation'; readonly battleIndex: number }
   | { readonly kind: 'deployment'; readonly battleIndex: number; readonly config: BattleConfig }
-  | { readonly kind: 'battle'; readonly battleIndex: number; readonly config: BattleConfig };
+  | { readonly kind: 'battle'; readonly battleIndex: number; readonly config: BattleConfig }
+  // Roster-management (Formation) surface, opened from the world map. Returns to
+  // the world map on exit; roster edits persist + autosave.
+  | { readonly kind: 'manage' };
 
 export interface CampaignAppProps {
   // The starting state — a fresh `startCampaign(...)` or a resumed save.
@@ -140,6 +144,14 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     const key = nonce + 1;
     setNonce(key);
     setScreen({ kind: 'run', beats, done, nonce: key });
+  }
+
+  // Return from the roster-management screen to the world map. Rebuilds the
+  // world-map run from the LIVE state, so any reclass/spend/loadout edits made
+  // while managing carry into the route (the `done.state` is the just-edited
+  // roster). Only reachable from the world map (phase `awaiting_route`).
+  function returnToWorldMap(): void {
+    showRun([buildRouteChoiceBeat(GRAPH, state.currentNodeId)], { kind: 'route', state });
   }
 
   // A node whose sequence has ended (standalone / trailing story with no more
@@ -309,6 +321,23 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
         beats={screen.beats}
         onComplete={(output) => finishRun(screen.done, output)}
         onExitToTitle={onExitToTitle}
+        onManageRoster={() => setScreen({ kind: 'manage' })}
+      />
+    );
+  }
+
+  if (screen.kind === 'manage') {
+    return (
+      <FormationManager
+        roster={state.roster}
+        catalog={catalog}
+        onRosterChange={(next) => {
+          const updated = { ...state, roster: next };
+          setState(updated);
+          saveCampaign(updated); // persist reclass/spend/loadout edits immediately
+        }}
+        onExit={returnToWorldMap}
+        exitLabel="← The Road Ahead"
       />
     );
   }
