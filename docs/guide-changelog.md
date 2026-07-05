@@ -44,18 +44,47 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
-## Session 84 (2026-07-05) — TABA chapter-1 plot-unit seams (ADR-0141)
+## Session 84 (2026-07-05) — TABA chapter-1 plot-unique units (ADR-0141)
 
-Commits: `1df3efd`, `3eede12`, `c2201b3`. _No player-facing changes._
+Commits: `1df3efd`, `3eede12`, `c2201b3`, `a8fa759`, `9ed6e5b`, `7fa6788`,
+`602f396`. **Campaign mode only** — Mage War is unaffected (these are plot-unit
+signatures, hidden from the MW picker).
 
-Three reusable engine seams were built for the upcoming chapter-1 plot-unique
-units, but **nothing consumes them yet** — no ability, unit, or component uses
-them this session, so there is no visible behavior change (battles run exactly
-as before). They become player-facing next session when the five units are
-instantiated: a chapter-scaling magnitude for signature abilities, a "cover"
-damage-soak primitive, and per-unit-restricted purchasable components. Flagging
-now only so the guide side has the cursor; the mechanics to document arrive with
-the units.
+The five chapter-1 leads are now real characters with signature kit, built on
+three reusable systems. **New concept: the chapter number** — a battle's chapter
+(1–3) scales three of the signatures.
+
+- **Lumen — Ascendant Flame** (innate): her **fire** damage is multiplied by
+  **1 + 0.1 × chapter** → ×1.1 / ×1.2 / ×1.3 across the campaign. Fire-only,
+  caps at ×1.3.
+- **Chris — Bulwark Oath** (innate, "cover"): an ally standing **adjacent** to
+  Chris (within 3 elevation) has **10 % × chapter** (10/20/30 %) of an incoming
+  hit **redirected onto Chris as raw damage**, which then goes through **his own**
+  Protect / resistances / armor — so a well-defended Chris soaks it better. (v1:
+  the soak doesn't trigger his reactions and can't be dodged.)
+- **Clio — Tidal Cadence** (innate): on **every turn Clio takes**, each living
+  ally gains **3 × chapter CT** (a small team-tempo boost). She doesn't boost
+  herself.
+- **Sera — Hamstring** (new Assassin active, Sera-only): MP 8, ranged
+  (4 h × 3 v, needs line of sight), instant, no damage. Applies **Hamstrung** —
+  a **stacking, permanent** debuff: each hit is **−1 Move and −1 Jump**, each
+  floored at 0 on its own. Several hits fully immobilize (Move 0 **and** Jump 0);
+  a target can be Move-locked while still able to climb. Lands on the same
+  Brave-and-Speed roll as Shadow Stitch / Blowdart. Sera earns it as a purchase
+  (~200 JP), not a freebie.
+- **Thessaly — two exclusive Math components** (Calculator, Thessaly-only,
+  buyable): a new **XP** parameter (targets by each unit's XP) and a new
+  **Square** value (selects units whose parameter is a perfect square:
+  1, 4, 9, 16, 25…). Together they expand her Math targeting grid from 4×4 to
+  5×5. Bought, not granted — earned over the campaign.
+
+**Unit-restricted purchases:** in the between-battles Training screen, Sera's
+Hamstring and Thessaly's XP / Square appear **only** for those two units — a
+generic Assassin or Calculator never sees them.
+
+**Portraits:** plot characters can now carry a bespoke portrait that stays with
+them across reclassing (the art itself is still landing; until each portrait is
+added they show their class face).
 
 ## Session 83 (2026-07-04) — TABA Formation UI + JP-gating goes live (ADR-0140)
 
