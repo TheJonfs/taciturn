@@ -59,6 +59,9 @@ export {
 export type { PurchaseResult } from './purchase.ts';
 export { purchaseComponent } from './purchase.ts';
 
+export type { StartingKit } from './starting-kit.ts';
+export { seedStartingKit } from './starting-kit.ts';
+
 export {
   computeEarnedJp,
   defaultConnectingPredicate,

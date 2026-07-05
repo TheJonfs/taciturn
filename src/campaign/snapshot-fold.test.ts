@@ -12,6 +12,7 @@ import { createInitialState, teamId } from '@engine/index.ts';
 import type { TeamId } from '@engine/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import { foldCampaignRoster } from './snapshot-fold.ts';
+import { seedRosterStartingKits } from './loop.ts';
 import { m0Roster } from './roster.ts';
 import type { CampaignUnit } from './types.ts';
 
@@ -96,5 +97,26 @@ describe('foldCampaignRoster', () => {
     expect(() => foldCampaignRoster(riverRidgeBattle, tooMany, PLAYER, catalog)).toThrow(
       /authors only/,
     );
+  });
+
+  // TABA M2 gating LIVE — the fold now stamps the usable-ability allowlists.
+  it('stamps usable* allowlists from unlocks (gating live)', () => {
+    const config = foldCampaignRoster(riverRidgeBattle, selection, PLAYER, catalog);
+    for (const p of config.units.filter((u) => u.team === PLAYER)) {
+      expect(p.usableActives).toBeDefined(); // present ⇒ gated (undefined would be ungated)
+    }
+    // Enemy placements stay ungated (durable machinery is player-side only).
+    for (const e of config.units.filter((u) => u.team !== PLAYER)) {
+      expect(e.usableActives).toBeUndefined();
+    }
+  });
+
+  it('a starting-kit-seeded unit folds with its command-set actives usable', () => {
+    const seeded = seedRosterStartingKits(m0Roster.slice(0, 3), catalog);
+    const config = foldCampaignRoster(riverRidgeBattle, seeded, PLAYER, catalog);
+    for (const p of config.units.filter((u) => u.team === PLAYER)) {
+      // More than just the class free-abilities (Attack) — its trained kit is usable.
+      expect(p.usableActives!.length).toBeGreaterThan(1);
+    }
   });
 });

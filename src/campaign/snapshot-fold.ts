@@ -30,6 +30,12 @@ import type {
   Vitals,
 } from '@engine/index.ts';
 import type { CampaignUnit } from './types.ts';
+import {
+  usableActiveIds,
+  usableItemIds,
+  usableMathParameterIds,
+  usableMathValueIds,
+} from './progression/index.ts';
 
 // Fold a deployed roster selection into a node template. `selected` is the
 // K units chosen for THIS node (Formation output); they map by index onto
@@ -62,7 +68,7 @@ export function foldCampaignRoster(
       hp: Math.min(unit.vitals.hp, max.hp),
       mp: Math.min(unit.vitals.mp, max.mp),
     };
-    return campaignPlacement(unit, slots[i]!, playerTeam, vitals);
+    return campaignPlacement(unit, slots[i]!, playerTeam, vitals, catalog);
   });
   return { ...template, units: [...placements, ...others] };
 }
@@ -94,7 +100,7 @@ export function probeEffectiveMaxes(
   const maxes = new Map<UnitId, Vitals>();
   for (let start = 0; start < units.length; start += slots.length) {
     const chunk = units.slice(start, start + slots.length);
-    const probes = chunk.map((unit, i) => campaignPlacement(unit, slots[i]!, playerTeam, undefined));
+    const probes = chunk.map((unit, i) => campaignPlacement(unit, slots[i]!, playerTeam, undefined, catalog));
     const state = createInitialState({ ...template, units: [...probes, ...others] }, catalog);
     for (const unit of chunk) {
       const live = state.units.get(unit.id);
@@ -130,6 +136,7 @@ function campaignPlacement(
   slot: UnitPlacement,
   team: TeamId,
   vitals: Vitals | undefined,
+  catalog: Catalog,
 ): UnitPlacement {
   const base = {
     id: unit.id, // stable campaign id (D-B), NOT slot.id
@@ -149,6 +156,16 @@ function campaignPlacement(
     statsByLevel: Array.from({ length: LEVELUP_PRECOMPUTE_DEPTH }, (_, i) =>
       buildBaseStats(unit.classId, unit.brave, unit.faith, unit.level + 1 + i),
     ),
+    // TABA M2 gating LIVE: project the durable `unlocks` into the battle-facing
+    // usable-ability allowlists. A locked component is now genuinely unusable in
+    // battle (menu greyed / picker filtered). Authored units are seeded from
+    // their loadout at campaign start so their kit is usable (see
+    // `seedRosterStartingKits`). Mage War never folds through here, so it stays
+    // ungated (its `Unit.usable*` remain undefined ⇒ all usable).
+    usableActives: usableActiveIds(unit, catalog),
+    usableItems: usableItemIds(unit),
+    usableMathParameters: usableMathParameterIds(unit),
+    usableMathValues: usableMathValueIds(unit),
   } satisfies UnitPlacement;
 
   // exactOptionalPropertyTypes: attach optional fields only when present.

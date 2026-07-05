@@ -38,6 +38,7 @@ import {
 import { firstBattleBeat } from './sequence.ts';
 import { probeEffectiveMaxes } from './snapshot-fold.ts';
 import { CAMPAIGN_SCHEMA_VERSION } from './serialization.ts';
+import { COMPONENT_CATALOG, seedStartingKit } from './progression/index.ts';
 import type { CampaignState, CampaignUnit } from './types.ts';
 
 // Start a fresh campaign at the graph's entry node, normalizing the authored
@@ -50,12 +51,29 @@ export function startCampaign(
   catalog: Catalog,
 ): CampaignState {
   const start = getNode(graph, graph.startId);
+  const seeded = seedRosterStartingKits(roster, catalog);
   return {
     schemaVersion: CAMPAIGN_SCHEMA_VERSION,
-    roster: bootstrapRosterVitals(roster, start, catalog),
+    roster: bootstrapRosterVitals(seeded, start, catalog),
     currentNodeId: graph.startId,
     phase: 'in_progress',
   };
+}
+
+// Pre-unlock each fresh authored unit's starting kit from its loadout (TABA M2
+// gating-live migration). Runs ONCE at campaign start (with the catalog
+// available) so an authored unit's equipped abilities are usable when the fold
+// stamps the usable-ability allowlists. Units that already carry authored
+// progression (plot-uniques with pre-set unlocks/JP) are left untouched.
+export function seedRosterStartingKits(
+  roster: ReadonlyArray<CampaignUnit>,
+  catalog: Catalog,
+): ReadonlyArray<CampaignUnit> {
+  return roster.map((unit) => {
+    if (unit.unlocks.length > 0 || Object.keys(unit.earnedByClass).length > 0) return unit;
+    const kit = seedStartingKit(unit.classId, unit.loadout, catalog, COMPONENT_CATALOG);
+    return { ...unit, unlocks: kit.unlocks, earnedByClass: kit.earnedByClass };
+  });
 }
 
 // Heal the whole roster to effective full (equipment-composed). The authored
