@@ -39,7 +39,7 @@ import {
   buildRouteChoiceBeat,
   clearSavedCampaign,
   deployableRoster,
-  foldCampaignRoster,
+  foldBattle,
   getNode,
   hasBattleAtOrAfter,
   isComplete,
@@ -226,7 +226,10 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
 
   function handleFormationConfirm(battleIndex: number, selected: ReadonlyArray<CampaignUnit>): void {
     const battle = battleBeatAt(battleIndex).battle;
-    const folded = foldCampaignRoster(battle.template, selected, battle.playerTeam, catalog);
+    // foldBattle folds the deployed player selection AND (if the beat authors
+    // progressed enemies) re-skins the enemy team with curve stats / mid-battle
+    // leveling / gated kits.
+    const folded = foldBattle(battle, selected, catalog);
     setScreen({ kind: 'deployment', battleIndex, config: stampControls(folded, battle.playerTeam) });
   }
 

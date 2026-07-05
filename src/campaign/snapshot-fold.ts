@@ -30,6 +30,7 @@ import type {
   Vitals,
 } from '@engine/index.ts';
 import type { CampaignUnit } from './types.ts';
+import type { NodeBattle } from './sequence.ts';
 import {
   usableActiveIds,
   usableItemIds,
@@ -71,6 +72,56 @@ export function foldCampaignRoster(
     return campaignPlacement(unit, slots[i]!, playerTeam, vitals, catalog);
   });
   return { ...template, units: [...placements, ...others] };
+}
+
+// Fold a whole battle beat into a launch-ready config: the deployed player
+// selection into the player slots, and — if the beat authors progressed enemies
+// — those specs onto the enemy team (`foldEnemyTeam`). The single entry point
+// the driver calls; keeps the player+enemy fold composition pure and testable
+// rather than inline in the React handler.
+export function foldBattle(
+  battle: NodeBattle,
+  selected: ReadonlyArray<CampaignUnit>,
+  catalog: Catalog,
+): BattleConfig {
+  const withPlayers = foldCampaignRoster(battle.template, selected, battle.playerTeam, catalog);
+  if (battle.enemies === undefined) return withPlayers;
+  const enemyTeam = battle.template.units.find((u) => u.team !== battle.playerTeam)?.team;
+  if (enemyTeam === undefined) {
+    throw new Error('foldBattle: beat authors enemies but the template has no non-player team');
+  }
+  return foldEnemyTeam(withPlayers, battle.enemies, enemyTeam, catalog);
+}
+
+// Fold authored ENEMY progression specs onto a battle config's enemy slots
+// (TABA M2). The team-agnostic sibling of the player fold: it re-skins the
+// `enemyTeam` placements with `campaignPlacement`, so each authored enemy gets
+// curve-correct `baseStats` at its level, `statsByLevel` (it can LEVEL
+// mid-battle — the XP mechanism is team-agnostic), and the `usable*` masks (its
+// kit is GATED to its authored `unlocks`). Positions/facing come from the
+// template's enemy slots (enemies don't deploy); the spec supplies who stands
+// there. Vitals are omitted so the engine fills each enemy to effective full.
+//
+// `enemies` must not exceed the enemy-slot count; it re-skins the first N slots
+// and leaves any extra authored slots untouched (raw/ungated) — so a battle can
+// mix progressed and plain enemies. Called AFTER the player fold, on its output.
+export function foldEnemyTeam(
+  config: BattleConfig,
+  enemies: ReadonlyArray<CampaignUnit>,
+  enemyTeam: TeamId,
+  catalog: Catalog,
+): BattleConfig {
+  const slots = config.units.filter((u) => u.team === enemyTeam);
+  if (enemies.length > slots.length) {
+    throw new Error(
+      `foldEnemyTeam: ${enemies.length} enemy specs but team ` +
+        `${JSON.stringify(enemyTeam)} authors only ${slots.length} slot(s)`,
+    );
+  }
+  const others = config.units.filter((u) => u.team !== enemyTeam);
+  const folded = enemies.map((enemy, i) => campaignPlacement(enemy, slots[i]!, enemyTeam, undefined, catalog));
+  const keptSlots = slots.slice(enemies.length); // extra authored enemies, unchanged
+  return { ...config, units: [...others, ...folded, ...keptSlots] };
 }
 
 // Effective max vitals (HP/MP, equipment-composed) for each unit, keyed by

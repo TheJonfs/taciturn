@@ -12,7 +12,7 @@ import { availableInClass } from './ledger.ts';
 import { COMPONENT_CATALOG } from './component-catalog-data.ts';
 import { seedStartingKit } from './starting-kit.ts';
 import { tokenKey } from './tokens.ts';
-import { EMPTY_EARNED_BY_CLASS, type CampaignUnit } from '../types.ts';
+import type { CampaignUnit } from '../types.ts';
 import { unitId } from '@engine/index.ts';
 
 const catalog = loadDefaultCatalog();

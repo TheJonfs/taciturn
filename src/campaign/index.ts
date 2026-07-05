@@ -34,7 +34,9 @@ export {
 } from './roster.ts';
 
 // Chunk 2 — the pure loop core (snapshot-fold in, summarize + apply-back out).
-export { foldCampaignRoster, probeEffectiveMaxes } from './snapshot-fold.ts';
+export { foldCampaignRoster, foldEnemyTeam, foldBattle, probeEffectiveMaxes } from './snapshot-fold.ts';
+export { authoredEnemy } from './authored-enemy.ts';
+export type { AuthoredEnemySpec } from './authored-enemy.ts';
 export { summarizeBattleResult } from './battle-result.ts';
 export type { BattleResult, UnitBattleSummary, UnitOutcome } from './battle-result.ts';
 export { applyBattleResult } from './apply-back.ts';

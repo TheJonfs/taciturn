@@ -28,6 +28,7 @@
 
 import type { BattleConfig, DeploymentZoneConfig, TeamId } from '@engine/index.ts';
 import type { PortraitRef } from '../assets/portraits/index.ts';
+import type { CampaignUnit } from './types.ts';
 
 // The per-battle-beat definition: map + enemy team (in the template) +
 // placeholder player slots the snapshot-fold replaces + deploy zones + K.
@@ -43,6 +44,12 @@ export interface NodeBattle {
   // K — the per-battle deploy cap. The Formation screen selects up to this
   // many `active` roster units. (N — roster size — is a campaign property.)
   readonly deployCap: number;
+  // TABA M2 — authored enemy progression (optional). When present, these specs
+  // re-skin the template's enemy-team slots via `foldEnemyTeam`: each enemy gets
+  // curve stats at its authored level, mid-battle leveling (`statsByLevel`), and
+  // a kit GATED to its `unlocks`. Absent → the template's enemy placements pass
+  // through as-authored (ungated, no leveling) — backward-compatible.
+  readonly enemies?: ReadonlyArray<CampaignUnit>;
 }
 
 // One line of authored dialogue. Placeholder-friendly: a display name + text,
