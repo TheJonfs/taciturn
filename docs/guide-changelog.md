@@ -78,6 +78,11 @@ The between-battles **Formation** screen now exists, and JP progression finally
 Reclassing rebinds a unit's primary command to the new class. XP/leveling
 (shipped S81) is unchanged.
 
+**The Formation screen is now reachable in the campaign** — on the world map
+(between battles), a **"Manage Roster"** button opens the roster/dossier, where
+reclass, JP-spend, and loadout changes apply to your real company and persist
+into the next battle. (A pre-battle entry point is still to come.)
+
 **Enemies can now be authored with progression too** (levels + limited kits),
 and they level up mid-battle like your units. First use: **River Ridge's opening
 battle** — its garrison is now a tuned **Level 22** team (a rung below your Level

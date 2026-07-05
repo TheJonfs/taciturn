@@ -72,13 +72,17 @@ a latent setState-in-render in the interstitial advance. Benign in normal play
 3. **"Level Up!" banner** — animator polish (log line + HP-bar jump only today).
 
 ### Follow-ups the brief named that this session did / deferred
-- **Deployment-selection context for the roster view** — DEFERRED (brief said the
-  shared roster core first, the pre-battle deployment wrapper can follow). The new
-  RosterView is reached via the `?formation` dev harness only; it is NOT yet
-  wired as the in-campaign Formation landing (the old M0 `FormationScreen`
-  deploy-list still runs pre-battle). Wiring RosterView/dossier into
-  `CampaignApp` as a management surface (world-map + pre-battle) is the natural
-  next UI step.
+- **World-map management entry — DONE (commit `cc213e5`).** A "Manage Roster"
+  button on the world map opens the Formation UI (`FormationManager` = the
+  reusable roster⇄dossier shell) on the live `CampaignState.roster`; edits persist
+  via `setState` + `saveCampaign` and carry into the next node (return rebuilds
+  the world map from the just-edited state). The dev harness (`?formation`) now
+  uses `FormationManager` too.
+- **Pre-battle management entry — STILL DEFERRED.** The old M0 `FormationScreen`
+  deploy-list still runs pre-battle; wiring the RosterView/dossier there (and/or a
+  deploy-selection context) is the remaining Formation-flow follow-up. The
+  ambient `onManageRoster` on `InterstitialRunner`/`BeatRendererProps` is the seam
+  to reuse.
 - **Recruitment order for Sort-by-Newest** — used roster array index (no
   recruitment ships until M3); add a monotonic `recruitedAt` when recruits land.
 - **`canEquipPassive` open question** — resolved: enabler passives are
