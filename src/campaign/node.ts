@@ -26,9 +26,12 @@
 // class-portrait pipeline). M1 reuses the shipped battle templates + maps the
 // lazy way (M0 discipline); authored/generated encounters are M4.
 
-import { classId, teamId } from '@engine/index.ts';
+import { abilityId, classId, EMPTY_UNIT_EQUIPMENT, teamId } from '@engine/index.ts';
 import type { TeamId } from '@engine/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
+import { authoredEnemy } from './authored-enemy.ts';
+import type { CampaignUnit } from './types.ts';
+import type { UnlockToken } from './progression/index.ts';
 import { stonebridgeBattle } from '@content/battles/stonebridge-battle.ts';
 import { marshmoorBattle } from '@content/battles/marshmoor-battle.ts';
 import { mountainPassBattle } from '@content/battles/mountain-pass-battle.ts';
@@ -55,10 +58,57 @@ export const M1_NODES = {
 function battle(
   template: NodeBattle['template'],
   zonesKey: Parameters<typeof deploymentZonesFor>[0],
+  enemies?: ReadonlyArray<CampaignUnit>,
 ): NodeBattle {
-  return { template, playerTeam: PLAYER, zones: deploymentZonesFor(zonesKey), deployCap: M1_DEPLOY_CAP };
+  return {
+    template,
+    playerTeam: PLAYER,
+    zones: deploymentZonesFor(zonesKey),
+    deployCap: M1_DEPLOY_CAP,
+    ...(enemies !== undefined ? { enemies } : {}),
+  };
 }
 
+// River Ridge opener tuning (TABA M2 — the first authored enemy progression).
+// The player deploys L25 veterans with full seeded kits; the opener's garrison
+// is a rung below — dropped to L22 and each GATED to a basic two-active kit (no
+// ultimates), so battle 1 teaches the ropes without being trivial. Derived from
+// the template's own enemy placements (class / loadout / equipment / position
+// reused), so only level + kit breadth change. Tune freely — it's data.
+const RIVER_RIDGE_ENEMY_LEVEL = 22;
+const RIVER_RIDGE_ENEMY_KITS: Readonly<Record<string, ReadonlyArray<string>>> = {
+  earth_mage: ['earth_strike', 'earth_quake'], // Rock Toss + Earthquake
+  lightning_mage: ['lightning_strike', 'magnetic_mark'], // Bolt + Vulnerable mark
+  fire_mage: ['fire_strike', 'fire_storm'], // Scorch + Fireball
+  water_mage: ['water_strike', 'brine'], // Water Lash + Slow
+  knight: ['power_attack', 'bull_rush'], // heavy strike + knockback
+};
+
+function riverRidgeEnemies(): ReadonlyArray<CampaignUnit> {
+  const ENEMY = teamId('team_b');
+  return riverRidgeBattle.units
+    .filter((u) => u.team === ENEMY)
+    .map((slot) => {
+      const kit = RIVER_RIDGE_ENEMY_KITS[String(slot.classId)] ?? [];
+      const unlocks: ReadonlyArray<UnlockToken> = kit.map((id) => ({ kind: 'ability', id: abilityId(id) }));
+      return authoredEnemy({
+        id: String(slot.id), // reuse the slot id so any references stay valid
+        name: slot.name,
+        classId: slot.classId,
+        level: RIVER_RIDGE_ENEMY_LEVEL,
+        loadout: slot.loadout,
+        equipment: slot.equipment ?? EMPTY_UNIT_EQUIPMENT,
+        unlocks,
+      });
+    });
+}
+
+// The opener carries the tuned garrison; the finale ("The Return") revisits the
+// same battlefield but keeps the template's stronger default enemies.
+const riverRidgeOpener = (): NodeBeat => ({
+  type: 'battle',
+  battle: battle(riverRidgeBattle, 'river_ridge', riverRidgeEnemies()),
+});
 const riverRidge = (): NodeBeat => ({ type: 'battle', battle: battle(riverRidgeBattle, 'river_ridge') });
 const stonebridge = (): NodeBeat => ({ type: 'battle', battle: battle(stonebridgeBattle, 'stonebridge') });
 const marshmoor = (): NodeBeat => ({ type: 'battle', battle: battle(marshmoorBattle, 'marshmoor') });
@@ -129,7 +179,7 @@ const crossingScene: StorySceneBeat = {
 };
 
 const NODES: ReadonlyArray<CampaignNode> = [
-  { id: M1_NODES.riverRidge, name: 'River Ridge', beats: [introScene, riverRidge()] },
+  { id: M1_NODES.riverRidge, name: 'River Ridge', beats: [introScene, riverRidgeOpener()] },
   { id: M1_NODES.stonebridge, name: 'Stonebridge', beats: [stonebridge(), aftermathScene] },
   { id: M1_NODES.marshmoor, name: 'Marshmoor', beats: [marshmoor()] },
   { id: M1_NODES.theCrossing, name: 'The Crossing', beats: [crossingScene] },

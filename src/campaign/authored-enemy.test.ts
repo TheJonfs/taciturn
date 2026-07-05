@@ -16,7 +16,9 @@ import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import { authoredEnemy } from './authored-enemy.ts';
 import { foldBattle, foldEnemyTeam } from './snapshot-fold.ts';
 import { m0Roster } from './roster.ts';
-import type { NodeBattle } from './sequence.ts';
+import { firstBattleBeat, type NodeBattle } from './sequence.ts';
+import { M1_CAMPAIGN_GRAPH } from './node.ts';
+import { getNode } from './graph.ts';
 
 const catalog = loadDefaultCatalog();
 const PLAYER: TeamId = teamId('team_a'); // Blue
@@ -136,5 +138,26 @@ describe('foldBattle (player + enemy composition)', () => {
     const enemy = config.units.find((u) => u.id === enemies[0]!.id)!;
     expect(enemy.usableActives).toBeDefined();
     expect(enemy.statsByLevel).toBeDefined();
+  });
+});
+
+describe('River Ridge opener — the first authored enemy garrison', () => {
+  const start = getNode(M1_CAMPAIGN_GRAPH, M1_CAMPAIGN_GRAPH.startId);
+  const beat = firstBattleBeat(start.beats)!;
+
+  it('authors a tuned enemy team (all L22, each gated to a two-active kit)', () => {
+    const enemies = beat.battle.enemies!;
+    expect(enemies).toBeDefined();
+    expect(enemies.length).toBeGreaterThan(0);
+    expect(enemies.every((e) => e.level === 22)).toBe(true); // a rung below the L25 player veterans
+    expect(enemies.every((e) => e.unlocks.length === 2)).toBe(true); // deliberately limited kit
+  });
+
+  it('folds into a battle with those enemies gated (an ultimate stays locked)', () => {
+    const config = foldBattle(beat.battle, m0Roster.slice(0, beat.battle.deployCap), catalog);
+    const fireMage = config.units.find((u) => String(u.id) === 'red_fire_mage')!;
+    const usable = new Set(fireMage.usableActives!.map(String));
+    expect(usable.has('fire_strike')).toBe(true); // its authored basic
+    expect(usable.has('flame_lance')).toBe(false); // the Pyromancer ultimate — gated out
   });
 });
