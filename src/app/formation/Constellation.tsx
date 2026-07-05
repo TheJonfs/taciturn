@@ -216,7 +216,7 @@ function Star({
   if (isOpen && visited) {
     sub = <text className="tf-jpt" x={x} y={ny + 13}>{spent.toLocaleString()} JP</text>;
   } else if (isOpen) {
-    sub = <text className="tf-jpt" x={x} y={ny + 13} fill={col} opacity={0.7}>open · not yet trained</text>;
+    sub = <text className="tf-jpt" x={x} y={ny + 13} fill={col} opacity={0.7}>untrained</text>;
   }
 
   return (

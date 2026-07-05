@@ -13,8 +13,8 @@
 
 import { useMemo, useState, type ReactElement } from 'react';
 import { loadDefaultCatalog } from '@content/index.ts';
-import { abilityId, classId, itemId, unitId, type ClassId, type UnitId } from '@engine/index.ts';
-import { m1Roster, reclassUnit, type CampaignUnit, type UnlockToken } from '@campaign/index.ts';
+import { abilityId, classId, itemId, unitId, type UnitId } from '@engine/index.ts';
+import { m1Roster, type CampaignUnit, type UnlockToken } from '@campaign/index.ts';
 import { RosterView } from './RosterView.tsx';
 import { UnitDossier } from './UnitDossier.tsx';
 
@@ -64,13 +64,28 @@ const UNIQUE_SEEDS: ReadonlyArray<{ readonly name: string; readonly classId: str
 function buildDemoRoster(): ReadonlyArray<CampaignUnit> {
   const base: CampaignUnit[] = m1Roster.map((u, i) => {
     const seed = SEEDS[i % SEEDS.length]!;
+    // Give the unit's CURRENT class a generous spendable purse (so the Training
+    // tab shows affordable Learn rows AND enough room to cross a tier threshold).
+    const cls = String(u.classId);
+    const earned = { ...seed.earned, [cls]: (seed.earned[cls] ?? 0) + 800 };
     return {
       ...u,
-      earnedByClass: seed.earned,
+      earnedByClass: earned,
       unlocks: seed.unlocks,
       ...(seed.override ? { classAccessOverride: seed.override.map((c) => classId(c)) } : {}),
     };
   });
+  // A monk sitting just below the physical-T1 threshold (300 spent, 600 purse)
+  // — buy ~200 more to cross 500 and ignite physical:2 + magical:1.
+  const ignitionDemo: CampaignUnit = {
+    ...m1Roster[0]!,
+    id: unitId('demo-ignite'),
+    name: 'Nova',
+    classId: classId('monk'),
+    level: 22,
+    earnedByClass: { monk: 900 },
+    unlocks: [ab('serpents_coil'), ab('foxfire')],
+  };
   const uniques: CampaignUnit[] = UNIQUE_SEEDS.map((u, i) => ({
     ...m1Roster[0]!,
     id: unitId(`demo-unique-${i}`),
@@ -81,7 +96,7 @@ function buildDemoRoster(): ReadonlyArray<CampaignUnit> {
     unlocks: u.seed.unlocks,
     classAccessOverride: (u.seed.override ?? []).map((c) => classId(c)),
   }));
-  return [...base, ...uniques];
+  return [...base, ignitionDemo, ...uniques];
 }
 
 export function FormationDevHarness(): ReactElement {
@@ -106,7 +121,7 @@ export function FormationDevHarness(): ReactElement {
           unit={opened}
           catalog={catalog}
           onBack={() => setOpenedId(null)}
-          onReclass={(newClassId: ClassId) => updateUnit(reclassUnit(opened, newClassId, catalog))}
+          onChange={updateUnit}
         />
       </div>
     );

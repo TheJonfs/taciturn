@@ -122,4 +122,33 @@ export const FORMATION_STYLE = `
 
 .tf-note{font-size:13px;color:var(--star2);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:13px 15px;line-height:1.6}
 .tf-note b{color:var(--star)}
+
+/* ---- Training (JP-spend) ---- */
+.tf-train-head{font-size:12px;color:var(--star3);margin:2px 0 4px}
+.tf-train-head b{color:var(--brass);font-family:var(--mono)}
+.tf-sec{margin-top:16px}
+.tf-sech{display:flex;align-items:baseline;gap:10px;margin-bottom:2px}
+.tf-sech h3{font-family:var(--serif);font-size:20px;font-weight:600}
+.tf-sech p{font-size:12px;color:var(--star3)}
+.tf-abil{display:flex;align-items:center;gap:13px;padding:11px 2px;border-bottom:1px solid var(--line)}
+.tf-abil:last-child{border-bottom:none}
+.tf-aico{width:30px;height:30px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--mist);color:var(--star3);border:1px solid var(--line)}
+.tf-abil.have .tf-aico{color:var(--afford);border-color:rgba(127,192,140,.35);background:rgba(127,192,140,.12)}
+.tf-ainfo{flex:1;min-width:0}
+.tf-anm{font-size:14px;font-weight:500}
+.tf-afx{font-size:12px;color:var(--star2);margin-top:1px}
+.tf-cond{color:var(--hyb)}
+.tf-aright{flex:none;display:flex;align-items:center;gap:11px}
+.tf-buy{font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:7px;border:1px solid var(--brass2);background:transparent;color:var(--brass);cursor:pointer;white-space:nowrap}
+.tf-buy:hover{background:rgba(216,178,108,.13)}
+.tf-buy.no{border-color:var(--line);color:var(--star3);cursor:default}
+.tf-buy.no:hover{background:transparent}
+.tf-havet{font-size:12px;white-space:nowrap;text-align:right}
+.tf-havet .k{color:var(--afford)}
+.tf-havet .e{display:block;font-family:var(--mono);font-size:10px;color:var(--star3);margin-top:1px}
+
+/* ---- Toast ---- */
+.tf-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(18px);opacity:0;background:var(--mist);border:1px solid var(--line2);color:var(--star);padding:10px 18px;border-radius:9px;font-size:13px;transition:.25s;pointer-events:none;z-index:30}
+.tf-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.tf-toast b{color:var(--brass)}
 `;

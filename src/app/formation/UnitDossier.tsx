@@ -7,24 +7,31 @@
 //   - Earned        = earnedInClass     → "X earned".
 // XP is a SINGLE per-unit value (not mirrored per class): "xp / 100 to next".
 //
-// Tabs: Constellation (reclass) · Training (JP-spend — lands next) · Equipment
-// (M3, disabled). Picking an open star reclasses (if not current) via the
-// parent's `onReclass` and drops into Training.
+// Tabs: Constellation (reclass) · Training (JP-spend) · Equipment (M3,
+// disabled). The dossier owns the progression OPS (reclassUnit, purchaseComponent)
+// and hands the resulting unit up via `onChange` to persist; the parent stays a
+// dumb store. Picking an open star reclasses (if not current) and drops into
+// Training. A purchase that crosses a threshold ignites the newly-opened star(s)
+// and toasts.
 
-import { useState, type ReactElement } from 'react';
+import { useCallback, useRef, useState, type ReactElement } from 'react';
 import { buildBaseStats } from '@content/teams/index.ts';
 import type { Catalog, ClassId } from '@engine/index.ts';
 import {
   COMPONENT_CATALOG,
   availableInClass,
   earnedInClass,
+  purchaseComponent,
+  reclassUnit,
   spentInClass,
   tierEntryOf,
   type CampaignUnit,
   type ComponentCatalog,
+  type UnlockToken,
 } from '@campaign/index.ts';
 import { DOMAIN_COLOR, DOMAIN_LABEL } from './roster-view-model.ts';
 import { Constellation } from './Constellation.tsx';
+import { Training } from './Training.tsx';
 import { FORMATION_STYLE } from './formation-style.ts';
 
 // XP per level (ADR-0139). Single per-unit currency, independent of JP.
@@ -36,21 +43,21 @@ export interface UnitDossierProps {
   readonly unit: CampaignUnit;
   readonly catalog: Catalog;
   readonly onBack: () => void;
-  // Commit a reclass up to the campaign owner (runs `reclassUnit` + persists).
-  readonly onReclass: (newClassId: ClassId) => void;
+  // Persist a progression edit (reclass / purchase) up to the campaign owner.
+  readonly onChange: (next: CampaignUnit) => void;
   readonly componentCatalog?: ComponentCatalog;
-  readonly justIgnited?: ClassId | null;
 }
 
 export function UnitDossier({
   unit,
   catalog,
   onBack,
-  onReclass,
+  onChange,
   componentCatalog = COMPONENT_CATALOG,
-  justIgnited = null,
 }: UnitDossierProps): ReactElement {
   const [tab, setTab] = useState<DossierTab>('constellation');
+  const [justIgnited, setJustIgnited] = useState<ClassId | null>(null);
+  const [toast, showToast] = useToast();
 
   const classDef = catalog.getClass(unit.classId);
   const entry = tierEntryOf(unit.classId);
@@ -62,8 +69,24 @@ export function UnitDossier({
   const earned = earnedInClass(unit, unit.classId);
 
   function pickClass(id: ClassId): void {
-    if (id !== unit.classId) onReclass(id);
+    if (id !== unit.classId) {
+      onChange(reclassUnit(unit, id, catalog));
+      showToast(`Now training as ${catalog.getClass(id).name}`);
+    }
+    setJustIgnited(null);
     setTab('training');
+  }
+
+  function buy(token: UnlockToken): void {
+    const { unit: next, ignited } = purchaseComponent(unit, token, componentCatalog);
+    onChange(next);
+    if (ignited.length > 0) {
+      const names = ignited.map((c) => catalog.getClass(c).name).join(', ');
+      setJustIgnited(ignited[0] ?? null);
+      showToast(`Threshold crossed — ${names} ${ignited.length > 1 ? 'ignite' : 'ignites'}!`);
+    } else {
+      setJustIgnited(null);
+    }
   }
 
   return (
@@ -127,14 +150,11 @@ export function UnitDossier({
               justIgnited={justIgnited}
             />
           ) : (
-            <div className="tf-note">
-              <b>Training</b> — JP-spend arrives in the next commit. This tab will list {classDef.name}'s
-              unlockable components (actives, passives, and any items / math parameters), priced against
-              the {purse.toLocaleString()} JP purse above.
-            </div>
+            <Training unit={unit} catalog={catalog} onBuy={buy} componentCatalog={componentCatalog} />
           )}
         </div>
       </div>
+      <div className={`tf-toast${toast ? ' show' : ''}`}>{toast}</div>
     </div>
   );
 }
@@ -146,4 +166,16 @@ function Stat({ k, v }: { readonly k: string; readonly v: number | string }): Re
       <b>{typeof v === 'number' ? v.toLocaleString() : v}</b>
     </div>
   );
+}
+
+// A transient toast message with an auto-clearing timer.
+function useToast(): [string | null, (msg: string) => void] {
+  const [msg, setMsg] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const show = useCallback((m: string) => {
+    setMsg(m);
+    if (timer.current !== null) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setMsg(null), 2600);
+  }, []);
+  return [msg, show];
 }

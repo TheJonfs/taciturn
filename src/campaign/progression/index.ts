@@ -56,6 +56,9 @@ export {
   usableMathValueIds,
 } from './usable-actives.ts';
 
+export type { PurchaseResult } from './purchase.ts';
+export { purchaseComponent } from './purchase.ts';
+
 export {
   computeEarnedJp,
   defaultConnectingPredicate,
