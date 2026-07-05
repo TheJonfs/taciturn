@@ -25,21 +25,24 @@ each of the five units instantiates; signatures fire (fire ×, cover, team CT,
 Hamstring stack/floor/proc, XP+Square buyable only for Thessaly, Hamstring only
 for Sera); `classAccessOverride` survives `reclassUnit`; portrait seam wired.
 
-### The ONE remaining task — plot portrait art registration
+### Portrait art — DONE
 
-Chris is adding the five portraits to `src/assets/portraits/` with
-`CHARACTERNAME_1.png` names (not yet 512×512). When they're in:
-1. **Rename** each to `plot-<name>.png` (= the unit id / portrait key):
-   `plot-lumen.png`, `plot-chris.png`, `plot-clio.png`, `plot-thessaly.png`,
-   `plot-sera.png` — one image per character (single, not a gendered pair).
-2. **Resize** to 512×512, top-anchored crop (the standard portrait chore).
-3. **Register** them in `FIXED_PORTRAITS` (`src/assets/portraits/index.ts`, still
-   empty): import each png and map key → url. The threading + `resolveUnitPortrait`
-   already resolve them; they light up the moment the keys are registered. Until
-   then plot units render their class face (placeholder-tolerant, by design).
+The five portraits are processed (512×512, top-anchored crop; Lumen re-cropped
+tighter to bust framing), named `plot-<id>.png`, and registered in
+`FIXED_PORTRAITS`. Dialogue speakers switched to their `fixed` keys. Verified in
+the running app: dialogue faces (Chris's Knight, Sera's assassin) + the in-battle
+deployment panel (all five bespoke faces) + Chris confirmed as a Knight. The
+Formation roster is celestial (no photo faces) by design.
 
-There is a passing test asserting the placeholder fallback; add a test that a
-registered key resolves once the art lands.
+### Repo hygiene — raw art blobs in unpushed history (your call)
+
+An errant `git add -A` swept the raw ~3–4 MB source PNGs (`Chris_1.png` etc.)
+into commit `a8fa759`; they're deleted again in `6289754`, so the WORKING TREE is
+clean (only the 512² `plot-*.png` are tracked). But ~18 MB of raw blobs linger in
+history. All 10 commits are **unpushed**, so it's safely strippable via a history
+rewrite (`git filter-repo --path src/assets/portraits/<Name>_1.png --invert-paths`
+for each) if you want the history clean before the first push — otherwise it's a
+one-time 18 MB and harmless. (I'll use explicit `git add <paths>` going forward.)
 
 ### Watch-fors / playtest (not blockers)
 

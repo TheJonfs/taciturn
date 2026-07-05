@@ -82,9 +82,10 @@ three reusable systems. **New concept: the chapter number** — a battle's chapt
 Hamstring and Thessaly's XP / Square appear **only** for those two units — a
 generic Assassin or Calculator never sees them.
 
-**Portraits:** plot characters can now carry a bespoke portrait that stays with
-them across reclassing (the art itself is still landing; until each portrait is
-added they show their class face).
+**Portraits:** the five leads now have bespoke portraits that stay with them
+across reclassing — visible in **story-scene dialogue** and **in battle** (map
+token, turn queue, deployment panel). (The between-battles Formation roster is an
+abstract "celestial" view and doesn't show photo faces.)
 
 ## Session 83 (2026-07-04) — TABA Formation UI + JP-gating goes live (ADR-0140)
 
