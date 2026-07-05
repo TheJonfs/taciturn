@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taciturn — Formation · Roster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0c1024; --panel:#141a36; --mist:#1b2247; --line:#2a3260; --line2:#404b80;
+    --star:#eee9dd; --star2:#98a1c8; --star3:#5f6997;
+    --brass:#d8b26c; --brass2:#8f7644;
+    --phys:#e2965f; --mag:#a88fe4; --hyb:#5fc4ae;
+    --serif:'Cormorant Garamond',Georgia,serif; --sans:system-ui,'Segoe UI',Roboto,sans-serif; --mono:'SF Mono',ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--void);color:var(--star);font-family:var(--sans);line-height:1.5;padding:30px 22px 70px;min-height:100vh;position:relative;overflow-x:hidden;
+    background-image:radial-gradient(1200px 700px at 50% -5%,rgba(120,110,200,.12),transparent 60%),radial-gradient(800px 500px at 88% 95%,rgba(95,196,174,.05),transparent 60%);}
+  #sky{position:fixed;inset:0;z-index:0;pointer-events:none}
+  .wrap{max-width:1020px;margin:0 auto;position:relative;z-index:1}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+  h1{font-family:var(--serif);font-size:38px;font-weight:600;letter-spacing:.01em;line-height:1}
+  h1 .s{font-size:15px;color:var(--star3);letter-spacing:.22em;text-transform:uppercase;font-family:var(--sans);font-weight:400;display:block;margin-bottom:6px}
+  .summ{font-size:13px;color:var(--star2);text-align:right}
+  .summ b{color:var(--brass);font-family:var(--mono)}
+  .filters{display:flex;flex-direction:column;gap:9px;margin:18px 0 22px}
+  .frow{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .grp{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--star3);width:42px;flex:none}
+  .chip{font-size:12.5px;padding:6px 14px;border-radius:20px;border:1px solid var(--line);background:var(--panel);color:var(--star2);cursor:pointer;transition:.12s;display:inline-flex;align-items:center;gap:6px}
+  .chip:hover{border-color:var(--line2);color:var(--star)}
+  .chip.on{border-color:var(--brass2);color:var(--brass);background:rgba(216,178,108,.08)}
+  .chip i{width:8px;height:8px;border-radius:2px;display:inline-block}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(224px,1fr));gap:15px}
+  .card{background:linear-gradient(180deg,var(--panel),#0f1430);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;cursor:pointer;position:relative;transition:transform .11s,border-color .13s;overflow:hidden}
+  .card:hover{transform:translateY(-3px);border-color:var(--dc)}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--dc);opacity:.75}
+  .top{display:flex;gap:13px;align-items:center}
+  .port{width:60px;height:70px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:30px;font-weight:600;color:var(--dc);
+    background:linear-gradient(155deg,color-mix(in srgb,var(--dc) 22%,#1a2038),#141a30);border:1.5px solid var(--dc);position:relative}
+  .aura{position:absolute;inset:-8px;border-radius:12px;pointer-events:none}
+  .glint{position:absolute;top:-6px;left:38px;display:flex;align-items:center;gap:3px;background:#141a30;border:1px solid var(--brass2);border-radius:11px;padding:2px 7px 2px 5px;box-shadow:0 0 10px -2px var(--brass)}
+  .glint svg{filter:drop-shadow(0 0 3px var(--brass))}
+  .glint b{font-family:var(--mono);font-size:10.5px;color:var(--brass);font-weight:500}
+  @keyframes tw{0%,100%{opacity:.85}50%{opacity:.45}}
+  .glint svg{animation:tw 2.6s ease-in-out infinite}
+  .who{min-width:0;flex:1}
+  .nm{font-family:var(--serif);font-size:20px;font-weight:600;line-height:1.05;display:flex;align-items:center;gap:6px}
+  .crest{color:var(--brass);flex:none}
+  .cl{font-size:12.5px;margin-top:2px}
+  .cl .c{color:var(--dc);font-weight:500} .cl .lv{color:var(--star3)}
+  .foot{display:flex;align-items:center;justify-content:space-between;margin-top:13px;padding-top:11px;border-top:1px solid var(--line)}
+  .trace{display:flex;align-items:center;gap:5px;height:14px}
+  .trace .d{border-radius:50%}
+  .tlab{font-size:9.5px;color:var(--star3);letter-spacing:.08em;text-transform:uppercase}
+  .uniq{font-size:9.5px;color:var(--brass);letter-spacing:.1em;text-transform:uppercase}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(18px);opacity:0;background:var(--mist);border:1px solid var(--line2);color:var(--star);padding:10px 18px;border-radius:9px;font-size:13px;transition:.25s;pointer-events:none;z-index:9}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1} .toast b{color:var(--brass)}
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<div class="wrap">
+  <div class="head">
+    <h1><span class="s">Formation</span>Roster of Cadets</h1>
+    <div class="summ" id="summ"></div>
+  </div>
+  <div class="filters" id="filters"></div>
+  <div class="grid" id="grid"></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const COL={phys:"#e2965f",mag:"#a88fe4",hyb:"#5fc4ae"}, DNAME={phys:"Physical",mag:"Magical",hyb:"Hybrid"};
+const DOM={monk:"phys",alchemist:"phys",hunter:"phys",knight:"phys",thief:"phys",assassin:"phys",
+  pyromancer:"mag",hydrologist:"mag",geosage:"mag",aethurge:"mag",enchanter:"mag",calculator:"mag",
+  terraformer:"hyb",templar:"hyb"};
+const NAME={monk:"Monk",alchemist:"Alchemist",hunter:"Hunter",knight:"Knight",thief:"Thief",assassin:"Assassin",
+  pyromancer:"Pyromancer",hydrologist:"Hydrologist",geosage:"Geosage",aethurge:"Aethurge",enchanter:"Enchanter",
+  calculator:"Calculator",terraformer:"Terraformer",templar:"Templar"};
+const STAR='<svg viewBox="0 0 16 16" width="12" height="12"><path d="M8 1l1.5 4.9 4.9 1.6-4.9 1.6L8 15 6.5 9.1 1.6 7.5 6.5 5.9z" fill="#d8b26c"/></svg>';
+const CREST='<svg viewBox="0 0 16 16" width="13" height="13"><path d="M8 1l1.7 3.4 3.8.6-2.8 2.7.7 3.8L8 9.9 4.6 11.5l.7-3.8L2.5 5l3.8-.6z" fill="none" stroke="#d8b26c" stroke-width="1.1"/></svg>';
+
+const UNITS=[
+  {n:"Aldren Vhane",cls:"monk",lvl:24,jp:300,joined:1,inv:{monk:750,knight:400,geosage:250,pyromancer:200}},
+  {n:"Sereth Vale",cls:"aethurge",lvl:23,jp:0,joined:2,inv:{aethurge:1300}},
+  {n:"Bran Ostwick",cls:"knight",lvl:25,jp:150,joined:3,inv:{knight:1100,monk:250}},
+  {n:"Mireille Sabel",cls:"enchanter",lvl:22,jp:0,joined:4,inv:{enchanter:900,aethurge:300}},
+  {n:"Ysolde Marchand",cls:"geosage",lvl:24,jp:220,joined:5,inv:{geosage:800,pyromancer:400,hydrologist:300}},
+  {n:"Cato Renn",cls:"hunter",lvl:21,jp:90,joined:8,inv:{hunter:600}},
+  {n:"Fenwick Doss",cls:"terraformer",lvl:26,jp:0,joined:6,inv:{terraformer:1000,knight:500,geosage:500}},
+  {n:"Liora Quell",cls:"templar",lvl:23,jp:340,joined:7,inv:{templar:700,enchanter:400}},
+  {n:"Perrin Vex",cls:"thief",lvl:22,jp:60,joined:9,inv:{thief:650,hunter:200}},
+  {n:"Vespa",cls:"assassin",lvl:20,jp:0,joined:10,inv:{assassin:520},unique:true},
+  {n:"Ptolemy",cls:"calculator",lvl:19,jp:180,joined:11,inv:{calculator:700},unique:true},
+];
+let filter="all", sort="name";
+
+function traceHTML(inv){
+  const entries=Object.entries(inv).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  return entries.map(([cid,jp])=>{const r=Math.max(3,Math.min(7,3+jp/260));return `<span class="d" style="width:${r*2}px;height:${r*2}px;background:${COL[DOM[cid]]};opacity:${(.4+Math.min(.55,jp/1300)).toFixed(2)}" title="${NAME[cid]} · ${jp} JP"></span>`;}).join("");
+}
+function card(u){
+  const d=DOM[u.cls], col=COL[d], total=Object.values(u.inv).reduce((a,b)=>a+b,0);
+  const auraO=Math.min(.5,.12+total/2400*.4).toFixed(2), auraS=(10+total/2400*22).toFixed(0);
+  const glint=u.jp>0?`<div class="glint" title="${u.jp} unspent JP">${STAR}<b>${u.jp}</b></div>`:"";
+  const crest=u.unique?`<span class="crest" title="Plot-unique cadet">${CREST}</span>`:"";
+  const tag=u.unique?`<span class="uniq">named · tier III</span>`:``;
+  return `<div class="card" style="--dc:${col}" data-n="${u.n}">
+    <div class="top">
+      <div class="port">${u.n[0]}<div class="aura" style="box-shadow:0 0 ${auraS}px ${(+auraS/3).toFixed(0)}px ${col};opacity:${auraO}"></div></div>
+      ${glint}
+      <div class="who"><div class="nm">${u.n}${crest}</div>
+        <div class="cl"><span class="c">${NAME[u.cls]}</span> <span class="lv">· Lv ${u.lvl}</span></div></div>
+    </div>
+    <div class="foot"><div class="trace">${traceHTML(u.inv)}</div>${tag}</div>
+  </div>`;
+}
+function match(u){ if(filter==="all")return true; if(filter==="jp")return u.jp>0; return DOM[u.cls]===filter; }
+const SORTS={name:(a,b)=>a.n.localeCompare(b.n),level:(a,b)=>b.lvl-a.lvl,joined:(a,b)=>a.joined-b.joined,jp:(a,b)=>b.jp-a.jp};
+function render(){
+  const list=UNITS.filter(match).sort(SORTS[sort]);
+  document.getElementById("grid").innerHTML=list.map(card).join("");
+  document.getElementById("grid").querySelectorAll(".card").forEach(c=>c.onclick=()=>toast(`Opening <b>${c.dataset.n}</b>'s dossier &rarr;`));
+  const withJP=UNITS.filter(u=>u.jp>0).length, tot=UNITS.reduce((a,u)=>a+u.jp,0);
+  document.getElementById("summ").innerHTML=`${UNITS.length} cadets under your command<br><b>${withJP}</b> have unspent JP · <b>${tot.toLocaleString()}</b> JP idle across the roster`;
+}
+function renderFilters(){
+  const F=[["all","All",null],["jp","Has JP","#d8b26c"],["phys","Physical","#e2965f"],["mag","Magical","#a88fe4"],["hyb","Hybrid","#5fc4ae"]];
+  const SO=[["name","Name"],["level","Level ↓"],["joined","Newest ↓"],["jp","Unspent JP ↓"]];
+  document.getElementById("filters").innerHTML=
+    `<div class="frow"><span class="grp">Show</span>${F.map(([k,l,c])=>`<button class="chip ${filter===k?'on':''}" data-f="${k}">${c?`<i style="background:${c}"></i>`:''}${l}</button>`).join("")}</div>`+
+    `<div class="frow"><span class="grp">Sort</span>${SO.map(([k,l])=>`<button class="chip ${sort===k?'on':''}" data-s="${k}">${l}</button>`).join("")}</div>`;
+  const F2=document.getElementById("filters");
+  F2.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{filter=b.dataset.f;renderFilters();render();});
+  F2.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{sort=b.dataset.s;renderFilters();render();});
+}
+let toT; function toast(m){const t=document.getElementById("toast");t.innerHTML=m;t.classList.add("show");clearTimeout(toT);toT=setTimeout(()=>t.classList.remove("show"),2200);}
+
+// faint drifting star-field
+const cv=document.getElementById("sky"),ctx=cv.getContext("2d");let W,H,stars;
+function initSky(){W=cv.width=innerWidth;H=cv.height=innerHeight;stars=Array.from({length:90},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.1+.3,o:Math.random()*.5+.1,tw:Math.random()*Math.PI*2}));}
+function draw(){ctx.clearRect(0,0,W,H);const t=Date.now()/1000;stars.forEach(s=>{const o=s.o*(.6+.4*Math.sin(t*.5+s.tw));ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fillStyle=`rgba(207,214,245,${o})`;ctx.fill();});requestAnimationFrame(draw);}
+initSky();draw();addEventListener("resize",initSky);
+renderFilters();render();
+</script>
+</body>
+</html>

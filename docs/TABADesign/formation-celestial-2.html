@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taciturn — Formation · Star-Chart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0c1024; --panel:#141a36; --mist:#1b2247; --line:#2a3260; --line2:#404b80;
+    --star:#eee9dd; --star2:#98a1c8; --star3:#5f6997;
+    --brass:#d8b26c; --brass2:#8f7644;
+    --phys:#e2965f; --mag:#a88fe4; --hyb:#5fc4ae; --lock:#3d456e; --afford:#7fc08c;
+    --serif:'Cormorant Garamond',Georgia,serif; --sans:system-ui,'Segoe UI',Roboto,sans-serif; --mono:'SF Mono',ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--void);color:var(--star);font-family:var(--sans);line-height:1.5;padding:26px 20px 70px;
+    background-image:radial-gradient(1100px 600px at 50% 4%,rgba(120,110,200,.10),transparent 62%),radial-gradient(700px 400px at 82% 92%,rgba(95,196,174,.05),transparent 60%);}
+  .wrap{max-width:940px;margin:0 auto}
+  .back{font-size:12px;color:var(--star3);letter-spacing:.14em;text-transform:uppercase;cursor:pointer;margin-bottom:14px;display:inline-block}
+  .back:hover{color:var(--star2)}
+  .doss{display:flex;gap:18px;align-items:center;background:linear-gradient(180deg,var(--panel),var(--void));border:1px solid var(--line);border-radius:16px;padding:16px 22px}
+  .seal{width:64px;height:64px;border-radius:50%;flex:none;background:var(--mist);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:31px;font-weight:600}
+  .who{flex:1;min-width:0}
+  .name{font-family:var(--serif);font-size:29px;font-weight:600;line-height:1.05}
+  .sub{font-size:12.5px;color:var(--star2);margin-top:2px}
+  .stats{display:flex;gap:16px;margin-top:11px;flex-wrap:wrap}
+  .stat{font-size:10px;color:var(--star3);letter-spacing:.1em;text-transform:uppercase}
+  .stat b{display:block;font-family:var(--mono);font-size:15px;color:var(--star);font-weight:500;margin-top:1px}
+  .purse{text-align:right;flex:none}
+  .purse .lab{font-size:10px;color:var(--star3);letter-spacing:.11em;text-transform:uppercase}
+  .purse .val{font-family:var(--mono);font-size:25px;color:var(--brass);font-weight:500;margin-top:1px}
+  .purse .val .u{font-size:12px;color:var(--brass2)}
+  .purse .inv{font-size:10.5px;color:var(--star3);font-family:var(--mono);margin-top:3px}
+
+  .tabs{display:flex;gap:2px;margin:20px 0 8px;border-bottom:1px solid var(--line)}
+  .tab{font-family:var(--serif);font-size:19px;font-weight:600;color:var(--star3);padding:7px 18px 12px;cursor:pointer;background:none;border:none;position:relative;letter-spacing:.02em}
+  .tab:hover{color:var(--star2)} .tab.on{color:var(--star)}
+  .tab.on::after{content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:2px;background:var(--brass)}
+  .tab.dis{color:var(--lock);cursor:default}
+  .tab .m{font-family:var(--sans);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--lock);margin-left:6px;vertical-align:2px}
+
+  svg{width:100%;height:auto;display:block}
+  .cap{font-size:11.5px;color:var(--star3);text-align:center;margin-top:4px;letter-spacing:.01em}
+  .cap b{color:var(--star2);font-weight:400}
+  .starg.pick{cursor:pointer}
+  .lbl{font-family:var(--serif);font-size:15px;font-weight:600;text-anchor:middle}
+  .jpt{font-family:var(--mono);font-size:10.5px;text-anchor:middle;fill:var(--star3)}
+  .why{font-size:10px;text-anchor:middle;fill:var(--brass2)}
+  .band{font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;fill:var(--star3)}
+  .dom{font-family:var(--serif);font-size:15px;font-weight:600;text-anchor:middle}
+
+  .aggr{display:flex;gap:12px;margin-top:14px;flex-wrap:wrap}
+  .agg{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 13px}
+  .agg .t{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--star3)}
+  .agg .n{font-family:var(--mono);font-size:14px;font-weight:500;margin-top:2px}
+  .agg .bar{height:3px;border-radius:2px;background:var(--line);margin-top:7px;overflow:hidden}
+  .agg .bar i{display:block;height:100%;border-radius:2px}
+  .agg .nx{font-size:10px;color:var(--star3);margin-top:7px}
+  .slot{margin-top:8px} .slot .sl{display:flex;justify-content:space-between;font-size:11px;font-family:var(--mono)}
+  .slot .sl span:first-child{color:var(--star2);font-family:var(--sans)} .slot .ok{color:var(--afford)} .slot .sh{color:var(--brass)}
+  .slot .bar{margin-top:4px}
+
+  .sec{margin-top:16px}
+  .sech{display:flex;align-items:baseline;gap:10px;margin-bottom:2px}
+  .sech h3{font-family:var(--serif);font-size:20px;font-weight:600}
+  .sech p{font-size:12px;color:var(--star3)}
+  .abil{display:flex;align-items:center;gap:13px;padding:11px 2px;border-bottom:1px solid var(--line)}
+  .abil:last-child{border-bottom:none}
+  .aico{width:30px;height:30px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--mist);color:var(--star3);border:1px solid var(--line)}
+  .abil.have .aico{color:var(--afford);border-color:rgba(127,192,140,.35);background:rgba(127,192,140,.12)}
+  .ainfo{flex:1;min-width:0} .anm{font-size:14px;font-weight:500} .afx{font-size:12px;color:var(--star2);margin-top:1px}
+  .afx .cond{color:var(--hyb)}
+  .aright{flex:none;display:flex;align-items:center;gap:11px}
+  .buy{font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:7px;border:1px solid var(--brass2);background:transparent;color:var(--brass);cursor:pointer;white-space:nowrap}
+  .buy:hover{background:rgba(216,178,108,.13)} .buy.no{border-color:var(--line);color:var(--star3);cursor:default} .buy.no:hover{background:transparent}
+  .havet{font-size:12px;white-space:nowrap;text-align:right}
+  .havet .k{color:var(--afford)} .havet .e{display:block;font-family:var(--mono);font-size:10px;color:var(--star3);margin-top:1px}
+  .note{font-size:12px;color:var(--star2);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 13px;margin-bottom:2px}
+  .note b{color:var(--star)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(18px);opacity:0;background:var(--mist);border:1px solid var(--line2);color:var(--star);padding:10px 18px;border-radius:9px;font-size:13px;transition:.25s;pointer-events:none;z-index:9}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1} .toast b{color:var(--brass)}
+  @keyframes ignite{0%{opacity:.2;transform:scale(.3)}60%{opacity:1;transform:scale(1.4)}100%{transform:scale(1)}}
+  .newly{transform-box:fill-box;transform-origin:center;animation:ignite .75s ease}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="back">&larr;&nbsp; Roster</div>
+  <div class="doss" id="doss"></div>
+  <div class="tabs" id="tabs"></div>
+  <div id="panel"></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const DOMN={phys:"Physical",mag:"Magical",hyb:"Hybrid"}, COL={phys:"#e2965f",mag:"#a88fe4",hyb:"#5fc4ae"};
+const ICON={
+  A:'<svg viewBox="0 0 16 16" width="15" height="15"><path d="M8 1.5l1.5 4.9 4.9 1.6-4.9 1.6L8 14.5 6.5 9.6 1.6 8l4.9-1.6z" fill="currentColor"/></svg>',
+  R:'<svg viewBox="0 0 16 16" width="15" height="15"><path d="M8 1.5l5.4 2v4c0 4-5.4 6.5-5.4 6.5S2.6 11.5 2.6 7.5v-4z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>',
+  S:'<svg viewBox="0 0 16 16" width="15" height="15"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  M:'<svg viewBox="0 0 16 16" width="15" height="15"><path d="M2.5 8h9M8 4.5l3.6 3.5-3.6 3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  I:'<svg viewBox="0 0 16 16" width="15" height="15"><path d="M6.4 2h3.2M7 2v3.6L4.2 11a2 2 0 0 0 1.8 3h4a2 2 0 0 0 1.8-3L9 5.6V2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>',
+  PA:'<svg viewBox="0 0 16 16" width="15" height="15"><circle cx="8" cy="8" r="4.3" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M8 1v2.6M8 12.4V15M1 8h2.6M12.4 8H15" stroke="currentColor" stroke-width="1.2"/></svg>',
+  VA:'<svg viewBox="0 0 16 16" width="15" height="15"><path d="M6 2.5 4.6 13.5M11.4 2.5 10 13.5M3 6h11M2.5 10h11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>'
+};
+const TYPENAME={A:"Active",R:"Reaction",S:"Support",M:"Movement",I:"Item",PA:"Parameter",VA:"Value"};
+const C=[
+  {id:"alchemist",n:"Alchemist",d:"phys",t:1,x:95,y:430},{id:"monk",n:"Monk",d:"phys",t:1,x:180,y:430},{id:"hunter",n:"Hunter",d:"phys",t:1,x:265,y:430},
+  {id:"knight",n:"Knight",d:"phys",t:2,x:138,y:265},{id:"thief",n:"Thief",d:"phys",t:2,x:222,y:265},{id:"assassin",n:"Assassin",d:"phys",t:3,x:180,y:100},
+  {id:"terraformer",n:"Terraformer",d:"hyb",t:2,x:405,y:265},{id:"templar",n:"Templar",d:"hyb",t:2,x:495,y:265},{id:"onion",n:"Onion Knight",d:"hyb",t:3,x:450,y:100},
+  {id:"pyromancer",n:"Pyromancer",d:"mag",t:1,x:635,y:430},{id:"hydrologist",n:"Hydrologist",d:"mag",t:1,x:720,y:430},{id:"geosage",n:"Geosage",d:"mag",t:1,x:805,y:430},
+  {id:"aethurge",n:"Aethurge",d:"mag",t:2,x:678,y:265},{id:"enchanter",n:"Enchanter",d:"mag",t:2,x:762,y:265},{id:"calculator",n:"Calculator",d:"mag",t:3,x:720,y:100},
+];
+const mk=(n,c,t,fx,cond)=>({n,c,t,fx,cond});
+const KIT={
+  monk:[mk("Bear's Heave",100,"A","Grapple-throw; ledge drops"),mk("Serpent's Coil",150,"A","×7 + Speed refund"),mk("Foxfire",150,"A","×8 + Burn"),mk("Storm Stoop",150,"A","×7 line AoE"),mk("Chakra",300,"A","Self-heal + MP + AoE"),mk("Counterpunch",400,"R","Counter PA×4"),mk("Barehanded",200,"S","Enables PA² fists"),mk("Vigilance",300,"M","+½PA evasion")],
+  hunter:[mk("Charged Attack",100,"A","×2 ranged shot"),mk("Pin Down",200,"A","Slow 50%"),mk("Scramble",100,"A","Climb / reposition"),mk("Updraft",150,"R","+1 Jump on hit"),mk("Eagle Eye",300,"S","Hit chance ×2"),mk("Vantage",300,"S","Attack as +2 elevation"),mk("High Jump",200,"M","+2 Jump")],
+  alchemist:[mk("Potion",100,"I","Heal (craft + throw)"),mk("Phoenix Down",150,"I","Revive (craft + throw)"),mk("Remedy",150,"I","Cleanse (craft + throw)"),mk("Ether",200,"I","Restore MP (craft + throw)"),mk("Combat Focus",250,"R","+1 PA under fire"),mk("Travel Preparations",250,"S","Start with items"),mk("Healthy Stride",250,"M","Heal on move")],
+  knight:[mk("Power Attack",100,"A","×1.5 physical"),mk("Bull Rush",150,"A","Knockback"),mk("Lightning Stab",150,"A","Silence 50%"),mk("Counter",400,"R","Counter with Attack"),mk("Martial Expertise",450,"S","PA ×1.25"),mk("Bravestrider",200,"M","+1 Move / +10 Brave")],
+  thief:[mk("Steal HP",100,"A","Lifesteal strike"),mk("Steal MP",150,"A","Drain + refuel"),mk("Steal Buffs",250,"A","Strip buffs to self"),mk("Steal Heart",300,"A","Charm 3 turns"),mk("Slip Free",200,"R","Shrug debuffs"),mk("Momentum",300,"S","+CT after acting"),mk("Move +2",300,"M","+2 Move Range")],
+  pyromancer:[mk("Scorch",100,"A","SP8 + PA/MA down"),mk("Slow Burn",100,"A","2 Burn stacks"),mk("Fireball",200,"A","AoE"),mk("Inner Warmth",150,"A","PA/MA up (ally)"),mk("Flame Lance",300,"A","Ult · line + Burn"),mk("Smolder",150,"R","Burn on hit taken"),mk("Aether Bloom",300,"S","AoE expand +1"),mk("Ignition",200,"S","Burn on magic dmg"),mk("Hotfoot",350,"M","+1 Move / +1 Speed")],
+  hydrologist:[mk("Water Lash",100,"A","SP8 + push CT"),mk("Brine",150,"A","Speed down"),mk("Rapids Rush",200,"A","Boost ally CT"),mk("Tidal Wave",200,"A","AoE + knockback"),mk("Maelstrom",300,"A","Ult · cone knockback"),mk("Tidal Pull",200,"R","+CT on hit taken"),mk("Flow State",250,"S","+CT after casting"),mk("Tidewalker",150,"M","Water terrain −1")],
+  geosage:[mk("Rock Toss",100,"A","SP8 + slow"),mk("Life from the Loam",200,"A","Applies Regen"),mk("Gaian Hex",150,"A","Blind + Silence"),mk("Earthquake",250,"A","AoE + slow"),mk("Cataclysm",300,"A","Ult · lockdown AoE"),mk("Landwalker",150,"R","+Move on hit"),mk("Biomastery",400,"S","Status chance ×1.25"),mk("Bedrock Stride",200,"M","+1 Move / no fall")],
+  aethurge:[mk("Lightning Bolt",100,"A","SP12 bolt"),mk("Magnetic Mark",150,"A","Vulnerable"),mk("Static Embrace",150,"A","Crit up (ally)"),mk("Chain Lightning",200,"A","AoE"),mk("Megavolt",450,"A","Ult · SP36 nuke"),mk("Discharge",250,"R","Retaliate lightning"),mk("Conductor",450,"S","MA ×1.25"),mk("Quickstep",200,"M","+CT if moved")],
+  enchanter:[mk("Protect",100,"A","Physical ward"),mk("Shell",150,"A","Magical ward"),mk("Esuna",150,"A","AoE cleanse"),mk("Haste",250,"A","Speed / CT buff"),mk("Resistance Save",200,"R","+resist on hit"),mk("Short Charge",400,"S","Charges ×1.33 faster"),mk("Aura Mastery",300,"S","Cast buffs ×1.33"),mk("Float",200,"M","Water / no fall")],
+  terraformer:[mk("Pillar",100,"A","Raise a tile +4"),mk("Pit",100,"A","Lower a tile −4"),mk("Hill",300,"A","Raise 3×3 area"),mk("Valley",300,"A","Lower 3×3 area"),mk("Barrier",200,"A","Spawn walls"),mk("Damage Split",400,"R","Reflect half + heal"),mk("Ignore Height",200,"M","Step any elevation"),mk("Expert Former",200,"S","Worldcraft cap +2","Worldcraft")],
+  templar:[mk("Jump",100,"A","Physical lance"),mk("Cure",200,"A","AoE heal"),mk("Raise",300,"A","Revive"),mk("Unified Calling",150,"R","MP when healed"),mk("Emissary of Murond",250,"S","Heals ×1.25"),mk("Monkeygrip",200,"S","2H one-handed"),mk("Faithstrider",200,"M","+1 Move / +10 Faith")],
+  assassin:[mk("Blowdart",100,"A","Poison DoT"),mk("Undermine",150,"A","Brave down"),mk("Sow Doubt",150,"A","Faith down"),mk("Shadow Stitch",350,"A","Stop 60% — full lockdown"),mk("Speed Save",200,"R","+Speed on hit"),mk("Two Weapons",400,"S","Dual-wield (PA×0.75)"),mk("Fleet of Foot",200,"M","+1 Move / +1 Jump")],
+  calculator:[mk("Precision Fire",100,"A","Field-wide fire + Burn"),mk("Targeted Treatment",150,"A","Field-wide heal"),mk("Sculpted Enhancement",200,"A","Field-wide PA/MA up"),mk("Engineered Defenses",200,"A","Field-wide def buff"),mk("Exact Rhythm",200,"A","Field-wide CT adjust"),mk("Current CT",150,"PA","Target by CT"),mk("Level",150,"PA","Target by level"),mk("Height",100,"PA","Target by elevation"),mk("Current HP",100,"PA","Target by HP"),mk("Prime",150,"VA","Match primes"),mk("3",100,"VA","Match multiples of 3"),mk("4",75,"VA","Match multiples of 4"),mk("5",75,"VA","Match multiples of 5"),mk("Cornered Focus",200,"R","+MA on hit"),mk("Mathematician",200,"S","Boost Math Skill","Math Skill"),mk("Thoughtful Pacing",250,"M","MP on move")],
+};
+
+let S={ name:"Aldren Vhane", level:24, cur:"monk", tab:"path", just:null,
+  earned:{monk:1050,alchemist:100,hunter:100,knight:450,thief:100,pyromancer:550,hydrologist:450,geosage:250,aethurge:450,enchanter:500,calculator:300},
+  learned:new Set(["monk:Bear's Heave","monk:Serpent's Coil","monk:Foxfire","monk:Storm Stoop","monk:Barehanded",
+    "alchemist:Potion","hunter:Charged Attack","knight:Power Attack","knight:Bull Rush","knight:Lightning Stab","thief:Steal HP",
+    "pyromancer:Scorch","pyromancer:Slow Burn","pyromancer:Fireball","pyromancer:Inner Warmth",
+    "hydrologist:Water Lash","hydrologist:Brine","hydrologist:Rapids Rush",
+    "geosage:Rock Toss","geosage:Gaian Hex",
+    "aethurge:Lightning Bolt","aethurge:Magnetic Mark","aethurge:Chain Lightning",
+    "enchanter:Protect","enchanter:Shell","enchanter:Haste"])
+};
+const STATS={hp:140,mp:44,pa:9,ma:7,spd:8};
+const costOf=(cid,name)=>{const k=(KIT[cid]||[]).find(a=>a.n===name);return k?k.c:0;};
+const earned=id=>S.earned[id]||0;
+function spent(id){let s=0;S.learned.forEach(key=>{const[c,n]=key.split(":");if(c===id)s+=costOf(c,n);});return s;}
+const purse=id=>earned(id)-spent(id);
+function tierAgg(d,t){let s=0;C.forEach(c=>{if(c.d===d&&c.t===t)s+=spent(c.id);});return s;}
+function open(c){
+  const p1=tierAgg("phys",1),p2=tierAgg("phys",2),m1=tierAgg("mag",1),m2=tierAgg("mag",2);
+  let h2=0;C.forEach(c2=>{if(c2.d==="hyb"&&c2.t===2)h2+=spent(c2.id);});
+  if(c.d==="phys"&&c.t===1) return true;
+  if(c.d==="mag"&&c.t===1) return p1>=500;
+  if(c.d==="phys"&&c.t===2) return p1>=500;
+  if(c.d==="mag"&&c.t===2) return m1>=500;
+  if(c.d==="phys"&&c.t===3) return p1>=1000&&p2>=500;
+  if(c.d==="mag"&&c.t===3) return m1>=1000&&m2>=500;
+  if(c.d==="hyb"&&c.t===2) return p1>=500&&m1>=500;
+  if(c.d==="hyb"&&c.t===3) return h2>=1000;
+}
+function reason(c){
+  const p1=tierAgg("phys",1),p2=tierAgg("phys",2),m1=tierAgg("mag",1),m2=tierAgg("mag",2);
+  if(c.d==="phys"&&c.t===3){const a=Math.max(0,1000-p1),b=Math.max(0,500-p2);return a&&b?`+${a} T1 · +${b} T2`:a?`+${a} JP in Physical T1`:`+${b} JP in Physical T2`;}
+  if(c.d==="mag"&&c.t===3){const a=Math.max(0,1000-m1),b=Math.max(0,500-m2);return a&&b?`+${a} T1 · +${b} T2`:a?`+${a} JP in Magical T1`:`+${b} JP in Magical T2`;}
+  if(c.d==="hyb"&&c.t===3) return "master a hybrid first";
+  if(c.d==="hyb"&&c.t===2) return "need 500 in both halves' T1";
+  if(c.d==="phys"&&c.t===2) return `+${Math.max(0,500-p1)} JP in Physical T1`;
+  if(c.d==="mag"&&c.t===2) return `+${Math.max(0,500-m1)} JP in Magical T1`;
+  return "locked";
+}
+const cls=()=>C.find(c=>c.id===S.cur), $=s=>document.querySelector(s);
+
+function renderDoss(){
+  const c=cls(),col=COL[c.d];
+  $("#doss").innerHTML=`<div class="seal" style="color:${col};border:1.5px solid ${col};box-shadow:0 0 20px -4px ${col}">${S.name[0]}</div>
+    <div class="who"><div class="name">${S.name}</div>
+      <div class="sub">Level ${S.level} &nbsp;·&nbsp; <span style="color:${col}">${c.n}</span> &nbsp;·&nbsp; ${DOMN[c.d]} Tier ${c.t}</div>
+      <div class="stats">${Object.entries(STATS).map(([k,v])=>`<div class="stat">${k}<b>${v}</b></div>`).join("")}</div></div>
+    <div class="purse"><div class="lab">${c.n} purse</div><div class="val">${purse(c.id).toLocaleString()}<span class="u"> JP</span></div>
+      <div class="inv">${spent(c.id).toLocaleString()} spent as ${c.n} · ${earned(c.id).toLocaleString()} earned</div></div>`;
+}
+function renderTabs(){
+  $("#tabs").innerHTML=`<button class="tab ${S.tab==="path"?"on":""}" data-t="path">Constellation</button>
+    <button class="tab ${S.tab==="train"?"on":""}" data-t="train">Training</button>
+    <button class="tab dis">Equipment<span class="m">soon</span></button>`;
+  $("#tabs").querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;render();});
+}
+
+function starSVG(c){
+  const col=COL[c.d], isOpen=open(c), cur=c.id===S.cur, sp=spent(c.id), visited=sp>0;
+  const r=visited?Math.min(6+sp/900*14,20):6, pick=isOpen;
+  let body;
+  if(!isOpen) body=`<circle cx="${c.x}" cy="${c.y}" r="5" fill="none" stroke="#3d456e" stroke-width="1" stroke-dasharray="2 3"/>`;
+  else if(cur) body=`<circle cx="${c.x}" cy="${c.y}" r="${r+13}" fill="${col}" opacity=".10"/><circle cx="${c.x}" cy="${c.y}" r="${r+5}" fill="none" stroke="#d8b26c" stroke-width="1" opacity=".85"/><circle cx="${c.x}" cy="${c.y}" r="${r}" fill="${col}"/><circle cx="${c.x}" cy="${c.y}" r="${r*.42}" fill="#fff" opacity=".85"/>`;
+  else if(visited) body=`<circle cx="${c.x}" cy="${c.y}" r="${r+9}" fill="${col}" opacity="${(.1+sp/900*.14).toFixed(2)}"/><circle cx="${c.x}" cy="${c.y}" r="${r}" fill="${col}" opacity="${(.55+sp/900*.45).toFixed(2)}"/><circle cx="${c.x}" cy="${c.y}" r="${r*.4}" fill="#fff" opacity=".65"/>`;
+  else body=`<circle cx="${c.x}" cy="${c.y}" r="${r+7}" fill="${col}" opacity=".05"/><circle cx="${c.x}" cy="${c.y}" r="${r}" fill="none" stroke="${col}" stroke-width="1.4" opacity=".85"/>`;
+  const lc=isOpen?col:"#5f6997", ny=c.y+r+16;
+  let sub;
+  if(!isOpen) sub=`<text class="why" x="${c.x}" y="${ny+13}">${reason(c)}</text>`;
+  else if(visited) sub=`<text class="jpt" x="${c.x}" y="${ny+13}">${sp.toLocaleString()} JP</text>`;
+  else sub=`<text class="jpt" x="${c.x}" y="${ny+13}" fill="${col}" opacity=".7">open · not yet trained</text>`;
+  return `<g class="starg ${pick?'pick':''} ${S.just===c.id?'newly':''}" ${pick?`data-go="${c.id}"`:""}>
+    ${body}<text class="lbl" x="${c.x}" y="${ny}" fill="${lc}">${c.n}</text>${sub}
+    ${pick?`<circle cx="${c.x}" cy="${c.y}" r="26" fill="transparent"/>`:""}</g>`;
+}
+function renderPath(){
+  const bands=[[70,"Zenith · tier iii"],[200,"Ascendant · tier ii"],[370,"Horizon · tier i"]];
+  const dust=Array.from({length:32}).map(()=>`<circle cx="${(Math.random()*900).toFixed(0)}" cy="${(Math.random()*470).toFixed(0)}" r="${(Math.random()*.9+.4).toFixed(1)}" fill="#cfd6f5" opacity="${(Math.random()*.22+.05).toFixed(2)}"/>`).join("");
+  const spines=[[180,"phys"],[450,"hyb"],[720,"mag"]].map(([x,d])=>`<line x1="${x}" y1="92" x2="${x}" y2="440" stroke="${COL[d]}" stroke-width="1" opacity=".12" stroke-dasharray="1 6"/>`).join("");
+  const stars=[...C].sort((a,b)=>spent(a.id)-spent(b.id)).map(starSVG).join("");
+  $("#panel").innerHTML=`<svg viewBox="0 0 900 515" role="img" aria-label="Class constellation: each class is a star whose brightness is the JP invested in it.">
+    ${dust}
+    ${bands.map(([y,l])=>`<line x1="150" y1="${y}" x2="866" y2="${y}" stroke="#2a3260" stroke-width="1" opacity=".45" stroke-dasharray="2 5"/><text class="band" x="16" y="${y+3}">${l}</text>`).join("")}
+    ${spines}
+    <text class="dom" x="180" y="500" fill="#e2965f">Physical</text><text class="dom" x="450" y="500" fill="#5fc4ae">Hybrid</text><text class="dom" x="720" y="500" fill="#a88fe4">Magical</text>
+    ${stars}</svg>
+    <div class="cap">Each star's brightness is the JP invested in that class. <b>Bright = built up · thin outline = open to train · dashed = locked (with what opens it).</b> Tap any lit star to train there.</div>
+    <div class="aggr">${aggCard("Physical")}${aggCard("Magical")}</div>`;
+  $("#panel").querySelectorAll("[data-go]").forEach(g=>g.onclick=()=>go(g.dataset.go));
+  S.just=null;
+}
+function slotRow(label,val,need,col){
+  const met=val>=need, pct=Math.min(100,val/need*100);
+  return `<div class="slot"><div class="sl"><span>${label}</span><span class="${met?'ok':'sh'}">${val.toLocaleString()} / ${need.toLocaleString()}${met?' ✓':''}</span></div>
+    <div class="bar"><i style="width:${pct}%;background:${met?col:'var(--brass2)'}"></i></div></div>`;
+}
+function aggCard(name){
+  const d=name==="Physical"?"phys":"mag", t1=tierAgg(d,1), t2=tierAgg(d,2), col=COL[d];
+  const t3open=t1>=1000&&t2>=500;
+  let nx;
+  if(t1<500) nx=`${500-t1} more in Tier I opens Tier II`;
+  else if(t3open) nx=`Tier III open — both thresholds met`;
+  else{const a=Math.max(0,1000-t1),b=Math.max(0,500-t2);nx=`Tier III needs ${a?`+${a} in Tier I`:''}${a&&b?' · ':''}${b?`+${b} in Tier II`:''}`;}
+  return `<div class="agg"><div class="t">${name} · tier-slot aggregates <span style="color:var(--star3);text-transform:none;letter-spacing:0"> (the threshold currency)</span></div>
+    ${slotRow("Tier I",t1,1000,col)}${slotRow("Tier II",t2,500,col)}
+    <div class="nx">${nx}</div></div>`;
+}
+
+function rowHTML(a,cid){
+  const key=cid+":"+a.n, have=S.learned.has(key), p=purse(cid);
+  const isPassive=(a.t==="R"||a.t==="S"||a.t==="M");
+  let right;
+  if(have){
+    if(isPassive) right=`<div class="havet"><span class="k">✓ Innate</span>${a.cond?`<span class="e">works with ${a.cond} equipped</span>`:`<span class="e">carries to other classes</span>`}</div>`;
+    else right=`<div class="havet"><span class="k">✓ Learned</span></div>`;
+  } else if(a.c<=p) right=`<button class="buy" data-buy="${a.n}" data-c="${a.c}">Learn · ${a.c} JP</button>`;
+  else right=`<button class="buy no">${a.c} JP · short ${a.c-p}</button>`;
+  return `<div class="abil ${have?"have":""}"><div class="aico" title="${TYPENAME[a.t]}">${ICON[a.t]}</div>
+    <div class="ainfo"><div class="anm">${a.n}</div><div class="afx">${a.fx}${a.cond&&!have?` · <span class="cond">needs ${a.cond}</span>`:``}</div></div>
+    <div class="aright">${right}</div></div>`;
+}
+function renderTrain(){
+  const c=cls(), kit=KIT[c.id]||[], col=COL[c.d], p=purse(c.id);
+  const acts=kit.filter(a=>a.t==="A"), items=kit.filter(a=>a.t==="I"), params=kit.filter(a=>a.t==="PA"||a.t==="VA"), pas=kit.filter(a=>a.t==="R"||a.t==="S"||a.t==="M");
+  const aff=kit.filter(a=>!S.learned.has(c.id+":"+a.n)&&a.c<=p).length;
+  let html=`<div style="font-size:12px;color:var(--star3);margin:2px 0 4px">${c.n} purse: <b style="color:var(--brass);font-family:var(--mono)">${p.toLocaleString()} JP</b> · ${aff} affordable now · spendable only on ${c.n}</div>`;
+  if(items.length) html+=`<div class="sec"><div class="sech"><h3 style="color:${col}">Items</h3><p>Compound &amp; Throw Item are always ready — unlock items to fill them</p></div>${items.map(a=>rowHTML(a,c.id)).join("")}</div>`;
+  if(params.length) html+=`<div class="sec"><div class="sech"><h3 style="color:${col}">Math Skill</h3><p>The cast is always ready — unlock Parameters and Values to aim it</p></div>${params.map(a=>rowHTML(a,c.id)).join("")}</div>`;
+  html+=`<div class="sec"><div class="sech"><h3 style="color:${col}">Command Set</h3><p>Actives — unlock to wield as ${c.n}</p></div>${acts.map(a=>rowHTML(a,c.id)).join("")}</div>`;
+  html+=`<div class="sec"><div class="sech"><h3 style="color:${col}">Passives</h3><p>Reaction · Support · Movement — the JP price also carries one onto another class</p></div>${pas.map(a=>rowHTML(a,c.id)).join("")}</div>`;
+  $("#panel").innerHTML=html;
+  $("#panel").querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>buy(c.id,b.dataset.buy,+b.dataset.c));
+}
+
+let toT; function toast(m){const t=$("#toast");t.innerHTML=m;t.classList.add("show");clearTimeout(toT);toT=setTimeout(()=>t.classList.remove("show"),2500);}
+function buy(cid,name,cost){
+  if(purse(cid)<cost) return;
+  const before=new Set(C.filter(open).map(c=>c.id));
+  S.learned.add(cid+":"+name);
+  const lit=C.find(c=>open(c)&&!before.has(c.id));
+  if(lit){ S.earned[lit.id]=330; S.just=lit.id; toast(`Learned <b>${name}</b> — <b>${lit.n}</b> ignites (granted 330 JP)`); }
+  else toast(`Learned <b>${name}</b>`);
+  render();
+}
+function go(id){ const c=C.find(x=>x.id===id); if(!open(c))return; if(id!==S.cur){S.cur=id;toast(`Now training as <b>${c.n}</b>`);} S.tab="train"; render(); }
+function render(){ renderDoss(); renderTabs(); if(S.tab==="train")renderTrain(); else renderPath(); }
+render();
+</script>
+</body>
+</html>
