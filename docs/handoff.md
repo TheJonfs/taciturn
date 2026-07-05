@@ -41,10 +41,19 @@ remains are small tails (below).
   without training). Harmless, but it's why some equipped passives read
   "exported" without a matching unlock until seeding runs.
 
-### Remaining M2 tails (small, deferred — unchanged from S81)
+### Remaining M2 tails
 1. **JP spillover** on over-threshold spend — brief seam, still TBD.
-2. **Enemy progression authoring** — statsByLevel + per-class JP + unlocks on
-   authored enemy placements (deferred to battle-creation).
+2. ~~Enemy progression authoring~~ — **ENABLER BUILT (S83, commit `1442061`).**
+   `authoredEnemy(spec)` + `foldEnemyTeam` + `foldBattle` + `NodeBattle.enemies?`:
+   an authored enemy is a `CampaignUnit` folded through the team-agnostic
+   `campaignPlacement`, so it gets curve stats at its level, `statsByLevel`
+   (enemies now LEVEL mid-battle — the XP mechanism was already team-agnostic),
+   and a kit GATED to its explicit `unlocks` (a SUBSET = a weak enemy). NO engine
+   change. The next step is the CONTENT/tuning task: author specific battles'
+   enemy teams (levels + kits) on their `battle` beats — nothing authored uses
+   `enemies` yet, so the path is dormant/backward-compatible until then. Verify
+   the first authored battle in-app (the fold is unit-tested; the live launch
+   path isn't yet exercised by content).
 3. **"Level Up!" banner** — animator polish (log line + HP-bar jump only today).
 
 ### Follow-ups the brief named that this session did / deferred

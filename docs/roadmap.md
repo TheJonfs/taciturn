@@ -357,9 +357,12 @@ These are noted to make their absence intentional rather than accidental:
   ledger, tier tree, gating + combinator filtering, per-action earning, real ~110
   costs; XP & mid-battle level-up ADR-0139 — LIVE; the Formation UI —
   roster/dossier/reclass/train/loadout — + **JP-gating now LIVE in play**,
-  ADR-0140). Remaining M2 tails: enemy-progression authoring, JP spillover, and
-  the "Level Up!" banner (animator polish). Then economy (M3), authoring (M4),
-  story (M5).
+  ADR-0140; the **enemy-progression authoring enabler** — `authoredEnemy` /
+  `foldEnemyTeam` / `NodeBattle.enemies?`; enemies fold through the same
+  team-agnostic path for curve stats + mid-battle leveling + gated kits, no
+  engine change). Remaining M2 tails: JP spillover and the "Level Up!" banner
+  (animator polish); plus the CONTENT task of authoring specific battles' enemy
+  teams. Then economy (M3), authoring (M4), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.
 

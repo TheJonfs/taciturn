@@ -92,8 +92,22 @@ aesthetic. The build ports them faithfully into React over the settled selectors
   if too generous.
 - **Multi-secondary command** (Magus Crown lifts secondary capacity >1) — the
   Loadout tab keeps secondary single-select for now; a later refinement.
-- Deferred M2 tails unchanged: **JP spillover** on over-threshold spend,
-  **enemy-progression authoring**, the **"Level Up!" banner** (animator polish).
+- Deferred M2 tails: **JP spillover** on over-threshold spend, the **"Level Up!"
+  banner** (animator polish).
+- **Enemy-progression authoring — enabler shipped (S83 addendum, commit
+  `1442061`).** No engine change: `campaignPlacement` already stamps curve
+  baseStats + `statsByLevel` + `usable*` and is team-agnostic, and `buildXpAward`
+  gates on `statsByLevel` presence (not team) — so an authored enemy is just a
+  `CampaignUnit` folded through the same path. Added `authoredEnemy(spec)` (the
+  spec's `unlocks` IS the gated kit — a subset makes a deliberately-weak enemy,
+  the only lever since command sets are whole-class), `foldEnemyTeam` (re-skins a
+  config's enemy slots), `foldBattle` (composes player + enemy folds — the
+  driver's entry), and `NodeBattle.enemies?` (optional; absent → template enemies
+  pass through, backward-compatible). Chris's scope calls: enemies **level**
+  (statsByLevel stamped) and are **gated** (usable* from authored unlocks). Enemy
+  specs live in the campaign shell (they're `CampaignUnit`s), authored on the
+  battle beat — NOT in `src/content/battles` (layering). Dormant until a battle
+  authors `enemies`; authoring specific teams is the follow-on content task.
 - A **dev harness** (`FormationDevHarness`, `?formation` in `main.tsx`) seeds a
   rich roster for building/verifying the celestial UI — fresh campaign units are
   empty. Dev-only, gated behind a URL flag; kept for future formation work.
