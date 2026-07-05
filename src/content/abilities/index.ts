@@ -119,8 +119,16 @@ import { pit } from './worldcraft/pit.ts';
 import { hill } from './worldcraft/hill.ts';
 import { valley } from './worldcraft/valley.ts';
 import { barrier } from './worldcraft/barrier.ts';
+// TABA chapter-1 plot-unit signatures (free innate, unit-specific).
+import { ascendantFlame } from './ascendant-flame.ts';
+import { bulwarkOath } from './bulwark-oath.ts';
+import { tidalCadence } from './tidal-cadence.ts';
 
 export const abilities: ReadonlyArray<AbilityDefinition> = [
+  // TABA plot-unit signatures.
+  ascendantFlame,
+  bulwarkOath,
+  tidalCadence,
   aetherBloom,
   applyBurnProc,
   applySilenceProc,

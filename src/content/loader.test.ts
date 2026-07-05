@@ -225,7 +225,8 @@ describe('loadDefaultCatalog', () => {
     //   - commandSets: 15 → 16 (martial_arts)
     //   - classes: 13 → 14 (monk)
     expect(cat.statusTypes()).toHaveLength(43);
-    expect(cat.abilities()).toHaveLength(120);
+    // +3 TABA plot-unit signatures (Ascendant Flame / Bulwark Oath / Tidal Cadence).
+    expect(cat.abilities()).toHaveLength(123);
     expect(cat.commandSets()).toHaveLength(16);
     expect(cat.classes()).toHaveLength(14);
     // Session 74 (caster-accessory batch): 77 → 81 (greaves_of_seraphis,
