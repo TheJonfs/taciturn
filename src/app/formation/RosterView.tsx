@@ -26,6 +26,7 @@ import {
   type RosterSort,
 } from './roster-view-model.ts';
 import { FORMATION_STYLE } from './formation-style.ts';
+import { resolveUnitPortrait } from '../../assets/portraits/index.ts';
 
 export interface RosterViewProps {
   readonly roster: ReadonlyArray<CampaignUnit>;
@@ -155,6 +156,9 @@ function UnitCard({
 }): ReactElement {
   const { unit, domain, idleJp, totalInvested, investment, isUnique } = entry;
   const col = DOMAIN_COLOR[domain];
+  // Bespoke plot face where one exists, else the class+gender portrait; the
+  // capital-letter monogram remains the final fallback (unregistered class).
+  const portraitUrl = resolveUnitPortrait(unit.portrait, unit.classId, unit.gender);
   // Aura brightness scales with total investment (veterancy at a glance).
   const auraSpread = 10 + Math.min(1, totalInvested / 2400) * 22;
   const auraOpacity = Math.min(0.5, 0.12 + Math.min(1, totalInvested / 2400) * 0.4);
@@ -175,7 +179,11 @@ function UnitCard({
     >
       <div className="tf-top">
         <div className="tf-port">
-          {initial(unit.name)}
+          {portraitUrl !== null ? (
+            <img className="tf-face" src={portraitUrl} alt="" />
+          ) : (
+            initial(unit.name)
+          )}
           <div
             className="tf-aura"
             style={{

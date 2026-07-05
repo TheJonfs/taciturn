@@ -83,9 +83,11 @@ Hamstring and Thessaly's XP / Square appear **only** for those two units — a
 generic Assassin or Calculator never sees them.
 
 **Portraits:** the five leads now have bespoke portraits that stay with them
-across reclassing — visible in **story-scene dialogue** and **in battle** (map
-token, turn queue, deployment panel). (The between-battles Formation roster is an
-abstract "celestial" view and doesn't show photo faces.)
+across reclassing — visible in **story-scene dialogue**, **in battle** (map
+token, turn queue, deployment panel), and the between-battles **Formation
+roster** (both the cadet cards and the unit dossier now show each unit's face
+instead of a letter — plot faces where they exist, otherwise the class + gender
+portrait).
 
 ## Session 83 (2026-07-04) — TABA Formation UI + JP-gating goes live (ADR-0140)
 

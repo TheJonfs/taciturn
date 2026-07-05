@@ -56,6 +56,9 @@ export const FORMATION_STYLE = `
 .tf-top{display:flex;gap:13px;align-items:center}
 .tf-port{width:60px;height:70px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:30px;font-weight:600;color:var(--dc);background:linear-gradient(155deg,color-mix(in srgb,var(--dc) 22%,#1a2038),#141a30);border:1.5px solid var(--dc);position:relative}
 .tf-aura{position:absolute;inset:-8px;border-radius:12px;pointer-events:none}
+/* Portrait filling an avatar frame (roster card + dossier seal). object-position
+   top keeps the face when a taller portrait is cover-cropped into the frame. */
+.tf-face{width:100%;height:100%;object-fit:cover;object-position:top center;border-radius:inherit;display:block}
 .tf-glint{position:absolute;top:-6px;left:38px;display:flex;align-items:center;gap:3px;background:#141a30;border:1px solid var(--brass2);border-radius:11px;padding:2px 7px 2px 5px;box-shadow:0 0 10px -2px var(--brass);z-index:2}
 .tf-glint svg{filter:drop-shadow(0 0 3px var(--brass));animation:tf-tw 2.6s ease-in-out infinite}
 .tf-glint b{font-family:var(--mono);font-size:10.5px;color:var(--brass);font-weight:500}

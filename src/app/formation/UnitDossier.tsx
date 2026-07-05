@@ -33,6 +33,7 @@ import { Constellation } from './Constellation.tsx';
 import { Training } from './Training.tsx';
 import { Customize } from './Customize.tsx';
 import { FORMATION_STYLE } from './formation-style.ts';
+import { resolveUnitPortrait } from '../../assets/portraits/index.ts';
 
 // XP per level (ADR-0139). Single per-unit currency, independent of JP.
 const XP_PER_LEVEL = 100;
@@ -76,6 +77,9 @@ export function UnitDossier({
   const classDef = catalog.getClass(unit.classId);
   const entry = tierEntryOf(unit.classId);
   const col = DOMAIN_COLOR[entry.half];
+  // Bespoke plot face where one exists, else the class+gender portrait; the
+  // capital-letter monogram remains the final fallback.
+  const sealPortrait = resolveUnitPortrait(unit.portrait, unit.classId, unit.gender);
   const stats = buildBaseStats(unit.classId, unit.brave, unit.faith, unit.level);
 
   const purse = availableInClass(unit, unit.classId, componentCatalog);
@@ -111,7 +115,11 @@ export function UnitDossier({
 
         <div className="tf-doss">
           <div className="tf-seal" style={{ color: col, borderColor: col, boxShadow: `0 0 20px -4px ${col}` }}>
-            {unit.name.trim().charAt(0).toUpperCase() || '?'}
+            {sealPortrait !== null ? (
+              <img className="tf-face" src={sealPortrait} alt="" />
+            ) : (
+              unit.name.trim().charAt(0).toUpperCase() || '?'
+            )}
           </div>
           <div className="tf-doss-who">
             <div className="tf-doss-name">{unit.name}</div>
