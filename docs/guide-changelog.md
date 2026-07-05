@@ -89,6 +89,11 @@ just opens that class's Training page. **Reclassing now unequips the passives
 that don't carry to the new class** (your old class's innate passives you never
 exported), freeing those slots instead of leaving them stuck.
 
+**Progression is now visible in battle.** A unit's detail panel shows its **XP
+toward the next level** (`N / 100`), and the action log records the **XP and JP a
+unit earned** for each connecting action as a collapsed ledger detail (turn on
+"Show ledger" to see it) — for your own units.
+
 **Enemies can now be authored with progression too** (levels + limited kits),
 and they level up mid-battle like your units. First use: **River Ridge's opening
 battle** — its garrison is now a tuned **Level 22** team (a rung below your Level
