@@ -83,6 +83,20 @@ a latent setState-in-render in the interstitial advance. Benign in normal play
   deploy-selection context) is the remaining Formation-flow follow-up. The
   ambient `onManageRoster` on `InterstitialRunner`/`BeatRendererProps` is the seam
   to reuse.
+
+### Playtest refinements (S83 cont., commit `86bf6db`)
+- **Reclass moved to the Loadout tab** (a "Class" section with reclass chips);
+  Constellation star clicks now open THAT class's Training (a `viewClassId`
+  decoupled from the unit's actual class — you can view/spend any class's
+  per-class JP without being it; a note flags "not your current class").
+- **Reclass now strips loadout state it invalidates** — passives illegal in the
+  new class (old-class innates never exported) are unequipped (freeing capacity),
+  and a secondary command that duplicates the new primary is cleared. Note: in
+  REAL campaign play, `seedStartingKit` seeds a unit's equipped NON-native
+  passives as unlocks, so those survive a reclass; only old-class *innate* (free,
+  unseeded) passives strip. In the `?formation` harness the demo seeds don't
+  include the loadout passives, so a reclass there strips ALL of them — a
+  demo-data artifact, not the real-play behavior.
 - **Recruitment order for Sort-by-Newest** — used roster array index (no
   recruitment ships until M3); add a monotonic `recruitedAt` when recruits land.
 - **`canEquipPassive` open question** — resolved: enabler passives are

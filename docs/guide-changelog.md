@@ -83,6 +83,12 @@ Reclassing rebinds a unit's primary command to the new class. XP/leveling
 reclass, JP-spend, and loadout changes apply to your real company and persist
 into the next battle. (A pre-battle entry point is still to come.)
 
+In the dossier: **changing a unit's class now lives on the Loadout tab** (a
+"Class" section with the open classes) — clicking a star on the Constellation
+just opens that class's Training page. **Reclassing now unequips the passives
+that don't carry to the new class** (your old class's innate passives you never
+exported), freeing those slots instead of leaving them stuck.
+
 **Enemies can now be authored with progression too** (levels + limited kits),
 and they level up mid-battle like your units. First use: **River Ridge's opening
 battle** — its garrison is now a tuned **Level 22** team (a rung below your Level
