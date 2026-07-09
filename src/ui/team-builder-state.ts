@@ -835,7 +835,13 @@ export function unitGrantsDualWield(unit: DraftUnit, catalog: Catalog): boolean 
 // All equipment the picker can ever offer: available, equippable items
 // (consumables and hidden items excluded). `classCanEquip` narrows
 // further per slot/class at enumeration time.
-const AVAILABLE_EQUIPMENT: ReadonlyArray<EquipmentDefinition> = items.filter(
+//
+// Exported for the Mage War regression pin (mage-war-frozen-equipment.test.ts):
+// this filter is the ONLY gate between the global item catalog and the Mage War
+// product, and the TABA equipment expansion (M3) must never change what passes
+// it — TABA-scoped items are authored 'hidden' and surfaced solely through the
+// campaign's equipment pool (src/campaign/equipment-pool.ts).
+export const AVAILABLE_EQUIPMENT: ReadonlyArray<EquipmentDefinition> = items.filter(
   (item): item is EquipmentDefinition =>
     isEquipment(item) && item.availability === 'available',
 );

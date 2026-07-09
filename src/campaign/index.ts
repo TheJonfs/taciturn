@@ -105,6 +105,16 @@ export type {
   NodeResolution,
   BeatOutput,
 } from './interstitial.ts';
+// M3 — the TABA equipment pool (Stage 0 isolation substrate).
+export type { GearChapter, GearAcquisition, TabaGearEntry } from './equipment-pool.ts';
+export {
+  TABA_GEAR_POOL,
+  MAGE_WAR_SHARED_ENTRIES,
+  TABA_NEW_ENTRIES,
+  tabaShopPool,
+  tabaGearEntry,
+} from './equipment-pool.ts';
+
 export {
   CAMPAIGN_SAVE_KEY,
   saveCampaign,
