@@ -646,6 +646,42 @@ export function runModifyIncomingStatusDuration(
   return Math.max(0, Math.floor(value));
 }
 
+// Caster-side outgoing-status duration modifier (TABA M3). Fires inside
+// `applyStatus` against the SOURCE unit's hooks, before the target-side
+// incoming shave. Pure chain — no Brave roll (extension is volitional,
+// not defensive). Floored and clamped to >= 0; a 0 result negates the
+// application at the apply site, same as the incoming chain.
+export function runModifyOutgoingStatusDuration(
+  state: GameState,
+  catalog: Catalog,
+  args: {
+    unit: Unit;
+    target: Unit;
+    statusTypeId: StatusTypeId;
+    statusTags: ReadonlyArray<StatusTag>;
+    baseDuration: number;
+  },
+): number {
+  const handlers = collectActiveHandlers(
+    state,
+    args.unit.id,
+    catalog,
+    'modifyOutgoingStatusDuration',
+  );
+  if (handlers.length === 0) return args.baseDuration;
+  let value = args.baseDuration;
+  for (const h of handlers) {
+    value = h.invoke({
+      unit: args.unit,
+      target: args.target,
+      statusTypeId: args.statusTypeId,
+      statusTags: args.statusTags,
+      baseDuration: value,
+    });
+  }
+  return Math.max(0, Math.floor(value));
+}
+
 // Status-application stack-count modifier (Session 45 follow-up,
 // ADR-0084). Fires inside `applyStatus` against the SOURCE unit's
 // hook registrations (Wand of Lumen +1 stack on fire-tagged ability +

@@ -108,6 +108,35 @@ export interface OutgoingStatusMagnitudeModifier {
   readonly statusTag?: StatusTag;
 }
 
+// TABA M3: caster-side outgoing-status-DURATION extender — the duration
+// twin of `OutgoingStatusMagnitudeModifier`, completing the incoming/
+// outgoing × magnitude/duration quadrant (incoming duration = Slip Free's
+// hook; outgoing magnitude = ADR-0128). An additive delta on the duration
+// of a matching finite-duration status the *wearer* applies (self-casts
+// included — "buffs you cast" covers buffing yourself), gated per-type or
+// per-tag; both undefined means "every outgoing finite status." Choir
+// Staff authors `[{ delta: 1, statusTag: 'positive' }]` (the wearer's
+// buffs last one extra duration unit). Composed through the
+// `modifyOutgoingStatusDuration` chain.
+export interface OutgoingStatusDurationModifier {
+  readonly delta: number;
+  readonly statusTypeId?: StatusTypeId;
+  readonly statusTag?: StatusTag;
+}
+
+// TABA M3: equipment-driven AoE shape growth. Each entry contributes one
+// `modifyAoeShape` handler that grows the wearer's matching AoE casts by
+// `steps` shape-steps via `enlargeAoeShape` (radius+1 per step for
+// diamond/square/cross, length+1 for line; cone/custom unchanged — the
+// same semantics as Aether Bloom, which is the passive-side twin).
+// `tagFilter` gates on the ability's tag list (Aether Bloom convention:
+// ability tags, not damage tags). Wand of Expanse authors
+// `[{ steps: 1, tagFilter: ['magical'] }]`.
+export interface AoeShapeEnlargeModifier {
+  readonly steps: number;
+  readonly tagFilter?: ReadonlyArray<string>;
+}
+
 // Target-side incoming-status-application chance modifier. Either
 // per-status-type (Pointy Hat: × 0.5 on Silence) or per-status-tag
 // (Focus Band: × 0.75 on any negative-tagged status).
@@ -358,6 +387,18 @@ interface EquipmentBase {
   // that multiplies the magnitude of a matching status the wearer applies.
   // Pendant of Lumara: `[{ statusTypeId: 'burn', factor: 2 }]`.
   readonly outgoingStatusMagnitudeMods?: ReadonlyArray<OutgoingStatusMagnitudeModifier>;
+
+  // TABA M3: caster-side outgoing-status-duration extenders. Each entry
+  // contributes one `modifyOutgoingStatusDuration` handler adding its
+  // delta to the duration of a matching finite status the wearer
+  // applies. Choir Staff: `[{ delta: 1, statusTag: 'positive' }]`.
+  readonly outgoingStatusDurationMods?: ReadonlyArray<OutgoingStatusDurationModifier>;
+
+  // TABA M3: AoE shape growth on the wearer's casts (equipment-side
+  // Aether Bloom). Wand of Expanse: `[{ steps: 1, tagFilter:
+  // ['magical'] }]`. Composes with Aether Bloom's own handler — the
+  // chain grows the running shape step by step.
+  readonly aoeShapeEnlargeModifiers?: ReadonlyArray<AoeShapeEnlargeModifier>;
 }
 
 // Weapon-sourced variance source (per ADR-0067 + Session 40 extension).

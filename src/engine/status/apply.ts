@@ -26,6 +26,7 @@ import type { StatusApplicationResult } from './result.ts';
 import { fireOnApply, fireOnRemove } from './runners.ts';
 import {
   runModifyIncomingStatusDuration,
+  runModifyOutgoingStatusDuration,
   runModifyOutgoingStatusMagnitude,
   runModifyStatusApplicationStackCount,
 } from '../hooks/runners.ts';
@@ -149,9 +150,32 @@ export function applyStatus(
   // nothing. The runner gates on the status tags + its own Brave roll, so a
   // buff or a status the handler ignores passes through unchanged.
   let effectiveDuration = args.duration;
+
+  // Outgoing-status duration extension (TABA M3 — Choir Staff). The
+  // caster's `modifyOutgoingStatusDuration` chain runs FIRST, for any
+  // finite-duration, non-equipment application with a live source unit —
+  // self-casts included ("buffs you cast" covers buffing yourself), which
+  // is why this block's gates are looser than the incoming shave's below.
+  if (
+    effectiveDuration !== undefined &&
+    args.sourceKind !== 'equipment' &&
+    caster !== null
+  ) {
+    effectiveDuration = runModifyOutgoingStatusDuration(state, catalog, {
+      unit: caster,
+      target: targetUnit,
+      statusTypeId: type.id,
+      statusTags: type.tags,
+      baseDuration: effectiveDuration,
+    });
+    if (effectiveDuration <= 0) {
+      return { newState: state, result: { kind: 'resisted' } };
+    }
+  }
+
   if (
     args.seed !== undefined &&
-    args.duration !== undefined &&
+    effectiveDuration !== undefined &&
     args.sourceKind !== 'equipment' &&
     args.sourceUnitId !== null &&
     args.sourceUnitId !== args.targetId
@@ -160,7 +184,7 @@ export function applyStatus(
       unit: targetUnit,
       statusTypeId: type.id,
       statusTags: type.tags,
-      baseDuration: args.duration,
+      baseDuration: effectiveDuration,
       seed: args.seed,
     });
     if (effectiveDuration <= 0) {

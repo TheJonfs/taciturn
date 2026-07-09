@@ -36,6 +36,7 @@ import type {
   StatName,
   Unit,
 } from '../types/index.ts';
+import { enlargeAoeShape } from '../map/aoe.ts';
 import { iterateEquippedItems } from './equipment.ts';
 
 // Per-hook contributor signature. Each one walks a unit's equipped
@@ -174,10 +175,17 @@ function* mpCostContributor(
 }
 
 // modifyActionSpeed contributor: each item's `actionSpeedModifiers`
-// declares additive deltas, optionally gated on the ability's damage
-// tags. Tag-conditional handlers (Wand of Deepwood: +5 only on Earth-
-// tagged casts) inspect `args.ability.effects.damage?.tags` to decide
-// whether to apply.
+// declares additive deltas, optionally gated on the ability's tags —
+// the UNION of ability-level tags and damage tags (TABA M3 fix, Chris's
+// call). The original read was damage-tags-only, which silently skipped
+// buff casts (no damage spec → no tags → no match), contradicting Livre
+// of Urgency's documented "+5 on every magical cast". Damage spells
+// carry identical tags at both levels (e.g. Earth Strike:
+// ['magical','earth'] ability AND damage), so the union preserves every
+// damage-spell gating exactly while making buff casts (tags:
+// ['magical'], no damage) match as documented. Consumers: Wand of
+// Deepwood (['earth']), Livre of Urgency (['magical']), Choir Staff
+// (['magical'] — the buff-caster tempo staff that surfaced the bug).
 function* actionSpeedContributor(
   unit: Unit,
   catalog: Catalog,
@@ -195,8 +203,10 @@ function* actionSpeedContributor(
         tieBreakIndex: localIndex,
         invoke: (args) => {
           if (localFilter !== undefined) {
-            const abilityTags = args.ability.effects.damage?.tags;
-            if (abilityTags === undefined) return args.baseActionSpeed;
+            const abilityTags = [
+              ...(args.ability.tags ?? []),
+              ...(args.ability.effects.damage?.tags ?? []),
+            ];
             const matches = localFilter.some((t: DamageTag) => abilityTags.includes(t));
             if (!matches) return args.baseActionSpeed;
           }
@@ -343,6 +353,41 @@ function* outgoingStatusMagnitudeContributor(
             return args.baseMagnitude;
           }
           return args.baseMagnitude * localMod.factor;
+        },
+      };
+    }
+  }
+}
+
+// modifyOutgoingStatusDuration contributor (TABA M3): each item's
+// `outgoingStatusDurationMods` declares additive duration deltas on
+// finite statuses the WEARER applies, gated on the outgoing status's
+// type or tag (both omitted → every outgoing finite status). Choir
+// Staff: `[{ delta: 1, statusTag: 'positive' }]` — the wearer's buffs
+// last one extra duration unit. Mirrors the outgoing-magnitude
+// contributor's gating shape.
+function* outgoingStatusDurationContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'modifyOutgoingStatusDuration'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.outgoingStatusDurationMods === undefined) continue;
+    for (const mod of item.outgoingStatusDurationMods) {
+      const localIndex = tieBreakIndex++;
+      const localMod = mod;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (localMod.statusTypeId !== undefined && args.statusTypeId !== localMod.statusTypeId) {
+            return args.baseDuration;
+          }
+          if (localMod.statusTag !== undefined && !args.statusTags.includes(localMod.statusTag)) {
+            return args.baseDuration;
+          }
+          return args.baseDuration + localMod.delta;
         },
       };
     }
@@ -514,6 +559,45 @@ function* aoeVerticalToleranceContributor(
             if (!matches) return args.baseValue;
           }
           return args.baseValue + localDelta;
+        },
+      };
+    }
+  }
+}
+
+// modifyAoeShape contributor (TABA M3): each item's
+// `aoeShapeEnlargeModifiers` declares shape-step growth on the wearer's
+// AoE casts, optionally gated on the ability's tag list (Aether Bloom
+// convention — ability tags, not damage tags). Each step applies
+// `enlargeAoeShape` once (diamond/square/cross radius +1, line length
+// +1; cone/custom pass through unchanged). Wand of Expanse authors
+// `[{ steps: 1, tagFilter: ['magical'] }]`; the chain composes with
+// Aether Bloom's passive-side handler for +2-step blooms.
+function* aoeShapeEnlargeContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'modifyAoeShape'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.aoeShapeEnlargeModifiers === undefined) continue;
+    for (const mod of item.aoeShapeEnlargeModifiers) {
+      if (mod.steps <= 0) continue;
+      const localIndex = tieBreakIndex++;
+      const localSteps = mod.steps;
+      const localFilter = mod.tagFilter;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (localFilter !== undefined) {
+            const abilityTags = args.ability.tags ?? [];
+            const matches = localFilter.some((t) => abilityTags.includes(t));
+            if (!matches) return args.baseShape;
+          }
+          let shape = args.baseShape;
+          for (let i = 0; i < localSteps; i++) shape = enlargeAoeShape(shape);
+          return shape;
         },
       };
     }
@@ -878,6 +962,8 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   modifyIncomingStatusApplicationChance: incomingStatusChanceContributor,
   // S74 (ADR-0128): Pendant of Lumara's outgoing-Burn amplifier.
   modifyOutgoingStatusMagnitude: outgoingStatusMagnitudeContributor,
+  // TABA M3: Choir Staff's outgoing-buff duration extender.
+  modifyOutgoingStatusDuration: outgoingStatusDurationContributor,
   modifyBucketCapacity: bucketCapacityContributor,
   modifyStatusTickAmount: statusTickAmountContributor,
   modifyStatusApplicationStackCount: statusApplicationStackCountContributor,
@@ -885,6 +971,9 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   // S51: equipment-driven AoE vertical-tolerance modifier (Battle
   // Dictionary, Wand of the Depths refit).
   modifyAoeVerticalTolerance: aoeVerticalToleranceContributor,
+  // TABA M3: Wand of Expanse's AoE shape growth (equipment-side Aether
+  // Bloom).
+  modifyAoeShape: aoeShapeEnlargeContributor,
   modifyOutgoingHitChance: outgoingHitChanceContributor,
   modifyEvasion: evasionContributor,
   // ADR-0080 (Session 42): The Offering's swings-per-weapon multiplier.

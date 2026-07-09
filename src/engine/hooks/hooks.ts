@@ -545,6 +545,29 @@ export interface HookSignatures {
     return: number;
   };
 
+  // Caster-side outgoing-status duration modifier (TABA M3). The fourth
+  // quadrant of incoming/outgoing × magnitude/duration (incoming duration
+  // = Slip Free above; outgoing magnitude = ADR-0128). Fires inside
+  // `applyStatus` against the SOURCE unit's hooks for finite-duration,
+  // non-equipment applications — self-casts INCLUDED (unlike the
+  // defensive incoming chain, "statuses you cast" covers buffing
+  // yourself). Runs BEFORE the incoming shave so the target's Slip Free
+  // shortens the already-extended value. Chain composes additively over
+  // the running duration; the runner floors and clamps to >= 0 (a 0
+  // result negates the application, same as the incoming chain). No
+  // Brave roll — extension is volitional, not defensive. First consumer:
+  // Choir Staff (+1 duration on the wearer's outgoing buffs).
+  modifyOutgoingStatusDuration: {
+    args: {
+      unit: Unit;          // the caster whose hooks fire
+      target: Unit;
+      statusTypeId: StatusTypeId;
+      statusTags: ReadonlyArray<StatusTag>;
+      baseDuration: number;
+    };
+    return: number;
+  };
+
   // Status-application stack-count modifier (Session 45 follow-up,
   // ADR-0084). Fires inside `applyStatus`, before the type's
   // composeApplyState reads `requestedStackQuantity`, so a +N modifier
