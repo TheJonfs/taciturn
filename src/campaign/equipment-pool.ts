@@ -153,7 +153,20 @@ export const MAGE_WAR_SHARED_CH2_SHOP: ReadonlyArray<TabaGearEntry> = [
 // --- TABA-only sections (availability 'hidden'; never in Mage War) ----------
 // Populated by the Stage 2–4 authoring batches.
 
-export const TABA_NEW_CH1: ReadonlyArray<TabaGearEntry> = [];
+export const TABA_NEW_CH1: ReadonlyArray<TabaGearEntry> = [
+  // weapons (Stage 2a)
+  entry('iron_sword', 1, 'shop'),
+  entry('cutlass', 1, 'shop'),
+  entry('woodmans_axe', 1, 'shop'),
+  entry('short_bow', 1, 'shop'),
+  entry('dagger', 1, 'shop'),
+  // bodies (Stage 2a)
+  entry('padded_vest', 1, 'shop'),
+  entry('padded_jacket', 1, 'shop'),
+  entry('chain_shirt', 1, 'shop'),
+  entry('linen_robe', 1, 'shop'),
+  entry('arcane_robe', 1, 'shop'),
+];
 
 export const TABA_NEW_CH2: ReadonlyArray<TabaGearEntry> = [];
 

@@ -2,6 +2,7 @@ import type { AbilityDefinition } from '@engine/index.ts';
 import { aetherBloom } from './aether-bloom.ts';
 import { applyBurnProc } from './apply-burn-proc.ts';
 import { applySilenceProc } from './apply-silence-proc.ts';
+import { applyVulnerableProc } from './apply-vulnerable-proc.ts';
 import { attack } from './attack.ts';
 import { chargedAttack } from './charged-attack.ts';
 import { eagleEye } from './eagle-eye.ts';
@@ -134,6 +135,8 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   aetherBloom,
   applyBurnProc,
   applySilenceProc,
+  // TABA M3 — the Dagger's 50% on-hit Vulnerable rider.
+  applyVulnerableProc,
   attack,
   barehanded,
   bearsHeave,

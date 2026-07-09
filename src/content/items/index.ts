@@ -85,6 +85,18 @@ import { greavesOfSeraphis } from './greaves-of-seraphis.ts';
 import { ringOfCaliora } from './ring-of-caliora.ts';
 import { gloveOfMetria } from './glove-of-metria.ts';
 import { pendantOfLumara } from './pendant-of-lumara.ts';
+// TABA M3 — Ch1 gear generation (all `hidden`: TABA-scoped, never in
+// Mage War; surfaced via src/campaign/equipment-pool.ts)
+import { ironSword } from './iron-sword.ts';
+import { cutlass } from './cutlass.ts';
+import { woodmansAxe } from './woodmans-axe.ts';
+import { shortBow } from './short-bow.ts';
+import { dagger } from './dagger.ts';
+import { paddedVest } from './padded-vest.ts';
+import { paddedJacket } from './padded-jacket.ts';
+import { chainShirt } from './chain-shirt.ts';
+import { linenRobe } from './linen-robe.ts';
+import { arcaneRobe } from './arcane-robe.ts';
 
 export const items: ReadonlyArray<ItemDefinition> = [
   // Session 17c / 19 originals
@@ -216,4 +228,16 @@ export const items: ReadonlyArray<ItemDefinition> = [
   ringOfCaliora,
   gloveOfMetria,
   pendantOfLumara,
+  // TABA M3 — Ch1 gear generation (equipment brief Stage 2a). All
+  // `hidden` (TABA-scoped; the Mage War frozen-pool pin enforces this).
+  ironSword,
+  cutlass,
+  woodmansAxe,
+  shortBow,
+  dagger,
+  paddedVest,
+  paddedJacket,
+  chainShirt,
+  linenRobe,
+  arcaneRobe,
 ];

@@ -227,13 +227,17 @@ describe('loadDefaultCatalog', () => {
     // +1 TABA: Hamstrung (Sera's stacking Move/Jump permadebuff).
     expect(cat.statusTypes()).toHaveLength(44);
     // +3 TABA signatures (Ascendant Flame / Bulwark Oath / Tidal Cadence) + Hamstring.
-    expect(cat.abilities()).toHaveLength(124);
+    // TABA M3 Ch1 gear: +1 (apply_vulnerable_proc — the Dagger's rider).
+    expect(cat.abilities()).toHaveLength(125);
     expect(cat.commandSets()).toHaveLength(16);
     expect(cat.classes()).toHaveLength(14);
     // Session 74 (caster-accessory batch): 77 → 81 (greaves_of_seraphis,
     // ring_of_caliora, glove_of_metria, pendant_of_lumara).
     // Session 75: 81 → 82 (twist_headband).
-    expect(cat.items()).toHaveLength(82);
+    // TABA M3 Ch1 gear (Stage 2a): 82 → 92 (iron_sword, cutlass,
+    // woodmans_axe, short_bow, dagger, padded_vest, padded_jacket,
+    // chain_shirt, linen_robe, arcane_robe — all 'hidden', TABA-scoped).
+    expect(cat.items()).toHaveLength(92);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });
