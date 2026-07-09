@@ -237,7 +237,10 @@ describe('loadDefaultCatalog', () => {
     // TABA M3 Ch1 gear (Stage 2a): 82 → 92 (iron_sword, cutlass,
     // woodmans_axe, short_bow, dagger, padded_vest, padded_jacket,
     // chain_shirt, linen_robe, arcane_robe — all 'hidden', TABA-scoped).
-    expect(cat.items()).toHaveLength(92);
+    // TABA M3 Ch2 second pass (Stage 2b): 92 → 99 (runic_staff,
+    // wand_of_expanse, choir_staff, warmages_edge, runecrown,
+    // meditants_cowl, keen_visor — all 'hidden', TABA-scoped).
+    expect(cat.items()).toHaveLength(99);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

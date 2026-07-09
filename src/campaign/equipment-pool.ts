@@ -168,7 +168,16 @@ export const TABA_NEW_CH1: ReadonlyArray<TabaGearEntry> = [
   entry('arcane_robe', 1, 'shop'),
 ];
 
-export const TABA_NEW_CH2: ReadonlyArray<TabaGearEntry> = [];
+export const TABA_NEW_CH2: ReadonlyArray<TabaGearEntry> = [
+  // second-pass additions (Stage 2b) — restock the Ch1-demotion holes
+  entry('runic_staff', 2, 'shop'),
+  entry('wand_of_expanse', 2, 'shop'),
+  entry('choir_staff', 2, 'shop'),
+  entry('warmages_edge', 2, 'shop'),
+  entry('runecrown', 2, 'shop'),
+  entry('meditants_cowl', 2, 'shop'),
+  entry('keen_visor', 2, 'shop'),
+];
 
 export const TABA_NEW_CH3: ReadonlyArray<TabaGearEntry> = [];
 

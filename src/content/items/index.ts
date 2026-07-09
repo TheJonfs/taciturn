@@ -97,6 +97,14 @@ import { paddedJacket } from './padded-jacket.ts';
 import { chainShirt } from './chain-shirt.ts';
 import { linenRobe } from './linen-robe.ts';
 import { arcaneRobe } from './arcane-robe.ts';
+// TABA M3 — Ch2 second-pass additions (fill the demotion holes)
+import { runicStaff } from './runic-staff.ts';
+import { wandOfExpanse } from './wand-of-expanse.ts';
+import { choirStaff } from './choir-staff.ts';
+import { warmagesEdge } from './warmages-edge.ts';
+import { runecrown } from './runecrown.ts';
+import { meditantsCowl } from './meditants-cowl.ts';
+import { keenVisor } from './keen-visor.ts';
 
 export const items: ReadonlyArray<ItemDefinition> = [
   // Session 17c / 19 originals
@@ -240,4 +248,13 @@ export const items: ReadonlyArray<ItemDefinition> = [
   chainShirt,
   linenRobe,
   arcaneRobe,
+  // TABA M3 — Ch2 second-pass additions (equipment brief Stage 2b):
+  // restock the Ch1-demotion holes. All `hidden` (TABA-scoped).
+  runicStaff,
+  wandOfExpanse,
+  choirStaff,
+  warmagesEdge,
+  runecrown,
+  meditantsCowl,
+  keenVisor,
 ];
