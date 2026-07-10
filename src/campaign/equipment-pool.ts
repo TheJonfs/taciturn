@@ -154,6 +154,9 @@ export const MAGE_WAR_SHARED_CH2_SHOP: ReadonlyArray<TabaGearEntry> = [
 // Populated by the Stage 2–4 authoring batches.
 
 export const TABA_NEW_CH1: ReadonlyArray<TabaGearEntry> = [
+  // the breadth-enabler unique (found, not shopped — acquisition flow is
+  // economy-pass work)
+  entry('freelancers_charm', 1, 'unique'),
   // weapons (Stage 2a)
   entry('iron_sword', 1, 'shop'),
   entry('cutlass', 1, 'shop'),

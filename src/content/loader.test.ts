@@ -254,7 +254,8 @@ describe('loadDefaultCatalog', () => {
     // TABA M3 Ch3 effect items (Stage 4): 120 → 132 (gaias_axe,
     // spiked_maul, estoc, trident, epee, palliative_pike, prism_wand,
     // scouring_wand, moon_robe, star_robe, terra_robe, void_robe).
-    expect(cat.items()).toHaveLength(132);
+    // TABA M3 breadth-enabler: 132 → 133 (freelancers_charm).
+    expect(cat.items()).toHaveLength(133);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

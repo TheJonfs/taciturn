@@ -399,6 +399,30 @@ function validateEquipmentPlacement(
       );
     }
   }
+  // TABA M3: equip-legality overrides — cross-ITEM legality declared by
+  // equipped gear (the per-slot checks above are class↔item; this layer
+  // is item↔item). First instance: Freelancer's Charm forbids class-
+  // restricted (Heavy/Magical-lane) items in the slots it names ("the
+  // generalist travels light"). The field is authored generally — a
+  // future universal-equip enabler (instance two) adds its relaxation
+  // branch at this same site.
+  for (const wornSlot of ['leftHand', 'rightHand', 'headgear', 'armor', 'accessory'] as const) {
+    const wornId = equipment[wornSlot];
+    if (wornId === null || !catalog.hasItem(wornId)) continue;
+    const worn = catalog.getItem(wornId);
+    if (!isEquipment(worn) || worn.equipLegality === undefined) continue;
+    for (const forbiddenSlot of worn.equipLegality.forbidClassRestrictedInSlots ?? []) {
+      const otherId = equipment[forbiddenSlot];
+      if (otherId === null || !catalog.hasItem(otherId)) continue;
+      const other = catalog.getItem(otherId);
+      if (isEquipment(other) && other.classRestrictions !== undefined) {
+        throw new BattleConfigError(
+          `Unit ${JSON.stringify(placement.id)}: ${JSON.stringify(wornId)} forbids ` +
+            `class-restricted gear in ${forbiddenSlot} (found ${JSON.stringify(otherId)})`,
+        );
+      }
+    }
+  }
   // Session 45: two-handed weapons (the bow class) occupy both hands.
   // A two-handed weapon in one hand forbids any item — weapon or shield —
   // in the other. Because the off-hand is necessarily empty, a Two-Weapons

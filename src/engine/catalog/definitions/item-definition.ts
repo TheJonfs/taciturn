@@ -192,6 +192,18 @@ export interface SpellProcDef {
   readonly tagFilter: ReadonlyArray<DamageTag>;
 }
 
+// TABA M3 (Freelancer's Charm): the equip-legality override shape.
+// `forbidClassRestrictedInSlots` bars any item carrying
+// `classRestrictions` from the named slots while this piece is worn —
+// the lateral, armor-identity cost ("the generalist travels light").
+// Instance two (a universal-equip enabler) adds its relaxation flag
+// here rather than a parallel field.
+export interface EquipLegalityOverride {
+  readonly forbidClassRestrictedInSlots?: ReadonlyArray<
+    'leftHand' | 'rightHand' | 'headgear' | 'armor' | 'accessory'
+  >;
+}
+
 // TABA M3 (Terra Robe): once-per-spell self-status — when the wearer
 // resolves a use_ability whose DAMAGE tags contain every listed tag,
 // apply the named status to the wearer once (per action, not per
@@ -523,6 +535,16 @@ interface EquipmentBase {
   // the wearer (PA composed through modifyStatQuery). Epee authors `1`.
   // Once per action — a dual-wield double-swing still refunds once.
   readonly basicAttackCtRefundPaFactor?: number;
+
+  // TABA M3 (Freelancer's Charm): equip-legality override — cross-item
+  // legality this piece imposes on the wearer's OTHER slots, enforced
+  // beside the class↔item checks at battle setup (and read by gear UI).
+  // First instance: the Charm's "cannot equip class-restricted body
+  // while worn" (`forbidClassRestrictedInSlots: ['armor']`). Authored
+  // generally per the first-instance-installs-the-capability pattern —
+  // the future universal-equip enabler (instance two) grows this shape
+  // with its relaxation flag rather than a parallel mechanism.
+  readonly equipLegality?: EquipLegalityOverride;
 }
 
 // Weapon-sourced variance source (per ADR-0067 + Session 40 extension).

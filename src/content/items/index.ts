@@ -141,6 +141,8 @@ import { moonRobe } from './moon-robe.ts';
 import { starRobe } from './star-robe.ts';
 import { terraRobe } from './terra-robe.ts';
 import { voidRobe } from './void-robe.ts';
+// TABA M3 — the Ch1 breadth-enabler unique (equip-legality seam)
+import { freelancersCharm } from './freelancers-charm.ts';
 
 export const items: ReadonlyArray<ItemDefinition> = [
   // Session 17c / 19 originals
@@ -337,4 +339,7 @@ export const items: ReadonlyArray<ItemDefinition> = [
   starRobe,
   terraRobe,
   voidRobe,
+  // TABA M3 — the Ch1 breadth-enabler unique (Freelancer's Charm):
+  // +1 secondary command set, no class-restricted body while worn.
+  freelancersCharm,
 ];
