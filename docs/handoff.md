@@ -27,17 +27,20 @@ drift alarms in `src/engine/items/draft-legality.test.ts` (sweeps every
 catalog item/ability pinning draft === hook-based `getCapacity`/`getCost`)
 and `src/campaign/node.test.ts` (`CAMPAIGN_RULESET_ID` pin).
 
-### The one deliberately-trailing piece (brief Stage 3)
+### Stage 3 — LANDED same session after Chris's playtest reports (`681871f`)
 
-**Hover/inspect stat deltas** — the Team Builder inspector pattern. Needs an
-equipment-aware stat probe for campaign units (the dossier header still shows
-`buildBaseStats`, i.e. NOT equipment-composed; it reads "—" when the loadout
-is invalid). Everything else in the brief's Stage 3 list landed incidentally
-(unequip affordance = the — Empty — picker row; last-instance contention
-tested; reclass-stranded gear surfaces as a held-invalid state per D2).
-Small-to-medium beat; `probeEffectiveMaxes` (snapshot-fold) covers hp/mp only,
-so PA/MA/SPD/Move/Jump want the Team Builder's `computeDraftUnitStats`-style
-throwaway-state probe adapted to campaign units.
+The trailing piece got pulled forward: `probeUnitStats` (snapshot-fold) probes
+one unit through the real `campaignPlacement` fold; the dossier header now
+shows equipment/passive-composed stats (+ Move/Jump chips, '—' when invalid),
+and the Loadout tab gains `LoadoutInspector` (the Mage War inspector,
+celestial): hover gear/passives/secondary → mechanical detail + PROJECTED ±
+stat chips (re-probe with the pick applied; swap math accounts for the
+displaced item). Also from the same reports: `formatItemDetail` gained arms
+for the 15 S85 rider fields that had none (Epee CT refund, Choir Staff
+duration, lifesteal, spell procs, equipLegality, …) + the Trident
+commandSetFilter scope — shared via `ui/index` with the Team Builder and the
+in-battle panel; and `isPlotUnique` now keys on `PLOT_UNIT_IDS` (Lumen + Clio
+were crestless — only override-carriers badged before).
 
 ### Late-session addition (Chris's request)
 

@@ -79,6 +79,16 @@ Commits: `ce02d04` · `9d5f286` · `3f94ad6` · `3eeb908` · `3779318`.
 - (Dev builds only: a "Seed gear" chip on the manage screen stocks the stores
   with 10 of everything for playtesting — real acquisition ships with the
   economy pass.)
+- **Addendum (`681871f`): the dossier now shows REAL stats and previews picks.**
+  The header stat row is equipment/passive-composed (what battle will actually
+  use), with Move and Jump added. Hovering any gear candidate, passive, or
+  secondary command in the Loadout tab opens an inspector strip with its full
+  mechanical detail and the projected stat changes as ±chips (swap-aware: it
+  accounts for the item you'd displace). The exotic S85 gear finally describes
+  itself — CT-refund weapons, lifesteal robes, spell procs, buff-duration
+  staves, the Freelancer's Charm rule, and the rest all render their effects.
+  All five named leads (Lumen, Chris, Clio, Thessaly, Sera) now wear the
+  crest/"named" badge (two were missing it).
 - **Addendum (`6984343`): roster management is now reachable BEFORE a battle.**
   The deploy-selection screen has a "Manage Roster" button that opens the full
   Formation surface (dossiers, gear, loadouts, reclass, JP-spend); "← Back to
