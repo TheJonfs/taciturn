@@ -79,6 +79,12 @@ Commits: `ce02d04` · `9d5f286` · `3f94ad6` · `3eeb908` · `3779318`.
 - (Dev builds only: a "Seed gear" chip on the manage screen stocks the stores
   with 10 of everything for playtesting — real acquisition ships with the
   economy pass.)
+- **Addendum (`6984343`): roster management is now reachable BEFORE a battle.**
+  The deploy-selection screen has a "Manage Roster" button that opens the full
+  Formation surface (dossiers, gear, loadouts, reclass, JP-spend); "← Back to
+  Deploy" returns to deploy selection with any fixes applied. Previously
+  management was only reachable from the world map after winning a node — you
+  can now tune loadouts before the very first battle.
 
 ## Session 85 (2026-07-09) — TABA M3 equipment expansion: 51 items across three gear generations (ADR-0142)
 

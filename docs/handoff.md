@@ -39,6 +39,15 @@ Small-to-medium beat; `probeEffectiveMaxes` (snapshot-fold) covers hp/mp only,
 so PA/MA/SPD/Move/Jump want the Team Builder's `computeDraftUnitStats`-style
 throwaway-state probe adapted to campaign units.
 
+### Late-session addition (Chris's request)
+
+**Pre-battle roster management** (`6984343`): the deploy-selection screen now
+carries a Manage Roster button; the manage screen tracks its origin
+(`ManageOrigin` in CampaignApp) and returns to deploy selection ("← Back to
+Deploy") or the world map accordingly. Loadout/gear testing is possible from
+the very first River Ridge battle. Also noted from Chris: the five named
+plot-unique roster characters are **Lumen, Chris, Clio, Thessaly, Sera**.
+
 ### Watch-fors / notes for next session
 
 - **The FormationDevHarness (`?formation`) shows 2 synthetic invalid units**
