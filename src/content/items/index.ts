@@ -105,6 +105,25 @@ import { warmagesEdge } from './warmages-edge.ts';
 import { runecrown } from './runecrown.ts';
 import { meditantsCowl } from './meditants-cowl.ts';
 import { keenVisor } from './keen-visor.ts';
+// TABA M3 — Ch3 gear generation, flat batch
+import { katana } from './katana.ts';
+import { manaeaterBlade } from './manaeater-blade.ts';
+import { masterBow } from './master-bow.ts';
+import { sniperBow } from './sniper-bow.ts';
+import { mainGauche } from './main-gauche.ts';
+import { worldstave } from './worldstave.ts';
+import { crystalPlate } from './crystal-plate.ts';
+import { masterworkMail } from './masterwork-mail.ts';
+import { mithrilChain } from './mithril-chain.ts';
+import { senseisGi } from './senseis-gi.ts';
+import { expertsTunic } from './experts-tunic.ts';
+import { stealthSuit } from './stealth-suit.ts';
+import { titansHelm } from './titans-helm.ts';
+import { commandCap } from './command-cap.ts';
+import { mirrorShield } from './mirror-shield.ts';
+import { abjurersCodex } from './abjurers-codex.ts';
+import { talismanOfEndurance } from './talisman-of-endurance.ts';
+import { wingedBoots } from './winged-boots.ts';
 
 export const items: ReadonlyArray<ItemDefinition> = [
   // Session 17c / 19 originals
@@ -257,4 +276,26 @@ export const items: ReadonlyArray<ItemDefinition> = [
   runecrown,
   meditantsCowl,
   keenVisor,
+  // TABA M3 — Ch3 gear generation, flat batch (equipment brief Stage
+  // 2c). All `hidden` (TABA-scoped). The engine-dependent Ch3 items
+  // (Battle/Healer's Staff, Channeler's Hat, the effect weapons, the
+  // robes) land in Stages 3–4.
+  katana,
+  manaeaterBlade,
+  masterBow,
+  sniperBow,
+  mainGauche,
+  worldstave,
+  crystalPlate,
+  masterworkMail,
+  mithrilChain,
+  senseisGi,
+  expertsTunic,
+  stealthSuit,
+  titansHelm,
+  commandCap,
+  mirrorShield,
+  abjurersCodex,
+  talismanOfEndurance,
+  wingedBoots,
 ];

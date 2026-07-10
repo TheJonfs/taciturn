@@ -201,6 +201,12 @@ export interface HookSignatures {
       statusType: StatusEffectType;
       ability: ActiveAbilityDefinition | null;
       baseChance: number;  // post-caster-chain
+      // The TARGET's composed PA / MA (post-modifyStatQuery), pre-computed
+      // by the runner when any handler is registered — the
+      // modifyWeaponPower `pa` precedent. TABA M3; first consumer:
+      // Talisman of Endurance (× (1 − max(PA, MA)/100) status shrug).
+      pa: number;
+      ma: number;
     };
     return: number;
   };
@@ -462,6 +468,12 @@ export interface HookSignatures {
       unit: Unit;
       tag: DamageTag;
       baseValue: number;
+      // The unit's composed MA (post-modifyStatQuery), pre-computed by
+      // the caller when any handler is registered — the modifyWeaponPower
+      // `pa` precedent (stat-scaled handlers compose with buffs without
+      // re-querying). TABA M3; first consumer: Abjurer's Codex (MA → all
+      // elemental resistances).
+      ma: number;
     };
     return: number;
   };

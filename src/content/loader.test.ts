@@ -240,7 +240,13 @@ describe('loadDefaultCatalog', () => {
     // TABA M3 Ch2 second pass (Stage 2b): 92 → 99 (runic_staff,
     // wand_of_expanse, choir_staff, warmages_edge, runecrown,
     // meditants_cowl, keen_visor — all 'hidden', TABA-scoped).
-    expect(cat.items()).toHaveLength(99);
+    // TABA M3 Ch3 flat batch (Stage 2c): 99 → 117 (katana,
+    // manaeater_blade, master_bow, sniper_bow, main_gauche, worldstave,
+    // crystal_plate, masterwork_mail, mithril_chain, senseis_gi,
+    // experts_tunic, stealth_suit, titans_helm, command_cap,
+    // mirror_shield, abjurers_codex, talisman_of_endurance,
+    // winged_boots — all 'hidden', TABA-scoped).
+    expect(cat.items()).toHaveLength(117);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

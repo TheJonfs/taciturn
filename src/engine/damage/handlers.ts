@@ -914,13 +914,24 @@ function composeResistance(
   // and only native entries contribute, preserving pre-Session-27
   // behavior.
   const handlers = collectActiveHandlers(state, target.id, catalog, 'modifyResistance');
+  // Pre-compose the target's MA once for stat-scaled handlers (Abjurer's
+  // Codex) — only when a handler is registered, so the common no-handler
+  // path pays nothing. modifyWeaponPower's `pa` precedent.
+  const ma =
+    handlers.length === 0
+      ? 0
+      : runModifyStatQuery(state, catalog, {
+          unit: target,
+          statName: 'ma',
+          baseValue: target.baseStats.ma,
+        });
   const values: number[] = [];
   for (const tag of tags) {
     if (tag === 'healing') continue;
     const native = target.resistances.get(tag);
     let value = native ?? 0;
     for (const h of handlers) {
-      value = h.invoke({ unit: target, tag, baseValue: value });
+      value = h.invoke({ unit: target, tag, baseValue: value, ma });
     }
     // Include the tag iff the unit natively carries it OR a contributor
     // produced a non-zero value. A contributor that returns 0 for a

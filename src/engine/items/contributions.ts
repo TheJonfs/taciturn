@@ -290,6 +290,24 @@ function* resistanceContributor(
       };
     }
   }
+  // TABA M3 — stat-scaled arm: `resistanceFromMaTags` adds the wearer's
+  // composed MA (pre-computed by composeResistance, the modifyWeaponPower
+  // `pa` precedent) to each listed tag. Abjurer's Codex authors the four
+  // elements. Additive with the flat arm above.
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.resistanceFromMaTags === undefined) continue;
+    const localIndex = tieBreakIndex++;
+    const localTags = item.resistanceFromMaTags;
+    yield {
+      tier: 'equipment',
+      priority: DEFAULT_HOOK_PRIORITY,
+      tieBreakIndex: localIndex,
+      invoke: (args) => {
+        if (!localTags.includes(args.tag)) return args.baseValue;
+        return args.baseValue + args.ma;
+      },
+    };
+  }
 }
 
 // modifyIncomingStatusApplicationChance contributor: each item's
@@ -318,6 +336,34 @@ function* incomingStatusChanceContributor(
           }
           if (!args.statusType.tags.includes(localMod.statusTag)) return args.baseChance;
           return args.baseChance * localMod.chanceMultiplier;
+        },
+      };
+    }
+  }
+  // TABA M3 — stat-scaled arm: `incomingStatusStatShrugs` multiplies the
+  // land chance of a matching incoming status by `(1 − max(PA, MA)/100)`,
+  // floored at 0 (PA/MA pre-composed by the runner). Multiplicative like
+  // the flat arm, so stacking with Focus Band can approach but never
+  // reach immunity. Talisman of Endurance authors `[{ statusTag:
+  // 'negative' }]`.
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.incomingStatusStatShrugs === undefined) continue;
+    for (const mod of item.incomingStatusStatShrugs) {
+      const localIndex = tieBreakIndex++;
+      const localMod = mod;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (localMod.statusTypeId !== undefined && args.statusType.id !== localMod.statusTypeId) {
+            return args.baseChance;
+          }
+          if (localMod.statusTag !== undefined && !args.statusType.tags.includes(localMod.statusTag)) {
+            return args.baseChance;
+          }
+          const factor = Math.max(0, 1 - Math.max(args.pa, args.ma) / 100);
+          return args.baseChance * factor;
         },
       };
     }
@@ -883,39 +929,50 @@ function* physicalReflectContributor(
   unit: Unit,
   catalog: Catalog,
 ): Generator<SourceContribution<'onFinalDamageReceived'>> {
+  // TABA M3: generalized over the reflect kind — `physicalReflectPercent`
+  // (Spiked Mail, Session 37) and `magicalReflectPercent` (Mirror Shield)
+  // share every gate; only the triggering tag and the revenge emission's
+  // tag differ. Wearing both covers both damage kinds.
+  const KINDS = [
+    { field: 'physicalReflectPercent', tag: 'physical' },
+    { field: 'magicalReflectPercent', tag: 'magical' },
+  ] as const;
   let tieBreakIndex = 0;
   for (const { item } of iterateEquippedItems(unit, catalog)) {
-    if (item.physicalReflectPercent === undefined) continue;
-    if (item.physicalReflectPercent <= 0) continue;
-    const localIndex = tieBreakIndex++;
-    const localPercent = item.physicalReflectPercent;
-    const localWearerId = unit.id;
-    const localItemId = item.id;
-    yield {
-      tier: 'equipment',
-      priority: DEFAULT_HOOK_PRIORITY,
-      tieBreakIndex: localIndex,
-      invoke: (args) => {
-        if (!args.damageTags.has('physical')) return {};
-        if (args.absorbed) return {};
-        if (args.damageDealt <= 0) return {};
-        if (args.unit.vitals.hp <= 0) return {};
-        if (args.attacker.id === localWearerId) return {};
-        const amount = Math.floor((args.damageDealt * localPercent) / 100);
-        if (amount <= 0) return {};
-        const emission: ProposedAction = {
-          type: 'system_damage',
-          source: 'system',
-          payload: {
-            targetId: args.attacker.id,
-            amount,
-            tags: ['physical'],
-            source: { kind: 'revenge', wearerId: localWearerId, itemId: localItemId },
-          },
-        };
-        return { emittedActions: [emission] };
-      },
-    };
+    for (const { field, tag } of KINDS) {
+      const percent = item[field];
+      if (percent === undefined || percent <= 0) continue;
+      const localIndex = tieBreakIndex++;
+      const localPercent = percent;
+      const localTag = tag;
+      const localWearerId = unit.id;
+      const localItemId = item.id;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (!args.damageTags.has(localTag)) return {};
+          if (args.absorbed) return {};
+          if (args.damageDealt <= 0) return {};
+          if (args.unit.vitals.hp <= 0) return {};
+          if (args.attacker.id === localWearerId) return {};
+          const amount = Math.floor((args.damageDealt * localPercent) / 100);
+          if (amount <= 0) return {};
+          const emission: ProposedAction = {
+            type: 'system_damage',
+            source: 'system',
+            payload: {
+              targetId: args.attacker.id,
+              amount,
+              tags: [localTag],
+              source: { kind: 'revenge', wearerId: localWearerId, itemId: localItemId },
+            },
+          };
+          return { emittedActions: [emission] };
+        },
+      };
+    }
   }
 }
 

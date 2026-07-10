@@ -182,6 +182,19 @@ export function runModifyIncomingStatusApplicationChance(
     catalog,
     'modifyIncomingStatusApplicationChance',
   );
+  if (handlers.length === 0) return args.baseChance;
+  // Pre-compose the target's PA / MA once for stat-scaled handlers
+  // (Talisman of Endurance) — modifyWeaponPower's `pa` precedent.
+  const pa = runModifyStatQuery(state, catalog, {
+    unit: args.target,
+    statName: 'pa',
+    baseValue: args.target.baseStats.pa,
+  });
+  const ma = runModifyStatQuery(state, catalog, {
+    unit: args.target,
+    statName: 'ma',
+    baseValue: args.target.baseStats.ma,
+  });
   let value = args.baseChance;
   for (const h of handlers) {
     value = h.invoke({
@@ -190,6 +203,8 @@ export function runModifyIncomingStatusApplicationChance(
       statusType: args.statusType,
       ability: args.ability,
       baseChance: value,
+      pa,
+      ma,
     });
   }
   return value;
@@ -344,9 +359,17 @@ export function runModifyResistance(
   },
 ): number {
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'modifyResistance');
+  if (handlers.length === 0) return args.baseValue;
+  // Pre-compose the owner's MA once for stat-scaled handlers (Abjurer's
+  // Codex) — same shape as composeResistance's damage-pipeline call site.
+  const ma = runModifyStatQuery(state, catalog, {
+    unit: args.unit,
+    statName: 'ma',
+    baseValue: args.unit.baseStats.ma,
+  });
   let value = args.baseValue;
   for (const h of handlers) {
-    value = h.invoke({ unit: args.unit, tag: args.tag, baseValue: value });
+    value = h.invoke({ unit: args.unit, tag: args.tag, baseValue: value, ma });
   }
   return value;
 }

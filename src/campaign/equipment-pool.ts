@@ -179,7 +179,31 @@ export const TABA_NEW_CH2: ReadonlyArray<TabaGearEntry> = [
   entry('keen_visor', 2, 'shop'),
 ];
 
-export const TABA_NEW_CH3: ReadonlyArray<TabaGearEntry> = [];
+export const TABA_NEW_CH3: ReadonlyArray<TabaGearEntry> = [
+  // weapons (Stage 2c flat batch)
+  entry('katana', 3, 'shop'),
+  entry('manaeater_blade', 3, 'shop'),
+  entry('master_bow', 3, 'shop'),
+  entry('sniper_bow', 3, 'shop'),
+  entry('main_gauche', 3, 'shop'),
+  entry('worldstave', 3, 'shop'),
+  // bodies
+  entry('crystal_plate', 3, 'shop'),
+  entry('masterwork_mail', 3, 'shop'),
+  entry('mithril_chain', 3, 'shop'),
+  entry('senseis_gi', 3, 'shop'),
+  entry('experts_tunic', 3, 'shop'),
+  entry('stealth_suit', 3, 'shop'),
+  // heads
+  entry('titans_helm', 3, 'shop'),
+  entry('command_cap', 3, 'shop'),
+  // off-hands
+  entry('mirror_shield', 3, 'shop'),
+  entry('abjurers_codex', 3, 'shop'),
+  entry('talisman_of_endurance', 3, 'shop'),
+  // accessories
+  entry('winged_boots', 3, 'shop'),
+];
 
 // --- The assembled pool + reads ----------------------------------------------
 

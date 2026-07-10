@@ -137,6 +137,15 @@ export interface AoeShapeEnlargeModifier {
   readonly tagFilter?: ReadonlyArray<string>;
 }
 
+// TABA M3: stat-scaled incoming-status shrug (Talisman of Endurance).
+// Gated per-type or per-tag like the other status riders; both omitted
+// means "every incoming status." The multiplier formula is fixed:
+// `(1 − max(PA, MA)/100)`, floored at 0.
+export interface IncomingStatusStatShrug {
+  readonly statusTypeId?: StatusTypeId;
+  readonly statusTag?: StatusTag;
+}
+
 // Target-side incoming-status-application chance modifier. Either
 // per-status-type (Pointy Hat: × 0.5 on Silence) or per-status-tag
 // (Focus Band: × 0.75 on any negative-tagged status).
@@ -399,6 +408,27 @@ interface EquipmentBase {
   // ['magical'] }]`. Composes with Aether Bloom's own handler — the
   // chain grows the running shape step by step.
   readonly aoeShapeEnlargeModifiers?: ReadonlyArray<AoeShapeEnlargeModifier>;
+
+  // TABA M3: magical-damage reflect — the magical mirror of
+  // `physicalReflectPercent` (same gates, `'magical'` tag instead of
+  // `'physical'`, revenge emission tagged `['magical']`). Mirror Shield
+  // authors `20`. Wearing both reflects (Spiked Mail + Mirror Shield)
+  // covers both damage kinds — the full-reflect thorns tank.
+  readonly magicalReflectPercent?: number;
+
+  // TABA M3: stat-scaled resistance — adds the wearer's composed MA
+  // (post-modifyStatQuery, so MA buffs/gear compose) to each listed
+  // resistance tag. Abjurer's Codex authors the four elements. Rides the
+  // `modifyResistance` chain additively alongside flat `resistanceMods`.
+  readonly resistanceFromMaTags?: ReadonlyArray<DamageTag>;
+
+  // TABA M3: stat-scaled incoming-status shrug — multiplies the land
+  // chance of a matching incoming status by `(1 − max(PA, MA)/100)`,
+  // floored at 0 (multiplicative, so it can never reach immunity through
+  // stacking with Focus Band et al. — the design's anti-immunity
+  // guarantee). PA/MA are the wearer's composed stats. Talisman of
+  // Endurance authors `[{ statusTag: 'negative' }]`.
+  readonly incomingStatusStatShrugs?: ReadonlyArray<IncomingStatusStatShrug>;
 }
 
 // Weapon-sourced variance source (per ADR-0067 + Session 40 extension).
