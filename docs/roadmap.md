@@ -378,11 +378,20 @@ These are noted to make their absence intentional rather than accidental:
   Freelancer's Charm, crit-magnitude — found already live), the
   `modifyOutgoingStatusDuration` hook, and ~14 rider seams (spell procs,
   equipment lifesteal, ally-only AoE, command-set-scoped action speed,
-  stat-scaled resistance/status-shrug, …). Remaining M3: the Formation
-  **gear UI** (must enforce equipment-adjusted capacity — Spiked Maul breaks
-  the lift-only assumption) and the **economy pass** (story-gated shops,
-  costs, currency, unique acquisition), then findable-uniques / Tailored
-  Outfit / post-game gear. Then authoring (M4), story (M5).
+  stat-scaled resistance/status-shrug, …). **M3 gear UI + inventory —
+  SHIPPED** (ADR-0143, S86): the party inventory (owned-totals stored,
+  equipped/free derived; receipt-gated uniques; grandfathered day-one gear;
+  no save-schema bump), the merged Loadout view (Team Builder's two-column
+  equipment|abilities body under the celestial skin; "Equipment · soon" tab
+  dead), and the ONE draft-legality resolver
+  (`engine/items/draft-legality.ts`) shared by `createInitialState`, the
+  Team Builder, and Formation — equipment-adjusted capacity live (maul →
+  Reaction 0/3), invalid loadouts held + surfaced with causes + deploy-
+  blocked, drift-alarm tests pinning draft === hook-based values. Trailing
+  polish: hover/inspect stat deltas (equipment-aware stat probe). Remaining
+  M3: the **economy pass** (story-gated shops, costs, currency, unique
+  acquisition; the DEV seed chip is the stand-in), then findable-uniques /
+  Tailored Outfit / post-game gear. Then authoring (M4), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.
 

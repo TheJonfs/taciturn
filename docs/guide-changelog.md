@@ -44,6 +44,42 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 86 (2026-07-10) — TABA M3 gear UI: equip between battles (ADR-0143)
+
+Commits: `ce02d04` · `9d5f286` · `3f94ad6` · `3eeb908` · `3779318`.
+**TABA-campaign-only** — Mage War's Team Builder behavior is unchanged.
+
+- **You can now equip gear on campaign units between battles.** The dossier's
+  Loadout tab is a merged two-column view: EQUIPMENT (five slots — right hand,
+  left hand, headgear, armor, accessory — each opening an inline picker) beside
+  the ability sections. The old "Equipment · soon" tab is gone.
+- **Party inventory.** The team owns items as counted instances: equipping uses
+  a free instance, unequipping (or swapping) returns it to the pool, and an
+  item equipped on one unit isn't available to another until freed. Your
+  starting loadouts count as owned — unequip day-one gear and it goes to the
+  stores. A unit lost to permadeath takes its equipped gear with it.
+- **Slot pickers show what you own** — grouped by weapon family / gear kind,
+  searchable, with a short stat line and the free count (×N) per item. Only
+  legal choices are offered: class restrictions, the two-handed both-hands
+  rule (relaxed by Monkeygrip), and the no-dual-wield-without-Two-Weapons rule
+  all filter the list. Placing a two-hander auto-empties the off-hand.
+- **Capacity is equipment-adjusted live** — Spiked Maul drives the Reaction
+  bucket to 0/3 in the view (your class-innate reaction still fits; imports
+  don't, per S85's cost-weighted ruling).
+- **Invalid loadouts are flagged, never auto-fixed.** If gear pushes a filled
+  bucket over capacity (or a reclass strands now-illegal gear, or Freelancer's
+  Charm sits beside class-restricted pieces), the unit keeps the state but
+  shows: a ⚠ badge on its roster card, a "loadout invalid" chip + dashed-out
+  stats in the dossier, and a warning banner naming the exact cause ("Reaction
+  over capacity: 3 equipped, 0 available — Spiked Maul −3"). **Invalid units
+  cannot be deployed** until fixed.
+- Density: the reclass chips now sit behind a "Change class" button, and the
+  Secondary/Reaction/Support/Movement sections collapse with their picks and
+  used/capacity still visible in the header.
+- (Dev builds only: a "Seed gear" chip on the manage screen stocks the stores
+  with 10 of everything for playtesting — real acquisition ships with the
+  economy pass.)
+
 ## Session 85 (2026-07-09) — TABA M3 equipment expansion: 51 items across three gear generations (ADR-0142)
 
 Commits: `1e00ae7` → `f848b8d`. **TABA-campaign-only** — none of this appears in

@@ -11,81 +11,78 @@ been processed.
 
 ---
 
-## S85 — TABA M3 equipment expansion COMPLETE (2026-07-09)
+## S86 — TABA M3 gear UI + inventory SHIPPED (2026-07-10)
 
-The whole `taba-equipment-expansion-brief.md` shipped this session (ADR-0142):
-Stage 0 isolation substrate, Stages 2a/2b/2c flat batches, all Stage 3 engine
-prerequisites, all Stage 4 confirms + effect items, AND the deferred Ch1
-breadth-enabler (named **Freelancer's Charm** + the equip-legality seam).
-**51 new items** (catalog 82 → 133), 2 statuses, 4 hidden rider abilities,
-1 new hook (`modifyOutgoingStatusDuration`, Chris-approved), ~14 sanctioned
-rider fields/contributor arms. Suite green (**2536**), `tsc -b` clean.
-**8 commits:** `1e00ae7` (Stage 0) · `b12c815` (2a) · `7ffabc4` (engine seams)
-· `815c397` (2b) · `5cf4f51` (2c) · `9d962b9` (Stage 3) · `7d7e8ad` (Stage 4)
-· `f848b8d` (Freelancer's Charm). Plus this docs commit.
+The whole `formation-gear-ui-brief.md` core shipped (ADR-0143): the shared
+draft-legality resolver (D3), the party inventory (Stage 0), the merged
+two-column Loadout view (Stage 1), and surface-and-block (Stage 2). Suite
+green (**2581**), `tsc -b` clean. **5 commits:** `ce02d04` (D3 resolver) ·
+`9d5f286` (inventory) · `3f94ad6` (dev seed) · `3eeb908` (merged view) ·
+`3779318` (surface-and-block). Plus this docs commit.
 
-Mage War regression: the frozen 75-item pool is PINNED
-(`src/ui/mage-war-frozen-equipment.test.ts`) — do not update that pin without
-an explicit Mage-War-change decision.
+S85's structural warning is CLOSED: equipment-adjusted capacity is enforced
+end-to-end; a Spiked Maul over-fill is held, surfaced with its cause, and
+deploy-blocked. UI legality and engine legality are one code path — see the
+drift alarms in `src/engine/items/draft-legality.test.ts` (sweeps every
+catalog item/ability pinning draft === hook-based `getCapacity`/`getCost`)
+and `src/campaign/node.test.ts` (`CAMPAIGN_RULESET_ID` pin).
 
-### THE structural warning for the M3 gear-UI session (promoted to ADR-0142 too)
+### The one deliberately-trailing piece (brief Stage 3)
 
-**Spiked Maul breaks the M2 Formation UI's capacity assumption.** The UI
-assumed "equipment can only LIFT capacity above baseline" — the maul's
-reaction-bucket −3 (capacity → 0) falsifies it, and `createInitialState`
-THROWS on over-capacity loadouts. The gear UI must enforce
-equipment-adjusted capacity (block or unequip-excess on equip).
-Good news (verified + test-pinned end of session): the capacity budget is
-COST-weighted and class-innate reactions cost 0, so capacity 0 keeps the
-wielder's innate reaction and blocks only imports — exactly Chris's intent;
-maul + Steel Helm nets 1 (innate + one cost-1 import). Chris: try as-is,
-rebalance later.
+**Hover/inspect stat deltas** — the Team Builder inspector pattern. Needs an
+equipment-aware stat probe for campaign units (the dossier header still shows
+`buildBaseStats`, i.e. NOT equipment-composed; it reads "—" when the loadout
+is invalid). Everything else in the brief's Stage 3 list landed incidentally
+(unequip affordance = the — Empty — picker row; last-instance contention
+tested; reclass-stranded gear surfaces as a held-invalid state per D2).
+Small-to-medium beat; `probeEffectiveMaxes` (snapshot-fold) covers hp/mp only,
+so PA/MA/SPD/Move/Jump want the Team Builder's `computeDraftUnitStats`-style
+throwaway-state probe adapted to campaign units.
 
-### Watch-fors / playtest (not blockers)
+### Watch-fors / notes for next session
 
-- **AI doesn't understand the exotic gear** — it would bonk enemies with a
-  Healer's Staff (healing them) and mis-value the effect weapons. Keep the
-  exotic pieces off authored ENEMY loadouts until an AI-valuation beat covers
-  them (fits the AI capability-expansion arc).
-- **Open-register playtest items** (all shipped per ruling, watch don't
-  pre-nerf): Epee CT-refund loops (× Haste/Clio), Star Robe field-wide
-  lifesteal (Calculator extreme; per-cast cap is fix-if-needed), Expert's
-  Tunic × Golden Hairpin (MP ×0.375 for two slots), tempo-caster triple stack
-  (Livre + Choir + Meditant's = +15 magical cast speed), Scouring + dual-wield
-  stack rate, Manaeater as default non-caster sword, Terra Robe possibly
-  UNDER-powered.
-- **Authored magnitude judgment calls** (flag-level, not rulings): Meditant's
-  Cowl "charge-time reduction" authored at Livre-parity +5 magical; Estoc
-  vertical reach authored 3 (melee parity); Palliative Pike kept the lance
-  family's pierce (two pulses on a pierced pair).
-- **Manual playtest still owed** from S84 (plot-unit signatures) — now plus
-  the M3 gear feel. TABA items are equip-able only by authoring today (no
-  gear UI), so a real gear playtest waits for the UI beat.
+- **The FormationDevHarness (`?formation`) shows 2 synthetic invalid units**
+  (Nova, Ptolemy) — they spread `m1Roster[0]`'s assassin equipment/loadout
+  under a different class, so the new detector correctly flags stranded gear
+  + blown budgets ("A Monk can't use the right hand slot", etc.). Left as-is:
+  free showcase of the warning states. If it bothers visual review, give
+  their seeds class-legal gear.
+- **`reclassUnit` frees now-illegal passives but keeps now-illegal GEAR** —
+  deliberate (D2: surface, don't resolve; the warning banner names the
+  stranded piece). If playtest says auto-unequip feels better, that's a
+  one-line change in `reclassUnit` + a ruling.
+- **Alchemists (and everyone) can hold swords** — weapon defs mostly carry no
+  `classRestrictions`; the pickers therefore offer broad pools. Content-side
+  tightening (if wanted) is authoring, not UI.
+- **Dossier equip has no undo/confirm** — every pick persists immediately via
+  the existing onChange→save path (same as reclass/JP-spend). Fine so far;
+  note for playtest.
+- **Manual playtest still owed** (carried from S84/S85): plot-unit signatures
+  + the M3 gear feel — now actually possible via the manage screen + DEV seed
+  chip ("🎒 Seed gear").
+- Tooling: `vite.config.ts` now honors `PORT` and `.claude/launch.json` has
+  `autoPort: true` so a second Claude session's preview can run beside a
+  primary dev server. No product impact.
 
-### Deliberate Mage War delta (the one exception to the freeze)
+### Next M3 beats (unchanged order)
 
-The action-speed rider tag-gate union fix (Livre of Urgency now speeds buff
-casts, matching its own doc comment). Chris chose bug-fix over absolute
-freeze. Lineup/pool unchanged; the pin is untouched.
-
-### Next M3 beats (the brief's own deferrals)
-
-1. **Formation gear UI** (equip/unequip between battles; respect
-   equipment-adjusted capacity + `equipLegality`; surface the TABA pool by
-   chapter via `tabaShopPool`).
-2. **Economy pass** — story-gated shop stock per location, costs, currency;
-   unique acquisition flows (Freelancer's Charm / Pendant / Flametongue
-   pickups); enriches `equipment-pool.ts` entries in place.
-3. **Ch3 findable-uniques + Tailored Outfit (Ch2 depth-enabler, design
-   settled in the lineup doc) + post-game gear** — separate design/authoring
-   passes.
+1. **Economy pass** — story-gated shop stock per location, costs, currency;
+   unique acquisition flows; enriches `equipment-pool.ts` in place. The DEV
+   seed chip is the stand-in until then. Receipt stays the uniqueness gate
+   (`grantItems` is the one door into the inventory).
+2. **Stage-3 inspector polish** (above) — can ride along with the economy
+   pass or precede it.
+3. Ch3 findable-uniques + Tailored Outfit + post-game gear (design/authoring).
 
 ### Carried from earlier (still open, low-priority)
 
 - JP spillover on over-threshold spend (M2 tail).
 - Enemy progression tuning for Stonebridge / Marshmoor / Mountain Pass (data).
-- Loadout 2nd-secondary UI (Magus Crown — now ALSO Command Cap), "Level Up!"
-  banner polish, rapid-dialogue-advance React setState-in-render warning.
+- Loadout 2nd-secondary UI (Magus Crown / Command Cap), "Level Up!" banner
+  polish, rapid-dialogue-advance React setState-in-render warning.
 - "99 cap" guide fiction (no code clamp) — guide-doc correction someday.
-- Raw portrait blobs (~18 MB) in unpushed history — Chris accepted the cost
-  (S85 ruling); drop this item.
+- AI doesn't understand exotic gear — keep effect weapons off authored ENEMY
+  loadouts until an AI-valuation beat (fits the AI capability-expansion arc).
+- S85 open-register playtest items (Epee CT-refund loops, Star Robe lifesteal,
+  Expert's Tunic × Golden Hairpin, tempo-caster stack, Scouring × dual-wield,
+  Manaeater-as-default, Terra Robe maybe weak) — watch, don't pre-nerf.
