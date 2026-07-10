@@ -62,7 +62,15 @@ throwaway-state probe adapted to campaign units.
   chip ("🎒 Seed gear").
 - Tooling: `vite.config.ts` now honors `PORT` and `.claude/launch.json` has
   `autoPort: true` so a second Claude session's preview can run beside a
-  primary dev server. No product impact.
+  primary dev server. No product impact. **One-time side effect (diagnosed,
+  no action):** the config change restarted Chris's running dev server and
+  re-optimized vite's dep cache; his open tab straddled two Pixi module
+  instances and threw `TexturePool.returnTexture: Cannot read properties of
+  undefined (reading 'push')` on a Text destroy (texture acquired from the
+  old chunk's pool singleton, returned to the new one). Not reproducible on
+  a clean load — deployment-canvas mount/unmount/remount verified clean. If
+  this error EVER shows on a cold page load, that's a different bug — then
+  investigate for real.
 
 ### Next M3 beats (unchanged order)
 
