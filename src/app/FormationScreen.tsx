@@ -9,6 +9,7 @@
 import { useState, type CSSProperties, type ReactElement } from 'react';
 import type { CampaignUnit } from '@campaign/index.ts';
 import type { Catalog, ClassId } from '@engine/index.ts';
+import { unitLegality } from './formation/gear-view-model.ts';
 
 export interface FormationScreenProps {
   readonly nodeName: string;
@@ -31,9 +32,22 @@ export function FormationScreen({
 }: FormationScreenProps): ReactElement {
   const classLabel = (classId: ClassId): string =>
     catalog.hasClass(classId) ? catalog.getClass(classId).name : String(classId);
-  // Pre-select the first K so the screen has a valid default.
+  // M3 Stage 2 — battle entry is BLOCKED for invalid loadouts (the same
+  // shared-resolver verdict the Loadout tab surfaces; createInitialState
+  // would throw on these, so they never reach the fold). The unit stays
+  // listed with its warning — the player fixes it in Manage Roster.
+  const invalidIds = new Set(
+    roster.filter((u) => !unitLegality(u, catalog).valid).map((u) => u.id),
+  );
+  // Pre-select the first K deployable so the screen has a valid default.
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
-    () => new Set(roster.slice(0, deployCap).map((u) => u.id)),
+    () =>
+      new Set(
+        roster
+          .filter((u) => !invalidIds.has(u.id))
+          .slice(0, deployCap)
+          .map((u) => u.id),
+      ),
   );
 
   const atCap = selectedIds.size >= deployCap;
@@ -60,14 +74,16 @@ export function FormationScreen({
 
         <ul style={listStyle}>
           {roster.map((u) => {
+            const invalid = invalidIds.has(u.id);
             const on = selectedIds.has(u.id);
-            const disabled = !on && atCap;
+            const disabled = invalid || (!on && atCap);
             return (
               <li key={u.id}>
                 <button
                   type="button"
                   onClick={() => toggle(u.id)}
                   disabled={disabled}
+                  title={invalid ? 'Loadout invalid — fix it in Manage Roster before deploying' : undefined}
                   style={{
                     ...rowStyle,
                     ...(on ? rowSelectedStyle : null),
@@ -75,12 +91,12 @@ export function FormationScreen({
                   }}
                   aria-pressed={on}
                 >
-                  <span style={checkStyle}>{on ? '✓' : ''}</span>
+                  <span style={invalid ? warnCheckStyle : checkStyle}>{invalid ? '⚠' : on ? '✓' : ''}</span>
                   <span style={nameStyle}>{u.name}</span>
                   <span style={metaStyle}>{classLabel(u.classId)}</span>
                   <span style={metaStyle}>Lv {u.level}</span>
                   <span style={metaStyle}>
-                    HP {u.vitals.hp} · MP {u.vitals.mp}
+                    {invalid ? 'loadout invalid' : `HP ${u.vitals.hp} · MP ${u.vitals.mp}`}
                   </span>
                 </button>
               </li>
@@ -178,6 +194,7 @@ const rowDisabledStyle: CSSProperties = {
 };
 
 const checkStyle: CSSProperties = { color: '#7fb2ff', fontWeight: 700 };
+const warnCheckStyle: CSSProperties = { color: '#e2965f', fontWeight: 700 };
 const nameStyle: CSSProperties = { fontWeight: 600 };
 const metaStyle: CSSProperties = { color: '#9aa0ac' };
 

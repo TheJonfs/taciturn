@@ -11,7 +11,12 @@ import { loadDefaultCatalog } from '@content/index.ts';
 import { abilityId, bucketId, classId, itemId, unitId } from '@engine/index.ts';
 import type { CampaignUnit, InventoryRecord } from '@campaign/index.ts';
 import { m0Roster } from '@campaign/index.ts';
-import { gearOptionsForSlot, gearStatLine } from './gear-view-model.ts';
+import {
+  gearOptionsForSlot,
+  gearStatLine,
+  legalityCauses,
+  unitLegality,
+} from './gear-view-model.ts';
 
 const cat = loadDefaultCatalog();
 
@@ -94,6 +99,67 @@ describe('gearOptionsForSlot — legality gates (shared resolver)', () => {
     const opts = names(gearOptionsForSlot(u, [u], RICH, 'leftHand', cat));
     expect(opts).not.toContain('dagger');
     expect(opts).toContain('buckler');
+  });
+});
+
+describe('unitLegality + legalityCauses (Stage 2 surfacing)', () => {
+  it('Spiked Maul + an imported reaction: over-capacity, cause names the maul', () => {
+    const u = knight({
+      equipment: { ...EMPTY_HANDS, rightHand: itemId('spiked_maul') },
+      loadout: {
+        ...knightBase.loadout,
+        passiveBuckets: {
+          ...knightBase.loadout.passiveBuckets,
+          [String(bucketId('reaction'))]: [abilityId('cornered_focus')],
+        },
+      },
+    });
+    const legality = unitLegality(u, cat);
+    expect(legality.valid).toBe(false);
+    const causes = legalityCauses(legality, u, cat);
+    expect(causes).toHaveLength(1);
+    expect(causes[0]).toMatch(/Reaction over capacity/);
+    expect(causes[0]).toMatch(/1 equipped, 0 available/);
+    expect(causes[0]).toMatch(/Spiked Maul -3/); // the cause pointer
+  });
+
+  it('Spiked Maul + only the innate reaction stays valid (innate costs 0)', () => {
+    const u = knight({
+      equipment: { ...EMPTY_HANDS, rightHand: itemId('spiked_maul') },
+      loadout: {
+        ...knightBase.loadout,
+        passiveBuckets: {
+          ...knightBase.loadout.passiveBuckets,
+          [String(bucketId('reaction'))]: [abilityId('counter')],
+        },
+      },
+    });
+    expect(unitLegality(u, cat).valid).toBe(true);
+  });
+
+  it("Freelancer's Charm ↔ class-restricted body: cause names both items", () => {
+    const u = knight({
+      equipment: {
+        ...EMPTY_HANDS,
+        accessory: itemId('freelancers_charm'),
+        armor: itemId('war_plate'),
+      },
+    });
+    const legality = unitLegality(u, cat);
+    expect(legality.valid).toBe(false);
+    const causes = legalityCauses(legality, u, cat);
+    expect(causes.some((c) => c.includes("Freelancer's Charm") && c.includes('War Plate'))).toBe(
+      true,
+    );
+  });
+
+  it('a reclass-stranded class-restricted item: cause names item and class', () => {
+    const u = knight({
+      classId: classId('earth_mage'),
+      equipment: { ...EMPTY_HANDS, armor: itemId('war_plate') },
+    });
+    const causes = legalityCauses(unitLegality(u, cat), u, cat);
+    expect(causes.some((c) => c.includes('War Plate') && c.includes("can't be worn"))).toBe(true);
   });
 });
 

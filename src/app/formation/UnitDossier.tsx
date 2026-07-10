@@ -38,6 +38,7 @@ import { Training } from './Training.tsx';
 import { Customize } from './Customize.tsx';
 import { FORMATION_STYLE } from './formation-style.ts';
 import { resolveUnitPortrait } from '../../assets/portraits/index.ts';
+import { unitLegality } from './gear-view-model.ts';
 
 // XP per level (ADR-0139). Single per-unit currency, independent of JP.
 const XP_PER_LEVEL = 100;
@@ -92,6 +93,11 @@ export function UnitDossier({
   // capital-letter monogram remains the final fallback.
   const sealPortrait = resolveUnitPortrait(unit.portrait, unit.classId, unit.gender);
   const stats = buildBaseStats(unit.classId, unit.brave, unit.faith, unit.level);
+  // M3 Stage 2: an invalid loadout reads its stats as unavailable — the
+  // numbers would be lies (battle entry rejects this configuration), so
+  // the header says so instead (mirrors the Team Builder's fallback).
+  const invalid = !unitLegality(unit, catalog).valid;
+  const stat = (v: number): number | string => (invalid ? '—' : v);
 
   const purse = availableInClass(unit, unit.classId, componentCatalog);
   const spent = spentInClass(unit, unit.classId, componentCatalog);
@@ -133,17 +139,24 @@ export function UnitDossier({
             )}
           </div>
           <div className="tf-doss-who">
-            <div className="tf-doss-name">{unit.name}</div>
+            <div className="tf-doss-name">
+              {unit.name}
+              {invalid && (
+                <span className="tf-doss-warn" title="Loadout invalid — fix it on the Loadout tab">
+                  ⚠ loadout invalid
+                </span>
+              )}
+            </div>
             <div className="tf-doss-sub">
               Level {unit.level} &nbsp;·&nbsp; <span style={{ color: col }}>{classDef.name}</span> &nbsp;·&nbsp;{' '}
               {DOMAIN_LABEL[entry.half]} Tier {entry.tier}
             </div>
             <div className="tf-doss-stats">
-              <Stat k="hp" v={stats.maxHpBase} />
-              <Stat k="mp" v={stats.maxMpBase} />
-              <Stat k="pa" v={stats.pa} />
-              <Stat k="ma" v={stats.ma} />
-              <Stat k="spd" v={stats.spd} />
+              <Stat k="hp" v={stat(stats.maxHpBase)} />
+              <Stat k="mp" v={stat(stats.maxMpBase)} />
+              <Stat k="pa" v={stat(stats.pa)} />
+              <Stat k="ma" v={stat(stats.ma)} />
+              <Stat k="spd" v={stat(stats.spd)} />
               <Stat k="xp→next" v={`${unit.xp % XP_PER_LEVEL} / ${XP_PER_LEVEL}`} />
             </div>
           </div>

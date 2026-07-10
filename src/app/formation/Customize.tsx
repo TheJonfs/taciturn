@@ -41,6 +41,7 @@ import {
   type SecondaryOption,
 } from './customize-view-model.ts';
 import { GearSlots } from './GearSlots.tsx';
+import { legalityCauses, unitLegality } from './gear-view-model.ts';
 
 export interface CustomizeProps {
   readonly unit: CampaignUnit;
@@ -90,8 +91,28 @@ export function Customize({
       ? catalog.getCommandSet(secondary).name
       : 'None';
 
+  // The shared draft resolver's verdict (D3 — the same check battle entry
+  // enforces). Invalid states are HELD and surfaced with their causes;
+  // deploy blocks elsewhere. Never auto-resolved here (D2).
+  const legality = unitLegality(unit, catalog);
+  const causes = legality.valid ? [] : legalityCauses(legality, unit, catalog);
+  const overBuckets = new Set(legality.bucketOverages.map((o) => String(o.bucketId)));
+
   return (
     <div className="tf-load-cols">
+      {causes.length > 0 && (
+        <div className="tf-warnbar" role="alert">
+          <span className="sig">⚠</span>
+          <div className="bd">
+            <div className="ttl">Loadout invalid — this unit cannot deploy until it&apos;s fixed</div>
+            <ul>
+              {causes.map((cause) => (
+                <li key={cause}>{cause}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
       <div>
         <GearSlots
           unit={unit}
@@ -152,6 +173,7 @@ export function Customize({
           col={col}
           title="Secondary Command"
           meta={`${secondary ? '1' : '0'} / ${bucketCapacity(unit, 'secondary_command_sets', catalog)}`}
+          over={overBuckets.has('secondary_command_sets')}
           summary={secondaryName}
         >
           <SecondaryRow
@@ -183,6 +205,7 @@ export function Customize({
             options={passives[bucket]}
             used={bucketUsed(unit, bucket, catalog)}
             capacity={bucketCapacity(unit, bucket, catalog)}
+            over={overBuckets.has(bucket)}
             equippedNames={passives[bucket].filter((o) => o.equipped).map((o) => o.name)}
             onToggle={(id) => toggle(id, bucket)}
           />
@@ -200,6 +223,7 @@ function CollapsibleSection({
   title,
   meta,
   summary,
+  over = false,
   defaultOpen = false,
   children,
 }: {
@@ -207,6 +231,9 @@ function CollapsibleSection({
   readonly title: string;
   readonly meta: string;
   readonly summary: string;
+  // Over-capacity (or otherwise in violation): the header's used/capacity
+  // reads in the warning colour so the cause is visible even collapsed.
+  readonly over?: boolean;
   readonly defaultOpen?: boolean;
   readonly children: React.ReactNode;
 }): ReactElement {
@@ -229,7 +256,7 @@ function CollapsibleSection({
         <h3 style={{ color: col }}>
           <span className={`tf-chev${open ? ' open' : ''}`}>▸</span> {title}
         </h3>
-        <span className="tf-load-c">{meta}</span>
+        <span className={`tf-load-c${over ? ' over' : ''}`}>{over ? '⚠ ' : ''}{meta}</span>
         {!open && <span className="tf-load-sum">{summary}</span>}
       </div>
       {open && children}
@@ -288,6 +315,7 @@ function PassiveSection({
   options,
   used,
   capacity,
+  over,
   equippedNames,
   onToggle,
 }: {
@@ -296,6 +324,7 @@ function PassiveSection({
   readonly options: ReadonlyArray<PassiveOption>;
   readonly used: number;
   readonly capacity: number;
+  readonly over: boolean;
   readonly equippedNames: ReadonlyArray<string>;
   readonly onToggle: (id: AbilityId) => void;
 }): ReactElement {
@@ -305,7 +334,9 @@ function PassiveSection({
       col={col}
       title={PASSIVE_BUCKET_LABEL[bucket]}
       meta={`${used} / ${capacity} slots`}
+      over={over}
       summary={equippedNames.length > 0 ? equippedNames.join(' · ') : '—'}
+      defaultOpen={over}
     >
       {options.length === 0 ? (
         <div className="tf-load-empty">No {PASSIVE_BUCKET_LABEL[bucket].toLowerCase()} passives available yet.</div>

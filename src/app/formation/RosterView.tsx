@@ -27,6 +27,7 @@ import {
 } from './roster-view-model.ts';
 import { FORMATION_STYLE } from './formation-style.ts';
 import { resolveUnitPortrait } from '../../assets/portraits/index.ts';
+import { unitLegality } from './gear-view-model.ts';
 
 export interface RosterViewProps {
   readonly roster: ReadonlyArray<CampaignUnit>;
@@ -134,7 +135,7 @@ export function RosterView({
 
         <div className="tf-grid">
           {shown.map((e) => (
-            <UnitCard key={String(e.unit.id)} entry={e} className={className} onOpen={onOpenUnit} />
+            <UnitCard key={String(e.unit.id)} entry={e} className={className} catalog={catalog} onOpen={onOpenUnit} />
           ))}
         </div>
         {shown.length === 0 ? (
@@ -148,14 +149,20 @@ export function RosterView({
 function UnitCard({
   entry,
   className,
+  catalog,
   onOpen,
 }: {
   readonly entry: RosterEntry;
   readonly className: (id: ClassId) => string;
+  readonly catalog: Catalog;
   readonly onOpen: (id: UnitId) => void;
 }): ReactElement {
   const { unit, domain, idleJp, totalInvested, investment, isUnique } = entry;
   const col = DOMAIN_COLOR[domain];
+  // M3 Stage 2: the roster-card warning — an invalid loadout (over
+  // capacity / illegal gear) is surfaced here so the player knows which
+  // unit to open before deploy blocks on it.
+  const invalid = !unitLegality(unit, catalog).valid;
   // Bespoke plot face where one exists, else the class+gender portrait; the
   // capital-letter monogram remains the final fallback (unregistered class).
   const portraitUrl = resolveUnitPortrait(unit.portrait, unit.classId, unit.gender);
@@ -177,6 +184,11 @@ function UnitCard({
         }
       }}
     >
+      {invalid && (
+        <span className="tf-warnbadge" title="Loadout invalid — open the Loadout tab to fix">
+          ⚠
+        </span>
+      )}
       <div className="tf-top">
         <div className="tf-port">
           {portraitUrl !== null ? (

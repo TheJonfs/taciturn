@@ -223,6 +223,17 @@ export const FORMATION_STYLE = `
 .tf-eq-row.empty-row .nm{color:var(--star3);font-style:italic}
 .tf-eq-none{font-size:12px;color:var(--star3);padding:8px}
 
+/* ---- Invalid-loadout surfacing (M3 Stage 2: surface, don't resolve) ---- */
+.tf-warnbar{grid-column:1/-1;display:flex;gap:11px;align-items:flex-start;background:rgba(226,150,95,.09);border:1px solid rgba(226,150,95,.45);border-radius:10px;padding:11px 14px;margin-top:12px}
+.tf-warnbar .sig{flex:none;color:var(--phys);font-size:16px;line-height:1.3}
+.tf-warnbar .bd{min-width:0}
+.tf-warnbar .ttl{font-size:13px;font-weight:600;color:var(--phys);letter-spacing:.02em}
+.tf-warnbar ul{margin:3px 0 0;padding-left:16px}
+.tf-warnbar li{font-size:12px;color:var(--star2);line-height:1.55}
+.tf-load-c.over{color:var(--phys);font-weight:600}
+.tf-warnbadge{position:absolute;top:8px;right:9px;font-size:13px;color:var(--phys);filter:drop-shadow(0 0 4px rgba(226,150,95,.5));z-index:2}
+.tf-doss-warn{display:inline-flex;align-items:center;gap:5px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--phys);border:1px solid rgba(226,150,95,.45);border-radius:10px;padding:2px 8px;vertical-align:4px;margin-left:8px}
+
 /* ---- Toast ---- */
 .tf-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(18px);opacity:0;background:var(--mist);border:1px solid var(--line2);color:var(--star);padding:10px 18px;border-radius:9px;font-size:13px;transition:.25s;pointer-events:none;z-index:30}
 .tf-toast.show{transform:translateX(-50%) translateY(0);opacity:1}

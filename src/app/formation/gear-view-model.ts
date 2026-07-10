@@ -23,13 +23,15 @@ import {
   isEquipment,
   loadoutGrantsDualWield,
   loadoutGrantsTwoHandedGrip,
+  validateDraftUnit,
   type Catalog,
+  type DraftUnitLegality,
   type EquipmentDefinition,
   type EquipmentSlotId,
   type ItemId,
   type WeaponType,
 } from '@engine/index.ts';
-import { equippedCounts, type InventoryRecord } from '@campaign/index.ts';
+import { CAMPAIGN_RULESET_ID, equippedCounts, type InventoryRecord } from '@campaign/index.ts';
 import type { CampaignUnit } from '@campaign/index.ts';
 
 export const SLOT_ORDER: ReadonlyArray<EquipmentSlotId> = [
@@ -204,20 +206,103 @@ export function gearStatLine(item: EquipmentDefinition): string {
   return parts.slice(0, 3).join(' · ');
 }
 
-// How many free instances of each item the party could equip in ANY slot
-// of this unit — used by Customize to badge the slot pills. (Cheap
-// aggregate; recomputed per render like the rest of the view-model.)
-export function slotHasOptions(
+// --- legality surfacing (Stage 2: surface, don't resolve) ---------------
+
+// The unit's draft legality under the campaign ruleset — the SAME
+// resolver `createInitialState` throws from (D3), so no unit this view
+// calls valid can fail battle entry. Held-but-invalid states (the maul
+// pushing a filled bucket over, a reclass leaving illegal gear) are
+// reported here for the UI to surface; deploy blocks on `.valid`.
+export function unitLegality(unit: CampaignUnit, catalog: Catalog): DraftUnitLegality {
+  return validateDraftUnit(
+    { classId: unit.classId, loadout: unit.loadout, equipment: unit.equipment },
+    catalog,
+    CAMPAIGN_RULESET_ID,
+  );
+}
+
+const BUCKET_DISPLAY: Readonly<Record<string, string>> = {
+  first_action: 'Primary Command',
+  secondary_command_sets: 'Secondary Command',
+  reaction: 'Reaction',
+  support: 'Support',
+  movement: 'Movement',
+};
+
+function itemName(id: ItemId, catalog: Catalog): string {
+  return catalog.hasItem(id) ? catalog.getItem(id).name : String(id);
+}
+
+// Human cause lines for an invalid loadout — D2's "surface the specific
+// cause so the player can go fix it". Each violation names the thing to
+// act on; capacity overages also name the equipped item(s) reducing the
+// bucket (the "why did my reaction disappear" pointer).
+export function legalityCauses(
+  legality: DraftUnitLegality,
   unit: CampaignUnit,
-  roster: ReadonlyArray<CampaignUnit>,
-  inventory: InventoryRecord,
   catalog: Catalog,
-): Readonly<Record<EquipmentSlotId, number>> {
-  const out = {} as Record<EquipmentSlotId, number>;
-  for (const slot of EQUIPMENT_SLOT_IDS) {
-    out[slot] = gearOptionsForSlot(unit, roster, inventory, slot, catalog).filter(
-      (o) => !o.equipped,
-    ).length;
+): ReadonlyArray<string> {
+  const causes: string[] = [];
+  const className = catalog.hasClass(unit.classId)
+    ? catalog.getClass(unit.classId).name
+    : String(unit.classId);
+
+  for (const over of legality.bucketOverages) {
+    // Which equipped items are shrinking this bucket?
+    const reducers: string[] = [];
+    for (const slot of EQUIPMENT_SLOT_IDS) {
+      const id = unit.equipment[slot];
+      if (id === null || !catalog.hasItem(id)) continue;
+      const item = catalog.getItem(id);
+      if (!isEquipment(item)) continue;
+      const delta = item.bucketCapacityMods?.get(over.bucketId);
+      if (delta !== undefined && delta < 0) reducers.push(`${item.name} ${delta}`);
+    }
+    const cause = reducers.length > 0 ? ` — ${reducers.join(', ')}` : '';
+    causes.push(
+      `${BUCKET_DISPLAY[String(over.bucketId)] ?? String(over.bucketId)} over capacity: ` +
+        `${over.used} equipped, ${over.capacity} available${cause}`,
+    );
   }
-  return out;
+
+  for (const bad of legality.invalidSlots) {
+    const name = itemName(bad.itemId, catalog);
+    switch (bad.reason) {
+      case 'class_restricted':
+        causes.push(`${name} can't be worn by a ${className}`);
+        break;
+      case 'slot_not_permitted':
+        causes.push(`A ${className} can't use the ${SLOT_LABEL[bad.slot].toLowerCase()} slot`);
+        break;
+      case 'wrong_kind':
+        causes.push(`${name} doesn't fit the ${SLOT_LABEL[bad.slot].toLowerCase()} slot`);
+        break;
+      case 'unknown_item':
+        causes.push(`${String(bad.itemId)} is not a known item`);
+        break;
+    }
+  }
+
+  for (const hand of legality.twoHandedConflictHands) {
+    const id = unit.equipment[hand];
+    const other = hand === 'rightHand' ? 'left hand' : 'right hand';
+    causes.push(
+      `${id !== null ? itemName(id, catalog) : 'A two-handed weapon'} needs both hands — ` +
+        `empty the ${other} (or equip Monkeygrip)`,
+    );
+  }
+
+  if (legality.dualWielding) {
+    causes.push('Two weapons equipped without a dual-wield passive (Two Weapons)');
+  }
+
+  for (const conflict of legality.equipLegalityConflicts) {
+    causes.push(
+      `${itemName(conflict.wornItemId, catalog)} forbids class-restricted gear in the ` +
+        `${SLOT_LABEL[conflict.forbiddenSlot].toLowerCase()} slot — remove ` +
+        `${itemName(conflict.otherItemId, catalog)}`,
+    );
+  }
+
+  return causes;
 }
