@@ -37,7 +37,14 @@ import { Training } from './Training.tsx';
 import { Customize } from './Customize.tsx';
 import { FORMATION_STYLE } from './formation-style.ts';
 import { resolveUnitPortrait } from '../../assets/portraits/index.ts';
-import { effectiveUnitStats, unitLegality } from './gear-view-model.ts';
+import {
+  effectiveUnitStats,
+  projectGearStats,
+  projectPassiveStats,
+  unitLegality,
+  type LoadoutFocus,
+} from './gear-view-model.ts';
+import type { EffectiveUnitStats } from '@campaign/index.ts';
 
 // XP per level (ADR-0139). Single per-unit currency, independent of JP.
 const XP_PER_LEVEL = 100;
@@ -102,7 +109,29 @@ export function UnitDossier({
     () => (invalid ? null : effectiveUnitStats(unit, catalog)),
     [invalid, unit, catalog],
   );
-  const stat = (v: number | undefined): number | string => (effective === null || v === undefined ? '—' : v);
+
+  // What the Loadout tab's pickers are hovering (owned here, not in the
+  // tab, because the header stat row previews the pick — the Mage War
+  // StatBlock behavior: projected value shown, green up / red down).
+  const [loadoutFocus, setLoadoutFocus] = useState<LoadoutFocus | null>(null);
+  const projected = useMemo(() => {
+    if (loadoutFocus === null || effective === null) return null;
+    if (loadoutFocus.kind === 'gear') {
+      return projectGearStats(unit, loadoutFocus.slot, loadoutFocus.itemId, catalog);
+    }
+    if (loadoutFocus.kind === 'passive') {
+      return projectPassiveStats(unit, loadoutFocus.bucket, loadoutFocus.abilityId, catalog);
+    }
+    return null; // secondary commands don't move the stat line
+  }, [loadoutFocus, effective, unit, catalog]);
+
+  const stat = (key: keyof EffectiveUnitStats): { v: number | string; tone?: 'up' | 'down' } => {
+    if (effective === null) return { v: '—' };
+    const current = effective[key];
+    const next = projected !== null ? projected[key] : current;
+    const tone = next > current ? 'up' : next < current ? 'down' : undefined;
+    return tone !== undefined ? { v: next, tone } : { v: next };
+  };
 
   const purse = availableInClass(unit, unit.classId, componentCatalog);
   const spent = spentInClass(unit, unit.classId, componentCatalog);
@@ -113,6 +142,13 @@ export function UnitDossier({
     setViewClassId(id);
     setJustIgnited(null);
     setTab('training');
+  }
+
+  // Leaving the Loadout tab clears any lingering hover projection so the
+  // header returns to the unit's real numbers.
+  function switchTab(next: DossierTab): void {
+    setLoadoutFocus(null);
+    setTab(next);
   }
 
   function buy(token: UnlockToken): void {
@@ -157,13 +193,13 @@ export function UnitDossier({
               {DOMAIN_LABEL[entry.half]} Tier {entry.tier}
             </div>
             <div className="tf-doss-stats">
-              <Stat k="hp" v={stat(effective?.maxHp)} />
-              <Stat k="mp" v={stat(effective?.maxMp)} />
-              <Stat k="pa" v={stat(effective?.pa)} />
-              <Stat k="ma" v={stat(effective?.ma)} />
-              <Stat k="spd" v={stat(effective?.spd)} />
-              <Stat k="move" v={stat(effective?.moveRange)} />
-              <Stat k="jump" v={stat(effective?.jump)} />
+              <Stat k="hp" {...stat('maxHp')} />
+              <Stat k="mp" {...stat('maxMp')} />
+              <Stat k="pa" {...stat('pa')} />
+              <Stat k="ma" {...stat('ma')} />
+              <Stat k="spd" {...stat('spd')} />
+              <Stat k="move" {...stat('moveRange')} />
+              <Stat k="jump" {...stat('jump')} />
               <Stat k="xp→next" v={`${unit.xp % XP_PER_LEVEL} / ${XP_PER_LEVEL}`} />
             </div>
           </div>
@@ -180,13 +216,13 @@ export function UnitDossier({
         </div>
 
         <div className="tf-tabs">
-          <button type="button" className={`tf-tab${tab === 'constellation' ? ' on' : ''}`} onClick={() => setTab('constellation')}>
+          <button type="button" className={`tf-tab${tab === 'constellation' ? ' on' : ''}`} onClick={() => switchTab('constellation')}>
             Constellation
           </button>
-          <button type="button" className={`tf-tab${tab === 'training' ? ' on' : ''}`} onClick={() => setTab('training')}>
+          <button type="button" className={`tf-tab${tab === 'training' ? ' on' : ''}`} onClick={() => switchTab('training')}>
             Training
           </button>
-          <button type="button" className={`tf-tab${tab === 'loadout' ? ' on' : ''}`} onClick={() => setTab('loadout')}>
+          <button type="button" className={`tf-tab${tab === 'loadout' ? ' on' : ''}`} onClick={() => switchTab('loadout')}>
             Loadout
           </button>
         </div>
@@ -216,6 +252,8 @@ export function UnitDossier({
               inventory={inventory}
               catalog={catalog}
               onChange={onChange}
+              focus={loadoutFocus}
+              onFocus={setLoadoutFocus}
               componentCatalog={componentCatalog}
             />
           )}
@@ -226,11 +264,23 @@ export function UnitDossier({
   );
 }
 
-function Stat({ k, v }: { readonly k: string; readonly v: number | string }): ReactElement {
+function Stat({
+  k,
+  v,
+  tone,
+}: {
+  readonly k: string;
+  readonly v: number | string;
+  // Hover preview tint (Mage War StatBlock): the value shown is the
+  // PROJECTED one, coloured by direction.
+  readonly tone?: 'up' | 'down';
+}): ReactElement {
   return (
     <div className="tf-stat">
       {k}
-      <b>{typeof v === 'number' ? v.toLocaleString() : v}</b>
+      <b className={tone !== undefined ? `tf-stat-${tone}` : undefined}>
+        {typeof v === 'number' ? v.toLocaleString() : v}
+      </b>
     </div>
   );
 }

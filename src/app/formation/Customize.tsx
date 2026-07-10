@@ -53,6 +53,11 @@ export interface CustomizeProps {
   readonly inventory: InventoryRecord;
   readonly catalog: Catalog;
   readonly onChange: (next: CampaignUnit) => void;
+  // The hover focus is OWNED BY THE DOSSIER (S86): the header stat row
+  // tints with the projected pick (the Mage War StatBlock behavior), so
+  // the parent needs to see what's hovered; this tab reports and renders.
+  readonly focus: LoadoutFocus | null;
+  readonly onFocus: (focus: LoadoutFocus | null) => void;
   readonly componentCatalog?: ComponentCatalog;
 }
 
@@ -62,6 +67,8 @@ export function Customize({
   inventory,
   catalog,
   onChange,
+  focus,
+  onFocus,
   componentCatalog = COMPONENT_CATALOG,
 }: CustomizeProps): ReactElement {
   const col = DOMAIN_COLOR[tierEntryOf(unit.classId).half];
@@ -100,10 +107,6 @@ export function Customize({
   const causes = legality.valid ? [] : legalityCauses(legality, unit, catalog);
   const overBuckets = new Set(legality.bucketOverages.map((o) => String(o.bucketId)));
 
-  // What the inspector is examining — reported by the pickers on hover
-  // (M3 Stage 3: the Team Builder inspector pattern).
-  const [focus, setFocus] = useState<LoadoutFocus | null>(null);
-
   return (
     <div className="tf-load-cols">
       {causes.length > 0 && (
@@ -127,7 +130,7 @@ export function Customize({
           catalog={catalog}
           col={col}
           onChange={onChange}
-          onFocus={setFocus}
+          onFocus={onFocus}
         />
       </div>
 
@@ -200,7 +203,7 @@ export function Customize({
                 selected={secondary === opt.commandSetId}
                 onClick={() => pickSecondary(opt.commandSetId)}
                 onHover={(on) =>
-                  setFocus(on ? { kind: 'secondary', commandSetId: opt.commandSetId } : null)
+                  onFocus(on ? { kind: 'secondary', commandSetId: opt.commandSetId } : null)
                 }
               />
             ))
@@ -219,7 +222,7 @@ export function Customize({
             equippedNames={passives[bucket].filter((o) => o.equipped).map((o) => o.name)}
             onToggle={(id) => toggle(id, bucket)}
             onHover={(opt, on) =>
-              setFocus(
+              onFocus(
                 on
                   ? {
                       kind: 'passive',
@@ -284,7 +287,9 @@ function CollapsibleSection({
         <span className={`tf-load-c${over ? ' over' : ''}`}>{over ? '⚠ ' : ''}{meta}</span>
         {!open && <span className="tf-load-sum">{summary}</span>}
       </div>
-      {open && children}
+      {/* Capped + inner-scrolled so a deep option list can't push the
+          inspector below the fold (S86 — Chris's MacBook report). */}
+      {open && <div className="tf-opt-scroll">{children}</div>}
     </div>
   );
 }

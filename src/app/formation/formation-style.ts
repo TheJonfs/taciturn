@@ -83,6 +83,11 @@ export const FORMATION_STYLE = `
 .tf-doss-stats{display:flex;gap:16px;margin-top:11px;flex-wrap:wrap}
 .tf-stat{font-size:10px;color:var(--star3);letter-spacing:.1em;text-transform:uppercase}
 .tf-stat b{display:block;font-family:var(--mono);font-size:15px;color:var(--star);font-weight:500;margin-top:1px}
+/* Hover projection tint (S86 — the Mage War StatBlock behavior): while a
+   Loadout pick is hovered, the header shows the PROJECTED value, coloured
+   by direction. */
+.tf-stat b.tf-stat-up{color:var(--afford)}
+.tf-stat b.tf-stat-down{color:#e07a7a}
 .tf-purse{text-align:right;flex:none}
 .tf-purse-lab{font-size:10px;color:var(--star3);letter-spacing:.11em;text-transform:uppercase}
 .tf-purse-val{font-family:var(--mono);font-size:25px;color:var(--brass);font-weight:500;margin-top:1px}
@@ -208,7 +213,10 @@ export const FORMATION_STYLE = `
 .tf-eq-nm{flex:1;min-width:0;font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tf-eq-nm.empty{color:var(--star3);font-style:italic;font-weight:400}
 .tf-eq-count{font-family:var(--mono);font-size:10px;color:var(--star3);flex:none}
-.tf-eq-list{border:1px solid var(--line);border-radius:9px;margin-top:4px;padding:5px;background:#0e1330;max-height:320px;overflow-y:auto}
+.tf-eq-list{border:1px solid var(--line);border-radius:9px;margin-top:4px;padding:5px;background:#0e1330;max-height:200px;overflow-y:auto}
+/* Ability option lists cap their height the same way (S86: keep the
+   inspector in view — deeper lists scroll inside their section). */
+.tf-opt-scroll{max-height:200px;overflow-y:auto}
 .tf-eq-search{display:flex;align-items:center;gap:6px;margin:2px 2px 6px;padding:5px 9px;background:var(--panel);border:1px solid var(--line);border-radius:7px}
 .tf-eq-search input{flex:1;background:transparent;border:none;outline:none;color:var(--star);font-family:var(--sans);font-size:12px}
 .tf-eq-search input::placeholder{color:var(--star3)}
@@ -224,7 +232,10 @@ export const FORMATION_STYLE = `
 .tf-eq-none{font-size:12px;color:var(--star3);padding:8px}
 
 /* ---- Loadout inspector (M3 Stage 3: hover detail + stat deltas) ---- */
-.tf-inspect{grid-column:1/-1;min-height:96px;background:linear-gradient(180deg,var(--panel),#0f1430);border:1px solid var(--line);border-radius:10px;padding:11px 14px;margin-top:8px}
+/* Sticky-bottom (S86, Chris's MacBook report): while the inspector's
+   natural position sits below the fold (tall pickers), it floats at the
+   bottom of the scrollport; scroll past and it settles into place. */
+.tf-inspect{grid-column:1/-1;min-height:96px;background:linear-gradient(180deg,var(--panel),#0f1430);border:1px solid var(--line);border-radius:10px;padding:11px 14px;margin-top:8px;position:sticky;bottom:10px;box-shadow:0 6px 24px -8px rgba(0,0,0,.65);z-index:5}
 .tf-inspect-hint{font-size:12px;color:var(--star3);font-style:italic;padding-top:24px;text-align:center}
 .tf-inspect-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .tf-inspect-title{font-family:var(--serif);font-size:17px;font-weight:600}
