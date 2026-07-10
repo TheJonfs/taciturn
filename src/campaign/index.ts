@@ -38,6 +38,7 @@ export {
   unequipItem,
   type InventoryRecord,
 } from './inventory.ts';
+export { DEBUG_SEED_TARGET, debugSeedGrants, debugSeedInventory } from './debug-seed.ts';
 
 export {
   M0_ROSTER_SIZE,

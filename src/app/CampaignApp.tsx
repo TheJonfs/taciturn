@@ -25,7 +25,7 @@
 // won battle"). A reload mid-sequence (e.g. during a post-battle scene) resumes
 // at the world map. Save schema is unchanged (v2).
 
-import { useState, type ReactElement } from 'react';
+import { useState, type CSSProperties, type ReactElement } from 'react';
 import { BattleView } from './BattleView.tsx';
 import { DeploymentScreen } from './DeploymentScreen.tsx';
 import { FormationScreen } from './FormationScreen.tsx';
@@ -39,6 +39,8 @@ import {
   buildResultSummaryBeat,
   buildRouteChoiceBeat,
   clearSavedCampaign,
+  debugSeedGrants,
+  debugSeedInventory,
   deployableRoster,
   foldBattle,
   getNode,
@@ -328,17 +330,39 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
 
   if (screen.kind === 'manage') {
     return (
-      <FormationManager
-        roster={state.roster}
-        catalog={catalog}
-        onRosterChange={(next) => {
-          const updated = { ...state, roster: next };
-          setState(updated);
-          saveCampaign(updated); // persist reclass/spend/loadout edits immediately
-        }}
-        onExit={returnToWorldMap}
-        exitLabel="← The Road Ahead"
-      />
+      <>
+        <FormationManager
+          roster={state.roster}
+          catalog={catalog}
+          onRosterChange={(next) => {
+            const updated = { ...state, roster: next };
+            setState(updated);
+            saveCampaign(updated); // persist reclass/spend/loadout edits immediately
+          }}
+          onExit={returnToWorldMap}
+          exitLabel="← The Road Ahead"
+        />
+        {/* Dev-only gear seed (M3 Stage 0): tops the party inventory up to
+            DEBUG_SEED_TARGET of every equippable item so the gear UI is
+            testable before the economy pass ships receipt for real. Writes
+            the real save (Chris's ruling) — the whole affordance is stripped
+            from production builds by the DEV gate. */}
+        {import.meta.env.DEV && (
+          <button
+            type="button"
+            style={devSeedChipStyle}
+            disabled={debugSeedGrants(state, catalog).length === 0}
+            onClick={() => {
+              const seeded = debugSeedInventory(state, catalog);
+              setState(seeded);
+              saveCampaign(seeded);
+            }}
+            title="Dev: top inventory up to 10 of every equippable item (persists to the save)"
+          >
+            {debugSeedGrants(state, catalog).length === 0 ? '🎒 Gear seeded ✓' : '🎒 Seed gear (dev)'}
+          </button>
+        )}
+      </>
     );
   }
 
@@ -388,6 +412,24 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
   // Unreachable in normal flow; render nothing rather than crash.
   return <></>;
 }
+
+// The dev gear-seed chip (manage screen only; DEV-gated at the call
+// site). Fixed-positioned so it floats over FormationManager without
+// touching its layout — mirrors DebugBattleMenu's chip styling.
+const devSeedChipStyle: CSSProperties = {
+  position: 'fixed',
+  left: 10,
+  bottom: 10,
+  zIndex: 8_000,
+  padding: '5px 9px',
+  fontSize: 12,
+  fontFamily: 'system-ui, sans-serif',
+  background: 'rgba(22,24,29,0.85)',
+  color: '#c7ccd6',
+  border: '1px solid #3a4150',
+  borderRadius: 5,
+  cursor: 'pointer',
+};
 
 // Stamp control flags so BattleView wires a human controller for the player
 // team and AI for everyone else. The shipped node templates already set

@@ -4,6 +4,12 @@ import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    // Honor an externally-assigned port (the Claude Code preview harness
+    // sets PORT when the default 5173 is taken by another session).
+    // Default vite behavior otherwise.
+    ...(process.env['PORT'] !== undefined ? { port: Number(process.env['PORT']) } : {}),
+  },
   resolve: {
     alias: {
       '@app': fileURLToPath(new URL('./src/app', import.meta.url)),
