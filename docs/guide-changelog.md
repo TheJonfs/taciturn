@@ -44,6 +44,74 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 85 (2026-07-09) — TABA M3 equipment expansion: 51 items across three gear generations (ADR-0142)
+
+Commits: `1e00ae7` → `f848b8d`. **TABA-campaign-only** — none of this appears in
+Mage War (its lineup is frozen and regression-pinned), except one deliberate
+bug fix noted at the end.
+
+- **Chapter 1 gear generation (new, 10 buyables):** Iron Sword (WP5), Cutlass
+  (WP4, +5F/+2S evade), Woodman's Axe (WP7·75, swingy), Short Bow (WP3·40, full
+  bow behavior incl. height rules), Dagger (WP2, **50% on-hit Vulnerable** —
+  the setup knife; the proc never amplifies its own hit), Padded Vest (HP+50),
+  Padded Jacket (HP+30/MP+15), Chain Shirt (Heavy: HP+80, +15 all-element res),
+  Linen Robe (mage: HP+20/MP+20/MA+2), Arcane Robe (mage: HP+10/MP+20, +25 all
+  res). **23 existing Ch2 items are also available from Chapter 1** in TABA
+  (the element wands, Staff of Abundance, most heads/off-hands/accessories —
+  the "demoted" set), plus Pendant of Lumara and Flametongue as Ch1 story
+  uniques.
+- **Chapter 2 additions (7):** Runic Staff (MA+5, Speed−2), Wand of Expanse
+  (**your magical area spells grow one step** — stacks with Aether Bloom),
+  Choir Staff (**buffs you cast last +1 turn**, and magical casts charge +5
+  faster), Warmage's Edge (PA+1/MA+2 — the first dual-stat weapon), Runecrown
+  (MP+20/MA+2/+1 spell power), Meditant's Cowl (MP+40, magical casts charge +5
+  faster), Keen Visor (Hit ×1.1, Crit +5).
+- **Chapter 3 gear generation (33):** highlights —
+  - **Katana**: critical hits deal **double damage** (crit ×1.5 → ×3.0).
+  - **Manaeater Blade**: WP 14, but your MaxMP is **halved**.
+  - **Epee**: a basic Attack refunds **PA-worth of CT** (once per action).
+  - **Spiked Maul**: WP 20 — the game's biggest hit — but your **Reaction
+    bucket capacity drops to 0** (no reaction passives at all while wielding).
+  - **Gaia's Axe**: earth-imbued strikes (target earth res applies) + your own
+    earth res +50.
+  - **Estoc**: a knife that stabs at **2-tile reach**. **Main Gauche**: +20/15/10
+    evade. **Master/Sniper Bow**: the Hunter-optimized vs reliable bow pair.
+  - **Trident**: lance package + **Templar Arts charge +5 faster**.
+    **Palliative Pike**: every landed hit heals allies (not enemies, not you)
+    adjacent to YOU for MA×4 — Aether Bloom widens the pulse.
+  - **Prism Wand**: all four element-wand utilities on ANY elemental spell
+    (+1 range, +1 AoE elevation, +5 cast speed, +1 spell power, +1 Burn stack).
+  - **Scouring Wand**: every landed poke permanently shreds **−33 ALL
+    elemental resistances** (stacks without limit — and resistance has no
+    floor, so it keeps scaling).
+  - **Battle Staff**: your basic attack uses **MA instead of PA**. **Healer's
+    Staff**: your basic attack **heals its target** (MA × 6, Faith-scaled,
+    never misses — and yes, it heals an enemy if you aim at one).
+  - **Channeler's Hat**: incoming damage **halved while you're charging**.
+  - Bodies: Crystal Plate (HP+200/+33 res/Speed−1), Masterwork Mail (33%
+    physical thorns), Mithril Chain, Sensei's Gi, Expert's Tunic (MP costs
+    ×0.75), Stealth Suit (evade/mobility scout). Heads: Titan's Helm, Command
+    Cap (**+1 secondary command set** for non-mages, Speed−2). Off-hands:
+    Mirror Shield (**20% magical thorns**), Abjurer's Codex (**your MA is
+    added to all elemental resistances**), Talisman of Endurance (negative
+    statuses land ×(1 − max(PA,MA)/100)). Winged Boots (Move+1, **Jump+5**).
+  - **The four element robes** (each plays its element against type): Moon
+    (water damage ×1.5), Star (heal 25% of fire damage you deal), Terra
+    (**+1 MA per earth spell cast**, stacks all battle), Void (lightning
+    damage marks Vulnerable, 50% Faith-scaled).
+- **Freelancer's Charm** (Ch1 unique): **+1 secondary command set**; you
+  cannot wear a class-restricted (Heavy/Magical) body while it's equipped —
+  "the generalist travels light."
+- **New statuses:** **Terra Attunement** (+1 MA/stack) and **Scoured** (−33
+  all-element res/stack, permanent, cleansable as a negative status).
+- **Mage War fix (the one shared change): Livre of Urgency now actually
+  speeds up buff casts.** Its "+5 charged action speed on every magical cast"
+  silently skipped non-damaging spells (Protect, Haste, etc.) — a bug
+  contradicting its own description. Damage spells are unchanged.
+- **Availability note:** within TABA, items are gated by CHAPTER only for now
+  — shops/costs/locations arrive with the economy pass. Uniques' acquisition
+  flows (story pickups) aren't wired yet.
+
 ## Session 84 (2026-07-05) — TABA chapter-1 plot-unique units (ADR-0141)
 
 Commits: `1df3efd`, `3eede12`, `c2201b3`, `a8fa759`, `9ed6e5b`, `7fa6788`,

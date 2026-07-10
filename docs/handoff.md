@@ -11,63 +11,79 @@ been processed.
 
 ---
 
-## S84 — TABA chapter-1 plot-unique units COMPLETE (2026-07-05)
+## S85 — TABA M3 equipment expansion COMPLETE (2026-07-09)
 
-The whole `chapter1-plot-units-brief.md` shipped this session (ADR-0141): the
-three engine seams **and** the five unit instantiations. Suite green (**2467**),
-`tsc -b` clean. **7 commits:** `1df3efd` (Seam 1) · `3eede12` (Seam 2) ·
-`c2201b3` (Seam 3) · `a8fa759` (portrait threading) · `9ed6e5b` (3 innate
-signatures) · `7fa6788` (Hamstring) · `602f396` (Thessaly's Math components + the
-five plot units). Plus a docs commit.
+The whole `taba-equipment-expansion-brief.md` shipped this session (ADR-0142):
+Stage 0 isolation substrate, Stages 2a/2b/2c flat batches, all Stage 3 engine
+prerequisites, all Stage 4 confirms + effect items, AND the deferred Ch1
+breadth-enabler (named **Freelancer's Charm** + the equip-legality seam).
+**51 new items** (catalog 82 → 133), 2 statuses, 4 hidden rider abilities,
+1 new hook (`modifyOutgoingStatusDuration`, Chris-approved), ~14 sanctioned
+rider fields/contributor arms. Suite green (**2536**), `tsc -b` clean.
+**8 commits:** `1e00ae7` (Stage 0) · `b12c815` (2a) · `7ffabc4` (engine seams)
+· `815c397` (2b) · `5cf4f51` (2c) · `9d962b9` (Stage 3) · `7d7e8ad` (Stage 4)
+· `f848b8d` (Freelancer's Charm). Plus this docs commit.
 
-Every brief acceptance criterion is met and tested: seams work in isolation;
-each of the five units instantiates; signatures fire (fire ×, cover, team CT,
-Hamstring stack/floor/proc, XP+Square buyable only for Thessaly, Hamstring only
-for Sera); `classAccessOverride` survives `reclassUnit`; portrait seam wired.
+Mage War regression: the frozen 75-item pool is PINNED
+(`src/ui/mage-war-frozen-equipment.test.ts`) — do not update that pin without
+an explicit Mage-War-change decision.
 
-### Portrait art — DONE
+### THE structural warning for the M3 gear-UI session (promoted to ADR-0142 too)
 
-The five portraits are processed (512×512, top-anchored crop; Lumen re-cropped
-tighter to bust framing), named `plot-<id>.png`, and registered in
-`FIXED_PORTRAITS`. Dialogue speakers switched to their `fixed` keys. Verified in
-the running app: dialogue faces (Chris's Knight, Sera's assassin) + the in-battle
-deployment panel (all five bespoke faces) + Chris confirmed as a Knight. The
-Formation roster is celestial (no photo faces) by design.
-
-### Repo hygiene — raw art blobs in unpushed history (your call)
-
-An errant `git add -A` swept the raw ~3–4 MB source PNGs (`Chris_1.png` etc.)
-into commit `a8fa759`; they're deleted again in `6289754`, so the WORKING TREE is
-clean (only the 512² `plot-*.png` are tracked). But ~18 MB of raw blobs linger in
-history. All 10 commits are **unpushed**, so it's safely strippable via a history
-rewrite (`git filter-repo --path src/assets/portraits/<Name>_1.png --invert-paths`
-for each) if you want the history clean before the first push — otherwise it's a
-one-time 18 MB and harmless. (I'll use explicit `git add <paths>` going forward.)
+**Spiked Maul breaks the M2 Formation UI's capacity assumption.** The UI
+assumed "equipment can only LIFT capacity above baseline" — the maul's
+reaction-bucket −3 (capacity → 0) falsifies it, and `createInitialState`
+THROWS on over-capacity loadouts. The gear UI must enforce
+equipment-adjusted capacity (block or unequip-excess on equip). Also note:
+capacity 0 blocks class-NATIVE reactions too — stronger than Chris's stated
+"only their class-innate reaction survives." If innate-survives is the real
+intent, it needs a different mechanism (flag before building one).
 
 ### Watch-fors / playtest (not blockers)
 
-- **Manual in-battle playtest is needed** to *see* the signatures fire — the
-  campaign→battle Pixi deployment can't be driven by the preview tools (synthetic
-  pointer events; noted since S83). The mechanics are covered by deterministic
-  integration tests, but the feel (esp. tuning knobs below) wants a real play.
-- **Clio's tempo loop** — Tidal Cadence is `3 × chapter` per ally (started at 3,
-  brief allows 3–4). Watch for the compounding loop with her Hydrologist CT tools;
-  the multiplier is the tuning knob (`TIDAL_CADENCE_CT_PER_TIER`). Don't pre-nerf.
-- **Hamstring baseChance 75** — between Blowdart (80) and Shadow Stitch (60); tune
-  from playtest if the grind feels wrong.
-- **Cover is mitigation-only in v1** — the soak runs Chris's defenses but does NOT
-  trigger his reactions and isn't evadable (S84 ruling). Wiring reactions/evasion
-  onto the redirect is a clean additive follow-up (ADR-0141).
-- **Buying the buyable signatures needs earned JP** — by design (paced). At L25
-  fixtures, `seedStartingKit` sets available JP to 0, so Hamstring / XP / Square
-  aren't immediately buyable in a fresh playtest until the unit earns Assassin /
-  Calculator JP in battles. If a playtest wants them sooner, grant JP in the
-  `?formation` dev harness (don't change the seed model).
+- **AI doesn't understand the exotic gear** — it would bonk enemies with a
+  Healer's Staff (healing them) and mis-value the effect weapons. Keep the
+  exotic pieces off authored ENEMY loadouts until an AI-valuation beat covers
+  them (fits the AI capability-expansion arc).
+- **Open-register playtest items** (all shipped per ruling, watch don't
+  pre-nerf): Epee CT-refund loops (× Haste/Clio), Star Robe field-wide
+  lifesteal (Calculator extreme; per-cast cap is fix-if-needed), Expert's
+  Tunic × Golden Hairpin (MP ×0.375 for two slots), tempo-caster triple stack
+  (Livre + Choir + Meditant's = +15 magical cast speed), Scouring + dual-wield
+  stack rate, Manaeater as default non-caster sword, Terra Robe possibly
+  UNDER-powered.
+- **Authored magnitude judgment calls** (flag-level, not rulings): Meditant's
+  Cowl "charge-time reduction" authored at Livre-parity +5 magical; Estoc
+  vertical reach authored 3 (melee parity); Palliative Pike kept the lance
+  family's pierce (two pulses on a pierced pair).
+- **Manual playtest still owed** from S84 (plot-unit signatures) — now plus
+  the M3 gear feel. TABA items are equip-able only by authoring today (no
+  gear UI), so a real gear playtest waits for the UI beat.
+
+### Deliberate Mage War delta (the one exception to the freeze)
+
+The action-speed rider tag-gate union fix (Livre of Urgency now speeds buff
+casts, matching its own doc comment). Chris chose bug-fix over absolute
+freeze. Lineup/pool unchanged; the pin is untouched.
+
+### Next M3 beats (the brief's own deferrals)
+
+1. **Formation gear UI** (equip/unequip between battles; respect
+   equipment-adjusted capacity + `equipLegality`; surface the TABA pool by
+   chapter via `tabaShopPool`).
+2. **Economy pass** — story-gated shop stock per location, costs, currency;
+   unique acquisition flows (Freelancer's Charm / Pendant / Flametongue
+   pickups); enriches `equipment-pool.ts` entries in place.
+3. **Ch3 findable-uniques + Tailored Outfit (Ch2 depth-enabler, design
+   settled in the lineup doc) + post-game gear** — separate design/authoring
+   passes.
 
 ### Carried from earlier (still open, low-priority)
 
 - JP spillover on over-threshold spend (M2 tail).
 - Enemy progression tuning for Stonebridge / Marshmoor / Mountain Pass (data).
-- Loadout 2nd-secondary (Magus Crown), "Level Up!" banner polish, the
-  rapid-dialogue-advance React setState-in-render warning.
-- "99 cap" is a guide fiction (no code clamp) — a guide-doc correction someday.
+- Loadout 2nd-secondary UI (Magus Crown — now ALSO Command Cap), "Level Up!"
+  banner polish, rapid-dialogue-advance React setState-in-render warning.
+- "99 cap" guide fiction (no code clamp) — guide-doc correction someday.
+- Raw portrait blobs (~18 MB) in unpushed history — Chris accepted the cost
+  (S85 ruling); drop this item.

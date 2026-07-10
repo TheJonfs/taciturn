@@ -133,6 +133,11 @@ The display names of the elemental-spell suite were re-flavored (S40 name pass a
 | `serpents_coil` | Serpent's Coil | first_action | no (S76 Monk Fist — PA×3 physical+water; `selfCtRefund` Speed×2 on hit; sets Serpent Stance) | available | `src/content/abilities/serpents-coil.ts` |
 | `counterpunch_strike` | Counterpunch | first_action | no (S76 hidden — PA×4 emitted by the Counterpunch reaction; knockback rider) | hidden | `src/content/abilities/counterpunch-strike.ts` |
 
+| `apply_vulnerable_proc` | Vulnerable | hidden | TABA M3 — the Dagger's on-hit rider (applyAlways) | `src/content/abilities/apply-vulnerable-proc.ts` |
+| `apply_scoured_proc` | Scour | hidden | TABA M3 — the Scouring Wand's on-hit rider (applyAlways) | `src/content/abilities/apply-scoured-proc.ts` |
+| `void_vulnerable_proc` | Void Mark | hidden | TABA M3 — the Void Robe's spell-proc (baseChance 50, Faith-scaled) | `src/content/abilities/void-vulnerable-proc.ts` |
+| `palliative_pulse` | Palliative Pulse | hidden | TABA M3 — the Pike's ally-only MA×4 heal pulse (allies_only AoE) | `src/content/abilities/palliative-pulse.ts` |
+
 ## Passive abilities
 
 Reaction / Support / Movement passives are equipped through their respective R/S/M buckets in the team builder. Each entry's `baseCost` is consumed against the bucket's capacity (default 3); class freeAbilities set the cost to 0 for their native picks.
@@ -237,6 +242,9 @@ S48 suppressed Bulwark Stance (was a floating Knight-flavored Movement passive w
 
 A status's `aiHints.polarity` (`'buff' | 'debuff'`) drives AI scoring; the polarity is independent of the `negative`/`positive` *tag* (which steers resistance application). Buff statuses include haste, regen, movement_self_buff, pa_up, ma_up, crit_modifier, and the S42 `speed_save` / Hunter `updraft` self-stacking buffs.
 
+| `terra_attunement` | Terra Attunement | TABA M3 — +1 MA per stack (Cornered Focus pattern); Terra Robe's ramp | `src/content/statuses/terra-attunement.ts` |
+| `scoured` | Scoured | TABA M3 — −33 all-element res per stack, permanent, unbounded; Scouring Wand | `src/content/statuses/scoured.ts` |
+
 ## Equipment
 
 Equipment slots: weapon (one- or two-handed), shield, armor, headgear, accessory.
@@ -264,6 +272,32 @@ Equipment slots: weapon (one- or two-handed), shield, armor, headgear, accessory
 | `parrying_sword` | Parrying Sword | weapon | S50 — sword tag, WP 6, accuracy 95, +10 Front / +5 Side evade (defensive sword variant) | `src/content/items/parrying-sword.ts` |
 | `absolom` | Absolom | weapon | S50 Knight Sword class — WP 13, accuracy 95, two-handed, `attacker_brave` variance ([Brave/100 ± 0.05]), +1 Reaction-bucket capacity. First consumer of the new `attacker_brave` `WeaponPhysicalVariance` kind. | `src/content/items/absolom.ts` |
 
+| `iron_sword` | Iron Sword | weapon | TABA M3 Ch1 — WP 5 · 95 vanilla sword | `src/content/items/iron-sword.ts` |
+| `cutlass` | Cutlass | weapon | TABA M3 Ch1 — WP 4 · 95, F+5/S+2 evade | `src/content/items/cutlass.ts` |
+| `woodmans_axe` | Woodman's Axe | weapon | TABA M3 Ch1 — WP 7 · 75, [0.9,1.3] band | `src/content/items/woodmans-axe.ts` |
+| `short_bow` | Short Bow | weapon | TABA M3 Ch1 — WP 3 · 40, full bow package | `src/content/items/short-bow.ts` |
+| `dagger` | Dagger | weapon | TABA M3 Ch1 — WP 2 · 95, 50% Vulnerable proc (setup knife) | `src/content/items/dagger.ts` |
+| `runic_staff` | Runic Staff | weapon | TABA M3 Ch2 — WP 4 · 80, MA+5 Spd−2 glass cannon | `src/content/items/runic-staff.ts` |
+| `wand_of_expanse` | Wand of Expanse | weapon | TABA M3 Ch2 — +1 AoE shape-step on magical casts (equipment-side Aether Bloom) | `src/content/items/wand-of-expanse.ts` |
+| `choir_staff` | Choir Staff | weapon | TABA M3 Ch2 — buffs +1 duration (first modifyOutgoingStatusDuration consumer) + magical cast speed +5 | `src/content/items/choir-staff.ts` |
+| `warmages_edge` | Warmage's Edge | weapon | TABA M3 Ch2 — WP 6 · 95, PA+1/MA+2 (first dual-stat weapon) | `src/content/items/warmages-edge.ts` |
+| `katana` | Katana | weapon | TABA M3 Ch3 — WP 11 · 95, crit_multiplier ×2 (1.5→3.0) | `src/content/items/katana.ts` |
+| `manaeater_blade` | Manaeater Blade | weapon | TABA M3 Ch3 — WP 14 · 95, MaxMP ×0.5 | `src/content/items/manaeater-blade.ts` |
+| `epee` | Epee | weapon | TABA M3 Ch3 — WP 9 · 95, PA-worth CT refund on basic attack (once per action) | `src/content/items/epee.ts` |
+| `master_bow` | Master Bow | weapon | TABA M3 Ch3 — WP 11 · 40, Spd−1, Hunter-optimized | `src/content/items/master-bow.ts` |
+| `sniper_bow` | Sniper Bow | weapon | TABA M3 Ch3 — WP 7 · 80, reliable generalist bow | `src/content/items/sniper-bow.ts` |
+| `main_gauche` | Main Gauche | weapon | TABA M3 Ch3 — WP 6 · 95, F/S/B +20/+15/+10 evade | `src/content/items/main-gauche.ts` |
+| `estoc` | Estoc | weapon | TABA M3 Ch3 — WP 7 · 95, melee reach 2 (weapon-range fork) | `src/content/items/estoc.ts` |
+| `gaias_axe` | Gaia's Axe | weapon | TABA M3 Ch3 — WP 16 · 75, earth-imbued + self earth res +50 | `src/content/items/gaias-axe.ts` |
+| `spiked_maul` | Spiked Maul | weapon | TABA M3 Ch3 — WP 20 · 75; reaction bucket capacity −3 (→0: no equipped reactions) | `src/content/items/spiked-maul.ts` |
+| `trident` | Trident | weapon | TABA M3 Ch3 — WP 13 · 90 lance package; +5 action speed on Templar Arts (commandSetFilter) | `src/content/items/trident.ts` |
+| `palliative_pike` | Palliative Pike | weapon | TABA M3 Ch3 — WP 11 · 95 lance; landed hits pulse MA×4 ally-only heal around wielder | `src/content/items/palliative-pike.ts` |
+| `prism_wand` | Prism Wand | weapon | TABA M3 Ch3 — all four element-wand utilities on any elemental spell + any-elemental Burn stack | `src/content/items/prism-wand.ts` |
+| `scouring_wand` | Scouring Wand | weapon | TABA M3 Ch3 — WP 3 · 90; 100% Scoured proc (−33 all res/stack, unbounded) | `src/content/items/scouring-wand.ts` |
+| `battle_staff` | Battle Staff | weapon | TABA M3 Ch3 — WP 5 · 80, MA+2; attacks use MA (attackStat swap) | `src/content/items/battle-staff.ts` |
+| `healers_staff` | Healer's Staff | weapon | TABA M3 Ch3 — WP 6 · 80, MA+3; attacks HEAL (MA × WP × Faith) | `src/content/items/healers-staff.ts` |
+| `worldstave` | Worldstave | weapon | TABA M3 Ch3 — WP 8 · 80, PA+2/MA+2 hybrid staff | `src/content/items/worldstave.ts` |
+
 ### Shields / Off-hand pieces
 
 The `kind: 'shield'` discriminant covers every non-weapon off-hand piece —
@@ -282,6 +316,10 @@ via this kind. Per-item `classRestrictions` enforces who can equip what
 | `tome_of_power` | Tome of Power | S51 Book (mage off-hand) — +1 MA, +10 MP. Class-restricted to the mage-gear tier (geosage / hydrologist / pyromancer / aethurge / calculator / terraformer — S54 added Terraformer). | `src/content/items/tome-of-power.ts` |
 | `livre_of_urgency` | Livre of Urgency | S51 Book (mage off-hand) — +1 Speed plus +5 charged action speed on magical-tagged casts (generalized Wand-of-Deepwood pattern). | `src/content/items/livre-of-urgency.ts` |
 | `battle_dictionary` | Battle Dictionary | S51 Book (mage off-hand) — +1 PA plus +1 horizontal range AND +1 AoE vertical tolerance on magical casts. +1 PA finally pays off on S54's Terraformer (Barrier HP = PA × MA). First non-Wand consumer of the new `aoeVerticalToleranceModifiers` field. | `src/content/items/battle-dictionary.ts` |
+
+| `mirror_shield` | Mirror Shield | shield | TABA M3 Ch3 — F+10/S+5 evade; reflects 20% magical (magicalReflectPercent) | `src/content/items/mirror-shield.ts` |
+| `abjurers_codex` | Abjurer's Codex | shield | TABA M3 Ch3 — adds composed MA to all elemental res (resistanceFromMaTags) | `src/content/items/abjurers-codex.ts` |
+| `talisman_of_endurance` | Talisman of Endurance | shield | TABA M3 Ch3 — incoming negative status ×(1−max(PA,MA)/100) | `src/content/items/talisman-of-endurance.ts` |
 
 ### Armor
 
@@ -302,6 +340,22 @@ via this kind. Per-item `classRestrictions` enforces who can equip what
 | `soul_vest` | Soul Vest | S50 universal armor — +50 HP, +10 Brave, +10 Faith. First universal Brave/Faith piece (Tricorn = Mage-only; Crusader's Helm = Knight-only). | `src/content/items/soul-vest.ts` |
 | `battlemages_chain` | Battlemage's Chain | S65 Heavy body (Knight/Templar) — +80 HP, +10 MP, +1 MA | `src/content/items/battlemages-chain.ts` |
 
+| `padded_vest` | Padded Vest | armor | TABA M3 Ch1 — HP+50 universal | `src/content/items/padded-vest.ts` |
+| `padded_jacket` | Padded Jacket | armor | TABA M3 Ch1 — HP+30/MP+15 universal | `src/content/items/padded-jacket.ts` |
+| `chain_shirt` | Chain Shirt | armor | TABA M3 Ch1 — HP+80, +15 all-elem res, Heavy lane | `src/content/items/chain-shirt.ts` |
+| `linen_robe` | Linen Robe | armor | TABA M3 Ch1 — HP+20/MP+20/MA+2, mage lane | `src/content/items/linen-robe.ts` |
+| `arcane_robe` | Arcane Robe | armor | TABA M3 Ch1 — HP+10/MP+20, +25 all-elem res, mage lane | `src/content/items/arcane-robe.ts` |
+| `crystal_plate` | Crystal Plate | armor | TABA M3 Ch3 — HP+200, +33 all res, Spd−1, Heavy baseline | `src/content/items/crystal-plate.ts` |
+| `masterwork_mail` | Masterwork Mail | armor | TABA M3 Ch3 — HP+140, PA+1, 33% physical reflect | `src/content/items/masterwork-mail.ts` |
+| `mithril_chain` | Mithril Chain | armor | TABA M3 Ch3 — HP+120/MP+20/MA+2, action speed +5 | `src/content/items/mithril-chain.ts` |
+| `senseis_gi` | Sensei's Gi | armor | TABA M3 Ch3 — HP+130/PA+2/Spd+1 universal | `src/content/items/senseis-gi.ts` |
+| `experts_tunic` | Expert's Tunic | armor | TABA M3 Ch3 — HP+90/MA+3, MP costs ×0.75 (Hairpin stacking flagged) | `src/content/items/experts-tunic.ts` |
+| `stealth_suit` | Stealth Suit | armor | TABA M3 Ch3 — HP+80/MP+10, +10 all evade, Move+1/Jump+1 (trimmed: no res) | `src/content/items/stealth-suit.ts` |
+| `moon_robe` | Moon Robe | armor | TABA M3 Ch3 robe — water spell damage ×1.5 (multiplicative SP) | `src/content/items/moon-robe.ts` |
+| `star_robe` | Star Robe | armor | TABA M3 Ch3 robe — heal 25% of fire damage dealt (equipment lifesteal) | `src/content/items/star-robe.ts` |
+| `terra_robe` | Terra Robe | armor | TABA M3 Ch3 robe — +1 MA per earth spell (Terra Attunement, once per spell) | `src/content/items/terra-robe.ts` |
+| `void_robe` | Void Robe | armor | TABA M3 Ch3 robe — lightning damage marks Vulnerable (50% Faith-scaled spell proc) | `src/content/items/void-robe.ts` |
+
 ### Headgear
 
 | ID | Display Name | Notes | File |
@@ -321,6 +375,13 @@ via this kind. Per-item `classRestrictions` enforces who can equip what
 | `skullclamp` | Skullclamp | S50 universal head — −20 HP, −10 MP, +1 PA, +1 MA. **First equipment to ship a negative HP/MP `statMods`** (additive composition through `modifyStatQuery`; vitals fill to post-equipment max at battle start). | `src/content/items/skullclamp.ts` |
 | `barbut` | Barbut | S65 heavy head (Knight/Templar) — +30 HP, × 0.5 incoming Stop / Don't Move / Don't Act (three `by_type` `incomingStatusModifiers`). | `src/content/items/barbut.ts` |
 | `circlet` | Circlet | S65 mage head — +10 HP, +10 MP, grants `mana_font` (per-turn MA/2 MP regen). | `src/content/items/circlet.ts` |
+
+| `runecrown` | Runecrown | headgear | TABA M3 Ch2 — MP+20/MA+2, +1 SP all spells, mage lane | `src/content/items/runecrown.ts` |
+| `meditants_cowl` | Meditant's Cowl | headgear | TABA M3 Ch2 — MP+40, magical cast speed +5, mage lane | `src/content/items/meditants-cowl.ts` |
+| `keen_visor` | Keen Visor | headgear | TABA M3 Ch2 — Hit ×1.1, Crit +5, universal | `src/content/items/keen-visor.ts` |
+| `titans_helm` | Titan's Helm | headgear | TABA M3 Ch3 — HP+30, F/S/B +10/+10/+5 evade, +20 all res, Heavy | `src/content/items/titans-helm.ts` |
+| `command_cap` | Command Cap | headgear | TABA M3 Ch3 — HP+10/MP+10, +1 secondary command set, Spd−2, universal | `src/content/items/command-cap.ts` |
+| `channelers_hat` | Channeler's Hat | headgear | TABA M3 Ch3 — HP+20/MP+10; incoming damage ×0.5 while charging | `src/content/items/channelers-hat.ts` |
 
 ### Accessories
 
@@ -344,6 +405,9 @@ via this kind. Per-item `classRestrictions` enforces who can equip what
 | `ring_of_caliora` | Ring of Caliora | S74 — MA +2 + magical hit drains 20% of damage from target CT (uncapped; floors at 0) | `src/content/items/ring-of-caliora.ts` |
 | `glove_of_metria` | Glove of Metria | S74 — MA +1 + spells gain +1 SP per target beyond the first (incl. Math Skill) | `src/content/items/glove-of-metria.ts` |
 | `pendant_of_lumara` | Pendant of Lumara | S74 — MA +2 + doubles the per-stack damage of Burn the wearer applies | `src/content/items/pendant-of-lumara.ts` |
+
+| `winged_boots` | Winged Boots | accessory | TABA M3 Ch3 — Move+1, Jump+5 | `src/content/items/winged-boots.ts` |
+| `freelancers_charm` | Freelancer's Charm | accessory | TABA M3 Ch1 UNIQUE — +1 secondary command set; no class-restricted body while worn (equip-legality seam) | `src/content/items/freelancers-charm.ts` |
 
 ### Consumables
 
@@ -411,7 +475,7 @@ Registered in `default.ts`'s `terrain.tags` map; see ADR-0073 (tag abstraction) 
 
 ---
 
-## Catalog counts (as of S76 — Monk class)
+## Catalog counts (as of the TABA M3 equipment expansion)
 
 The authoritative pin is `src/content/loader.test.ts`; these are the current
 catalog totals.
@@ -420,9 +484,9 @@ catalog totals.
 |---|---|---|
 | Classes | 14 | S76 `monk`; S72 `enchanter`; S62 `templar`; Thief `thief` |
 | Command sets | 16 | S76 `martial_arts`; S72 `auramancy`; S62 `templar_arts`; Thief `thief_arts` |
-| Abilities (active + passive + hidden) | 120 | S76 +9 (`chakra`, `foxfire`, `bears_heave`, `storm_stoop`, `serpents_coil`, `counterpunch_strike`, `barehanded`, `counterpunch`, `vigilance`); S72 +7 |
-| Status types | 43 | S76 +4 stances (`fox_stance`, `bear_stance`, `falcon_stance`, `serpent_stance`); S72 +4 |
-| Equipment + consumables | 82 | S75 `twist_headband`; S74 +4 caster accessories |
+| Abilities (active + passive + hidden) | 128 | TABA plot units +4; M3 +4 hidden riders (`apply_vulnerable_proc`, `apply_scoured_proc`, `void_vulnerable_proc`, `palliative_pulse`); S76 +9 |
+| Status types | 46 | TABA `hamstrung` +1; M3 +2 (`terra_attunement`, `scoured`); S76 +4 stances |
+| Equipment + consumables | 133 | TABA M3 +51 (10 Ch1, 7 Ch2, 33 Ch3, Freelancer's Charm — all `hidden`, TABA-scoped via `src/campaign/equipment-pool.ts`) |
 | Rulesets | 1 | — |
 | Maps | 4 | S70 `mountainPass` |
 | Terrain types | 6 | S70 `rock` (elev ≥ 7) + `grass_rock` (elev 5-6) on Mountain Pass |

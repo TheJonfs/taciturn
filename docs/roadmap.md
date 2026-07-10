@@ -369,7 +369,20 @@ These are noted to make their absence intentional rather than accidental:
   chapter-scaling fire ×, Chris's cover, Clio's team-CT, Sera's Hamstring
   (stacking Move/Jump permadebuff), Thessaly's exclusive XP/Square Math components
   (4×4 → 5×5 lattice), plus the ADR-0136 portrait-override threading (art
-  registration pending). Then economy (M3), authoring (M4), story (M5).
+  registration pending). **M3 equipment expansion — SHIPPED** (ADR-0142): the
+  full buyable roster across three gear generations (51 TABA-scoped items,
+  catalog 82 → 133) behind the campaign-owned pool manifest
+  (`src/campaign/equipment-pool.ts`; Mage War's 75-item pool frozen +
+  regression-pinned), the five engine prerequisites (attack-as-heal,
+  MA-attack-swap, charging-conditional damage, equip-legality override /
+  Freelancer's Charm, crit-magnitude — found already live), the
+  `modifyOutgoingStatusDuration` hook, and ~14 rider seams (spell procs,
+  equipment lifesteal, ally-only AoE, command-set-scoped action speed,
+  stat-scaled resistance/status-shrug, …). Remaining M3: the Formation
+  **gear UI** (must enforce equipment-adjusted capacity — Spiked Maul breaks
+  the lift-only assumption) and the **economy pass** (story-gated shops,
+  costs, currency, unique acquisition), then findable-uniques / Tailored
+  Outfit / post-game gear. Then authoring (M4), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.
 
