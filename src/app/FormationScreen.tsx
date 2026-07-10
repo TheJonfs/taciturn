@@ -19,6 +19,11 @@ export interface FormationScreenProps {
   // panel (catalog name, e.g. "Geosage", not the raw id "earth_mage").
   readonly catalog: Catalog;
   readonly onConfirm: (selected: ReadonlyArray<CampaignUnit>) => void;
+  // Open the roster-management surface (dossiers, gear, loadouts) from
+  // here — pre-battle management (S86), so loadouts are editable before
+  // the FIRST battle, not only from the post-win world map. Optional so
+  // non-campaign hosts can omit it.
+  readonly onManageRoster?: () => void;
   readonly onQuit: () => void;
 }
 
@@ -28,6 +33,7 @@ export function FormationScreen({
   deployCap,
   catalog,
   onConfirm,
+  onManageRoster,
   onQuit,
 }: FormationScreenProps): ReactElement {
   const classLabel = (classId: ClassId): string =>
@@ -112,6 +118,11 @@ export function FormationScreen({
             <button type="button" style={secondaryButtonStyle} onClick={onQuit}>
               Quit to Title
             </button>
+            {onManageRoster !== undefined && (
+              <button type="button" style={secondaryButtonStyle} onClick={onManageRoster}>
+                Manage Roster
+              </button>
+            )}
             <button
               type="button"
               style={canDeploy ? primaryButtonStyle : disabledButtonStyle}

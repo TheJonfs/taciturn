@@ -73,14 +73,23 @@ type RunDone =
 
 // The one screen the driver shows. A single discriminated state replaces M1's
 // separate sub/fightConfig/interstitial fields.
+// Where the roster-management screen was opened from — and so where its
+// exit returns to. `world-map` rebuilds the route-choice run; `formation`
+// re-enters deploy selection at the same battle beat (S86: pre-battle
+// management, so loadouts/gear are editable before the FIRST battle, not
+// only after a win).
+type ManageOrigin =
+  | { readonly kind: 'world-map' }
+  | { readonly kind: 'formation'; readonly battleIndex: number };
+
 type Screen =
   | { readonly kind: 'run'; readonly beats: ReadonlyArray<InterstitialBeat>; readonly done: RunDone; readonly nonce: number }
   | { readonly kind: 'formation'; readonly battleIndex: number }
   | { readonly kind: 'deployment'; readonly battleIndex: number; readonly config: BattleConfig }
   | { readonly kind: 'battle'; readonly battleIndex: number; readonly config: BattleConfig }
-  // Roster-management (Formation) surface, opened from the world map. Returns to
-  // the world map on exit; roster edits persist + autosave.
-  | { readonly kind: 'manage' };
+  // Roster-management (Formation) surface. Returns to its origin on exit;
+  // roster edits persist + autosave either way.
+  | { readonly kind: 'manage'; readonly origin: ManageOrigin };
 
 export interface CampaignAppProps {
   // The starting state — a fresh `startCampaign(...)` or a resumed save.
@@ -323,7 +332,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
         beats={screen.beats}
         onComplete={(output) => finishRun(screen.done, output)}
         onExitToTitle={onExitToTitle}
-        onManageRoster={() => setScreen({ kind: 'manage' })}
+        onManageRoster={() => setScreen({ kind: 'manage', origin: { kind: 'world-map' } })}
       />
     );
   }
@@ -340,8 +349,18 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
             setState(updated);
             saveCampaign(updated); // persist reclass/spend/loadout edits immediately
           }}
-          onExit={returnToWorldMap}
-          exitLabel="← The Road Ahead"
+          onExit={() => {
+            if (screen.origin.kind === 'formation') {
+              // Back to deploy selection at the same battle beat. The screen
+              // remounts fresh, so its pre-selection re-derives from the
+              // just-edited roster (an invalid unit fixed here becomes
+              // selectable; a newly-broken one gets excluded).
+              setScreen({ kind: 'formation', battleIndex: screen.origin.battleIndex });
+            } else {
+              returnToWorldMap();
+            }
+          }}
+          exitLabel={screen.origin.kind === 'formation' ? '← Back to Deploy' : '← The Road Ahead'}
         />
         {/* Dev-only gear seed (M3 Stage 0): tops the party inventory up to
             DEBUG_SEED_TARGET of every equippable item so the gear UI is
@@ -376,6 +395,9 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
         deployCap={battle.deployCap}
         catalog={catalog}
         onConfirm={(selected) => handleFormationConfirm(screen.battleIndex, selected)}
+        onManageRoster={() =>
+          setScreen({ kind: 'manage', origin: { kind: 'formation', battleIndex: screen.battleIndex } })
+        }
         onQuit={onExitToTitle}
       />
     );
