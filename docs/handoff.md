@@ -42,6 +42,15 @@ commandSetFilter scope — shared via `ui/index` with the Team Builder and the
 in-battle panel; and `isPlotUnique` now keys on `PLOT_UNIT_IDS` (Lumen + Clio
 were crestless — only override-carriers badged before).
 
+### Loadout ergonomics (`1eff54b`, Chris's pre-handoff ship-blockers)
+
+Sticky-bottom inspector (floats into view while pickers are tall; settles in
+place when scrolled to), 200px caps + inner scroll on equipment AND ability
+option lists, and the Mage War header-stat preview: hover focus lifted from
+Customize into UnitDossier, header chips show projected values tinted
+green/red while hovering, restore on unhover/tab-switch. Chris ships the
+handoff back to the planner from here.
+
 ### Late-session addition (Chris's request)
 
 **Pre-battle roster management** (`6984343`): the deploy-selection screen now

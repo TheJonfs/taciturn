@@ -79,6 +79,11 @@ Commits: `ce02d04` · `9d5f286` · `3f94ad6` · `3eeb908` · `3779318`.
 - (Dev builds only: a "Seed gear" chip on the manage screen stocks the stores
   with 10 of everything for playtesting — real acquisition ships with the
   economy pass.)
+- **Addendum (`1eff54b`): Loadout ergonomics.** The inspector strip now floats
+  at the bottom of the view while you browse (sticky — it never scrolls out of
+  reach), pickers cap their height and scroll inside, and hovering a pick also
+  previews it on the TOPLINE stats — the header numbers switch to the
+  projected values in green (up) / red (down) and restore on unhover.
 - **Addendum (`681871f`): the dossier now shows REAL stats and previews picks.**
   The header stat row is equipment/passive-composed (what battle will actually
   use), with Move and Jump added. Hovering any gear candidate, passive, or
