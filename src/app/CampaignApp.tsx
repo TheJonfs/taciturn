@@ -333,6 +333,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
       <>
         <FormationManager
           roster={state.roster}
+          inventory={state.inventory}
           catalog={catalog}
           onRosterChange={(next) => {
             const updated = { ...state, roster: next };
