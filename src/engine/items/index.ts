@@ -11,3 +11,23 @@ export {
   validateSlotItem,
 } from './equipment.ts';
 export { equipmentContributionsFor } from './contributions.ts';
+export {
+  classCanEquip,
+  draftAbilityCost,
+  draftBucketCapacity,
+  draftBucketUsed,
+  draftCommandSetCost,
+  findEquipLegalityConflicts,
+  findTwoHandedConflictHands,
+  loadoutGrantsDualWield,
+  loadoutGrantsTwoHandedGrip,
+  slotAcceptsKind,
+  slotIneligibilityReason,
+  validateDraftUnit,
+  type DraftBucketOverage,
+  type DraftEquipLegalityConflict,
+  type DraftInvalidSlot,
+  type DraftInvalidSlotReason,
+  type DraftUnitLegality,
+  type DraftUnitView,
+} from './draft-legality.ts';

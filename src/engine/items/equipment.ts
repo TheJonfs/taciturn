@@ -140,44 +140,40 @@ export class EquipmentSlotMismatchError extends Error {
   override readonly name = 'EquipmentSlotMismatchError';
 }
 
+// Does this slot accept this item kind? Hand slots take weapons or
+// shields (per Session 29, shields are a real kind); the other three
+// slots' names match their item kind exactly. Consumables fit no slot
+// (Session 39a). The single slot/kind rule — `validateSlotItem` (throw
+// side) and the draft-legality resolver (report side) both read it.
+export function slotAcceptsKind(
+  slot: EquipmentSlotId,
+  kind: ItemDefinition['kind'],
+): boolean {
+  if (kind === 'consumable') return false;
+  if (slot === 'leftHand' || slot === 'rightHand') {
+    return kind === 'weapon' || kind === 'shield';
+  }
+  return slot === kind;
+}
+
 export function validateSlotItem(
   slot: EquipmentSlotId,
   item: ItemDefinition,
 ): void {
-  // Session 39a: consumables never live in equipment slots — reject
-  // explicitly before falling through to the equipment-kind checks.
+  if (slotAcceptsKind(slot, item.kind)) return;
   if (item.kind === 'consumable') {
     throw new EquipmentSlotMismatchError(
       `Slot ${slot} expects equipment, received a consumable item`,
     );
   }
-  // Hand slots accept weapons or shields. Other slots require their
-  // kind exactly. Per Session 29: shields became a real kind (vs the
-  // pre-Session-29 placeholder comment) so Knight-only shield content
-  // can ship.
   if (slot === 'leftHand' || slot === 'rightHand') {
-    if (item.kind !== 'weapon' && item.kind !== 'shield') {
-      throw new EquipmentSlotMismatchError(
-        `Slot ${slot} expects a weapon or shield, received ${item.kind}`,
-      );
-    }
-    return;
-  }
-  if (slot === 'headgear' && item.kind !== 'headgear') {
     throw new EquipmentSlotMismatchError(
-      `Slot headgear expects a headgear item, received ${item.kind}`,
+      `Slot ${slot} expects a weapon or shield, received ${item.kind}`,
     );
   }
-  if (slot === 'armor' && item.kind !== 'armor') {
-    throw new EquipmentSlotMismatchError(
-      `Slot armor expects an armor item, received ${item.kind}`,
-    );
-  }
-  if (slot === 'accessory' && item.kind !== 'accessory') {
-    throw new EquipmentSlotMismatchError(
-      `Slot accessory expects an accessory item, received ${item.kind}`,
-    );
-  }
+  throw new EquipmentSlotMismatchError(
+    `Slot ${slot} expects a ${slot} item, received ${item.kind}`,
+  );
 }
 
 // Convenience: an empty UnitEquipment, used by `placementToUnit` when

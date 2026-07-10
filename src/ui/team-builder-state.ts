@@ -7,28 +7,35 @@
 // state and validity is re-derived on read. This module is pure — React
 // wiring lives in `use-team-builder.ts`.
 //
-// Capacity / cost are computed here directly from the catalog rather
-// than through the engine's `getCapacity` / `getCost`, which need a
-// fully-built `GameState` (and `createInitialState` throws on an
-// invalid loadout, so it can't double as a validity probe). For a
-// pre-battle draft unit — no statuses — bucket capacity is exactly
-// `ruleset baseline + Σ equipped items' bucketCapacityMods` and ability
-// cost is exactly `class.freeAbilities.has(id) ? 0 : baseCost`. These
-// helpers mirror that composition; `team-builder-state.test.ts` pins
-// them against the real engine functions so drift fails loud, and
-// `createInitialState` at the "Continue to Deployment" gate is the
-// authoritative backstop.
+// Capacity, cost, and equip legality all read the engine's state-free
+// draft resolver (`engine/items/draft-legality.ts`) — the SAME functions
+// `createInitialState`'s equipment validation throws on, per the M3
+// gear-UI brief's D3 discipline (one resolver, never a UI copy). This
+// module re-exports the draft helpers under their historic names and
+// layers the team-level rules the resolver doesn't know about
+// (unique-per-team items, one-class-per-team, team size).
+// `team-builder-state.test.ts` still pins the draft resolver against the
+// hook-based `getCapacity` / `getCost` so a future non-equipment
+// capacity contributor fails loud rather than silently diverging.
 
 import {
   EQUIPMENT_SLOT_IDS,
   BUCKET_FIRST_ACTION,
   BUCKET_SECONDARY_COMMAND_SETS,
   PASSIVE_BUCKET_IDS,
-  ALL_BUCKET_IDS,
   EMPTY_LOADOUT,
+  classCanEquip,
   createInitialState,
+  draftAbilityCost,
+  draftBucketCapacity,
+  draftBucketUsed,
+  draftCommandSetCost,
   isEquipment,
+  loadoutGrantsDualWield,
+  loadoutGrantsTwoHandedGrip,
   runModifyStatQuery,
+  slotAcceptsKind,
+  validateDraftUnit,
   type AbilityId,
   type BattleConfig,
   type BucketId,
@@ -38,7 +45,6 @@ import {
   type CommandSetId,
   type EquipmentDefinition,
   type EquipmentSlotId,
-  type ItemDefinition,
   type ItemId,
   type Loadout,
   type RulesetId,
@@ -241,79 +247,11 @@ export function buildDefaultLoadout(classId: ClassId, catalog: Catalog): Loadout
 }
 
 // ---------------------------------------------------------------------
-// Equipment eligibility
+// Equipment eligibility / capacity / cost — the engine's draft resolver,
+// re-exported under this module's historic names (see module header).
 // ---------------------------------------------------------------------
 
-// Does this slot accept this item kind? Hand slots take weapons or
-// shields; the other three slots' names match their item kind exactly.
-export function slotAcceptsKind(
-  slot: EquipmentSlotId,
-  kind: ItemDefinition['kind'],
-): boolean {
-  if (slot === 'leftHand' || slot === 'rightHand') {
-    return kind === 'weapon' || kind === 'shield';
-  }
-  return slot === kind;
-}
-
-// Can a unit of `classId` equip `item` in `slot`? Checks slot/kind
-// match, the class's slot permission, and the item's optional class
-// allowlist. Mirrors `createInitialState`'s equipment-placement check.
-export function classCanEquip(
-  classId: ClassId,
-  slot: EquipmentSlotId,
-  item: ItemDefinition,
-  catalog: Catalog,
-): boolean {
-  // Consumables aren't equipment — no slot accepts them.
-  if (!isEquipment(item)) return false;
-  if (!slotAcceptsKind(slot, item.kind)) return false;
-  const cls = catalog.getClass(classId);
-  if (!cls.equipmentSlots[slot]) return false;
-  if (item.classRestrictions !== undefined && !item.classRestrictions.includes(classId)) {
-    return false;
-  }
-  return true;
-}
-
-// ---------------------------------------------------------------------
-// Capacity / cost — see the module header on why these are local.
-// ---------------------------------------------------------------------
-
-export function draftBucketCapacity(
-  equipment: UnitEquipment,
-  bucketId: BucketId,
-  catalog: Catalog,
-  rulesetId: RulesetId,
-): number {
-  const ruleset = catalog.getRuleset(rulesetId);
-  let capacity = ruleset.bucketCapacities.get(bucketId) ?? 0;
-  for (const slot of EQUIPMENT_SLOT_IDS) {
-    const itemId = equipment[slot];
-    if (itemId === null) continue;
-    const item = catalog.getItem(itemId);
-    if (!isEquipment(item)) continue;
-    const delta = item.bucketCapacityMods?.get(bucketId);
-    if (delta !== undefined) capacity += delta;
-  }
-  return Math.max(0, Math.floor(capacity));
-}
-
-export function draftAbilityCost(
-  classId: ClassId,
-  abilityId: AbilityId,
-  catalog: Catalog,
-): number {
-  if (catalog.getClass(classId).freeAbilities.has(abilityId)) return 0;
-  return catalog.getAbility(abilityId).baseCost;
-}
-
-export function draftCommandSetCost(
-  commandSetId: CommandSetId,
-  catalog: Catalog,
-): number {
-  return catalog.getCommandSet(commandSetId).baseCost;
-}
+export { classCanEquip, draftAbilityCost, draftBucketCapacity, draftCommandSetCost, slotAcceptsKind };
 
 // Cost used in a single bucket of a draft unit's loadout.
 function bucketUsed(
@@ -322,18 +260,7 @@ function bucketUsed(
   catalog: Catalog,
 ): number {
   if (unit.classId === null) return 0;
-  if (PASSIVE_BUCKET_IDS.includes(bucketId)) {
-    const abilities = unit.loadout.passiveBuckets[bucketId] ?? [];
-    return abilities.reduce(
-      (sum, abilityId) => sum + draftAbilityCost(unit.classId!, abilityId, catalog),
-      0,
-    );
-  }
-  const commandSets = unit.loadout.actionBuckets[bucketId] ?? [];
-  return commandSets.reduce(
-    (sum, commandSetId) => sum + draftCommandSetCost(commandSetId, catalog),
-    0,
-  );
+  return draftBucketUsed(unit.classId, unit.loadout, bucketId, catalog);
 }
 
 export interface BucketUsage {
@@ -724,112 +651,42 @@ function computeUnitValidity(
   }
   const classId = unit.classId!;
 
-  const invalidEquipmentSlots: EquipmentSlotId[] = [];
-  for (const slot of EQUIPMENT_SLOT_IDS) {
-    const itemId = unit.equipment[slot];
-    if (itemId === null) continue;
-    if (!classCanEquip(classId, slot, catalog.getItem(itemId), catalog)) {
-      invalidEquipmentSlots.push(slot);
-    }
-  }
-
-  const bucketOverages: BucketOverage[] = [];
-  for (const bucketId of ALL_BUCKET_IDS) {
-    const used = bucketUsed(unit, bucketId, catalog);
-    const capacity = draftBucketCapacity(unit.equipment, bucketId, catalog, rulesetId);
-    if (used > capacity) {
-      bucketOverages.push({ bucketId, used, capacity });
-    }
-  }
-
-  const dualWielding = isDualWielding(unit, catalog);
-  const twoHandedConflict = isTwoHandedConflict(unit, catalog);
+  // The engine's draft resolver produces the per-unit report; this
+  // module reshapes it into the historic `UnitValidity` fields the
+  // components render. (equipLegality conflicts — Freelancer's Charm —
+  // can't arise here: the charm is TABA-hidden, outside Mage War's
+  // AVAILABLE_EQUIPMENT pool. Folded into `valid` anyway so a future
+  // pool change surfaces as an invalid card, not a silent pass.)
+  const legality = validateDraftUnit(
+    { classId, loadout: unit.loadout, equipment: unit.equipment },
+    catalog,
+    rulesetId,
+  );
 
   return {
     hasClass: true,
-    invalidEquipmentSlots,
-    bucketOverages,
-    dualWielding,
-    twoHandedConflict,
-    valid:
-      invalidEquipmentSlots.length === 0 &&
-      bucketOverages.length === 0 &&
-      !dualWielding &&
-      !twoHandedConflict,
+    invalidEquipmentSlots: legality.invalidSlots.map((s) => s.slot),
+    bucketOverages: legality.bucketOverages,
+    dualWielding: legality.dualWielding,
+    twoHandedConflict: legality.twoHandedConflictHands.length > 0,
+    valid: legality.valid,
   };
-}
-
-// Illegal-dual-wield detection — true when both hand slots hold a weapon
-// AND the unit lacks a dual-wield-granting passive. One weapon + one
-// shield is always fine. Session 42: Two Weapons (any passive with a
-// `modifyDualWield` hook) lifts the restriction, so a unit carrying it
-// may legally hold a weapon in each hand. Detected content-agnostically
-// (no hard-coded ability id); `passiveBuckets` already folds in the
-// class's free abilities, so the native Assassin and a cross-class equip
-// both resolve here.
-function isDualWielding(unit: DraftUnit, catalog: Catalog): boolean {
-  const left = unit.equipment.leftHand;
-  const right = unit.equipment.rightHand;
-  if (left === null || right === null) return false;
-  const bothWeapons =
-    catalog.getItem(left).kind === 'weapon' &&
-    catalog.getItem(right).kind === 'weapon';
-  if (!bothWeapons) return false;
-  return !unitGrantsDualWield(unit, catalog);
-}
-
-// Session 45: true when a two-handed weapon shares a hand with any
-// off-hand item (weapon or shield) — the engine's slotting validation
-// rejects this. Mirrors `validateEquipmentPlacement`'s two-handed rule.
-function isTwoHandedConflict(unit: DraftUnit, catalog: Catalog): boolean {
-  // Monkeygrip (relaxesTwoHandedGrip, ADR-0100) lifts the rule — a two-hander
-  // may share a hand with an off-hand item. Mirrors the engine validator and
-  // the equipment picker's gate, so the validity panel agrees with both.
-  if (unitGrantsTwoHandedGrip(unit, catalog)) return false;
-  const left = unit.equipment.leftHand;
-  const right = unit.equipment.rightHand;
-  const isTwoHanded = (id: ItemId | null): boolean => {
-    if (id === null) return false;
-    const item = catalog.getItem(id);
-    return item.kind === 'weapon' && item.twoHanded === true;
-  };
-  if (isTwoHanded(right) && left !== null) return true;
-  if (isTwoHanded(left) && right !== null) return true;
-  return false;
 }
 
 // True when any equipped passive declares `relaxesTwoHandedGrip`
 // (Monkeygrip) — a two-hander may then share a hand with an off-hand
-// item. Mirrors the engine's `validateEquipmentPlacement` (ADR-0100).
-// Exported as the single UI-side source: the validity checker, the
-// equipment picker, and `equipmentOptionsForSlot` all read it (the old
-// per-component copies are gone).
+// item. Delegates to the engine's draft resolver (ADR-0100). Exported
+// as the single UI-side entry point: the validity checker, the
+// equipment picker, and `equipmentOptionsForSlot` all read it.
 export function unitGrantsTwoHandedGrip(unit: DraftUnit, catalog: Catalog): boolean {
-  for (const abilityIds of Object.values(unit.loadout.passiveBuckets)) {
-    for (const aid of abilityIds) {
-      const ability = catalog.getAbility(aid);
-      if (ability.kind === 'passive' && ability.relaxesTwoHandedGrip === true) {
-        return true;
-      }
-    }
-  }
-  return false;
+  return loadoutGrantsTwoHandedGrip(unit.loadout, catalog);
 }
 
 // True when any equipped passive registers a `modifyDualWield` hook
-// (Two Weapons) — both hands may then hold a weapon. Content-agnostic
-// (no hard-coded id). The single UI-side source, shared by the validity
-// checker, the picker, and `equipmentOptionsForSlot`.
+// (Two Weapons) — both hands may then hold a weapon. Delegates to the
+// engine's draft resolver (content-agnostic; no hard-coded id).
 export function unitGrantsDualWield(unit: DraftUnit, catalog: Catalog): boolean {
-  for (const abilityIds of Object.values(unit.loadout.passiveBuckets)) {
-    for (const aid of abilityIds) {
-      const ability = catalog.getAbility(aid);
-      if (ability.kind === 'passive' && ability.hooks.some((h) => h.name === 'modifyDualWield')) {
-        return true;
-      }
-    }
-  }
-  return false;
+  return loadoutGrantsDualWield(unit.loadout, catalog);
 }
 
 // All equipment the picker can ever offer: available, equippable items

@@ -26,8 +26,8 @@
 // class-portrait pipeline). M1 reuses the shipped battle templates + maps the
 // lazy way (M0 discipline); authored/generated encounters are M4.
 
-import { abilityId, EMPTY_UNIT_EQUIPMENT, teamId } from '@engine/index.ts';
-import type { TeamId } from '@engine/index.ts';
+import { abilityId, EMPTY_UNIT_EQUIPMENT, rulesetId, teamId } from '@engine/index.ts';
+import type { RulesetId, TeamId } from '@engine/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import { authoredEnemy } from './authored-enemy.ts';
 import type { CampaignUnit } from './types.ts';
@@ -41,6 +41,16 @@ import type { NodeBattle, NodeBeat, StorySceneBeat } from './sequence.ts';
 
 const PLAYER: TeamId = teamId('team_a');
 const M1_DEPLOY_CAP = 5;
+
+// The ruleset every campaign battle plays under. All authored node
+// templates inherit `default` (they spread from the shipped demo-derived
+// configs). The between-battles Formation UI computes equipment-adjusted
+// bucket capacity under this id via the engine's draft resolver
+// (`draftBucketCapacity`), so it must match what `createInitialState`
+// will read at battle entry — `node.test.ts` pins every authored
+// template's `rulesetId` to it. If a per-node ruleset ever ships, the
+// Formation UI needs to become node-aware before that pin is relaxed.
+export const CAMPAIGN_RULESET_ID: RulesetId = rulesetId('default');
 
 // Node ids — stable identity (CLAUDE.md rule 4), threaded into the save as
 // the campaign position. Authored as readable slugs.

@@ -56,7 +56,7 @@ export {
   isTerminal,
   isWinChoice,
 } from './graph.ts';
-export { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+export { CAMPAIGN_RULESET_ID, M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
 
 // The node beat-sequence model (M1.5 battle-as-beat) — descriptors + pure
 // cursor helpers.

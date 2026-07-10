@@ -8,14 +8,18 @@
 //   - Passives: `canEquipPassive` — every current-class passive is free (innate);
 //     other-class passives need the export tax (an unlock). Enabler passives
 //     equip but note their command-set condition.
-// Capacity is the ruleset baseline (secondary 1, R/S/M 3). Equipment can only
-// LIFT capacity above baseline, so enforcing the baseline never yields a loadout
-// the fold would reject — it's a safe floor. (Equipment-adjusted capacity is a
-// later, probe-based refinement.)
+// Capacity is equipment-adjusted via the engine's draft resolver
+// (`draftBucketCapacity`) — the SAME function `createInitialState`'s
+// legality side reads, per the M3 gear-UI brief's D3 discipline (one
+// resolver; the pre-M3 "equipment can only LIFT capacity" assumption was
+// falsified by Spiked Maul's reaction −3). Under the campaign's ruleset
+// (`CAMPAIGN_RULESET_ID`), so the numbers here are what battle entry
+// will enforce.
 
 import {
   bucketId,
-  EQUIPMENT_SLOT_IDS,
+  draftAbilityCost,
+  draftBucketCapacity,
   type AbilityId,
   type BucketId,
   type Catalog,
@@ -24,6 +28,7 @@ import {
   type Loadout,
 } from '@engine/index.ts';
 import {
+  CAMPAIGN_RULESET_ID,
   COMPONENT_ENTRIES,
   canEquipPassive,
   componentMetaOf,
@@ -37,32 +42,13 @@ import { DOMAIN_COLOR, type Domain } from './roster-view-model.ts';
 const FIRST_ACTION = bucketId('first_action');
 const SECONDARY = bucketId('secondary_command_sets');
 
-// Ruleset baseline capacities (default.ts).
-export const BASELINE_CAPACITY: Readonly<Record<string, number>> = {
-  secondary_command_sets: 1,
-  reaction: 3,
-  support: 3,
-  movement: 3,
-};
-
-// Effective bucket capacity between battles = baseline + equipped items'
-// `bucketCapacityMods`. Equipment is the ONLY contributor to
-// `modifyBucketCapacity` in v1 content (no class/status contributors), and
-// status doesn't apply between battles — so this pure computation matches what
-// the fold's `getCapacity` would produce, without a battle state. (If a
-// class-trait capacity contributor is ever added, revisit.)
+// Effective bucket capacity between battles: ruleset baseline + equipped
+// items' `bucketCapacityMods`, via the engine's shared draft resolver.
+// A campaign unit carries no statuses, so this is exactly what the
+// hook-based `getCapacity` produces at battle entry (pinned in
+// `draft-legality.test.ts`).
 export function bucketCapacity(unit: CampaignUnit, bucket: string, catalog: Catalog): number {
-  let cap = BASELINE_CAPACITY[bucket] ?? 0;
-  const target = bucketId(bucket);
-  for (const slot of EQUIPMENT_SLOT_IDS) {
-    const id = unit.equipment[slot];
-    if (id === null || !catalog.hasItem(id)) continue;
-    const item = catalog.getItem(id);
-    // `bucketCapacityMods` lives on the equipment variant of the item union.
-    const mods = 'bucketCapacityMods' in item ? item.bucketCapacityMods : undefined;
-    cap += mods?.get(target) ?? 0;
-  }
-  return Math.max(0, cap);
+  return draftBucketCapacity(unit.equipment, bucketId(bucket), catalog, CAMPAIGN_RULESET_ID);
 }
 
 export type PassiveBucket = 'reaction' | 'support' | 'movement';
@@ -200,9 +186,10 @@ export function equippedCount(unit: CampaignUnit, bucket: PassiveBucket): number
 // Bucket capacity is a cost BUDGET, not a count — this is why a class can slot
 // more of its own (free) passives than a naive count suggests.
 export function passiveCost(unit: CampaignUnit, abilityId: AbilityId, catalog: Catalog): number {
-  const classDef = catalog.getClass(unit.classId);
-  if (classDef.freeAbilities.has(abilityId)) return 0;
-  return catalog.hasAbility(abilityId) ? catalog.getAbility(abilityId).baseCost : 0;
+  // Unknown ids read as cost 0 (a stale save must not crash the budget
+  // display); known ids go through the engine's shared draft resolver.
+  if (!catalog.hasAbility(abilityId)) return 0;
+  return draftAbilityCost(unit.classId, abilityId, catalog);
 }
 
 // Total slot cost currently used in a passive bucket.

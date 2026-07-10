@@ -32,6 +32,11 @@ import {
 } from '../types/index.ts';
 import { validateLoadout } from '../abilities/validate.ts';
 import { isEquipment, iterateEquippedItems, validateSlotItem } from '../items/equipment.ts';
+import {
+  findEquipLegalityConflicts,
+  findTwoHandedConflictHands,
+  slotIneligibilityReason,
+} from '../items/draft-legality.ts';
 import { runModifyStatQuery } from '../hooks/runners.ts';
 import { commitAction } from '../actions/commit.ts';
 import { resolveInitialCT } from './initial-ct.ts';
@@ -362,102 +367,94 @@ function placementToUnit(
   };
 }
 
+// Equipment-placement legality — the throw side of the shared draft
+// resolver (`engine/items/draft-legality.ts`). Every rule here is READ
+// from that module, never reimplemented: the pre-battle UIs (Team
+// Builder, Formation gear view) surface the same functions' output as
+// warnings, so a loadout the UI calls valid cannot throw here (the M3
+// gear-UI brief's D3 discipline). Capacity is the one exception — it's
+// gated by the hook-based `validateLoadout` above, because authored
+// placements may carry initial statuses the state-free resolver can't
+// see; `draft-legality.test.ts` pins the two computations equal for
+// status-free units. Dual-wield without a granting passive is the
+// reverse asymmetry: the UIs block it, but the engine tolerates it (the
+// swing loop simply never grants the off-hand swing), so it is not
+// checked here.
 function validateEquipmentPlacement(
   placement: UnitPlacement,
   equipment: UnitEquipment,
   catalog: Catalog,
 ): void {
-  const cls = catalog.getClass(placement.classId);
   for (const slot of ['leftHand', 'rightHand', 'headgear', 'armor', 'accessory'] as const) {
     const id = equipment[slot];
     if (id === null) continue;
-    if (!cls.equipmentSlots[slot]) {
-      throw new BattleConfigError(
-        `Unit ${JSON.stringify(placement.id)}: class ${JSON.stringify(placement.classId)} ` +
-          `does not permit ${slot}`,
-      );
-    }
     if (!catalog.hasItem(id)) {
       throw new BattleConfigError(
         `Unit ${JSON.stringify(placement.id)}: equipment id ${JSON.stringify(id)} not in catalog`,
       );
     }
     const item = catalog.getItem(id);
-    try {
-      validateSlotItem(slot, item);
-    } catch (err) {
-      throw new BattleConfigError(
-        `Unit ${JSON.stringify(placement.id)}: ${(err as Error).message}`,
-      );
-    }
-    // Session 29: per-item class allowlist. Fails loud per CLAUDE.md
-    // "don't catch errors silently."
-    if (isEquipment(item) && item.classRestrictions !== undefined && !item.classRestrictions.includes(placement.classId)) {
-      throw new BattleConfigError(
-        `Unit ${JSON.stringify(placement.id)}: class ${JSON.stringify(placement.classId)} ` +
-          `cannot equip ${JSON.stringify(id)} (restricted to ${JSON.stringify([...item.classRestrictions])})`,
-      );
-    }
-  }
-  // TABA M3: equip-legality overrides — cross-ITEM legality declared by
-  // equipped gear (the per-slot checks above are class↔item; this layer
-  // is item↔item). First instance: Freelancer's Charm forbids class-
-  // restricted (Heavy/Magical-lane) items in the slots it names ("the
-  // generalist travels light"). The field is authored generally — a
-  // future universal-equip enabler (instance two) adds its relaxation
-  // branch at this same site.
-  for (const wornSlot of ['leftHand', 'rightHand', 'headgear', 'armor', 'accessory'] as const) {
-    const wornId = equipment[wornSlot];
-    if (wornId === null || !catalog.hasItem(wornId)) continue;
-    const worn = catalog.getItem(wornId);
-    if (!isEquipment(worn) || worn.equipLegality === undefined) continue;
-    for (const forbiddenSlot of worn.equipLegality.forbidClassRestrictedInSlots ?? []) {
-      const otherId = equipment[forbiddenSlot];
-      if (otherId === null || !catalog.hasItem(otherId)) continue;
-      const other = catalog.getItem(otherId);
-      if (isEquipment(other) && other.classRestrictions !== undefined) {
+    const reason = slotIneligibilityReason(placement.classId, slot, item, catalog);
+    if (reason === null) continue;
+    switch (reason) {
+      case 'wrong_kind':
+        // `validateSlotItem` composes the kind-mismatch message
+        // (consumable / hand-slot / named-slot variants).
+        try {
+          validateSlotItem(slot, item);
+        } catch (err) {
+          throw new BattleConfigError(
+            `Unit ${JSON.stringify(placement.id)}: ${(err as Error).message}`,
+          );
+        }
+        // slotIneligibilityReason and validateSlotItem share
+        // slotAcceptsKind, so wrong_kind always throws above.
         throw new BattleConfigError(
-          `Unit ${JSON.stringify(placement.id)}: ${JSON.stringify(wornId)} forbids ` +
-            `class-restricted gear in ${forbiddenSlot} (found ${JSON.stringify(otherId)})`,
+          `Unit ${JSON.stringify(placement.id)}: slot ${slot} cannot hold ${JSON.stringify(id)}`,
+        );
+      case 'slot_not_permitted':
+        throw new BattleConfigError(
+          `Unit ${JSON.stringify(placement.id)}: class ${JSON.stringify(placement.classId)} ` +
+            `does not permit ${slot}`,
+        );
+      case 'class_restricted': {
+        // Session 29: per-item class allowlist. Fails loud per CLAUDE.md
+        // "don't catch errors silently." (class_restricted implies the
+        // item is equipment — consumables already failed wrong_kind.)
+        const restrictions = isEquipment(item) ? [...(item.classRestrictions ?? [])] : [];
+        throw new BattleConfigError(
+          `Unit ${JSON.stringify(placement.id)}: class ${JSON.stringify(placement.classId)} ` +
+            `cannot equip ${JSON.stringify(id)} (restricted to ${JSON.stringify(restrictions)})`,
         );
       }
+      case 'unknown_item':
+        // Unreachable: catalog presence is checked above.
+        throw new BattleConfigError(
+          `Unit ${JSON.stringify(placement.id)}: equipment id ${JSON.stringify(id)} not in catalog`,
+        );
     }
   }
-  // Session 45: two-handed weapons (the bow class) occupy both hands.
-  // A two-handed weapon in one hand forbids any item — weapon or shield —
-  // in the other. Because the off-hand is necessarily empty, a Two-Weapons
-  // dual-wielder holding a bow collapses to a single swing (the swing loop
-  // requires weapons in both hands).
-  //
-  // Session 62 (Monkeygrip, ADR-0100): a passive carrying
-  // `relaxesTwoHandedGrip` lifts that rule — two-handers may share a hand
-  // with an off-hand item (a shield, or with Two Weapons a second
-  // two-hander). Read declaratively off the loadout's passives: equip
-  // legality is a static property settled here at setup, not a runtime
-  // behavior, so the validator reads the flag rather than the catalog
-  // referencing any specific ability id (engine/content boundary).
-  const relaxesTwoHandedGrip = Object.values(placement.loadout.passiveBuckets)
-    .flat()
-    .some((abId) => {
-      if (!catalog.hasAbility(abId)) return false;
-      const ab = catalog.getAbility(abId);
-      return ab.kind === 'passive' && ab.relaxesTwoHandedGrip === true;
-    });
-  if (!relaxesTwoHandedGrip) {
-    for (const [hand, other] of [
-      ['rightHand', 'leftHand'],
-      ['leftHand', 'rightHand'],
-    ] as const) {
-      const id = equipment[hand];
-      if (id === null) continue;
-      const item = catalog.getItem(id);
-      if (item.kind === 'weapon' && item.twoHanded === true && equipment[other] !== null) {
-        throw new BattleConfigError(
-          `Unit ${JSON.stringify(placement.id)}: two-handed weapon ${JSON.stringify(id)} in ${hand} ` +
-            `forbids an item in ${other}`,
-        );
-      }
-    }
+
+  // TABA M3: item↔item equip-legality overrides (Freelancer's Charm —
+  // "the generalist travels light").
+  const view = { classId: placement.classId, loadout: placement.loadout, equipment };
+  const conflict = findEquipLegalityConflicts(equipment, catalog)[0];
+  if (conflict !== undefined) {
+    throw new BattleConfigError(
+      `Unit ${JSON.stringify(placement.id)}: ${JSON.stringify(conflict.wornItemId)} forbids ` +
+        `class-restricted gear in ${conflict.forbiddenSlot} (found ${JSON.stringify(conflict.otherItemId)})`,
+    );
+  }
+
+  // Session 45 / Session 62 (ADR-0100): a two-hander occupies both hands
+  // unless a `relaxesTwoHandedGrip` passive (Monkeygrip) is equipped.
+  const conflictHand = findTwoHandedConflictHands(view, catalog)[0];
+  if (conflictHand !== undefined) {
+    const other = conflictHand === 'rightHand' ? 'leftHand' : 'rightHand';
+    throw new BattleConfigError(
+      `Unit ${JSON.stringify(placement.id)}: two-handed weapon ` +
+        `${JSON.stringify(equipment[conflictHand])} in ${conflictHand} forbids an item in ${other}`,
+    );
   }
 }
 
