@@ -24,14 +24,27 @@ import {
   loadoutGrantsDualWield,
   loadoutGrantsTwoHandedGrip,
   validateDraftUnit,
+  type AbilityId,
+  type BucketId,
   type Catalog,
+  type CommandSetId,
   type DraftUnitLegality,
   type EquipmentDefinition,
   type EquipmentSlotId,
   type ItemId,
   type WeaponType,
 } from '@engine/index.ts';
-import { CAMPAIGN_RULESET_ID, equippedCounts, type InventoryRecord } from '@campaign/index.ts';
+import {
+  CAMPAIGN_RULESET_ID,
+  M1_CAMPAIGN_GRAPH,
+  equipOnUnit,
+  equippedCounts,
+  firstBattleBeat,
+  getNode,
+  probeUnitStats,
+  type EffectiveUnitStats,
+  type InventoryRecord,
+} from '@campaign/index.ts';
 import type { CampaignUnit } from '@campaign/index.ts';
 
 export const SLOT_ORDER: ReadonlyArray<EquipmentSlotId> = [
@@ -204,6 +217,117 @@ export function gearStatLine(item: EquipmentDefinition): string {
     parts.push(`grants ${item.statusGrants.map((id) => String(id)).join(', ')}`);
   }
   return parts.slice(0, 3).join(' · ');
+}
+
+// --- effective stats + hypothetical projections (Stage 3) ---------------
+
+// The battle template the Formation stat probes fold onto — the campaign
+// start node's battle beat, the same template `bootstrapRosterVitals`
+// probes. Any template works (the probe never fights; the slot only has
+// to pass structural checks); using a real campaign one keeps the
+// numbers on the exact fold path battles take. Resolved once, lazily.
+let probeTarget: { readonly template: Parameters<typeof probeUnitStats>[0]; readonly playerTeam: Parameters<typeof probeUnitStats>[2] } | null = null;
+function probeBattle(): NonNullable<typeof probeTarget> {
+  if (probeTarget === null) {
+    const start = getNode(M1_CAMPAIGN_GRAPH, M1_CAMPAIGN_GRAPH.startId);
+    const beat = firstBattleBeat(start.beats);
+    if (beat === undefined) {
+      throw new Error('formation stat probe: the campaign start node has no battle beat');
+    }
+    probeTarget = { template: beat.battle.template, playerTeam: beat.battle.playerTeam };
+  }
+  return probeTarget;
+}
+
+// The unit's live effective stats (equipment/passive/class-composed via
+// the real fold — see `probeUnitStats`). Null when the loadout is
+// invalid (the header shows "—" + the cause banner instead).
+export function effectiveUnitStats(
+  unit: CampaignUnit,
+  catalog: Catalog,
+): EffectiveUnitStats | null {
+  const { template, playerTeam } = probeBattle();
+  return probeUnitStats(template, unit, playerTeam, catalog);
+}
+
+// Re-project stats for a hypothetical gear pick (the Mage War
+// `projectEquipmentStats` behavior): what the unit's numbers become if
+// `slot` held `itemId` (null = emptied). Includes the 2H off-hand
+// auto-clear, so the preview matches what the pick would really do.
+export function projectGearStats(
+  unit: CampaignUnit,
+  slot: EquipmentSlotId,
+  itemId: ItemId | null,
+  catalog: Catalog,
+): EffectiveUnitStats | null {
+  return effectiveUnitStats(equipOnUnit(unit, slot, itemId, catalog), catalog);
+}
+
+// Re-project stats for a hypothetical passive toggle (equip if absent,
+// remove if equipped) — Move +1 and friends preview their effect the
+// same way gear does. No capacity gate: the picker already disables
+// unaffordable adds, and an over-capacity hypothetical probes to null.
+export function projectPassiveStats(
+  unit: CampaignUnit,
+  bucket: BucketId,
+  abilityId: AbilityId,
+  catalog: Catalog,
+): EffectiveUnitStats | null {
+  const current = unit.loadout.passiveBuckets[bucket] ?? [];
+  const next = current.includes(abilityId)
+    ? current.filter((id) => id !== abilityId)
+    : [...current, abilityId];
+  const hypothetical: CampaignUnit = {
+    ...unit,
+    loadout: {
+      ...unit.loadout,
+      passiveBuckets: { ...unit.loadout.passiveBuckets, [bucket]: next },
+    },
+  };
+  return effectiveUnitStats(hypothetical, catalog);
+}
+
+// What the Loadout inspector is focused on — reported by the pickers on
+// hover, cleared on leave (the Team Builder's InspectorFocus pattern).
+// Carries identity + the cheap display context the rows already know.
+export type LoadoutFocus =
+  | { readonly kind: 'gear'; readonly slot: EquipmentSlotId; readonly itemId: ItemId | null; readonly free?: number }
+  | {
+      readonly kind: 'passive';
+      readonly bucket: BucketId;
+      readonly abilityId: AbilityId;
+      readonly equipped: boolean;
+      readonly cost: number;
+    }
+  | { readonly kind: 'secondary'; readonly commandSetId: CommandSetId };
+
+export interface StatDeltaChip {
+  readonly text: string;
+  readonly tone: 'up' | 'down';
+}
+
+const STAT_LABELS: ReadonlyArray<readonly [keyof EffectiveUnitStats, string]> = [
+  ['maxHp', 'HP'],
+  ['maxMp', 'MP'],
+  ['pa', 'PA'],
+  ['ma', 'MA'],
+  ['spd', 'SPD'],
+  ['moveRange', 'Move'],
+  ['jump', 'Jump'],
+];
+
+// The non-zero stat changes between two projections, as signed chips.
+export function statDeltaChips(
+  before: EffectiveUnitStats,
+  after: EffectiveUnitStats,
+): ReadonlyArray<StatDeltaChip> {
+  const chips: StatDeltaChip[] = [];
+  for (const [key, label] of STAT_LABELS) {
+    const delta = after[key] - before[key];
+    if (delta === 0) continue;
+    chips.push({ text: `${delta > 0 ? '+' : ''}${delta} ${label}`, tone: delta > 0 ? 'up' : 'down' });
+  }
+  return chips;
 }
 
 // --- legality surfacing (Stage 2: surface, don't resolve) ---------------

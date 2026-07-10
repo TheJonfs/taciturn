@@ -138,3 +138,12 @@ export {
   type PerUnitStats,
   type ActionParticipants,
 } from './derived-events.ts';
+// The shared mechanical-detail formatters (in-battle panel, Team Builder
+// inspector, and — S86 — the Formation Loadout inspector all read these).
+export {
+  formatAbilityDetail,
+  formatCommandSetDetail,
+  formatItemDetail,
+  formatStatusDetail,
+  type DetailContent,
+} from './detail-text.ts';

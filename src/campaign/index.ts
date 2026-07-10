@@ -50,7 +50,8 @@ export {
 } from './roster.ts';
 
 // Chunk 2 — the pure loop core (snapshot-fold in, summarize + apply-back out).
-export { foldCampaignRoster, foldEnemyTeam, foldBattle, probeEffectiveMaxes } from './snapshot-fold.ts';
+export { foldCampaignRoster, foldEnemyTeam, foldBattle, probeEffectiveMaxes, probeUnitStats } from './snapshot-fold.ts';
+export type { EffectiveUnitStats } from './snapshot-fold.ts';
 export { authoredEnemy } from './authored-enemy.ts';
 export type { AuthoredEnemySpec } from './authored-enemy.ts';
 export { summarizeBattleResult } from './battle-result.ts';
@@ -73,6 +74,7 @@ export {
   isWinChoice,
 } from './graph.ts';
 export { CAMPAIGN_RULESET_ID, M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+export { PLOT_UNIT_IDS } from './plot-unit-ids.ts';
 
 // The node beat-sequence model (M1.5 battle-as-beat) — descriptors + pure
 // cursor helpers.

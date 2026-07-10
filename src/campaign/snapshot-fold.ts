@@ -20,10 +20,11 @@
 // placements are left untouched — the durable machinery is player-side only.
 
 import { buildBaseStats } from '@content/teams/index.ts';
-import { createInitialState } from '@engine/index.ts';
+import { createInitialState, runModifyStatQuery } from '@engine/index.ts';
 import type {
   BattleConfig,
   Catalog,
+  StatName,
   TeamId,
   UnitId,
   UnitPlacement,
@@ -166,6 +167,71 @@ export function probeEffectiveMaxes(
 
 function playerSlots(template: BattleConfig, playerTeam: TeamId): ReadonlyArray<UnitPlacement> {
   return template.units.filter((u) => u.team === playerTeam);
+}
+
+// The full effective stat block the Formation UI displays (M3 Stage 3):
+// equipment/passive/class-composed, exactly what battle entry produces.
+export interface EffectiveUnitStats {
+  readonly maxHp: number;
+  readonly maxMp: number;
+  readonly pa: number;
+  readonly ma: number;
+  readonly spd: number;
+  readonly moveRange: number;
+  readonly jump: number;
+}
+
+// Probe ONE unit's effective stats through the real fold + engine — the
+// campaign twin of the Team Builder's `computeDraftUnitStats`. Folds the
+// unit onto the template's first player slot via `campaignPlacement`
+// (the SAME path battle entry takes, so the numbers can't drift from
+// what a deploy produces), builds the throwaway state, and reads every
+// stat through `runModifyStatQuery`. Returns null when the unit's
+// current loadout is invalid — `createInitialState` throws on it, and
+// mid-edit a loadout is legitimately allowed to be invalid (the UI
+// shows "—" + the cause banner instead of numbers that would be lies).
+export function probeUnitStats(
+  template: BattleConfig,
+  unit: CampaignUnit,
+  playerTeam: TeamId,
+  catalog: Catalog,
+): EffectiveUnitStats | null {
+  const slot = playerSlots(template, playerTeam)[0];
+  if (slot === undefined) {
+    throw new Error(
+      `probeUnitStats: template team ${JSON.stringify(playerTeam)} authors no slots`,
+    );
+  }
+  const others = template.units.filter((u) => u.team !== playerTeam);
+  const probe = campaignPlacement(unit, slot, playerTeam, undefined, catalog);
+
+  let state;
+  try {
+    state = createInitialState({ ...template, units: [probe, ...others] }, catalog);
+  } catch {
+    // Invalid loadout (over-capacity / illegal gear, mid-edit). The
+    // Loadout view surfaces the cause; stats read as unavailable.
+    return null;
+  }
+
+  const live = state.units.get(unit.id);
+  if (live === undefined) {
+    throw new Error(`probeUnitStats: probe state missing unit ${JSON.stringify(unit.id)}`);
+  }
+  const movement = catalog.getClass(unit.classId).movement;
+  const query = (statName: StatName, baseValue: number): number =>
+    runModifyStatQuery(state, catalog, { unit: live, statName, baseValue });
+  return {
+    // `createInitialState` filled vitals from the composed maxes (the
+    // probe placement omits explicit vitals).
+    maxHp: live.vitals.hp,
+    maxMp: live.vitals.mp,
+    pa: query('pa', live.baseStats.pa),
+    ma: query('ma', live.baseStats.ma),
+    spd: query('spd', live.baseStats.spd),
+    moveRange: query('moveRange', movement.moveRange),
+    jump: query('jump', movement.jump),
+  };
 }
 
 // How many levels above the current one to precompute for mid-battle level-up

@@ -439,13 +439,17 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
     }
   }
 
-  // Action-speed (charge-rate) modifiers (Wand of Deepwood +5 on earth).
+  // Action-speed (charge-rate) modifiers (Wand of Deepwood +5 on earth;
+  // Trident +5 on Templar Arts members via commandSetFilter).
   if (item.actionSpeedModifiers !== undefined && item.actionSpeedModifiers.length > 0) {
     for (const mod of item.actionSpeedModifiers) {
-      const tag = mod.tagFilter?.[0] !== undefined ? `${String(mod.tagFilter[0])}-tagged` : 'all';
-      lines.push(
-        `Spell speed: ${mod.delta >= 0 ? '+' : ''}${mod.delta} on ${tag} casts`,
-      );
+      const scope =
+        mod.commandSetFilter !== undefined
+          ? `${catalog.hasCommandSet(mod.commandSetFilter) ? catalog.getCommandSet(mod.commandSetFilter).name : String(mod.commandSetFilter)} casts`
+          : mod.tagFilter?.[0] !== undefined
+            ? `${String(mod.tagFilter[0])}-tagged casts`
+            : 'all casts';
+      lines.push(`Spell speed: ${mod.delta >= 0 ? '+' : ''}${mod.delta} on ${scope}`);
     }
   }
 
@@ -566,6 +570,159 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
     lines.push(
       `Basic Attack: each equipped weapon swings ${item.attackSwingMultiplier}× ` +
         `(stacks with Two Weapons; not reactions or Battle Skills)`,
+    );
+  }
+
+  // --- TABA M3 rider surface (S86 enrichment pass). These fields shipped
+  // with ADR-0142's equipment expansion but predated no detail arm, so the
+  // gear pickers showed "(no mechanical effect declared)" for the most
+  // exotic pieces. Each arm renders the rider in player terms; the
+  // status-subject phrasing follows the incoming/tick arms above. ---
+
+  // A helper-shaped subject used by the four status riders below.
+  const statusSubject = (statusTypeId?: StatusTypeId, statusTag?: string): string =>
+    statusTypeId !== undefined
+      ? catalog.hasStatusType(statusTypeId)
+        ? catalog.getStatusType(statusTypeId).name
+        : String(statusTypeId)
+      : statusTag !== undefined
+        ? `${statusTag}-tagged statuses`
+        : 'every status';
+
+  // attackStat swap (Manaeater Blade — swings scale off MA).
+  if (item.kind === 'weapon' && item.attackStat === 'ma') {
+    lines.push('Attacks scale off MA instead of PA');
+  }
+
+  // attackResolvesAsHeal (Healer's Staff — strikes heal their target).
+  if (item.kind === 'weapon' && item.attackResolvesAsHeal === true) {
+    lines.push('Weapon strikes HEAL their target instead of damaging');
+  }
+
+  // basicAttackCtRefundPaFactor (Epee — CT refund on basic Attack).
+  if (item.basicAttackCtRefundPaFactor !== undefined && item.basicAttackCtRefundPaFactor > 0) {
+    lines.push(`Basic Attack: refunds PA × ${item.basicAttackCtRefundPaFactor} CT to the wielder`);
+  }
+
+  // damageCtDrainPercent (tempo drains — CT stolen on hit).
+  if (item.damageCtDrainPercent !== undefined && item.damageCtDrainPercent > 0) {
+    lines.push(`On hit: drain ${item.damageCtDrainPercent}% of final damage as CT from target`);
+  }
+
+  // damageLifestealMods (Star Robe — heal for a share of damage dealt).
+  if (item.damageLifestealMods !== undefined && item.damageLifestealMods.length > 0) {
+    for (const mod of item.damageLifestealMods) {
+      const gate =
+        mod.tagFilter !== undefined && mod.tagFilter.length > 0
+          ? `${mod.tagFilter.map(String).join('/')} damage`
+          : 'damage';
+      lines.push(`Lifesteal: heal ${mod.percent}% of ${gate} you deal`);
+    }
+  }
+
+  // magicalReflectPercent (the magical twin of Spiked Mail).
+  if (item.magicalReflectPercent !== undefined && item.magicalReflectPercent > 0) {
+    lines.push(
+      `On taking magical damage: reflect ${item.magicalReflectPercent}% back at the attacker`,
+    );
+  }
+
+  // battleStartCt (openers — the wearer starts the battle with extra CT).
+  if (item.battleStartCt !== undefined && item.battleStartCt !== 0) {
+    lines.push(`Battle start: ${item.battleStartCt >= 0 ? '+' : ''}${item.battleStartCt} CT`);
+  }
+
+  // spellProcs (Void Robe — on matching spell damage, chance to fire an ability).
+  if (item.spellProcs !== undefined && item.spellProcs.length > 0) {
+    for (const proc of item.spellProcs) {
+      const procName = catalog.hasAbility(proc.abilityId)
+        ? catalog.getAbility(proc.abilityId).name
+        : String(proc.abilityId);
+      const gate = proc.tagFilter.map(String).join('/');
+      lines.push(`On ${gate} damage: ${formatPercent(proc.chance)} chance to trigger ${procName}`);
+    }
+  }
+
+  // spellResolvedSelfStatuses (Terra Robe — once per matching spell, self-status).
+  if (item.spellResolvedSelfStatuses !== undefined && item.spellResolvedSelfStatuses.length > 0) {
+    for (const mod of item.spellResolvedSelfStatuses) {
+      const name = catalog.hasStatusType(mod.statusTypeId)
+        ? catalog.getStatusType(mod.statusTypeId).name
+        : String(mod.statusTypeId);
+      lines.push(
+        `After each ${mod.damageTagAll.map(String).join('+')} spell: gain ${name} (once per cast)`,
+      );
+    }
+  }
+
+  // resistanceFromMaTags (Abjurer's Codex — MA-scaled elemental resistance).
+  if (item.resistanceFromMaTags !== undefined && item.resistanceFromMaTags.length > 0) {
+    lines.push(
+      `Resistance: +MA to ${item.resistanceFromMaTags.map(String).join(', ')} (scales with the wearer's MA)`,
+    );
+  }
+
+  // incomingStatusStatShrugs (Talisman of Endurance — stat-scaled shrug).
+  if (item.incomingStatusStatShrugs !== undefined && item.incomingStatusStatShrugs.length > 0) {
+    for (const mod of item.incomingStatusStatShrugs) {
+      lines.push(
+        `Incoming ${statusSubject(mod.statusTypeId, mod.statusTag !== undefined ? String(mod.statusTag) : undefined)}: ` +
+          `apply chance × (1 − max(PA, MA)/100)`,
+      );
+    }
+  }
+
+  // outgoingStatusMagnitudeMods (caster-side status strength).
+  if (item.outgoingStatusMagnitudeMods !== undefined && item.outgoingStatusMagnitudeMods.length > 0) {
+    for (const mod of item.outgoingStatusMagnitudeMods) {
+      lines.push(
+        `${statusSubject(mod.statusTypeId, mod.statusTag !== undefined ? String(mod.statusTag) : undefined)} you apply: ` +
+          `magnitude × ${mod.factor.toFixed(2)}`,
+      );
+    }
+  }
+
+  // outgoingStatusDurationMods (Choir Staff — your buffs last longer).
+  if (item.outgoingStatusDurationMods !== undefined && item.outgoingStatusDurationMods.length > 0) {
+    for (const mod of item.outgoingStatusDurationMods) {
+      lines.push(
+        `${statusSubject(mod.statusTypeId, mod.statusTag !== undefined ? String(mod.statusTag) : undefined)} you apply: ` +
+          `${mod.delta >= 0 ? '+' : ''}${mod.delta} duration`,
+      );
+    }
+  }
+
+  // conditionalIncomingDamageMods (Channeler's Hat — safer while charging).
+  if (item.conditionalIncomingDamageMods !== undefined && item.conditionalIncomingDamageMods.length > 0) {
+    for (const mod of item.conditionalIncomingDamageMods) {
+      const status = catalog.hasStatusType(mod.whileStatusTypeId)
+        ? catalog.getStatusType(mod.whileStatusTypeId).name
+        : String(mod.whileStatusTypeId);
+      const gate =
+        mod.tagFilter !== undefined && mod.tagFilter.length > 0
+          ? `${mod.tagFilter.map(String).join('/')} damage`
+          : 'damage';
+      lines.push(`While ${status}: incoming ${gate} × ${mod.factor.toFixed(2)}`);
+    }
+  }
+
+  // aoeShapeEnlargeModifiers (Wand of Expanse — bigger matching AoEs).
+  if (item.aoeShapeEnlargeModifiers !== undefined && item.aoeShapeEnlargeModifiers.length > 0) {
+    for (const mod of item.aoeShapeEnlargeModifiers) {
+      const gate =
+        mod.tagFilter !== undefined && mod.tagFilter.length > 0
+          ? `${mod.tagFilter.map(String).join('/')}-tagged`
+          : 'all';
+      lines.push(`AoE size: +${mod.steps} on ${gate} casts`);
+    }
+  }
+
+  // equipLegality (Freelancer's Charm — the generalist travels light).
+  if (item.equipLegality?.forbidClassRestrictedInSlots !== undefined &&
+      item.equipLegality.forbidClassRestrictedInSlots.length > 0) {
+    lines.push(
+      `While worn: no class-restricted gear in ` +
+        `${item.equipLegality.forbidClassRestrictedInSlots.join(', ')}`,
     );
   }
 

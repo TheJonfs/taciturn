@@ -17,6 +17,7 @@ import {
   gearOptionGroups,
   gearOptionsForSlot,
   gearStatLine,
+  type LoadoutFocus,
 } from './gear-view-model.ts';
 
 // Show the in-picker search box above this many candidates.
@@ -29,6 +30,8 @@ export interface GearSlotsProps {
   readonly catalog: Catalog;
   readonly col: string; // domain accent colour (section heading)
   readonly onChange: (next: CampaignUnit) => void;
+  // Report the hovered candidate to the Loadout inspector (M3 Stage 3).
+  readonly onFocus: (focus: LoadoutFocus | null) => void;
 }
 
 export function GearSlots({
@@ -38,12 +41,14 @@ export function GearSlots({
   catalog,
   col,
   onChange,
+  onFocus,
 }: GearSlotsProps): ReactElement {
   const [openSlot, setOpenSlot] = useState<EquipmentSlotId | null>(null);
   const [search, setSearch] = useState('');
 
   function toggleSlot(slot: EquipmentSlotId): void {
     setSearch('');
+    onFocus(null);
     setOpenSlot((prev) => (prev === slot ? null : slot));
   }
 
@@ -51,6 +56,7 @@ export function GearSlots({
     onChange(equipOnUnit(unit, slot, itemId, catalog));
     setOpenSlot(null);
     setSearch('');
+    onFocus(null);
   }
 
   return (
@@ -86,6 +92,7 @@ export function GearSlots({
                 catalog={catalog}
                 search={search}
                 onSearch={setSearch}
+                onFocus={onFocus}
                 onPick={(id) => pick(slot, id)}
               />
             )}
@@ -104,6 +111,7 @@ function SlotPicker({
   catalog,
   search,
   onSearch,
+  onFocus,
   onPick,
 }: {
   readonly unit: CampaignUnit;
@@ -113,6 +121,7 @@ function SlotPicker({
   readonly catalog: Catalog;
   readonly search: string;
   readonly onSearch: (v: string) => void;
+  readonly onFocus: (focus: LoadoutFocus | null) => void;
   readonly onPick: (itemId: ItemId | null) => void;
 }): ReactElement {
   const all = gearOptionsForSlot(unit, roster, inventory, slot, catalog);
@@ -138,6 +147,8 @@ function SlotPicker({
         type="button"
         className={`tf-eq-row empty-row${equippedHere === null ? ' on' : ''}`}
         onClick={() => onPick(null)}
+        onMouseEnter={() => onFocus({ kind: 'gear', slot, itemId: null })}
+        onMouseLeave={() => onFocus(null)}
       >
         <span className="nm">— Empty —</span>
         {equippedHere === null && <span className="fr">✓</span>}
@@ -160,6 +171,10 @@ function SlotPicker({
                 type="button"
                 className={`tf-eq-row${opt.equipped ? ' on' : ''}`}
                 onClick={() => onPick(opt.item.id)}
+                onMouseEnter={() =>
+                  onFocus({ kind: 'gear', slot, itemId: opt.item.id, free: opt.free })
+                }
+                onMouseLeave={() => onFocus(null)}
               >
                 <span className="nm">{opt.item.name}</span>
                 <span className="st">{gearStatLine(opt.item)}</span>

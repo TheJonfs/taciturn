@@ -12,9 +12,13 @@ import { abilityId, bucketId, classId, itemId, unitId } from '@engine/index.ts';
 import type { CampaignUnit, InventoryRecord } from '@campaign/index.ts';
 import { m0Roster } from '@campaign/index.ts';
 import {
+  effectiveUnitStats,
   gearOptionsForSlot,
   gearStatLine,
   legalityCauses,
+  projectGearStats,
+  projectPassiveStats,
+  statDeltaChips,
   unitLegality,
 } from './gear-view-model.ts';
 
@@ -160,6 +164,50 @@ describe('unitLegality + legalityCauses (Stage 2 surfacing)', () => {
     });
     const causes = legalityCauses(unitLegality(u, cat), u, cat);
     expect(causes.some((c) => c.includes('War Plate') && c.includes("can't be worn"))).toBe(true);
+  });
+});
+
+describe('effective stats + hypothetical projections (Stage 3)', () => {
+  it('probes equipment-composed stats through the real fold', () => {
+    const bare = knight({ equipment: EMPTY_HANDS });
+    const ringed = knight({ equipment: { ...EMPTY_HANDS, accessory: itemId('strength_ring') } });
+    const before = effectiveUnitStats(bare, cat);
+    const after = effectiveUnitStats(ringed, cat);
+    expect(before).not.toBeNull();
+    expect(after).not.toBeNull();
+    expect(after!.pa - before!.pa).toBe(1); // Strength Ring +1 PA
+  });
+
+  it('projectGearStats previews a pick without mutating the unit', () => {
+    const u = knight({ equipment: EMPTY_HANDS });
+    const current = effectiveUnitStats(u, cat)!;
+    const projected = projectGearStats(u, 'accessory', itemId('strength_ring'), cat)!;
+    expect(projected.pa - current.pa).toBe(1);
+    expect(u.equipment.accessory).toBeNull(); // untouched
+    const chips = statDeltaChips(current, projected);
+    expect(chips).toEqual([{ text: '+1 PA', tone: 'up' }]);
+  });
+
+  it('projectPassiveStats previews a movement passive (+1 Move)', () => {
+    // Start from an emptied movement bucket — the m0 knight's authored
+    // bucket is full, and a hypothetical over-capacity add correctly
+    // probes to null (the inspector's "this pick would make the loadout
+    // invalid" path, covered implicitly here).
+    const u = knight({
+      equipment: EMPTY_HANDS,
+      loadout: {
+        ...knightBase.loadout,
+        passiveBuckets: { ...knightBase.loadout.passiveBuckets, [String(bucketId('movement'))]: [] },
+      },
+    });
+    const current = effectiveUnitStats(u, cat)!;
+    const projected = projectPassiveStats(u, bucketId('movement'), abilityId('move_plus_1'), cat)!;
+    expect(projected.moveRange - current.moveRange).toBe(1);
+  });
+
+  it('an invalid loadout probes to null (stats read unavailable)', () => {
+    const broken = knight({ equipment: { ...EMPTY_HANDS, headgear: itemId('war_plate') } });
+    expect(effectiveUnitStats(broken, cat)).toBeNull();
   });
 });
 

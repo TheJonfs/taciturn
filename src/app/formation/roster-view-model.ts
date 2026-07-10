@@ -13,6 +13,7 @@
 
 import type { ClassId } from '@engine/index.ts';
 import {
+  PLOT_UNIT_IDS,
   type CampaignUnit,
   type ComponentCatalog,
   type ClassHalf,
@@ -43,11 +44,18 @@ export function unitDomain(unit: CampaignUnit): Domain {
   return tierEntryOf(unit.classId).half;
 }
 
-// A plot-unique ("named") cadet, wearing the brass crest. We have no dedicated
-// durable "named" flag yet; the class-access override — the plot-unique relief
-// valve — is the only durable signal that a unit was hand-authored as special.
+// A plot-unique ("named") cadet, wearing the brass crest. The durable
+// marker is the authored plot id (PLOT_UNIT_IDS — all five leads, whether
+// or not their class needed an access override). The class-access-override
+// fallback stays for hand-authored specials outside the plot roster (the
+// dev harness's demo uniques use it). Pre-S86 this read ONLY the override,
+// so Lumen and Clio — whose classes sit inside the starting tiers and need
+// no override — showed crestless (Chris's report).
+const PLOT_ID_SET: ReadonlySet<string> = new Set(
+  Object.values(PLOT_UNIT_IDS).map((id) => String(id)),
+);
 export function isPlotUnique(unit: CampaignUnit): boolean {
-  return (unit.classAccessOverride?.length ?? 0) > 0;
+  return PLOT_ID_SET.has(String(unit.id)) || (unit.classAccessOverride?.length ?? 0) > 0;
 }
 
 // Every class the unit has a JP presence in (earned into — a superset of the

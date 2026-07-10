@@ -223,6 +223,20 @@ export const FORMATION_STYLE = `
 .tf-eq-row.empty-row .nm{color:var(--star3);font-style:italic}
 .tf-eq-none{font-size:12px;color:var(--star3);padding:8px}
 
+/* ---- Loadout inspector (M3 Stage 3: hover detail + stat deltas) ---- */
+.tf-inspect{grid-column:1/-1;min-height:96px;background:linear-gradient(180deg,var(--panel),#0f1430);border:1px solid var(--line);border-radius:10px;padding:11px 14px;margin-top:8px}
+.tf-inspect-hint{font-size:12px;color:var(--star3);font-style:italic;padding-top:24px;text-align:center}
+.tf-inspect-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.tf-inspect-title{font-family:var(--serif);font-size:17px;font-weight:600}
+.tf-inspect-kind{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--brass);border:1px solid var(--brass2);border-radius:9px;padding:1px 7px}
+.tf-inspect-ctx{font-size:11px;color:var(--star3);font-family:var(--mono);margin-left:auto}
+.tf-inspect-lines{margin-top:5px;font-size:12px;color:var(--star2);line-height:1.55}
+.tf-inspect-deltas{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
+.tf-delta{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:9px;border:1px solid}
+.tf-delta.up{color:var(--afford);border-color:rgba(127,192,140,.4);background:rgba(127,192,140,.08)}
+.tf-delta.down{color:var(--phys);border-color:rgba(226,150,95,.4);background:rgba(226,150,95,.08)}
+.tf-inspect-note{font-size:11px;color:var(--star3);font-style:italic;margin-top:7px}
+
 /* ---- Invalid-loadout surfacing (M3 Stage 2: surface, don't resolve) ---- */
 .tf-warnbar{grid-column:1/-1;display:flex;gap:11px;align-items:flex-start;background:rgba(226,150,95,.09);border:1px solid rgba(226,150,95,.45);border-radius:10px;padding:11px 14px;margin-top:12px}
 .tf-warnbar .sig{flex:none;color:var(--phys);font-size:16px;line-height:1.3}

@@ -17,8 +17,7 @@
 // Training. A purchase that crosses a threshold ignites the newly-opened star(s)
 // and toasts.
 
-import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
-import { buildBaseStats } from '@content/teams/index.ts';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import type { Catalog, ClassId } from '@engine/index.ts';
 import {
   COMPONENT_CATALOG,
@@ -38,7 +37,7 @@ import { Training } from './Training.tsx';
 import { Customize } from './Customize.tsx';
 import { FORMATION_STYLE } from './formation-style.ts';
 import { resolveUnitPortrait } from '../../assets/portraits/index.ts';
-import { unitLegality } from './gear-view-model.ts';
+import { effectiveUnitStats, unitLegality } from './gear-view-model.ts';
 
 // XP per level (ADR-0139). Single per-unit currency, independent of JP.
 const XP_PER_LEVEL = 100;
@@ -92,12 +91,18 @@ export function UnitDossier({
   // Bespoke plot face where one exists, else the class+gender portrait; the
   // capital-letter monogram remains the final fallback.
   const sealPortrait = resolveUnitPortrait(unit.portrait, unit.classId, unit.gender);
-  const stats = buildBaseStats(unit.classId, unit.brave, unit.faith, unit.level);
-  // M3 Stage 2: an invalid loadout reads its stats as unavailable — the
-  // numbers would be lies (battle entry rejects this configuration), so
-  // the header says so instead (mirrors the Team Builder's fallback).
+  // M3 Stage 3: the header shows the unit's EFFECTIVE stats — equipment/
+  // passive/class-composed through the real fold (`effectiveUnitStats`
+  // probes the same path battle entry takes), not the class baseline.
+  // An invalid loadout reads its stats as unavailable — the numbers
+  // would be lies (battle entry rejects this configuration), so the
+  // header says so instead (mirrors the Team Builder's fallback).
   const invalid = !unitLegality(unit, catalog).valid;
-  const stat = (v: number): number | string => (invalid ? '—' : v);
+  const effective = useMemo(
+    () => (invalid ? null : effectiveUnitStats(unit, catalog)),
+    [invalid, unit, catalog],
+  );
+  const stat = (v: number | undefined): number | string => (effective === null || v === undefined ? '—' : v);
 
   const purse = availableInClass(unit, unit.classId, componentCatalog);
   const spent = spentInClass(unit, unit.classId, componentCatalog);
@@ -152,11 +157,13 @@ export function UnitDossier({
               {DOMAIN_LABEL[entry.half]} Tier {entry.tier}
             </div>
             <div className="tf-doss-stats">
-              <Stat k="hp" v={stat(stats.maxHpBase)} />
-              <Stat k="mp" v={stat(stats.maxMpBase)} />
-              <Stat k="pa" v={stat(stats.pa)} />
-              <Stat k="ma" v={stat(stats.ma)} />
-              <Stat k="spd" v={stat(stats.spd)} />
+              <Stat k="hp" v={stat(effective?.maxHp)} />
+              <Stat k="mp" v={stat(effective?.maxMp)} />
+              <Stat k="pa" v={stat(effective?.pa)} />
+              <Stat k="ma" v={stat(effective?.ma)} />
+              <Stat k="spd" v={stat(effective?.spd)} />
+              <Stat k="move" v={stat(effective?.moveRange)} />
+              <Stat k="jump" v={stat(effective?.jump)} />
               <Stat k="xp→next" v={`${unit.xp % XP_PER_LEVEL} / ${XP_PER_LEVEL}`} />
             </div>
           </div>

@@ -41,7 +41,9 @@ import {
   type SecondaryOption,
 } from './customize-view-model.ts';
 import { GearSlots } from './GearSlots.tsx';
-import { legalityCauses, unitLegality } from './gear-view-model.ts';
+import { LoadoutInspector } from './LoadoutInspector.tsx';
+import { legalityCauses, unitLegality, type LoadoutFocus } from './gear-view-model.ts';
+import { bucketId } from '@engine/index.ts';
 
 export interface CustomizeProps {
   readonly unit: CampaignUnit;
@@ -98,6 +100,10 @@ export function Customize({
   const causes = legality.valid ? [] : legalityCauses(legality, unit, catalog);
   const overBuckets = new Set(legality.bucketOverages.map((o) => String(o.bucketId)));
 
+  // What the inspector is examining — reported by the pickers on hover
+  // (M3 Stage 3: the Team Builder inspector pattern).
+  const [focus, setFocus] = useState<LoadoutFocus | null>(null);
+
   return (
     <div className="tf-load-cols">
       {causes.length > 0 && (
@@ -121,6 +127,7 @@ export function Customize({
           catalog={catalog}
           col={col}
           onChange={onChange}
+          onFocus={setFocus}
         />
       </div>
 
@@ -192,6 +199,9 @@ export function Customize({
                 opt={opt}
                 selected={secondary === opt.commandSetId}
                 onClick={() => pickSecondary(opt.commandSetId)}
+                onHover={(on) =>
+                  setFocus(on ? { kind: 'secondary', commandSetId: opt.commandSetId } : null)
+                }
               />
             ))
           )}
@@ -208,9 +218,24 @@ export function Customize({
             over={overBuckets.has(bucket)}
             equippedNames={passives[bucket].filter((o) => o.equipped).map((o) => o.name)}
             onToggle={(id) => toggle(id, bucket)}
+            onHover={(opt, on) =>
+              setFocus(
+                on
+                  ? {
+                      kind: 'passive',
+                      bucket: bucketId(bucket),
+                      abilityId: opt.abilityId,
+                      equipped: opt.equipped,
+                      cost: opt.cost,
+                    }
+                  : null,
+              )
+            }
           />
         ))}
       </div>
+
+      <LoadoutInspector focus={focus} unit={unit} catalog={catalog} />
     </div>
   );
 }
@@ -268,10 +293,12 @@ function SecondaryOptionRow({
   opt,
   selected,
   onClick,
+  onHover,
 }: {
   readonly opt: SecondaryOption;
   readonly selected: boolean;
   readonly onClick: () => void;
+  readonly onHover: (on: boolean) => void;
 }): ReactElement {
   return (
     <SecondaryRow
@@ -280,6 +307,7 @@ function SecondaryOptionRow({
       swatch={opt.color}
       name={opt.commandName}
       meta={`${opt.className} · ${opt.domain}`}
+      onHover={onHover}
     />
   );
 }
@@ -290,15 +318,23 @@ function SecondaryRow({
   swatch,
   name,
   meta,
+  onHover,
 }: {
   readonly selected: boolean;
   readonly onClick: () => void;
   readonly swatch: string;
   readonly name: string;
   readonly meta: string;
+  readonly onHover?: (on: boolean) => void;
 }): ReactElement {
   return (
-    <button type="button" className={`tf-opt pick${selected ? ' on' : ''}`} onClick={onClick}>
+    <button
+      type="button"
+      className={`tf-opt pick${selected ? ' on' : ''}`}
+      onClick={onClick}
+      onMouseEnter={onHover !== undefined ? () => onHover(true) : undefined}
+      onMouseLeave={onHover !== undefined ? () => onHover(false) : undefined}
+    >
       <span className="tf-opt-sw" style={{ background: swatch }} />
       <div className="tf-opt-info">
         <div className="tf-opt-nm">{name}</div>
@@ -318,6 +354,7 @@ function PassiveSection({
   over,
   equippedNames,
   onToggle,
+  onHover,
 }: {
   readonly bucket: PassiveBucket;
   readonly col: string;
@@ -327,6 +364,7 @@ function PassiveSection({
   readonly over: boolean;
   readonly equippedNames: ReadonlyArray<string>;
   readonly onToggle: (id: AbilityId) => void;
+  readonly onHover: (opt: PassiveOption, on: boolean) => void;
 }): ReactElement {
   const remaining = capacity - used;
   return (
@@ -347,6 +385,7 @@ function PassiveSection({
             opt={opt}
             disabled={!opt.equipped && opt.cost > remaining}
             onToggle={() => onToggle(opt.abilityId)}
+            onHover={(on) => onHover(opt, on)}
           />
         ))
       )}
@@ -358,10 +397,12 @@ function PassiveRow({
   opt,
   disabled,
   onToggle,
+  onHover,
 }: {
   readonly opt: PassiveOption;
   readonly disabled: boolean;
   readonly onToggle: () => void;
+  readonly onHover: (on: boolean) => void;
 }): ReactElement {
   return (
     <button
@@ -369,6 +410,8 @@ function PassiveRow({
       className={`tf-opt pick${opt.equipped ? ' on' : ''}${disabled ? ' dis' : ''}`}
       onClick={disabled ? undefined : onToggle}
       disabled={disabled}
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
     >
       <span className="tf-opt-check lead">{opt.equipped ? '✓' : ''}</span>
       <div className="tf-opt-info">
