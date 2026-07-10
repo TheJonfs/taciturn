@@ -30,6 +30,7 @@ export {
   EMPTY_INVENTORY,
   bootstrapInventory,
   equipItem,
+  equipOnUnit,
   equippedCount,
   equippedCounts,
   freeCount,

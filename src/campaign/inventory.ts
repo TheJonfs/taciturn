@@ -138,14 +138,41 @@ function withUnit(state: CampaignState, next: CampaignUnit): CampaignState {
   };
 }
 
-// Equip `itemId` into `slot` on a roster unit. Requires a free instance
-// (fails loud — see module header); the item the slot previously held
-// returns to the pool by derivation. Mirrors the Team Builder's
-// two-handed convenience: placing a two-handed weapon in a hand clears
-// the other hand (returning its item), unless an equipped passive
-// relaxes the grip (Monkeygrip) — then the off-hand keeps its item.
-// No legality gate beyond availability: an illegal-but-held state is
-// D2's surfaced-not-resolved intermediate.
+// Set (or clear, with null) one equipment slot on a CampaignUnit — the
+// unit-level core both `equipItem` and the Formation gear UI use.
+// Because inventory stores OWNED totals and equipped counts derive from
+// roster equipment, changing a slot needs no inventory mutation — the
+// displaced item returns to the pool by derivation. Mirrors the Team
+// Builder's two-handed convenience: placing a two-handed weapon in a
+// hand clears the other hand (returning its item), unless an equipped
+// passive relaxes the grip (Monkeygrip) — then the off-hand keeps its
+// item. No legality gate: an illegal-but-held state is D2's
+// surfaced-not-resolved intermediate (availability is the CALLER's
+// gate — the UI's dropdown filter, or `equipItem`'s loud check).
+export function equipOnUnit(
+  unit: CampaignUnit,
+  slot: EquipmentSlotId,
+  itemId: ItemId | null,
+  catalog: Catalog,
+): CampaignUnit {
+  if (unit.equipment[slot] === itemId) return unit;
+  let equipment = { ...unit.equipment, [slot]: itemId };
+  if ((slot === 'leftHand' || slot === 'rightHand') && itemId !== null && catalog.hasItem(itemId)) {
+    const item = catalog.getItem(itemId);
+    if (
+      item.kind === 'weapon' &&
+      item.twoHanded === true &&
+      !loadoutGrantsTwoHandedGrip(unit.loadout, catalog)
+    ) {
+      const otherHand: EquipmentSlotId = slot === 'leftHand' ? 'rightHand' : 'leftHand';
+      equipment = { ...equipment, [otherHand]: null };
+    }
+  }
+  return { ...unit, equipment };
+}
+
+// Equip `itemId` into `slot` on a roster unit, gated on a free instance
+// existing (fails loud — see module header).
 export function equipItem(
   state: CampaignState,
   unitId: UnitId,
@@ -164,19 +191,7 @@ export function equipItem(
         `(owned ${ownedCount(state, itemId)}, all equipped)`,
     );
   }
-  let equipment = { ...unit.equipment, [slot]: itemId };
-  if (slot === 'leftHand' || slot === 'rightHand') {
-    const item = catalog.getItem(itemId);
-    if (
-      item.kind === 'weapon' &&
-      item.twoHanded === true &&
-      !loadoutGrantsTwoHandedGrip(unit.loadout, catalog)
-    ) {
-      const otherHand: EquipmentSlotId = slot === 'leftHand' ? 'rightHand' : 'leftHand';
-      equipment = { ...equipment, [otherHand]: null };
-    }
-  }
-  return withUnit(state, { ...unit, equipment });
+  return withUnit(state, equipOnUnit(unit, slot, itemId, catalog));
 }
 
 // Clear a slot; the instance returns to the free pool by derivation.

@@ -178,6 +178,51 @@ export const FORMATION_STYLE = `
 .tf-class-chip{font-family:var(--serif);font-size:14px;font-weight:600;padding:6px 14px;border-radius:20px;cursor:pointer;transition:.12s;background:color-mix(in srgb,var(--cc) 12%,var(--panel));color:var(--cc);border:1px solid color-mix(in srgb,var(--cc) 45%,var(--line))}
 .tf-class-chip:hover{background:color-mix(in srgb,var(--cc) 22%,var(--panel))}
 
+/* ---- Merged Loadout: two-column equipment | abilities (M3) ---- */
+.tf-load-cols{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:24px;align-items:start;margin-top:4px}
+@media(max-width:880px){.tf-load-cols{grid-template-columns:1fr}}
+
+/* Collapsible section headers (right column density refactor). */
+.tf-load-h.click{cursor:pointer;user-select:none;border-radius:6px}
+.tf-load-h.click:hover h3{color:var(--star)}
+.tf-chev{font-size:10px;color:var(--star3);transition:transform .15s;display:inline-block;margin-right:2px}
+.tf-chev.open{transform:rotate(90deg)}
+.tf-load-sum{font-size:11.5px;color:var(--star2);flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+
+/* Compact ability rows inside the merged right column. */
+.tf-compact .tf-opt{padding:7px 10px;margin:4px 0;gap:10px}
+.tf-compact .tf-opt-nm{font-size:13px}
+.tf-compact .tf-opt-fx{font-size:11px}
+.tf-compact .tf-load-sec{margin-top:12px}
+
+/* Change-class affordance (chips collapse behind a button). */
+.tf-class-btn{font-family:var(--sans);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--brass);background:none;border:1px solid var(--brass2);border-radius:14px;padding:4px 12px;cursor:pointer;flex:none}
+.tf-class-btn:hover{background:rgba(216,178,108,.1)}
+
+/* Equipment slot pills + inline pickers (left column). */
+.tf-eq-slot{margin:5px 0}
+.tf-eq-pill{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 12px;background:var(--panel);border:1px solid var(--line);border-radius:9px;color:var(--star);font-family:inherit;cursor:pointer;transition:border-color .12s}
+.tf-eq-pill:hover{border-color:var(--line2)}
+.tf-eq-pill.open{border-color:var(--brass2)}
+.tf-eq-slotlab{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--star3);width:72px;flex:none}
+.tf-eq-nm{flex:1;min-width:0;font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tf-eq-nm.empty{color:var(--star3);font-style:italic;font-weight:400}
+.tf-eq-count{font-family:var(--mono);font-size:10px;color:var(--star3);flex:none}
+.tf-eq-list{border:1px solid var(--line);border-radius:9px;margin-top:4px;padding:5px;background:#0e1330;max-height:320px;overflow-y:auto}
+.tf-eq-search{display:flex;align-items:center;gap:6px;margin:2px 2px 6px;padding:5px 9px;background:var(--panel);border:1px solid var(--line);border-radius:7px}
+.tf-eq-search input{flex:1;background:transparent;border:none;outline:none;color:var(--star);font-family:var(--sans);font-size:12px}
+.tf-eq-search input::placeholder{color:var(--star3)}
+.tf-eq-grouph{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--star3);padding:8px 8px 3px;display:flex;gap:6px;align-items:baseline}
+.tf-eq-grouph b{color:var(--star3);font-family:var(--mono);font-weight:400;font-size:9.5px}
+.tf-eq-row{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:6px 8px;background:transparent;border:1px solid transparent;border-radius:6px;color:var(--star);font-family:inherit;font-size:12.5px;cursor:pointer}
+.tf-eq-row:hover{background:var(--mist);border-color:var(--line)}
+.tf-eq-row.on{border-color:var(--brass2);background:rgba(216,178,108,.07)}
+.tf-eq-row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tf-eq-row .st{font-family:var(--mono);font-size:10px;color:var(--star2);flex:none;white-space:nowrap}
+.tf-eq-row .fr{font-family:var(--mono);font-size:10px;color:var(--star3);flex:none;width:26px;text-align:right}
+.tf-eq-row.empty-row .nm{color:var(--star3);font-style:italic}
+.tf-eq-none{font-size:12px;color:var(--star3);padding:8px}
+
 /* ---- Toast ---- */
 .tf-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(18px);opacity:0;background:var(--mist);border:1px solid var(--line2);color:var(--star);padding:10px 18px;border-radius:9px;font-size:13px;transition:.25s;pointer-events:none;z-index:30}
 .tf-toast.show{transform:translateX(-50%) translateY(0);opacity:1}

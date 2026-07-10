@@ -7,8 +7,11 @@
 //   - Earned        = earnedInClass     → "X earned".
 // XP is a SINGLE per-unit value (not mirrored per class): "xp / 100 to next".
 //
-// Tabs: Constellation (reclass) · Training (JP-spend) · Equipment (M3,
-// disabled). The dossier owns the progression OPS (reclassUnit, purchaseComponent)
+// Tabs: Constellation (view trees) · Training (JP-spend) · Loadout (the M3
+// merged equipment|abilities view — the old "Equipment · soon" stub tab is
+// gone; gear lives IN Loadout so equipment-adjusted capacity is co-visible
+// with the buckets it constrains).
+// The dossier owns the progression OPS (reclassUnit, purchaseComponent)
 // and hands the resulting unit up via `onChange` to persist; the parent stays a
 // dumb store. Picking an open star reclasses (if not current) and drops into
 // Training. A purchase that crosses a threshold ignites the newly-opened star(s)
@@ -26,6 +29,7 @@ import {
   tierEntryOf,
   type CampaignUnit,
   type ComponentCatalog,
+  type InventoryRecord,
   type UnlockToken,
 } from '@campaign/index.ts';
 import { DOMAIN_COLOR, DOMAIN_LABEL } from './roster-view-model.ts';
@@ -42,15 +46,22 @@ type DossierTab = 'constellation' | 'training' | 'loadout';
 
 export interface UnitDossierProps {
   readonly unit: CampaignUnit;
+  // The whole roster + party inventory (M3): the Loadout tab's equipment
+  // pickers respect cross-unit instance counts.
+  readonly roster: ReadonlyArray<CampaignUnit>;
+  readonly inventory: InventoryRecord;
   readonly catalog: Catalog;
   readonly onBack: () => void;
-  // Persist a progression edit (reclass / purchase) up to the campaign owner.
+  // Persist a progression edit (reclass / purchase / equip) up to the
+  // campaign owner.
   readonly onChange: (next: CampaignUnit) => void;
   readonly componentCatalog?: ComponentCatalog;
 }
 
 export function UnitDossier({
   unit,
+  roster,
+  inventory,
   catalog,
   onBack,
   onChange,
@@ -158,9 +169,6 @@ export function UnitDossier({
           <button type="button" className={`tf-tab${tab === 'loadout' ? ' on' : ''}`} onClick={() => setTab('loadout')}>
             Loadout
           </button>
-          <button type="button" className="tf-tab dis" disabled>
-            Equipment<span className="tf-tab-m">soon</span>
-          </button>
         </div>
 
         <div className="tf-panel">
@@ -182,7 +190,14 @@ export function UnitDossier({
               componentCatalog={componentCatalog}
             />
           ) : (
-            <Customize unit={unit} catalog={catalog} onChange={onChange} componentCatalog={componentCatalog} />
+            <Customize
+              unit={unit}
+              roster={roster}
+              inventory={inventory}
+              catalog={catalog}
+              onChange={onChange}
+              componentCatalog={componentCatalog}
+            />
           )}
         </div>
       </div>

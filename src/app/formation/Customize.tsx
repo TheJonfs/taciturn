@@ -1,12 +1,19 @@
-// Customize — the Loadout tab (TABA M2 UI, dossier View 2).
+// Customize — the merged Loadout tab (TABA M2 UI, restructured in M3).
 //
-// Curate what a unit's learned kit actually equips: the PRIMARY command (fixed
-// by class — shown, not editable), a SECONDARY command (one class whose actives
-// you've invested in), and the R/S/M passives (current-class passives free;
-// exported ones once unlocked). Edits go through the pure loadout ops and up via
-// `onChange`. Capacity is the ruleset baseline (secondary 1, R/S/M 3).
+// The Team Builder's proven two-column body, celestial-skinned: EQUIPMENT
+// (five inventory-driven slot pickers — GearSlots) beside ABILITIES (the
+// M2 loadout curation: primary shown, secondary picked, R/S/M passives
+// toggled, reclass). Equipment mutates the same capacity numbers the
+// ability buckets budget against, so the two live in ONE view — "why did
+// my reaction disappear" has its answer on screen (gear-UI brief D1).
+//
+// Density refactors that keep the merged view co-visible without a
+// scroll-fest: the reclass chip-row collapses behind a "Change class"
+// affordance, and the Secondary/R/S/M sections are collapsible with
+// their picks + used/capacity summarized in the always-visible header.
+// Edits go through the pure loadout/equipment ops and up via `onChange`.
 
-import { type ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import type { AbilityId, Catalog, ClassId, CommandSetId } from '@engine/index.ts';
 import {
   COMPONENT_CATALOG,
@@ -15,6 +22,7 @@ import {
   tierEntryOf,
   type CampaignUnit,
   type ComponentCatalog,
+  type InventoryRecord,
 } from '@campaign/index.ts';
 import { DOMAIN_COLOR } from './roster-view-model.ts';
 import {
@@ -32,9 +40,14 @@ import {
   type PassiveOption,
   type SecondaryOption,
 } from './customize-view-model.ts';
+import { GearSlots } from './GearSlots.tsx';
 
 export interface CustomizeProps {
   readonly unit: CampaignUnit;
+  // The whole roster + party inventory: equipment options respect
+  // cross-unit instance counts (an item equipped elsewhere isn't free).
+  readonly roster: ReadonlyArray<CampaignUnit>;
+  readonly inventory: InventoryRecord;
   readonly catalog: Catalog;
   readonly onChange: (next: CampaignUnit) => void;
   readonly componentCatalog?: ComponentCatalog;
@@ -42,6 +55,8 @@ export interface CustomizeProps {
 
 export function Customize({
   unit,
+  roster,
+  inventory,
   catalog,
   onChange,
   componentCatalog = COMPONENT_CATALOG,
@@ -51,9 +66,9 @@ export function Customize({
   const secondary = currentSecondary(unit);
   const secondaryOptions = equippableSecondaryCommands(unit, catalog, componentCatalog);
   const passives = equippablePassives(unit, catalog, componentCatalog);
+  const [changingClass, setChangingClass] = useState(false);
 
-  // Classes this unit can reclass INTO (excluding the current one) — the reclass
-  // control that replaces the constellation's old click-to-reclass.
+  // Classes this unit can reclass INTO (excluding the current one).
   const reclassOptions = reclassableClasses(unit, componentCatalog)
     .filter((id) => id !== unit.classId)
     .map((id) => ({ id, name: catalog.getClass(id).name, color: DOMAIN_COLOR[tierEntryOf(id).half] }))
@@ -66,84 +81,158 @@ export function Customize({
     onChange(togglePassive(unit, id, bucket, bucketCapacity(unit, bucket, catalog), catalog));
   }
   function reclass(id: ClassId): void {
+    setChangingClass(false);
     onChange(reclassUnit(unit, id, catalog, componentCatalog));
   }
 
+  const secondaryName =
+    secondary !== null && catalog.hasCommandSet(secondary)
+      ? catalog.getCommandSet(secondary).name
+      : 'None';
+
   return (
-    <div>
-      <div className="tf-load-sec">
-        <div className="tf-load-h">
-          <h3 style={{ color: col }}>Class</h3>
-          <span className="tf-load-c">reclass rebinds your command &amp; frees now-illegal passives</span>
-        </div>
-        <div className="tf-opt locked">
-          <span className="tf-opt-sw" style={{ background: col }} />
-          <div className="tf-opt-info">
-            <div className="tf-opt-nm">
-              {catalog.getClass(unit.classId).name}
-              <span className="tf-opt-tag innate">current</span>
-            </div>
-            <div className="tf-opt-fx">Primary command: {primary.name}</div>
-          </div>
-        </div>
-        {reclassOptions.length > 0 ? (
-          <div className="tf-class-row">
-            {reclassOptions.map((c) => (
-              <button
-                key={String(c.id)}
-                type="button"
-                className="tf-class-chip"
-                style={{ ['--cc' as string]: c.color }}
-                onClick={() => reclass(c.id)}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="tf-load-empty">No other classes open yet — invest JP to unlock reclass options.</div>
-        )}
-      </div>
-
-      <div className="tf-load-sec">
-        <div className="tf-load-h">
-          <h3 style={{ color: col }}>Secondary Command</h3>
-          <span className="tf-load-c">
-            {secondary ? '1' : '0'} / {bucketCapacity(unit, 'secondary_command_sets', catalog)} · a class you've trained actives in
-          </span>
-        </div>
-        <SecondaryRow
-          selected={secondary === null}
-          onClick={() => pickSecondary(null)}
-          swatch="#3d456e"
-          name="None"
-          meta="no secondary command"
-        />
-        {secondaryOptions.length === 0 ? (
-          <div className="tf-load-empty">Train an active in another class to unlock a secondary command.</div>
-        ) : (
-          secondaryOptions.map((opt) => (
-            <SecondaryOptionRow
-              key={String(opt.commandSetId)}
-              opt={opt}
-              selected={secondary === opt.commandSetId}
-              onClick={() => pickSecondary(opt.commandSetId)}
-            />
-          ))
-        )}
-      </div>
-
-      {PASSIVE_BUCKETS.map((bucket) => (
-        <PassiveSection
-          key={bucket}
-          bucket={bucket}
+    <div className="tf-load-cols">
+      <div>
+        <GearSlots
+          unit={unit}
+          roster={roster}
+          inventory={inventory}
+          catalog={catalog}
           col={col}
-          options={passives[bucket]}
-          used={bucketUsed(unit, bucket, catalog)}
-          capacity={bucketCapacity(unit, bucket, catalog)}
-          onToggle={(id) => toggle(id, bucket)}
+          onChange={onChange}
         />
-      ))}
+      </div>
+
+      <div className="tf-compact">
+        <div className="tf-load-sec" style={{ marginTop: 12 }}>
+          <div className="tf-load-h">
+            <h3 style={{ color: col }}>Class</h3>
+            <span className="tf-load-c">primary command is class-bound</span>
+          </div>
+          <div className="tf-opt locked">
+            <span className="tf-opt-sw" style={{ background: col }} />
+            <div className="tf-opt-info">
+              <div className="tf-opt-nm">
+                {catalog.getClass(unit.classId).name}
+                <span className="tf-opt-tag innate">current</span>
+              </div>
+              <div className="tf-opt-fx">Primary command: {primary.name}</div>
+            </div>
+            {reclassOptions.length > 0 && (
+              <button
+                type="button"
+                className="tf-class-btn"
+                onClick={() => setChangingClass((v) => !v)}
+              >
+                {changingClass ? 'Keep class' : 'Change class'}
+              </button>
+            )}
+          </div>
+          {changingClass && (
+            <div className="tf-class-row">
+              {reclassOptions.map((c) => (
+                <button
+                  key={String(c.id)}
+                  type="button"
+                  className="tf-class-chip"
+                  style={{ ['--cc' as string]: c.color }}
+                  onClick={() => reclass(c.id)}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {reclassOptions.length === 0 && (
+            <div className="tf-load-empty">No other classes open yet — invest JP to unlock reclass options.</div>
+          )}
+        </div>
+
+        <CollapsibleSection
+          col={col}
+          title="Secondary Command"
+          meta={`${secondary ? '1' : '0'} / ${bucketCapacity(unit, 'secondary_command_sets', catalog)}`}
+          summary={secondaryName}
+        >
+          <SecondaryRow
+            selected={secondary === null}
+            onClick={() => pickSecondary(null)}
+            swatch="#3d456e"
+            name="None"
+            meta="no secondary command"
+          />
+          {secondaryOptions.length === 0 ? (
+            <div className="tf-load-empty">Train an active in another class to unlock a secondary command.</div>
+          ) : (
+            secondaryOptions.map((opt) => (
+              <SecondaryOptionRow
+                key={String(opt.commandSetId)}
+                opt={opt}
+                selected={secondary === opt.commandSetId}
+                onClick={() => pickSecondary(opt.commandSetId)}
+              />
+            ))
+          )}
+        </CollapsibleSection>
+
+        {PASSIVE_BUCKETS.map((bucket) => (
+          <PassiveSection
+            key={bucket}
+            bucket={bucket}
+            col={col}
+            options={passives[bucket]}
+            used={bucketUsed(unit, bucket, catalog)}
+            capacity={bucketCapacity(unit, bucket, catalog)}
+            equippedNames={passives[bucket].filter((o) => o.equipped).map((o) => o.name)}
+            onToggle={(id) => toggle(id, bucket)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// A section whose header (title · used/capacity · current picks) stays
+// visible while the option rows collapse away — the density refactor
+// that keeps equipment consequences and ability budgets co-visible.
+function CollapsibleSection({
+  col,
+  title,
+  meta,
+  summary,
+  defaultOpen = false,
+  children,
+}: {
+  readonly col: string;
+  readonly title: string;
+  readonly meta: string;
+  readonly summary: string;
+  readonly defaultOpen?: boolean;
+  readonly children: React.ReactNode;
+}): ReactElement {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="tf-load-sec">
+      <div
+        className="tf-load-h click"
+        onClick={() => setOpen((v) => !v)}
+        role="button"
+        aria-expanded={open}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setOpen((v) => !v);
+          }
+        }}
+      >
+        <h3 style={{ color: col }}>
+          <span className={`tf-chev${open ? ' open' : ''}`}>▸</span> {title}
+        </h3>
+        <span className="tf-load-c">{meta}</span>
+        {!open && <span className="tf-load-sum">{summary}</span>}
+      </div>
+      {open && children}
     </div>
   );
 }
@@ -199,6 +288,7 @@ function PassiveSection({
   options,
   used,
   capacity,
+  equippedNames,
   onToggle,
 }: {
   readonly bucket: PassiveBucket;
@@ -206,17 +296,17 @@ function PassiveSection({
   readonly options: ReadonlyArray<PassiveOption>;
   readonly used: number;
   readonly capacity: number;
+  readonly equippedNames: ReadonlyArray<string>;
   readonly onToggle: (id: AbilityId) => void;
 }): ReactElement {
   const remaining = capacity - used;
   return (
-    <div className="tf-load-sec">
-      <div className="tf-load-h">
-        <h3 style={{ color: col }}>{PASSIVE_BUCKET_LABEL[bucket]}</h3>
-        <span className="tf-load-c">
-          {used} / {capacity} slots
-        </span>
-      </div>
+    <CollapsibleSection
+      col={col}
+      title={PASSIVE_BUCKET_LABEL[bucket]}
+      meta={`${used} / ${capacity} slots`}
+      summary={equippedNames.length > 0 ? equippedNames.join(' · ') : '—'}
+    >
       {options.length === 0 ? (
         <div className="tf-load-empty">No {PASSIVE_BUCKET_LABEL[bucket].toLowerCase()} passives available yet.</div>
       ) : (
@@ -229,7 +319,7 @@ function PassiveSection({
           />
         ))
       )}
-    </div>
+    </CollapsibleSection>
   );
 }
 

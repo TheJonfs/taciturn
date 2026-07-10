@@ -14,7 +14,14 @@
 import { useState, type ReactElement } from 'react';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { abilityId, classId, itemId, unitId } from '@engine/index.ts';
-import { m1Roster, type CampaignUnit, type UnlockToken } from '@campaign/index.ts';
+import {
+  debugSeedInventory,
+  m1Roster,
+  newCampaign,
+  type CampaignUnit,
+  type InventoryRecord,
+  type UnlockToken,
+} from '@campaign/index.ts';
 import { FormationManager } from './FormationManager.tsx';
 
 const catalog = loadDefaultCatalog();
@@ -102,10 +109,22 @@ export function FormationDevHarness(): ReactElement {
   // Roster held in state so reclass/spend edits (which return new CampaignUnits)
   // persist across navigation — the same write-back the campaign owner does.
   const [roster, setRoster] = useState<ReadonlyArray<CampaignUnit>>(buildDemoRoster);
+  // A fully-seeded party inventory (M3): the harness always has gear to
+  // try, so the merged Loadout view is exercisable without a campaign.
+  // Static — free counts derive from (inventory, roster) live.
+  const [inventory] = useState<InventoryRecord>(() => {
+    const seeded = debugSeedInventory(newCampaign(buildDemoRoster(), 'harness'), catalog);
+    return seeded.inventory;
+  });
 
   return (
     <div style={{ position: 'fixed', inset: 0 }}>
-      <FormationManager roster={roster} catalog={catalog} onRosterChange={setRoster} />
+      <FormationManager
+        roster={roster}
+        inventory={inventory}
+        catalog={catalog}
+        onRosterChange={setRoster}
+      />
     </div>
   );
 }

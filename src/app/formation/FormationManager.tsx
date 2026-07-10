@@ -10,12 +10,15 @@
 
 import { useMemo, useState, type ReactElement } from 'react';
 import type { Catalog, UnitId } from '@engine/index.ts';
-import type { CampaignUnit } from '@campaign/index.ts';
+import type { CampaignUnit, InventoryRecord } from '@campaign/index.ts';
 import { RosterView } from './RosterView.tsx';
 import { UnitDossier } from './UnitDossier.tsx';
 
 export interface FormationManagerProps {
   readonly roster: ReadonlyArray<CampaignUnit>;
+  // The party inventory (M3): read-only here — equip/unequip only mutate
+  // roster units; free counts derive from (inventory, roster equipment).
+  readonly inventory: InventoryRecord;
   readonly catalog: Catalog;
   // Persist a roster edit (a single unit replaced) up to the owner.
   readonly onRosterChange: (next: ReadonlyArray<CampaignUnit>) => void;
@@ -28,6 +31,7 @@ export interface FormationManagerProps {
 
 export function FormationManager({
   roster,
+  inventory,
   catalog,
   onRosterChange,
   onExit,
@@ -50,6 +54,8 @@ export function FormationManager({
       <UnitDossier
         key={String(opened.id)} // remount per unit → reset tab / viewed-class state
         unit={opened}
+        roster={roster}
+        inventory={inventory}
         catalog={catalog}
         onBack={() => setOpenedId(null)}
         onChange={updateUnit}
