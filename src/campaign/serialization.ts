@@ -13,6 +13,7 @@
 import { classId as toClassId, EMPTY_LOADOUT, EMPTY_UNIT_EQUIPMENT } from '@engine/index.ts';
 import type { CampaignPhase, CampaignState, CampaignUnit, EarnedByClass, UnitFate } from './types.ts';
 import { EMPTY_EARNED_BY_CLASS } from './types.ts';
+import { EMPTY_INVENTORY, bootstrapInventory, type InventoryRecord } from './inventory.ts';
 import type { UnlockToken, UnlockTokenKind } from './progression/tokens.ts';
 
 // Persisted-shape version. Bump when `CampaignState`/`CampaignUnit` change
@@ -87,7 +88,38 @@ export function deserializeCampaign(json: string): CampaignState {
   }
   const roster = rawRoster.map((u, i) => validateUnit(u, i));
 
-  return { schemaVersion, roster, currentNodeId, phase };
+  // TABA M3 inventory. Omitted → derived from roster equipment (the
+  // lenient-field convention doubles as the pre-inventory-save
+  // grandfather: day-one gear is owned). A present record is validated,
+  // then STILL bootstrapped — owned must cover equipped or unequipping
+  // grandfathered gear would make it vanish from the pool.
+  const inventory = bootstrapInventory(
+    validateInventory(root['inventory'], 'inventory'),
+    roster,
+  );
+
+  return { schemaVersion, roster, inventory, currentNodeId, phase };
+}
+
+// inventory: a `Record<itemId, number>` of owned counts. Omitted →
+// empty (bootstrapped from equipment by the caller above). Counts must
+// be non-negative integers; zero entries are dropped (they carry no
+// information and would accrete forever).
+function validateInventory(raw: unknown, where: string): InventoryRecord {
+  if (raw === undefined) return EMPTY_INVENTORY;
+  const rec = asRecord(raw, where);
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(rec)) {
+    const count = asNumber(value, `${where}.${key}`);
+    if (!Number.isInteger(count) || count < 0) {
+      throw new Error(
+        `deserializeCampaign: ${where}.${key} must be a non-negative integer, ` +
+          `got ${JSON.stringify(count)}`,
+      );
+    }
+    if (count > 0) out[key] = count;
+  }
+  return out;
 }
 
 function validateUnit(raw: unknown, index: number): CampaignUnit {

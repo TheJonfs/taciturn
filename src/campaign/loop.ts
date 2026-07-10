@@ -38,6 +38,7 @@ import {
 import { firstBattleBeat } from './sequence.ts';
 import { probeEffectiveMaxes } from './snapshot-fold.ts';
 import { CAMPAIGN_SCHEMA_VERSION } from './serialization.ts';
+import { EMPTY_INVENTORY, bootstrapInventory } from './inventory.ts';
 import { COMPONENT_CATALOG, seedStartingKit } from './progression/index.ts';
 import type { CampaignState, CampaignUnit } from './types.ts';
 
@@ -52,9 +53,14 @@ export function startCampaign(
 ): CampaignState {
   const start = getNode(graph, graph.startId);
   const seeded = seedRosterStartingKits(roster, catalog);
+  const bootstrapped = bootstrapRosterVitals(seeded, start, catalog);
   return {
     schemaVersion: CAMPAIGN_SCHEMA_VERSION,
-    roster: bootstrapRosterVitals(seeded, start, catalog),
+    roster: bootstrapped,
+    // Day-one gear is owned by the party (grandfathered): the inventory
+    // starts at exactly the equipped counts, so unequipping authored gear
+    // returns it to the pool. Receipt (shops/drops/dev seed) adds on top.
+    inventory: bootstrapInventory(EMPTY_INVENTORY, bootstrapped),
     currentNodeId: graph.startId,
     phase: 'in_progress',
   };
@@ -184,6 +190,7 @@ export function newCampaign(
   return {
     schemaVersion: CAMPAIGN_SCHEMA_VERSION,
     roster,
+    inventory: bootstrapInventory(EMPTY_INVENTORY, roster),
     currentNodeId: startNodeId,
     phase: 'in_progress',
   };

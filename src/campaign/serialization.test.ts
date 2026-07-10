@@ -4,7 +4,8 @@
 // wrong-version save fails loudly rather than coercing.
 
 import { describe, expect, it } from 'vitest';
-import { newCampaign } from './index.ts';
+import { grantItems, newCampaign } from './index.ts';
+import { itemId } from '@engine/index.ts';
 import { M1_NODES } from './node.ts';
 import { m0Roster } from './roster.ts';
 import {
@@ -184,5 +185,52 @@ describe('campaign serialization', () => {
       ],
     };
     expect(() => deserializeCampaign(JSON.stringify(broken))).toThrow(/unlocks\[0\]\.kind/);
+  });
+
+  // --- TABA M3: the party inventory ---
+
+  it('round-trips granted inventory losslessly', () => {
+    const state = grantItems(newCampaign(m0Roster, START), [
+      [itemId('long_sword'), 3],
+      [itemId('steel_helm'), 1],
+    ]);
+    const restored = deserializeCampaign(serializeCampaign(state));
+    expect(restored).toEqual(state);
+    expect(restored.inventory['long_sword']).toBe(3);
+  });
+
+  it('grandfathers a pre-inventory save: omitted inventory derives owned = equipped', () => {
+    const state = newCampaign(m0Roster, START);
+    const legacy = { ...state } as Record<string, unknown>;
+    delete legacy['inventory'];
+    const restored = deserializeCampaign(JSON.stringify(legacy));
+    expect(restored.inventory).toEqual(state.inventory);
+  });
+
+  it('bootstraps a PRESENT inventory too: owned is raised to cover equipped gear', () => {
+    // A save whose inventory undercounts an equipped item (e.g. hand-edited)
+    // loads with owned raised to the equipped count, so unequipping never
+    // makes gear vanish.
+    const state = newCampaign(m0Roster, START);
+    const tampered = { ...state, inventory: { long_sword: 2 } };
+    const restored = deserializeCampaign(JSON.stringify(tampered));
+    expect(restored.inventory['long_sword']).toBe(2); // kept
+    for (const [id, count] of Object.entries(state.inventory)) {
+      expect(restored.inventory[id]).toBe(count); // equipped gear re-covered
+    }
+  });
+
+  it('rejects negative and fractional inventory counts loudly; drops zeros', () => {
+    const state = newCampaign(m0Roster, START);
+    expect(() =>
+      deserializeCampaign(JSON.stringify({ ...state, inventory: { long_sword: -1 } })),
+    ).toThrow(/inventory\.long_sword/);
+    expect(() =>
+      deserializeCampaign(JSON.stringify({ ...state, inventory: { long_sword: 0.5 } })),
+    ).toThrow(/inventory\.long_sword/);
+    const restored = deserializeCampaign(
+      JSON.stringify({ ...state, inventory: { ...state.inventory, long_sword: 0 } }),
+    );
+    expect('long_sword' in restored.inventory).toBe(false);
   });
 });

@@ -139,6 +139,17 @@ export interface CampaignState {
   // rejects unknown versions loudly rather than silently migrating.
   readonly schemaVersion: number;
   readonly roster: ReadonlyArray<CampaignUnit>;
+  // TABA M3 — the party inventory: OWNED count per item id, TOTAL
+  // (instances currently equipped on roster units included). Equipped
+  // counts are DERIVED from roster equipment (rule 5: computed vs
+  // stored), so free-to-equip = owned − equipped is computed on read
+  // (see inventory.ts) and equip/unequip never mutate this record —
+  // only RECEIPT (shop purchases, drops, the dev seed) adds to it.
+  // Uniqueness is receipt-gated, not inventory-capped: this record
+  // holds whatever count exists, uniques included (the economy pass
+  // owns how items are received). Keyed by ItemId as a plain string
+  // (D-C plain-serializable).
+  readonly inventory: Readonly<Record<string, number>>;
   // The node the campaign is currently at (the next battle to fight, or the
   // just-won node while its interstitial runs). Advances along a win-edge
   // when the player picks at the world map.

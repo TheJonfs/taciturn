@@ -25,6 +25,20 @@ export {
   deserializeCampaign,
 } from './serialization.ts';
 
+// TABA M3 — the party inventory (instance counting + equip/unequip ops).
+export {
+  EMPTY_INVENTORY,
+  bootstrapInventory,
+  equipItem,
+  equippedCount,
+  equippedCounts,
+  freeCount,
+  grantItems,
+  ownedCount,
+  unequipItem,
+  type InventoryRecord,
+} from './inventory.ts';
+
 export {
   M0_ROSTER_SIZE,
   M0_BASELINE_LEVEL,
