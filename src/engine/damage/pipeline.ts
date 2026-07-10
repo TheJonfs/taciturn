@@ -16,6 +16,7 @@
 // job, after this returns.
 
 import type { ActiveAbilityDefinition, Catalog } from '../catalog/index.ts';
+import { swingResolvesAsHeal } from '../items/equipment.ts';
 import { DEFAULT_SCENARIO_TIER } from '../types/index.ts';
 import type {
   DamageContext,
@@ -78,7 +79,23 @@ export function runDamagePipeline(args: RunDamagePipelineArgs): DamageContext {
     );
   }
 
-  const tags: ReadonlySet<DamageTag> = new Set(damageSpec.tags);
+  let tags: ReadonlySet<DamageTag> = new Set(damageSpec.tags);
+  // TABA M3 (Healer's Staff): a weapon declaring `attackResolvesAsHeal`
+  // flips its weapon strikes to healing at pipeline entry — 'physical'
+  // out, 'healing' in. Downstream stages then do the right thing for
+  // free: evasion skips (no 'physical'), resistance/crit skip
+  // ('healing'), and healing_base computes MA × WP × coef × Faith. The
+  // reducer's natively-healing determination reads the same predicate
+  // (swingResolvesAsHeal) so the log reports a heal, not an absorption.
+  if (
+    tags.has('weapon') &&
+    swingResolvesAsHeal(args.attacker, args.attackingWeaponSlot, args.catalog, damageSpec.tags)
+  ) {
+    const flipped = new Set(tags);
+    flipped.delete('physical');
+    flipped.add('healing');
+    tags = flipped;
+  }
   const variance = damageSpec.variance ?? { min: 1, max: 1 };
 
   let ctx: DamageContext = {

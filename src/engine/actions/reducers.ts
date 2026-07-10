@@ -121,7 +121,7 @@ import { computeMpCost } from '../abilities/cost.ts';
 import { computeAbilityRange } from '../abilities/range.ts';
 import { resolveWorldcraftCast } from '../abilities/worldcraft-resolution.ts';
 import { computeBarrierDamage } from '../damage/barrier-damage.ts';
-import { getEquippedWeapon, getWeaponInSlot } from '../items/equipment.ts';
+import { getEquippedWeapon, getWeaponInSlot, swingResolvesAsHeal } from '../items/equipment.ts';
 import { computeChargedActionSpeed } from '../ct/speed.ts';
 
 export interface ReduceResult<O> {
@@ -1084,7 +1084,17 @@ function resolveAbilityEffect(
       // wasn't natively healing — the resistance pipeline flipped it.
       // Per ADR-0057, this distinguishes "absorbed Lightning Strike for
       // 12 HP" from "Cure healed for 12 HP" in the action log.
-      const nativelyHealing = args.ability.effects.damage.tags.includes('healing');
+      // TABA M3: a Healer's-Staff weapon strike is natively healing too —
+      // the weapon flip is the wielder's intent, not an absorption, so it
+      // logs as a heal and fires onHealingReceived like any native heal.
+      const nativelyHealing =
+        args.ability.effects.damage.tags.includes('healing') ||
+        swingResolvesAsHeal(
+          args.attacker,
+          args.attackingWeaponSlot,
+          catalog,
+          args.ability.effects.damage.tags,
+        );
       absorbed = !nativelyHealing;
       // Unified Calling (S62, ADR-0101): the recipient's onHealingReceived
       // handlers fire on a one-time native ability heal (Cure / Raise).

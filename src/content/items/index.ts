@@ -124,6 +124,10 @@ import { mirrorShield } from './mirror-shield.ts';
 import { abjurersCodex } from './abjurers-codex.ts';
 import { talismanOfEndurance } from './talisman-of-endurance.ts';
 import { wingedBoots } from './winged-boots.ts';
+// TABA M3 — Ch3 engine-prerequisite items (Stage 3)
+import { healersStaff } from './healers-staff.ts';
+import { battleStaff } from './battle-staff.ts';
+import { channelersHat } from './channelers-hat.ts';
 
 export const items: ReadonlyArray<ItemDefinition> = [
   // Session 17c / 19 originals
@@ -298,4 +302,10 @@ export const items: ReadonlyArray<ItemDefinition> = [
   abjurersCodex,
   talismanOfEndurance,
   wingedBoots,
+  // TABA M3 — Ch3 engine-prerequisite items (equipment brief Stage 3):
+  // each is the first consumer of its engine seam (attack-as-heal,
+  // attack-stat swap, status-conditional incoming damage).
+  healersStaff,
+  battleStaff,
+  channelersHat,
 ];

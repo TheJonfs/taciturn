@@ -146,6 +146,17 @@ export interface IncomingStatusStatShrug {
   readonly statusTag?: StatusTag;
 }
 
+// TABA M3: status-conditional incoming-damage multiplier (Channeler's
+// Hat). `factor` applies to incoming damage while the wearer carries
+// `whileStatusTypeId`; optional `tagFilter` restricts to matching damage
+// tags (any-of). Healing-tagged events never match (a heal isn't damage
+// to reduce).
+export interface ConditionalIncomingDamageModifier {
+  readonly factor: number;
+  readonly whileStatusTypeId: StatusTypeId;
+  readonly tagFilter?: ReadonlyArray<DamageTag>;
+}
+
 // Target-side incoming-status-application chance modifier. Either
 // per-status-type (Pointy Hat: × 0.5 on Silence) or per-status-tag
 // (Focus Band: × 0.75 on any negative-tagged status).
@@ -429,6 +440,18 @@ interface EquipmentBase {
   // guarantee). PA/MA are the wearer's composed stats. Talisman of
   // Endurance authors `[{ statusTag: 'negative' }]`.
   readonly incomingStatusStatShrugs?: ReadonlyArray<IncomingStatusStatShrug>;
+
+  // TABA M3 (Channeler's Hat): status-conditional incoming-damage
+  // multipliers. Each entry contributes an `onDamageReceived` handler
+  // (Damage Reduction's multiplier pattern) that applies `factor` while
+  // the WEARER carries the named status — the item declares the gating
+  // status, so the engine stays generic (any future "while Berserk /
+  // while Charging" gear reuses this). Optional `tagFilter` gates on the
+  // incoming damage tags. Channeler's Hat authors
+  // `[{ factor: 0.5, whileStatusTypeId: 'charging' }]` — −50% incoming
+  // while charging (the charging-mage vulnerability patch; the auto-hit
+  // rule is why the wearer needs it).
+  readonly conditionalIncomingDamageMods?: ReadonlyArray<ConditionalIncomingDamageModifier>;
 }
 
 // Weapon-sourced variance source (per ADR-0067 + Session 40 extension).
@@ -561,6 +584,25 @@ export interface WeaponEquipment extends EquipmentBase {
   // friendly-fires an intervening ally (ruleset friendlyFire). The Lance
   // weapon class. Absent → single-target (existing behavior).
   readonly pierces?: boolean;
+  // TABA M3 (Battle Staff): the stat this weapon's strikes read in the
+  // physical formula — `STAT × WP × coefficient`. Defaults to 'pa'
+  // (every existing weapon); 'ma' makes weapon attacks scale off Magic
+  // Attack (MP-free MA-melee for casters; the Barehanded WP=PA override
+  // is the precedent for departing from the vanilla formula). The
+  // queried stat runs through modifyStatQuery, so MA buffs compose
+  // exactly like PA buffs do.
+  readonly attackStat?: 'pa' | 'ma';
+  // TABA M3 (Healer's Staff): when `true`, this weapon's weapon strikes
+  // (damage tags include 'weapon') resolve as HEALING instead of damage.
+  // At pipeline entry the tag set flips ('physical' out, 'healing' in),
+  // so evasion / resistance / crit all short-circuit (heals always land)
+  // and `healing_base` computes the magnitude — extended to read the
+  // weapon: heal = MA × WP × coefficient × Faith_factor (the FFT healing-
+  // staff shape; WP is the staff's heal power). Per-swing scoped under
+  // dual-wield. The flip follows the TARGET the attack was aimed at —
+  // pointing it at an enemy heals the enemy (FFT-faithful; the player's
+  // rope to skip). Absent → normal damaging strikes.
+  readonly attackResolvesAsHeal?: boolean;
 }
 
 // Session 29: shields occupy the left-hand slot but aren't weapons —

@@ -246,7 +246,9 @@ describe('loadDefaultCatalog', () => {
     // experts_tunic, stealth_suit, titans_helm, command_cap,
     // mirror_shield, abjurers_codex, talisman_of_endurance,
     // winged_boots — all 'hidden', TABA-scoped).
-    expect(cat.items()).toHaveLength(117);
+    // TABA M3 Ch3 engine-prerequisite items (Stage 3): 117 → 120
+    // (healers_staff, battle_staff, channelers_hat).
+    expect(cat.items()).toHaveLength(120);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

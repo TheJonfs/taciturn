@@ -203,6 +203,10 @@ export const TABA_NEW_CH3: ReadonlyArray<TabaGearEntry> = [
   entry('talisman_of_endurance', 3, 'shop'),
   // accessories
   entry('winged_boots', 3, 'shop'),
+  // engine-prerequisite items (Stage 3)
+  entry('healers_staff', 3, 'shop'),
+  entry('battle_staff', 3, 'shop'),
+  entry('channelers_hat', 3, 'shop'),
 ];
 
 // --- The assembled pool + reads ----------------------------------------------

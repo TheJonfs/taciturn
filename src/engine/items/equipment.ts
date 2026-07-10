@@ -16,6 +16,7 @@ import type {
   WeaponEquipment,
 } from '../catalog/index.ts';
 import type {
+  DamageTag,
   EquipmentSlotId,
   ItemId,
   Unit,
@@ -74,6 +75,25 @@ export function getSwingWeapon(
   return attackingWeaponSlot !== undefined
     ? getWeaponInSlot(unit, attackingWeaponSlot, catalog)
     : getEquippedWeapon(unit, catalog);
+}
+
+// TABA M3 (Healer's Staff): does this swing's weapon flip its weapon
+// strikes to healing? True when the ability is a weapon strike (damage
+// tags include 'weapon') and the swinging weapon declares
+// `attackResolvesAsHeal`. Read at pipeline entry (the tag flip) AND at
+// the reducer's natively-healing determination (so a flipped strike
+// logs as a heal, not an absorption, and fires onHealingReceived).
+// Per-swing scoped: a dual-wielder's staff swing heals while the other
+// hand's sword swing damages.
+export function swingResolvesAsHeal(
+  unit: Unit,
+  attackingWeaponSlot: EquipmentSlotId | undefined,
+  catalog: Catalog,
+  damageTags: ReadonlyArray<DamageTag>,
+): boolean {
+  if (!damageTags.includes('weapon')) return false;
+  const weapon = getSwingWeapon(unit, attackingWeaponSlot, catalog);
+  return weapon !== null && weapon.attackResolvesAsHeal === true;
 }
 
 // Session 39a: predicates to narrow the widened `ItemDefinition` union

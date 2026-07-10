@@ -175,15 +175,20 @@ export const physicalPaWp: DamageHandler = (ctx, env) => {
     ctx.targetCount,
     ctx.additionalPowerCoefficient ?? 0,
   );
-  const pa = runModifyStatQuery(env.state, env.catalog, {
-    unit: ctx.attacker,
-    statName: 'pa',
-    baseValue: ctx.attacker.baseStats.pa,
-  });
   // Per-swing weapon scope (Session 42; shared resolver since S68): read
   // the designated swing slot's weapon when set, else the dominant weapon
   // (bit-identical for every single-weapon / pre-S42 caller).
   const weapon = getSwingWeapon(ctx.attacker, ctx.attackingWeaponSlot, env.catalog);
+  // TABA M3 (Battle Staff): the weapon may swap the attack stat — its
+  // strikes read MA instead of PA (`STAT × WP × coefficient`, buffs
+  // composing through the same modifyStatQuery chain). Defaults to 'pa'
+  // for every existing weapon and bare hands.
+  const attackStat: 'pa' | 'ma' = weapon?.attackStat ?? 'pa';
+  const pa = runModifyStatQuery(env.state, env.catalog, {
+    unit: ctx.attacker,
+    statName: attackStat,
+    baseValue: attackStat === 'ma' ? ctx.attacker.baseStats.ma : ctx.attacker.baseStats.pa,
+  });
   // Weapon-power override (Session 76): only weapon strikes run the chain —
   // the basic Attack carries the `'weapon'` tag, so the Monk's Barehanded
   // can set WP=PA there (punch → PA²). Element-tagged Fists omit `'weapon'`,
@@ -239,6 +244,15 @@ export const healingBase: DamageHandler = (ctx, env) => {
     statName: healStat,
     baseValue: healStat === 'pa' ? ctx.attacker.baseStats.pa : ctx.attacker.baseStats.ma,
   });
+  // TABA M3 (Healer's Staff): a weapon-tagged heal (the attack-as-heal
+  // flip) scales by the swinging weapon's WP — heal = MA × WP × coef ×
+  // Faith, the FFT healing-staff shape. Ordinary heals (Cure) carry no
+  // 'weapon' tag and keep the WP=1 path bit-identical. No
+  // modifyWeaponPower chain here: Barehanded's WP=PA is a strike
+  // concept (and bare hands can't carry the heal flag anyway).
+  const weaponWp = ctx.damageTags.has('weapon')
+    ? (getSwingWeapon(ctx.attacker, ctx.attackingWeaponSlot, env.catalog)?.wp ?? 1)
+    : 1;
   // S63: `noFaithScaling` forces the Faith term to 1 (deterministic
   // `MA × power`). Targeted Treatment opts out; standard heals keep Faith.
   const faithFactor = ability.effects.damage?.noFaithScaling === true
@@ -259,7 +273,7 @@ export const healingBase: DamageHandler = (ctx, env) => {
   });
   return {
     ...ctx,
-    baseDamage: ma * power * faithFactor,
+    baseDamage: ma * weaponWp * power * faithFactor,
     ...(healMult !== 1
       ? { multipliers: [...ctx.multipliers, { source: 'emissary', factor: healMult }] }
       : {}),

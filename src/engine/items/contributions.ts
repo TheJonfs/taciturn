@@ -976,6 +976,53 @@ function* physicalReflectContributor(
   }
 }
 
+// onDamageReceived contributor (TABA M3): each item's
+// `conditionalIncomingDamageMods` declares status-conditional incoming-
+// damage multipliers — Damage Reduction's multiplier pattern, gated on
+// the WEARER carrying the named status (and optionally on the incoming
+// damage tags). Channeler's Hat authors `[{ factor: 0.5,
+// whileStatusTypeId: 'charging' }]`: −50% incoming while charging.
+// Healing-tagged events never match.
+function* conditionalIncomingDamageContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'onDamageReceived'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.conditionalIncomingDamageMods === undefined) continue;
+    for (const mod of item.conditionalIncomingDamageMods) {
+      const localIndex = tieBreakIndex++;
+      const localMod = mod;
+      const localItemId = item.id;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          const ctx = args.ctx;
+          if (ctx.damageTags.has('healing')) return ctx;
+          if (!args.unit.statuses.some((s) => s.typeId === localMod.whileStatusTypeId)) {
+            return ctx;
+          }
+          if (localMod.tagFilter !== undefined) {
+            const matches = localMod.tagFilter.some((t) => ctx.damageTags.has(t));
+            if (!matches) return ctx;
+          }
+          return {
+            ctx: {
+              ...ctx,
+              multipliers: [
+                ...ctx.multipliers,
+                { source: String(localItemId), factor: localMod.factor },
+              ],
+            },
+          };
+        },
+      };
+    }
+  }
+}
+
 // ADR-0080 (Session 42): swings-per-weapon multiplier from equipment.
 // The Offering authors `attackSwingMultiplier: 2`. Yields a
 // `modifySwingsPerWeapon` handler that multiplies the running count.
@@ -1037,6 +1084,8 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   modifySwingsPerWeapon: swingsPerWeaponContributor,
   // ADR-0064 (Session 30): weapon spell-cast riders.
   onDamageDealt: attackProcContributor,
+  // TABA M3: Channeler's Hat's while-charging damage reduction.
+  onDamageReceived: conditionalIncomingDamageContributor,
   // ADR-0065 (Session 30): damage-to-MP-drain on equipment.
   // S74 (ADR-0126): + Ring of Caliora's magical CT drain, composed in.
   onFinalDamage: finalDamageContributor,
