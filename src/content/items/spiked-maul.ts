@@ -4,16 +4,18 @@
 // bucket drops to ZERO while wielding.
 //
 // Chris's ruling (the register's cost question, sharpened): keep WP 20
-// and take the whole reaction bucket — the wielder equips NO reaction
-// passives at all. Two wrinkles flagged at ship time (handoff):
-//  1. Capacity 0 blocks class-NATIVE reactions too (they occupy the
-//     bucket like any equipped passive) — stronger than "only their
-//     innate reaction survives." If innate-survives is wanted, that
-//     needs a different mechanism.
-//  2. `createInitialState` THROWS on over-capacity loadouts, and the M2
-//     Formation UI assumes equipment only LIFTS capacity — the M3 gear
-//     UI must enforce equipment-adjusted capacity (unequip-excess or
-//     block) before players can equip this.
+// and take the whole reaction bucket. Because the capacity budget is
+// COST-weighted and class-innate abilities cost 0 (`getCost` →
+// freeAbilities), capacity 0 delivers exactly the stated intent: the
+// wielder KEEPS their class-innate reaction (Counter on a Knight) and
+// can import NO others. A Steel Helm partially offsets (net capacity 1
+// → innate + one cost-1 import). Semantics pinned in
+// taba-ch3-effect-gear.test.ts.
+//
+// Ship-time wrinkle (handoff): `createInitialState` THROWS on
+// over-capacity loadouts, and the M2 Formation UI assumes equipment
+// only LIFTS capacity — the M3 gear UI must enforce equipment-adjusted
+// capacity (unequip-excess or block) before players can equip this.
 //
 // TABA-only: `hidden` + campaign pool (chapter 3, shop).
 

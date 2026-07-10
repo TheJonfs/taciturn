@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from './index.ts';
 import {
   abilityId,
+  classId,
   commitAction,
   computeAbilityRange,
   getCapacity,
@@ -13,6 +14,7 @@ import {
   itemId,
   statusTypeId,
   unitId,
+  validateLoadout,
 } from '@engine/index.ts';
 import type { ProposedAction, UnitEquipment } from '@engine/index.ts';
 import {
@@ -96,6 +98,52 @@ describe('Spiked Maul — reaction bucket capacity −3 → 0 (ruled cost)', () 
     expect([...(spikedMaul.bucketCapacityMods ?? new Map())].map(([k, v]) => [String(k), v])).toEqual([
       ['reaction', -3],
     ]);
+  });
+
+  // The capacity budget is COST-weighted and class-innate abilities cost 0
+  // (`getCost` → freeAbilities), so the maul's capacity-0 keeps the class-
+  // innate reaction and blocks only IMPORTS — exactly the design intent
+  // ("only their class-innate reaction, no others"). These pin that
+  // semantics, including the Steel Helm partial-offset (net capacity 1 →
+  // innate + one cost-1 import).
+  const knightWith = (id: string, weaponId: string, headId: string | null, reactions: ReadonlyArray<string>) =>
+    makeUnit({
+      id, spd: 10,
+      classId: 'knight',
+      equipment: {
+        leftHand: null,
+        rightHand: itemId(weaponId),
+        headgear: headId === null ? null : itemId(headId),
+        armor: null,
+        accessory: null,
+      },
+      loadout: {
+        actionBuckets: { [bucketId('first_action')]: [cat.getClass(classId('knight')).firstActionCommandSet] },
+        passiveBuckets: { [bucketId('reaction')]: reactions.map((r) => abilityId(r)) },
+      },
+    });
+
+  it('capacity 0 still admits the class-INNATE reaction (Counter is free-in-class)', () => {
+    const knight = knightWith('k', 'spiked_maul', null, ['counter']);
+    const state = makeGameState({ units: [knight] });
+    expect(validateLoadout(state, unitId('k'), knight.loadout, cat).ok).toBe(true);
+  });
+
+  it('capacity 0 rejects any IMPORTED reaction (cost ≥ 1)', () => {
+    const knight = knightWith('k', 'spiked_maul', null, ['cornered_focus']);
+    const state = makeGameState({ units: [knight] });
+    const result = validateLoadout(state, unitId('k'), knight.loadout, cat);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.violations.some((v) => v.kind === 'over_capacity')).toBe(true);
+    }
+  });
+
+  it('maul + Steel Helm nets capacity 1: innate Counter + one cost-1 import fits', () => {
+    const knight = knightWith('k', 'spiked_maul', 'steel_helm', ['counter', 'cornered_focus']);
+    const state = makeGameState({ units: [knight] });
+    expect(getCapacity(state, unitId('k'), bucketId('reaction'), cat)).toBe(1);
+    expect(validateLoadout(state, unitId('k'), knight.loadout, cat).ok).toBe(true);
   });
 });
 

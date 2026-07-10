@@ -34,10 +34,12 @@ an explicit Mage-War-change decision.
 assumed "equipment can only LIFT capacity above baseline" — the maul's
 reaction-bucket −3 (capacity → 0) falsifies it, and `createInitialState`
 THROWS on over-capacity loadouts. The gear UI must enforce
-equipment-adjusted capacity (block or unequip-excess on equip). Also note:
-capacity 0 blocks class-NATIVE reactions too — stronger than Chris's stated
-"only their class-innate reaction survives." If innate-survives is the real
-intent, it needs a different mechanism (flag before building one).
+equipment-adjusted capacity (block or unequip-excess on equip).
+Good news (verified + test-pinned end of session): the capacity budget is
+COST-weighted and class-innate reactions cost 0, so capacity 0 keeps the
+wielder's innate reaction and blocks only imports — exactly Chris's intent;
+maul + Steel Helm nets 1 (innate + one cost-1 import). Chris: try as-is,
+rebalance later.
 
 ### Watch-fors / playtest (not blockers)
 

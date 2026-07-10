@@ -30,7 +30,7 @@ ADR-0032's `crit_multiplier` (base stat, default 1.5, `modifyStatQuery`-composab
 
 ## Decision 5 — magnitude/confirm rulings (Chris, this session)
 
-- **Spiked Maul:** WP 20 stands; cost = reaction **bucket capacity −3** (3 → 0: the wielder equips NO reaction passives). Note: this is stronger than "only the class-innate reaction survives" — innate reactions occupy the bucket too. Revisit if innate-survives is wanted.
+- **Spiked Maul:** WP 20 stands; cost = reaction **bucket capacity −3** (3 → 0). Because the capacity budget is cost-weighted and class-innate abilities cost 0 (`getCost` → `freeAbilities`), capacity 0 delivers exactly the stated intent: the wielder KEEPS their class-innate reaction and can import no others; a Steel Helm partially offsets (net 1 → innate + one cost-1 import). Semantics pinned by tests (Chris confirmed try-as-is, rebalance later).
 - **Scouring Wand:** unbounded stacking accepted (resistance has no floor; the deep-negative grind is a trap the player may walk into). Counterplay: negative-status cleansing; opportunity cost.
 - **Prism Wand:** the +1 Burn stack applies on ANY elemental spell (`sourceAbilityTagAny`), not fire-only.
 - **Livre bug fix (deliberate Mage War delta):** the action-speed rider's tag gate read only damage tags, so buff casts never matched `['magical']` — contradicting Livre of Urgency's documented "every magical cast." Fixed to the union of ability + damage tags (identical on damage spells → no damage-spell behavior change; Livre now speeds buffs as documented). Chris chose fix over absolute freeze; the frozen-pool pin is unaffected (no lineup change).
