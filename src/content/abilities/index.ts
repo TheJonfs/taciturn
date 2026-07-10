@@ -3,6 +3,9 @@ import { aetherBloom } from './aether-bloom.ts';
 import { applyBurnProc } from './apply-burn-proc.ts';
 import { applySilenceProc } from './apply-silence-proc.ts';
 import { applyVulnerableProc } from './apply-vulnerable-proc.ts';
+import { applyScouredProc } from './apply-scoured-proc.ts';
+import { voidVulnerableProc } from './void-vulnerable-proc.ts';
+import { palliativePulse } from './palliative-pulse.ts';
 import { attack } from './attack.ts';
 import { chargedAttack } from './charged-attack.ts';
 import { eagleEye } from './eagle-eye.ts';
@@ -137,6 +140,11 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   applySilenceProc,
   // TABA M3 — the Dagger's 50% on-hit Vulnerable rider.
   applyVulnerableProc,
+  // TABA M3 Stage 4 — Scouring Wand shred, Void Robe mark, Palliative
+  // Pike's ally-only heal pulse.
+  applyScouredProc,
+  voidVulnerableProc,
+  palliativePulse,
   attack,
   barehanded,
   bearsHeave,

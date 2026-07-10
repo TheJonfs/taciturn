@@ -2473,6 +2473,10 @@ function resolveAoeDispatch(
     if (respectFriendlyFire && unit.team === args.attacker.team && unit.id !== args.attacker.id) {
       continue;
     }
+    // TABA M3 (Palliative Pike's pulse): ally-discriminating AoE — a
+    // beneficial footprint skips enemies entirely rather than "friendly-
+    // firing" them with a heal.
+    if (aoe.teamFilter === 'allies_only' && unit.team !== args.attacker.team) continue;
     seen.add(unit.id);
     affected.push(unit);
   }

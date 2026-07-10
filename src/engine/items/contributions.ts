@@ -197,6 +197,7 @@ function* actionSpeedContributor(
       const localIndex = tieBreakIndex++;
       const localDelta = mod.delta;
       const localFilter = mod.tagFilter;
+      const localCommandSetFilter = mod.commandSetFilter;
       yield {
         tier: 'equipment',
         priority: DEFAULT_HOOK_PRIORITY,
@@ -209,6 +210,12 @@ function* actionSpeedContributor(
             ];
             const matches = localFilter.some((t: DamageTag) => abilityTags.includes(t));
             if (!matches) return args.baseActionSpeed;
+          }
+          // TABA M3 (Trident): command-set-membership gate.
+          if (localCommandSetFilter !== undefined) {
+            if (!catalog.hasCommandSet(localCommandSetFilter)) return args.baseActionSpeed;
+            const members = catalog.getCommandSet(localCommandSetFilter).members;
+            if (!members.includes(args.ability.id)) return args.baseActionSpeed;
           }
           return args.baseActionSpeed + localDelta;
         },
@@ -236,6 +243,7 @@ function* spellPowerContributor(
     for (const mod of item.spellPowerModifiers) {
       const localIndex = tieBreakIndex++;
       const localDelta = mod.delta;
+      const localFactor = mod.factor;
       const localFilter = mod.tagFilter;
       const localPerExtraTarget = mod.perExtraTarget === true;
       yield {
@@ -248,6 +256,14 @@ function* spellPowerContributor(
             if (abilityTags === undefined) return args.baseValue;
             const matches = localFilter.some((t: DamageTag) => abilityTags.includes(t));
             if (!matches) return args.baseValue;
+          }
+          // TABA M3 (Moon Robe): a factor entry multiplies the running
+          // Spell Power. Yielded in entry order — content keeps additive
+          // and multiplicative entries on separate items today, and the
+          // equipment tier runs additives-then-multiplicatives per item
+          // authoring (ADR-0058's spirit; revisit if a mixed item lands).
+          if (localFactor !== undefined && localFactor !== 1) {
+            return args.baseValue * localFactor;
           }
           // S74: Glove of Metria's per-extra-target scaling — +delta for
           // each target beyond the first (single-target casts get nothing).
@@ -534,6 +550,13 @@ function* statusApplicationStackCountContributor(
               if (!args.sourceAbilityTags.includes(t)) return args.baseCount;
             }
           }
+          // TABA M3 (Prism Wand): any-of gate on the source ability's tags.
+          if (localMod.sourceAbilityTagAny !== undefined) {
+            const matches = localMod.sourceAbilityTagAny.some((t) =>
+              args.sourceAbilityTags.includes(t),
+            );
+            if (!matches) return args.baseCount;
+          }
           return args.baseCount + localMod.delta;
         },
       };
@@ -746,6 +769,15 @@ function* attackProcContributor(
       const localItemId = item.id;
       const localAttackerId = unit.id;
       const localSlot = slot;
+      // TABA M3 (Palliative Pike): a SELF-targeting procced ability
+      // (the pike's wielder-anchored heal pulse) must be emitted with a
+      // self target — validateAction rejects a unit-target payload
+      // against 'self' targeting.
+      const localSelfTargeting =
+        catalog.hasAbility(localAbilityId) &&
+        catalog.getAbility(localAbilityId).kind === 'active' &&
+        (catalog.getAbility(localAbilityId) as { targeting: { kind: string } }).targeting.kind ===
+          'self';
       yield {
         tier: 'equipment',
         priority: DEFAULT_HOOK_PRIORITY,
@@ -772,7 +804,9 @@ function* attackProcContributor(
             actorId: localAttackerId,
             payload: {
               abilityId: localAbilityId,
-              target: { kind: 'unit', unitId: ctx.target.id },
+              target: localSelfTargeting
+                ? { kind: 'self' }
+                : { kind: 'unit', unitId: ctx.target.id },
               riderSource: { kind: 'equipment_proc', itemId: localItemId },
             },
           };
@@ -894,14 +928,66 @@ function* finalDamageCtDrainContributor(
   }
 }
 
-// Composes the two equipment `onFinalDamage` riders (MP drain + CT drain)
-// into one contributor, since the hook map holds a single entry per hook.
+// onFinalDamage lifesteal contributor (TABA M3, Star Robe): each item's
+// `damageLifestealMods` declares a percentage of matching (tag-any-of
+// gated) final damage the wearer heals back. Same gates as the MP/CT
+// drains (landed, non-absorbed, non-zero, target alive); additionally
+// the WEARER must be alive to receive. Emission: `system_heal` with the
+// `equipment_lifesteal` source. Per-target — a field-wide fire spell
+// lifesteals off every damaged target (the lineup's flagged Calculator
+// extreme; shipped uncapped, per-cast cap is the fix-if-needed).
+function* finalDamageLifestealContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'onFinalDamage'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.damageLifestealMods === undefined) continue;
+    for (const mod of item.damageLifestealMods) {
+      if (mod.percent <= 0) continue;
+      const localIndex = tieBreakIndex++;
+      const localMod = mod;
+      const localItemId = item.id;
+      const localWearerId = unit.id;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (args.absorbed) return {};
+          if (args.damageDealt <= 0) return {};
+          if (localMod.tagFilter !== undefined) {
+            if (!localMod.tagFilter.some((t) => args.damageTags.has(t))) return {};
+          }
+          const amount = Math.floor((args.damageDealt * localMod.percent) / 100);
+          if (amount <= 0) return {};
+          const emission: ProposedAction = {
+            type: 'system_heal',
+            source: 'system',
+            payload: {
+              targetId: localWearerId,
+              amount,
+              tags: ['healing'],
+              source: { kind: 'equipment_lifesteal', itemId: localItemId, unitId: localWearerId },
+            },
+          };
+          return { emittedActions: [emission] };
+        },
+      };
+    }
+  }
+}
+
+// Composes the equipment `onFinalDamage` riders (MP drain + CT drain +
+// lifesteal) into one contributor, since the hook map holds a single
+// entry per hook.
 function* finalDamageContributor(
   unit: Unit,
   catalog: Catalog,
 ): Generator<SourceContribution<'onFinalDamage'>> {
   yield* finalDamageDrainContributor(unit, catalog);
   yield* finalDamageCtDrainContributor(unit, catalog);
+  yield* finalDamageLifestealContributor(unit, catalog);
 }
 
 // onFinalDamageReceived contributor (Session 37): each item's
@@ -967,6 +1053,148 @@ function* physicalReflectContributor(
               amount,
               tags: [localTag],
               source: { kind: 'revenge', wearerId: localWearerId, itemId: localItemId },
+            },
+          };
+          return { emittedActions: [emission] };
+        },
+      };
+    }
+  }
+}
+
+// spellProc arm (TABA M3, Void Robe): the non-physical sibling of the
+// attack-proc contributor. Each item's `spellProcs` declares (chance,
+// abilityId, tagFilter) entries that fire against the damaged target
+// when a hit whose damage tags match the filter (any-of) lands — no
+// physical gate, so spell damage qualifies. Same deterministic roll
+// stream and riderSource emission shape as attackProcs; the proc index
+// space continues after the attack procs so the two never collide.
+function* spellProcContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'onDamageDealt'>> {
+  let tieBreakIndex = 1000; // ordered after every attack-proc handler
+  let procIndex = 100; // distinct roll stream from attack procs
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.spellProcs === undefined) continue;
+    for (const proc of item.spellProcs) {
+      const localIndex = tieBreakIndex++;
+      const localProcIndex = procIndex++;
+      const localChance = proc.chance;
+      const localAbilityId = proc.abilityId;
+      const localFilter = proc.tagFilter;
+      const localItemId = item.id;
+      const localAttackerId = unit.id;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          const ctx = args.ctx;
+          if (!ctx.hit) return ctx;
+          if (ctx.damageTags.has('healing')) return ctx;
+          if (ctx.actionSeed === undefined) return ctx;
+          if (!localFilter.some((t) => ctx.damageTags.has(t))) return ctx;
+          const subSeed = (ctx.actionSeed ^ ((PROC_ROLL_SUB_STREAM + localProcIndex) >>> 0)) >>> 0;
+          const roll = unitFloatFromSeed(subSeed);
+          if (roll >= localChance) return ctx;
+          const emission: ProposedAction = {
+            type: 'use_ability',
+            source: 'system',
+            actorId: localAttackerId,
+            payload: {
+              abilityId: localAbilityId,
+              target: { kind: 'unit', unitId: ctx.target.id },
+              riderSource: { kind: 'equipment_proc', itemId: localItemId },
+            },
+          };
+          return { ctx, emittedActions: [emission] };
+        },
+      };
+    }
+  }
+}
+
+// Composes the two onDamageDealt arms (weapon attack procs + spell
+// procs) into one contributor, since the hook map holds a single entry
+// per hook.
+function* damageDealtContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'onDamageDealt'>> {
+  yield* attackProcContributor(unit, catalog);
+  yield* spellProcContributor(unit, catalog);
+}
+
+// onActionResolved contributor (TABA M3): two arms.
+//  - `spellResolvedSelfStatuses` (Terra Robe): when the wearer resolves
+//    a use_ability whose damage tags contain every listed tag, apply the
+//    named status to the wearer — ONCE per action, not per target (the
+//    load-bearing "once per spell" semantics; a field-wide Cataclysm
+//    grants one stack). Fires on cast resolution, hit or miss — charged
+//    magical damage auto-hits, so the practical gap is resistance-
+//    absorption edge cases.
+//  - `basicAttackCtRefundPaFactor` (Epee): after a resolved BASIC weapon
+//    attack, refund floor(PA × factor) CT to the wearer (PA composed —
+//    the runner pre-computes it). Once per action: a dual-wield double
+//    swing refunds once, and The Offering's extra swings don't compound
+//    it.
+function* actionResolvedContributor(
+  unit: Unit,
+  catalog: Catalog,
+): Generator<SourceContribution<'onActionResolved'>> {
+  let tieBreakIndex = 0;
+  for (const { item } of iterateEquippedItems(unit, catalog)) {
+    if (item.spellResolvedSelfStatuses !== undefined) {
+      for (const spec of item.spellResolvedSelfStatuses) {
+        const localIndex = tieBreakIndex++;
+        const localSpec = spec;
+        const localWearerId = unit.id;
+        yield {
+          tier: 'equipment',
+          priority: DEFAULT_HOOK_PRIORITY,
+          tieBreakIndex: localIndex,
+          invoke: (args) => {
+            if (args.ability === null) return {};
+            const damageTags = args.ability.effects.damage?.tags;
+            if (damageTags === undefined) return {};
+            for (const t of localSpec.damageTagAll) {
+              if (!damageTags.includes(t)) return {};
+            }
+            const emission: ProposedAction = {
+              type: 'system_apply_status',
+              source: 'system',
+              payload: {
+                targetId: localWearerId,
+                statusTypeId: localSpec.statusTypeId,
+                sourceUnitId: localWearerId,
+              },
+            };
+            return { emittedActions: [emission] };
+          },
+        };
+      }
+    }
+    if (item.basicAttackCtRefundPaFactor !== undefined && item.basicAttackCtRefundPaFactor > 0) {
+      const localIndex = tieBreakIndex++;
+      const localFactor = item.basicAttackCtRefundPaFactor;
+      const localItemId = item.id;
+      const localWearerId = unit.id;
+      yield {
+        tier: 'equipment',
+        priority: DEFAULT_HOOK_PRIORITY,
+        tieBreakIndex: localIndex,
+        invoke: (args) => {
+          if (args.ability === null || args.ability.basicAttack !== true) return {};
+          const amount = Math.floor(args.pa * localFactor);
+          if (amount <= 0) return {};
+          const emission: ProposedAction = {
+            type: 'system_ct_push',
+            source: 'system',
+            payload: {
+              targetId: localWearerId,
+              delta: amount,
+              source: { kind: 'equipment_ct_refund', itemId: localItemId, unitId: localWearerId },
             },
           };
           return { emittedActions: [emission] };
@@ -1082,10 +1310,14 @@ const EQUIPMENT_CONTRIBUTORS: { [K in HookName]?: EquipmentContributor<K> } = {
   modifyEvasion: evasionContributor,
   // ADR-0080 (Session 42): The Offering's swings-per-weapon multiplier.
   modifySwingsPerWeapon: swingsPerWeaponContributor,
-  // ADR-0064 (Session 30): weapon spell-cast riders.
-  onDamageDealt: attackProcContributor,
+  // ADR-0064 (Session 30): weapon attack procs; TABA M3 adds the
+  // spell-proc arm (Void Robe).
+  onDamageDealt: damageDealtContributor,
   // TABA M3: Channeler's Hat's while-charging damage reduction.
   onDamageReceived: conditionalIncomingDamageContributor,
+  // TABA M3: Terra Robe's once-per-spell self-status + Epee's basic-
+  // attack CT refund.
+  onActionResolved: actionResolvedContributor,
   // ADR-0065 (Session 30): damage-to-MP-drain on equipment.
   // S74 (ADR-0126): + Ring of Caliora's magical CT drain, composed in.
   onFinalDamage: finalDamageContributor,

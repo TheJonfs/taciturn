@@ -18,6 +18,7 @@ import type {
   AbilityId,
   BucketId,
   ClassId,
+  CommandSetId,
   DamageTag,
   ItemId,
   PartialBaseStats,
@@ -39,6 +40,13 @@ import type { Availability } from './availability.ts';
 export interface ActionSpeedModifier {
   readonly delta: number;
   readonly tagFilter?: ReadonlyArray<DamageTag>;
+  // TABA M3 (Trident): gate on command-set membership instead of (or in
+  // addition to) tags — the delta applies only when the cast ability is
+  // a member of the named command set. Trident authors `{ delta: 5,
+  // commandSetFilter: 'templar_arts' }` (Livre's damage-type-scoped
+  // rider was the precedent for scoped action speed; this is the
+  // class-command-scoped variant).
+  readonly commandSetFilter?: CommandSetId;
 }
 
 // Session 68: tag-conditional Spell Power (magical `power_coefficient`)
@@ -53,6 +61,12 @@ export interface ActionSpeedModifier {
 // SP 12 → +8%) — intended.
 export interface SpellPowerModifier {
   readonly delta: number;
+  // TABA M3 (Moon Robe): multiplicative factor on the running Spell
+  // Power, applied AFTER every additive delta (ADR-0058's composition
+  // order). An entry declares `delta` OR `factor` (a factor entry sets
+  // delta 0). Moon Robe authors `{ delta: 0, factor: 1.5, tagFilter:
+  // ['water'] }` — ×1.5 water-tagged spell damage.
+  readonly factor?: number;
   readonly tagFilter?: ReadonlyArray<DamageTag>;
   // S74 (ADR-0127): when true, `delta` is the per-extra-target bonus —
   // the contribution scales as `delta × max(0, targetCount - 1)`, so a
@@ -157,6 +171,38 @@ export interface ConditionalIncomingDamageModifier {
   readonly tagFilter?: ReadonlyArray<DamageTag>;
 }
 
+// TABA M3 (Star Robe): equipment lifesteal — the wearer heals
+// `floor(damageDealt × percent / 100)` on matching (tag-any-of gated)
+// damage they deal. Fired from the wearer's `onFinalDamage` hook with
+// the same gates as the MP/CT drains (landed, non-absorbed, non-zero).
+export interface DamageLifestealModifier {
+  readonly percent: number;
+  readonly tagFilter?: ReadonlyArray<DamageTag>;
+}
+
+// TABA M3 (Void Robe): spell-side proc — the non-physical sibling of
+// `AttackProcDef`. Fires the named ability against the damaged target
+// when a hit whose damage tags match `tagFilter` (any-of) lands; the
+// chance is a flat roll like weapon procs (the fired ability's own
+// status chances may then be Faith/MA-scaled). No physical gate — this
+// is how "on lightning damage: X" effects ride spells.
+export interface SpellProcDef {
+  readonly chance: number; // [0, 1]
+  readonly abilityId: AbilityId;
+  readonly tagFilter: ReadonlyArray<DamageTag>;
+}
+
+// TABA M3 (Terra Robe): once-per-spell self-status — when the wearer
+// resolves a use_ability whose DAMAGE tags contain every listed tag,
+// apply the named status to the wearer once (per action, not per
+// target — the load-bearing "once per spell" semantics ride
+// `onActionResolved`). Terra Robe authors `{ statusTypeId:
+// 'terra_attunement', damageTagAll: ['earth'] }`.
+export interface SpellResolvedSelfStatus {
+  readonly statusTypeId: StatusTypeId;
+  readonly damageTagAll: ReadonlyArray<DamageTag>;
+}
+
 // Target-side incoming-status-application chance modifier. Either
 // per-status-type (Pointy Hat: × 0.5 on Silence) or per-status-tag
 // (Focus Band: × 0.75 on any negative-tagged status).
@@ -187,6 +233,12 @@ export interface StatusApplicationStackCountModifier {
   readonly statusTypeId?: StatusTypeId;
   readonly statusTag?: StatusTag;
   readonly sourceAbilityTagAll?: ReadonlyArray<string>;
+  // TABA M3 (Prism Wand): any-of gate on the source ability's tags —
+  // matches when the ability carries AT LEAST ONE listed tag. Prism
+  // authors `sourceAbilityTagAny: ['fire','water','earth','lightning']`
+  // (+1 Burn stack on any elemental spell, per Chris's ruling). Composes
+  // AND with the other gates when both are declared.
+  readonly sourceAbilityTagAny?: ReadonlyArray<string>;
 }
 
 // Per ADR-0064 (Session 30): weapon spell-cast rider. Each entry declares
@@ -452,6 +504,25 @@ interface EquipmentBase {
   // while charging (the charging-mage vulnerability patch; the auto-hit
   // rule is why the wearer needs it).
   readonly conditionalIncomingDamageMods?: ReadonlyArray<ConditionalIncomingDamageModifier>;
+
+  // TABA M3 (Star Robe): tag-gated lifesteal on damage the wearer deals.
+  // Star Robe authors `[{ percent: 25, tagFilter: ['fire'] }]`.
+  readonly damageLifestealMods?: ReadonlyArray<DamageLifestealModifier>;
+
+  // TABA M3 (Void Robe): spell-side on-damage procs. Void Robe authors
+  // `[{ chance: 1, abilityId: 'void_vulnerable_proc', tagFilter:
+  // ['lightning'] }]` (the proc ability's own 50% Faith-scaled chance
+  // does the rolling).
+  readonly spellProcs?: ReadonlyArray<SpellProcDef>;
+
+  // TABA M3 (Terra Robe): once-per-spell self-status on matching casts.
+  readonly spellResolvedSelfStatuses?: ReadonlyArray<SpellResolvedSelfStatus>;
+
+  // TABA M3 (Epee): after the wearer resolves a BASIC weapon attack
+  // (`ability.basicAttack === true`), refund `floor(PA × factor)` CT to
+  // the wearer (PA composed through modifyStatQuery). Epee authors `1`.
+  // Once per action — a dual-wield double-swing still refunds once.
+  readonly basicAttackCtRefundPaFactor?: number;
 }
 
 // Weapon-sourced variance source (per ADR-0067 + Session 40 extension).

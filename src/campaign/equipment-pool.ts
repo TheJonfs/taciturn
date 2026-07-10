@@ -207,6 +207,19 @@ export const TABA_NEW_CH3: ReadonlyArray<TabaGearEntry> = [
   entry('healers_staff', 3, 'shop'),
   entry('battle_staff', 3, 'shop'),
   entry('channelers_hat', 3, 'shop'),
+  // effect items (Stage 4)
+  entry('gaias_axe', 3, 'shop'),
+  entry('spiked_maul', 3, 'shop'),
+  entry('estoc', 3, 'shop'),
+  entry('trident', 3, 'shop'),
+  entry('epee', 3, 'shop'),
+  entry('palliative_pike', 3, 'shop'),
+  entry('prism_wand', 3, 'shop'),
+  entry('scouring_wand', 3, 'shop'),
+  entry('moon_robe', 3, 'shop'),
+  entry('star_robe', 3, 'shop'),
+  entry('terra_robe', 3, 'shop'),
+  entry('void_robe', 3, 'shop'),
 ];
 
 // --- The assembled pool + reads ----------------------------------------------

@@ -6,6 +6,8 @@ import { charging } from './charging.ts';
 import { combatFocus } from './combat-focus.ts';
 import { corneredFocus } from './cornered-focus.ts';
 import { hamstrung } from './hamstrung.ts';
+import { terraAttunement } from './terra-attunement.ts';
+import { scoured } from './scoured.ts';
 import { critModifier } from './crit-modifier.ts';
 import { engineeredDefenses } from './engineered-defenses.ts';
 import { dontAct } from './dont-act.ts';
@@ -89,4 +91,6 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   taunted,
   vulnerable,
   hamstrung, // TABA: Sera's stacking Move/Jump permadebuff
+  terraAttunement, // TABA M3: Terra Robe's per-earth-spell MA accumulator
+  scoured, // TABA M3: Scouring Wand's unbounded all-element res shred
 ];

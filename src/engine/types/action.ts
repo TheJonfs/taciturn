@@ -354,7 +354,11 @@ export type SystemHealSource =
   // Thief — Steal HP lifesteal. A damaging active siphons a fraction of the
   // HP it dealt back to the caster. `abilityId` names the active; `unitId`
   // is the caster (the heal target).
-  | { readonly kind: 'ability'; readonly abilityId: AbilityId; readonly unitId: UnitId };
+  | { readonly kind: 'ability'; readonly abilityId: AbilityId; readonly unitId: UnitId }
+  // TABA M3 (Star Robe): equipment-sourced lifesteal — the wearer heals
+  // a percentage of matching (tag-gated) damage they deal, fired from
+  // the wearer's `onFinalDamage` hook. `unitId` is the wearer.
+  | { readonly kind: 'equipment_lifesteal'; readonly itemId: ItemId; readonly unitId: UnitId };
 
 // `system_damage` — engine-emitted damage-the-target action used by
 // onTick handlers (Poison) and ADR-0026 falling damage. Symmetric to
@@ -584,7 +588,11 @@ export type SystemCtPushSource =
   | { readonly kind: 'support'; readonly abilityId: AbilityId; readonly unitId: UnitId }
   // S74 (ADR-0126): Ring of Caliora's magical-hit CT drain — a negative
   // push fired from the wearer's `onFinalDamage` hook.
-  | { readonly kind: 'equipment_ct_drain'; readonly itemId: ItemId; readonly attackerId: UnitId };
+  | { readonly kind: 'equipment_ct_drain'; readonly itemId: ItemId; readonly attackerId: UnitId }
+  // TABA M3 (Epee): a positive self-push fired from the wielder's
+  // `onActionResolved` hook after a basic weapon attack (the PA-worth
+  // CT refund).
+  | { readonly kind: 'equipment_ct_refund'; readonly itemId: ItemId; readonly unitId: UnitId };
 
 // `system_cover_redirect` — TABA Seam 2 (cover). Engine-emitted by the
 // `cover_redirect` damage handler when a bearer soaks a fraction of a covered

@@ -128,6 +128,19 @@ import { wingedBoots } from './winged-boots.ts';
 import { healersStaff } from './healers-staff.ts';
 import { battleStaff } from './battle-staff.ts';
 import { channelersHat } from './channelers-hat.ts';
+// TABA M3 — Ch3 effect items (Stage 4: confirms + riders)
+import { gaiasAxe } from './gaias-axe.ts';
+import { spikedMaul } from './spiked-maul.ts';
+import { estoc } from './estoc.ts';
+import { trident } from './trident.ts';
+import { epee } from './epee.ts';
+import { palliativePike } from './palliative-pike.ts';
+import { prismWand } from './prism-wand.ts';
+import { scouringWand } from './scouring-wand.ts';
+import { moonRobe } from './moon-robe.ts';
+import { starRobe } from './star-robe.ts';
+import { terraRobe } from './terra-robe.ts';
+import { voidRobe } from './void-robe.ts';
 
 export const items: ReadonlyArray<ItemDefinition> = [
   // Session 17c / 19 originals
@@ -308,4 +321,20 @@ export const items: ReadonlyArray<ItemDefinition> = [
   healersStaff,
   battleStaff,
   channelersHat,
+  // TABA M3 — Ch3 effect items (equipment brief Stage 4): the six
+  // confirms (Estoc reach, Trident command-scoped speed, Gaia's imbued
+  // physical, Palliative pulse + Aether Bloom, Scouring unbounded shred,
+  // Spiked Maul bucket cost) + Epee, Prism, and the four element robes.
+  gaiasAxe,
+  spikedMaul,
+  estoc,
+  trident,
+  epee,
+  palliativePike,
+  prismWand,
+  scouringWand,
+  moonRobe,
+  starRobe,
+  terraRobe,
+  voidRobe,
 ];

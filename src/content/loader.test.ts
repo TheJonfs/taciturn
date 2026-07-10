@@ -225,10 +225,13 @@ describe('loadDefaultCatalog', () => {
     //   - commandSets: 15 → 16 (martial_arts)
     //   - classes: 13 → 14 (monk)
     // +1 TABA: Hamstrung (Sera's stacking Move/Jump permadebuff).
-    expect(cat.statusTypes()).toHaveLength(44);
+    // TABA M3 Stage 4: +2 (terra_attunement, scoured).
+    expect(cat.statusTypes()).toHaveLength(46);
     // +3 TABA signatures (Ascendant Flame / Bulwark Oath / Tidal Cadence) + Hamstring.
     // TABA M3 Ch1 gear: +1 (apply_vulnerable_proc — the Dagger's rider).
-    expect(cat.abilities()).toHaveLength(125);
+    // TABA M3 Stage 4: +3 (apply_scoured_proc, void_vulnerable_proc,
+    // palliative_pulse — hidden rider abilities).
+    expect(cat.abilities()).toHaveLength(128);
     expect(cat.commandSets()).toHaveLength(16);
     expect(cat.classes()).toHaveLength(14);
     // Session 74 (caster-accessory batch): 77 → 81 (greaves_of_seraphis,
@@ -248,7 +251,10 @@ describe('loadDefaultCatalog', () => {
     // winged_boots — all 'hidden', TABA-scoped).
     // TABA M3 Ch3 engine-prerequisite items (Stage 3): 117 → 120
     // (healers_staff, battle_staff, channelers_hat).
-    expect(cat.items()).toHaveLength(120);
+    // TABA M3 Ch3 effect items (Stage 4): 120 → 132 (gaias_axe,
+    // spiked_maul, estoc, trident, epee, palliative_pike, prism_wand,
+    // scouring_wand, moon_robe, star_robe, terra_robe, void_robe).
+    expect(cat.items()).toHaveLength(132);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

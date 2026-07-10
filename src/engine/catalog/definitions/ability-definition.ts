@@ -433,6 +433,13 @@ export interface AoeSpec {
   readonly verticalTolerance?: number;
   readonly excludeCaster?: boolean;
   readonly anchorMode?: AoeAnchorMode;
+  // TABA M3 (Palliative Pike's pulse): restrict the footprint's affected
+  // units to the caster's own team. The ally-discriminating filter for
+  // beneficial AoEs — enemies standing in the shape are skipped, so a
+  // weapon's on-hit group heal can't accidentally heal the enemy line.
+  // Absent → every unit in the footprint (existing behavior, friendly
+  // fire per ruleset).
+  readonly teamFilter?: 'allies_only';
 }
 
 // Session 54 (Terraformer / Worldcraft): the terrain-mutation effect of a

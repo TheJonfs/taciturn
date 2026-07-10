@@ -846,6 +846,11 @@ export interface HookSignatures {
       unit: Unit;
       action: ProposedAction;
       ability: ActiveAbilityDefinition | null;
+      // The actor's composed PA (post-modifyStatQuery), pre-computed by
+      // the runner when any handler is registered — modifyWeaponPower's
+      // `pa` precedent. TABA M3; first consumer: Epee (PA-worth CT
+      // refund on a basic weapon attack).
+      pa: number;
     };
     return: OnActionResolvedResult;
   };

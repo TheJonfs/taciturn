@@ -1205,12 +1205,21 @@ export function runOnActionResolved(
   },
 ): ReadonlyArray<ProposedAction> {
   const handlers = collectActiveHandlers(state, args.unit.id, catalog, 'onActionResolved');
+  if (handlers.length === 0) return [];
+  // Pre-compose the actor's PA once for stat-scaled handlers (Epee's
+  // CT refund) — modifyWeaponPower's `pa` precedent.
+  const pa = runModifyStatQuery(state, catalog, {
+    unit: args.unit,
+    statName: 'pa',
+    baseValue: args.unit.baseStats.pa,
+  });
   const emissions: ProposedAction[] = [];
   for (const h of handlers) {
     const result = h.invoke({
       unit: args.unit,
       action: args.action,
       ability: args.ability,
+      pa,
     });
     if (result.emittedActions !== undefined) {
       for (const a of result.emittedActions) emissions.push(a);
