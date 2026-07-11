@@ -42,6 +42,11 @@ describe('CampaignApp — routing into a standalone story node', () => {
     const atMarshmoorMap = {
       ...base,
       currentNodeId: M1_NODES.marshmoor,
+      // Travel-model invariants (M3 Stage 1): the position is visited, and
+      // awaiting_route means the node's story beat is cleared — that's what
+      // opens its win-edge to The Crossing as a frontier choice.
+      visited: [M1_NODES.riverRidge, M1_NODES.marshmoor],
+      clearedStoryBeats: [M1_NODES.riverRidge, M1_NODES.marshmoor],
       phase: 'awaiting_route' as const,
     };
     const { container, root } = mount(
@@ -55,6 +60,34 @@ describe('CampaignApp — routing into a standalone story node', () => {
     // The Crossing's FIRST dialogue line must render — not be skipped by a stale
     // runner cursor landing on the trailing world-map beat.
     expect(container.textContent).toContain('The river is quiet here');
+    expect(container.textContent).not.toContain('The Road Ahead');
+
+    act(() => root.unmount());
+    container.remove();
+  });
+});
+
+describe('CampaignApp — re-entering a CLEARED node (M3 economy Stage 1)', () => {
+  it('shows the location menu instead of replaying the cleared story beat', () => {
+    // Traveled back to the cleared, farmable start (in_progress at it — the
+    // exact state a reload lands on mid-return). Entry resolution must offer
+    // the skirmish, NOT the intro dialogue or the story battle's formation.
+    const base = startCampaign(M1_CAMPAIGN_GRAPH, m0Roster, catalog);
+    const backAtClearedStart = {
+      ...base,
+      visited: [M1_NODES.riverRidge, M1_NODES.marshmoor],
+      clearedStoryBeats: [M1_NODES.riverRidge],
+      phase: 'in_progress' as const,
+    };
+    const { container, root } = mount(
+      <CampaignApp initialState={backAtClearedStart} catalog={catalog} onExitToTitle={() => {}} />,
+    );
+
+    // The location menu, with the skirmish valve open…
+    expect(container.textContent).toContain('Skirmish');
+    expect(container.textContent).toContain('enemy level');
+    // …and no trace of the cleared beat (its opening line) or the map.
+    expect(container.textContent).not.toContain('Fifty years of war');
     expect(container.textContent).not.toContain('The Road Ahead');
 
     act(() => root.unmount());

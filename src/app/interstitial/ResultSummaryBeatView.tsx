@@ -22,15 +22,23 @@ export function ResultSummaryBeatView({
   if (beat.type !== 'result-summary') return <></>;
   const summary: ResultSummaryBeat = beat;
 
-  const { resolution, nodeName, units, gilEarned, campaignComplete } = summary;
+  const { resolution, nodeName, units, gilEarned, skirmish, campaignComplete } = summary;
   const win = resolution === 'win';
 
-  const title = campaignComplete ? 'Campaign Complete' : win ? `${nodeName} — Cleared` : 'Defeat';
+  const title = campaignComplete
+    ? 'Campaign Complete'
+    : win
+      ? skirmish
+        ? `${nodeName} — Skirmish Won`
+        : `${nodeName} — Cleared`
+      : 'Defeat';
   const accent = campaignComplete ? '#e0c87f' : win ? '#9fe0a8' : '#e09f9f';
   const body = campaignComplete
     ? 'Your company fought through every battle and made it there — and back again.'
     : win
-      ? `The field at ${nodeName} is yours. Plan your next move.`
+      ? skirmish
+        ? `The raiders at ${nodeName} scatter. The road stays yours — come back any time.`
+        : `The field at ${nodeName} is yours. Plan your next move.`
       : `Your company was routed at ${nodeName}. Retry from your last save, or return to the title.`;
   const advanceLabel = campaignComplete ? 'Return to Title' : win ? 'Continue →' : 'Retry Battle';
 

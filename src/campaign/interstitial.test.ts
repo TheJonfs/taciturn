@@ -3,11 +3,13 @@
 import { describe, expect, it } from 'vitest';
 import type { UnitId } from '@engine/index.ts';
 import {
+  buildLocationMenuBeat,
   buildResultSummaryBeat,
   buildRouteChoice,
   buildRouteChoiceBeat,
   buildUnitResultLines,
 } from './interstitial.ts';
+import { newCampaign } from './loop.ts';
 import type { BattleResult, UnitBattleSummary } from './battle-result.ts';
 import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
 import { getNode } from './graph.ts';
@@ -87,18 +89,58 @@ describe('buildResultSummaryBeat', () => {
 });
 
 describe('buildRouteChoiceBeat / buildRouteChoice', () => {
-  it('builds a world-map-choice with the cleared node’s win-edge choices', () => {
-    const beat = buildRouteChoiceBeat(GRAPH, M1_NODES.riverRidge, 340);
+  // A campaign that just cleared the start node (the fork).
+  const clearedStart = {
+    ...newCampaign(m0Roster, M1_NODES.riverRidge),
+    clearedStoryBeats: [M1_NODES.riverRidge],
+    gil: 340,
+  };
+
+  it('builds a world-map-choice from the travel model (frontier + returnables)', () => {
+    const beat = buildRouteChoiceBeat(GRAPH, clearedStart);
     expect(beat.type).toBe('world-map-choice');
     expect(beat.fromNodeId).toBe(M1_NODES.riverRidge);
-    // The start node's fork: Stonebridge + Marshmoor.
-    expect(beat.choices.map((c) => c.id)).toEqual([M1_NODES.stonebridge, M1_NODES.marshmoor]);
+    // The start node's fork (frontier, authored order)… plus the cleared
+    // farmable start itself as a returnable (M3 economy Stage 1).
+    expect(beat.choices.map((c) => c.id)).toEqual([
+      M1_NODES.stonebridge,
+      M1_NODES.marshmoor,
+      M1_NODES.riverRidge,
+    ]);
+    expect(beat.choices.map((c) => c.kind)).toEqual(['advance', 'advance', 'revisit']);
     // The purse snapshot rides the beat (M3 economy Stage 0).
     expect(beat.gil).toBe(340);
   });
 
   it('buildRouteChoice wraps it as a single-beat run (resume into awaiting_route)', () => {
-    const beats = buildRouteChoice(GRAPH, M1_NODES.riverRidge, 0);
+    const beats = buildRouteChoice(GRAPH, clearedStart);
     expect(beats.map((b) => b.type)).toEqual(['world-map-choice']);
+  });
+});
+
+describe('buildLocationMenuBeat', () => {
+  it('offers a skirmish (with the resolved level) at a cleared farmable node', () => {
+    const state = {
+      ...newCampaign(m0Roster, M1_NODES.riverRidge),
+      clearedStoryBeats: [M1_NODES.riverRidge],
+      gil: 75,
+    };
+    const beat = buildLocationMenuBeat(START, state);
+    expect(beat.type).toBe('location-menu');
+    expect(beat.nodeId).toBe(M1_NODES.riverRidge);
+    expect(beat.gil).toBe(75);
+    expect(beat.options.map((o) => o.action)).toEqual(['skirmish']);
+    // The detail names the resolved enemy level (party avg + offset).
+    expect(beat.options[0]!.detail).toMatch(/enemy level/i);
+  });
+
+  it('offers nothing at a cleared node with no open capabilities', () => {
+    // The Crossing: story-only, never farmable/hub.
+    const crossing = getNode(GRAPH, M1_NODES.theCrossing);
+    const state = {
+      ...newCampaign(m0Roster, M1_NODES.theCrossing),
+      clearedStoryBeats: [M1_NODES.theCrossing],
+    };
+    expect(buildLocationMenuBeat(crossing, state).options).toEqual([]);
   });
 });

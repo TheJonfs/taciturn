@@ -37,11 +37,11 @@ function clickText(container: HTMLElement, text: string): void {
 
 const SEQUENCE: ReadonlyArray<InterstitialBeat> = [
   { type: 'story-scene', scene: { title: 'Scene', lines: [{ speaker: 'Sera', text: 'Onward.' }] } },
-  { type: 'result-summary', resolution: 'win', nodeName: 'River Ridge', units: [], gilEarned: 0, campaignComplete: false },
+  { type: 'result-summary', resolution: 'win', nodeName: 'River Ridge', units: [], gilEarned: 0, skirmish: false, campaignComplete: false },
   {
     type: 'world-map-choice',
     fromNodeId: M1_NODES.riverRidge,
-    choices: [{ id: M1_NODES.stonebridge, name: 'Stonebridge' }],
+    choices: [{ id: M1_NODES.stonebridge, name: 'Stonebridge', kind: 'advance', farmable: false, hub: false }],
     gil: 0,
   },
 ];

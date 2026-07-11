@@ -36,8 +36,10 @@ import {
   M1_CAMPAIGN_GRAPH,
   applyBattleBeatWin,
   battleWasWon,
+  buildLocationMenuBeat,
   buildResultSummaryBeat,
   buildRouteChoiceBeat,
+  buildSkirmishBattle,
   COMPONENT_CATALOG,
   clearSavedCampaign,
   computeGilReward,
@@ -49,6 +51,7 @@ import {
   getNode,
   hasBattleAtOrAfter,
   isComplete,
+  isStoryCleared,
   resolveNode,
   routeToNode,
   saveCampaign,
@@ -56,40 +59,51 @@ import {
   takeStoryRun,
   type BattleBeat,
   type BeatOutput,
-  type CampaignNode,
   type CampaignState,
   type CampaignUnit,
   type InterstitialBeat,
+  type NodeBattle,
 } from '@campaign/index.ts';
 import type { BattleConfig, Catalog, GameState, TeamId } from '@engine/index.ts';
 
 const GRAPH = M1_CAMPAIGN_GRAPH;
+
+// What the formation/deployment/battle sub-flow is fighting (M3 economy
+// Stage 1). A STORY encounter is one of the node's authored battle beats
+// (looked up by index, fresh each render); a SKIRMISH is a synthesized
+// `NodeBattle` (the generated party is pinned here for the encounter's
+// lifetime, so a loss retries the SAME band).
+type Encounter =
+  | { readonly kind: 'story'; readonly battleIndex: number }
+  | { readonly kind: 'skirmish'; readonly battle: NodeBattle };
 
 // What to do when the current presentational run completes. Each carries the
 // state snapshot it acts on (captured at run creation — a presentational run
 // never mutates campaign state, so the snapshot stays fresh).
 type RunDone =
   | { readonly kind: 'walk'; readonly state: CampaignState; readonly cursor: number }
-  | { readonly kind: 'retry'; readonly battleIndex: number }
+  | { readonly kind: 'retry'; readonly encounter: Encounter }
   | { readonly kind: 'route'; readonly state: CampaignState } // state = resolved awaiting_route
+  // A location-menu run finished; act on its chosen `locationAction`.
+  | { readonly kind: 'location'; readonly state: CampaignState }
   | { readonly kind: 'exit' };
 
 // The one screen the driver shows. A single discriminated state replaces M1's
 // separate sub/fightConfig/interstitial fields.
 // Where the roster-management screen was opened from — and so where its
 // exit returns to. `world-map` rebuilds the route-choice run; `formation`
-// re-enters deploy selection at the same battle beat (S86: pre-battle
+// re-enters deploy selection at the same encounter (S86: pre-battle
 // management, so loadouts/gear are editable before the FIRST battle, not
 // only after a win).
 type ManageOrigin =
   | { readonly kind: 'world-map' }
-  | { readonly kind: 'formation'; readonly battleIndex: number };
+  | { readonly kind: 'formation'; readonly encounter: Encounter };
 
 type Screen =
   | { readonly kind: 'run'; readonly beats: ReadonlyArray<InterstitialBeat>; readonly done: RunDone; readonly nonce: number }
-  | { readonly kind: 'formation'; readonly battleIndex: number }
-  | { readonly kind: 'deployment'; readonly battleIndex: number; readonly config: BattleConfig }
-  | { readonly kind: 'battle'; readonly battleIndex: number; readonly config: BattleConfig }
+  | { readonly kind: 'formation'; readonly encounter: Encounter }
+  | { readonly kind: 'deployment'; readonly encounter: Encounter; readonly config: BattleConfig }
+  | { readonly kind: 'battle'; readonly encounter: Encounter; readonly config: BattleConfig }
   // Roster-management (Formation) surface. Returns to its origin on exit;
   // roster edits persist + autosave either way.
   | { readonly kind: 'manage'; readonly origin: ManageOrigin };
@@ -127,18 +141,26 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     if (st.phase === 'awaiting_route') {
       // Resumed right after a won battle: drop straight to the world map (the
       // transient result is gone — nothing to replay before it).
-      return runScreen([buildRouteChoiceBeat(GRAPH, st.currentNodeId, st.gil)], { kind: 'route', state: st }, key);
+      return runScreen([buildRouteChoiceBeat(GRAPH, st)], { kind: 'route', state: st }, key);
     }
     const entryNode = getNode(GRAPH, st.currentNodeId);
+    if (isStoryCleared(st, entryNode)) {
+      // ENTRY RESOLUTION, the one hard rule (M3 economy Stage 1): an
+      // already-cleared story beat NEVER replays. Re-entering resolves what
+      // is currently available here instead — the location menu (skirmish
+      // now; shop/recruit in Stages 2–3). Per-BEAT guard: a future re-armed
+      // later engagement carries a new beat id and takes the walk below.
+      return runScreen([buildLocationMenuBeat(entryNode, st)], { kind: 'location', state: st }, key);
+    }
     const { scenes, next } = takeStoryRun(entryNode.beats, 0);
     if (next >= entryNode.beats.length) {
       // A standalone story node (no battle ahead): play its scenes, then route.
       // (A battle START node can't reach here — bootstrapRosterVitals requires
       // one. This is the routed-into / resumed story-node case.)
-      return resolutionRun(st, entryNode, scenes, key);
+      return resolutionRun(st, scenes, key);
     }
     if (scenes.length > 0) return runScreen(scenes, { kind: 'walk', state: st, cursor: next }, key);
-    return { kind: 'formation', battleIndex: next };
+    return { kind: 'formation', encounter: { kind: 'story', battleIndex: next } };
   }
 
   // Build a run screen with an explicit nonce. Callers pass a FRESH nonce for a
@@ -165,7 +187,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
   // while managing carry into the route (the `done.state` is the just-edited
   // roster). Only reachable from the world map (phase `awaiting_route`).
   function returnToWorldMap(): void {
-    showRun([buildRouteChoiceBeat(GRAPH, state.currentNodeId, state.gil)], { kind: 'route', state });
+    showRun([buildRouteChoiceBeat(GRAPH, state)], { kind: 'route', state });
   }
 
   // A node whose sequence has ended (standalone / trailing story with no more
@@ -174,14 +196,13 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
   // a re-fight); the route/exit persists on completion.
   function resolutionRun(
     st: CampaignState,
-    resolvedNode: CampaignNode,
     prefixScenes: ReadonlyArray<InterstitialBeat>,
     key: number,
   ): Screen {
     const resolved = resolveNode(st, GRAPH);
     if (isComplete(resolved)) return runScreen([...prefixScenes], { kind: 'exit' }, key);
     return runScreen(
-      [...prefixScenes, buildRouteChoiceBeat(GRAPH, resolvedNode.id, resolved.gil)],
+      [...prefixScenes, buildRouteChoiceBeat(GRAPH, resolved)],
       { kind: 'route', state: resolved },
       key,
     );
@@ -205,7 +226,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     if (scenes.length > 0) {
       showRun(scenes, { kind: 'walk', state: st, cursor: next });
     } else {
-      setScreen({ kind: 'formation', battleIndex: next });
+      setScreen({ kind: 'formation', encounter: { kind: 'story', battleIndex: next } });
     }
   }
 
@@ -215,12 +236,25 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
         advance(done.state, done.cursor);
         return;
       case 'retry':
-        // Loss → re-enter this battle beat from the unchanged state.
-        setScreen({ kind: 'formation', battleIndex: done.battleIndex });
+        // Loss → re-enter this encounter from the unchanged state (a skirmish
+        // retries the SAME generated band — the encounter pins it).
+        setScreen({ kind: 'formation', encounter: done.encounter });
         return;
       case 'exit':
         onExitToTitle();
         return;
+      case 'location': {
+        // The location menu chose an action (M3 economy Stage 1).
+        if (output.locationAction === 'skirmish') {
+          const locationNode = getNode(GRAPH, done.state.currentNodeId);
+          const battle = buildSkirmishBattle(locationNode, done.state, catalog);
+          setScreen({ kind: 'formation', encounter: { kind: 'skirmish', battle } });
+        } else {
+          // 'leave' (or nothing offered) → back to the world map.
+          showRun([buildRouteChoiceBeat(GRAPH, done.state)], { kind: 'route', state: done.state });
+        }
+        return;
+      }
       case 'route': {
         const nextNodeId = output.nextNodeId;
         if (nextNodeId === undefined) {
@@ -240,7 +274,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     }
   }
 
-  // --- battle beat sub-flow ---
+  // --- battle sub-flow (story battle beats + skirmishes) ---
 
   function battleBeatAt(index: number): BattleBeat {
     const beat = node.beats[index];
@@ -250,27 +284,34 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     return beat;
   }
 
-  function handleFormationConfirm(battleIndex: number, selected: ReadonlyArray<CampaignUnit>): void {
-    const battle = battleBeatAt(battleIndex).battle;
+  // The encounter's NodeBattle. Story encounters re-read the authored beat by
+  // index (fresh across renders); a skirmish carries its synthesized battle.
+  function encounterBattle(encounter: Encounter): NodeBattle {
+    return encounter.kind === 'story' ? battleBeatAt(encounter.battleIndex).battle : encounter.battle;
+  }
+
+  function handleFormationConfirm(encounter: Encounter, selected: ReadonlyArray<CampaignUnit>): void {
+    const battle = encounterBattle(encounter);
     // foldBattle folds the deployed player selection AND (if the beat authors
-    // progressed enemies) re-skins the enemy team with curve stats / mid-battle
-    // leveling / gated kits.
+    // progressed enemies — every skirmish does) re-skins the enemy team with
+    // curve stats / mid-battle leveling / gated kits.
     const folded = foldBattle(battle, selected, catalog);
-    setScreen({ kind: 'deployment', battleIndex, config: stampControls(folded, battle.playerTeam) });
+    setScreen({ kind: 'deployment', encounter, config: stampControls(folded, battle.playerTeam) });
   }
 
-  function handleDeploymentCommit(battleIndex: number, config: BattleConfig, result: DeploymentResult): void {
-    setScreen({ kind: 'battle', battleIndex, config: buildDeployedBattleConfig(config, result) });
+  function handleDeploymentCommit(encounter: Encounter, config: BattleConfig, result: DeploymentResult): void {
+    setScreen({ kind: 'battle', encounter, config: buildDeployedBattleConfig(config, result) });
   }
 
-  function handleBattleEnd(battleIndex: number, finalState: GameState): void {
-    const battle = battleBeatAt(battleIndex).battle;
+  function handleBattleEnd(encounter: Encounter, finalState: GameState): void {
+    const battle = encounterBattle(encounter);
     const result = summarizeBattleResult(finalState);
     const won = battleWasWon(result, battle.playerTeam);
+    const skirmish = encounter.kind === 'skirmish';
 
     if (!won) {
-      // Loss: no apply-back. Show how the battle left the deployed units, then
-      // retry this same battle beat (state unchanged == the node-entry save).
+      // Loss: no apply-back, no rewards. Show how the battle left the deployed
+      // units, then retry this same encounter (state unchanged == the last save).
       const summary = buildResultSummaryBeat({
         node,
         roster: state.roster,
@@ -278,17 +319,38 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
         won: false,
         campaignComplete: false,
         gilEarned: 0, // losses pay nothing
+        skirmish,
       });
-      showRun([summary], { kind: 'retry', battleIndex });
+      showRun([summary], { kind: 'retry', encounter });
       return;
     }
 
-    // Win: apply-back for this battle beat (heal survivors, mark lost, pay
-    // the gil award — the summary shows the same amount the wallet banked).
+    // Win: apply-back (heal survivors, mark lost, bank XP/JP, pay the gil
+    // award — the summary shows the same amount the wallet banked).
     const gilEarned = computeGilReward(finalState, battle.playerTeam);
     const applied = applyBattleBeatWin(state, result, finalState, catalog, battle.playerTeam);
 
-    if (hasBattleAtOrAfter(node.beats, battleIndex + 1)) {
+    if (skirmish) {
+      // A skirmish pays its rewards and ends at the world map. It NEVER marks
+      // a story beat cleared and never resolves the node — the valve is
+      // repeatable by design (no anti-farm friction; reload-risk governs).
+      const after: CampaignState = { ...applied, phase: 'awaiting_route' };
+      saveCampaign(after);
+      setState(after);
+      const summary = buildResultSummaryBeat({
+        node,
+        roster: after.roster,
+        result,
+        won: true,
+        campaignComplete: false,
+        gilEarned,
+        skirmish: true,
+      });
+      showRun([summary, buildRouteChoiceBeat(GRAPH, after)], { kind: 'route', state: after });
+      return;
+    }
+
+    if (hasBattleAtOrAfter(node.beats, encounter.battleIndex + 1)) {
       // More battles in this node (a future multi-battle shape): show the
       // result, then resume the walk into the next battle. No node resolution
       // yet; phase stays in_progress.
@@ -301,7 +363,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
         gilEarned,
       });
       setState(applied);
-      showRun([summary], { kind: 'walk', state: applied, cursor: battleIndex + 1 });
+      showRun([summary], { kind: 'walk', state: applied, cursor: encounter.battleIndex + 1 });
       return;
     }
 
@@ -322,12 +384,12 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     else saveCampaign(resolved);
     setState(resolved);
 
-    const { scenes: trailing } = takeStoryRun(node.beats, battleIndex + 1);
+    const { scenes: trailing } = takeStoryRun(node.beats, encounter.battleIndex + 1);
     if (complete) {
       // Terminal win — the result-summary is the victory screen; then Title.
       showRun([summary, ...trailing], { kind: 'exit' });
     } else {
-      showRun([summary, ...trailing, buildRouteChoiceBeat(GRAPH, node.id, resolved.gil)], { kind: 'route', state: resolved });
+      showRun([summary, ...trailing, buildRouteChoiceBeat(GRAPH, resolved)], { kind: 'route', state: resolved });
     }
   }
 
@@ -359,11 +421,11 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
           }}
           onExit={() => {
             if (screen.origin.kind === 'formation') {
-              // Back to deploy selection at the same battle beat. The screen
+              // Back to deploy selection at the same encounter. The screen
               // remounts fresh, so its pre-selection re-derives from the
               // just-edited roster (an invalid unit fixed here becomes
               // selectable; a newly-broken one gets excluded).
-              setScreen({ kind: 'formation', battleIndex: screen.origin.battleIndex });
+              setScreen({ kind: 'formation', encounter: screen.origin.encounter });
             } else {
               returnToWorldMap();
             }
@@ -414,16 +476,16 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
   }
 
   if (screen.kind === 'formation') {
-    const battle = battleBeatAt(screen.battleIndex).battle;
+    const battle = encounterBattle(screen.encounter);
     return (
       <FormationScreen
-        nodeName={node.name}
+        nodeName={screen.encounter.kind === 'skirmish' ? `${node.name} — Skirmish` : node.name}
         roster={deployableRoster(state)}
         deployCap={battle.deployCap}
         catalog={catalog}
-        onConfirm={(selected) => handleFormationConfirm(screen.battleIndex, selected)}
+        onConfirm={(selected) => handleFormationConfirm(screen.encounter, selected)}
         onManageRoster={() =>
-          setScreen({ kind: 'manage', origin: { kind: 'formation', battleIndex: screen.battleIndex } })
+          setScreen({ kind: 'manage', origin: { kind: 'formation', encounter: screen.encounter } })
         }
         onQuit={onExitToTitle}
       />
@@ -431,25 +493,25 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
   }
 
   if (screen.kind === 'deployment') {
-    const battle = battleBeatAt(screen.battleIndex).battle;
+    const battle = encounterBattle(screen.encounter);
     return (
       <DeploymentScreen
         template={screen.config}
         zones={battle.zones}
         deployingTeam={battle.playerTeam}
-        onCommit={(result) => handleDeploymentCommit(screen.battleIndex, screen.config, result)}
-        onBack={() => setScreen({ kind: 'formation', battleIndex: screen.battleIndex })}
+        onCommit={(result) => handleDeploymentCommit(screen.encounter, screen.config, result)}
+        onBack={() => setScreen({ kind: 'formation', encounter: screen.encounter })}
       />
     );
   }
 
   if (screen.kind === 'battle') {
-    const battleIndex = screen.battleIndex;
+    const encounter = screen.encounter;
     return (
       <BattleView
         template={screen.config}
         deploymentResult={null}
-        onBattleEnd={(finalState) => handleBattleEnd(battleIndex, finalState)}
+        onBattleEnd={(finalState) => handleBattleEnd(encounter, finalState)}
         // Campaign owns the post-battle flow via onBattleEnd; these exits
         // are unused fallbacks (ResultsScreen is suppressed), but the prop
         // contract requires them.

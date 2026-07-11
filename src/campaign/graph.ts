@@ -34,7 +34,40 @@ export interface CampaignNode {
   // in authored order (see sequence.ts). A node with no battle beat is a
   // standalone story node. The graph machinery never reads this — only the
   // driver does, walking the sequence on node entry.
+  //
+  // M3 economy: `beats` is the node's CURRENT STORY ENGAGEMENT — the thing
+  // the per-beat cleared guard tracks (by `storyBeatId`, below). A future
+  // multi-beat location (the Dorter re-arm pattern) becomes a QUEUE of
+  // engagements each with its own id; the save shape (cleared beat IDS, not
+  // cleared node ids) already accommodates that without migration.
   readonly beats: ReadonlyArray<NodeBeat>;
+
+  // --- M3 economy: ORTHOGONAL location capabilities (brief D2). These are
+  // independent flags that can coexist and change over campaign progress —
+  // deliberately NOT a mutually-exclusive location "type". ---
+
+  // Stable id of the authored engagement above, recorded in the save when
+  // cleared (the per-BEAT guard: a later re-armed engagement is a NEW id —
+  // a legitimate new fight, not a replay). Omitted → defaults to the node
+  // id (the single-engagement shorthand; see `storyBeatIdOf`).
+  readonly storyBeatId?: string;
+  // The node's enemy-level offset — the ONE scaling lever (enemy-level.ts):
+  // skirmish level = resolveEnemyLevel(partyAvg, offset). Omitted → 0.
+  readonly offset?: number;
+  // Commerce (shop + recruitment) available here once visited (M3 Stages
+  // 2–3). Omitted → false.
+  readonly isHub?: boolean;
+  // The skirmish valve: once this node's story engagement is cleared, it
+  // offers a repeatable on-demand skirmish (M4 replaces the generated-party
+  // stub at the `generateSkirmishParty` seam). Omitted → false.
+  readonly farmable?: boolean;
+}
+
+// The node's engagement id for the cleared guard. Explicit `storyBeatId`
+// when authored; the node id otherwise (a single-engagement node needs no
+// separate name for its only engagement).
+export function storyBeatIdOf(node: CampaignNode): string {
+  return node.storyBeatId ?? node.id;
 }
 
 // Which battle outcome an edge fires on. M1 authors only `win`.

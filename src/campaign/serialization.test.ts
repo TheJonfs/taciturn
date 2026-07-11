@@ -26,7 +26,15 @@ function sampleState(): CampaignState {
     if (i === 1) return { ...u, vitals: { hp: 3, mp: 0 } };
     return u;
   });
-  return { ...base, roster, currentNodeId: M1_NODES.stonebridge };
+  // Runtime invariant: `visited` covers the position (routeToNode stamps it),
+  // and the cleared start is what made the branch reachable.
+  return {
+    ...base,
+    roster,
+    currentNodeId: M1_NODES.stonebridge,
+    visited: [START, M1_NODES.stonebridge],
+    clearedStoryBeats: [START],
+  };
 }
 
 describe('campaign serialization', () => {
@@ -251,5 +259,36 @@ describe('campaign serialization', () => {
     const state = newCampaign(m0Roster, START);
     expect(() => deserializeCampaign(JSON.stringify({ ...state, gil: -1 }))).toThrow(/gil/);
     expect(() => deserializeCampaign(JSON.stringify({ ...state, gil: 0.5 }))).toThrow(/gil/);
+  });
+
+  // --- TABA M3 economy: the navigable map's memory ---
+
+  it('round-trips visited + clearedStoryBeats losslessly', () => {
+    const state = sampleState();
+    const restored = deserializeCampaign(serializeCampaign(state));
+    expect(restored.visited).toEqual(state.visited);
+    expect(restored.clearedStoryBeats).toEqual(state.clearedStoryBeats);
+  });
+
+  it('grandfathers a pre-economy save: visited covers the position', () => {
+    const legacy = { ...newCampaign(m0Roster, START), currentNodeId: M1_NODES.stonebridge } as Record<string, unknown>;
+    delete legacy['visited'];
+    delete legacy['clearedStoryBeats'];
+    const restored = deserializeCampaign(JSON.stringify(legacy));
+    expect(restored.visited).toEqual([M1_NODES.stonebridge]);
+    expect(restored.clearedStoryBeats).toEqual([]);
+  });
+
+  it('grandfathers an awaiting_route save: the node it sits at reads as cleared', () => {
+    // awaiting_route means "this node was won"; without the seed, its
+    // win-edges would vanish from the map and the save would soft-lock.
+    const legacy = {
+      ...newCampaign(m0Roster, START),
+      phase: 'awaiting_route',
+    } as Record<string, unknown>;
+    delete legacy['visited'];
+    delete legacy['clearedStoryBeats'];
+    const restored = deserializeCampaign(JSON.stringify(legacy));
+    expect(restored.clearedStoryBeats).toEqual([START]);
   });
 });

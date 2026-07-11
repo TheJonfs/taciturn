@@ -12,7 +12,7 @@
 // so the runner stays graph-agnostic.
 
 import { type CSSProperties, type ReactElement } from 'react';
-import { M1_CAMPAIGN_GRAPH, M1_NODES, type WorldMapChoiceBeat } from '@campaign/index.ts';
+import { M1_CAMPAIGN_GRAPH, M1_NODES, type TravelChoice, type WorldMapChoiceBeat } from '@campaign/index.ts';
 import type { BeatRendererProps } from './InterstitialRunner.tsx';
 
 // Hand-authored node positions (viewBox units). Laid out left→right to read
@@ -32,7 +32,7 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
   const map: WorldMapChoiceBeat = beat;
 
   const graph = M1_CAMPAIGN_GRAPH;
-  const choiceIds = new Set(map.choices.map((c) => c.id));
+  const choiceById = new Map(map.choices.map((c) => [c.id, c]));
 
   return (
     <div style={rootStyle}>
@@ -49,14 +49,15 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
         </div>
 
         <svg viewBox="0 0 640 350" style={svgStyle} role="img" aria-label="Campaign map">
-          {/* Edges first, so nodes draw on top. */}
+          {/* Edges first, so nodes draw on top. Solid-blue = an edge into a
+              frontier destination (forward progress); the rest stay dashed. */}
           {graph.edges
             .filter((e) => e.on === 'win')
             .map((e) => {
               const a = NODE_LAYOUT[e.from];
               const b = NODE_LAYOUT[e.to];
               if (a === undefined || b === undefined) return null;
-              const active = e.from === map.fromNodeId && choiceIds.has(e.to);
+              const active = choiceById.get(e.to)?.kind === 'advance';
               return (
                 <line
                   key={`${e.from}->${e.to}`}
@@ -75,7 +76,7 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
             const pos = NODE_LAYOUT[n.id];
             if (pos === undefined) return null;
             const isHere = n.id === map.fromNodeId;
-            const isChoice = choiceIds.has(n.id);
+            const choice = choiceById.get(n.id);
             return (
               <MapNode
                 key={n.id}
@@ -83,8 +84,8 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
                 y={pos.y}
                 name={n.name}
                 isHere={isHere}
-                isChoice={isChoice}
-                onSelect={isChoice ? () => onAdvance({ nextNodeId: n.id }) : undefined}
+                choice={choice}
+                onSelect={choice !== undefined ? () => onAdvance({ nextNodeId: n.id }) : undefined}
               />
             );
           })}
@@ -113,15 +114,27 @@ interface MapNodeProps {
   readonly y: number;
   readonly name: string;
   readonly isHere: boolean;
-  readonly isChoice: boolean;
+  // The travel choice this node represents (undefined = not selectable).
+  // 'advance' renders frontier-blue; 'revisit' renders return-gold, with
+  // small badges for what the place offers (skirmish / trade).
+  readonly choice?: TravelChoice | undefined;
   readonly onSelect?: (() => void) | undefined;
 }
 
-function MapNode({ x, y, name, isHere, isChoice, onSelect }: MapNodeProps): ReactElement {
+const FRONTIER = '#5a7fb5';
+const RETURN_GOLD = '#8f7644';
+
+function MapNode({ x, y, name, isHere, choice, onSelect }: MapNodeProps): ReactElement {
+  const isChoice = choice !== undefined;
+  const ring = choice?.kind === 'revisit' ? RETURN_GOLD : FRONTIER;
   const fill = isHere ? '#3a4150' : isChoice ? '#243042' : '#16181d';
-  const stroke = isHere ? '#9aa0ac' : isChoice ? '#5a7fb5' : '#2c2f36';
+  const stroke = isHere ? '#9aa0ac' : isChoice ? ring : '#2c2f36';
   const textColor = isHere || isChoice ? '#e7e9ee' : '#6b707b';
   const interactive = onSelect !== undefined;
+
+  const badges = choice === undefined
+    ? []
+    : [...(choice.farmable ? ['skirmish'] : []), ...(choice.hub ? ['trade'] : [])];
 
   return (
     <g
@@ -130,13 +143,19 @@ function MapNode({ x, y, name, isHere, isChoice, onSelect }: MapNodeProps): Reac
       role={interactive ? 'button' : undefined}
       aria-label={interactive ? `March to ${name}` : name}
     >
-      {/* Selectable nodes get an outer highlight ring. */}
-      {isChoice && <circle cx={x} cy={y} r={20} fill="none" stroke="#5a7fb5" strokeWidth={1.5} opacity={0.5} />}
+      {/* Selectable nodes get an outer highlight ring (blue = frontier,
+          gold = returnable). */}
+      {isChoice && <circle cx={x} cy={y} r={20} fill="none" stroke={ring} strokeWidth={1.5} opacity={0.6} />}
       <circle cx={x} cy={y} r={13} fill={fill} stroke={stroke} strokeWidth={2} />
       {isHere && <circle cx={x} cy={y} r={4} fill="#9aa0ac" />}
       <text x={x} y={y + 32} textAnchor="middle" fontSize={13} fill={textColor} fontWeight={isHere || isChoice ? 600 : 400}>
         {name}
       </text>
+      {badges.length > 0 && (
+        <text x={x} y={y + 46} textAnchor="middle" fontSize={10} fill="#d8b26c" letterSpacing="0.06em">
+          {badges.join(' · ')}
+        </text>
+      )}
       {isHere && (
         <text x={x} y={y - 22} textAnchor="middle" fontSize={10} fill="#9aa0ac" letterSpacing="0.1em">
           HERE

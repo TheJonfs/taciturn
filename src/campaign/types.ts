@@ -160,6 +160,15 @@ export interface CampaignState {
   // just-won node while its interstitial runs). Advances along a win-edge
   // when the player picks at the world map.
   readonly currentNodeId: string;
+  // M3 economy — the navigable map's memory. `visited`: every node entered
+  // at least once (returnable places; travel-back is free to any of them).
+  // `clearedStoryBeats`: the storyBeatIds of fully-played engagements — the
+  // per-BEAT "never replay a cleared story beat" guard, and what opens a
+  // cleared node's win-edges (the frontier) + its skirmish/commerce
+  // availability. Beat IDS (not node ids) so a future re-armed location
+  // (Dorter pattern) is a new id, not a save migration.
+  readonly visited: ReadonlyArray<string>;
+  readonly clearedStoryBeats: ReadonlyArray<string>;
   readonly phase: CampaignPhase;
 }
 

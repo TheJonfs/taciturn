@@ -13,6 +13,7 @@
 
 import { useRef, useState, type ReactElement } from 'react';
 import type { BeatOutput, InterstitialBeat } from '@campaign/index.ts';
+import { LocationMenuBeatView } from './LocationMenuBeatView.tsx';
 import { ResultSummaryBeatView } from './ResultSummaryBeatView.tsx';
 import { StorySceneBeatView } from './StorySceneBeatView.tsx';
 import { WorldMapBeatView } from './WorldMapBeatView.tsx';
@@ -34,6 +35,7 @@ const BEAT_RENDERERS: Readonly<Record<InterstitialBeat['type'], BeatRenderer>> =
   'story-scene': StorySceneBeatView,
   'result-summary': ResultSummaryBeatView,
   'world-map-choice': WorldMapBeatView,
+  'location-menu': LocationMenuBeatView,
 };
 
 export interface InterstitialRunnerProps {

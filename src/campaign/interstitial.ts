@@ -31,9 +31,11 @@
 
 import type { UnitId, Vitals } from '@engine/index.ts';
 import type { BattleResult, UnitOutcome } from './battle-result.ts';
-import { winChoices, type CampaignGraph, type CampaignNode } from './graph.ts';
+import type { CampaignGraph, CampaignNode } from './graph.ts';
 import type { StorySceneBeat } from './sequence.ts';
-import type { CampaignUnit } from './types.ts';
+import { isFarmableNow, travelChoices, type TravelChoice } from './travel.ts';
+import { skirmishLevelAt } from './skirmish.ts';
+import type { CampaignState, CampaignUnit } from './types.ts';
 
 // How a resolved node turned out, from the campaign's point of view.
 export type NodeResolution = 'win' | 'loss';
@@ -57,18 +59,42 @@ export interface ResultSummaryBeat {
   // Gil the battle paid (M3 economy Stage 0) — the win's spoils line.
   // 0 on a loss (losses pay nothing) and the line is suppressed.
   readonly gilEarned: number;
+  // This result is a SKIRMISH's (M3 economy Stage 1): the screen reads
+  // "skirmish won", not "node cleared" — a skirmish never clears anything.
+  readonly skirmish: boolean;
   // True only on a terminal win — this beat is the campaign's victory screen.
   readonly campaignComplete: boolean;
 }
 
 export interface WorldMapChoiceBeat {
   readonly type: 'world-map-choice';
-  // The node just cleared (the map's "you are here").
+  // Where the company stands (the map's "you are here").
   readonly fromNodeId: string;
-  // The selectable next nodes (the cleared node's win-edges, authored order).
-  readonly choices: ReadonlyArray<{ readonly id: string; readonly name: string }>;
+  // Every legal travel destination (M3 economy Stage 1: the frontier PLUS
+  // returnable visited nodes with something on offer — see travel.ts).
+  readonly choices: ReadonlyArray<TravelChoice>;
   // The party's current gil balance (M3 economy Stage 0) — the map header's
   // purse display, snapshotted at beat build (beats are immutable data).
+  readonly gil: number;
+}
+
+// One thing the player can DO at a location they re-entered (M3 economy
+// Stage 1; Stage 2/3 add 'shop' / 'recruit'). `detail` is a short annotation
+// (e.g. the skirmish's resolved enemy level).
+export interface LocationOption {
+  readonly action: 'skirmish';
+  readonly label: string;
+  readonly detail?: string;
+}
+
+// The re-entry screen for a location whose story beat is cleared: what is
+// CURRENTLY available here (never a replay of the cleared beat). Advancing
+// carries the chosen `locationAction` ('leave' returns to the world map).
+export interface LocationMenuBeat {
+  readonly type: 'location-menu';
+  readonly nodeId: string;
+  readonly nodeName: string;
+  readonly options: ReadonlyArray<LocationOption>;
   readonly gil: number;
 }
 
@@ -77,12 +103,18 @@ export interface WorldMapChoiceBeat {
 // `result-summary` / `world-map-choice` are driver-injected runtime beats.
 // (The structural `battle` beat is NOT here — it launches the engine and is
 // walked by the driver, not rendered by the runner.)
-export type InterstitialBeat = StorySceneBeat | ResultSummaryBeat | WorldMapChoiceBeat;
+export type InterstitialBeat =
+  | StorySceneBeat
+  | ResultSummaryBeat
+  | WorldMapChoiceBeat
+  | LocationMenuBeat;
 
-// What a beat hands back when it advances. Only world-map-choice produces a
-// route in M1; the field is optional so other beats advance with no output.
+// What a beat hands back when it advances. Each field is produced by one
+// beat type (route ← world-map-choice; locationAction ← location-menu) and
+// optional so other beats advance with no output.
 export interface BeatOutput {
   readonly nextNodeId?: string;
+  readonly locationAction?: LocationOption['action'] | 'leave';
 }
 
 // Build the result-summary's per-unit lines: every player roster unit that
@@ -116,6 +148,8 @@ export function buildResultSummaryBeat(params: {
   readonly campaignComplete: boolean;
   // Gil the battle paid (`computeGilReward` on a win; a loss passes 0).
   readonly gilEarned: number;
+  // Skirmish result (defaults false — a story battle beat).
+  readonly skirmish?: boolean;
 }): ResultSummaryBeat {
   const { node, roster, result, won, campaignComplete, gilEarned } = params;
   return {
@@ -124,6 +158,7 @@ export function buildResultSummaryBeat(params: {
     nodeName: node.name,
     units: buildUnitResultLines(roster, result),
     gilEarned,
+    skirmish: params.skirmish ?? false,
     campaignComplete: won && campaignComplete,
   };
 }
@@ -134,14 +169,13 @@ export function buildResultSummaryBeat(params: {
 // the player resumes directly at the map choice).
 export function buildRouteChoiceBeat(
   graph: CampaignGraph,
-  nodeId: string,
-  gil: number,
+  state: CampaignState,
 ): WorldMapChoiceBeat {
   return {
     type: 'world-map-choice',
-    fromNodeId: nodeId,
-    choices: winChoices(graph, nodeId).map((n) => ({ id: n.id, name: n.name })),
-    gil,
+    fromNodeId: state.currentNodeId,
+    choices: travelChoices(graph, state),
+    gil: state.gil,
   };
 }
 
@@ -149,8 +183,33 @@ export function buildRouteChoiceBeat(
 // entry (kept as a run for the runner's `beats` prop).
 export function buildRouteChoice(
   graph: CampaignGraph,
-  nodeId: string,
-  gil: number,
+  state: CampaignState,
 ): ReadonlyArray<InterstitialBeat> {
-  return [buildRouteChoiceBeat(graph, nodeId, gil)];
+  return [buildRouteChoiceBeat(graph, state)];
+}
+
+// The re-entry menu for a cleared location (M3 economy Stage 1): whatever is
+// currently available there, as options. Built by the driver when entry
+// resolution finds the node's story beat already cleared — the guard's
+// "resolve what's here NOW instead of replaying" half. Stage 2/3 append
+// shop/recruit options behind `isHubNow`.
+export function buildLocationMenuBeat(
+  node: CampaignNode,
+  state: CampaignState,
+): LocationMenuBeat {
+  const options: LocationOption[] = [];
+  if (isFarmableNow(state, node)) {
+    options.push({
+      action: 'skirmish',
+      label: 'Skirmish',
+      detail: `Fight a roaming band — enemy level ~${skirmishLevelAt(node, state)}`,
+    });
+  }
+  return {
+    type: 'location-menu',
+    nodeId: node.id,
+    nodeName: node.name,
+    options,
+    gil: state.gil,
+  };
 }

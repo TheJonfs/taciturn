@@ -102,7 +102,37 @@ export function deserializeCampaign(json: string): CampaignState {
   // nothing); a present value must be a non-negative integer.
   const gil = validateGil(root['gil'], 'gil');
 
-  return { schemaVersion, roster, inventory, gil, currentNodeId, phase };
+  // TABA M3 economy — the navigable map's memory. Lenient grandfather for
+  // pre-economy saves: `visited` always covers the current node, and a save
+  // sitting at `awaiting_route` has by definition cleared the node it sits
+  // at, so its beat id (the node id — legacy nodes author no explicit
+  // storyBeatId) is seeded. Earlier history is unrecoverable from a legacy
+  // save and simply forgotten (dev-only saves; earlier nodes re-open as the
+  // player re-clears forward).
+  const visited = withEntry(
+    validateStringArray(root['visited'], 'visited'),
+    currentNodeId,
+  );
+  const rawCleared = validateStringArray(root['clearedStoryBeats'], 'clearedStoryBeats');
+  const clearedStoryBeats =
+    root['clearedStoryBeats'] === undefined && phase === 'awaiting_route'
+      ? withEntry(rawCleared, currentNodeId)
+      : rawCleared;
+
+  return { schemaVersion, roster, inventory, gil, currentNodeId, visited, clearedStoryBeats, phase };
+}
+
+function withEntry(list: ReadonlyArray<string>, entry: string): ReadonlyArray<string> {
+  return list.includes(entry) ? list : [...list, entry];
+}
+
+// A (possibly omitted) array of non-empty strings. Omitted → empty.
+function validateStringArray(raw: unknown, where: string): ReadonlyArray<string> {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    throw new Error(`deserializeCampaign: ${where} must be an array`);
+  }
+  return raw.map((v, i) => asNonEmptyString(v, `${where}[${i}]`));
 }
 
 // gil: a non-negative integer count. Omitted → 0 (the lenient-field

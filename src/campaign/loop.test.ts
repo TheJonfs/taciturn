@@ -177,18 +177,42 @@ describe('applyBattleBeatWin + resolveNode', () => {
 
 describe('routeToNode', () => {
   it('advances position along a legal win-choice and clears awaiting_route', () => {
-    // Simulate the real sequence: a resolved (awaiting_route) state, then pick.
-    const awaiting = { ...startCampaign(GRAPH, m0Roster, catalog), phase: 'awaiting_route' as const };
+    // Simulate the real sequence: a resolved (awaiting_route, beat-cleared)
+    // state, then pick — resolveNode is what opens the node's win-edges.
+    const awaiting = resolveNode(startCampaign(GRAPH, m0Roster, catalog), GRAPH);
     const routed = routeToNode(awaiting, GRAPH, M1_NODES.marshmoor);
     expect(routed.currentNodeId).toBe(M1_NODES.marshmoor);
     expect(routed.phase).toBe('in_progress'); // ready to fight the chosen node
+    // Travel stamps the destination as visited (M3 economy Stage 1).
+    expect(routed.visited).toContain(M1_NODES.marshmoor);
     // The roster is carried unchanged (applyBattleBeatWin already healed it).
     expect(routed.roster).toBe(awaiting.roster);
   });
 
-  it('throws on an illegal route (not a win-choice from the current node)', () => {
+  it('throws on an illegal route (not a travel choice)', () => {
     const start = startCampaign(GRAPH, m0Roster, catalog);
-    // The Return is not directly reachable from the start node.
-    expect(() => routeToNode(start, GRAPH, M1_NODES.theReturn)).toThrow(/not a win-choice/);
+    // The Return is not reachable from an uncleared start node.
+    expect(() => routeToNode(start, GRAPH, M1_NODES.theReturn)).toThrow(/not a travel choice/);
+  });
+
+  it('allows RETURN travel to a visited, cleared, farmable node (M3 Stage 1)', () => {
+    // Clear the start, advance to Marshmoor — then travel BACK to the start.
+    const cleared = resolveNode(startCampaign(GRAPH, m0Roster, catalog), GRAPH);
+    const atMarshmoor = routeToNode(cleared, GRAPH, M1_NODES.marshmoor);
+    const back = routeToNode(atMarshmoor, GRAPH, M1_NODES.riverRidge);
+    expect(back.currentNodeId).toBe(M1_NODES.riverRidge);
+    // …and its cleared beat STAYS cleared (re-entry must not replay it).
+    expect(back.clearedStoryBeats).toContain(M1_NODES.riverRidge);
+  });
+
+  it('refuses travel to a visited node with nothing on offer', () => {
+    // The Crossing cleared: story-only, no valve, no hub → not a destination.
+    const state = {
+      ...startCampaign(GRAPH, m0Roster, catalog),
+      currentNodeId: M1_NODES.marshmoor,
+      visited: [M1_NODES.riverRidge, M1_NODES.marshmoor, M1_NODES.theCrossing],
+      clearedStoryBeats: [M1_NODES.riverRidge, M1_NODES.marshmoor, M1_NODES.theCrossing],
+    };
+    expect(() => routeToNode(state, GRAPH, M1_NODES.theCrossing)).toThrow(/not a travel choice/);
   });
 });

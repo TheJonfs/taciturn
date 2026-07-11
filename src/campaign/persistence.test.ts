@@ -19,7 +19,12 @@ afterEach(() => clearSavedCampaign(KEY));
 
 describe('campaign persistence', () => {
   it('round-trips a campaign through localStorage', () => {
-    const state = { ...newCampaign(m0Roster, START), currentNodeId: M1_NODES.stonebridge };
+    const state = {
+      ...newCampaign(m0Roster, START),
+      currentNodeId: M1_NODES.stonebridge,
+      // Runtime invariant: `visited` covers the position (routeToNode stamps it).
+      visited: [START, M1_NODES.stonebridge],
+    };
     expect(hasSavedCampaign(KEY)).toBe(false);
     saveCampaign(state, KEY);
     expect(hasSavedCampaign(KEY)).toBe(true);

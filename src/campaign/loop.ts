@@ -33,10 +33,11 @@ import { computeGilReward, grantGil } from './gil.ts';
 import {
   getNode,
   isTerminal,
-  isWinChoice,
+  storyBeatIdOf,
   type CampaignGraph,
   type CampaignNode,
 } from './graph.ts';
+import { isTravelChoice } from './travel.ts';
 import { firstBattleBeat } from './sequence.ts';
 import { probeEffectiveMaxes } from './snapshot-fold.ts';
 import { CAMPAIGN_SCHEMA_VERSION } from './serialization.ts';
@@ -65,6 +66,8 @@ export function startCampaign(
     inventory: bootstrapInventory(EMPTY_INVENTORY, bootstrapped),
     gil: STARTING_GIL,
     currentNodeId: graph.startId,
+    visited: [graph.startId],
+    clearedStoryBeats: [],
     phase: 'in_progress',
   };
 }
@@ -150,9 +153,11 @@ export function applyBattleBeatWin(
   return grantGil({ ...state, roster }, computeGilReward(finalState, playerTeam));
 }
 
-// Resolve the current NODE once its beat sequence has fully played (every
-// battle beat won, or a standalone story node finished). Sets the phase and
-// nothing else — POSITION DOES NOT MOVE; it holds at the resolved node until
+// Resolve the current NODE once its story engagement has fully played (every
+// battle beat won, or a standalone story node finished). Marks the engagement
+// CLEARED (the per-beat guard — this beat never replays; it also opens the
+// node's win-edges as frontier and its farmable/skirmish valve) and sets the
+// phase — POSITION DOES NOT MOVE; it holds at the resolved node until
 // routeToNode advances it. A terminal node → `won` (campaign complete); a
 // non-terminal node → `awaiting_route` (the player picks the next node at the
 // world map). The `awaiting_route` state is saved so a reload resumes at the
@@ -161,25 +166,35 @@ export function applyBattleBeatWin(
 // battle node.
 export function resolveNode(state: CampaignState, graph: CampaignGraph): CampaignState {
   const phase = isTerminal(graph, state.currentNodeId) ? 'won' : 'awaiting_route';
-  return { ...state, phase };
+  const beatId = storyBeatIdOf(getNode(graph, state.currentNodeId));
+  const clearedStoryBeats = state.clearedStoryBeats.includes(beatId)
+    ? state.clearedStoryBeats
+    : [...state.clearedStoryBeats, beatId];
+  return { ...state, clearedStoryBeats, phase };
 }
 
 // The second half of the win transition: the player picked `nextNodeId` at the
-// world map. Validate it is a legal win-choice from the current node (fail
-// loud on an illegal route), advance position to it, and clear `awaiting_route`
-// back to `in_progress` (about to fight the chosen node). The roster already
-// carries the applyBattleBeatWin apply-back; this only moves position + phase.
+// world map. Validate it is a legal TRAVEL destination — the frontier (a
+// cleared node's win-edges: forward progress stays story-gated) or a
+// returnable visited node with something on offer (M3 economy: the navigable
+// map) — fail loud on an illegal route. Advance position, stamp `visited`,
+// and clear `awaiting_route` back to `in_progress`. What happens on arrival
+// is ENTRY RESOLUTION (the driver): an armed story beat plays; a cleared
+// node offers its current availability instead (never a replay).
 export function routeToNode(
   state: CampaignState,
   graph: CampaignGraph,
   nextNodeId: string,
 ): CampaignState {
-  if (!isWinChoice(graph, state.currentNodeId, nextNodeId)) {
+  if (!isTravelChoice(graph, state, nextNodeId)) {
     throw new Error(
-      `routeToNode: "${nextNodeId}" is not a win-choice from "${state.currentNodeId}"`,
+      `routeToNode: "${nextNodeId}" is not a travel choice from "${state.currentNodeId}"`,
     );
   }
-  return { ...state, currentNodeId: nextNodeId, phase: 'in_progress' };
+  const visited = state.visited.includes(nextNodeId)
+    ? state.visited
+    : [...state.visited, nextNodeId];
+  return { ...state, currentNodeId: nextNodeId, visited, phase: 'in_progress' };
 }
 
 export function isComplete(state: CampaignState): boolean {
@@ -200,6 +215,8 @@ export function newCampaign(
     inventory: bootstrapInventory(EMPTY_INVENTORY, roster),
     gil: STARTING_GIL,
     currentNodeId: startNodeId,
+    visited: [startNodeId],
+    clearedStoryBeats: [],
     phase: 'in_progress',
   };
 }

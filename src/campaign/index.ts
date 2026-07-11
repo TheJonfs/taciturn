@@ -73,7 +73,22 @@ export {
   winChoices,
   isTerminal,
   isWinChoice,
+  storyBeatIdOf,
 } from './graph.ts';
+
+// M3 economy Stage 1 — the navigable map (travel selectors) + the skirmish
+// valve (stub generator behind the M4 seam).
+export {
+  hasArmedStory,
+  hasAvailability,
+  isFarmableNow,
+  isHubNow,
+  isStoryCleared,
+  isTravelChoice,
+  travelChoices,
+} from './travel.ts';
+export type { TravelChoice } from './travel.ts';
+export { buildSkirmishBattle, generateSkirmishParty, skirmishLevelAt } from './skirmish.ts';
 export { CAMPAIGN_RULESET_ID, M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
 export { PLOT_UNIT_IDS } from './plot-unit-ids.ts';
 
@@ -111,6 +126,7 @@ export {
 
 // The presentational interstitial beats (the between-beat screens) — pure half.
 export {
+  buildLocationMenuBeat,
   buildResultSummaryBeat,
   buildRouteChoiceBeat,
   buildRouteChoice,
@@ -118,6 +134,8 @@ export {
 } from './interstitial.ts';
 export type {
   InterstitialBeat,
+  LocationMenuBeat,
+  LocationOption,
   ResultSummaryBeat,
   WorldMapChoiceBeat,
   UnitResultLine,

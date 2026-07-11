@@ -188,13 +188,21 @@ const crossingScene: StorySceneBeat = {
   },
 };
 
+// M3 economy — location capabilities (orthogonal flags, brief D2). Every
+// combat node opens its skirmish valve once cleared (Chris's call: farmable
+// lights up on the real campaign now, not just a sandbox). Stonebridge is
+// the hub (the Dorter-pattern coexistence proof: a location that hosted a
+// story battle, farms, AND trades). `offset` is the one scaling lever —
+// skirmish level = party average + offset (placeholder tuning; it's data).
 const NODES: ReadonlyArray<CampaignNode> = [
-  { id: M1_NODES.riverRidge, name: 'River Ridge', beats: [introScene, riverRidgeOpener()] },
-  { id: M1_NODES.stonebridge, name: 'Stonebridge', beats: [stonebridge(), aftermathScene] },
-  { id: M1_NODES.marshmoor, name: 'Marshmoor', beats: [marshmoor()] },
+  { id: M1_NODES.riverRidge, name: 'River Ridge', beats: [introScene, riverRidgeOpener()], farmable: true, offset: -1 },
+  { id: M1_NODES.stonebridge, name: 'Stonebridge', beats: [stonebridge(), aftermathScene], farmable: true, isHub: true, offset: 0 },
+  { id: M1_NODES.marshmoor, name: 'Marshmoor', beats: [marshmoor()], farmable: true, offset: 0 },
   { id: M1_NODES.theCrossing, name: 'The Crossing', beats: [crossingScene] },
-  { id: M1_NODES.mountainPass, name: 'Mountain Pass', beats: [mountainPass()] },
+  { id: M1_NODES.mountainPass, name: 'Mountain Pass', beats: [mountainPass()], farmable: true, offset: 2 },
   // The finale revisits the River Ridge battlefield (TABA "and back again").
+  // Terminal — clearing it completes the campaign, so its valve never opens
+  // in practice; farmable is left off rather than authoring a dead flag.
   { id: M1_NODES.theReturn, name: 'The Return', beats: [riverRidge()] },
 ];
 
