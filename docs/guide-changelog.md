@@ -44,6 +44,51 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 87 (2026-07-10) — TABA Ch3 weapon uniques ×8 + Moon Robe fix (ADR-0144)
+
+Commits: `d07ec84` (Moon Robe) · `9c3ef10` (Katana verification) · `d55ece0`
+(six compose uniques + Holy) · `6584ba5` (Del's Stave) · `70984ea` (Volley Bow).
+**TABA-campaign-only content** (all uniques are hidden from Mage War); the Moon
+Robe fix and the crit verification apply to the shared engine.
+
+- **Moon Robe now actually works**: water-tagged spell damage is a true ×1.5,
+  identical against every target (it previously did nothing unless another
+  Spell Power item happened to be equipped). Its tooltip now reads
+  "Spell Power: × 1.50 on water-tagged casts" instead of "+0 SP".
+- **Katana confirmed correct** (no change): crits deal 1.5× damage by default;
+  Vicious Dagger +25 / Arcane Lens +10 / Keen Visor +5 crit chance stack
+  additively and apply to weapon attacks; the Katana doubles the crit
+  *multiplier* (1.5 → 3.0) and does not touch crit chance.
+- **Eight Ch3 unique weapons** (single-instance, found-not-shopped; in-world
+  placement comes with the economy pass — dev-seed only for now):
+  - **Nandani's Wrath** (sword 11·95): Brave +11 — raises physical damage AND
+    reaction trigger rate; the Counter/Counterpunch synergy sword.
+  - **Cremation** (axe 14·75, axe variance): every landed hit applies 2 Burn
+    stacks, guaranteed.
+  - **Shadowblade** (knife 6·95, speed variance): 50% on-hit "Speed Steal" —
+    the wielder gains permanent stacking +1 Speed, the victim takes permanent
+    stacking −1 Speed. Both directions accumulate all battle.
+  - **Sline** (lance, two-handed, 8·90, reach 2 + pierce): the basic attack
+    strikes twice. Composes with The Offering for four strikes.
+  - **Golden Rod** (wand 2·90): a pact — every turn start the wielder loses
+    10% of Max HP (it CAN kill you) and 10% of Max MP, and gains a permanent
+    +1 MA stack. Bring a healer or die rich.
+  - **Del's Stave** (staff 5·80): every magical cast spends ALL your MP; the
+    spell gains +1 Spell Power per 10 MP spent beyond its cost, no cap. One
+    huge nova, then normal casts — and cheaper spells get bigger bonuses.
+  - **Volley Bow** (bow, two-handed, 8·40, range 2–4): the basic attack hits a
+    diamond-1 AREA around the aimed tile — you can aim at empty ground — and
+    it hits allies in the blast. Each unit rolls accuracy separately.
+  - **Excalibur** (Knight Sword, two-handed, 16·95): Brave-variance damage,
+    permanent Haste while equipped, and Holy-imbued strikes (resisted only by
+    gear that carries Holy resistance, e.g. Mantle of Protection). The
+    post-game preview behind a tough optional boss.
+- **New statuses players will see**: Speed Up (Shadowblade), Gilded Focus and
+  Golden Rod's Pact (Golden Rod) — all with tooltips.
+- **Dev-only, worth knowing for testing writeups**: a 📈 Grant JP chip beside
+  the gear-seed chip on the manage-roster screen (+100 JP per unlocked class
+  per press, repeatable).
+
 ## Session 86 (2026-07-10) — TABA M3 gear UI: equip between battles (ADR-0143)
 
 Commits: `ce02d04` · `9d5f286` · `3f94ad6` · `3eeb908` · `3779318`.

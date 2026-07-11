@@ -11,107 +11,76 @@ been processed.
 
 ---
 
-## S86 — TABA M3 gear UI + inventory SHIPPED (2026-07-10)
+## S87 — Ch3 uniques brief SHIPPED whole (2026-07-10)
 
-The whole `formation-gear-ui-brief.md` core shipped (ADR-0143): the shared
-draft-legality resolver (D3), the party inventory (Stage 0), the merged
-two-column Loadout view (Stage 1), and surface-and-block (Stage 2). Suite
-green (**2581**), `tsc -b` clean. **5 commits:** `ce02d04` (D3 resolver) ·
-`9d5f286` (inventory) · `3f94ad6` (dev seed) · `3eeb908` (merged view) ·
-`3779318` (surface-and-block). Plus this docs commit.
+Everything in `taba-ch3-uniques-and-fixes-brief.md` landed (ADR-0144): the
+📈 Grant JP dev chip, the Moon Robe ×1.5 fix + display arm, the Katana
+verification (all three checks PASS, no change), all 8 weapon uniques
+(two engine seams: `attackAoe`, `castMpDump`), the Holy payoff, and the
+5a/5b data checks (numbers below went to Chris in-session). Suite green
+(**2623**), `tsc -b` clean. Commits: `07f841c` (JP chip) · `d07ec84`
+(Moon Robe) · `9c3ef10` (Katana) · `d55ece0` (six composes + Holy) ·
+`6584ba5` (Del's Stave) · `70984ea` (Volley Bow) + this docs commit.
 
-S85's structural warning is CLOSED: equipment-adjusted capacity is enforced
-end-to-end; a Spiked Maul over-fill is held, surfaced with its cause, and
-deploy-blocked. UI legality and engine legality are one code path — see the
-drift alarms in `src/engine/items/draft-legality.test.ts` (sweeps every
-catalog item/ability pinning draft === hook-based `getCapacity`/`getCost`)
-and `src/campaign/node.test.ts` (`CAMPAIGN_RULESET_ID` pin).
+### Flagged for Chris / the planner (from ADR-0144)
 
-### Stage 3 — LANDED same session after Chris's playtest reports (`681871f`)
+- **Signed `system_mp_restore`** (D3): Golden Rod's MP burn rides a negative
+  `amount` on the existing action (no channel existed; `system_mp_drain` is a
+  transfer — self-drain nets zero). Chosen to keep the ActionType surface
+  closed. If a dedicated `system_mp_burn` discriminant is preferred, it's a
+  contained refactor.
+- **Tailored Outfit doesn't exist** — the brief cited it as the start-of-turn
+  precedent. Real precedent used: `statusGrants` → per-turn-tick status
+  (regen_auto pattern). Still on the M3 design slate.
+- **Del's Stave × math_skill**: the prospective (AI/forecast) bonus reads the
+  base cost, not per-target math scaling. No content pairs them today; noted
+  in ADR-0144.
+- **Aether Bloom does NOT expand Volley Bow's blast** (magical-tag gate) —
+  same answer as the Palliative Pike question. If design ever wants a
+  physical-AoE expander, that's a new passive, not a Bloom edit.
 
-The trailing piece got pulled forward: `probeUnitStats` (snapshot-fold) probes
-one unit through the real `campaignPlacement` fold; the dossier header now
-shows equipment/passive-composed stats (+ Move/Jump chips, '—' when invalid),
-and the Loadout tab gains `LoadoutInspector` (the Mage War inspector,
-celestial): hover gear/passives/secondary → mechanical detail + PROJECTED ±
-stat chips (re-probe with the pick applied; swap math accounts for the
-displaced item). Also from the same reports: `formatItemDetail` gained arms
-for the 15 S85 rider fields that had none (Epee CT refund, Choir Staff
-duration, lifesteal, spell procs, equipLegality, …) + the Trident
-commandSetFilter scope — shared via `ui/index` with the Team Builder and the
-in-battle panel; and `isPlotUnique` now keys on `PLOT_UNIT_IDS` (Lumen + Clio
-were crestless — only override-carriers badged before).
+### Watch-fors (playtest, don't pre-nerf — brief's own list, now live)
 
-### Loadout ergonomics (`1eff54b`, Chris's pre-handoff ship-blockers)
+- Cremation (2 guaranteed Burn stacks) × Pendant of Lumara (×2 tick).
+- Shadowblade permanent bidirectional stacking vs HP-sponge bosses
+  (lever = boss Speed-Down resistance; Remedy does NOT clear either side —
+  speed_down is remedyImmune, speed_up is positive).
+- Del's Stave cheapest-spell incentive (intended) + heal/buff casts also dump
+  (a buff cast burns the tank for nothing — the weapon's contract; watch if
+  it reads as a gotcha).
+- Golden Rod ~10-turn clock: genuinely lethal (system_damage KOs); the MA
+  ramp has no cap. Gilded Focus also composes with Terra Attunement.
+- Volley Bow friendly fire + Acc 40 per-target rolls; The Offering doubles
+  the volley (two blasts per Attack).
+- Excalibur above-curve by intent (gate it behind the optional boss when the
+  economy pass places it).
 
-Sticky-bottom inspector (floats into view while pickers are tall; settles in
-place when scrolled to), 200px caps + inner scroll on equipment AND ability
-option lists, and the Mage War header-stat preview: hover focus lifted from
-Customize into UnitDossier, header chips show projected values tinted
-green/red while hovering, restore on unhover/tab-switch. Chris ships the
-handoff back to the planner from here.
+### Notes for next session
 
-### Late-session addition (Chris's request)
+- **Economy pass is the next M3 beat** (unchanged): shops/costs/currency +
+  unique acquisition. All 8 uniques are pool `unique`/Ch3 already —
+  placement flows just need to call `grantItems` (receipt stays the one
+  door). Spiked Maul story-gating: see 5a numbers in the S87 conversation —
+  short version: ~350 one-shots every non-Monk base-HP class through the
+  whole Ch3 band; only Crystal-Plate tanks (L28+ Knight ~365 total) reliably
+  survive one and two-shot territory starts ~L40s. Sequence the Maul mid-Ch3
+  alongside Crystal Plate availability.
+- **Keep effect weapons OFF authored enemy loadouts** (standing AI-valuation
+  deferral; the projection resolves them safely but doesn't value them).
+- The dev-server tab from this session ran on an auto-port (5173 busy);
+  no product impact.
 
-**Pre-battle roster management** (`6984343`): the deploy-selection screen now
-carries a Manage Roster button; the manage screen tracks its origin
-(`ManageOrigin` in CampaignApp) and returns to deploy selection ("← Back to
-Deploy") or the world map accordingly. Loadout/gear testing is possible from
-the very first River Ridge battle. Also noted from Chris: the five named
-plot-unique roster characters are **Lumen, Chris, Clio, Thessaly, Sera**.
-
-### Watch-fors / notes for next session
-
-- **The FormationDevHarness (`?formation`) shows 2 synthetic invalid units**
-  (Nova, Ptolemy) — they spread `m1Roster[0]`'s assassin equipment/loadout
-  under a different class, so the new detector correctly flags stranded gear
-  + blown budgets ("A Monk can't use the right hand slot", etc.). Left as-is:
-  free showcase of the warning states. If it bothers visual review, give
-  their seeds class-legal gear.
-- **`reclassUnit` frees now-illegal passives but keeps now-illegal GEAR** —
-  deliberate (D2: surface, don't resolve; the warning banner names the
-  stranded piece). If playtest says auto-unequip feels better, that's a
-  one-line change in `reclassUnit` + a ruling.
-- **Alchemists (and everyone) can hold swords** — weapon defs mostly carry no
-  `classRestrictions`; the pickers therefore offer broad pools. Content-side
-  tightening (if wanted) is authoring, not UI.
-- **Dossier equip has no undo/confirm** — every pick persists immediately via
-  the existing onChange→save path (same as reclass/JP-spend). Fine so far;
-  note for playtest.
-- **Manual playtest still owed** (carried from S84/S85): plot-unit signatures
-  + the M3 gear feel — now actually possible via the manage screen + DEV seed
-  chip ("🎒 Seed gear").
-- Tooling: `vite.config.ts` now honors `PORT` and `.claude/launch.json` has
-  `autoPort: true` so a second Claude session's preview can run beside a
-  primary dev server. No product impact. **One-time side effect (diagnosed,
-  no action):** the config change restarted Chris's running dev server and
-  re-optimized vite's dep cache; his open tab straddled two Pixi module
-  instances and threw `TexturePool.returnTexture: Cannot read properties of
-  undefined (reading 'push')` on a Text destroy (texture acquired from the
-  old chunk's pool singleton, returned to the new one). Not reproducible on
-  a clean load — deployment-canvas mount/unmount/remount verified clean. If
-  this error EVER shows on a cold page load, that's a different bug — then
-  investigate for real.
-
-### Next M3 beats (unchanged order)
-
-1. **Economy pass** — story-gated shop stock per location, costs, currency;
-   unique acquisition flows; enriches `equipment-pool.ts` in place. The DEV
-   seed chip is the stand-in until then. Receipt stays the uniqueness gate
-   (`grantItems` is the one door into the inventory).
-2. **Stage-3 inspector polish** (above) — can ride along with the economy
-   pass or precede it.
-3. Ch3 findable-uniques + Tailored Outfit + post-game gear (design/authoring).
-
-### Carried from earlier (still open, low-priority)
+### Carried from earlier (still open, low-priority — unchanged from S86)
 
 - JP spillover on over-threshold spend (M2 tail).
 - Enemy progression tuning for Stonebridge / Marshmoor / Mountain Pass (data).
 - Loadout 2nd-secondary UI (Magus Crown / Command Cap), "Level Up!" banner
   polish, rapid-dialogue-advance React setState-in-render warning.
 - "99 cap" guide fiction (no code clamp) — guide-doc correction someday.
-- AI doesn't understand exotic gear — keep effect weapons off authored ENEMY
-  loadouts until an AI-valuation beat (fits the AI capability-expansion arc).
 - S85 open-register playtest items (Epee CT-refund loops, Star Robe lifesteal,
   Expert's Tunic × Golden Hairpin, tempo-caster stack, Scouring × dual-wield,
   Manaeater-as-default, Terra Robe maybe weak) — watch, don't pre-nerf.
+- FormationDevHarness (`?formation`) still shows 2 synthetic invalid units
+  (Nova, Ptolemy) as a free showcase of warning states.
+- reclassUnit frees now-illegal passives but keeps now-illegal gear (D2:
+  surface, don't resolve).

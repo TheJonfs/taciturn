@@ -388,10 +388,17 @@ These are noted to make their absence intentional rather than accidental:
   Team Builder, and Formation — equipment-adjusted capacity live (maul →
   Reaction 0/3), invalid loadouts held + surfaced with causes + deploy-
   blocked, drift-alarm tests pinning draft === hook-based values. Trailing
-  polish: hover/inspect stat deltas (equipment-aware stat probe). Remaining
-  M3: the **economy pass** (story-gated shops, costs, currency, unique
-  acquisition; the DEV seed chip is the stand-in), then findable-uniques /
-  Tailored Outfit / post-game gear. Then authoring (M4), story (M5).
+  polish: hover/inspect stat deltas (equipment-aware stat probe). **Ch3
+  weapon uniques ×8 — SHIPPED** (ADR-0144, S87): the full unique slate
+  (Nandani's Wrath, Cremation, Shadowblade, Sline, Golden Rod, Del's Stave,
+  Volley Bow, Excalibur; catalog 133 → 141) incl. the two engine seams
+  (weapon-attack AoE `attackAoe`; cast-time MP dump `castMpDump` with
+  ChargedAction carry + projection parity), the Holy-imbue payoff, the Moon
+  Robe ×1.5 fix, the Katana crit verification (all pass), and the repeatable
+  📈 Grant JP dev chip. Remaining M3: the **economy pass** (story-gated
+  shops, costs, currency, unique acquisition/placement — the uniques are
+  seed-only until then; the DEV chips are the stand-in), then
+  Tailored Outfit / post-game gear design. Then authoring (M4), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.
 

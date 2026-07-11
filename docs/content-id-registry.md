@@ -107,6 +107,8 @@ The display names of the elemental-spell suite were re-flavored (S40 name pass a
 | `wand_of_lumen_apply_shift` | Wand of Lumen Resonance | first_action | no (hidden Lumen proc — applies +Earth/−Water shift; S45 follow-up + ADR-0084 Burn-stack rider) | hidden | `src/content/abilities/wand-of-lumen-apply-shift.ts` |
 | `wand_of_potential_apply_shift` | Wand of Potential Resonance | first_action | no (S68 hidden proc — applies +Water/−Earth shift, completing the four-element wand rotation) | hidden | `src/content/abilities/wand-of-potential-apply-shift.ts` |
 | `apply_burn_proc` | Burn | first_action | no (hidden helper — emitted by Flametongue / Wand of Lumen Burn-rider) | hidden | `src/content/abilities/apply-burn-proc.ts` |
+| `cremation_burn_proc` | Burn | first_action | no (hidden helper — Cremation's guaranteed 2-stack Burn rider) | hidden | `src/content/abilities/cremation-burn-proc.ts` |
+| `shadowblade_proc` | Speed Steal | first_action | no (hidden helper — Shadowblade's 50% Speed Up self / Speed Down target rider) | hidden | `src/content/abilities/shadowblade-proc.ts` |
 | `apply_silence_proc` | Silence | first_action | no (hidden helper — emitted by Silence-applying weapons / casts) | hidden | `src/content/abilities/apply-silence-proc.ts` |
 | `precision_fire` | Precision Fire | first_action | no (S49 Math Skill — fire damage + 50% Burn proc per matching target) | available | `src/content/abilities/precision-fire.ts` |
 | `targeted_treatment` | Targeted Treatment | first_action | no (S49 Math Skill — multi-target heal; friendly fire on enemies) | available | `src/content/abilities/targeted-treatment.ts` |
@@ -244,6 +246,9 @@ A status's `aiHints.polarity` (`'buff' | 'debuff'`) drives AI scoring; the polar
 
 | `terra_attunement` | Terra Attunement | TABA M3 — +1 MA per stack (Cornered Focus pattern); Terra Robe's ramp | `src/content/statuses/terra-attunement.ts` |
 | `scoured` | Scoured | TABA M3 — −33 all-element res per stack, permanent, unbounded; Scouring Wand | `src/content/statuses/scoured.ts` |
+| `speed_up` | Speed Up | TABA Ch3 — +1 Speed per application, permanent (Speed Save's accumulator pattern); Shadowblade's self-side proc | `src/content/statuses/speed-up.ts` |
+| `gilded_focus` | Gilded Focus | TABA Ch3 — +1 MA per stack, permanent; granted each turn start by Golden Rod's Pact | `src/content/statuses/gilded-focus.ts` |
+| `golden_rod_pact` | Golden Rod's Pact | TABA Ch3 — turn-start −10% MaxHP (lethal) / −10% MaxMP (LINEAR of max) + 1 Gilded Focus stack; equipment-granted, removed by unequip | `src/content/statuses/golden-rod-pact.ts` |
 
 ## Equipment
 
@@ -282,6 +287,14 @@ Equipment slots: weapon (one- or two-handed), shield, armor, headgear, accessory
 | `choir_staff` | Choir Staff | weapon | TABA M3 Ch2 — buffs +1 duration (first modifyOutgoingStatusDuration consumer) + magical cast speed +5 | `src/content/items/choir-staff.ts` |
 | `warmages_edge` | Warmage's Edge | weapon | TABA M3 Ch2 — WP 6 · 95, PA+1/MA+2 (first dual-stat weapon) | `src/content/items/warmages-edge.ts` |
 | `katana` | Katana | weapon | TABA M3 Ch3 — WP 11 · 95, crit_multiplier ×2 (1.5→3.0) | `src/content/items/katana.ts` |
+| `nandanis_wrath` | Nandani's Wrath | weapon | TABA Ch3 UNIQUE — sword 11·95, Brave +11 (reaction-synergy) | `src/content/items/nandanis-wrath.ts` |
+| `cremation` | Cremation | weapon | TABA Ch3 UNIQUE — axe 14·75, guaranteed on-hit 2-stack Burn | `src/content/items/cremation.ts` |
+| `shadowblade` | Shadowblade | weapon | TABA Ch3 UNIQUE — knife 6·95, 50% on-hit Speed Steal (permanent both ways) | `src/content/items/shadowblade.ts` |
+| `sline` | Sline | weapon | TABA Ch3 UNIQUE — lance 2H 8·90, basic attack strikes twice (Offering → 4) | `src/content/items/sline.ts` |
+| `golden_rod` | Golden Rod | weapon | TABA Ch3 UNIQUE — wand 2·90, grants Golden Rod's Pact (turn-start drain + MA ramp) | `src/content/items/golden-rod.ts` |
+| `dels_stave` | Del's Stave | weapon | TABA Ch3 UNIQUE — staff 5·80, castMpDump: spend ALL MP, +1 SP per 10 MP overspend | `src/content/items/dels-stave.ts` |
+| `volley_bow` | Volley Bow | weapon | TABA Ch3 UNIQUE — bow 2H 8·40 range 2–4, attackAoe diamond-1 (tile-aimable, friendly-fires) | `src/content/items/volley-bow.ts` |
+| `excalibur` | Excalibur | weapon | TABA Ch3 UNIQUE — knight_sword 2H 16·95, Brave variance, Auto-Haste, Holy imbue (post-game preview) | `src/content/items/excalibur.ts` |
 | `manaeater_blade` | Manaeater Blade | weapon | TABA M3 Ch3 — WP 14 · 95, MaxMP ×0.5 | `src/content/items/manaeater-blade.ts` |
 | `epee` | Epee | weapon | TABA M3 Ch3 — WP 9 · 95, PA-worth CT refund on basic attack (once per action) | `src/content/items/epee.ts` |
 | `master_bow` | Master Bow | weapon | TABA M3 Ch3 — WP 11 · 40, Spd−1, Hunter-optimized | `src/content/items/master-bow.ts` |
@@ -484,9 +497,9 @@ catalog totals.
 |---|---|---|
 | Classes | 14 | S76 `monk`; S72 `enchanter`; S62 `templar`; Thief `thief` |
 | Command sets | 16 | S76 `martial_arts`; S72 `auramancy`; S62 `templar_arts`; Thief `thief_arts` |
-| Abilities (active + passive + hidden) | 128 | TABA plot units +4; M3 +4 hidden riders (`apply_vulnerable_proc`, `apply_scoured_proc`, `void_vulnerable_proc`, `palliative_pulse`); S76 +9 |
-| Status types | 46 | TABA `hamstrung` +1; M3 +2 (`terra_attunement`, `scoured`); S76 +4 stances |
-| Equipment + consumables | 133 | TABA M3 +51 (10 Ch1, 7 Ch2, 33 Ch3, Freelancer's Charm — all `hidden`, TABA-scoped via `src/campaign/equipment-pool.ts`) |
+| Abilities (active + passive + hidden) | 130 | TABA plot units +4; M3 +4 hidden riders; Ch3 uniques +2 (`cremation_burn_proc`, `shadowblade_proc`); S76 +9 |
+| Status types | 49 | TABA `hamstrung` +1; M3 +2 (`terra_attunement`, `scoured`); Ch3 uniques +3 (`speed_up`, `gilded_focus`, `golden_rod_pact`); S76 +4 stances |
+| Equipment + consumables | 141 | TABA M3 +51 (10 Ch1, 7 Ch2, 33 Ch3, Freelancer's Charm) + Ch3 weapon uniques ×8 — all `hidden`, TABA-scoped via `src/campaign/equipment-pool.ts` |
 | Rulesets | 1 | — |
 | Maps | 4 | S70 `mountainPass` |
 | Terrain types | 6 | S70 `rock` (elev ≥ 7) + `grass_rock` (elev 5-6) on Mountain Pass |
