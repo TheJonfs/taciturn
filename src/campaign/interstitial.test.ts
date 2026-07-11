@@ -134,6 +134,28 @@ describe('buildLocationMenuBeat', () => {
     expect(beat.options[0]!.detail).toMatch(/enemy level/i);
   });
 
+  it('offers the armed story AND the shop at an uncleared hub (Dorter coexistence)', () => {
+    const stonebridge = getNode(GRAPH, M1_NODES.stonebridge);
+    const state = {
+      ...newCampaign(m0Roster, M1_NODES.stonebridge),
+      visited: [M1_NODES.riverRidge, M1_NODES.stonebridge],
+      clearedStoryBeats: [M1_NODES.riverRidge],
+    };
+    const beat = buildLocationMenuBeat(stonebridge, state);
+    expect(beat.options.map((o) => o.action)).toEqual(['story', 'shop']);
+  });
+
+  it('offers skirmish AND shop at a cleared hub (the valve + commerce coexist)', () => {
+    const stonebridge = getNode(GRAPH, M1_NODES.stonebridge);
+    const state = {
+      ...newCampaign(m0Roster, M1_NODES.stonebridge),
+      visited: [M1_NODES.riverRidge, M1_NODES.stonebridge],
+      clearedStoryBeats: [M1_NODES.riverRidge, M1_NODES.stonebridge],
+    };
+    const beat = buildLocationMenuBeat(stonebridge, state);
+    expect(beat.options.map((o) => o.action)).toEqual(['skirmish', 'shop']);
+  });
+
   it('offers nothing at a cleared node with no open capabilities', () => {
     // The Crossing: story-only, never farmable/hub.
     const crossing = getNode(GRAPH, M1_NODES.theCrossing);

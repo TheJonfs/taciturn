@@ -31,12 +31,14 @@ import { DeploymentScreen } from './DeploymentScreen.tsx';
 import { FormationScreen } from './FormationScreen.tsx';
 import { FormationManager } from './formation/FormationManager.tsx';
 import { InterstitialRunner } from './interstitial/InterstitialRunner.tsx';
+import { ShopScreen } from './ShopScreen.tsx';
 import { buildDeployedBattleConfig, type DeploymentResult } from './deployment-config.ts';
 import {
   M1_CAMPAIGN_GRAPH,
   applyBattleBeatWin,
   battleWasWon,
   buildLocationMenuBeat,
+  buyItem,
   buildResultSummaryBeat,
   buildRouteChoiceBeat,
   buildSkirmishBattle,
@@ -51,10 +53,13 @@ import {
   getNode,
   hasBattleAtOrAfter,
   isComplete,
+  isHubNow,
   isStoryCleared,
   resolveNode,
   routeToNode,
   saveCampaign,
+  sellItem,
+  shopStock,
   summarizeBattleResult,
   takeStoryRun,
   type BattleBeat,
@@ -106,7 +111,10 @@ type Screen =
   | { readonly kind: 'battle'; readonly encounter: Encounter; readonly config: BattleConfig }
   // Roster-management (Formation) surface. Returns to its origin on exit;
   // roster edits persist + autosave either way.
-  | { readonly kind: 'manage'; readonly origin: ManageOrigin };
+  | { readonly kind: 'manage'; readonly origin: ManageOrigin }
+  // The hub shop (M3 economy Stage 2). Entered from a hub's location menu;
+  // exits back to it. Transactions mutate live state + autosave.
+  | { readonly kind: 'shop' };
 
 export interface CampaignAppProps {
   // The starting state — a fresh `startCampaign(...)` or a resumed save.
@@ -144,12 +152,15 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
       return runScreen([buildRouteChoiceBeat(GRAPH, st)], { kind: 'route', state: st }, key);
     }
     const entryNode = getNode(GRAPH, st.currentNodeId);
-    if (isStoryCleared(st, entryNode)) {
-      // ENTRY RESOLUTION, the one hard rule (M3 economy Stage 1): an
-      // already-cleared story beat NEVER replays. Re-entering resolves what
-      // is currently available here instead — the location menu (skirmish
-      // now; shop/recruit in Stages 2–3). Per-BEAT guard: a future re-armed
-      // later engagement carries a new beat id and takes the walk below.
+    if (isStoryCleared(st, entryNode) || isHubNow(st, entryNode)) {
+      // ENTRY RESOLUTION (M3 economy Stages 1–2). Two cases share the menu:
+      //   - the story beat is CLEARED → the one hard rule: it NEVER replays;
+      //     the menu offers what's here now (skirmish/shop). Per-BEAT guard —
+      //     a future re-armed later engagement is a new id and walks below.
+      //   - the story beat is ARMED but commerce coexists (a hub — the
+      //     Dorter pattern): the brief's "presented as options when several
+      //     coexist". The menu offers the battle AND the shop; a plain
+      //     combat node (no hub) still enters its battle directly below.
       return runScreen([buildLocationMenuBeat(entryNode, st)], { kind: 'location', state: st }, key);
     }
     const { scenes, next } = takeStoryRun(entryNode.beats, 0);
@@ -244,11 +255,31 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
         onExitToTitle();
         return;
       case 'location': {
-        // The location menu chose an action (M3 economy Stage 1).
+        // The location menu chose an action (M3 economy Stages 1–2).
+        if (output.locationAction === 'story') {
+          // March on the armed story engagement (a hub whose battle is still
+          // ahead) — the same walk planEntry runs for a plain combat node.
+          const storyNode = getNode(GRAPH, done.state.currentNodeId);
+          const { scenes, next } = takeStoryRun(storyNode.beats, 0);
+          if (next >= storyNode.beats.length) {
+            // A story-only engagement (no battle beat): play it out and
+            // resolve, exactly like planEntry's standalone-story path.
+            const key = nonce + 1;
+            setNonce(key);
+            setScreen(resolutionRun(done.state, scenes, key));
+          } else if (scenes.length > 0) {
+            showRun(scenes, { kind: 'walk', state: done.state, cursor: next });
+          } else {
+            setScreen({ kind: 'formation', encounter: { kind: 'story', battleIndex: next } });
+          }
+          return;
+        }
         if (output.locationAction === 'skirmish') {
           const locationNode = getNode(GRAPH, done.state.currentNodeId);
           const battle = buildSkirmishBattle(locationNode, done.state, catalog);
           setScreen({ kind: 'formation', encounter: { kind: 'skirmish', battle } });
+        } else if (output.locationAction === 'shop') {
+          setScreen({ kind: 'shop' });
         } else {
           // 'leave' (or nothing offered) → back to the world map.
           showRun([buildRouteChoiceBeat(GRAPH, done.state)], { kind: 'route', state: done.state });
@@ -472,6 +503,28 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
           </button>
         )}
       </>
+    );
+  }
+
+  if (screen.kind === 'shop') {
+    return (
+      <ShopScreen
+        nodeName={node.name}
+        state={state}
+        stock={shopStock(GRAPH, state)}
+        catalog={catalog}
+        onBuy={(itemId) => {
+          const bought = buyItem(state, GRAPH, itemId);
+          setState(bought);
+          saveCampaign(bought); // transactions persist immediately, like roster edits
+        }}
+        onSell={(itemId) => {
+          const sold = sellItem(state, itemId);
+          setState(sold);
+          saveCampaign(sold);
+        }}
+        onExit={() => showRun([buildLocationMenuBeat(node, state)], { kind: 'location', state })}
+      />
     );
   }
 

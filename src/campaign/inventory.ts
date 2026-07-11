@@ -103,6 +103,36 @@ export function grantItems(
   return { ...state, inventory };
 }
 
+// Remove FREE owned instances — the one exit door (M3 economy Stage 2:
+// selling; future consuming). Only free instances can leave: gear on
+// someone's back must be unequipped first, so owned never drops below
+// equipped and the derived counts can't go negative. Fails loud on a
+// non-positive quantity or insufficient free instances (the UI only
+// offers what's free, so reaching either is a bug).
+export function removeItems(
+  state: CampaignState,
+  itemId: ItemId,
+  quantity: number,
+): CampaignState {
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    throw new Error(
+      `removeItems: quantity must be a positive integer, got ${JSON.stringify(quantity)}`,
+    );
+  }
+  const free = freeCount(state, itemId);
+  if (free < quantity) {
+    throw new Error(
+      `removeItems: only ${free} free instance(s) of ${JSON.stringify(itemId)} (need ${quantity})`,
+    );
+  }
+  const key = String(itemId);
+  const remaining = (state.inventory[key] ?? 0) - quantity;
+  const inventory: Record<string, number> = { ...state.inventory };
+  if (remaining > 0) inventory[key] = remaining;
+  else delete inventory[key];
+  return { ...state, inventory };
+}
+
 // --- grandfather bootstrap ---------------------------------------------
 
 // Raise owned counts to cover everything currently equipped on the

@@ -36,6 +36,7 @@ export {
   freeCount,
   grantItems,
   ownedCount,
+  removeItems,
   unequipItem,
   type InventoryRecord,
 } from './inventory.ts';
@@ -144,7 +145,23 @@ export type {
 } from './interstitial.ts';
 // M3 economy Stage 0 — the tunable-constants module, the gil wallet, and the
 // single enemy-level lever.
-export { GIL_PER_ENEMY_LEVEL, STARTING_GIL } from './economy-config.ts';
+export {
+  DEFAULT_ITEM_PRICE,
+  GIL_PER_ENEMY_LEVEL,
+  ITEM_PRICE_OVERRIDES,
+  SELL_RATE,
+  STARTING_GIL,
+} from './economy-config.ts';
+
+// M3 economy Stage 2 — the shop (cumulative story-gated stock; buy/sell).
+export {
+  buyItem,
+  itemPrice,
+  sellBlockReason,
+  sellItem,
+  sellValue,
+  shopStock,
+} from './shop.ts';
 export { grantGil, spendGil, computeGilReward } from './gil.ts';
 export { DIFFICULTY_FACTOR, resolveEnemyLevel, partyAverageLevel } from './enemy-level.ts';
 

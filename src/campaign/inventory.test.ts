@@ -16,6 +16,7 @@ import {
   freeCount,
   grantItems,
   ownedCount,
+  removeItems,
   unequipItem,
 } from './inventory.ts';
 import { newCampaign } from './loop.ts';
@@ -179,5 +180,27 @@ describe('inventory — equip / unequip ops', () => {
     expect(() =>
       equipItem(state, knightId(state), 'rightHand', 'no_such_item' as ItemId, cat),
     ).toThrow(/not in the catalog/);
+  });
+});
+
+describe('inventory — removal (the exit door; M3 economy Stage 2)', () => {
+  it('removes free instances and drops zero entries', () => {
+    const state = grantItems(fresh(), [[LONG_SWORD, 2]]);
+    const one = removeItems(state, LONG_SWORD, 1);
+    expect(ownedCount(one, LONG_SWORD)).toBe(ownedCount(state, LONG_SWORD) - 1);
+    const freeBefore = freeCount(state, LONG_SWORD);
+    const none = removeItems(state, LONG_SWORD, freeBefore);
+    expect(freeCount(none, LONG_SWORD)).toBe(0);
+  });
+
+  it('refuses to remove more than the FREE count (equipped gear is safe)', () => {
+    const state = fresh(); // day-one gear: owned == equipped, nothing free
+    expect(() => removeItems(state, FLAMETONGUE, 1)).toThrow(/free instance/);
+  });
+
+  it('refuses non-positive quantities', () => {
+    const state = grantItems(fresh(), [[LONG_SWORD, 1]]);
+    expect(() => removeItems(state, LONG_SWORD, 0)).toThrow(/positive integer/);
+    expect(() => removeItems(state, LONG_SWORD, -1)).toThrow(/positive integer/);
   });
 });

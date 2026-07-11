@@ -37,6 +37,15 @@ export interface TabaGearEntry {
   /** First chapter the item can appear in TABA. */
   readonly chapter: GearChapter;
   readonly acquisition: GearAcquisition;
+  /**
+   * M3 economy Stage 2 — the node whose clearing puts this item in the shop
+   * pool (the pool is the UNION over all cleared nodes; monotonic, never
+   * delists). Absent → not yet assigned to any node, so not buyable. Today
+   * only the PLACEHOLDER sandbox bundles below stamp this; the real
+   * bundle→node assignment (needs the campaign graph + balance data) is its
+   * own session and will replace them.
+   */
+  readonly firstAvailableAt?: string;
 }
 
 const entry = (id: string, chapter: GearChapter, acquisition: GearAcquisition): TabaGearEntry => ({
@@ -252,10 +261,64 @@ export const TABA_NEW_ENTRIES: ReadonlyArray<TabaGearEntry> = [
   ...TABA_NEW_CH3,
 ];
 
-export const TABA_GEAR_POOL: ReadonlyArray<TabaGearEntry> = [
+// --- PLACEHOLDER bundle→node assignment (M3 economy Stage 2) -----------------
+// THROWAWAY sandbox content proving the accumulation mechanism on the M1
+// graph — NOT the real campaign assignment (that session needs the campaign
+// graph + balance data and replaces this table). All Ch1-band shop items so
+// nothing outpaces the M1 band. Keyed by node id (matches M1_NODES values;
+// authored as literals to keep this module content-only).
+const PLACEHOLDER_BUNDLES: Readonly<Record<string, ReadonlyArray<string>>> = {
+  'node-river-ridge': [
+    'iron_sword',
+    'cutlass',
+    'dagger',
+    'padded_vest',
+    'linen_robe',
+    'buckler',
+    'guard_cap',
+  ],
+  'node-stonebridge': [
+    'woodmans_axe',
+    'short_bow',
+    'chain_shirt',
+    'arcane_robe',
+    'steel_helm',
+    'wand_of_depths',
+    'talisman_of_warding',
+  ],
+  'node-marshmoor': [
+    'wand_of_deepwood',
+    'wand_of_lumen',
+    'staff_of_abundance',
+    'padded_jacket',
+    'focus_band',
+    'lightfoot',
+  ],
+};
+
+// Stamp `firstAvailableAt` onto the authored entries from the placeholder
+// table (one node per item; the table is the throwaway half, the FIELD is
+// the real mechanism the future assignment enriches directly).
+function stampFirstAvailable(entries: ReadonlyArray<TabaGearEntry>): ReadonlyArray<TabaGearEntry> {
+  const nodeByItem = new Map<string, string>();
+  for (const [nodeId, items] of Object.entries(PLACEHOLDER_BUNDLES)) {
+    for (const id of items) {
+      if (nodeByItem.has(id)) {
+        throw new Error(`equipment-pool: item '${id}' is bundled at two nodes`);
+      }
+      nodeByItem.set(id, nodeId);
+    }
+  }
+  return entries.map((e) => {
+    const nodeId = nodeByItem.get(String(e.itemId));
+    return nodeId === undefined ? e : { ...e, firstAvailableAt: nodeId };
+  });
+}
+
+export const TABA_GEAR_POOL: ReadonlyArray<TabaGearEntry> = stampFirstAvailable([
   ...MAGE_WAR_SHARED_ENTRIES,
   ...TABA_NEW_ENTRIES,
-];
+]);
 
 // The buyable pool as of a chapter (entries whose first chapter has arrived).
 // Interim semantics pending the economy pass: everything unlocked-so-far is

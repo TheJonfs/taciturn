@@ -33,7 +33,7 @@ import type { UnitId, Vitals } from '@engine/index.ts';
 import type { BattleResult, UnitOutcome } from './battle-result.ts';
 import type { CampaignGraph, CampaignNode } from './graph.ts';
 import type { StorySceneBeat } from './sequence.ts';
-import { isFarmableNow, travelChoices, type TravelChoice } from './travel.ts';
+import { hasArmedStory, isFarmableNow, isHubNow, travelChoices, type TravelChoice } from './travel.ts';
 import { skirmishLevelAt } from './skirmish.ts';
 import type { CampaignState, CampaignUnit } from './types.ts';
 
@@ -78,11 +78,13 @@ export interface WorldMapChoiceBeat {
   readonly gil: number;
 }
 
-// One thing the player can DO at a location they re-entered (M3 economy
-// Stage 1; Stage 2/3 add 'shop' / 'recruit'). `detail` is a short annotation
-// (e.g. the skirmish's resolved enemy level).
+// One thing the player can DO at a location (M3 economy Stages 1–2; Stage 3
+// adds 'recruit'). `story` is the armed story engagement — offered as an
+// option only when commerce/skirmish coexist with it (the Dorter pattern);
+// a plain combat node still enters its battle directly. `detail` is a short
+// annotation (e.g. the skirmish's resolved enemy level).
 export interface LocationOption {
-  readonly action: 'skirmish';
+  readonly action: 'story' | 'skirmish' | 'shop';
   readonly label: string;
   readonly detail?: string;
 }
@@ -198,11 +200,25 @@ export function buildLocationMenuBeat(
   state: CampaignState,
 ): LocationMenuBeat {
   const options: LocationOption[] = [];
+  if (hasArmedStory(state, node)) {
+    options.push({
+      action: 'story',
+      label: 'March on the enemy',
+      detail: 'The battle for this place awaits',
+    });
+  }
   if (isFarmableNow(state, node)) {
     options.push({
       action: 'skirmish',
       label: 'Skirmish',
       detail: `Fight a roaming band — enemy level ~${skirmishLevelAt(node, state)}`,
+    });
+  }
+  if (isHubNow(state, node)) {
+    options.push({
+      action: 'shop',
+      label: 'Shop',
+      detail: 'Buy and sell gear',
     });
   }
   return {

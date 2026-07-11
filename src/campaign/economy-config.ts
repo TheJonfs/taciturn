@@ -17,3 +17,18 @@ export const GIL_PER_ENEMY_LEVEL = 10;
 
 // The party's opening purse at campaign start. PLACEHOLDER (D-econ-6).
 export const STARTING_GIL = 0;
+
+// --- Stage 2: shops ---
+
+// Sell-back rate (D1): the shop buys at this fraction of the buy price,
+// floored — forgiving of mistakes (no equip-undo exists) without being
+// exploitable. PLACEHOLDER refinement pending, but ~0.5 is the settled call.
+export const SELL_RATE = 0.5;
+
+// The flat buy price for any stocked item without an override — PLACEHOLDER
+// (D-econ-6; real per-item pricing arrives with balance data).
+export const DEFAULT_ITEM_PRICE = 500;
+
+// Per-item price overrides (keyed by item id as a plain string). Empty today
+// — this is the seam the real pricing pass fills in. PLACEHOLDER.
+export const ITEM_PRICE_OVERRIDES: Readonly<Record<string, number>> = {};
