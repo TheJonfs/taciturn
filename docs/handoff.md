@@ -56,6 +56,17 @@ buy/sell round-trip, a real hire persisting across reload).
   (`CampaignApp.test.tsx`); the per-beat model means a future re-armed
   engagement must carry a NEW `storyBeatId`.
 
+### Post-ship addition (same session, Chris's request)
+
+World-map **party banner + FFT-style march** (`9b35211`): a gold standard
+marks the company; travel marches it along the road network (BFS over
+win-edges as undirected roads) before the destination opens. Pure
+presentation — same `onAdvance`, delayed. `PartyBanner` in
+`WorldMapBeatView.tsx` is placeholder art: when sprite/portrait art exists,
+replace that one `<g>`; the march machinery doesn't change. Failsafe timer
+completes arrival if rAF stalls (hidden tab); reduced-motion + tests skip
+the walk.
+
 ### Noticed, not acted on
 
 - A hub with no battle beat can't size a hire's vitals or host a skirmish
