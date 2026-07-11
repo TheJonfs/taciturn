@@ -38,7 +38,9 @@ import {
   battleWasWon,
   buildResultSummaryBeat,
   buildRouteChoiceBeat,
+  COMPONENT_CATALOG,
   clearSavedCampaign,
+  debugGrantJp,
   debugSeedGrants,
   debugSeedInventory,
   deployableRoster,
@@ -382,6 +384,25 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
             {debugSeedGrants(state, catalog).length === 0 ? '🎒 Gear seeded ✓' : '🎒 Seed gear (dev)'}
           </button>
         )}
+        {/* Dev-only JP grant (Ch3 brief, work item 1): +100 JP to every party
+            member in each currently-unlocked class. Repeatable BY DESIGN (no
+            once-guard) — press, spend, cross a tier threshold, press again to
+            fund the newly-opened tier. Respects the unlock tree; never
+            force-unlocks. Same DEV gating + persistence as the seed chip. */}
+        {import.meta.env.DEV && (
+          <button
+            type="button"
+            style={devGrantJpChipStyle}
+            onClick={() => {
+              const granted = debugGrantJp(state, COMPONENT_CATALOG);
+              setState(granted);
+              saveCampaign(granted);
+            }}
+            title="Dev: grant 100 JP to every party member in each unlocked class (repeatable; persists to the save)"
+          >
+            📈 Grant JP (dev)
+          </button>
+        )}
       </>
     );
   }
@@ -452,6 +473,12 @@ const devSeedChipStyle: CSSProperties = {
   border: '1px solid #3a4150',
   borderRadius: 5,
   cursor: 'pointer',
+};
+
+// The JP-grant sibling chip sits just above the seed chip in the same corner.
+const devGrantJpChipStyle: CSSProperties = {
+  ...devSeedChipStyle,
+  bottom: 44,
 };
 
 // Stamp control flags so BattleView wires a human controller for the player

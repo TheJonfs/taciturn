@@ -40,6 +40,7 @@ export {
   type InventoryRecord,
 } from './inventory.ts';
 export { DEBUG_SEED_TARGET, debugSeedGrants, debugSeedInventory } from './debug-seed.ts';
+export { DEBUG_JP_GRANT, debugGrantJp } from './debug-grant-jp.ts';
 
 export {
   M0_ROSTER_SIZE,
