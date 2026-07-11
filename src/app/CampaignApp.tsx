@@ -31,6 +31,7 @@ import { DeploymentScreen } from './DeploymentScreen.tsx';
 import { FormationScreen } from './FormationScreen.tsx';
 import { FormationManager } from './formation/FormationManager.tsx';
 import { InterstitialRunner } from './interstitial/InterstitialRunner.tsx';
+import { RecruitScreen } from './RecruitScreen.tsx';
 import { ShopScreen } from './ShopScreen.tsx';
 import { buildDeployedBattleConfig, type DeploymentResult } from './deployment-config.ts';
 import {
@@ -50,8 +51,10 @@ import {
   debugSeedInventory,
   deployableRoster,
   foldBattle,
+  firstBattleBeat,
   getNode,
   hasBattleAtOrAfter,
+  hireGeneric,
   isComplete,
   isHubNow,
   isStoryCleared,
@@ -114,7 +117,9 @@ type Screen =
   | { readonly kind: 'manage'; readonly origin: ManageOrigin }
   // The hub shop (M3 economy Stage 2). Entered from a hub's location menu;
   // exits back to it. Transactions mutate live state + autosave.
-  | { readonly kind: 'shop' };
+  | { readonly kind: 'shop' }
+  // Hub recruitment (M3 economy Stage 3). Same surface pattern as the shop.
+  | { readonly kind: 'recruit' };
 
 export interface CampaignAppProps {
   // The starting state — a fresh `startCampaign(...)` or a resumed save.
@@ -280,6 +285,8 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
           setScreen({ kind: 'formation', encounter: { kind: 'skirmish', battle } });
         } else if (output.locationAction === 'shop') {
           setScreen({ kind: 'shop' });
+        } else if (output.locationAction === 'recruit') {
+          setScreen({ kind: 'recruit' });
         } else {
           // 'leave' (or nothing offered) → back to the world map.
           showRun([buildRouteChoiceBeat(GRAPH, done.state)], { kind: 'route', state: done.state });
@@ -522,6 +529,29 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
           const sold = sellItem(state, itemId);
           setState(sold);
           saveCampaign(sold);
+        }}
+        onExit={() => showRun([buildLocationMenuBeat(node, state)], { kind: 'location', state })}
+      />
+    );
+  }
+
+  if (screen.kind === 'recruit') {
+    const beat = firstBattleBeat(node.beats);
+    if (beat === undefined) {
+      // A hub with no battlefield can't size a hire (hireGeneric would
+      // throw); no authored hub lacks one — fail loud rather than render.
+      throw new Error(`CampaignApp: hub "${node.id}" has no battle beat for recruitment`);
+    }
+    return (
+      <RecruitScreen
+        nodeName={node.name}
+        state={state}
+        battle={beat.battle}
+        catalog={catalog}
+        onHire={(spec) => {
+          const hired = hireGeneric(state, node, spec, catalog);
+          setState(hired);
+          saveCampaign(hired); // the new soldier + debit persist immediately
         }}
         onExit={() => showRun([buildLocationMenuBeat(node, state)], { kind: 'location', state })}
       />

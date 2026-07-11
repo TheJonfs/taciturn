@@ -32,3 +32,24 @@ export const DEFAULT_ITEM_PRICE = 500;
 // Per-item price overrides (keyed by item id as a plain string). Empty today
 // — this is the seam the real pricing pass fills in. PLACEHOLDER.
 export const ITEM_PRICE_OVERRIDES: Readonly<Record<string, number>> = {};
+
+// --- Stage 3: recruitment ---
+
+// The hire-cost curve `cost(L) = BASE + PER_LEVEL × L` — a linear PLACEHOLDER
+// (D-econ-6-adjacent); the convenience premium is the CAP (never above party
+// average), not the price shape.
+export const HIRE_COST_BASE = 200;
+export const HIRE_COST_PER_LEVEL = 60;
+
+// Tier-1 JP signing bonus by hire level: the highest step at or below the
+// chosen level applies, banked into the hire's (Tier-1) class pool so a
+// high-level hire arrives functional, not a stat-shell — the tree itself
+// stays earned. PLACEHOLDER steps.
+export const HIRE_JP_TIER1_STEPS: ReadonlyArray<{
+  readonly minLevel: number;
+  readonly jp: number;
+}> = [
+  { minLevel: 10, jp: 200 },
+  { minLevel: 20, jp: 500 },
+  { minLevel: 30, jp: 900 },
+];

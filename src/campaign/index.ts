@@ -162,6 +162,18 @@ export {
   sellValue,
   shopStock,
 } from './shop.ts';
+
+// M3 economy Stage 3 — recruitment (the gil sink).
+export {
+  buildHire,
+  hireableClasses,
+  hireCost,
+  hireGeneric,
+  hireJpBonus,
+  maxHireLevel,
+  starterGearFor,
+} from './recruit.ts';
+export type { HireSpec } from './recruit.ts';
 export { grantGil, spendGil, computeGilReward } from './gil.ts';
 export { DIFFICULTY_FACTOR, resolveEnemyLevel, partyAverageLevel } from './enemy-level.ts';
 

@@ -34,6 +34,7 @@ import type { BattleResult, UnitOutcome } from './battle-result.ts';
 import type { CampaignGraph, CampaignNode } from './graph.ts';
 import type { StorySceneBeat } from './sequence.ts';
 import { hasArmedStory, isFarmableNow, isHubNow, travelChoices, type TravelChoice } from './travel.ts';
+import { maxHireLevel } from './recruit.ts';
 import { skirmishLevelAt } from './skirmish.ts';
 import type { CampaignState, CampaignUnit } from './types.ts';
 
@@ -78,13 +79,13 @@ export interface WorldMapChoiceBeat {
   readonly gil: number;
 }
 
-// One thing the player can DO at a location (M3 economy Stages 1–2; Stage 3
-// adds 'recruit'). `story` is the armed story engagement — offered as an
-// option only when commerce/skirmish coexist with it (the Dorter pattern);
-// a plain combat node still enters its battle directly. `detail` is a short
-// annotation (e.g. the skirmish's resolved enemy level).
+// One thing the player can DO at a location (M3 economy Stages 1–3).
+// `story` is the armed story engagement — offered as an option only when
+// commerce/skirmish coexist with it (the Dorter pattern); a plain combat
+// node still enters its battle directly. `detail` is a short annotation
+// (e.g. the skirmish's resolved enemy level).
 export interface LocationOption {
-  readonly action: 'story' | 'skirmish' | 'shop';
+  readonly action: 'story' | 'skirmish' | 'shop' | 'recruit';
   readonly label: string;
   readonly detail?: string;
 }
@@ -219,6 +220,11 @@ export function buildLocationMenuBeat(
       action: 'shop',
       label: 'Shop',
       detail: 'Buy and sell gear',
+    });
+    options.push({
+      action: 'recruit',
+      label: 'Recruit',
+      detail: `Hire a soldier — up to level ${maxHireLevel(state)}`,
     });
   }
   return {

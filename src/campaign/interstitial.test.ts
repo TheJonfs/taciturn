@@ -142,7 +142,7 @@ describe('buildLocationMenuBeat', () => {
       clearedStoryBeats: [M1_NODES.riverRidge],
     };
     const beat = buildLocationMenuBeat(stonebridge, state);
-    expect(beat.options.map((o) => o.action)).toEqual(['story', 'shop']);
+    expect(beat.options.map((o) => o.action)).toEqual(['story', 'shop', 'recruit']);
   });
 
   it('offers skirmish AND shop at a cleared hub (the valve + commerce coexist)', () => {
@@ -153,7 +153,7 @@ describe('buildLocationMenuBeat', () => {
       clearedStoryBeats: [M1_NODES.riverRidge, M1_NODES.stonebridge],
     };
     const beat = buildLocationMenuBeat(stonebridge, state);
-    expect(beat.options.map((o) => o.action)).toEqual(['skirmish', 'shop']);
+    expect(beat.options.map((o) => o.action)).toEqual(['skirmish', 'shop', 'recruit']);
   });
 
   it('offers nothing at a cleared node with no open capabilities', () => {
