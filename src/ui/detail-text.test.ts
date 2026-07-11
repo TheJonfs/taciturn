@@ -12,6 +12,7 @@ import { longbow } from '../content/items/longbow.ts';
 import { raspPendant } from '../content/items/rasp-pendant.ts';
 import { wandOfDepths } from '../content/items/wand-of-depths.ts';
 import { wandOfLumen } from '../content/items/wand-of-lumen.ts';
+import { moonRobe } from '../content/items/moon-robe.ts';
 import { wandOfPotential } from '../content/items/wand-of-potential.ts';
 import { wandOfDepthsApplyShift } from '../content/abilities/wand-of-depths-apply-shift.ts';
 import { wandOfPotentialApplyShift } from '../content/abilities/wand-of-potential-apply-shift.ts';
@@ -167,6 +168,24 @@ describe('formatItemDetail', () => {
     });
     const d = formatItemDetail(wandOfPotential, cat);
     expect(d.lines.join('\n')).toContain('Spell Power: +1 SP on lightning-tagged casts');
+  });
+
+  // Ch3 brief 2a: a factor entry renders multiplicatively — Moon Robe read
+  // "Spell Power: +0 SP" before the arm landed (the same missing-arm class
+  // as the 15 riders patched in S86).
+  it('surfaces a multiplicative Spell Power factor (Moon Robe ×1.5 water)', () => {
+    const cat = createCatalog({
+      statusTypes: [burn],
+      abilities: [],
+      commandSets: [],
+      classes: [makeKnight()],
+      items: [moonRobe],
+      rulesets: defaultTestRulesets,
+    });
+    const d = formatItemDetail(moonRobe, cat);
+    const text = d.lines.join('\n');
+    expect(text).toContain('Spell Power: × 1.50 on water-tagged casts');
+    expect(text).not.toContain('+0 SP');
   });
 
   // S71 #10: Spiked Mail surfaces its physical-reflect retaliation (the

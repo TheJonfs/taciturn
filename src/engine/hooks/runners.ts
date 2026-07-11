@@ -293,12 +293,14 @@ export function runModifyActionSpeed(
   return value;
 }
 
-// Additive chain over Spell Power (magical power_coefficient) modifiers.
+// Chain over Spell Power (magical power_coefficient) modifiers.
 // Handlers fire against the *caster's* registrations — Wand of Potential
 // (+1 SP on lightning magic) lives on the holder. Called once by the
-// `magicalMaPower` damage handler with `baseValue: 0`; the returned
-// delta is added to the ability's effective power coefficient. Per
-// ADR-0113.
+// `magicalMaPower` damage handler, seeded with the ability's full
+// effective power coefficient; the returned value IS the effective
+// coefficient (additive entries shift it, `factor` entries scale it —
+// Ch3 Moon Robe fix; seeding 0 made factors multiply only the other
+// riders' deltas). Per ADR-0113.
 export function runModifySpellPower(
   state: GameState,
   catalog: Catalog,

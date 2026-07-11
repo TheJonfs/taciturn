@@ -454,12 +454,23 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
   }
 
   // Spell-power (magical power_coefficient) modifiers (Wand of Potential
-  // +1 SP on lightning casts). Tag-gated, caster-side — mirrors the
-  // action-speed / range rider shape above.
+  // +1 SP on lightning casts; Moon Robe ×1.5 on water). Tag-gated,
+  // caster-side — mirrors the action-speed / range rider shape above. A
+  // factor entry renders multiplicatively (its delta is authored 0 —
+  // "SP +0" was the Ch3-brief missing-arm bug); per-extra-target deltas
+  // name their scaling.
   if (item.spellPowerModifiers !== undefined && item.spellPowerModifiers.length > 0) {
     for (const mod of item.spellPowerModifiers) {
       const tag = mod.tagFilter?.[0] !== undefined ? `${String(mod.tagFilter[0])}-tagged` : 'all';
-      lines.push(`Spell Power: ${mod.delta >= 0 ? '+' : ''}${mod.delta} SP on ${tag} casts`);
+      if (mod.factor !== undefined && mod.factor !== 1) {
+        lines.push(`Spell Power: × ${mod.factor.toFixed(2)} on ${tag} casts`);
+      } else if (mod.perExtraTarget === true) {
+        lines.push(
+          `Spell Power: ${mod.delta >= 0 ? '+' : ''}${mod.delta} SP per target beyond the first on ${tag} casts`,
+        );
+      } else {
+        lines.push(`Spell Power: ${mod.delta >= 0 ? '+' : ''}${mod.delta} SP on ${tag} casts`);
+      }
     }
   }
 

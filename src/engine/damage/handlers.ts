@@ -300,25 +300,26 @@ export const lanceBonus: DamageHandler = (ctx, env) => {
 export const magicalMaPower: DamageHandler = (ctx, env) => {
   if (!ctx.damageTags.has('magical')) return ctx;
   const ability = expectActiveAbility(env.catalog, ctx.sourceAbilityId);
-  // S68: caster-side Spell Power rider (Wand of Potential's +1 SP on
-  // lightning magic). Additive on the power coefficient, gated on the
-  // ability's damage tags by the contributor. Magical-only by virtue of
+  // S68: caster-side Spell Power riders (Wand of Potential's +1 SP on
+  // lightning magic; Moon Robe's ×1.5 on water). The chain is seeded with
+  // the ability's full effective coefficient (chainBonus / Math-Skill
+  // `additionalPowerCoefficient` already folded in) so additive entries
+  // shift it and `factor` entries scale the REAL Spell Power — seeding 0
+  // and adding the result back (the pre-Ch3 wiring) made a factor
+  // multiply only the other riders' deltas, which is how Moon Robe read
+  // ×1.0 with no additive rider equipped. Magical-only by virtue of
   // living in this handler; holder-gated because the chain collects the
-  // caster's equipment. Composes with the chainBonus / Math-Skill
-  // `additionalPowerCoefficient` already folded into the base. Per
-  // ADR-0113.
-  const spellPowerDelta = runModifySpellPower(env.state, env.catalog, {
+  // caster's equipment. Per ADR-0113.
+  const power = runModifySpellPower(env.state, env.catalog, {
     unit: ctx.attacker,
     ability,
     targetCount: ctx.targetCount ?? 1,
-    baseValue: 0,
-  });
-  const power =
-    effectivePowerCoefficient(
+    baseValue: effectivePowerCoefficient(
       ability,
       ctx.targetCount,
       ctx.additionalPowerCoefficient ?? 0,
-    ) + spellPowerDelta;
+    ),
+  });
   const ma = runModifyStatQuery(env.state, env.catalog, {
     unit: ctx.attacker,
     statName: 'ma',

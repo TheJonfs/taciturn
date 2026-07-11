@@ -24,6 +24,8 @@ import {
   runOnActionResolved,
 } from '../engine/hooks/runners.ts';
 import { collectActiveHandlers } from '../engine/hooks/collector.ts';
+import { runDamagePipeline } from '../engine/damage/pipeline.ts';
+import { defaultDamageHandlers } from '../engine/damage/default-handlers.ts';
 import { activeTurnFor, makeGameState, makeUnit } from '../engine/ct/test-fixtures.ts';
 import { makeStatusInstance } from '../engine/status/test-fixtures.ts';
 import { flatMap } from '../engine/map/test-fixtures.ts';
@@ -307,6 +309,55 @@ describe('Moon Robe — ×1.5 water spell power (multiplicative SP seam)', () =>
       unit, ability: earthStrike, targetCount: 1, baseValue: 5,
     });
     expect(earth).toBe(5);
+  });
+
+  // Ch3-brief playtest fix. The pre-fix wiring seeded the SP chain with 0
+  // and ADDED the result to the coefficient, so the robe's factor
+  // multiplied only the other riders' deltas — ×1.0 alone (68→68 in the
+  // playtest report), and a target-dependent smear when an additive rider
+  // happened to be equipped. These pin the intended compose: the factor
+  // scales the REAL Spell Power, so on-vs-off is exactly ×1.5 through the
+  // full pipeline for EVERY target; resistance composes after.
+  const castWaterAt = (robed: boolean, targetEquipment?: UnitEquipment): number => {
+    // Bare-armored control (a Linen Robe control would smuggle in its MA +2
+    // and skew the ratio); the robe's own statMods are HP/MP only, so
+    // on-vs-off isolates the SP factor.
+    const mage = makeUnit({
+      id: 'm', spd: 10, ma: 10, faith: 100,
+      ...(robed ? { equipment: holding('moon_robe', 'armor') } : {}),
+    });
+    const target = makeUnit({
+      id: 't', spd: 10, hp: 500, maxHpBase: 500, faith: 100,
+      position: { x: 1, y: 0, layer: 0 },
+      ...(targetEquipment !== undefined ? { equipment: targetEquipment } : {}),
+    });
+    const state = makeGameState({ units: [mage, target] });
+    return (
+      runDamagePipeline({
+        state,
+        catalog: cat,
+        attacker: state.units.get(unitId('m'))!,
+        target: state.units.get(unitId('t'))!,
+        ability: waterStrike,
+        sourceActionSeq: 0,
+        seed: 12345,
+        registry: defaultDamageHandlers,
+      }).finalDamage ?? -1
+    );
+  };
+
+  it('full pipeline: ×1.5 with NO additive SP rider equipped (the playtest 68→68 case)', () => {
+    const off = castWaterAt(false);
+    const on = castWaterAt(true);
+    expect(on).toBe(off * 1.5); // MA 10 × SP 8 → 80; robed → 120
+  });
+
+  it('full pipeline: on-vs-off stays exactly ×1.5 against a water-resistant target', () => {
+    const warded = holding('mantle_of_protection', 'armor');
+    const off = castWaterAt(false, warded);
+    const on = castWaterAt(true, warded);
+    expect(off).toBeLessThan(castWaterAt(false)); // the resist is real
+    expect(on).toBe(off * 1.5); // …and orthogonal to the robe
   });
 });
 
