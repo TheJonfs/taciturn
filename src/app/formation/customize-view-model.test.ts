@@ -7,6 +7,7 @@ import {
   commandSetId,
   EMPTY_LOADOUT,
   EMPTY_UNIT_EQUIPMENT,
+  itemId,
   unitId,
 } from '@engine/index.ts';
 import {
@@ -63,6 +64,29 @@ describe('equippableSecondaryCommands', () => {
     // counter is a Knight *passive* — not an active → no secondary access.
     const u = unit({ unlocks: [tok('counter')] });
     expect(equippableSecondaryCommands(u, catalog, CAT)).toHaveLength(0);
+  });
+
+  // Chris's S87 playtest report: a Knight who bought the Alchemist's four
+  // ITEM components saw no secondary options. The Alchemist's actives
+  // (Compound / Throw Item) are class-innate freeAbilities — never tokens —
+  // so the item tokens ARE its usable command content and must count.
+  it('offers Alchemy once an item token is unlocked (the Alchemist has no active tokens)', () => {
+    const u = unit({
+      classId: classId('knight'),
+      unlocks: [{ kind: 'item', id: itemId('potion') }],
+    });
+    const opts = equippableSecondaryCommands(u, catalog, CAT);
+    expect(opts.map((o) => String(o.classId))).toEqual(['alchemist']);
+    expect(opts[0]?.commandSetId).toBe(commandSetId('alchemy'));
+  });
+
+  it('offers Math Skill once a math component is unlocked (same shape: lattice tokens)', () => {
+    const u = unit({
+      classId: classId('knight'),
+      unlocks: [{ kind: 'mathParameter', id: 'ct' }],
+    });
+    const opts = equippableSecondaryCommands(u, catalog, CAT);
+    expect(opts.map((o) => String(o.classId))).toEqual(['calculator']);
   });
 });
 

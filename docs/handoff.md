@@ -55,6 +55,19 @@ verification (all three checks PASS, no change), all 8 weapon uniques
 - Excalibur above-curve by intent (gate it behind the optional boss when the
   economy pass places it).
 
+### Post-ship playtest fix (same session)
+
+Chris's report: bought all four Alchemist "actives" via the JP chip, no
+secondary command offered. Cause: the Alchemist's real actives (Compound /
+Throw Item) are class-innate `freeAbilities` — never purchase tokens — so its
+buyable kit is four ITEM tokens, and `equippableSecondaryCommands` only
+counted active-ABILITY tokens. Same latent gap for the Calculator
+(mathParameter/mathValue tokens). Fixed: any usable-command-content token
+(active ability, item, mathParameter, mathValue) now lights up its native
+class's command set as a secondary; passive-only spend still doesn't.
+Verified end-to-end in the browser (Knight + potion token → Alchemy offered,
+equips, persists).
+
 ### Notes for next session
 
 - **Economy pass is the next M3 beat** (unchanged): shops/costs/currency +

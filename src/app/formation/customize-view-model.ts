@@ -88,8 +88,21 @@ export interface SecondaryOption {
   readonly color: string;
 }
 
-// Command sets the unit may equip as secondary: one per class it has unlocked
-// ≥1 active in, excluding the current class (that's the primary). Sorted by name.
+// Command sets the unit may equip as secondary: one per class the unit has
+// unlocked ≥1 piece of USABLE COMMAND CONTENT in, excluding the current class
+// (that's the primary). Sorted by name.
+//
+// "Usable command content" is any token that would give the class's command
+// set something to actually cast/use — not just active-ability tokens:
+//   - an ACTIVE ability (the common case: spells, skills);
+//   - an ITEM token (the Alchemist's whole purchasable kit — Compound /
+//     Throw Item are class-innate freeAbilities, never tokens, and the items
+//     are what `usableItems` gates; without this arm, no amount of Alchemist
+//     spend could ever offer Alchemy as a secondary — Chris's S87 report);
+//   - a mathParameter / mathValue token (the Calculator's lattice — same
+//     shape: Math Skill is the innate active, the components are the spend).
+// Passive-only spend deliberately does NOT count: an exported Counterpunch
+// gives Martial Arts nothing usable as a command.
 export function equippableSecondaryCommands(
   unit: CampaignUnit,
   catalog: Catalog,
@@ -97,8 +110,11 @@ export function equippableSecondaryCommands(
 ): ReadonlyArray<SecondaryOption> {
   const classesWithActive = new Set<string>();
   for (const token of unit.unlocks) {
-    if (token.kind !== 'ability') continue;
-    if (!catalog.hasAbility(token.id) || catalog.getAbility(token.id).kind !== 'active') continue;
+    const usableContent =
+      token.kind === 'ability'
+        ? catalog.hasAbility(token.id) && catalog.getAbility(token.id).kind === 'active'
+        : token.kind === 'item' || token.kind === 'mathParameter' || token.kind === 'mathValue';
+    if (!usableContent) continue;
     classesWithActive.add(String(componentMetaOf(token, componentCatalog).nativeClass));
   }
   classesWithActive.delete(String(unit.classId));
