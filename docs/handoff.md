@@ -11,79 +11,63 @@ been processed.
 
 ---
 
-## S87 — Ch3 uniques brief SHIPPED whole (2026-07-10)
+## S88 — M3 economy infrastructure SHIPPED whole (2026-07-11)
 
-Everything in `taba-ch3-uniques-and-fixes-brief.md` landed (ADR-0144): the
-📈 Grant JP dev chip, the Moon Robe ×1.5 fix + display arm, the Katana
-verification (all three checks PASS, no change), all 8 weapon uniques
-(two engine seams: `attackAoe`, `castMpDump`), the Holy payoff, and the
-5a/5b data checks (numbers below went to Chris in-session). Suite green
-(**2623**), `tsc -b` clean. Commits: `07f841c` (JP chip) · `d07ec84`
-(Moon Robe) · `9c3ef10` (Katana) · `d55ece0` (six composes + Holy) ·
-`6584ba5` (Del's Stave) · `70984ea` (Volley Bow) + this docs commit.
+All four stages of `taba-economy-infrastructure-brief.md` landed (ADR-0145):
+gil + battle award (Stage 0, `86ba0c0`), node lifecycle + navigable map +
+skirmish valve (Stage 1, `bb155a8`), cumulative story-gated shops (Stage 2,
+`8671c94`), recruitment (Stage 3, `5612ace`). Suite green (**2696**),
+`tsc -b` clean, every stage verified end-to-end in the browser (spoils line,
+return travel, skirmish vs the stub band, Dorter menu at Stonebridge,
+buy/sell round-trip, a real hire persisting across reload).
 
-### Flagged for Chris / the planner (from ADR-0144)
+### Chris's in-session rulings (now baked in)
 
-- **Signed `system_mp_restore`** (D3): Golden Rod's MP burn rides a negative
-  `amount` on the existing action (no channel existed; `system_mp_drain` is a
-  transfer — self-drain nets zero). Chosen to keep the ActionType surface
-  closed. If a dedicated `system_mp_burn` discriminant is preferred, it's a
-  contained refactor.
-- **Tailored Outfit doesn't exist** — the brief cited it as the start-of-turn
-  precedent. Real precedent used: `statusGrants` → per-turn-tick status
-  (regen_auto pattern). Still on the M3 design slate.
-- **Del's Stave × math_skill**: the prospective (AI/forecast) bonus reads the
-  base cost, not per-target math scaling. No content pairs them today; noted
-  in ADR-0144.
-- **Aether Bloom does NOT expand Volley Bow's blast** (magical-tag gate) —
-  same answer as the Palliative Pike question. If design ever wants a
-  physical-AoE expander, that's a new passive, not a Bloom edit.
+- **The M1 graph IS the sandbox** — retrofit, no separate dev graph (its
+  content is placeholder anyway). Combat nodes are farmable NOW (offsets
+  −1/0/0/+2 placeholder); **Stonebridge is the hub**.
+- **Return travel is free to any visited node** with availability.
 
-### Watch-fors (playtest, don't pre-nerf — brief's own list, now live)
+### For Chris / the planner
 
-- Cremation (2 guaranteed Burn stacks) × Pendant of Lumara (×2 tick).
-- Shadowblade permanent bidirectional stacking vs HP-sponge bosses
-  (lever = boss Speed-Down resistance; Remedy does NOT clear either side —
-  speed_down is remedyImmune, speed_up is positive).
-- Del's Stave cheapest-spell incentive (intended) + heal/buff casts also dump
-  (a buff cast burns the tank for nothing — the weapon's contract; watch if
-  it reads as a gotcha).
-- Golden Rod ~10-turn clock: genuinely lethal (system_damage KOs); the MA
-  ramp has no cap. Gilded Focus also composes with Terra Attunement.
-- Volley Bow friendly fire + Acc 40 per-target rolls; The Offering doubles
-  the volley (two blasts per Attack).
-- Excalibur above-curve by intent (gate it behind the optional boss when the
-  economy pass places it).
+- **The next economy beat is CONTENT, not machinery:** real bundle→node
+  assignment (replace `PLACEHOLDER_BUNDLES` in `equipment-pool.ts`), real
+  prices (fill `ITEM_PRICE_OVERRIDES`), and the unique acquisition/placement
+  flows (all receipts are one `grantItems` call away; Spiked Maul mid-Ch3
+  alongside Crystal Plate per the S87 numbers). Every dial sits in
+  `campaign/economy-config.ts`, each marked placeholder (D-econ-6).
+- **The brief's design source `taba-economy-framework.md` is not in the repo**
+  — if it should be preserved, drop it into `docs/TABADesign/`.
+- **M4 seam is exact:** replace `generateSkirmishParty(level, count, catalog)`
+  in `campaign/skirmish.ts`; nothing else moves. The stub is deterministic
+  and gear-less by design (also keeps effect weapons off enemy loadouts —
+  standing AI-valuation deferral).
 
-### Post-ship playtest fix (same session)
+### Watch-fors now live (playtest, don't pre-nerf — brief's own list)
 
-Chris's report: bought all four Alchemist "actives" via the JP chip, no
-secondary command offered. Cause: the Alchemist's real actives (Compound /
-Throw Item) are class-innate `freeAbilities` — never purchase tokens — so its
-buyable kit is four ITEM tokens, and `equippableSecondaryCommands` only
-counted active-ABILITY tokens. Same latent gap for the Calculator
-(mathParameter/mathValue tokens). Fixed: any usable-command-content token
-(active ability, item, mathParameter, mathValue) now lights up its native
-class's command set as a secondary; passive-only spend still doesn't.
-Verified end-to-end in the browser (Knight + potion token → Alchemy offered,
-equips, persists).
+- **Income-to-price ratio:** at X=10/level, one L24 skirmish pays ~1200 gil ≈
+  2.4 flat-priced items. Farming feels fast; fine for testing, flag for the
+  balance pass.
+- **XP rubber-band on high-offset skirmishes** (Mountain Pass +2) — intended
+  catch-up; watch it doesn't trivialize leveling.
+- **Recruitment cap** — pinned by test (no bypass path found); re-check if a
+  new hire entry point ever appears.
+- **Re-entry guard** — driver-level regression test exists
+  (`CampaignApp.test.tsx`); the per-beat model means a future re-armed
+  engagement must carry a NEW `storyBeatId`.
 
-### Notes for next session
+### Noticed, not acted on
 
-- **Economy pass is the next M3 beat** (unchanged): shops/costs/currency +
-  unique acquisition. All 8 uniques are pool `unique`/Ch3 already —
-  placement flows just need to call `grantItems` (receipt stays the one
-  door). Spiked Maul story-gating: see 5a numbers in the S87 conversation —
-  short version: ~350 one-shots every non-Monk base-HP class through the
-  whole Ch3 band; only Crystal-Plate tanks (L28+ Knight ~365 total) reliably
-  survive one and two-shot territory starts ~L40s. Sequence the Maul mid-Ch3
-  alongside Crystal Plate availability.
-- **Keep effect weapons OFF authored enemy loadouts** (standing AI-valuation
-  deferral; the projection resolves them safely but doesn't value them).
-- The dev-server tab from this session ran on an auto-port (5173 busy);
-  no product impact.
+- A hub with no battle beat can't size a hire's vitals or host a skirmish
+  (`hireGeneric`/`buildSkirmishBattle` fail loud). Fine for authored content;
+  a future battle-less market town needs an explicit template source (same
+  constraint as `bootstrapRosterVitals`).
+- The skirmish result screen reuses the node name ("River Ridge — Skirmish
+  Won"); if skirmishes later get flavor variety, the summary beat already
+  carries a `skirmish` flag to hang it on.
+- Dev-server tab ran on an auto-port again (5173 busy); no product impact.
 
-### Carried from earlier (still open, low-priority — unchanged from S86)
+### Carried from earlier (still open, low-priority — unchanged from S87)
 
 - JP spillover on over-threshold spend (M2 tail).
 - Enemy progression tuning for Stonebridge / Marshmoor / Mountain Pass (data).
@@ -93,6 +77,10 @@ equips, persists).
 - S85 open-register playtest items (Epee CT-refund loops, Star Robe lifesteal,
   Expert's Tunic × Golden Hairpin, tempo-caster stack, Scouring × dual-wield,
   Manaeater-as-default, Terra Robe maybe weak) — watch, don't pre-nerf.
+- S87 playtest watch-fors (Cremation × Pendant, Shadowblade vs HP sponges,
+  Del's Stave dump-on-buffs, Golden Rod clock, Volley Bow friendly fire,
+  Excalibur above-curve by intent — gate behind the optional boss when the
+  economy content pass places it).
 - FormationDevHarness (`?formation`) still shows 2 synthetic invalid units
   (Nova, Ptolemy) as a free showcase of warning states.
 - reclassUnit frees now-illegal passives but keeps now-illegal gear (D2:

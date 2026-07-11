@@ -395,10 +395,22 @@ These are noted to make their absence intentional rather than accidental:
   (weapon-attack AoE `attackAoe`; cast-time MP dump `castMpDump` with
   ChargedAction carry + projection parity), the Holy-imbue payoff, the Moon
   Robe ×1.5 fix, the Katana crit verification (all pass), and the repeatable
-  📈 Grant JP dev chip. Remaining M3: the **economy pass** (story-gated
-  shops, costs, currency, unique acquisition/placement — the uniques are
-  seed-only until then; the DEV chips are the stand-in), then
-  Tailored Outfit / post-game gear design. Then authoring (M4), story (M5).
+  📈 Grant JP dev chip. **M3 economy infrastructure — SHIPPED** (ADR-0145,
+  S88, all four stages): the gil wallet + battle award riding the apply-back
+  door; the ONE enemy-level lever (`resolveEnemyLevel`, reserved additive
+  difficulty term at 0); orthogonal location capabilities
+  (isHub/farmable/offset + per-BEAT cleared guard — Dorter re-arm needs no
+  save migration); the navigable world map (frontier stays win-edge-gated,
+  return travel free to visited nodes, cleared beats never replay); the
+  skirmish valve with the D3 stub behind the exact `generateSkirmishParty`
+  seam M4 replaces; cumulative story-gated shops (`firstAvailableAt` +
+  throwaway placeholder bundles; buy = receipt, sell = 50% free-only,
+  uniques blocked); and Tier-1 recruitment capped at party average with
+  resolver-picked starter gear. Every constant is a D-econ-6 placeholder in
+  one config module. Remaining M3: the **economy CONTENT pass** (real
+  bundle→node assignment, prices, unique acquisition/placement — uniques
+  stay seed-only until then), then Tailored Outfit / post-game gear design.
+  Then authoring (M4 — starts by replacing the skirmish stub), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.
 

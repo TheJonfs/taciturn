@@ -44,6 +44,48 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 88 (2026-07-11) — TABA campaign economy: gil, world-map travel, skirmishes, shops, recruitment (ADR-0145)
+
+Commits: `86ba0c0` (gil) · `bb155a8` (map + skirmish) · `8671c94` (shops) ·
+`5612ace` (recruitment). Campaign mode only — Mage War untouched. **All
+prices/rewards/curves are placeholder numbers** pending the balance pass;
+describe mechanisms, not values, in the guide.
+
+- **Gil (party money) exists.** Winning any campaign battle pays gil scaled to
+  the total levels of the opposing force (currently 10 × the sum of enemy
+  levels). One shared party purse, shown on the world map, the post-battle
+  spoils line, and every commerce screen. Losses pay nothing. The purse
+  persists in the save.
+- **The world map is now navigable.** Cleared locations stay on the map as
+  returnable places (gold ring) alongside the forward frontier (blue ring).
+  You can travel back to any visited location that still offers something —
+  story progress remains gated by clearing battles, but nothing behind you
+  closes. **A cleared story battle never replays.**
+- **Skirmishes (repeatable farming).** Every cleared combat location opens a
+  skirmish valve (marked "skirmish" on the map): an on-demand fight on that
+  location's battlefield against a generated band of Tier-1 generics, scaled
+  to your party's average level plus a per-location offset (e.g. Mountain
+  Pass runs +2, River Ridge −1). Skirmish wins pay full XP, JP, and gil —
+  farm freely; there is no anti-farm timer. Losing a skirmish costs the
+  attempt (retry offered against the same band).
+- **Shops at hub locations.** Stonebridge is the first hub — its location
+  menu offers a Shop (and it does so even before you clear its own story
+  battle: you choose between marching on the enemy and browsing). Shop stock
+  is **cumulative and story-gated**: each cleared location contributes its
+  item bundle to one global pool that never shrinks; you access the pool at
+  any hub. Buying routes into the party inventory; **selling returns 50% of
+  the buy price**, only for unequipped instances, and **unique items can
+  never be sold** (the row says why). Prices are flat placeholders (500 gil)
+  for now.
+- **Recruitment at hubs.** Hire a generic soldier at a chosen class and
+  level: any Tier-1 class (Alchemist, Monk, Hunter, Pyromancer, Hydrologist,
+  Geosage), **level capped at your party's current average** — hires can
+  never outlevel your organic units. Cost scales with level; hires at level
+  10/20/30+ arrive with a JP signing bonus in their own class (200/500/900
+  JP) so they're functional on arrival. Hires come with legal starter gear,
+  join the roster immediately deployable, and are named from a wandering-
+  soldier pool (Bram, Odette, Fenwick, …).
+
 ## Session 87 (2026-07-10) — TABA Ch3 weapon uniques ×8 + Moon Robe fix (ADR-0144)
 
 Commits: `d07ec84` (Moon Robe) · `9c3ef10` (Katana verification) · `d55ece0`
