@@ -20,4 +20,11 @@ export interface ChargedAction {
   readonly abilityId: AbilityId;
   readonly targets: ReadonlyArray<TargetRef>;
   readonly sourceSequenceNumber: number;
+  // TABA Ch3 (Del's Stave): extra Spell Power banked at COMMIT by the
+  // cast-time MP dump (+1 SP per `mpPerBonusSp` MP spent beyond the
+  // cost). Carried here because the MP is already gone when a charged
+  // spell resolves — resolution can't recompute it from vitals. Threads
+  // into the damage pipeline as `additionalPowerCoefficient`. Omitted
+  // (not 0) when no dump occurred.
+  readonly bonusSpellPower?: number;
 }

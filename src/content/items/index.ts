@@ -41,6 +41,7 @@ import { cremation } from './cremation.ts';
 import { shadowblade } from './shadowblade.ts';
 import { sline } from './sline.ts';
 import { goldenRod } from './golden-rod.ts';
+import { delsStave } from './dels-stave.ts';
 import { excalibur } from './excalibur.ts';
 import { magusCrown } from './magus-crown.ts';
 import { managuard } from './managuard.ts';
@@ -355,5 +356,6 @@ export const items: ReadonlyArray<ItemDefinition> = [
   shadowblade,
   sline,
   goldenRod,
+  delsStave,
   excalibur,
 ];

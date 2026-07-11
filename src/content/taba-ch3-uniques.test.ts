@@ -14,14 +14,18 @@ import { reduceStatusTick, reduceSystemMpRestore } from '../engine/actions/reduc
 import { runDamagePipeline } from '../engine/damage/pipeline.ts';
 import { defaultDamageHandlers } from '../engine/damage/default-handlers.ts';
 import { attack } from './abilities/attack.ts';
+import { waterStrike } from './abilities/water-strike.ts';
+import { prospectiveMpDumpBonusSp } from '../engine/abilities/mp-dump.ts';
+import { projectExpectedDamage } from '../ai/projection.ts';
+import { advanceToNextEvent } from '../engine/turn/scheduler.ts';
 import { nandanisWrath } from './items/nandanis-wrath.ts';
 import { cremation } from './items/cremation.ts';
 import { shadowblade } from './items/shadowblade.ts';
 import { sline } from './items/sline.ts';
 import { goldenRod } from './items/golden-rod.ts';
+import { delsStave } from './items/dels-stave.ts';
 import { excalibur } from './items/excalibur.ts';
 import { cremationBurnProc } from './abilities/cremation-burn-proc.ts';
-import { shadowbladeProc } from './abilities/shadowblade-proc.ts';
 
 const cat = loadDefaultCatalog();
 
@@ -37,7 +41,15 @@ const holding = (id: string, slot: keyof UnitEquipment = 'rightHand'): UnitEquip
   [slot]: itemId(id),
 });
 
-const UNIQUES = [nandanisWrath, cremation, shadowblade, sline, goldenRod, excalibur];
+const UNIQUES = [
+  nandanisWrath,
+  cremation,
+  shadowblade,
+  sline,
+  goldenRod,
+  delsStave,
+  excalibur,
+];
 
 describe('Ch3 uniques — scoping invariant', () => {
   it("every unique is 'hidden' (TABA-scoped, invisible to Mage War)", () => {
@@ -295,6 +307,132 @@ describe('Golden Rod — the Faustian countdown', () => {
     const unit = state.units.get(unitId('f'))!;
     const ma = runModifyStatQuery(state, cat, { unit, statName: 'ma', baseValue: unit.baseStats.ma });
     expect(ma).toBe(12);
+  });
+});
+
+describe("Del's Stave — the cast-time MP dump (dynamic SP seam)", () => {
+  it('content pin: staff 5 · 80, castMpDump 10 MP per +1 SP', () => {
+    expect(delsStave.weaponType).toBe('staff');
+    expect(delsStave.wp).toBe(5);
+    expect(delsStave.accuracy).toBe(80);
+    expect(delsStave.castMpDump).toEqual({ mpPerBonusSp: 10 });
+  });
+
+  // Full charged flow: commit (dump + bank) → charge → resolve (bonus SP).
+  // Water Lash: SP 8, mpCost 10, actionSpeed 30 (charged). Caster MA 10,
+  // Faith 100 both sides, no variance on magical → exact numbers.
+  const castThrough = (withStave: boolean): { mpAfterCommit: number; banked: number | undefined; damage: number } => {
+    const caster = makeUnit({
+      id: 'c', spd: 10, ma: 10, faith: 100, mp: 98, maxMpBase: 98,
+      ...(withStave ? { equipment: holding('dels_stave') } : {}),
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const target = makeUnit({
+      id: 't', spd: 5, hp: 500, maxHpBase: 500, faith: 100, team: 'team_b',
+      position: { x: 0, y: 2, layer: 0 },
+    });
+    let s = makeGameState({
+      units: [caster, target],
+      map: flatMap(5, 5),
+      turnState: activeTurnFor(unitId('c')),
+      masterSeed: 9,
+    });
+    const cast: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: unitId('c'),
+      payload: {
+        abilityId: abilityId('water_strike'),
+        target: { kind: 'unit', unitId: unitId('t') },
+      },
+    };
+    const committed = commitAction(s, cast, cat);
+    expect(committed.ok).toBe(true);
+    if (!committed.ok) throw new Error('commit failed');
+    s = committed.newState;
+    const mpAfterCommit = s.units.get(unitId('c'))!.vitals.mp;
+    const banked = s.chargedActions[0]?.bonusSpellPower;
+
+    // End the caster's turn so the scheduler can advance the charge.
+    const ended = commitAction(
+      s,
+      { type: 'turn_end', source: 'system', payload: { unitId: unitId('c') } },
+      cat,
+    );
+    if (!ended.ok) throw new Error('turn_end failed');
+    s = ended.newState;
+
+    // Drive the scheduler until the charge resolves.
+    for (let i = 0; i < 60; i++) {
+      const sched = advanceToNextEvent(s, cat);
+      if (sched === null) break;
+      s = sched.newState;
+      const r = commitAction(s, sched.proposed, cat);
+      if (!r.ok) throw new Error(`scheduler commit failed: ${JSON.stringify(r)}`);
+      s = r.newState;
+      if (sched.proposed.type === 'charged_action_resolve') break;
+    }
+    const damage = 500 - s.units.get(unitId('t'))!.vitals.hp;
+    return { mpAfterCommit, banked, damage };
+  };
+
+  it('charged flow: commit dumps ALL MP, banks the bonus, resolve deals (SP + bonus) damage', () => {
+    const bare = castThrough(false);
+    expect(bare.mpAfterCommit).toBe(88); // normal cost 10
+    expect(bare.banked).toBeUndefined();
+    expect(bare.damage).toBe(80); // MA 10 × SP 8
+
+    const nova = castThrough(true);
+    expect(nova.mpAfterCommit).toBe(0); // ALL of it
+    expect(nova.banked).toBe(8); // floor((98 − 10) / 10)
+    expect(nova.damage).toBe(160); // MA 10 × (SP 8 + 8)
+  });
+
+  it('projection parity: the pre-commit forecast equals the live resolve (three-resolver discipline)', () => {
+    const caster = makeUnit({
+      id: 'c', spd: 10, ma: 10, faith: 100, mp: 98, maxMpBase: 98,
+      equipment: holding('dels_stave'),
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const target = makeUnit({
+      id: 't', spd: 5, hp: 500, maxHpBase: 500, faith: 100, team: 'team_b',
+      position: { x: 0, y: 2, layer: 0 },
+    });
+    const s = makeGameState({ units: [caster, target], map: flatMap(5, 5) });
+    const projected = projectExpectedDamage({
+      state: s,
+      catalog: cat,
+      attacker: s.units.get(unitId('c'))!,
+      target: s.units.get(unitId('t'))!,
+      ability: waterStrike,
+      noEvasion: true,
+    });
+    expect(projected).toBe(160); // identical to the live charged resolve above
+  });
+
+  it('cheapest-spell incentive: lower cost → more leftover → more bonus SP', () => {
+    const caster = makeUnit({
+      id: 'c', spd: 10, mp: 98, maxMpBase: 98,
+      equipment: holding('dels_stave'),
+    });
+    const s = makeGameState({ units: [caster] });
+    const unit = s.units.get(unitId('c'))!;
+    const cheap = prospectiveMpDumpBonusSp(s, cat, unit, waterStrike); // cost 10
+    const dear = prospectiveMpDumpBonusSp(
+      s, cat, unit,
+      cat.getAbility(abilityId('maelstrom')) as typeof waterStrike, // cost 28
+    );
+    expect(cheap).toBe(8); // floor(88 / 10)
+    expect(dear).toBe(7); // floor(70 / 10)
+  });
+
+  it('non-magical actions do not dump (the gate is the magical tag)', () => {
+    const caster = makeUnit({
+      id: 'c', spd: 10, mp: 50, maxMpBase: 50,
+      equipment: holding('dels_stave'),
+    });
+    const s = makeGameState({ units: [caster] });
+    expect(prospectiveMpDumpBonusSp(s, cat, s.units.get(unitId('c'))!, attack)).toBe(0);
   });
 });
 

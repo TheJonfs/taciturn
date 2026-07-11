@@ -478,6 +478,14 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
     }
   }
 
+  // Cast-time MP dump (Del's Stave — the dynamic-SP-from-MP seam).
+  if (item.kind === 'weapon' && item.castMpDump !== undefined) {
+    lines.push(
+      `On any magical cast: spends ALL current MP; ` +
+        `+1 Spell Power per ${item.castMpDump.mpPerBonusSp} MP spent beyond the spell's cost`,
+    );
+  }
+
   // MP-cost multipliers (Staff of Power ×1.20).
   if (item.mpCostMultipliers !== undefined && item.mpCostMultipliers.length > 0) {
     for (const factor of item.mpCostMultipliers) {

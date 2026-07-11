@@ -60,6 +60,7 @@ import {
   type DamageHandlerRegistry,
 } from '@engine/damage/index.ts';
 import { expectActiveAbility } from '@engine/actions/index.ts';
+import { prospectiveMpDumpBonusSp } from '@engine/abilities/index.ts';
 import { getEquippedWeapon } from '@engine/items/index.ts';
 import {
   runModifyAttackerElevation,
@@ -287,6 +288,18 @@ export function projectDamageContext(args: ProjectExpectedDamageArgs): DamageCon
 }
 
 function runDamagePipelineProjection(args: ProjectExpectedDamageArgs): DamageContext {
+  // TABA Ch3 (Del's Stave): a projection always evaluates a PROSPECTIVE
+  // cast against live vitals, so the cast-time MP-dump SP bonus is
+  // recomputed here from the same shared formula the reducer banks at
+  // commit — the live engine, this AI projection, and the UI forecast
+  // (which routes through here) stay one resolver. 0 for every caster
+  // without a castMpDump weapon.
+  const dumpBonus = prospectiveMpDumpBonusSp(
+    args.state,
+    args.catalog,
+    args.attacker,
+    args.ability,
+  );
   return runDamagePipeline({
     state: args.state,
     catalog: args.catalog,
@@ -299,6 +312,7 @@ function runDamagePipelineProjection(args: ProjectExpectedDamageArgs): DamageCon
     seed: 0,
     registry: args.noEvasion === true ? projectionRegistryNoEvasion : projectionRegistry,
     ...(args.targetCount !== undefined ? { targetCount: args.targetCount } : {}),
+    ...(dumpBonus > 0 ? { additionalPowerCoefficient: dumpBonus } : {}),
   });
 }
 

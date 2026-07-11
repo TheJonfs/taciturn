@@ -29,6 +29,12 @@ export {
   type ReactionTriggerHook,
 } from './reaction-compiler.ts';
 export { computeMpCost, getCommandSetCost, getCost } from './cost.ts';
+export {
+  castMpDumpApplies,
+  castMpDumpSpec,
+  mpDumpBonusSp,
+  prospectiveMpDumpBonusSp,
+} from './mp-dump.ts';
 export { computeAbilityRange, type AbilityRangeView } from './range.ts';
 export {
   weaponRangeFromHeightSpec,

@@ -685,6 +685,18 @@ export interface WeaponEquipment extends EquipmentBase {
   // queried stat runs through modifyStatQuery, so MA buffs compose
   // exactly like PA buffs do.
   readonly attackStat?: 'pa' | 'ma';
+  // TABA Ch3 (Del's Stave): the cast-time MP dump. When the wielder
+  // commits any 'magical'-tagged cast, the cast spends ALL current MP
+  // (not just the cost) and gains +1 Spell Power per `mpPerBonusSp` MP
+  // spent beyond the effective cost (floor). NO artificial cap — the MP
+  // economy self-caps (restore rates never refill to a stacked-MaxMP
+  // peak, so the nova is once per battle by construction). The bonus is
+  // computed at COMMIT (see `mpDumpBonusSp`) and, for charged spells,
+  // carried on the ChargedAction; projection/forecast recompute it from
+  // live vitals pre-commit so all three resolvers agree.
+  readonly castMpDump?: {
+    readonly mpPerBonusSp: number;
+  };
   // TABA M3 (Healer's Staff): when `true`, this weapon's weapon strikes
   // (damage tags include 'weapon') resolve as HEALING instead of damage.
   // At pipeline entry the tag set flips ('physical' out, 'healing' in),

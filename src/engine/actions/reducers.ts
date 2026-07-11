@@ -118,6 +118,7 @@ import {
 import { expectActiveAbility } from './validate.ts';
 import { isRiderCast } from './payload-helpers.ts';
 import { computeMpCost } from '../abilities/cost.ts';
+import { castMpDumpApplies, castMpDumpSpec, mpDumpBonusSp } from '../abilities/mp-dump.ts';
 import { computeAbilityRange } from '../abilities/range.ts';
 import { resolveWorldcraftCast } from '../abilities/worldcraft-resolution.ts';
 import { computeBarrierDamage } from '../damage/barrier-damage.ts';
@@ -421,6 +422,21 @@ export function reduceUseAbility(
     );
     mpCost += perTarget * matched.length;
   }
+  // TABA Ch3 (Del's Stave): a castMpDump weapon turns every magical cast
+  // into a full-MP dump — the deduction below takes EVERYTHING, and the
+  // overspend converts to bonus Spell Power (floor(excess / mpPerBonusSp),
+  // no cap). Computed HERE because pre-cast MP only exists at commit: an
+  // instant cast threads the bonus straight into the dispatch, a charged
+  // cast banks it on the ChargedAction. Rider casts are exempt (the
+  // weapon pays for procs, not the wielder — ADR-0064).
+  let bonusSpellPower = 0;
+  if (!isRider && castMpDumpApplies(ability)) {
+    const dumpSpec = castMpDumpSpec(actor, catalog);
+    if (dumpSpec !== null) {
+      bonusSpellPower = mpDumpBonusSp(actor.vitals.mp, mpCost, dumpSpec);
+      mpCost = actor.vitals.mp; // spend ALL of it — that's the contract
+    }
+  }
   let workingState: GameState = state;
   if (!isRider && mpCost > 0) {
     workingState = withUnit(state, {
@@ -475,7 +491,7 @@ export function reduceUseAbility(
   // the fourth such bypass site (per ADR-0064's "one bypass, three
   // semantics" rationale, now four).
   if (ability.actionSpeed > 0 && !isRider) {
-    return commitCharged(workingState, action, ability, actor, catalog, mpCost);
+    return commitCharged(workingState, action, ability, actor, catalog, mpCost, bonusSpellPower);
   }
 
   // Session 45: caster-reposition (Scramble). Resolves instantly by
@@ -581,6 +597,9 @@ export function reduceUseAbility(
     sourceActionSeq: action.sequenceNumber,
     seed: action.seed,
     ...(action.isReaction === true ? { isReaction: true } : {}),
+    // Del's Stave: the instant-cast dump bonus rides the same thread the
+    // charged path banks on the ChargedAction.
+    ...(bonusSpellPower > 0 ? { additionalPowerCoefficient: bonusSpellPower } : {}),
   });
 
   // onActionResolved fires once per UseAbility against the actor's
@@ -818,6 +837,9 @@ function commitCharged(
   actor: Unit,
   catalog: Catalog,
   mpCost: number,
+  // Del's Stave dump bonus, banked here because resolution can't read
+  // pre-cast MP (it's already spent). 0 → field omitted.
+  bonusSpellPower: number,
 ): ReduceResult<UseAbilityOutcome> {
   const targets = buildTargetRefs(action.payload.target);
   const caId = chargedActionId(`ca:${actor.id}:${action.sequenceNumber}`);
@@ -838,6 +860,7 @@ function commitCharged(
     speed: computeChargedActionSpeed(state, catalog, actor, ability),
     targets,
     sourceSequenceNumber: action.sequenceNumber,
+    ...(bonusSpellPower > 0 ? { bonusSpellPower } : {}),
   };
 
   let workingState: GameState = {
@@ -1820,6 +1843,11 @@ interface ResolveAbilityTargetsArgs {
   // Forwarded to `resolveAbilityEffect` so the reaction-trigger guard
   // fires when the cast itself is a reaction. See `ResolveAbilityEffectArgs`.
   readonly isReaction?: boolean;
+  // TABA Ch3 (Del's Stave): commit-time SP bonus (instant casts pass it
+  // directly; charged casts carry it on ChargedAction.bonusSpellPower).
+  // Every dispatch flavor forwards it to `resolveAbilityEffect`; the
+  // math_skill dispatch SUMS it with its own Mathematician bonus.
+  readonly additionalPowerCoefficient?: number;
 }
 
 interface ResolveAbilityTargetsResult {
@@ -2209,6 +2237,9 @@ function resolveMixedSwings(
             applyCasterEffects: i === 0,
             ...(slot !== undefined ? { attackingWeaponSlot: slot } : {}),
             ...(args.isReaction === true ? { isReaction: true } : {}),
+            ...(args.additionalPowerCoefficient !== undefined
+              ? { additionalPowerCoefficient: args.additionalPowerCoefficient }
+              : {}),
           });
 
     workingState = r.newState;
@@ -2258,6 +2289,9 @@ function resolveSingleTargetDispatch(
       sourceActionSeq: args.sourceActionSeq,
       seed: perTargetSeed(args.seed, 0),
       ...(args.isReaction === true ? { isReaction: true } : {}),
+      ...(args.additionalPowerCoefficient !== undefined
+        ? { additionalPowerCoefficient: args.additionalPowerCoefficient }
+        : {}),
     });
     return {
       newState: resolved.newState,
@@ -2303,6 +2337,9 @@ function resolveSingleTargetDispatch(
       applyCasterEffects: i === 0,
       ...(slot !== undefined ? { attackingWeaponSlot: slot } : {}),
       ...(args.isReaction === true ? { isReaction: true } : {}),
+      ...(args.additionalPowerCoefficient !== undefined
+        ? { additionalPowerCoefficient: args.additionalPowerCoefficient }
+        : {}),
     });
     workingState = resolved.newState;
     for (const r of resolved.perTargetResults) perTargetResults.push(r);
@@ -2518,6 +2555,9 @@ function resolveAoeDispatch(
       targetCount: affected.length,
       ...(weaponSlot !== undefined ? { attackingWeaponSlot: weaponSlot } : {}),
       ...(args.isReaction === true ? { isReaction: true } : {}),
+      ...(args.additionalPowerCoefficient !== undefined
+        ? { additionalPowerCoefficient: args.additionalPowerCoefficient }
+        : {}),
     });
     workingState = resolved.newState;
     for (const r of resolved.perTargetResults) allResults.push(r);
@@ -2621,11 +2661,15 @@ function resolveMathSkillDispatch(
   //     directly, so an ability synthesized with bumped `factor` values
   //     does take effect. `applyMathSkillSpBonus` handles only that
   //     synthesis now; damage abilities pass through untouched.
-  const spBonus = runModifyMathSkillSpBonus(state, catalog, {
-    unit: args.attacker,
-    ability: args.ability,
-    baseValue: 0,
-  });
+  const spBonus =
+    runModifyMathSkillSpBonus(state, catalog, {
+      unit: args.attacker,
+      ability: args.ability,
+      baseValue: 0,
+    }) +
+    // Del's Stave dump bonus (threaded from commit) sums with the
+    // Mathematician bonus — both are flat SP adders.
+    (args.additionalPowerCoefficient ?? 0);
   const dispatchAbility = applyMathSkillSpBonus(args.ability, spBonus);
 
   // Per-target dispatch (mirrors AoE). Each matched unit receives the
@@ -4108,6 +4152,11 @@ export function reduceChargedActionResolve(
       incomingProposed: proposedAtResolve,
       sourceActionSeq: action.sequenceNumber,
       seed: action.seed,
+      // Del's Stave: the commit-time MP-dump SP bonus, banked on the
+      // ChargedAction (the MP is long spent by resolution).
+      ...(ca.bonusSpellPower !== undefined
+        ? { additionalPowerCoefficient: ca.bonusSpellPower }
+        : {}),
     });
     workingState = resolved.newState;
     for (const r of resolved.perTargetResults) allResults.push(r);

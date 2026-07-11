@@ -257,10 +257,10 @@ describe('loadDefaultCatalog', () => {
     // spiked_maul, estoc, trident, epee, palliative_pike, prism_wand,
     // scouring_wand, moon_robe, star_robe, terra_robe, void_robe).
     // TABA M3 breadth-enabler: 132 → 133 (freelancers_charm).
-    // TABA Ch3 weapon uniques: 133 → 139 (nandanis_wrath, cremation,
-    // shadowblade, sline, golden_rod, excalibur — the two seam weapons,
-    // Volley Bow and Del's Stave, land with their engine seams).
-    expect(cat.items()).toHaveLength(139);
+    // TABA Ch3 weapon uniques: 133 → 140 (nandanis_wrath, cremation,
+    // shadowblade, sline, golden_rod, excalibur, dels_stave — Volley
+    // Bow lands with its weapon-AoE seam).
+    expect(cat.items()).toHaveLength(140);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

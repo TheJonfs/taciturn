@@ -232,6 +232,7 @@ export const TABA_NEW_CH3: ReadonlyArray<TabaGearEntry> = [
   entry('shadowblade', 3, 'unique'),
   entry('sline', 3, 'unique'),
   entry('golden_rod', 3, 'unique'),
+  entry('dels_stave', 3, 'unique'),
   entry('excalibur', 3, 'unique'),
 ];
 
