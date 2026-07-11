@@ -1,18 +1,28 @@
 // WorldMapBeatView — the world-map choose-next beat (TABA M1 Chunk 3).
 //
 // A LIGHTWEIGHT, hand-authored SVG of the campaign graph: nodes as points,
-// win-edges as connections. It marks the just-cleared node ("you are here")
-// and highlights + makes selectable the available next nodes (the beat's
-// `choices` — the cleared node's win-edges). Selecting one advances the
-// interstitial with that node id, which the driver routes to.
+// win-edges as connections. It marks where the company stands (the party
+// banner), highlights + makes selectable every travel destination (the
+// beat's `choices` — frontier + returnable, see travel.ts), and — before
+// advancing — MARCHES the banner along the road to the picked destination
+// (the FFT world-map beat: you watch the party walk, then the place opens).
+// The march is pure presentation: `onAdvance` fires with the chosen node id
+// exactly as before, just after the walk completes. Reduced-motion (and
+// environments without rAF, e.g. tests) skip straight to the advance.
 //
 // PLACEHOLDER FIDELITY IS THE POINT (taba-m1-brief): stylized structure, no
 // art pipeline, easy to reskin. Topology comes from the static authored graph
 // (M1_CAMPAIGN_GRAPH); the beat supplies only position + the selectable set,
 // so the runner stays graph-agnostic.
 
-import { type CSSProperties, type ReactElement } from 'react';
-import { M1_CAMPAIGN_GRAPH, M1_NODES, type TravelChoice, type WorldMapChoiceBeat } from '@campaign/index.ts';
+import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
+import {
+  M1_CAMPAIGN_GRAPH,
+  M1_NODES,
+  type CampaignGraph,
+  type TravelChoice,
+  type WorldMapChoiceBeat,
+} from '@campaign/index.ts';
 import type { BeatRendererProps } from './InterstitialRunner.tsx';
 
 // Hand-authored node positions (viewBox units). Laid out left→right to read
@@ -27,12 +37,154 @@ const NODE_LAYOUT: Readonly<Record<string, { x: number; y: number }>> = {
   [M1_NODES.theReturn]: { x: 570, y: 175 },
 };
 
+type Point = { readonly x: number; readonly y: number };
+
+// The in-flight march: where we're headed and the road there (polyline of
+// node positions, starting at the current node).
+interface MarchState {
+  readonly toId: string;
+  readonly waypoints: ReadonlyArray<Point>;
+}
+
+// Marching pace, in ms per road segment (clamped overall so a long return
+// trip doesn't drag). Zero/absent rAF ⇒ no animation (tests, SSR).
+const MARCH_MS_PER_SEGMENT = 550;
+const MARCH_MS_MIN = 450;
+const MARCH_MS_MAX = 1600;
+
+// The road between two locations: BFS over the authored win-edges treated as
+// UNDIRECTED (roads run both ways even though progress doesn't), so a return
+// trip marches back through the places actually between here and there.
+// Falls back to a straight line if the layout/graph can't supply a road.
+function roadBetween(graph: CampaignGraph, fromId: string, toId: string): ReadonlyArray<Point> {
+  const from = NODE_LAYOUT[fromId];
+  const to = NODE_LAYOUT[toId];
+  if (from === undefined || to === undefined) return [];
+  if (fromId === toId) return [from];
+
+  const neighbors = new Map<string, string[]>();
+  for (const e of graph.edges) {
+    if (e.on !== 'win') continue;
+    (neighbors.get(e.from) ?? neighbors.set(e.from, []).get(e.from)!).push(e.to);
+    (neighbors.get(e.to) ?? neighbors.set(e.to, []).get(e.to)!).push(e.from);
+  }
+
+  const cameFrom = new Map<string, string>([[fromId, fromId]]);
+  const queue = [fromId];
+  while (queue.length > 0) {
+    const at = queue.shift()!;
+    if (at === toId) break;
+    for (const next of neighbors.get(at) ?? []) {
+      if (cameFrom.has(next)) continue;
+      cameFrom.set(next, at);
+      queue.push(next);
+    }
+  }
+  if (!cameFrom.has(toId)) return [from, to]; // disconnected: straight line
+
+  const ids: string[] = [];
+  for (let at = toId; at !== fromId; at = cameFrom.get(at)!) ids.unshift(at);
+  ids.unshift(fromId);
+  const points = ids.map((id) => NODE_LAYOUT[id]).filter((p): p is Point => p !== undefined);
+  return points.length >= 2 ? points : [from, to];
+}
+
+// The point a fraction `f` (0..1 of total length) along a polyline.
+function pointAlong(waypoints: ReadonlyArray<Point>, f: number): Point {
+  const lengths: number[] = [];
+  let total = 0;
+  for (let i = 1; i < waypoints.length; i += 1) {
+    const len = Math.hypot(waypoints[i]!.x - waypoints[i - 1]!.x, waypoints[i]!.y - waypoints[i - 1]!.y);
+    lengths.push(len);
+    total += len;
+  }
+  if (total === 0) return waypoints[0]!;
+  let remaining = f * total;
+  for (let i = 0; i < lengths.length; i += 1) {
+    if (remaining <= lengths[i]! || i === lengths.length - 1) {
+      const t = lengths[i]! === 0 ? 0 : Math.min(1, remaining / lengths[i]!);
+      const a = waypoints[i]!;
+      const b = waypoints[i + 1]!;
+      return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+    }
+    remaining -= lengths[i]!;
+  }
+  return waypoints[waypoints.length - 1]!;
+}
+
+const easeInOut = (t: number): number => (t < 0.5 ? 2 * t * t : 1 - (1 - t) * (2 - 2 * t));
+
+// Should the march animate at all? Skipped under an OS reduced-motion
+// preference, where rAF is missing, and in the test environment (the march
+// is pure choreography — routing tests assert the advance, not the walk).
+// The behavior is identical either way: onAdvance fires with the same id.
+function marchAnimates(): boolean {
+  if (import.meta.env.MODE === 'test') return false;
+  if (typeof requestAnimationFrame !== 'function') return false;
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+  }
+  return true;
+}
+
 export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoster }: BeatRendererProps): ReactElement {
+  // March state must precede the beat-type guard (rules of hooks); it only
+  // ever holds a value while this IS the world-map beat.
+  const [march, setMarch] = useState<MarchState | null>(null);
+  const [marchPos, setMarchPos] = useState<Point | null>(null);
+
+  useEffect(() => {
+    if (march === null) return undefined;
+    const segments = march.waypoints.length - 1;
+    const total = Math.min(MARCH_MS_MAX, Math.max(MARCH_MS_MIN, segments * MARCH_MS_PER_SEGMENT));
+    const start = performance.now();
+    let raf = 0;
+    let done = false;
+    const finish = (): void => {
+      if (done) return;
+      done = true;
+      onAdvance({ nextNodeId: march.toId });
+    };
+    const step = (now: number): void => {
+      const t = Math.min(1, (now - start) / total);
+      const p = pointAlong(march.waypoints, easeInOut(t));
+      // The marching bob: a small vertical sway, two cycles per segment.
+      const bob = Math.sin(t * segments * Math.PI * 2) * 2.5;
+      setMarchPos({ x: p.x, y: p.y + bob });
+      if (t < 1) raf = requestAnimationFrame(step);
+      else finish();
+    };
+    raf = requestAnimationFrame(step);
+    // Failsafe: rAF freezes in hidden/backgrounded tabs — the march must
+    // still ARRIVE (the advance is the real behavior; the walk is garnish).
+    const failsafe = window.setTimeout(finish, total + 600);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(failsafe);
+    };
+    // march is the only trigger; onAdvance is stable for the runner's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [march]);
+
   if (beat.type !== 'world-map-choice') return <></>;
   const map: WorldMapChoiceBeat = beat;
 
   const graph = M1_CAMPAIGN_GRAPH;
   const choiceById = new Map(map.choices.map((c) => [c.id, c]));
+  const marching = march !== null;
+
+  const select = (toId: string): void => {
+    if (marching) return; // one march at a time; clicks ignored en route
+    const waypoints = roadBetween(graph, map.fromNodeId, toId);
+    if (!marchAnimates() || waypoints.length < 2) {
+      onAdvance({ nextNodeId: toId }); // self re-entry / reduced motion / tests
+      return;
+    }
+    setMarch({ toId, waypoints });
+  };
+
+  const herePos = NODE_LAYOUT[map.fromNodeId];
+  const bannerPos = marchPos ?? herePos;
 
   return (
     <div style={rootStyle}>
@@ -40,7 +192,9 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
         <div style={headerStyle}>
           <div>
             <h1 style={titleStyle}>The Road Ahead</h1>
-            <div style={subtitleStyle}>Choose where your company marches next.</div>
+            <div style={subtitleStyle}>
+              {marching ? 'The company is on the march…' : 'Choose where your company marches next.'}
+            </div>
           </div>
           {/* The party purse (M3 economy Stage 0). */}
           <div style={purseStyle} aria-label="Party gil">
@@ -57,7 +211,7 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
               const a = NODE_LAYOUT[e.from];
               const b = NODE_LAYOUT[e.to];
               if (a === undefined || b === undefined) return null;
-              const active = choiceById.get(e.to)?.kind === 'advance';
+              const active = !marching && choiceById.get(e.to)?.kind === 'advance';
               return (
                 <line
                   key={`${e.from}->${e.to}`}
@@ -76,36 +230,59 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
             const pos = NODE_LAYOUT[n.id];
             if (pos === undefined) return null;
             const isHere = n.id === map.fromNodeId;
-            const choice = choiceById.get(n.id);
+            const choice = marching ? undefined : choiceById.get(n.id);
             return (
               <MapNode
                 key={n.id}
                 x={pos.x}
                 y={pos.y}
                 name={n.name}
-                isHere={isHere}
+                isHere={isHere && !marching}
                 choice={choice}
-                onSelect={choice !== undefined ? () => onAdvance({ nextNodeId: n.id }) : undefined}
+                onSelect={choice !== undefined ? () => select(n.id) : undefined}
               />
             );
           })}
+
+          {/* The party banner — standing at the current node, or marching
+              along the road. Drawn last so it walks OVER nodes and edges. */}
+          {bannerPos !== undefined && <PartyBanner x={bannerPos.x} y={bannerPos.y} marching={marching} />}
         </svg>
 
         <div style={footerStyle}>
-          <span style={hintStyle}>Click a highlighted destination to continue.</span>
+          <span style={hintStyle}>
+            {marching ? ' ' : 'Click a highlighted destination to continue.'}
+          </span>
           <div style={{ display: 'flex', gap: 8 }}>
-            {onManageRoster ? (
+            {onManageRoster && !marching ? (
               <button type="button" style={primaryStyle} onClick={onManageRoster}>
                 Manage Roster
               </button>
             ) : null}
-            <button type="button" style={secondaryStyle} onClick={onExitToTitle}>
+            <button type="button" style={secondaryStyle} onClick={onExitToTitle} disabled={marching}>
               Quit to Title
             </button>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// The party's map presence: a gold standard (pole + pennant) planted beside
+// the node, with a soft ground shadow. Placeholder-fidelity art — a sprite
+// can replace this <g> wholesale later without touching the march machinery.
+function PartyBanner({ x, y, marching }: { readonly x: number; readonly y: number; readonly marching: boolean }): ReactElement {
+  return (
+    <g transform={`translate(${x}, ${y})`} aria-label={marching ? 'The company, marching' : 'The company'}>
+      <ellipse cx={0} cy={1} rx={7} ry={2.5} fill="#000" opacity={0.45} />
+      {/* pole */}
+      <line x1={0} y1={0} x2={0} y2={-20} stroke="#d8b26c" strokeWidth={2} strokeLinecap="round" />
+      {/* pennant */}
+      <path d="M 1 -20 L 14 -16.5 L 1 -13 Z" fill="#d8b26c" stroke="#8f7644" strokeWidth={0.8} />
+      {/* the company at the pole's foot */}
+      <circle cx={0} cy={-2} r={3.2} fill="#e7e9ee" stroke="#8f7644" strokeWidth={1} />
+    </g>
   );
 }
 
@@ -147,7 +324,6 @@ function MapNode({ x, y, name, isHere, choice, onSelect }: MapNodeProps): ReactE
           gold = returnable). */}
       {isChoice && <circle cx={x} cy={y} r={20} fill="none" stroke={ring} strokeWidth={1.5} opacity={0.6} />}
       <circle cx={x} cy={y} r={13} fill={fill} stroke={stroke} strokeWidth={2} />
-      {isHere && <circle cx={x} cy={y} r={4} fill="#9aa0ac" />}
       <text x={x} y={y + 32} textAnchor="middle" fontSize={13} fill={textColor} fontWeight={isHere || isChoice ? 600 : 400}>
         {name}
       </text>
@@ -157,7 +333,7 @@ function MapNode({ x, y, name, isHere, choice, onSelect }: MapNodeProps): ReactE
         </text>
       )}
       {isHere && (
-        <text x={x} y={y - 22} textAnchor="middle" fontSize={10} fill="#9aa0ac" letterSpacing="0.1em">
+        <text x={x} y={y - 28} textAnchor="middle" fontSize={10} fill="#9aa0ac" letterSpacing="0.1em">
           HERE
         </text>
       )}
@@ -198,6 +374,7 @@ const purseStyle: CSSProperties = {
   color: '#d8b26c',
   whiteSpace: 'nowrap',
 };
+
 const titleStyle: CSSProperties = { margin: 0, fontSize: 18, fontWeight: 600 };
 const subtitleStyle: CSSProperties = { marginTop: 4, fontSize: 13, color: '#9aa0ac' };
 

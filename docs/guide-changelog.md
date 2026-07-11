@@ -77,6 +77,11 @@ describe mechanisms, not values, in the guide.
   the buy price**, only for unequipped instances, and **unique items can
   never be sold** (the row says why). Prices are flat placeholders (500 gil)
   for now.
+- **The party marches on the map.** The company is marked by a gold banner
+  standing at its current location; picking a destination sends the banner
+  walking along the roads (through intermediate stops on a long return trip)
+  before the destination opens — the FFT world-map beat. Respects the OS
+  reduced-motion setting (instant travel).
 - **Recruitment at hubs.** Hire a generic soldier at a chosen class and
   level: any Tier-1 class (Alchemist, Monk, Hunter, Pyromancer, Hydrologist,
   Geosage), **level capped at your party's current average** — hires can
