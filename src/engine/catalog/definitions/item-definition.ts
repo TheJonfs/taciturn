@@ -685,6 +685,20 @@ export interface WeaponEquipment extends EquipmentBase {
   // queried stat runs through modifyStatQuery, so MA buffs compose
   // exactly like PA buffs do.
   readonly attackStat?: 'pa' | 'ma';
+  // TABA Ch3 (Volley Bow): weapon-attack AoE — the basic Attack strikes
+  // a diamond of this radius around the AIMED TILE instead of a single
+  // target, and (with the targeting upgrade in validateAction) may aim
+  // at an empty tile: the starting-cluster opener. Extends the lance-
+  // pierce weapon-attack-shape seam (`pierces` above): both inject a
+  // weapon-declared AoeSpec into the basic Attack's dispatch; this one
+  // is target-anchored where pierce is caster-anchored. Friendly fire
+  // per the ruleset's global mode (v1 default TRUE — the Volley Bow
+  // DOES hit allies, a settled ruling: deliberately not a safe melee
+  // tool). Per-target accuracy/evasion via the standard AoE per-target
+  // seeds. Absent → single-target (existing behavior).
+  readonly attackAoe?: {
+    readonly radius: number;
+  };
   // TABA Ch3 (Del's Stave): the cast-time MP dump. When the wielder
   // commits any 'magical'-tagged cast, the cast spends ALL current MP
   // (not just the cost) and gains +1 Spell Power per `mpPerBonusSp` MP

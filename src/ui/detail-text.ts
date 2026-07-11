@@ -478,6 +478,14 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
     }
   }
 
+  // Weapon-attack AoE (Volley Bow — the target-anchored attack-shape seam).
+  if (item.kind === 'weapon' && item.attackAoe !== undefined) {
+    lines.push(
+      `Basic Attack: strikes every unit in a diamond-${item.attackAoe.radius} area ` +
+        `around the aimed tile (empty ground aimable) — allies included`,
+    );
+  }
+
   // Cast-time MP dump (Del's Stave — the dynamic-SP-from-MP seam).
   if (item.kind === 'weapon' && item.castMpDump !== undefined) {
     lines.push(

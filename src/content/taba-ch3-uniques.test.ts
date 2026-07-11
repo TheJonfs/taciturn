@@ -5,7 +5,14 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from './index.ts';
-import { abilityId, itemId, statusTypeId, unitId, commitAction } from '@engine/index.ts';
+import {
+  abilityId,
+  commitAction,
+  itemId,
+  statusTypeId,
+  unitId,
+  validateAction,
+} from '@engine/index.ts';
 import type { ProposedAction, UnitEquipment } from '@engine/index.ts';
 import { runModifyStatQuery, runModifySwingsPerWeapon } from '../engine/hooks/runners.ts';
 import { activeTurnFor, makeGameState, makeUnit } from '../engine/ct/test-fixtures.ts';
@@ -24,6 +31,7 @@ import { shadowblade } from './items/shadowblade.ts';
 import { sline } from './items/sline.ts';
 import { goldenRod } from './items/golden-rod.ts';
 import { delsStave } from './items/dels-stave.ts';
+import { volleyBow } from './items/volley-bow.ts';
 import { excalibur } from './items/excalibur.ts';
 import { cremationBurnProc } from './abilities/cremation-burn-proc.ts';
 
@@ -48,6 +56,7 @@ const UNIQUES = [
   sline,
   goldenRod,
   delsStave,
+  volleyBow,
   excalibur,
 ];
 
@@ -433,6 +442,127 @@ describe("Del's Stave — the cast-time MP dump (dynamic SP seam)", () => {
     });
     const s = makeGameState({ units: [caster] });
     expect(prospectiveMpDumpBonusSp(s, cat, s.units.get(unitId('c'))!, attack)).toBe(0);
+  });
+});
+
+describe('Volley Bow — tile-aimed diamond-1 weapon-attack AoE', () => {
+  it('content pin: bow 2H 8 · 40, opener range 2–4, diamond-1 attackAoe', () => {
+    expect(volleyBow.weaponType).toBe('bow');
+    expect(volleyBow.twoHanded).toBe(true);
+    expect(volleyBow.wp).toBe(8);
+    expect(volleyBow.accuracy).toBe(40);
+    expect(volleyBow.range).toEqual({ min: 2, max: 4, vertical: 99 });
+    expect(volleyBow.attackAoe).toEqual({ radius: 1 });
+  });
+
+  const volleyState = () => {
+    const archer = makeUnit({
+      id: 'a', spd: 10, pa: 10,
+      equipment: holding('volley_bow'),
+      position: { x: 0, y: 0, layer: 0 },
+    });
+    const enemy = makeUnit({
+      id: 'e', spd: 10, hp: 300, maxHpBase: 300, team: 'team_b',
+      position: { x: 0, y: 3, layer: 0 },
+    });
+    const ally = makeUnit({
+      id: 'f', spd: 10, hp: 300, maxHpBase: 300,
+      position: { x: 1, y: 3, layer: 0 }, // inside the diamond around (0,3)
+    });
+    const far = makeUnit({
+      id: 'z', spd: 10, hp: 300, maxHpBase: 300, team: 'team_b',
+      position: { x: 4, y: 4, layer: 0 }, // outside the blast
+    });
+    return makeGameState({
+      units: [archer, enemy, ally, far],
+      map: flatMap(6, 6),
+      turnState: activeTurnFor(unitId('a')),
+      masterSeed: 11,
+    });
+  };
+
+  it('validation: the basic Attack accepts an EMPTY tile with the Volley Bow, not with a Longbow', () => {
+    const state = volleyState();
+    const aimAtEmpty: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: unitId('a'),
+      payload: { abilityId: abilityId('attack'), target: { kind: 'tile', position: { x: 0, y: 2, layer: 0 } } },
+    };
+    expect(validateAction(state, aimAtEmpty, cat).valid).toBe(true);
+
+    const longbowState = makeGameState({
+      units: [
+        makeUnit({ id: 'a', spd: 10, equipment: holding('longbow'), position: { x: 0, y: 0, layer: 0 } }),
+      ],
+      map: flatMap(6, 6),
+      turnState: activeTurnFor(unitId('a')),
+    });
+    expect(validateAction(longbowState, aimAtEmpty, cat).valid).toBe(false);
+  });
+
+  it('resolution: a unit-aimed volley sweeps the diamond — enemy AND adjacent ally roll, far unit untouched', () => {
+    const state = volleyState();
+    const volley: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: unitId('a'),
+      payload: { abilityId: abilityId('attack'), target: { kind: 'unit', unitId: unitId('e') } },
+    };
+    const r = commitAction(state, volley, cat);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const root = r.committed[0]!;
+    if (root.type !== 'use_ability' || root.outcome === undefined) {
+      throw new Error('expected a use_ability outcome');
+    }
+    const resultIds = root.outcome.perTargetResults.map((t) =>
+      t.target.kind === 'unit' ? String(t.target.unitId) : t.target.kind,
+    );
+    // Friendly fire: the ally shares the footprint with the enemy.
+    expect(resultIds).toContain('e');
+    expect(resultIds).toContain('f');
+    expect(resultIds).not.toContain('z');
+  });
+
+  it('resolution: an EMPTY-tile volley still blasts the adjacent units (the opener shot)', () => {
+    const state = volleyState();
+    // Aim at (1,2): empty ground; diamond-1 covers... nothing there. Use
+    // (0,2)? empty, diamond covers (0,3)=enemy and (1,2)... Aim at (1,3):
+    // empty tile between enemy (0,3) and nothing — diamond covers enemy
+    // AND ally (1,3 is ally's tile? no — ally IS at (1,3)). Aim at the
+    // empty (0,2): diamond-1 = {(0,2),(0,1),(0,3),(1,2),(-1,2)} → enemy only.
+    const volley: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: unitId('a'),
+      payload: { abilityId: abilityId('attack'), target: { kind: 'tile', position: { x: 0, y: 2, layer: 0 } } },
+    };
+    const r = commitAction(state, volley, cat);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const root = r.committed[0]!;
+    if (root.type !== 'use_ability' || root.outcome === undefined) {
+      throw new Error('expected a use_ability outcome');
+    }
+    const resultIds = root.outcome.perTargetResults.map((t) =>
+      t.target.kind === 'unit' ? String(t.target.unitId) : t.target.kind,
+    );
+    expect(resultIds).toContain('e'); // caught in the blast off an empty anchor
+    expect(resultIds).not.toContain('f');
+  });
+
+  it('projection: the AI/forecast resolver evaluates a volley target without throwing', () => {
+    const state = volleyState();
+    const projected = projectExpectedDamage({
+      state,
+      catalog: cat,
+      attacker: state.units.get(unitId('a'))!,
+      target: state.units.get(unitId('e'))!,
+      ability: attack,
+    });
+    expect(Number.isFinite(projected)).toBe(true);
+    expect(projected).toBeGreaterThanOrEqual(0);
   });
 });
 

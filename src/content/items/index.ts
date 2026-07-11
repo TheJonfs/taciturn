@@ -42,6 +42,7 @@ import { shadowblade } from './shadowblade.ts';
 import { sline } from './sline.ts';
 import { goldenRod } from './golden-rod.ts';
 import { delsStave } from './dels-stave.ts';
+import { volleyBow } from './volley-bow.ts';
 import { excalibur } from './excalibur.ts';
 import { magusCrown } from './magus-crown.ts';
 import { managuard } from './managuard.ts';
@@ -357,5 +358,6 @@ export const items: ReadonlyArray<ItemDefinition> = [
   sline,
   goldenRod,
   delsStave,
+  volleyBow,
   excalibur,
 ];

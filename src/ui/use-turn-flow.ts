@@ -32,6 +32,7 @@ import {
   runModifyAoeVerticalTolerance,
   tileAt,
   validateAction,
+  weaponAttackAoeSpec,
   weaponRangeFromHeightSpec,
   ACTIVE_BUCKET_IDS,
   type AbilityId,
@@ -1204,6 +1205,10 @@ export function computeLegalTargets(
 
   // unit_or_tile + tileMode === true: behave as tile targeting from here
   // (enumerate all in-range tiles, occupied or not).
+  // TABA Ch3 (Volley Bow): a weapon-declared attack AoE means the basic
+  // Attack aims at units AND empty tiles simultaneously (validateAction
+  // upgrades it to unit_or_tile off the same spec) — both enumerations run.
+  const weaponAoeAim = weaponAttackAoeSpec(actor, catalog, ability) !== undefined;
   const treatAsTile =
     ability.targeting.kind === 'tile' ||
     (ability.targeting.kind === 'unit_or_tile' && tileMode);
@@ -1279,12 +1284,18 @@ export function computeLegalTargets(
     // `system_barrier_damage`. Offer those tiles so a basic Attack can break a
     // wall. validateAction applies the same range/LoS the unit path uses.
     addBarrierTargets(state, catalog, actor, ability, positions, tileKeys);
-    return { positions, unitIds, tilePositions: tileKeys };
+    // Volley Bow: fall through to the tile enumeration below so empty
+    // ground lights up alongside the units. buildAction already routes
+    // an empty-tile click to a tile target for damaging abilities, so
+    // offer and click stay in lockstep.
+    if (!weaponAoeAim) {
+      return { positions, unitIds, tilePositions: tileKeys };
+    }
   }
 
   // Defensive: if neither branch claimed the ability kind, fall through
   // to tile enumeration. `unit_or_tile` + tileMode lands here.
-  if (!treatAsTile) return { positions, unitIds, tilePositions: tileKeys };
+  if (!treatAsTile && !weaponAoeAim) return { positions, unitIds, tilePositions: tileKeys };
 
   // tile-targeted. Use effective range (post-`modifyAbilityRange`) so the
   // candidate window the picker scans matches what `validateAction` will
@@ -1329,7 +1340,9 @@ function computeAoeFootprint(
   ability: ActiveAbilityDefinition,
   hoverTarget: Position,
 ): ReadonlyArray<Position> {
-  const aoe = ability.effects.aoe;
+  // Weapon-declared attack AoE (Volley Bow) previews exactly like an
+  // authored one — same spec the engine dispatch injects.
+  const aoe = ability.effects.aoe ?? weaponAttackAoeSpec(actor, catalog, ability);
   if (aoe === undefined) {
     // Non-AoE — overlay just the hovered target tile so single-target
     // aiming gets a "this is the locked-in target" highlight.

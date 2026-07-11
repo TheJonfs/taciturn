@@ -41,6 +41,7 @@ import { buildElevationChanges } from '../abilities/worldcraft-resolution.ts';
 import { computeAbilityRange } from '../abilities/range.ts';
 import { rangeFromHeightBonus, weaponRangeFromHeightSpec } from '../abilities/range-height.ts';
 import { isRiderCast } from './payload-helpers.ts';
+import { weaponAttackAoeSpec } from '../items/weapon-attack-aoe.ts';
 
 export interface ValidationResult {
   readonly valid: boolean;
@@ -289,6 +290,16 @@ function validateUseAbility(
   // both modes use the ability's declared range/rangeMode.
   const targetingKind = ability.targeting.kind;
   const payloadTargetKind = action.payload.target.kind;
+  // TABA Ch3 (Volley Bow): a weapon-declared attack AoE lets the basic
+  // Attack aim at an EMPTY tile (the starting-cluster opener) — the tile
+  // branch below then applies the same weapon-ranged reach checks the
+  // unit branch uses (bows: no LoS gate — the attack's rangeMode is
+  // 'melee', and bows canonically arc). The UI's target enumeration
+  // reads the same `weaponAttackAoeSpec`, so offer and gate can't drift.
+  const weaponAoeTileAim =
+    targetingKind === 'single_unit' &&
+    ability.basicAttack === true &&
+    weaponAttackAoeSpec(actor, catalog, ability) !== undefined;
 
   if (targetingKind === 'self') {
     if (payloadTargetKind !== 'self') {
@@ -571,7 +582,11 @@ function validateUseAbility(
     // Fall through to either the tile branch or the unit branch below.
   }
 
-  if (targetingKind === 'tile' || (targetingKind === 'unit_or_tile' && payloadTargetKind === 'tile')) {
+  if (
+    targetingKind === 'tile' ||
+    (targetingKind === 'unit_or_tile' && payloadTargetKind === 'tile') ||
+    (weaponAoeTileAim && payloadTargetKind === 'tile')
+  ) {
     if (payloadTargetKind !== 'tile') {
       return invalid(`Ability ${JSON.stringify(ability.id)} requires a tile target`);
     }

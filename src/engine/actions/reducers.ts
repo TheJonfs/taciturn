@@ -123,6 +123,7 @@ import { computeAbilityRange } from '../abilities/range.ts';
 import { resolveWorldcraftCast } from '../abilities/worldcraft-resolution.ts';
 import { computeBarrierDamage } from '../damage/barrier-damage.ts';
 import { getEquippedWeapon, getWeaponInSlot, swingResolvesAsHeal } from '../items/equipment.ts';
+import { attackAoeForWeapon } from '../items/weapon-attack-aoe.ts';
 import { computeChargedActionSpeed } from '../ct/speed.ts';
 
 export interface ReduceResult<O> {
@@ -572,7 +573,12 @@ export function reduceUseAbility(
   if (
     ability.effects.damage !== undefined &&
     ability.effects.aoe === undefined &&
-    action.payload.target.kind === 'tile'
+    action.payload.target.kind === 'tile' &&
+    // Volley Bow (TABA Ch3): a weapon-declared attack AoE flows to the
+    // AoE dispatch instead — the footprint sweep folds barrier damage in
+    // alongside the units, so a barrier-bearing anchor tile must not
+    // collapse the blast to a single barrier hit.
+    attackAoeForWeapon(getEquippedWeapon(actor, catalog), ability) === undefined
   ) {
     const pos = action.payload.target.position;
     const tile = tileAt(workingState.map, pos.x, pos.y, pos.layer);
@@ -1915,11 +1921,13 @@ function pierceAoeForWeapon(
   };
 }
 
-// The pierce footprint for the weapon in a given swing slot. `undefined`
-// slot means the default/dominant swing (`getEquippedWeapon`); a hand slot
+// The weapon-shape footprint for the weapon in a given swing slot —
+// pierce line (caster-anchored) OR declared attack AoE (target-anchored,
+// TABA Ch3 Volley Bow); a weapon declares at most one. `undefined` slot
+// means the default/dominant swing (`getEquippedWeapon`); a hand slot
 // reads that hand's weapon. Used by the per-swing dispatch to decide each
 // swing's footprint independently.
-function pierceAoeForSlot(
+function swingAoeForSlot(
   state: GameState,
   catalog: Catalog,
   args: ResolveAbilityTargetsArgs,
@@ -1929,7 +1937,10 @@ function pierceAoeForSlot(
     slot !== undefined
       ? getWeaponInSlot(args.attacker, slot, catalog)
       : getEquippedWeapon(args.attacker, catalog);
-  return pierceAoeForWeapon(state, weapon, args.attacker, args.ability, args.payloadTarget);
+  return (
+    pierceAoeForWeapon(state, weapon, args.attacker, args.ability, args.payloadTarget) ??
+    attackAoeForWeapon(weapon, args.ability)
+  );
 }
 
 // ADR-0107: does a dual-wield swing's OWN weapon reach the target? A swing
@@ -2172,19 +2183,21 @@ function resolveAttackWithSwings(
 
   // Case 1 — single default swing.
   if (swings.length === 1 && swings[0] === undefined) {
-    const aoe = pierceAoeForSlot(state, catalog, args, undefined);
+    const aoe = swingAoeForSlot(state, catalog, args, undefined);
     return aoe === undefined
       ? resolveSingleTargetDispatch(state, catalog, args)
       : resolveAoeDispatch(state, catalog, args, aoe);
   }
 
-  // Case 2 — multi-swing, no piercing weapon: existing multi-swing loop.
-  const anyPierce = swings.some(
-    (slot) => pierceAoeForSlot(state, catalog, args, slot) !== undefined,
+  // Case 2 — multi-swing, no shaped weapon (pierce OR attack-AoE):
+  // existing multi-swing loop.
+  const anyShaped = swings.some(
+    (slot) => swingAoeForSlot(state, catalog, args, slot) !== undefined,
   );
-  if (!anyPierce) return resolveSingleTargetDispatch(state, catalog, args);
+  if (!anyShaped) return resolveSingleTargetDispatch(state, catalog, args);
 
-  // Case 3 — multi-swing with a piercing weapon.
+  // Case 3 — multi-swing where a swing's weapon carries a footprint
+  // (piercing line, or a Volley Bow doubled by The Offering).
   return resolveMixedSwings(state, catalog, args, swings);
 }
 
@@ -2220,7 +2233,7 @@ function resolveMixedSwings(
       continue;
     }
     const swingSeed = perTargetSeed(args.seed, i);
-    const pierce = pierceAoeForSlot(workingState, catalog, args, slot);
+    const pierce = swingAoeForSlot(workingState, catalog, args, slot);
 
     const r =
       pierce !== undefined

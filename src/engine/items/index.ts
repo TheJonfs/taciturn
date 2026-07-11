@@ -11,6 +11,7 @@ export {
   validateSlotItem,
 } from './equipment.ts';
 export { equipmentContributionsFor } from './contributions.ts';
+export { attackAoeForWeapon, weaponAttackAoeSpec } from './weapon-attack-aoe.ts';
 export {
   classCanEquip,
   draftAbilityCost,
