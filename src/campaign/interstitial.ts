@@ -54,6 +54,9 @@ export interface ResultSummaryBeat {
   readonly nodeName: string;
   // Per-deployed-unit outcome lines (player roster only; enemies excluded).
   readonly units: ReadonlyArray<UnitResultLine>;
+  // Gil the battle paid (M3 economy Stage 0) — the win's spoils line.
+  // 0 on a loss (losses pay nothing) and the line is suppressed.
+  readonly gilEarned: number;
   // True only on a terminal win — this beat is the campaign's victory screen.
   readonly campaignComplete: boolean;
 }
@@ -64,6 +67,9 @@ export interface WorldMapChoiceBeat {
   readonly fromNodeId: string;
   // The selectable next nodes (the cleared node's win-edges, authored order).
   readonly choices: ReadonlyArray<{ readonly id: string; readonly name: string }>;
+  // The party's current gil balance (M3 economy Stage 0) — the map header's
+  // purse display, snapshotted at beat build (beats are immutable data).
+  readonly gil: number;
 }
 
 // The open set of PRESENTATIONAL beat descriptors the runner dispatches by
@@ -108,13 +114,16 @@ export function buildResultSummaryBeat(params: {
   readonly result: BattleResult;
   readonly won: boolean;
   readonly campaignComplete: boolean;
+  // Gil the battle paid (`computeGilReward` on a win; a loss passes 0).
+  readonly gilEarned: number;
 }): ResultSummaryBeat {
-  const { node, roster, result, won, campaignComplete } = params;
+  const { node, roster, result, won, campaignComplete, gilEarned } = params;
   return {
     type: 'result-summary',
     resolution: won ? 'win' : 'loss',
     nodeName: node.name,
     units: buildUnitResultLines(roster, result),
+    gilEarned,
     campaignComplete: won && campaignComplete,
   };
 }
@@ -123,11 +132,16 @@ export function buildResultSummaryBeat(params: {
 // node resolves, and on RESUME into an `awaiting_route` save (where the
 // transient BattleResult is gone, so there's no result-summary to replay and
 // the player resumes directly at the map choice).
-export function buildRouteChoiceBeat(graph: CampaignGraph, nodeId: string): WorldMapChoiceBeat {
+export function buildRouteChoiceBeat(
+  graph: CampaignGraph,
+  nodeId: string,
+  gil: number,
+): WorldMapChoiceBeat {
   return {
     type: 'world-map-choice',
     fromNodeId: nodeId,
     choices: winChoices(graph, nodeId).map((n) => ({ id: n.id, name: n.name })),
+    gil,
   };
 }
 
@@ -136,6 +150,7 @@ export function buildRouteChoiceBeat(graph: CampaignGraph, nodeId: string): Worl
 export function buildRouteChoice(
   graph: CampaignGraph,
   nodeId: string,
+  gil: number,
 ): ReadonlyArray<InterstitialBeat> {
-  return [buildRouteChoiceBeat(graph, nodeId)];
+  return [buildRouteChoiceBeat(graph, nodeId, gil)];
 }

@@ -28,6 +28,8 @@
 import type { Catalog, GameState, TeamId } from '@engine/index.ts';
 import { applyBattleResult } from './apply-back.ts';
 import type { BattleResult } from './battle-result.ts';
+import { STARTING_GIL } from './economy-config.ts';
+import { computeGilReward, grantGil } from './gil.ts';
 import {
   getNode,
   isTerminal,
@@ -61,6 +63,7 @@ export function startCampaign(
     // starts at exactly the equipped counts, so unequipping authored gear
     // returns it to the pool. Receipt (shops/drops/dev seed) adds on top.
     inventory: bootstrapInventory(EMPTY_INVENTORY, bootstrapped),
+    gil: STARTING_GIL,
     currentNodeId: graph.startId,
     phase: 'in_progress',
   };
@@ -128,19 +131,23 @@ export function battleWasWon(result: BattleResult, playerTeam: TeamId): boolean 
 }
 
 // Apply a single battle-beat WIN back to the roster: heal survivors/downed to
-// effective full, mark lost. PHASE IS UNTOUCHED — the NODE resolves separately
-// (resolveNode), once its whole beat sequence has played. Under battle-as-beat
-// a node may hold several battle beats; this runs after each winning one so the
-// next beat sees the healed/thinned roster. Call ONLY on a win; a loss leaves
-// state untouched (retry re-enters the battle).
+// effective full, mark lost — and pay the battle's gil award into the wallet
+// (M3 economy Stage 0; XP/JP ride the apply-back inside applyBattleResult, so
+// this is where ALL THREE rewards land, for story and skirmish alike). PHASE
+// IS UNTOUCHED — the NODE resolves separately (resolveNode), once its whole
+// beat sequence has played. Under battle-as-beat a node may hold several
+// battle beats; this runs after each winning one so the next beat sees the
+// healed/thinned roster. Call ONLY on a win; a loss leaves state untouched
+// (retry re-enters the battle) and pays nothing.
 export function applyBattleBeatWin(
   state: CampaignState,
   result: BattleResult,
   finalState: GameState,
   catalog: Catalog,
+  playerTeam: TeamId,
 ): CampaignState {
   const roster = applyBattleResult(state.roster, result, finalState, catalog);
-  return { ...state, roster };
+  return grantGil({ ...state, roster }, computeGilReward(finalState, playerTeam));
 }
 
 // Resolve the current NODE once its beat sequence has fully played (every
@@ -191,6 +198,7 @@ export function newCampaign(
     schemaVersion: CAMPAIGN_SCHEMA_VERSION,
     roster,
     inventory: bootstrapInventory(EMPTY_INVENTORY, roster),
+    gil: STARTING_GIL,
     currentNodeId: startNodeId,
     phase: 'in_progress',
   };

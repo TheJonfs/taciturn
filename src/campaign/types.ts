@@ -150,6 +150,12 @@ export interface CampaignState {
   // owns how items are received). Keyed by ItemId as a plain string
   // (D-C plain-serializable).
   readonly inventory: Readonly<Record<string, number>>;
+  // TABA M3 economy — the party gil wallet: one SHARED pool (not per-unit),
+  // a non-negative integer. Mutated only through `grantGil`/`spendGil`
+  // (gil.ts) — battle wins credit it, shop/recruitment debit it. Absent in
+  // pre-economy saves → defaults to 0 on load (lenient-field convention,
+  // like `inventory`).
+  readonly gil: number;
   // The node the campaign is currently at (the next battle to fight, or the
   // just-won node while its interstitial runs). Advances along a win-edge
   // when the player picks at the world map.

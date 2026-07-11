@@ -22,7 +22,7 @@ export function ResultSummaryBeatView({
   if (beat.type !== 'result-summary') return <></>;
   const summary: ResultSummaryBeat = beat;
 
-  const { resolution, nodeName, units, campaignComplete } = summary;
+  const { resolution, nodeName, units, gilEarned, campaignComplete } = summary;
   const win = resolution === 'win';
 
   const title = campaignComplete ? 'Campaign Complete' : win ? `${nodeName} — Cleared` : 'Defeat';
@@ -39,6 +39,10 @@ export function ResultSummaryBeatView({
       <div style={panelStyle}>
         <h1 style={{ ...titleStyle, color: accent }}>{title}</h1>
         <p style={bodyStyle}>{body}</p>
+
+        {/* Spoils (M3 economy Stage 0): the gil the win paid. Suppressed on
+            a loss (losses pay nothing) and on a zero award. */}
+        {gilEarned > 0 && <p style={spoilsStyle}>Spoils: +{gilEarned} gil</p>}
 
         {units.length > 0 && (
           <ul style={listStyle}>
@@ -112,6 +116,15 @@ const bodyStyle: CSSProperties = {
   fontSize: 14,
   lineHeight: 1.5,
   color: '#c7ccd6',
+  textAlign: 'center',
+};
+
+// The spoils line rides the gold accent the dev/gil affordances share.
+const spoilsStyle: CSSProperties = {
+  margin: '-8px 0 18px',
+  fontSize: 14,
+  fontWeight: 600,
+  color: '#d8b26c',
   textAlign: 'center',
 };
 

@@ -124,6 +124,12 @@ export type {
   NodeResolution,
   BeatOutput,
 } from './interstitial.ts';
+// M3 economy Stage 0 — the tunable-constants module, the gil wallet, and the
+// single enemy-level lever.
+export { GIL_PER_ENEMY_LEVEL, STARTING_GIL } from './economy-config.ts';
+export { grantGil, spendGil, computeGilReward } from './gil.ts';
+export { DIFFICULTY_FACTOR, resolveEnemyLevel, partyAverageLevel } from './enemy-level.ts';
+
 // M3 — the TABA equipment pool (Stage 0 isolation substrate).
 export type { GearChapter, GearAcquisition, TabaGearEntry } from './equipment-pool.ts';
 export {

@@ -49,12 +49,14 @@ describe('buildResultSummaryBeat', () => {
       result: resultFor(),
       won: true,
       campaignComplete: false,
+      gilEarned: 120,
     });
     expect(beat.type).toBe('result-summary');
     expect(beat.resolution).toBe('win');
     expect(beat.campaignComplete).toBe(false);
     expect(beat.units).toHaveLength(2);
     expect(beat.nodeName).toBe(START.name);
+    expect(beat.gilEarned).toBe(120);
   });
 
   it('terminal win → campaignComplete flag set (the victory screen)', () => {
@@ -64,6 +66,7 @@ describe('buildResultSummaryBeat', () => {
       result: resultFor(),
       won: true,
       campaignComplete: true,
+      gilEarned: 120,
     });
     expect(beat.campaignComplete).toBe(true);
   });
@@ -75,23 +78,27 @@ describe('buildResultSummaryBeat', () => {
       result: resultFor(),
       won: false,
       campaignComplete: false,
+      gilEarned: 0, // losses pay nothing
     });
     expect(beat.resolution).toBe('loss');
     expect(beat.campaignComplete).toBe(false);
+    expect(beat.gilEarned).toBe(0);
   });
 });
 
 describe('buildRouteChoiceBeat / buildRouteChoice', () => {
   it('builds a world-map-choice with the cleared node’s win-edge choices', () => {
-    const beat = buildRouteChoiceBeat(GRAPH, M1_NODES.riverRidge);
+    const beat = buildRouteChoiceBeat(GRAPH, M1_NODES.riverRidge, 340);
     expect(beat.type).toBe('world-map-choice');
     expect(beat.fromNodeId).toBe(M1_NODES.riverRidge);
     // The start node's fork: Stonebridge + Marshmoor.
     expect(beat.choices.map((c) => c.id)).toEqual([M1_NODES.stonebridge, M1_NODES.marshmoor]);
+    // The purse snapshot rides the beat (M3 economy Stage 0).
+    expect(beat.gil).toBe(340);
   });
 
   it('buildRouteChoice wraps it as a single-beat run (resume into awaiting_route)', () => {
-    const beats = buildRouteChoice(GRAPH, M1_NODES.riverRidge);
+    const beats = buildRouteChoice(GRAPH, M1_NODES.riverRidge, 0);
     expect(beats.map((b) => b.type)).toEqual(['world-map-choice']);
   });
 });

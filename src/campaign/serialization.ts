@@ -98,7 +98,24 @@ export function deserializeCampaign(json: string): CampaignState {
     roster,
   );
 
-  return { schemaVersion, roster, inventory, currentNodeId, phase };
+  // TABA M3 economy — the gil wallet. Omitted → 0 (pre-economy saves earned
+  // nothing); a present value must be a non-negative integer.
+  const gil = validateGil(root['gil'], 'gil');
+
+  return { schemaVersion, roster, inventory, gil, currentNodeId, phase };
+}
+
+// gil: a non-negative integer count. Omitted → 0 (the lenient-field
+// grandfather, matching `inventory`).
+function validateGil(raw: unknown, where: string): number {
+  if (raw === undefined) return 0;
+  const gil = asNumber(raw, where);
+  if (!Number.isInteger(gil) || gil < 0) {
+    throw new Error(
+      `deserializeCampaign: ${where} must be a non-negative integer, got ${JSON.stringify(gil)}`,
+    );
+  }
+  return gil;
 }
 
 // inventory: a `Record<itemId, number>` of owned counts. Omitted →

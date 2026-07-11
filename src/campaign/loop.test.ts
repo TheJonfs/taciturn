@@ -19,6 +19,7 @@ import { getNode, type CampaignNode } from './graph.ts';
 import { firstBattleBeat, type NodeBattle } from './sequence.ts';
 import { foldCampaignRoster } from './snapshot-fold.ts';
 import { summarizeBattleResult } from './battle-result.ts';
+import { GIL_PER_ENEMY_LEVEL, STARTING_GIL } from './economy-config.ts';
 import { m0Roster } from './roster.ts';
 import type { CampaignUnit } from './types.ts';
 
@@ -61,6 +62,7 @@ describe('startCampaign + bootstrap', () => {
     expect(state.currentNodeId).toBe(GRAPH.startId);
     expect(state.phase).toBe('in_progress');
     expect(state.roster).toHaveLength(m0Roster.length);
+    expect(state.gil).toBe(STARTING_GIL);
   });
 
   it('bootstraps a roster LARGER than one node deploy cap to effective full', () => {
@@ -123,13 +125,27 @@ describe('applyBattleBeatWin + resolveNode', () => {
     const start = startCampaign(GRAPH, m0Roster, catalog);
     const finalState = terminalState(START, deployed, 'player');
     const result = summarizeBattleResult(finalState);
-    const applied = applyBattleBeatWin(start, result, finalState, catalog);
+    const applied = applyBattleBeatWin(start, result, finalState, catalog, battleOf(START).playerTeam);
 
     // Apply-back heals/marks-lost; phase holds (the NODE resolves separately).
     expect(applied.phase).toBe('in_progress');
     expect(applied.currentNodeId).toBe(START.id);
     // The forced-lost first deployed unit is marked on the durable roster.
     expect(applied.roster.find((u) => u.id === deployed[0]!.id)!.fate).toBe('lost');
+  });
+
+  it('applyBattleBeatWin pays the gil award: X × Σ(enemy levels) (M3 economy Stage 0)', () => {
+    const start = startCampaign(GRAPH, m0Roster, catalog);
+    const finalState = terminalState(START, deployed, 'player');
+    const playerTeam = battleOf(START).playerTeam;
+    const applied = applyBattleBeatWin(start, summarizeBattleResult(finalState), finalState, catalog, playerTeam);
+
+    let enemyLevels = 0;
+    for (const u of finalState.units.values()) {
+      if (u.team !== playerTeam) enemyLevels += u.level;
+    }
+    expect(enemyLevels).toBeGreaterThan(0); // the fixture really has enemies
+    expect(applied.gil).toBe(start.gil + GIL_PER_ENEMY_LEVEL * enemyLevels);
   });
 
   it('resolveNode enters awaiting_route at a non-terminal node (position holds)', () => {

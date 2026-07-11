@@ -38,8 +38,14 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
     <div style={rootStyle}>
       <div style={panelStyle}>
         <div style={headerStyle}>
-          <h1 style={titleStyle}>The Road Ahead</h1>
-          <div style={subtitleStyle}>Choose where your company marches next.</div>
+          <div>
+            <h1 style={titleStyle}>The Road Ahead</h1>
+            <div style={subtitleStyle}>Choose where your company marches next.</div>
+          </div>
+          {/* The party purse (M3 economy Stage 0). */}
+          <div style={purseStyle} aria-label="Party gil">
+            {map.gil} gil
+          </div>
         </div>
 
         <svg viewBox="0 0 640 350" style={svgStyle} role="img" aria-label="Campaign map">
@@ -159,7 +165,20 @@ const panelStyle: CSSProperties = {
   overflow: 'hidden',
 };
 
-const headerStyle: CSSProperties = { padding: '16px 20px', borderBottom: '1px solid #2c2f36' };
+const headerStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '16px 20px',
+  borderBottom: '1px solid #2c2f36',
+};
+
+const purseStyle: CSSProperties = {
+  fontSize: 14,
+  fontWeight: 600,
+  color: '#d8b26c',
+  whiteSpace: 'nowrap',
+};
 const titleStyle: CSSProperties = { margin: 0, fontSize: 18, fontWeight: 600 };
 const subtitleStyle: CSSProperties = { marginTop: 4, fontSize: 13, color: '#9aa0ac' };
 

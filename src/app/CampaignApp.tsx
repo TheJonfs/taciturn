@@ -40,6 +40,7 @@ import {
   buildRouteChoiceBeat,
   COMPONENT_CATALOG,
   clearSavedCampaign,
+  computeGilReward,
   debugGrantJp,
   debugSeedGrants,
   debugSeedInventory,
@@ -126,7 +127,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     if (st.phase === 'awaiting_route') {
       // Resumed right after a won battle: drop straight to the world map (the
       // transient result is gone — nothing to replay before it).
-      return runScreen([buildRouteChoiceBeat(GRAPH, st.currentNodeId)], { kind: 'route', state: st }, key);
+      return runScreen([buildRouteChoiceBeat(GRAPH, st.currentNodeId, st.gil)], { kind: 'route', state: st }, key);
     }
     const entryNode = getNode(GRAPH, st.currentNodeId);
     const { scenes, next } = takeStoryRun(entryNode.beats, 0);
@@ -164,7 +165,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
   // while managing carry into the route (the `done.state` is the just-edited
   // roster). Only reachable from the world map (phase `awaiting_route`).
   function returnToWorldMap(): void {
-    showRun([buildRouteChoiceBeat(GRAPH, state.currentNodeId)], { kind: 'route', state });
+    showRun([buildRouteChoiceBeat(GRAPH, state.currentNodeId, state.gil)], { kind: 'route', state });
   }
 
   // A node whose sequence has ended (standalone / trailing story with no more
@@ -180,7 +181,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     const resolved = resolveNode(st, GRAPH);
     if (isComplete(resolved)) return runScreen([...prefixScenes], { kind: 'exit' }, key);
     return runScreen(
-      [...prefixScenes, buildRouteChoiceBeat(GRAPH, resolvedNode.id)],
+      [...prefixScenes, buildRouteChoiceBeat(GRAPH, resolvedNode.id, resolved.gil)],
       { kind: 'route', state: resolved },
       key,
     );
@@ -276,13 +277,16 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
         result,
         won: false,
         campaignComplete: false,
+        gilEarned: 0, // losses pay nothing
       });
       showRun([summary], { kind: 'retry', battleIndex });
       return;
     }
 
-    // Win: apply-back for this battle beat (heal survivors, mark lost).
-    const applied = applyBattleBeatWin(state, result, finalState, catalog);
+    // Win: apply-back for this battle beat (heal survivors, mark lost, pay
+    // the gil award — the summary shows the same amount the wallet banked).
+    const gilEarned = computeGilReward(finalState, battle.playerTeam);
+    const applied = applyBattleBeatWin(state, result, finalState, catalog, battle.playerTeam);
 
     if (hasBattleAtOrAfter(node.beats, battleIndex + 1)) {
       // More battles in this node (a future multi-battle shape): show the
@@ -294,6 +298,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
         result,
         won: true,
         campaignComplete: false,
+        gilEarned,
       });
       setState(applied);
       showRun([summary], { kind: 'walk', state: applied, cursor: battleIndex + 1 });
@@ -311,6 +316,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
       result,
       won: true,
       campaignComplete: complete,
+      gilEarned,
     });
     if (complete) clearSavedCampaign();
     else saveCampaign(resolved);
@@ -321,7 +327,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
       // Terminal win — the result-summary is the victory screen; then Title.
       showRun([summary, ...trailing], { kind: 'exit' });
     } else {
-      showRun([summary, ...trailing, buildRouteChoiceBeat(GRAPH, node.id)], { kind: 'route', state: resolved });
+      showRun([summary, ...trailing, buildRouteChoiceBeat(GRAPH, node.id, resolved.gil)], { kind: 'route', state: resolved });
     }
   }
 

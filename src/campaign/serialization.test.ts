@@ -233,4 +233,23 @@ describe('campaign serialization', () => {
     );
     expect('long_sword' in restored.inventory).toBe(false);
   });
+
+  // --- TABA M3 economy: the gil wallet ---
+
+  it('round-trips the gil wallet losslessly', () => {
+    const state = { ...newCampaign(m0Roster, START), gil: 1234 };
+    expect(deserializeCampaign(serializeCampaign(state)).gil).toBe(1234);
+  });
+
+  it('grandfathers a pre-economy save: omitted gil loads as 0', () => {
+    const legacy = { ...newCampaign(m0Roster, START) } as Record<string, unknown>;
+    delete legacy['gil'];
+    expect(deserializeCampaign(JSON.stringify(legacy)).gil).toBe(0);
+  });
+
+  it('rejects negative and fractional gil loudly', () => {
+    const state = newCampaign(m0Roster, START);
+    expect(() => deserializeCampaign(JSON.stringify({ ...state, gil: -1 }))).toThrow(/gil/);
+    expect(() => deserializeCampaign(JSON.stringify({ ...state, gil: 0.5 }))).toThrow(/gil/);
+  });
 });
