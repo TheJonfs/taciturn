@@ -4641,8 +4641,15 @@ export function reduceSystemMpRestore(
     statName: 'maxMp',
     baseValue: target.baseStats.maxMpBase,
   });
+  // TABA Ch3 (Golden Rod): `amount` is SIGNED. Positive restores, capped
+  // at maxMp (the original Ether semantics, unchanged bit-for-bit).
+  // Negative is a one-sided MP burn, floored at 0 MP — the channel
+  // `system_mp_drain` can't model (it's a transfer; a self-drain nets
+  // zero). Kept on this action rather than a new discriminant to hold
+  // the ActionType surface closed (docs/conventions/action-types.md).
   const room = Math.max(0, maxMp - target.vitals.mp);
-  const applied = Math.max(0, Math.min(amount, room));
+  const applied =
+    amount >= 0 ? Math.min(amount, room) : -Math.min(-amount, target.vitals.mp);
   if (applied === 0) {
     return {
       newState: state,

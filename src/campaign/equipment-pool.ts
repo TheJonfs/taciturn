@@ -223,6 +223,16 @@ export const TABA_NEW_CH3: ReadonlyArray<TabaGearEntry> = [
   entry('star_robe', 3, 'shop'),
   entry('terra_robe', 3, 'shop'),
   entry('void_robe', 3, 'shop'),
+  // Ch3 weapon uniques (single-instance, found-not-shopped — the Ch3
+  // uniques brief; in-world placement/acquisition is the economy pass,
+  // seed-only until then). Excalibur is the post-game preview behind
+  // the optional boss.
+  entry('nandanis_wrath', 3, 'unique'),
+  entry('cremation', 3, 'unique'),
+  entry('shadowblade', 3, 'unique'),
+  entry('sline', 3, 'unique'),
+  entry('golden_rod', 3, 'unique'),
+  entry('excalibur', 3, 'unique'),
 ];
 
 // --- The assembled pool + reads ----------------------------------------------

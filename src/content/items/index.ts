@@ -36,6 +36,12 @@ import { riptideBow } from './riptide-bow.ts';
 import { wandOfLumen } from './wand-of-lumen.ts';
 import { lookoutsHood } from './lookouts-hood.ts';
 import { magebane } from './magebane.ts';
+import { nandanisWrath } from './nandanis-wrath.ts';
+import { cremation } from './cremation.ts';
+import { shadowblade } from './shadowblade.ts';
+import { sline } from './sline.ts';
+import { goldenRod } from './golden-rod.ts';
+import { excalibur } from './excalibur.ts';
 import { magusCrown } from './magus-crown.ts';
 import { managuard } from './managuard.ts';
 import { phoenixDown } from './phoenix-down.ts';
@@ -342,4 +348,12 @@ export const items: ReadonlyArray<ItemDefinition> = [
   // TABA M3 — the Ch1 breadth-enabler unique (Freelancer's Charm):
   // +1 secondary command set, no class-restricted body while worn.
   freelancersCharm,
+  // TABA Ch3 weapon uniques (single-instance, found-not-shopped; the
+  // seedable slate — placement is the economy pass).
+  nandanisWrath,
+  cremation,
+  shadowblade,
+  sline,
+  goldenRod,
+  excalibur,
 ];

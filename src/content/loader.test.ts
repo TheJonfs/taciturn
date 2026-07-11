@@ -226,12 +226,14 @@ describe('loadDefaultCatalog', () => {
     //   - classes: 13 → 14 (monk)
     // +1 TABA: Hamstrung (Sera's stacking Move/Jump permadebuff).
     // TABA M3 Stage 4: +2 (terra_attunement, scoured).
-    expect(cat.statusTypes()).toHaveLength(46);
+    // TABA Ch3 uniques: +3 (speed_up, gilded_focus, golden_rod_pact).
+    expect(cat.statusTypes()).toHaveLength(49);
     // +3 TABA signatures (Ascendant Flame / Bulwark Oath / Tidal Cadence) + Hamstring.
     // TABA M3 Ch1 gear: +1 (apply_vulnerable_proc — the Dagger's rider).
     // TABA M3 Stage 4: +3 (apply_scoured_proc, void_vulnerable_proc,
     // palliative_pulse — hidden rider abilities).
-    expect(cat.abilities()).toHaveLength(128);
+    // TABA Ch3 uniques: +2 (cremation_burn_proc, shadowblade_proc).
+    expect(cat.abilities()).toHaveLength(130);
     expect(cat.commandSets()).toHaveLength(16);
     expect(cat.classes()).toHaveLength(14);
     // Session 74 (caster-accessory batch): 77 → 81 (greaves_of_seraphis,
@@ -255,7 +257,10 @@ describe('loadDefaultCatalog', () => {
     // spiked_maul, estoc, trident, epee, palliative_pike, prism_wand,
     // scouring_wand, moon_robe, star_robe, terra_robe, void_robe).
     // TABA M3 breadth-enabler: 132 → 133 (freelancers_charm).
-    expect(cat.items()).toHaveLength(133);
+    // TABA Ch3 weapon uniques: 133 → 139 (nandanis_wrath, cremation,
+    // shadowblade, sline, golden_rod, excalibur — the two seam weapons,
+    // Volley Bow and Del's Stave, land with their engine seams).
+    expect(cat.items()).toHaveLength(139);
     expect(cat.rulesets()).toHaveLength(1);
   });
 });

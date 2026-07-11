@@ -3,6 +3,8 @@ import { aetherBloom } from './aether-bloom.ts';
 import { applyBurnProc } from './apply-burn-proc.ts';
 import { applySilenceProc } from './apply-silence-proc.ts';
 import { applyVulnerableProc } from './apply-vulnerable-proc.ts';
+import { cremationBurnProc } from './cremation-burn-proc.ts';
+import { shadowbladeProc } from './shadowblade-proc.ts';
 import { applyScouredProc } from './apply-scoured-proc.ts';
 import { voidVulnerableProc } from './void-vulnerable-proc.ts';
 import { palliativePulse } from './palliative-pulse.ts';
@@ -145,6 +147,10 @@ export const abilities: ReadonlyArray<AbilityDefinition> = [
   applyScouredProc,
   voidVulnerableProc,
   palliativePulse,
+  // TABA Ch3 weapon uniques — Cremation's 2-stack Burn, Shadowblade's
+  // Speed Steal.
+  cremationBurnProc,
+  shadowbladeProc,
   attack,
   barehanded,
   bearsHeave,

@@ -420,9 +420,15 @@ export type SystemDamageSource =
 // restores by design. Capped at `runModifyStatQuery(maxMp)` at apply
 // time. KO'd targets short-circuit to applied=0 (vitals are gated
 // while KO'd, matching the HP gate on system_heal).
+//
+// TABA Ch3: `amount` is SIGNED. Negative = a one-sided MP BURN, floored
+// at 0 MP (Golden Rod's pact tick). `system_mp_drain` can't model this —
+// it's a transfer, and a self-drain nets zero — and the burn stays on
+// this action rather than a new discriminant to keep the ActionType
+// surface closed. `applied` in the outcome carries the same sign.
 export interface SystemMpRestorePayload {
   readonly targetId: UnitId;
-  readonly amount: number; // requested restore
+  readonly amount: number; // requested delta: positive restore, negative burn
   readonly source: SystemMpRestoreSource;
 }
 export interface SystemMpRestoreOutcome {

@@ -83,6 +83,10 @@ const STATUS_DESCRIPTIONS: ReadonlyMap<StatusTypeId, string> = new Map([
   [statusTypeId('bear_stance'), 'Bear Stance: +50 Earth resistance, −50 Lightning. Set by Bear’s Heave. Replaced by another Fist; cleared by Chakra.'],
   [statusTypeId('falcon_stance'), 'Falcon Stance: +50 Lightning resistance, −50 Water. Set by Storm Stoop. Replaced by another Fist; cleared by Chakra.'],
   [statusTypeId('serpent_stance'), 'Serpent Stance: +50 Water resistance, −50 Fire. Set by Serpent’s Coil. Replaced by another Fist; cleared by Chakra.'],
+  // TABA Ch3 weapon uniques.
+  [statusTypeId('speed_up'), '+1 Speed per application, accumulating — the Shadowblade steals tempo for its wielder on each landed proc. Permanent; Remedy never clears it.'],
+  [statusTypeId('gilded_focus'), '+1 MA per stack — granted each turn start by the Golden Rod’s pact. Permanent and accumulating for as long as the wielder survives the drain.'],
+  [statusTypeId('golden_rod_pact'), 'Every turn start: lose 10% of Max HP and 10% of Max MP (flat, of the maximum — the HP loss CAN kill), then gain one Gilded Focus stack (+1 MA, permanent). Carried by the Golden Rod; removed only by unequipping it.'],
 ]);
 
 // Short authored placeholders for the demo passives. Each line is the

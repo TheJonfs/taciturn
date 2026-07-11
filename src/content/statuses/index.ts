@@ -41,6 +41,9 @@ import { updraft } from './updraft.ts';
 import { taggedResistanceShift } from './tagged-resistance-shift.ts';
 import { taunted } from './taunted.ts';
 import { vulnerable } from './vulnerable.ts';
+import { speedUp } from './speed-up.ts';
+import { gildedFocus } from './gilded-focus.ts';
+import { goldenRodPact } from './golden-rod-pact.ts';
 import { foxStance } from './fox-stance.ts';
 import { bearStance } from './bear-stance.ts';
 import { falconStance } from './falcon-stance.ts';
@@ -93,4 +96,7 @@ export const statusTypes: ReadonlyArray<StatusEffectType> = [
   hamstrung, // TABA: Sera's stacking Move/Jump permadebuff
   terraAttunement, // TABA M3: Terra Robe's per-earth-spell MA accumulator
   scoured, // TABA M3: Scouring Wand's unbounded all-element res shred
+  speedUp, // TABA Ch3: Shadowblade's permanent stacking self-haste
+  gildedFocus, // TABA Ch3: Golden Rod's per-turn MA accumulator
+  goldenRodPact, // TABA Ch3: Golden Rod's turn-start drain engine
 ];

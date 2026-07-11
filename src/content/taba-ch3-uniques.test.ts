@@ -1,0 +1,344 @@
+// TABA Ch3 weapon uniques — the six compose items (Nandani's Wrath,
+// Cremation, Shadowblade, Sline, Golden Rod, Excalibur), each driven
+// through its real seam with the default catalog. The two seam weapons
+// (Volley Bow, Del's Stave) land with their engine seams and test there.
+
+import { describe, expect, it } from 'vitest';
+import { loadDefaultCatalog } from './index.ts';
+import { abilityId, itemId, statusTypeId, unitId, commitAction } from '@engine/index.ts';
+import type { ProposedAction, UnitEquipment } from '@engine/index.ts';
+import { runModifyStatQuery, runModifySwingsPerWeapon } from '../engine/hooks/runners.ts';
+import { activeTurnFor, makeGameState, makeUnit } from '../engine/ct/test-fixtures.ts';
+import { flatMap } from '../engine/map/test-fixtures.ts';
+import { reduceStatusTick, reduceSystemMpRestore } from '../engine/actions/reducers.ts';
+import { runDamagePipeline } from '../engine/damage/pipeline.ts';
+import { defaultDamageHandlers } from '../engine/damage/default-handlers.ts';
+import { attack } from './abilities/attack.ts';
+import { nandanisWrath } from './items/nandanis-wrath.ts';
+import { cremation } from './items/cremation.ts';
+import { shadowblade } from './items/shadowblade.ts';
+import { sline } from './items/sline.ts';
+import { goldenRod } from './items/golden-rod.ts';
+import { excalibur } from './items/excalibur.ts';
+import { cremationBurnProc } from './abilities/cremation-burn-proc.ts';
+import { shadowbladeProc } from './abilities/shadowblade-proc.ts';
+
+const cat = loadDefaultCatalog();
+
+const EMPTY: UnitEquipment = {
+  leftHand: null,
+  rightHand: null,
+  headgear: null,
+  armor: null,
+  accessory: null,
+};
+const holding = (id: string, slot: keyof UnitEquipment = 'rightHand'): UnitEquipment => ({
+  ...EMPTY,
+  [slot]: itemId(id),
+});
+
+const UNIQUES = [nandanisWrath, cremation, shadowblade, sline, goldenRod, excalibur];
+
+describe('Ch3 uniques — scoping invariant', () => {
+  it("every unique is 'hidden' (TABA-scoped, invisible to Mage War)", () => {
+    for (const item of UNIQUES) {
+      expect(item.availability, String(item.id)).toBe('hidden');
+    }
+  });
+});
+
+describe("Nandani's Wrath — Brave +11 reaction-synergy sword", () => {
+  it('raises the wielder Brave query by 11 (damage factor AND reaction rate read it)', () => {
+    const bearer = makeUnit({ id: 'n', spd: 10, brave: 70, equipment: holding('nandanis_wrath') });
+    const state = makeGameState({ units: [bearer] });
+    const unit = state.units.get(unitId('n'))!;
+    const brave = runModifyStatQuery(state, cat, {
+      unit,
+      statName: 'brave',
+      baseValue: unit.baseStats.brave,
+    });
+    expect(brave).toBe(81);
+  });
+
+  it('content pin: plain sword (NOT knight_sword), WP 11 · 95', () => {
+    expect(nandanisWrath.weaponType).toBe('sword');
+    expect(nandanisWrath.wp).toBe(11);
+    expect(nandanisWrath.accuracy).toBe(95);
+    expect(nandanisWrath.twoHanded).toBeUndefined();
+    expect(nandanisWrath.statMods).toEqual({ brave: 11 });
+  });
+});
+
+describe('Cremation — guaranteed 2-stack Burn on hit', () => {
+  it('content pin: axe chassis (WP 14 · 75, 0.9–1.3) with a chance-1.0 proc', () => {
+    expect(cremation.weaponType).toBe('axe');
+    expect(cremation.wp).toBe(14);
+    expect(cremation.accuracy).toBe(75);
+    expect(cremation.physicalVariance).toEqual({ kind: 'static', min: 0.9, max: 1.3 });
+    expect(cremation.attackProcs).toEqual([
+      { chance: 1.0, abilityId: abilityId('cremation_burn_proc') },
+    ]);
+  });
+
+  it('the proc plants exactly 2 Burn stacks in one application', () => {
+    const wielder = makeUnit({
+      id: 'w', spd: 10, ma: 10,
+      equipment: holding('cremation'),
+      position: { x: 1, y: 1, layer: 0 },
+    });
+    const victim = makeUnit({
+      id: 'v', spd: 10, hp: 100, maxHpBase: 100, team: 'team_b',
+      position: { x: 1, y: 2, layer: 0 },
+    });
+    const state = makeGameState({
+      units: [wielder, victim],
+      map: flatMap(4, 4),
+      turnState: activeTurnFor(unitId('w')),
+      masterSeed: 5,
+    });
+    const proc: ProposedAction = {
+      type: 'use_ability',
+      source: 'system',
+      actorId: unitId('w'),
+      payload: {
+        abilityId: abilityId('cremation_burn_proc'),
+        target: { kind: 'unit', unitId: unitId('v') },
+        riderSource: { kind: 'equipment_proc', itemId: itemId('cremation') },
+      },
+    };
+    const r = commitAction(state, proc, cat);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const burn = r.newState.units
+      .get(unitId('v'))!
+      .statuses.find((s) => s.typeId === statusTypeId('burn'));
+    expect(burn).toBeDefined();
+    // Burn's custom lifecycle: stackDamages holds one snapshot per stack.
+    const cs = burn!.customState as { stackDamages?: ReadonlyArray<number> };
+    expect(cs.stackDamages).toHaveLength(2);
+    expect(cs.stackDamages).toEqual([6, 6]); // floor(MA 10 × 0.6) each
+  });
+
+  it('proc ability pin: hidden, MP-free, applyAlways, stackQuantity 2', () => {
+    expect(cremationBurnProc.availability).toBe('hidden');
+    expect(cremationBurnProc.mpCost).toBe(0);
+    const eff = cremationBurnProc.effects.statusEffects?.[0];
+    expect(eff?.typeId).toBe(statusTypeId('burn'));
+    expect(eff?.applyAlways).toBe(true);
+    expect(eff?.stackQuantity).toBe(2);
+  });
+});
+
+describe('Shadowblade — Speed Steal: permanent bidirectional stacking', () => {
+  it('content pin: knife chassis (WP 6 · 95, speed variance) with a flat 50% proc (Magebane convention)', () => {
+    expect(shadowblade.weaponType).toBe('knife');
+    expect(shadowblade.physicalVariance).toEqual({ kind: 'attacker_speed', spread: 0.05 });
+    expect(shadowblade.attackProcs).toEqual([
+      { chance: 0.5, abilityId: abilityId('shadowblade_proc') },
+    ]);
+  });
+
+  it('two landed procs: wielder +2 Speed (one accumulating instance), victim −2 (independent stacks)', () => {
+    const wielder = makeUnit({
+      id: 'w', spd: 10,
+      equipment: holding('shadowblade'),
+      position: { x: 1, y: 1, layer: 0 },
+    });
+    const victim = makeUnit({
+      id: 'v', spd: 10, hp: 100, maxHpBase: 100, team: 'team_b',
+      position: { x: 1, y: 2, layer: 0 },
+    });
+    let state = makeGameState({
+      units: [wielder, victim],
+      map: flatMap(4, 4),
+      turnState: activeTurnFor(unitId('w')),
+      masterSeed: 5,
+    });
+    const proc: ProposedAction = {
+      type: 'use_ability',
+      source: 'system',
+      actorId: unitId('w'),
+      payload: {
+        abilityId: abilityId('shadowblade_proc'),
+        target: { kind: 'unit', unitId: unitId('v') },
+        riderSource: { kind: 'equipment_proc', itemId: itemId('shadowblade') },
+      },
+    };
+    for (let i = 0; i < 2; i++) {
+      const r = commitAction(state, proc, cat);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      state = r.newState;
+    }
+    const w = state.units.get(unitId('w'))!;
+    const v = state.units.get(unitId('v'))!;
+    const wSpd = runModifyStatQuery(state, cat, { unit: w, statName: 'spd', baseValue: w.baseStats.spd });
+    const vSpd = runModifyStatQuery(state, cat, { unit: v, statName: 'spd', baseValue: v.baseStats.spd });
+    expect(wSpd).toBe(12); // 10 + 2 (STACK_ADDITIVE magnitude)
+    expect(vSpd).toBe(8); // 10 − 2 (two independent Speed Down instances)
+    expect(w.statuses.filter((s) => s.typeId === statusTypeId('speed_up'))).toHaveLength(1);
+    expect(v.statuses.filter((s) => s.typeId === statusTypeId('speed_down'))).toHaveLength(2);
+  });
+});
+
+describe('Sline — the basic attack strikes twice (Offering compose → 4)', () => {
+  it('content pin: full Lance chassis (2H, reach 2, pierce, 0.9–1.1) + swing ×2', () => {
+    expect(sline.weaponType).toBe('polearm');
+    expect(sline.twoHanded).toBe(true);
+    expect(sline.pierces).toBe(true);
+    expect(sline.range).toEqual({ min: 1, max: 2, vertical: 4 });
+    expect(sline.physicalVariance).toEqual({ kind: 'static', min: 0.9, max: 1.1 });
+    expect(sline.attackSwingMultiplier).toBe(2);
+  });
+
+  it('swings-per-weapon: 2 with Sline alone, 4 with The Offering (D1: no rework, they compose)', () => {
+    const alone = makeUnit({ id: 'a', spd: 10, equipment: holding('sline') });
+    const paired = makeUnit({
+      id: 'b', spd: 10,
+      equipment: { ...holding('sline'), accessory: itemId('the_offering') },
+    });
+    const state = makeGameState({ units: [alone, paired] });
+    const swings = (id: string): number =>
+      runModifySwingsPerWeapon(state, cat, { unit: state.units.get(unitId(id))! });
+    expect(swings('a')).toBe(2);
+    expect(swings('b')).toBe(4);
+  });
+});
+
+describe('Golden Rod — the Faustian countdown', () => {
+  it('grants the pact via statusGrants (equipment lifecycle)', () => {
+    expect(goldenRod.statusGrants).toEqual([statusTypeId('golden_rod_pact')]);
+    expect(goldenRod.weaponType).toBe('wand');
+    expect(goldenRod.wp).toBe(2);
+  });
+
+  it('one tick: +1 Gilded Focus, −10% MaxHP (system_damage), −10% MaxMP (negative mp_restore) — LINEAR of max', () => {
+    const wielder = makeUnit({
+      id: 'g', spd: 10, ct: 100, hp: 150, maxHpBase: 200, mp: 30, maxMpBase: 40,
+      equipment: holding('golden_rod'),
+      statuses: [
+        {
+          typeId: statusTypeId('golden_rod_pact'),
+          source: { unitId: null, actionSeq: null },
+          remainingDuration: null,
+        },
+      ],
+    });
+    const state = makeGameState({
+      units: [wielder],
+      map: flatMap(3, 3),
+      turnState: activeTurnFor(wielder.id),
+    });
+    const result = reduceStatusTick(
+      state,
+      {
+        type: 'status_tick',
+        sequenceNumber: 0,
+        source: 'system',
+        timestamp: { tick: 0, ct: 0 },
+        seed: 0,
+        chainDepth: 0,
+        isReaction: false,
+        payload: { unitId: wielder.id, statusTypeId: statusTypeId('golden_rod_pact') },
+      },
+      cat,
+    );
+    const types = result.generatedActions.map((a) => a.type);
+    expect(types).toEqual(['system_apply_status', 'system_damage', 'system_mp_restore']);
+    const [applyFocus, hpDrain, mpBurn] = result.generatedActions;
+    expect(applyFocus).toMatchObject({
+      payload: { statusTypeId: statusTypeId('gilded_focus'), targetId: wielder.id },
+    });
+    // LINEAR ruling: 10% of MAX (200 → 20), not of current (150).
+    expect(hpDrain).toMatchObject({ payload: { amount: 20, targetId: wielder.id } });
+    expect(mpBurn).toMatchObject({ payload: { amount: -4, targetId: wielder.id } });
+  });
+
+  it('the negative mp_restore burns MP and floors at 0', () => {
+    const dry = makeUnit({ id: 'd', spd: 10, mp: 3, maxMpBase: 40 });
+    const state = makeGameState({ units: [dry] });
+    const r = reduceSystemMpRestore(
+      state,
+      {
+        type: 'system_mp_restore',
+        sequenceNumber: 0,
+        source: 'system',
+        timestamp: { tick: 0, ct: 0 },
+        seed: 0,
+        chainDepth: 0,
+        isReaction: false,
+        payload: {
+          targetId: unitId('d'),
+          amount: -4,
+          source: { kind: 'status_tick', statusTypeId: statusTypeId('golden_rod_pact'), unitId: unitId('d') },
+        },
+      },
+      cat,
+    );
+    expect(r.outcome.applied).toBe(-3); // only 3 MP to burn
+    expect(r.newState.units.get(unitId('d'))!.vitals.mp).toBe(0);
+  });
+
+  it('Gilded Focus stacks raise the MA query (+1 per stack)', () => {
+    const focused = makeUnit({
+      id: 'f', spd: 10, ma: 9,
+      statuses: [
+        {
+          typeId: statusTypeId('gilded_focus'),
+          source: { unitId: null, actionSeq: null },
+          remainingDuration: null,
+          magnitude: 3,
+        },
+      ],
+    });
+    const state = makeGameState({ units: [focused] });
+    const unit = state.units.get(unitId('f'))!;
+    const ma = runModifyStatQuery(state, cat, { unit, statName: 'ma', baseValue: unit.baseStats.ma });
+    expect(ma).toBe(12);
+  });
+});
+
+describe('Excalibur — Knight Sword capstone: Brave variance, Auto-Haste, Holy imbue', () => {
+  it('content pin: knight_sword 2H, WP 16 · 95, Brave band, Haste grant, holy tag', () => {
+    expect(excalibur.weaponType).toBe('knight_sword');
+    expect(excalibur.twoHanded).toBe(true);
+    expect(excalibur.wp).toBe(16);
+    expect(excalibur.accuracy).toBe(95);
+    expect(excalibur.physicalVariance).toEqual({ kind: 'attacker_brave', spread: 0.05 });
+    expect(excalibur.statusGrants).toEqual([statusTypeId('haste')]);
+    expect(excalibur.tags).toEqual(['sword', 'holy']);
+  });
+
+  it('Holy imbue resolves against the Holy resistance field (D2 payoff)', () => {
+    const swing = (targetEquipment?: UnitEquipment): number => {
+      const bearer = makeUnit({
+        id: 'k', spd: 10, pa: 10, brave: 100, crit_chance: 0,
+        equipment: holding('excalibur'),
+      });
+      const target = makeUnit({
+        id: 't', spd: 10, hp: 900, maxHpBase: 900,
+        position: { x: 1, y: 0, layer: 0 },
+        ...(targetEquipment !== undefined ? { equipment: targetEquipment } : {}),
+      });
+      const state = makeGameState({ units: [bearer, target] });
+      return (
+        runDamagePipeline({
+          state,
+          catalog: cat,
+          attacker: state.units.get(unitId('k'))!,
+          target: state.units.get(unitId('t'))!,
+          ability: attack,
+          sourceActionSeq: 0,
+          seed: 777,
+          registry: defaultDamageHandlers,
+        }).finalDamage ?? -1
+      );
+    };
+    const vsPlain = swing();
+    // Mantle of Protection carries the Holy-resistance vestige (+25) — the
+    // tag merge (ADR-0028) must route Excalibur's strikes through it.
+    const vsWarded = swing(holding('mantle_of_protection', 'accessory'));
+    expect(vsPlain).toBeGreaterThan(0);
+    expect(vsWarded).toBeLessThan(vsPlain);
+  });
+});
