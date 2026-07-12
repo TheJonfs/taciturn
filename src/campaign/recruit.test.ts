@@ -8,7 +8,8 @@ import { partyAverageLevel } from './enemy-level.ts';
 import { getNode } from './graph.ts';
 import { freeCount, ownedCount } from './inventory.ts';
 import { newCampaign } from './loop.ts';
-import { CAMPAIGN_RULESET_ID, M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+import { CAMPAIGN_RULESET_ID } from './node-content.ts';
 import { tierEntryOf } from './progression/index.ts';
 import {
   buildHire,

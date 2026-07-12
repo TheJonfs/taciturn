@@ -11,7 +11,8 @@
 // is relaxed.
 
 import { describe, expect, it } from 'vitest';
-import { CAMPAIGN_RULESET_ID, M1_CAMPAIGN_GRAPH } from './node.ts';
+import { M1_CAMPAIGN_GRAPH } from './node.ts';
+import { CAMPAIGN_RULESET_ID } from './node-content.ts';
 import { battleBeats } from './sequence.ts';
 
 describe('campaign nodes — ruleset agreement', () => {
