@@ -429,6 +429,16 @@ These are noted to make their absence intentional rather than accidental:
   the tool-invisible `node-content.ts`). The economy content pass can now
   lay out chapter graphs before keying bundles to nodes. Beat/scene/enemy
   and economy-bundle authoring are later tiers.
+  **Engagement queues + per-beat edge gating — SHIPPED whole** (ADR-0148,
+  S91): `CampaignNode.engagements` (ordered queue with per-engagement
+  `storyBeatId`/`armsAfter`), `CampaignEdge.opensOnBeat` (monotonic
+  per-beat road opening), temporal story-cleared, the driver walking the
+  current engagement — plus the Atlas authoring for all of it (queue
+  editor, arming/gating pickers, placeholder SCENES,
+  reachability-under-gating validation, the stateful preview walk). No
+  save migration (a first engagement's beat id defaults to the node id);
+  every shipped node plays identically. Ch1's camp-based non-linear
+  layout is now authorable and walkable on placeholders end-to-end.
   Then authoring (M4 — starts by replacing the skirmish stub), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.

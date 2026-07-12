@@ -7,11 +7,13 @@ model of how nodes and beats actually work — the reference for authoring the
 campaign whether or not the tool is open. Update this document whenever an
 Atlas tier ships or the node/beat model changes.*
 
-*Current tool scope: the **structural tier** (ADR-0147, S90). Atlas authors
-the campaign skeleton — topology, chapters, capabilities, layout,
-placeholder battles. Scenes, real battle content, and enemies are
-hand-authored (see §4); beat/scene/enemy editing and economy-bundle
-assignment are planned later tiers (§6).*
+*Current tool scope: the **structural tier** (ADR-0147, S90) plus
+**engagement queues, per-beat edge gating, and placeholder scenes**
+(ADR-0148, S91). Atlas authors the campaign skeleton — topology, chapters,
+capabilities, layout, engagement queues with arming rules, per-beat edge
+gates, placeholder battles and stub scenes. Real scenes, battle content,
+and enemies are hand-authored (see §4); beat/scene/enemy editing and
+economy-bundle assignment are planned later tiers (§6).*
 
 ---
 
@@ -24,7 +26,7 @@ production builds contain no trace of it.
 On first load Atlas imports the **shipped campaign graph**
 (`M1_CAMPAIGN_GRAPH` + `NODE_LAYOUT`), so you are always editing the real
 thing. Your working copy then lives in localStorage
-(`taciturn-atlas-draft-v1`), auto-saved on every change, surviving reloads.
+(`taciturn-atlas-draft-v2`), auto-saved on every change, surviving reloads.
 **Reset to shipped** (toolbar) discards the draft and re-imports the
 checked-in graph (it asks first). Drafts are disposable scratch by design —
 a model-shape change in a future session bumps the storage key and orphans
@@ -44,7 +46,8 @@ old drafts rather than migrating them.
 Nodes render in the world-map idiom plus editor chrome: the circle's tint
 and inline number show the **chapter**, `START` marks the entry node, and
 badges under the name show capabilities (`trade`, `skirmish`) and beats
-status (`placeholder`, `no beats`).
+status (`placeholder` when any engagement is a stand-in, `no beats`, and
+`×N` for a node with an N-engagement queue).
 
 ### Toolbar
 
@@ -69,16 +72,32 @@ status (`placeholder`, `no beats`).
 - **Hub (trade)** / **Farmable** — orthogonal capability flags (appendix
   A.3). Any combination is legal; validation enforces the one hard rule
   (farmable needs a battle beat).
-- **Beats source** — where this node's beats come from (appendix A.4):
-  - *Hand-authored content* — `node-content.ts` has an entry under this
-    node's id. Disabled when it doesn't.
-  - *Placeholder battle* — a stand-in fight on a registered template
-    (dropdown). Walkable immediately; replaced with real content later.
-  - *None* — no beats at all: a pure market town or waypoint
-    (visit-completes semantics, appendix A.6).
+- **Engagements (queue order)** — the node's ordered engagement queue
+  (appendix A.4/A.5). Each card carries:
+  - *Beat id* — the engagement's cleared-guard id. Blank on the FIRST
+    engagement means "the node id" (the shorthand every single-engagement
+    node uses); every later engagement must author one explicitly
+    (validation gates it). Adding an engagement auto-fills a fresh
+    `<node-id>-N` id.
+  - *Beats source* — where this engagement's beats come from:
+    *hand-authored content* (a `node-content.ts` entry under the effective
+    beat id; disabled when none exists), *placeholder battle* (a stand-in
+    fight on a registered template), or *placeholder scene* (a one-line
+    stub carrying your marker text — "Scene between X and Y here" — so
+    structure walks before dialogue exists).
+  - *Arms after* (second engagement onward) — the beat whose clearing arms
+    this engagement. Default is the previous engagement in the queue; pick
+    a beat at ANOTHER node for the "camp re-arms after you clear a mission
+    elsewhere" shape.
+  - ↑/↓ reorder within the queue; ✕ removes. **Removing every engagement**
+    makes the node a pure town/waypoint (visit-completes, appendix A.6).
 - **Win-edges (choice order)** — this node's outgoing win-edges, in the
   order the world map offers them. Reorder with ↑/↓, delete with ✕, click
-  a target name to jump to it. Loss-edges (if any exist — none are
+  a target name to jump to it. Each edge has an **opens on** picker: the
+  beat whose clearing opens this road as forward progress (default = the
+  source's first engagement — exactly the old "clearing the node opens its
+  edges"). Gate different edges on different engagements to make each camp
+  visit open a different path. Loss-edges (if any exist — none are
   authored today) list separately and can be deleted.
 - **Draw edge from here…** — arms edge-drawing; click the target node on
   the canvas (Esc cancels). Duplicate edges are silently ignored.
@@ -96,11 +115,15 @@ finding selects the offending node. The full rule set is appendix B.
 ### Preview
 
 Renders your draft through the **real** `WorldMapBeatView` — what you
-preview is what ships. Pick a **Stand at** node: the map shows the exact
-situation the driver would show after clearing the road to that node
-(ancestors visited + cleared, real `travelChoices`, real badges). Clicking
-a destination marches the banner and moves your stand-point, so the whole
-draft is walkable, march animation included.
+preview is what ships. The preview is a **stateful walk** (ADR-0148): it
+starts at your start node with its first engagement won, and every
+destination you click travels there and wins whatever engagement is armed
+at arrival (one per entry, exactly as the driver plays them). The toolbar
+shows the running cleared-beat count and the last beat cleared; **Restart
+walk** rewinds to the start. Because the walk accumulates a real
+play-through, multi-visit shapes — a camp whose second story arms after a
+mission elsewhere and opens a different road — are walkable exactly as
+they will ship, march animation included.
 
 ### Export
 
@@ -131,7 +154,8 @@ means a partial paste or hand edits to a generated file.
 3. Preview-walk the draft from a few stand-points.
 4. Export → paste → `tsc` + tests.
 5. Hand-author content for the nodes that need it (§4), switching each
-   node's beats source from *placeholder* to *hand-authored content*.
+   engagement's beats source from *placeholder* to *hand-authored
+   content*.
 
 ## 4. The ownership boundary — what Atlas must never touch
 
@@ -151,28 +175,39 @@ Rules of the road:
 - **Never hand-edit the generated files** beyond pasting a fresh export.
   The next export overwrites them wholesale; the headers say so.
 - **All story/battle/enemy content goes in `node-content.ts`**, in its
-  `NODE_CONTENT` table keyed by raw node-id string. A structural node with
-  beats source *content* resolves through `contentBeats(id)`, which throws
-  at module init if the entry is missing (fail loud).
-- **Renaming a node id orphans its content entry.** Atlas remaps edges and
-  the start pointer but cannot touch `node-content.ts`; validation reports
-  `content-missing` before export, and the fix is renaming the
-  `NODE_CONTENT` key to match.
-- Adding content for a new node: write the beats in `node-content.ts`
-  under the node's id, then flip the node's beats source to *hand-authored
-  content* in Atlas and re-export (or hand-flip the one line — but then
-  keep it canonical: `beats: contentBeats(M1_NODES.<key>)`).
+  `NODE_CONTENT` table keyed by raw **effective beat id** (ADR-0148): a
+  single-engagement node's default beat id IS its node id, so the classic
+  keys are unchanged; a later engagement in a queue keys by its explicit
+  `storyBeatId`. An engagement with beats source *content* resolves through
+  `contentBeats(beatId)`, which throws at module init if the entry is
+  missing (fail loud).
+- **Renaming a node id orphans its content entry.** Atlas remaps edges,
+  the start pointer, and any `armsAfter`/`opensOnBeat` references riding
+  the default first-engagement beat id — but cannot touch
+  `node-content.ts`; validation reports `content-missing` before export,
+  and the fix is renaming the `NODE_CONTENT` key to match.
+- Adding content for a new engagement: write the beats in
+  `node-content.ts` under its effective beat id, then flip that
+  engagement's beats source to *hand-authored content* in Atlas and
+  re-export.
 
-## 5. What placeholder battles give you
+## 5. What placeholders give you
 
-A placeholder is a registered template's map + its default enemy garrison +
-its deployment zones + deploy cap 5. The registry
+A **placeholder battle** is a registered template's map + its default
+enemy garrison + its deployment zones + deploy cap 5. The registry
 (`src/content/battles/registry.ts`) lists only battlefields with deployment
 zones, so **every placeholder is playable the moment it's exported**: the
 start fight works, farmable valves open after clearing, skirmishes borrow
 the battlefield, vitals probes resolve. The detail tier later swaps
 placeholders for real battlefields and authored enemies in the same beat
 slot. Default template: River Ridge.
+
+A **placeholder scene** (ADR-0148) is a one-line stub scene titled
+"Placeholder Scene" carrying your marker text ("Scene between Lumen and
+Chris here"). With stub scenes + placeholder battles, a full chapter —
+scene → battle → scene → return-to-camp → new scene — is **walkable as
+pure structure before any real dialogue is written**. Swap for real
+content later by flipping the engagement's source to *content*.
 
 ## 6. Where Atlas is going (planned tiers)
 
@@ -185,9 +220,8 @@ Per the substrate notes' scoping sketch and ADR-0147's deferrals:
   decision:* this tier writes into what is today the hand-authored half, so
   the §4 ownership boundary must be redrawn deliberately (likely per-block,
   not per-file) before building it.
-- **Engagement queues + per-beat edge gating** (runtime-first) — the
-  "return to camp for a new story that opens a new path" pattern. The save
-  already supports it (appendix A.5); the runtime model doesn't yet.
+- ~~Engagement queues + per-beat edge gating~~ — **SHIPPED whole**
+  (ADR-0148, S91): runtime model + Atlas authoring + stateful preview.
 - **Progressive reveal** — nodes appearing on the map as milestones clear.
   Mostly derivable from existing save data; see the handoff/planner notes.
 - **Economy layer** (tier 4) — per-node shop-bundle assignment
@@ -229,14 +263,19 @@ deserializer fails loudly on those).
 
 ```ts
 interface CampaignNode {
-  id: string;            // stable slug ('node-river-ridge') — enters saves
-  name: string;          // display name
-  chapter: number;       // chapter of first appearance (≥ 1)
-  beats: NodeBeat[];     // the CURRENT story engagement (A.4)
-  storyBeatId?: string;  // engagement id for the cleared guard (A.5)
-  offset?: number;       // enemy-level offset (A.3)
-  isHub?: boolean;       // commerce here once visited (A.3)
-  farmable?: boolean;    // repeatable skirmish once cleared (A.3)
+  id: string;                 // stable slug ('node-river-ridge') — enters saves
+  name: string;               // display name
+  chapter: number;            // chapter of first appearance (≥ 1)
+  engagements: Engagement[];  // the ORDERED story queue (A.4/A.5)
+  offset?: number;            // enemy-level offset (A.3)
+  isHub?: boolean;            // commerce here once visited (A.3)
+  farmable?: boolean;         // repeatable skirmish once cleared (A.3)
+}
+
+interface Engagement {
+  storyBeatId?: string;  // cleared-guard id; first defaults to the node id
+  beats: NodeBeat[];     // this engagement's scene/battle sequence (A.4)
+  armsAfter?: string;    // beat that arms this; default = previous in queue
 }
 ```
 
@@ -269,8 +308,12 @@ independent flags that coexist and change meaning over campaign progress
 
 ## A.4 Beats — what happens when you enter a node
 
-A node owns an **ordered beat sequence**; the driver walks it on entry.
-Two beat kinds:
+A node owns an **ordered queue of engagements**; each engagement owns an
+ordered beat sequence. On entry the driver walks the **current**
+engagement's beats — the earliest engagement that is *armed* (first in
+queue, or its `armsAfter` beat is cleared) and *not yet cleared*. Most
+nodes have exactly one engagement, which behaves exactly like the
+pre-queue model. Two beat kinds:
 
 - **`story-scene`** — presentational: a titled scene of dialogue lines
   (`speaker`, `text`, optional `portrait` — a class portrait, a fixed plot
@@ -287,10 +330,10 @@ interface NodeBattle {
 }
 ```
 
-Authored shapes all exist in shipped content: `[story, battle]`,
-`[battle, story]`, `[story]` (standalone story node), `[battle]`, and
-`[]` (a pure market town — see A.6). Multi-battle nodes are
-model-supported but not driver/save-exercised.
+Authored beat shapes all exist in shipped content: `[story, battle]`,
+`[battle, story]`, `[story]` (standalone story node), `[battle]`, and a
+node with `engagements: []` (a pure market town — see A.6). Multi-battle
+engagements are model-supported but not driver/save-exercised.
 
 - **Battle templates are not campaign content** — they live in
   `src/content/battles/` and beats *reference* them.
@@ -303,29 +346,43 @@ model-supported but not driver/save-exercised.
   the template registry; the runtime can't tell them apart from "real"
   ones.
 
-## A.5 The per-beat cleared guard (and why re-arms are already half-built)
+## A.5 Engagement queues + the per-beat cleared guard
 
-When an engagement fully plays, the save records `storyBeatIdOf(node)` —
-the explicit `storyBeatId` if authored, else the node id — in
-`clearedStoryBeats`. The guard is **per-beat, not per-node**: an
-already-cleared beat never replays, but a location that later re-arms with
-a *new* engagement under a *new* beat id is a legitimate new fight, no save
-migration needed. Today every node has exactly one engagement, so nobody
-authors `storyBeatId` explicitly; the field exists so the **engagement
-queue** (the "return to camp later" pattern) can land as a runtime/model
-feature without touching the save shape. What that feature still needs:
-the queue on the node, arming triggers, and per-beat edge gating (§6).
+When an engagement fully plays, the save records its **effective beat id**
+(`engagementBeatId`: the explicit `storyBeatId` if authored, else — first
+engagement only — the node id) in `clearedStoryBeats`. The guard is
+**per-beat, not per-node**: an already-cleared beat never replays, but a
+later engagement in the queue under its own beat id is a legitimate new
+story, no save migration needed. That first-engagement node-id default is
+also the save-compat rule: pre-queue saves recorded node ids, and they
+resolve unchanged.
+
+**Arming** (ADR-0148): the first engagement is armed at node availability;
+a later one arms when its `armsAfter` beat clears — the previous
+engagement by default (sequential same-node chains), or a beat at ANY node
+(the Igros shape: the camp re-arms after you clear a mission elsewhere).
+The **current** engagement on entry is the earliest armed-and-uncleared
+one; when nothing is armed right now the node is *temporally
+story-complete* — it trades and farms like any cleared location, and flips
+back to an armed story when a distant beat arms its next engagement.
+
+**Per-beat edge gating**: each win-edge opens when its `opensOnBeat` beat
+clears (default: the source's first engagement — the classic "clearing a
+node opens its edges"). Edge opening is **monotonic** — an opened road
+never closes, even while the source re-arms — so gate different edges on
+different engagements to make each camp visit open a different path.
 
 ## A.6 Travel semantics — how the map decides where you can go
 
 All pure selectors in `travel.ts`, driven by the graph + the save:
 
-- **Story-cleared:** a node with beats is cleared when its current beat id
-  is in `clearedStoryBeats`. A node with **no beats** completes on **first
+- **Story-cleared:** TEMPORAL — nothing armed-and-uncleared at the node
+  right now (A.5). A node with **no engagements** completes on **first
   visit** (visit-completes) — that's what lets a pure market town sit on
   the road without blocking progression through it.
-- **Frontier (forward progress):** the win-edge targets of cleared nodes
-  whose own story is still ahead. These render as *advance* choices.
+- **Frontier (forward progress):** the targets of OPEN win-edges (per-beat
+  gating, A.5) whose own story is still ahead. These render as *advance*
+  choices.
 - **Returnable:** any *visited* node that still offers something (armed
   story, open skirmish valve, commerce). Return travel is free — no travel
   friction by design. These render as *revisit* choices with badges.
@@ -352,7 +409,12 @@ on them).
 |---|---|---|
 | `id-empty` / `id-duplicate` | error | Node ids must be non-empty and unique (they enter saves). |
 | `id-no-key` / `id-key-collision` | error | Every id must yield a unique codegen identifier (`node-river-ridge` → `riverRidge`). |
-| `story-beat-id-collision` | error | Effective beat ids (explicit or defaulted to node id) must be unique — the cleared guard keys on them. |
+| `story-beat-id-collision` | error | Effective beat ids (explicit, or node id for a defaulted first engagement) must be unique across ALL nodes' engagements — the cleared guard keys on them. |
+| `engagement-id-missing` | error | Every engagement past the first must author an explicit `storyBeatId` (only the first may default to the node id). |
+| `arms-after-unknown` / `opens-on-unknown` | error | `armsAfter` / `opensOnBeat` must reference a real engagement's beat id. |
+| `unreachable-under-gating` | error | A node structurally reachable but unreachable once edge gates + arming are accounted for (joint fixpoint over achievable beats and reachable nodes). |
+| `engagement-never-arms` | error | An engagement whose arms-after chain can never clear (includes arming cycles). |
+| `scene-marker-empty` | warning | A placeholder scene with no marker text. |
 | `start-missing` | error | `startId` must be a node. |
 | `edge-dangling` / `edge-self` | error | Edges must resolve to nodes; no self-loops. |
 | `unreachable` | error | Every node reachable from the start via win-edges. |
@@ -372,10 +434,19 @@ on them).
 # Appendix C — glossary
 
 - **Atlas** — the in-app campaign graph editor (`?atlas`).
-- **Node** — one location on the campaign map; owns a beat sequence.
+- **Node** — one location on the campaign map; owns an ordered
+  engagement queue.
 - **Beat** — one step of a node's entry sequence: a story scene or a battle.
-- **Engagement** — a node's current story beat sequence, identified by its
-  `storyBeatId` for the cleared guard.
+- **Engagement** — one entry of a node's ordered story queue: a beat
+  sequence that clears once, forever, under its effective beat id. The
+  *current* engagement is the earliest armed-and-uncleared one.
+- **Arms after** — the beat whose clearing makes a later engagement
+  playable; previous-in-queue by default, any node's beat by authoring.
+- **Opens on** — a win-edge's gate: the beat whose clearing opens the road
+  (source's first engagement by default). Monotonic — opened roads never
+  close.
+- **Placeholder scene** — a one-line stub scene carrying the author's
+  marker text; makes structure walkable before dialogue exists.
 - **Win-edge** — a directed edge that opens as forward progress when its
   source node's story clears; also an undirected *road* for return travel
   and the march.
