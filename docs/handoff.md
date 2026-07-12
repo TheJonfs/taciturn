@@ -31,6 +31,55 @@ preview march → export.
 - **The economy CONTENT pass is unblocked on layout:** chapter graphs can
   now be laid out in Atlas first, then bundles keyed to nodes. Atlas does
   NOT author `firstAvailableAt` (economy tier, deferred per brief).
+- **New durable reference: `docs/atlas-guide.md`** (also added to the
+  CLAUDE.md context table) — the Atlas user guide + the plain-language
+  node/beat model appendix + validation-rule table + glossary. Update it
+  whenever an Atlas tier ships or the node/beat model changes.
+
+### Post-session design discussion (Chris, S90 wrap) — three future features, with recommended sequencing
+
+Chris raised two campaign-structure wants; a third (the Atlas beat-editor
+tier) was already on the deferral list. Assessments + my sequencing
+recommendation (route through the planner for real briefs):
+
+1. **Progressive reveal** (FFT-style: nodes appear as milestones clear) —
+   SMALL, sequence first or ride along any session. Visibility is
+   DERIVABLE from existing save data (rule 5): visible = visited ∪ current
+   travel choices. Clear a node → its win-edge targets pop onto the map.
+   Render-layer filter in `WorldMapBeatView` (hide nodes + edges touching
+   them); march unaffected (only visible places are ever endpoints). No
+   save change. Optional later: authored `revealedBy: beatId` on the node
+   for dramatic distant reveals (still derived at render). Monotonic-map
+   decision means revealed-never-hidden — consistent.
+2. **Engagement queues + per-beat edge gating** (return to a camp node for
+   a NEW story/battle that opens a DIFFERENT path) — session-sized runtime
+   feature; sequence when story authoring needs it (M5-ish, or before
+   laying out real chapter graphs that lean on a recurring camp). The save
+   side is ALREADY BUILT (per-beat `clearedStoryBeats` + `storyBeatId`,
+   ADR-0145 — no migration needed). Missing, all runtime/model: (a) the
+   engagement QUEUE on the node (today `beats` = one current engagement),
+   (b) arming triggers ("arms after beat Y clears"), (c) **per-beat edge
+   gating** — the subtle one: today clearing a node opens ALL its
+   win-edges; the camp pattern needs edges keyed to the beat that opens
+   them (e.g. optional `opensOnBeat` on `CampaignEdge`, default = the
+   node's first engagement). `travel.ts` selectors were written expecting
+   the queue to change them, not their callers. Composes with hub-ness
+   (commerce persists while story re-arms) and with reveal (1) — new
+   locations appearing after the camp's second story falls out free.
+3. **Atlas beat-editor tier** (scenes/battle-beats/enemy grids in the
+   tool) — sequence before M5 scene authoring at scale; NOT needed for the
+   economy content pass. **Prerequisite decision recorded in the guide
+   §6:** this tier writes into today's hand-authored half, so the
+   node-content ownership boundary must be redrawn deliberately
+   (per-block, not per-file) or the round-trip losslessness argument
+   dissolves. That's the audit question for its brief. Chris is also open
+   to a second support tool where that fits better (battle-TEMPLATE
+   authoring should stay a separate tool regardless).
+
+Recommended order relative to the standing plan: economy CONTENT pass
+first (unchanged), reveal (1) as a small rider or immediately after,
+queues (2) when the real chapter graphs / story structure demand a
+recurring-camp shape, beat-editor (3) before M5 authoring volume.
 - **Workflow change:** story scenes / battle beats / enemy derivation are
   hand-edited in `src/campaign/node-content.ts` now; `node.ts` is
   overwritten wholesale by Atlas export. The round-trip test fails loudly
