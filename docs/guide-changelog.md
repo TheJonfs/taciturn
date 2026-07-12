@@ -44,6 +44,14 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 89 (2026-07-11) — AI competency refresh (ADR-0146)
+
+_No player-facing changes._ (Enemy AI competency floor — enemies now use
+grapple throws, damage-less debuffs, Raise, Esuna, and Jump, and respect
+reflect gear — but AI playing better is not a rules change per the filter
+above. No ability, item, or mechanic changed. The `aiHints` additions on
+statuses are AI-only metadata.)
+
 ## Session 88 (2026-07-11) — TABA campaign economy: gil, world-map travel, skirmishes, shops, recruitment (ADR-0145)
 
 Commits: `86ba0c0` (gil) · `bb155a8` (map + skirmish) · `8671c94` (shops) ·

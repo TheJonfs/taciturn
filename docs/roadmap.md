@@ -410,6 +410,15 @@ These are noted to make their absence intentional rather than accidental:
   one config module. Remaining M3: the **economy CONTENT pass** (real
   bundle→node assignment, prices, unique acquisition/placement — uniques
   stay seed-only until then), then Tailored Outfit / post-game gear design.
+  **Pre-M4 AI competency refresh — SHIPPED** (ADR-0146, S89, all seven
+  items): the AI-substrate audit (durable reference
+  `docs/design/ai-substrate.md` + per-class matrix in
+  `taba-ai-refresh-findings.md`), the effect-shape floor fixes
+  (grapple-throw ledge heaves; content-declared `aiHints.value` debuff
+  valuation × real land chance — the Assassin plays its kit now; Raise
+  revives; Esuna cleanses; Jump pinned), reflect-gear fear, and the
+  `scoreItemForUnit`/`rankItemsForUnit` gear-valuation module the M4
+  generator consumes (D-ai-3 unblocked).
   Then authoring (M4 — starts by replacing the skirmish stub), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.
