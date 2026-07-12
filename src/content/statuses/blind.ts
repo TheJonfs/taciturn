@@ -33,6 +33,7 @@ export const blind: StatusEffectType = {
   tags: ['negative', 'mental'],
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
+  aiHints: { polarity: 'debuff', value: 18 },
   hooks: [
     statusHook('modifyHitChance', (args) => args.baseHitChance * BLIND_HIT_MULTIPLIER),
   ],

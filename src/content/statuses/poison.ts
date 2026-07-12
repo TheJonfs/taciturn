@@ -44,6 +44,7 @@ export const poison: StatusEffectType = {
   tags: ['negative', 'poison'],
   durationMode: 'permanent_per_unit_ct',
   stackingRule: 'REFRESH',
+  aiHints: { polarity: 'debuff', value: 15 },
   hooks: [
     statusHook('onTick', (args): OnTickResult => {
       // Per ADR-0079: KO'd targets don't tick. Poison

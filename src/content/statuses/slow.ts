@@ -22,7 +22,7 @@ export const slow: StatusEffectType = {
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
   defaultMagnitude: 0.5,
-  aiHints: { polarity: 'debuff' },
+  aiHints: { polarity: 'debuff', value: 25 },
   hooks: [
     statusHook('modifyStatQuery', (args, ctx) => {
       if (args.statName !== 'spd') return args.baseValue;

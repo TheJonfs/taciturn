@@ -34,6 +34,7 @@ export const silence: StatusEffectType = {
   tags: ['negative', 'mental'],
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
+  aiHints: { polarity: 'debuff', value: 22 },
   hooks: [
     statusHook('onActionAttempted', (args): ActionAttemptResult => {
       if (args.action.type !== 'use_ability') return { kind: 'allowed' };

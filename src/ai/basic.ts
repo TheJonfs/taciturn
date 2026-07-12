@@ -84,6 +84,7 @@ import {
   buildElevationChanges,
   cardinalFromTo,
   computeAbilityChance,
+  computeStatusChance,
   computeThiefContestChance,
   computeWorldcraftEffectCap,
   estimateChargedTiming,
@@ -435,6 +436,15 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
     const selfHeal = bestSelfHealCandidate(state, catalog, actor);
     if (selfHeal !== null) candidates.push(selfHeal);
 
+    // Ability revive (S89): Raise a KO'd ally — valued like Phoenix Down.
+    const revive = bestReviveCandidate(state, catalog, actor);
+    if (revive !== null) candidates.push(revive);
+
+    // Ability cleanse (S89): Esuna the debuffed cluster — Remedy's currency
+    // summed over the footprint, enemies caught in it deducted.
+    const cleanse = bestCleanseCandidate(state, catalog, actor, allies, enemies);
+    if (cleanse !== null) candidates.push(cleanse);
+
     // Alchemist item throws (Potion / Phoenix Down / Remedy / Ether).
     if (isAlchemistActor(actor, catalog)) {
       const throwCand = bestThrowCandidate(state, catalog, actor, allies);
@@ -460,6 +470,11 @@ export function decideBasicAi(state: GameState, catalog: Catalog): BasicAiDecisi
     // on control-overridden allies — never a non-charmed ally.
     const breakCharm = bestBreakCharmCandidate(state, catalog, actor, allies, enemies, offensive);
     if (breakCharm !== null) candidates.push(breakCharm);
+
+    // Grapple-throw (S89): heave an adjacent enemy off a ledge for the fall
+    // damage the landing emits — the melee analog of a Worldcraft drop.
+    const grapple = bestGrappleThrowCandidate(state, catalog, actor, enemies);
+    if (grapple !== null) candidates.push(grapple);
 
     // Worldcraft (S57 Tier A): Pit/Valley fall damage. Tile-targeted casts
     // scored in the unified currency (signed fall damage × killValue), so a
@@ -725,6 +740,25 @@ function countDebuffStatuses(unit: Unit, catalog: Catalog): number {
     const type = catalog.getStatusType(inst.typeId);
     const polarity = type.aiHints?.polarity ?? 'debuff';
     if (polarity !== 'buff') count += 1;
+  }
+  return count;
+}
+
+// Count the statuses an ability-cleanse (Esuna) would actually strip off a
+// unit — mirrors the dispatcher's `cleanse` resolution exactly (reducers.ts):
+// non-buff polarity, non-equipment-sourced, and not `remedyImmune` (the
+// stat-down opt-outs). Narrower than `countDebuffStatuses` (the Remedy-throw
+// valuation), which predates the remedyImmune skip and is kept as-is for the
+// throw path's established tuning.
+function countCleansableDebuffs(unit: Unit, catalog: Catalog): number {
+  let count = 0;
+  for (const inst of unit.statuses) {
+    if (inst.source.kind === 'equipment') continue;
+    if (!catalog.hasStatusType(inst.typeId)) continue;
+    const type = catalog.getStatusType(inst.typeId);
+    if (type.remedyImmune === true) continue;
+    if ((type.aiHints?.polarity ?? 'debuff') === 'buff') continue;
+    count += 1;
   }
   return count;
 }
@@ -1217,6 +1251,60 @@ function procTargetSynergyMultiplier(
   return multiplier;
 }
 
+// Total reflect percentage the target's worn gear would return against an
+// ability with the given damage tags (S89 WI4a — reflect-awareness).
+// Mirrors the engine's reflect contributor (items/contributions.ts): each
+// equipped item's `physicalReflectPercent` fires against 'physical' tags,
+// `magicalReflectPercent` against 'magical', stacking additively across
+// items. Loadout reaction passives (Damage Split) are NOT read here — they
+// already carry the generic reactionPenalty; this covers the item-field
+// path that penalty never saw.
+function targetReflectPercent(
+  target: Unit,
+  ability: ActiveAbilityDefinition,
+  catalog: Catalog,
+): number {
+  const tags = ability.effects.damage?.tags;
+  if (tags === undefined) return 0;
+  const physical = tags.includes('physical');
+  const magical = tags.includes('magical');
+  if (!physical && !magical) return 0;
+  let percent = 0;
+  for (const slot of ['rightHand', 'leftHand', 'headgear', 'armor', 'accessory'] as const) {
+    const itemRef = target.equipment[slot];
+    if (itemRef === null) continue;
+    if (!catalog.hasItem(itemRef)) continue;
+    const item = catalog.getItem(itemRef);
+    if (physical && 'physicalReflectPercent' in item && item.physicalReflectPercent !== undefined) {
+      percent += item.physicalReflectPercent;
+    }
+    if (magical && 'magicalReflectPercent' in item && item.magicalReflectPercent !== undefined) {
+      percent += item.magicalReflectPercent;
+    }
+  }
+  return percent;
+}
+
+// Expected self-damage cost of attacking into reflect gear, in the unified
+// currency (S89 WI4a): the reflected fraction of the projected damage,
+// valued as friendly fire against the attacker itself. Zero when the hit
+// is expected to KO the wearer — the engine's reflect gates on the wearer
+// being alive post-hit, so a clean kill draws no thorns.
+function reflectCostForAttack(
+  actor: Unit,
+  target: Unit,
+  ability: ActiveAbilityDefinition,
+  catalog: Catalog,
+  projected: number,
+): number {
+  if (projected <= 0) return 0;
+  if (projected >= target.vitals.hp) return 0; // killing the reflector is clean
+  const percent = targetReflectPercent(target, ability, catalog);
+  if (percent <= 0) return 0;
+  const reflected = projected * (percent / 100);
+  return FRIENDLY_FIRE_PENALTY_FACTOR * reflected * killValue(actor);
+}
+
 // True when the actor wields a weapon that rewards high ground — i.e. one
 // declaring `height_delta` damage variance or `rangeFromHeightBonus`
 // (today: bows). The approach-path positional term (see `pickBestMove`)
@@ -1425,6 +1513,9 @@ function scoreSingleUnitOffensive(
     if (ability.selfDamage !== undefined && ability.selfDamage.fraction > 0) {
       score *= SELF_COST_DAMPING_FACTOR;
     }
+    // S89 WI4a: fear reflect gear — a Spiked Mail / Mirror Shield wearer
+    // returns a fraction of the hit; net it off unless the hit kills.
+    score -= reflectCostForAttack(actor, target, ability, catalog, projected);
     // S66 chunk 1: fold in expected knock-into-hazard fall damage. The
     // target is the knockback anchor (single-target); it survives the
     // direct hit when expected damage is below its current HP. Adds 0 on
@@ -1437,27 +1528,71 @@ function scoreSingleUnitOffensive(
     return score - mpSpendPenalty(state, catalog, actor, ability);
   }
 
-  // No damage — debuff applier (Magnetic Mark). Tier-2 setup→exploit:
-  // value = marginal damage gained from making the target Vulnerable on
-  // the actor's strongest follow-up damage ability, clamped at the
-  // target's remaining HP. If the strongest follow-up already kills
-  // without Vulnerable, marginal value is 0 — Mark adds nothing. If the
-  // follow-up does <HP without amplification but kills with it, Mark's
-  // value is the kill itself.
+  // No damage — a status applier (S89 debuff-valuation floor). Two regimes:
+  //
+  //   - Vulnerable (Magnetic Mark) keeps its Tier-2 setup→exploit math —
+  //     the marginal damage the mark adds to the actor's strongest
+  //     follow-up is a *better* model than any flat weight.
+  //   - Every other debuff reads its content-declared floor value
+  //     (`StatusEffectType.aiHints.value`, default DEFAULT_DEBUFF_VALUE)
+  //     × the engine's real land chance (`computeStatusChance` — the same
+  //     body the reducer rolls, so Faith/MA/Brave/Speed factors,
+  //     resistance, and modifier hooks all compose) × the target's HP
+  //     ratio (control is worth most on healthy threats; a near-dead
+  //     enemy should be killed, not debuffed — mirrors the AoE branch).
+  //
+  // A status the target already carries contributes nothing (re-applying
+  // only refreshes duration), so the AI never re-stacks Stop on a stopped
+  // unit. This replaces the pre-S89 behavior where every damage-less
+  // debuff was mis-scored through the Vulnerable proxy with land chance
+  // ignored — the failure that made the Assassin ignore its whole kit.
   if (ability.effects.statusEffects !== undefined) {
-    if (isVulnerable(target)) return 0; // already marked
-    const followUpProjected = strongestDamageFollowUp(state, catalog, actor, source, target);
-    if (followUpProjected <= 0) return 0;
-    const withVulnerable = followUpProjected * VULNERABLE_MULTIPLIER;
-    const damageWithoutMark = Math.min(followUpProjected, target.vitals.hp);
-    const damageWithMark = Math.min(withVulnerable, target.vitals.hp);
-    const marginal = damageWithMark - damageWithoutMark;
-    if (marginal <= 0) return 0;
-    // S66 chunk 2: the debuff applier (Magnetic Mark) pays MP too.
-    return marginal * killValue(target) - mpSpendPenalty(state, catalog, actor, ability);
+    let total = 0;
+    for (const spec of ability.effects.statusEffects) {
+      if (spec.target === 'caster') continue; // self-riders aren't offense
+      if (!catalog.hasStatusType(spec.typeId)) continue;
+      if (isBuffStatus(catalog, spec.typeId)) continue; // buffing an enemy is no offense
+      if (hasStatus(target, spec.typeId)) continue; // already afflicted — no marginal value
+      if (spec.typeId === VULNERABLE_TYPE_ID) {
+        const followUpProjected = strongestDamageFollowUp(state, catalog, actor, source, target);
+        if (followUpProjected <= 0) continue;
+        const withVulnerable = followUpProjected * VULNERABLE_MULTIPLIER;
+        const damageWithoutMark = Math.min(followUpProjected, target.vitals.hp);
+        const damageWithMark = Math.min(withVulnerable, target.vitals.hp);
+        const marginal = damageWithMark - damageWithoutMark;
+        if (marginal > 0) total += marginal * killValue(target);
+        continue;
+      }
+      const statusType = catalog.getStatusType(spec.typeId);
+      const value = (statusType.aiHints?.value ?? DEFAULT_DEBUFF_VALUE) * (spec.stackQuantity ?? 1);
+      const chance = computeStatusChance({
+        state,
+        catalog,
+        caster: actor,
+        target,
+        statusType,
+        ability,
+        baseChance: spec.baseChance ?? 100,
+        ...(spec.factors !== undefined ? { factors: spec.factors } : {}),
+        ...(spec.applyAlways !== undefined ? { applyAlways: spec.applyAlways } : {}),
+      });
+      const maxHp = Math.max(1, target.baseStats.maxHpBase);
+      const hpRatio = Math.max(0, Math.min(1, target.vitals.hp / maxHp));
+      total += value * chance * hpRatio;
+    }
+    if (total <= 0) return 0;
+    // S66 chunk 2: debuff appliers pay MP too.
+    return total - mpSpendPenalty(state, catalog, actor, ability);
   }
   return 0;
 }
+
+// Fallback floor value for a debuff whose content declares no
+// `aiHints.value` (S89). Sits just under CLEANSE_VALUE_PER_DEBUFF so an
+// undeclared debuff is "worth about one cleanse" — conservative enough
+// that a real attack usually wins, positive enough that a pure debuffer
+// still plays its kit. Playtest dial; see docs/playtest-watch.md.
+const DEFAULT_DEBUFF_VALUE = 12;
 
 // Project the strongest follow-up damage the actor could deal to
 // `target` from `source` next turn (or this turn if Mark is the move).
@@ -1559,6 +1694,8 @@ function scoreAoeOffensive(
       });
       let perTarget = projected * killValue(enemy);
       perTarget *= 1 - reactionPenalty(enemy, ability, catalog);
+      // S89 WI4a: reflect gear on a caught enemy costs the caster too.
+      perTarget -= reflectCostForAttack(actor, enemy, ability, catalog, projected);
       total += perTarget;
       // S66 chunk 1: knock-into-hazard fall for each caught enemy. AoE
       // knockback direction is uniform (caster→anchor), matching the
@@ -2000,6 +2137,80 @@ function bestBreakCharmCandidate(
       if (!canCommitAction(state, catalog, actor, action)) continue;
       const cand: ScoredAction = { score, action, key: `break-charm|${ability.id}|${ally.id}` };
       if (best === null || compareScored(cand, best) > 0) best = cand;
+    }
+  }
+  return best;
+}
+
+// =====================
+// Grapple-throw scoring (S89 — the Monk's Bear's Heave)
+// =====================
+
+// Best grapple-throw as a scored pool candidate (S89). Enumerates each
+// `effects.grappleThrow` ability × each living enemy × each destination in
+// the throw diamond, valued by the fall the landing emits — the same signed
+// currency as Worldcraft drops. `fallValueForOccupant` mirrors
+// `resolveGrappleThrow` exactly: drop = throwee-tile elevation − destination
+// elevation, damage only when drop > 1 (the engine's `fallDamageAction`
+// gate). Enemies only: the ally-rescue throw (carry a wounded ally to
+// safety) is deliberately unvalued — ceiling, not floor (see
+// docs/design/ai-substrate.md deferrals). A flat or upward throw scores 0
+// and is declined naturally, so the AI never spends a turn shuffling an
+// enemy sideways. Cast from the actor's current position only (the
+// established utility-candidate boundary); the stance rider is unvalued.
+// Grab reach / destination legality (unoccupied, barrier-free, upward
+// ceiling) are enforced by canCommitAction — the cheap pre-filters here
+// only exist to skip the validation call for hopeless candidates.
+function bestGrappleThrowCandidate(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  enemies: ReadonlyArray<Unit>,
+): ScoredAction | null {
+  const throws = enumerateActiveAbilities(actor, catalog)
+    .filter((a) => a.effects.grappleThrow === true)
+    .filter((a) => a.targeting.kind === 'grapple_throw')
+    .filter((a) => canAfford(state, catalog, actor, a));
+  if (throws.length === 0) return null;
+  let best: ScoredAction | null = null;
+  for (const ability of throws) {
+    if (ability.targeting.kind !== 'grapple_throw') continue; // narrow for TS
+    const radius = ability.targeting.throwRadius;
+    const mpPenalty = mpSpendPenalty(state, catalog, actor, ability);
+    for (const enemy of enemies) {
+      const fromTile = tileAt(state.map, enemy.position.x, enemy.position.y, enemy.position.layer);
+      if (fromTile === undefined) continue;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const manhattan = Math.abs(dx) + Math.abs(dy);
+          if (manhattan === 0 || manhattan > radius) continue;
+          const tx = enemy.position.x + dx;
+          const ty = enemy.position.y + dy;
+          if (tx < 0 || ty < 0 || tx >= state.map.width || ty >= state.map.height) continue;
+          const destTile = tileAt(state.map, tx, ty, enemy.position.layer);
+          if (destTile === undefined) continue;
+          const drop = fromTile.elevation - destTile.elevation;
+          const score = fallValueForOccupant(actor, enemy, drop) - mpPenalty;
+          if (score <= 0) continue;
+          const dest: Position = { x: tx, y: ty, layer: enemy.position.layer };
+          const action: ProposedAction = {
+            type: 'use_ability',
+            source: 'player',
+            actorId: actor.id,
+            payload: {
+              abilityId: ability.id,
+              target: { kind: 'grapple_throw', unitId: enemy.id, destination: dest },
+            },
+          };
+          if (!canCommitAction(state, catalog, actor, action)) continue;
+          const cand: ScoredAction = {
+            score,
+            action,
+            key: `grapple|${ability.id}|${enemy.id}|${positionKey(dest)}`,
+          };
+          if (best === null || compareScored(cand, best) > 0) best = cand;
+        }
+      }
     }
   }
   return best;
@@ -2562,6 +2773,110 @@ function bestSelfHealCandidate(
     if (!canCommitAction(state, catalog, actor, action)) continue;
     const cand: ScoredAction = { score, action, key: `selfheal|${ability.id}` };
     if (best === null || compareScored(cand, best) > 0) best = cand;
+  }
+  return best;
+}
+
+// Best ability-cleanse (Esuna) as a scored pool candidate (S89). Values the
+// cast by what it would actually strip: Σ cleansable debuffs over the
+// footprint's allies × CLEANSE_VALUE_PER_DEBUFF (the Remedy currency),
+// MINUS the same for any enemies caught in the diamond (cleansing an
+// enemy's debuffs is an own-goal — Esuna's spatial downside, so the AI
+// aims at its own cluster). Anchored on an ally (unit-mode payload, the
+// unit_or_tile convention); the caster itself is a valid anchor and
+// beneficiary. Deterministic removal → no chance factor; the charge delay
+// (statuses may tick off before resolution) is a ceiling refinement.
+function bestCleanseCandidate(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+  allies: ReadonlyArray<Unit>,
+  enemies: ReadonlyArray<Unit>,
+): ScoredAction | null {
+  const cleanses = enumerateActiveAbilities(actor, catalog)
+    .filter((a) => a.effects.cleanse !== undefined && a.effects.damage === undefined)
+    .filter((a) => targetsUnit(a.targeting.kind))
+    .filter((a) => canAfford(state, catalog, actor, a));
+  if (cleanses.length === 0) return null;
+  let best: ScoredAction | null = null;
+  for (const ability of cleanses) {
+    const mpPenalty = mpSpendPenalty(state, catalog, actor, ability);
+    for (const anchor of allies) {
+      if (!targetIsInAbilityRange(state, actor, actor.position, anchor, ability, catalog)) continue;
+      let value = 0;
+      const aoe = ability.effects.aoe;
+      if (aoe === undefined) {
+        value = countCleansableDebuffs(anchor, catalog) * CLEANSE_VALUE_PER_DEBUFF;
+      } else {
+        const tiles = aoeTilesAffected(
+          state, catalog, actor, actor.position, anchor.position, ability, aoe,
+        );
+        const tileKeys = new Set(tiles.map(positionKey));
+        for (const ally of allies) {
+          if (ally.id === actor.id && aoe.excludeCaster === true) continue;
+          if (!tileKeys.has(positionKey(ally.position))) continue;
+          value += countCleansableDebuffs(ally, catalog) * CLEANSE_VALUE_PER_DEBUFF;
+        }
+        for (const enemy of enemies) {
+          if (!tileKeys.has(positionKey(enemy.position))) continue;
+          value -= countCleansableDebuffs(enemy, catalog) * CLEANSE_VALUE_PER_DEBUFF;
+        }
+      }
+      const score = value - mpPenalty;
+      if (score <= 0) continue;
+      const action: ProposedAction = {
+        type: 'use_ability',
+        source: 'player',
+        actorId: actor.id,
+        payload: { abilityId: ability.id, target: { kind: 'unit', unitId: anchor.id } },
+      };
+      if (!canCommitAction(state, catalog, actor, action)) continue;
+      const cand: ScoredAction = { score, action, key: `cleanse|${ability.id}|${anchor.id}` };
+      if (best === null || compareScored(cand, best) > 0) best = cand;
+    }
+  }
+  return best;
+}
+
+// Best ability-revive (Raise) as a scored pool candidate (S89). Lifts the
+// long-standing "AI never casts Raise" exclusion: `effects.removeKO`
+// abilities are valued exactly like the Alchemist's Phoenix Down throw —
+// `ally.maxHpBase × REVIVE_WEIGHT`, battlefield presence restored — so a
+// Templar picks up a downed ally the same way an Alchemist does. The
+// charge delay (Raise is actionSpeed 30) is deliberately not discounted at
+// the floor: a corpse can't dodge, and the delay-risk model is a ceiling
+// refinement (playtest dial if revives feel over-eager). KO-only targeting
+// is enforced by validation; the enumeration here mirrors it.
+function bestReviveCandidate(
+  state: GameState,
+  catalog: Catalog,
+  actor: Unit,
+): ScoredAction | null {
+  const revives = enumerateActiveAbilities(actor, catalog)
+    .filter((a) => a.effects.removeKO === true)
+    .filter((a) => targetsUnit(a.targeting.kind))
+    .filter((a) => canAfford(state, catalog, actor, a));
+  if (revives.length === 0) return null;
+  let best: ScoredAction | null = null;
+  for (const u of state.units.values()) {
+    if (u.team !== actor.team) continue;
+    if (u.removed) continue;
+    if (u.vitals.hp > 0) continue;
+    for (const ability of revives) {
+      if (!targetIsInAbilityRange(state, actor, actor.position, u, ability, catalog)) continue;
+      const score =
+        readMaxHpProxy(u) * REVIVE_WEIGHT - mpSpendPenalty(state, catalog, actor, ability);
+      if (score <= 0) continue;
+      const action: ProposedAction = {
+        type: 'use_ability',
+        source: 'player',
+        actorId: actor.id,
+        payload: { abilityId: ability.id, target: { kind: 'unit', unitId: u.id } },
+      };
+      if (!canCommitAction(state, catalog, actor, action)) continue;
+      const cand: ScoredAction = { score, action, key: `revive|${ability.id}|${u.id}` };
+      if (best === null || compareScored(cand, best) > 0) best = cand;
+    }
   }
   return best;
 }
@@ -3306,6 +3621,12 @@ export const _basicAiInternals = {
   estimateOffensiveOutput,
   countStealableBuffs,
   bestBreakCharmCandidate,
+  bestGrappleThrowCandidate,
+  bestReviveCandidate,
+  bestCleanseCandidate,
+  countCleansableDebuffs,
+  targetReflectPercent,
+  reflectCostForAttack,
   isControlOverridden,
   controlOverrideRemainingTurns,
   enumerateOffensiveAbilities,

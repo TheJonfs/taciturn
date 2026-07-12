@@ -25,6 +25,7 @@ export const hamstrung: StatusEffectType = {
   tags: ['negative'],
   durationMode: 'permanent',
   stackingRule: 'STACK_ADDITIVE',
+  aiHints: { polarity: 'debuff', value: 15 },
   defaultMagnitude: 1,
   hooks: [
     statusHook('modifyStatQuery', (args, ctx) => {

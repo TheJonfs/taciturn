@@ -24,6 +24,7 @@ export const speedDown: StatusEffectType = {
   tags: ['negative', 'water'],
   durationMode: 'permanent',
   stackingRule: 'STACK_INDEPENDENT',
+  aiHints: { polarity: 'debuff', value: 18 },
   defaultMagnitude: 1,
   // Stat-reduction debuff — not Remedy-clearable (Session 42 convention).
   remedyImmune: true,

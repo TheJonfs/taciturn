@@ -57,6 +57,7 @@ export const burn: StatusEffectType = {
   durationMode: 'custom',
   customTrigger: { kind: 'on_unit_ct_100' },
   stackingRule: 'STACK_COUNT_ADDITIVE',
+  aiHints: { polarity: 'debuff', value: 12 },
   resistanceTag: 'fire',
 
   // Per ADR-0030: snapshot the applier's MA into N copies (where N is

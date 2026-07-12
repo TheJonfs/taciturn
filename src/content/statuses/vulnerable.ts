@@ -45,6 +45,7 @@ export const vulnerable: StatusEffectType = {
   durationMode: 'custom',
   customTrigger: { kind: 'on_damage_received' },
   stackingRule: 'REFRESH',
+  aiHints: { polarity: 'debuff', value: 15 },
   resistanceTag: 'lightning',
 
   hooks: [

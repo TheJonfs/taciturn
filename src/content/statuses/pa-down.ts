@@ -26,6 +26,7 @@ export const paDown: StatusEffectType = {
   tags: ['negative', 'fire'],
   durationMode: 'permanent',
   stackingRule: 'STACK_ADDITIVE',
+  aiHints: { polarity: 'debuff', value: 15 },
   defaultMagnitude: 1,
   // Stat-reduction debuff — not Remedy-clearable (Session 42 convention).
   remedyImmune: true,

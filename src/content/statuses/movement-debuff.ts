@@ -25,6 +25,7 @@ export const movementDebuff: StatusEffectType = {
   tags: ['negative', 'earth'],
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
+  aiHints: { polarity: 'debuff', value: 10 },
   defaultMagnitude: 1,
   resistanceTag: 'earth',
   hooks: [

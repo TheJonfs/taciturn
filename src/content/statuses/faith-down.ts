@@ -26,6 +26,7 @@ export const faithDown: StatusEffectType = {
   tags: ['negative'],
   durationMode: 'permanent',
   stackingRule: 'STACK_ADDITIVE',
+  aiHints: { polarity: 'debuff', value: 12 },
   defaultMagnitude: 20,
   remedyImmune: true,
   hooks: [

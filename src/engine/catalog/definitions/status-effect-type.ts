@@ -78,6 +78,16 @@ export interface ComposeApplyStateResult {
 // allies for an undeclared status).
 export interface StatusAiHints {
   readonly polarity?: 'buff' | 'debuff';
+  // Damage-equivalent floor value of landing this status on a relevant
+  // target, in the AI's unified currency (S89 — the debuff-valuation
+  // floor). Consumed by the AI's damage-less debuff scorer, which
+  // multiplies it by the engine's real land chance and the target's HP
+  // ratio; the AI falls back to a conservative default when omitted.
+  // A *floor* weight, not a tactics model — "Stop is worth roughly this
+  // much expected damage" — so relative magnitudes matter more than
+  // absolutes. Buffs don't read it (buff potency is computed from the
+  // recipient). Pure metadata; the engine never reads it.
+  readonly value?: number;
 }
 
 export interface StatusEffectType {

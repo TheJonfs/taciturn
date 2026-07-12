@@ -24,6 +24,7 @@ export const stop: StatusEffectType = {
   tags: ['negative', 'time', 'mental'],
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
+  aiHints: { polarity: 'debuff', value: 40 },
   // Frozen in time: a Stopped unit fires no reactions (Counter, Damage
   // Split, Discharge, etc.). This is the reaction half of FFT's Stop;
   // `queryTurnSkipped` below is the turn half. Gated uniformly at

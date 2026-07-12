@@ -32,6 +32,7 @@ export const dontMove: StatusEffectType = {
   tags: ['negative', 'physical'],
   durationMode: 'per_unit_ct',
   stackingRule: 'REFRESH',
+  aiHints: { polarity: 'debuff', value: 15 },
   hooks: [
     statusHook('onActionAttempted', (args): ActionAttemptResult => {
       if (args.action.type !== 'move') return { kind: 'allowed' };
