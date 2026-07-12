@@ -195,15 +195,15 @@ const crossingScene: StorySceneBeat = {
 // story battle, farms, AND trades). `offset` is the one scaling lever —
 // skirmish level = party average + offset (placeholder tuning; it's data).
 const NODES: ReadonlyArray<CampaignNode> = [
-  { id: M1_NODES.riverRidge, name: 'River Ridge', beats: [introScene, riverRidgeOpener()], farmable: true, offset: -1 },
-  { id: M1_NODES.stonebridge, name: 'Stonebridge', beats: [stonebridge(), aftermathScene], farmable: true, isHub: true, offset: 0 },
-  { id: M1_NODES.marshmoor, name: 'Marshmoor', beats: [marshmoor()], farmable: true, offset: 0 },
-  { id: M1_NODES.theCrossing, name: 'The Crossing', beats: [crossingScene] },
-  { id: M1_NODES.mountainPass, name: 'Mountain Pass', beats: [mountainPass()], farmable: true, offset: 2 },
+  { id: M1_NODES.riverRidge, name: 'River Ridge', chapter: 1, beats: [introScene, riverRidgeOpener()], farmable: true, offset: -1 },
+  { id: M1_NODES.stonebridge, name: 'Stonebridge', chapter: 1, beats: [stonebridge(), aftermathScene], farmable: true, isHub: true, offset: 0 },
+  { id: M1_NODES.marshmoor, name: 'Marshmoor', chapter: 1, beats: [marshmoor()], farmable: true, offset: 0 },
+  { id: M1_NODES.theCrossing, name: 'The Crossing', chapter: 1, beats: [crossingScene] },
+  { id: M1_NODES.mountainPass, name: 'Mountain Pass', chapter: 1, beats: [mountainPass()], farmable: true, offset: 2 },
   // The finale revisits the River Ridge battlefield (TABA "and back again").
   // Terminal — clearing it completes the campaign, so its valve never opens
   // in practice; farmable is left off rather than authoring a dead flag.
-  { id: M1_NODES.theReturn, name: 'The Return', beats: [riverRidge()] },
+  { id: M1_NODES.theReturn, name: 'The Return', chapter: 1, beats: [riverRidge()] },
 ];
 
 // Win-edges only (M1 authors no loss-routing; loss = retry in the driver).

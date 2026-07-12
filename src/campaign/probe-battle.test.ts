@@ -50,7 +50,7 @@ describe('probeBattleFor', () => {
   });
 
   it('falls back to the canonical field for a beat-less node', () => {
-    const town: CampaignNode = { id: 'node-town', name: 'Watford Market', beats: [], isHub: true };
+    const town: CampaignNode = { id: 'node-town', name: 'Watford Market', chapter: 1, beats: [], isHub: true };
     expect(probeBattleFor(town)).toBe(CANONICAL_PROBE_BATTLE);
   });
 });

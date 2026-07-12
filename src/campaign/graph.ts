@@ -30,6 +30,14 @@ import type { NodeBeat } from './sequence.ts';
 export interface CampaignNode {
   readonly id: string;
   readonly name: string;
+  // The chapter of FIRST APPEARANCE (node-authoring structural tier, S90).
+  // Organizational/tiering metadata — canvas regions in the Atlas editor,
+  // the equipment lineup's Ch1/2/3 economy tiers, display grouping. It is
+  // deliberately NOT a reachability gate: reachability stays DAG-driven,
+  // and authoring validation keeps `chapter` consistent with the DAG
+  // (non-decreasing along win-edges). Monotonic map: once a node's chapter
+  // is reached the node persists; there is no disappearance field.
+  readonly chapter: number;
   // The node's authored beat sequence (M1.5): `story-scene` + `battle` beats
   // in authored order (see sequence.ts). A node with no battle beat is a
   // standalone story node. The graph machinery never reads this — only the

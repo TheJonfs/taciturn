@@ -157,7 +157,7 @@ describe('buildLocationMenuBeat', () => {
   });
 
   it('a PURE market town (no beats) offers commerce only, from first visit', () => {
-    const town = { id: 'node-watford-market', name: 'Watford Market', beats: [], isHub: true };
+    const town = { id: 'node-watford-market', name: 'Watford Market', chapter: 1, beats: [], isHub: true };
     const state = {
       ...newCampaign(m0Roster, town.id),
       visited: [M1_NODES.riverRidge, town.id],

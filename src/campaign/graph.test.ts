@@ -24,10 +24,10 @@ import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
 const TINY: CampaignGraph = {
   startId: 'a',
   nodes: [
-    { id: 'a', name: 'A', beats: [] },
-    { id: 'b', name: 'B', beats: [] },
-    { id: 'c', name: 'C', beats: [] },
-    { id: 'r', name: 'R', beats: [] },
+    { id: 'a', name: 'A', chapter: 1, beats: [] },
+    { id: 'b', name: 'B', chapter: 1, beats: [] },
+    { id: 'c', name: 'C', chapter: 1, beats: [] },
+    { id: 'r', name: 'R', chapter: 1, beats: [] },
   ],
   edges: [
     { from: 'a', to: 'b', on: 'win' },

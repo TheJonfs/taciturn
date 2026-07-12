@@ -148,7 +148,7 @@ describe('hireGeneric', () => {
   });
 
   it('hires fine at a PURE market town (no battlefield — canonical probe)', () => {
-    const town = { id: 'node-watford-market', name: 'Watford Market', beats: [], isHub: true };
+    const town = { id: 'node-watford-market', name: 'Watford Market', chapter: 1, beats: [], isHub: true };
     const state = rich();
     const hired = hireGeneric(state, town, { classId: hireableClasses()[0]!, level: 10 }, catalog);
     const unit = hired.roster[hired.roster.length - 1]!;
