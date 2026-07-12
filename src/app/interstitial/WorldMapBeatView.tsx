@@ -22,8 +22,37 @@ import {
   type TravelChoice,
   type WorldMapChoiceBeat,
 } from '@campaign/index.ts';
-import { NODE_LAYOUT } from './node-layout.ts';
+import { NODE_LAYOUT, type NodePosition } from './node-layout.ts';
 import type { BeatRendererProps } from './InterstitialRunner.tsx';
+
+type NodeLayout = Readonly<Record<string, NodePosition>>;
+
+// The runner passes plain BeatRendererProps (shipped graph + layout); the
+// Atlas editor's live preview injects its draft graph + layout through the
+// same component — what you preview is what ships.
+export interface WorldMapBeatViewProps extends BeatRendererProps {
+  readonly graph?: CampaignGraph;
+  readonly layout?: NodeLayout;
+}
+
+// The map frame: the hand-tuned 640×350 viewBox is the FLOOR; a layout that
+// outgrows it (multi-chapter skeletons) expands the frame to its bounds so
+// nothing clips. The shipped six-node layout stays pixel-identical.
+const FRAME_W = 640;
+const FRAME_H = 350;
+const FRAME_PAD = 60;
+
+function viewBoxFor(layout: NodeLayout): string {
+  const points = Object.values(layout);
+  if (points.length === 0) return `0 0 ${FRAME_W} ${FRAME_H}`;
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const x0 = Math.min(0, Math.min(...xs) - FRAME_PAD);
+  const y0 = Math.min(0, Math.min(...ys) - FRAME_PAD);
+  const x1 = Math.max(FRAME_W, Math.max(...xs) + FRAME_PAD);
+  const y1 = Math.max(FRAME_H, Math.max(...ys) + FRAME_PAD);
+  return `${x0} ${y0} ${x1 - x0} ${y1 - y0}`;
+}
 
 type Point = { readonly x: number; readonly y: number };
 
@@ -44,9 +73,9 @@ const MARCH_MS_MAX = 1600;
 // UNDIRECTED (roads run both ways even though progress doesn't), so a return
 // trip marches back through the places actually between here and there.
 // Falls back to a straight line if the layout/graph can't supply a road.
-function roadBetween(graph: CampaignGraph, fromId: string, toId: string): ReadonlyArray<Point> {
-  const from = NODE_LAYOUT[fromId];
-  const to = NODE_LAYOUT[toId];
+function roadBetween(graph: CampaignGraph, layout: NodeLayout, fromId: string, toId: string): ReadonlyArray<Point> {
+  const from = layout[fromId];
+  const to = layout[toId];
   if (from === undefined || to === undefined) return [];
   if (fromId === toId) return [from];
 
@@ -73,7 +102,7 @@ function roadBetween(graph: CampaignGraph, fromId: string, toId: string): Readon
   const ids: string[] = [];
   for (let at = toId; at !== fromId; at = cameFrom.get(at)!) ids.unshift(at);
   ids.unshift(fromId);
-  const points = ids.map((id) => NODE_LAYOUT[id]).filter((p): p is Point => p !== undefined);
+  const points = ids.map((id) => layout[id]).filter((p): p is Point => p !== undefined);
   return points.length >= 2 ? points : [from, to];
 }
 
@@ -115,7 +144,7 @@ function marchAnimates(): boolean {
   return true;
 }
 
-export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoster }: BeatRendererProps): ReactElement {
+export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoster, graph: graphProp, layout: layoutProp }: WorldMapBeatViewProps): ReactElement {
   // March state must precede the beat-type guard (rules of hooks); it only
   // ever holds a value while this IS the world-map beat.
   const [march, setMarch] = useState<MarchState | null>(null);
@@ -157,13 +186,14 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
   if (beat.type !== 'world-map-choice') return <></>;
   const map: WorldMapChoiceBeat = beat;
 
-  const graph = M1_CAMPAIGN_GRAPH;
+  const graph = graphProp ?? M1_CAMPAIGN_GRAPH;
+  const layout = layoutProp ?? NODE_LAYOUT;
   const choiceById = new Map(map.choices.map((c) => [c.id, c]));
   const marching = march !== null;
 
   const select = (toId: string): void => {
     if (marching) return; // one march at a time; clicks ignored en route
-    const waypoints = roadBetween(graph, map.fromNodeId, toId);
+    const waypoints = roadBetween(graph, layout, map.fromNodeId, toId);
     if (!marchAnimates() || waypoints.length < 2) {
       onAdvance({ nextNodeId: toId }); // self re-entry / reduced motion / tests
       return;
@@ -171,7 +201,7 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
     setMarch({ toId, waypoints });
   };
 
-  const herePos = NODE_LAYOUT[map.fromNodeId];
+  const herePos = layout[map.fromNodeId];
   const bannerPos = marchPos ?? herePos;
 
   return (
@@ -190,14 +220,14 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
           </div>
         </div>
 
-        <svg viewBox="0 0 640 350" style={svgStyle} role="img" aria-label="Campaign map">
+        <svg viewBox={viewBoxFor(layout)} style={svgStyle} role="img" aria-label="Campaign map">
           {/* Edges first, so nodes draw on top. Solid-blue = an edge into a
               frontier destination (forward progress); the rest stay dashed. */}
           {graph.edges
             .filter((e) => e.on === 'win')
             .map((e) => {
-              const a = NODE_LAYOUT[e.from];
-              const b = NODE_LAYOUT[e.to];
+              const a = layout[e.from];
+              const b = layout[e.to];
               if (a === undefined || b === undefined) return null;
               const active = !marching && choiceById.get(e.to)?.kind === 'advance';
               return (
@@ -215,7 +245,7 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
             })}
 
           {graph.nodes.map((n) => {
-            const pos = NODE_LAYOUT[n.id];
+            const pos = layout[n.id];
             if (pos === undefined) return null;
             const isHere = n.id === map.fromNodeId;
             const choice = marching ? undefined : choiceById.get(n.id);
