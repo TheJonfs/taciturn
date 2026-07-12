@@ -5,7 +5,7 @@ import { loadDefaultCatalog } from '@content/index.ts';
 import { classId, validateDraftUnit } from '@engine/index.ts';
 import { HIRE_JP_TIER1_STEPS } from './economy-config.ts';
 import { partyAverageLevel } from './enemy-level.ts';
-import { getNode } from './graph.ts';
+import { allNodeBeats, getNode } from './graph.ts';
 import { freeCount, ownedCount } from './inventory.ts';
 import { newCampaign } from './loop.ts';
 import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
@@ -142,14 +142,14 @@ describe('hireGeneric', () => {
   it('the hire probes real stats through the existing fold (the Formation view path)', () => {
     const state = rich();
     const unit = buildHire(state, { classId: hireableClasses()[0]!, level: 15 }, catalog);
-    const beat = firstBattleBeat(HUB.beats)!;
+    const beat = firstBattleBeat(allNodeBeats(HUB))!;
     const stats = probeUnitStats(beat.battle.template, unit, beat.battle.playerTeam, catalog);
     expect(stats).not.toBeNull();
     expect(stats!.maxHp).toBeGreaterThan(0);
   });
 
   it('hires fine at a PURE market town (no battlefield — canonical probe)', () => {
-    const town = { id: 'node-watford-market', name: 'Watford Market', chapter: 1, beats: [], isHub: true };
+    const town = { id: 'node-watford-market', name: 'Watford Market', chapter: 1, engagements: [], isHub: true };
     const state = rich();
     const hired = hireGeneric(state, town, { classId: hireableClasses()[0]!, level: 10 }, catalog);
     const unit = hired.roster[hired.roster.length - 1]!;

@@ -16,7 +16,7 @@
 
 import { teamId, type BattleConfig, type TeamId } from '@engine/index.ts';
 import { trainingFieldBattle } from '@content/battles/training-field-battle.ts';
-import type { CampaignNode } from './graph.ts';
+import { allNodeBeats, type CampaignNode } from './graph.ts';
 import { firstBattleBeat } from './sequence.ts';
 
 // The minimal shape a stat/vitals probe needs.
@@ -36,7 +36,7 @@ export const CANONICAL_PROBE_BATTLE: VitalsProbeBattle = {
 // The probe battlefield for work AT a node: its own first battle beat when
 // it has one, the canonical field otherwise (the market-town case).
 export function probeBattleFor(node: CampaignNode): VitalsProbeBattle {
-  const beat = firstBattleBeat(node.beats);
+  const beat = firstBattleBeat(allNodeBeats(node));
   if (beat === undefined) return CANONICAL_PROBE_BATTLE;
   return { template: beat.battle.template, playerTeam: beat.battle.playerTeam };
 }

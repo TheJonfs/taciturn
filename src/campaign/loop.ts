@@ -30,14 +30,8 @@ import { applyBattleResult } from './apply-back.ts';
 import type { BattleResult } from './battle-result.ts';
 import { STARTING_GIL } from './economy-config.ts';
 import { computeGilReward, grantGil } from './gil.ts';
-import {
-  getNode,
-  isTerminal,
-  storyBeatIdOf,
-  type CampaignGraph,
-  type CampaignNode,
-} from './graph.ts';
-import { isTravelChoice } from './travel.ts';
+import { getNode, isTerminal, type CampaignGraph, type CampaignNode } from './graph.ts';
+import { currentEngagement, isTravelChoice } from './travel.ts';
 import { probeBattleFor } from './probe-battle.ts';
 import { probeEffectiveMaxes } from './snapshot-fold.ts';
 import { CAMPAIGN_SCHEMA_VERSION } from './serialization.ts';
@@ -147,23 +141,29 @@ export function applyBattleBeatWin(
   return grantGil({ ...state, roster }, computeGilReward(finalState, playerTeam));
 }
 
-// Resolve the current NODE once its story engagement has fully played (every
-// battle beat won, or a standalone story node finished). Marks the engagement
-// CLEARED (the per-beat guard — this beat never replays; it also opens the
-// node's win-edges as frontier and its farmable/skirmish valve) and sets the
-// phase — POSITION DOES NOT MOVE; it holds at the resolved node until
-// routeToNode advances it. A terminal node → `won` (campaign complete); a
-// non-terminal node → `awaiting_route` (the player picks the next node at the
-// world map). The `awaiting_route` state is saved so a reload resumes at the
-// world map rather than replaying the node. Battle-agnostic: works for a
-// standalone story node (no apply-back ran, roster unchanged) exactly as for a
-// battle node.
+// Resolve the current NODE once its CURRENT ENGAGEMENT has fully played
+// (every battle beat won, or a story-only engagement finished). Marks that
+// engagement CLEARED (the per-beat guard — this beat never replays; clearing
+// it opens the edges gated on it and, once nothing is armed, the node's
+// farmable/skirmish valve) and sets the phase — POSITION DOES NOT MOVE; it
+// holds at the resolved node until routeToNode advances it. A terminal node
+// → `won` (campaign complete); a non-terminal node → `awaiting_route` (the
+// player picks the next node at the world map). The `awaiting_route` state
+// is saved so a reload resumes at the world map rather than replaying the
+// engagement. Battle-agnostic: works for a story-only engagement (no
+// apply-back ran, roster unchanged) exactly as for a battle one. The state
+// passed in is PRE-CLEAR, so `currentEngagement` still names the engagement
+// that just played; a queue node's NEXT engagement becomes current only
+// after this returns.
 export function resolveNode(state: CampaignState, graph: CampaignGraph): CampaignState {
+  const node = getNode(graph, state.currentNodeId);
+  const played = currentEngagement(state, node);
+  if (played === undefined) {
+    // Nothing was armed here — the driver resolved a node it never played.
+    throw new Error(`resolveNode: node "${node.id}" has no armed engagement to clear`);
+  }
   const phase = isTerminal(graph, state.currentNodeId) ? 'won' : 'awaiting_route';
-  const beatId = storyBeatIdOf(getNode(graph, state.currentNodeId));
-  const clearedStoryBeats = state.clearedStoryBeats.includes(beatId)
-    ? state.clearedStoryBeats
-    : [...state.clearedStoryBeats, beatId];
+  const clearedStoryBeats = [...state.clearedStoryBeats, played.beatId];
   return { ...state, clearedStoryBeats, phase };
 }
 

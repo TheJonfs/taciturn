@@ -17,7 +17,7 @@
 import { EMPTY_UNIT_EQUIPMENT, bucketId, classId, type Catalog, type ClassId, type Loadout } from '@engine/index.ts';
 import { authoredEnemy } from './authored-enemy.ts';
 import { partyAverageLevel, resolveEnemyLevel } from './enemy-level.ts';
-import type { CampaignNode } from './graph.ts';
+import { allNodeBeats, type CampaignNode } from './graph.ts';
 import { COMPONENT_CATALOG, seedStartingKit } from './progression/index.ts';
 import { firstBattleBeat, type NodeBattle } from './sequence.ts';
 import type { CampaignState, CampaignUnit } from './types.ts';
@@ -86,7 +86,7 @@ export function buildSkirmishBattle(
   state: CampaignState,
   catalog: Catalog,
 ): NodeBattle {
-  const beat = firstBattleBeat(node.beats);
+  const beat = firstBattleBeat(allNodeBeats(node));
   if (beat === undefined) {
     throw new Error(`buildSkirmishBattle: node "${node.id}" has no battle beat to borrow a battlefield from`);
   }

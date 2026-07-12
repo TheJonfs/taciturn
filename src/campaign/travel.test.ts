@@ -119,7 +119,7 @@ describe('a PURE market town (isHub, no beats) — visit-completes semantics', (
     startId: M1_NODES.riverRidge,
     nodes: [
       getNode(GRAPH, M1_NODES.riverRidge),
-      { id: TOWN, name: 'Watford Market', chapter: 1, beats: [], isHub: true },
+      { id: TOWN, name: 'Watford Market', chapter: 1, engagements: [], isHub: true },
       getNode(GRAPH, M1_NODES.stonebridge),
     ],
     edges: [

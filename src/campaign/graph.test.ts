@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  allNodeBeats,
   getNode,
   isTerminal,
   isWinChoice,
@@ -24,10 +25,10 @@ import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
 const TINY: CampaignGraph = {
   startId: 'a',
   nodes: [
-    { id: 'a', name: 'A', chapter: 1, beats: [] },
-    { id: 'b', name: 'B', chapter: 1, beats: [] },
-    { id: 'c', name: 'C', chapter: 1, beats: [] },
-    { id: 'r', name: 'R', chapter: 1, beats: [] },
+    { id: 'a', name: 'A', chapter: 1, engagements: [] },
+    { id: 'b', name: 'B', chapter: 1, engagements: [] },
+    { id: 'c', name: 'C', chapter: 1, engagements: [] },
+    { id: 'r', name: 'R', chapter: 1, engagements: [] },
   ],
   edges: [
     { from: 'a', to: 'b', on: 'win' },
@@ -89,9 +90,9 @@ describe('the authored M1 graph', () => {
   it('battle nodes carry a battle beat; The Crossing is a standalone story node', () => {
     for (const n of g.nodes) {
       if (n.id === M1_NODES.theCrossing) {
-        expect(isStandalone(n.beats)).toBe(true);
+        expect(isStandalone(allNodeBeats(n))).toBe(true);
       } else {
-        expect(firstBattleBeat(n.beats)).toBeDefined();
+        expect(firstBattleBeat(allNodeBeats(n))).toBeDefined();
       }
     }
   });

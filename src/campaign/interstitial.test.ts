@@ -12,13 +12,13 @@ import {
 import { newCampaign } from './loop.ts';
 import type { BattleResult, UnitBattleSummary } from './battle-result.ts';
 import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
-import { getNode } from './graph.ts';
+import { allNodeBeats, getNode } from './graph.ts';
 import { firstBattleBeat } from './sequence.ts';
 import { m0Roster } from './roster.ts';
 
 const GRAPH = M1_CAMPAIGN_GRAPH;
 const START = getNode(GRAPH, M1_NODES.riverRidge);
-const START_TEAM = firstBattleBeat(START.beats)!.battle.playerTeam;
+const START_TEAM = firstBattleBeat(allNodeBeats(START))!.battle.playerTeam;
 
 // A battle result where the first two roster units fought (survived / downed)
 // and the rest sat in reserve (absent from the result).
@@ -157,7 +157,7 @@ describe('buildLocationMenuBeat', () => {
   });
 
   it('a PURE market town (no beats) offers commerce only, from first visit', () => {
-    const town = { id: 'node-watford-market', name: 'Watford Market', chapter: 1, beats: [], isHub: true };
+    const town = { id: 'node-watford-market', name: 'Watford Market', chapter: 1, engagements: [], isHub: true };
     const state = {
       ...newCampaign(m0Roster, town.id),
       visited: [M1_NODES.riverRidge, town.id],

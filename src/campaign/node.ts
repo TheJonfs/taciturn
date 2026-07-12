@@ -2,11 +2,13 @@
 //
 // This module is the codegen output of the Atlas node-authoring tool (the
 // `?atlas` dev route): nodes, win-edges (authored order = the world map's
-// choice order), chapters, capabilities, and each node's beats source.
+// choice order; `opensOnBeat` gates), chapters, capabilities, and each
+// node's engagement queue with per-engagement beats sources.
 // Hand edits are legal TypeScript but the next Atlas export OVERWRITES THIS
 // FILE WHOLESALE — story scenes, battle beats, and enemy derivation belong
-// in node-content.ts (hand-authored, merged by id; the tool never touches
-// it). The paired layout module is src/app/interstitial/node-layout.ts.
+// in node-content.ts (hand-authored, merged by beat id; the tool never
+// touches it). The paired layout module is
+// src/app/interstitial/node-layout.ts.
 // The exporter's fidelity is pinned by the Atlas round-trip test.
 
 import type { CampaignEdge, CampaignGraph, CampaignNode } from './graph.ts';
@@ -28,7 +30,7 @@ const NODES: ReadonlyArray<CampaignNode> = [
     id: M1_NODES.riverRidge,
     name: 'River Ridge',
     chapter: 1,
-    beats: contentBeats(M1_NODES.riverRidge),
+    engagements: [{ beats: contentBeats(M1_NODES.riverRidge) }],
     offset: -1,
     farmable: true,
   },
@@ -36,7 +38,7 @@ const NODES: ReadonlyArray<CampaignNode> = [
     id: M1_NODES.stonebridge,
     name: 'Stonebridge',
     chapter: 1,
-    beats: contentBeats(M1_NODES.stonebridge),
+    engagements: [{ beats: contentBeats(M1_NODES.stonebridge) }],
     offset: 0,
     isHub: true,
     farmable: true,
@@ -45,7 +47,7 @@ const NODES: ReadonlyArray<CampaignNode> = [
     id: M1_NODES.marshmoor,
     name: 'Marshmoor',
     chapter: 1,
-    beats: contentBeats(M1_NODES.marshmoor),
+    engagements: [{ beats: contentBeats(M1_NODES.marshmoor) }],
     offset: 0,
     farmable: true,
   },
@@ -53,13 +55,13 @@ const NODES: ReadonlyArray<CampaignNode> = [
     id: M1_NODES.theCrossing,
     name: 'The Crossing',
     chapter: 1,
-    beats: contentBeats(M1_NODES.theCrossing),
+    engagements: [{ beats: contentBeats(M1_NODES.theCrossing) }],
   },
   {
     id: M1_NODES.mountainPass,
     name: 'Mountain Pass',
     chapter: 1,
-    beats: contentBeats(M1_NODES.mountainPass),
+    engagements: [{ beats: contentBeats(M1_NODES.mountainPass) }],
     offset: 2,
     farmable: true,
   },
@@ -67,7 +69,7 @@ const NODES: ReadonlyArray<CampaignNode> = [
     id: M1_NODES.theReturn,
     name: 'The Return',
     chapter: 1,
-    beats: contentBeats(M1_NODES.theReturn),
+    engagements: [{ beats: contentBeats(M1_NODES.theReturn) }],
   },
 ];
 

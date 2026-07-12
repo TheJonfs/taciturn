@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { createInitialState } from '@engine/index.ts';
 import { partyAverageLevel } from './enemy-level.ts';
-import { getNode } from './graph.ts';
+import { allNodeBeats, getNode } from './graph.ts';
 import { newCampaign } from './loop.ts';
 import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
 import { CLASS_TIER_MAP, tierEntryOf } from './progression/index.ts';
@@ -48,7 +48,7 @@ describe('buildSkirmishBattle', () => {
 
   it('borrows the node battlefield and fights ONLY the generated party', () => {
     const battle = buildSkirmishBattle(node, state, catalog);
-    const authored = firstBattleBeat(node.beats)!.battle;
+    const authored = firstBattleBeat(allNodeBeats(node))!.battle;
     expect(battle.template.map).toBe(authored.template.map);
     expect(battle.zones).toBe(authored.zones);
     // Enemy slots are trimmed to the generated party — no leftover story

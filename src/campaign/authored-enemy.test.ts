@@ -18,7 +18,7 @@ import { foldBattle, foldEnemyTeam } from './snapshot-fold.ts';
 import { m0Roster } from './roster.ts';
 import { firstBattleBeat, type NodeBattle } from './sequence.ts';
 import { M1_CAMPAIGN_GRAPH } from './node.ts';
-import { getNode } from './graph.ts';
+import { allNodeBeats, getNode } from './graph.ts';
 
 const catalog = loadDefaultCatalog();
 const PLAYER: TeamId = teamId('team_a'); // Blue
@@ -143,7 +143,7 @@ describe('foldBattle (player + enemy composition)', () => {
 
 describe('River Ridge opener — the first authored enemy garrison', () => {
   const start = getNode(M1_CAMPAIGN_GRAPH, M1_CAMPAIGN_GRAPH.startId);
-  const beat = firstBattleBeat(start.beats)!;
+  const beat = firstBattleBeat(allNodeBeats(start))!;
 
   it('authors a tuned enemy team (all L22, each gated to a two-active kit)', () => {
     const enemies = beat.battle.enemies!;

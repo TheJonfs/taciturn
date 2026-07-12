@@ -23,6 +23,28 @@ export const PLACEHOLDER_DEPLOY_CAP = 5;
 // it has deployment zones attached and a full enemy garrison.
 export const DEFAULT_PLACEHOLDER_TEMPLATE_KEY = 'river_ridge';
 
+// The stub scene's fixed title — BOTH the player-visible "this is a stub"
+// flag and the Atlas importer's classification marker (a generated
+// placeholder scene is recognized by this title; hand-authored content is
+// classified by reference first, so a real scene can even reuse the words
+// without colliding).
+export const PLACEHOLDER_SCENE_TITLE = 'Placeholder Scene';
+
+// A stand-in STORY beat (engagement queues WI4): a one-line scene carrying
+// the author's marker text ("Scene between Lumen and Chris here"). Lets a
+// full chapter — scene → battle → scene → return-to-camp → new scene — walk
+// as pure structure before any real dialogue exists. Swapped for real
+// content later by flipping the engagement's beats source to 'content'.
+export function placeholderSceneBeat(marker: string): NodeBeat {
+  return {
+    type: 'story-scene',
+    scene: {
+      title: PLACEHOLDER_SCENE_TITLE,
+      lines: [{ speaker: 'Author’s note', text: marker }],
+    },
+  };
+}
+
 // A stand-in battle beat on a registered template. Throws loud (via the
 // registries) on an unknown template key or an unregistered zones key.
 export function placeholderBattleBeat(templateKey: string): NodeBeat {

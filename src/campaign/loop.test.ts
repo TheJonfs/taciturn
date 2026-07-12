@@ -15,7 +15,7 @@ import {
   startCampaign,
 } from './loop.ts';
 import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
-import { getNode, type CampaignNode } from './graph.ts';
+import { allNodeBeats, getNode, type CampaignNode } from './graph.ts';
 import { firstBattleBeat, type NodeBattle } from './sequence.ts';
 import { foldCampaignRoster } from './snapshot-fold.ts';
 import { summarizeBattleResult } from './battle-result.ts';
@@ -29,7 +29,7 @@ const START = getNode(GRAPH, M1_NODES.riverRidge); // the fork node
 const TERMINAL = getNode(GRAPH, M1_NODES.theReturn); // no win-edges
 
 // The (single) battle a node's beat sequence launches.
-const battleOf = (node: CampaignNode): NodeBattle => firstBattleBeat(node.beats)!.battle;
+const battleOf = (node: CampaignNode): NodeBattle => firstBattleBeat(allNodeBeats(node))!.battle;
 
 // A terminal state for `node`, with `winner` deciding the outcome and the
 // first deployed unit forced `lost` (removed) to exercise apply-back.

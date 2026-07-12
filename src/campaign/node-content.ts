@@ -175,13 +175,17 @@ const crossingScene: StorySceneBeat = {
   },
 };
 
-// --- the content table: node id → its hand-authored beat sequence ---
+// --- the content table: ENGAGEMENT BEAT ID → its hand-authored beats ---
 //
-// Keys are RAW node-id strings (not the generated module's id constants) so
+// Keys are effective storyBeatIds (engagement queues, M3): a single-
+// engagement node's default beat id IS its node id, so the pre-queue keys
+// below are unchanged; a later engagement in a queue keys by its explicit
+// `storyBeatId`. Raw strings (not the generated module's id constants) so
 // this module never imports node.ts — content is the dependency, structure
-// the dependent. A key with no matching structural node is dead content (the
-// codegen round-trip test would surface it); a structural node claiming
-// content that isn't here fails loud in `contentBeats` at module init.
+// the dependent. A key with no matching structural engagement is dead
+// content (the codegen round-trip test would surface it); an engagement
+// claiming content that isn't here fails loud in `contentBeats` at module
+// init.
 
 const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
   'node-river-ridge': [introScene, riverRidgeOpener()],
@@ -194,19 +198,19 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
   'node-the-return': [riverRidge()],
 };
 
-// The hand-authored beats for a structural node. Throws loud on a missing
-// id — a generated graph referencing content that doesn't exist is a wiring
-// bug caught at module init, not a silent empty node.
-export function contentBeats(nodeId: string): ReadonlyArray<NodeBeat> {
-  const beats = NODE_CONTENT[nodeId];
+// The hand-authored beats for an engagement (by effective beat id). Throws
+// loud on a missing id — a generated graph referencing content that doesn't
+// exist is a wiring bug caught at module init, not a silent empty node.
+export function contentBeats(beatId: string): ReadonlyArray<NodeBeat> {
+  const beats = NODE_CONTENT[beatId];
   if (beats === undefined) {
-    throw new Error(`contentBeats: no hand-authored content for node id '${nodeId}' (node-content.ts)`);
+    throw new Error(`contentBeats: no hand-authored content for beat id '${beatId}' (node-content.ts)`);
   }
   return beats;
 }
 
-// Does hand-authored content exist for this node id? (The Atlas importer
-// uses this to classify a node's beats source without throwing.)
-export function hasContentBeats(nodeId: string): boolean {
-  return NODE_CONTENT[nodeId] !== undefined;
+// Does hand-authored content exist for this beat id? (The Atlas importer
+// uses this to classify an engagement's beats source without throwing.)
+export function hasContentBeats(beatId: string): boolean {
+  return NODE_CONTENT[beatId] !== undefined;
 }

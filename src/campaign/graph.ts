@@ -27,6 +27,30 @@
 
 import type { NodeBeat } from './sequence.ts';
 
+// One story engagement at a node: a beat sequence that clears (once, forever)
+// under its own beat id. A node owns an ORDERED QUEUE of these (the Igros/
+// Dorter re-arm pattern — return to a location for a NEW story that opens a
+// DIFFERENT path). Today most nodes have exactly one; the queue is the
+// engagement-queues feature (M3, after ADR-0145 built the per-beat save
+// guard precisely so this needs no migration).
+export interface Engagement {
+  // Stable id recorded in `clearedStoryBeats` when this engagement fully
+  // plays (the per-BEAT cleared guard). OPTIONAL ONLY FOR THE FIRST
+  // engagement, where it defaults to the node id — that default is what
+  // keeps pre-queue saves loading (they recorded node ids). Later
+  // engagements must author an explicit id (`engagementBeatId` fails loud;
+  // Atlas validation gates it before export).
+  readonly storyBeatId?: string;
+  // This engagement's scene/battle sequence (see sequence.ts).
+  readonly beats: ReadonlyArray<NodeBeat>;
+  // The beat id whose clearing ARMS this engagement (it may live at any
+  // node — "the camp re-arms after you clear a mission elsewhere"). Omitted
+  // → the previous engagement in this queue (sequential visits for free).
+  // The first engagement is armed at node availability; `armsAfter` on it
+  // is meaningless and ignored.
+  readonly armsAfter?: string;
+}
+
 export interface CampaignNode {
   readonly id: string;
   readonly name: string;
@@ -38,27 +62,18 @@ export interface CampaignNode {
   // (non-decreasing along win-edges). Monotonic map: once a node's chapter
   // is reached the node persists; there is no disappearance field.
   readonly chapter: number;
-  // The node's authored beat sequence (M1.5): `story-scene` + `battle` beats
-  // in authored order (see sequence.ts). A node with no battle beat is a
-  // standalone story node. The graph machinery never reads this — only the
-  // driver does, walking the sequence on node entry.
-  //
-  // M3 economy: `beats` is the node's CURRENT STORY ENGAGEMENT — the thing
-  // the per-beat cleared guard tracks (by `storyBeatId`, below). A future
-  // multi-beat location (the Dorter re-arm pattern) becomes a QUEUE of
-  // engagements each with its own id; the save shape (cleared beat IDS, not
-  // cleared node ids) already accommodates that without migration.
-  readonly beats: ReadonlyArray<NodeBeat>;
+  // The node's ORDERED ENGAGEMENT QUEUE (M3 engagement-queues; was a single
+  // implicit engagement `beats: NodeBeat[]` before). Each engagement clears
+  // independently under its own beat id; the CURRENT one on entry is the
+  // earliest that is armed and not yet cleared (travel.ts owns those
+  // selectors — the graph machinery never reads beats; only the driver
+  // walks them). `engagements: []` is a pure market town / waypoint: its
+  // "story" completes on first visit (visit-completes, travel.ts).
+  readonly engagements: ReadonlyArray<Engagement>;
 
   // --- M3 economy: ORTHOGONAL location capabilities (brief D2). These are
   // independent flags that can coexist and change over campaign progress —
   // deliberately NOT a mutually-exclusive location "type". ---
-
-  // Stable id of the authored engagement above, recorded in the save when
-  // cleared (the per-BEAT guard: a later re-armed engagement is a NEW id —
-  // a legitimate new fight, not a replay). Omitted → defaults to the node
-  // id (the single-engagement shorthand; see `storyBeatIdOf`).
-  readonly storyBeatId?: string;
   // The node's enemy-level offset — the ONE scaling lever (enemy-level.ts):
   // skirmish level = resolveEnemyLevel(partyAvg, offset). Omitted → 0.
   readonly offset?: number;
@@ -71,11 +86,30 @@ export interface CampaignNode {
   readonly farmable?: boolean;
 }
 
-// The node's engagement id for the cleared guard. Explicit `storyBeatId`
-// when authored; the node id otherwise (a single-engagement node needs no
-// separate name for its only engagement).
-export function storyBeatIdOf(node: CampaignNode): string {
-  return node.storyBeatId ?? node.id;
+// The cleared-guard beat id of the engagement at `index`. Explicit
+// `storyBeatId` when authored; the FIRST engagement defaults to the node id
+// (the single-engagement shorthand — and the pre-queue save compatibility:
+// old saves recorded node ids). A LATER engagement without an explicit id is
+// an authoring bug — fail loud (Atlas validation gates it before export).
+export function engagementBeatId(node: CampaignNode, index: number): string {
+  const engagement = node.engagements[index];
+  if (engagement === undefined) {
+    throw new Error(`engagementBeatId: node "${node.id}" has no engagement at index ${index}`);
+  }
+  if (engagement.storyBeatId !== undefined) return engagement.storyBeatId;
+  if (index === 0) return node.id;
+  throw new Error(
+    `engagementBeatId: engagement ${index} of node "${node.id}" has no explicit storyBeatId ` +
+      '(only the first engagement may default to the node id)',
+  );
+}
+
+// Every beat of every engagement at this node, in queue order. The helpers
+// that need "a battle beat somewhere at this node" (skirmish battlefield
+// borrowing, the roster-vitals probe) read this — they don't care which
+// engagement the beat belongs to.
+export function allNodeBeats(node: CampaignNode): ReadonlyArray<NodeBeat> {
+  return node.engagements.flatMap((e) => e.beats);
 }
 
 // Which battle outcome an edge fires on. M1 authors only `win`.
@@ -87,6 +121,15 @@ export interface CampaignEdge {
   readonly from: string;
   readonly to: string;
   readonly on: CampaignOutcome;
+  // Per-beat edge gating (M3 engagement-queues): the beat id whose clearing
+  // opens this edge as forward progress — so engagement A of a camp opens
+  // the path to mission X while engagement B opens the path to mission Y.
+  // Omitted → the edge opens when the source node's FIRST engagement clears
+  // (or on first visit for a beat-less source) — exactly today's "clearing
+  // a node opens all its win-edges" for single-engagement content. Openness
+  // is MONOTONIC either way: cleared beats never un-clear, so an opened
+  // edge never closes (consistent with the monotonic map).
+  readonly opensOnBeat?: string;
 }
 
 // The whole authored graph: a forward DAG (D2) with a single entry node.

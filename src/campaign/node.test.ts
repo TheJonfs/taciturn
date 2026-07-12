@@ -11,6 +11,7 @@
 // is relaxed.
 
 import { describe, expect, it } from 'vitest';
+import { allNodeBeats } from './graph.ts';
 import { M1_CAMPAIGN_GRAPH } from './node.ts';
 import { CAMPAIGN_RULESET_ID } from './node-content.ts';
 import { battleBeats } from './sequence.ts';
@@ -19,7 +20,7 @@ describe('campaign nodes — ruleset agreement', () => {
   it('every authored battle template plays under CAMPAIGN_RULESET_ID', () => {
     let battleCount = 0;
     for (const node of M1_CAMPAIGN_GRAPH.nodes) {
-      for (const beat of battleBeats(node.beats)) {
+      for (const beat of battleBeats(allNodeBeats(node))) {
         battleCount += 1;
         expect(beat.battle.template.rulesetId, node.id).toBe(CAMPAIGN_RULESET_ID);
       }

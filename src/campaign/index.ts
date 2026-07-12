@@ -67,6 +67,7 @@ export type {
   CampaignEdge,
   CampaignOutcome,
   CampaignGraph,
+  Engagement,
 } from './graph.ts';
 export {
   getNode,
@@ -74,21 +75,27 @@ export {
   winChoices,
   isTerminal,
   isWinChoice,
-  storyBeatIdOf,
+  allNodeBeats,
+  engagementBeatId,
 } from './graph.ts';
 
 // M3 economy Stage 1 — the navigable map (travel selectors) + the skirmish
-// valve (stub generator behind the M4 seam).
+// valve (stub generator behind the M4 seam). Engagement queues (M3): the
+// current-engagement selectors + per-beat edge gating.
 export {
+  currentEngagement,
   hasArmedStory,
   hasAvailability,
+  isEdgeOpen,
+  isEngagementArmed,
+  isEngagementCleared,
   isFarmableNow,
   isHubNow,
   isStoryCleared,
   isTravelChoice,
   travelChoices,
 } from './travel.ts';
-export type { TravelChoice } from './travel.ts';
+export type { CurrentEngagement, TravelChoice } from './travel.ts';
 export { buildSkirmishBattle, generateSkirmishParty, skirmishLevelAt } from './skirmish.ts';
 export { CANONICAL_PROBE_BATTLE, probeBattleFor } from './probe-battle.ts';
 export type { VitalsProbeBattle } from './probe-battle.ts';
@@ -97,7 +104,9 @@ export { CAMPAIGN_RULESET_ID, contentBeats, hasContentBeats } from './node-conte
 export {
   DEFAULT_PLACEHOLDER_TEMPLATE_KEY,
   PLACEHOLDER_DEPLOY_CAP,
+  PLACEHOLDER_SCENE_TITLE,
   placeholderBattleBeat,
+  placeholderSceneBeat,
 } from './placeholder-beat.ts';
 export { PLOT_UNIT_IDS } from './plot-unit-ids.ts';
 

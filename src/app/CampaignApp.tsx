@@ -46,6 +46,7 @@ import {
   COMPONENT_CATALOG,
   clearSavedCampaign,
   computeGilReward,
+  currentEngagement,
   debugGrantJp,
   debugSeedGrants,
   debugSeedInventory,
@@ -67,14 +68,29 @@ import {
   takeStoryRun,
   type BattleBeat,
   type BeatOutput,
+  type CampaignNode,
   type CampaignState,
   type CampaignUnit,
   type InterstitialBeat,
   type NodeBattle,
+  type NodeBeat,
 } from '@campaign/index.ts';
 import type { BattleConfig, Catalog, GameState, TeamId } from '@engine/index.ts';
 
 const GRAPH = M1_CAMPAIGN_GRAPH;
+
+// The beats the driver walks at a node: its CURRENT engagement's (the
+// earliest armed-and-uncleared one — engagement queues, M3). Callers reach
+// here only when an engagement is armed (planEntry's cleared/hub branch
+// filters the rest); a miss is a driver bug — fail loud. Stable throughout a
+// walk: `clearedStoryBeats` only changes at resolveNode, after the walk ends.
+function armedEngagementBeats(st: CampaignState, n: CampaignNode): ReadonlyArray<NodeBeat> {
+  const current = currentEngagement(st, n);
+  if (current === undefined) {
+    throw new Error(`CampaignApp: node "${n.id}" has no armed engagement to walk`);
+  }
+  return current.engagement.beats;
+}
 
 // What the formation/deployment/battle sub-flow is fighting (M3 economy
 // Stage 1). A STORY encounter is one of the node's authored battle beats
@@ -168,8 +184,9 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
       //     combat node (no hub) still enters its battle directly below.
       return runScreen([buildLocationMenuBeat(entryNode, st)], { kind: 'location', state: st }, key);
     }
-    const { scenes, next } = takeStoryRun(entryNode.beats, 0);
-    if (next >= entryNode.beats.length) {
+    const entryBeats = armedEngagementBeats(st, entryNode);
+    const { scenes, next } = takeStoryRun(entryBeats, 0);
+    if (next >= entryBeats.length) {
       // A standalone story node (no battle ahead): play its scenes, then route.
       // (A battle START node can't reach here — bootstrapRosterVitals requires
       // one. This is the routed-into / resumed story-node case.)
@@ -232,8 +249,9 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
   // handleBattleEnd (after a battle) and resolutionRun (standalone), never here.
   function advance(st: CampaignState, cursor: number): void {
     const walkNode = getNode(GRAPH, st.currentNodeId);
-    const { scenes, next } = takeStoryRun(walkNode.beats, cursor);
-    if (next >= walkNode.beats.length) {
+    const walkBeats = armedEngagementBeats(st, walkNode);
+    const { scenes, next } = takeStoryRun(walkBeats, cursor);
+    if (next >= walkBeats.length) {
       // Shouldn't happen from a mid-flow caller — fail loud rather than stall.
       throw new Error(
         `CampaignApp.advance: no battle beat ahead of cursor ${cursor} in node "${walkNode.id}"`,
@@ -265,8 +283,9 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
           // March on the armed story engagement (a hub whose battle is still
           // ahead) — the same walk planEntry runs for a plain combat node.
           const storyNode = getNode(GRAPH, done.state.currentNodeId);
-          const { scenes, next } = takeStoryRun(storyNode.beats, 0);
-          if (next >= storyNode.beats.length) {
+          const storyBeats = armedEngagementBeats(done.state, storyNode);
+          const { scenes, next } = takeStoryRun(storyBeats, 0);
+          if (next >= storyBeats.length) {
             // A story-only engagement (no battle beat): play it out and
             // resolve, exactly like planEntry's standalone-story path.
             const key = nonce + 1;
@@ -315,7 +334,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
   // --- battle sub-flow (story battle beats + skirmishes) ---
 
   function battleBeatAt(index: number): BattleBeat {
-    const beat = node.beats[index];
+    const beat = armedEngagementBeats(state, node)[index];
     if (beat === undefined || beat.type !== 'battle') {
       throw new Error(`CampaignApp: expected a battle beat at index ${index} of node "${node.id}"`);
     }
@@ -388,7 +407,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
       return;
     }
 
-    if (hasBattleAtOrAfter(node.beats, encounter.battleIndex + 1)) {
+    if (hasBattleAtOrAfter(armedEngagementBeats(state, node), encounter.battleIndex + 1)) {
       // More battles in this node (a future multi-battle shape): show the
       // result, then resume the walk into the next battle. No node resolution
       // yet; phase stays in_progress.
@@ -422,7 +441,10 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     else saveCampaign(resolved);
     setState(resolved);
 
-    const { scenes: trailing } = takeStoryRun(node.beats, encounter.battleIndex + 1);
+    // Trailing scenes come from the PRE-RESOLVE state's engagement (`state`,
+    // not `resolved`) — after resolveNode the queue's next engagement is
+    // current, and reading it here would splice the wrong scenes in.
+    const { scenes: trailing } = takeStoryRun(armedEngagementBeats(state, node), encounter.battleIndex + 1);
     if (complete) {
       // Terminal win — the result-summary is the victory screen; then Title.
       showRun([summary, ...trailing], { kind: 'exit' });
