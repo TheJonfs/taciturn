@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { WebGLRenderer } from 'pixi.js';
 import { App } from './App.tsx';
@@ -34,10 +34,25 @@ if (!rootElement) {
 
 // Dev-only Formation UI harness (TABA M2): `?formation` mounts a rich seeded
 // roster/dossier instead of the app, for building/verifying the celestial UI.
-const useFormationHarness = new URLSearchParams(window.location.search).has('formation');
+const params = new URLSearchParams(window.location.search);
+const useFormationHarness = params.has('formation');
+
+// Dev-only Atlas campaign graph editor (`?atlas`, node-authoring structural
+// tier). DEV-gated: the guard is statically false in production builds, so
+// the lazy chunk is never emitted there.
+const useAtlas = import.meta.env.DEV && params.has('atlas');
+const AtlasApp = lazy(() => import('./atlas/AtlasApp.tsx').then((m) => ({ default: m.AtlasApp })));
 
 createRoot(rootElement).render(
   <StrictMode>
-    {useFormationHarness ? <FormationDevHarness /> : <App />}
+    {useAtlas ? (
+      <Suspense fallback={null}>
+        <AtlasApp />
+      </Suspense>
+    ) : useFormationHarness ? (
+      <FormationDevHarness />
+    ) : (
+      <App />
+    )}
   </StrictMode>,
 );
