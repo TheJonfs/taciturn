@@ -19,3 +19,8 @@ export {
   type DeployRole,
   type AiDeploymentResult,
 } from './deployment.ts';
+export {
+  scoreItemForUnit,
+  rankItemsForUnit,
+  type GearScoreProfile,
+} from './gear-valuation.ts';
