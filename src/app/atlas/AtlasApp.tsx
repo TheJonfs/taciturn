@@ -15,7 +15,23 @@ import { NODE_LAYOUT } from '../interstitial/node-layout.ts';
 import type { AtlasEdge, AtlasGraph, AtlasNode } from './model.ts';
 import { fromCampaignGraph } from './import.ts';
 import { validateAtlasGraph } from './validate.ts';
-import { addEdge, addNode, deleteEdge, deleteNode, freshNodeId, moveNode, renameNodeId, reorderEdge, setStart, updateNode } from './edit.ts';
+import {
+  addEdge,
+  addEngagement,
+  addNode,
+  deleteEdge,
+  deleteNode,
+  freshNodeId,
+  moveNode,
+  removeEngagement,
+  renameNodeId,
+  reorderEdge,
+  reorderEngagement,
+  setEdgeGate,
+  setStart,
+  updateEngagement,
+  updateNode,
+} from './edit.ts';
 import { clearDraft, loadDraft, saveDraft } from './storage.ts';
 import { AtlasCanvas, type CanvasMode } from './AtlasCanvas.tsx';
 import { AtlasInspector } from './AtlasInspector.tsx';
@@ -139,6 +155,11 @@ export function AtlasApp(): ReactElement {
             onDeleteEdge={(edge: AtlasEdge) => setModel((m) => deleteEdge(m, edge))}
             onReorderEdge={(edge, dir) => setModel((m) => reorderEdge(m, edge, dir))}
             onSelect={setSelectedId}
+            onAddEngagement={() => setModel((m) => addEngagement(m, selected.id))}
+            onRemoveEngagement={(index) => setModel((m) => removeEngagement(m, selected.id, index))}
+            onReorderEngagement={(index, dir) => setModel((m) => reorderEngagement(m, selected.id, index, dir))}
+            onUpdateEngagement={(index, patch) => setModel((m) => updateEngagement(m, selected.id, index, patch))}
+            onSetEdgeGate={(edge, beatId) => setModel((m) => setEdgeGate(m, edge, beatId))}
           />
         )}
       </div>

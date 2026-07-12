@@ -6,12 +6,13 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  allNodeBeats,
   buildLocationMenuBeat,
   buildSkirmishBattle,
+  engagementBeatId,
   isFarmableNow,
   isStoryCleared,
   newCampaign,
-  storyBeatIdOf,
   travelChoices,
 } from '@campaign/index.ts';
 import { getNode } from '@campaign/graph.ts';
@@ -21,7 +22,7 @@ import type { AtlasGraph } from './model.ts';
 import { toCampaignGraph, toNodeLayout } from './model.ts';
 import { validateAtlasGraph } from './validate.ts';
 import { generateLayoutModule, generateNodeModule } from './codegen.ts';
-import { previewWorldMapBeat } from './preview.ts';
+import { previewWorldMapBeat, startWalk, walkTo } from './preview.ts';
 
 // Chapter 1: a start battle and a pure market town; chapter 2: a farmable
 // gate. All battles are placeholders — nothing references node-content.
@@ -32,7 +33,7 @@ const SKELETON: AtlasGraph = {
       id: 'node-emberfall',
       name: 'Emberfall',
       chapter: 1,
-      beatsSource: { kind: 'placeholder', templateKey: 'river_ridge' },
+      engagements: [{ beatsSource: { kind: 'placeholder', templateKey: 'river_ridge' } }],
       farmable: true,
       x: 80,
       y: 160,
@@ -41,7 +42,7 @@ const SKELETON: AtlasGraph = {
       id: 'node-saltmarket',
       name: 'Salt Market',
       chapter: 1,
-      beatsSource: { kind: 'none' },
+      engagements: [],
       isHub: true,
       x: 260,
       y: 120,
@@ -50,7 +51,7 @@ const SKELETON: AtlasGraph = {
       id: 'node-winter-gate',
       name: 'Winter Gate',
       chapter: 2,
-      beatsSource: { kind: 'placeholder', templateKey: 'stonebridge' },
+      engagements: [{ beatsSource: { kind: 'placeholder', templateKey: 'stonebridge' } }],
       offset: 2,
       x: 440,
       y: 180,
@@ -79,14 +80,14 @@ describe('atlas walkability — a fresh authored skeleton', () => {
 
   it('the start fights on its placeholder template and clearing it opens the road', () => {
     const start = getNode(graph, 'node-emberfall');
-    expect(start.beats).toHaveLength(1);
+    expect(allNodeBeats(start)).toHaveLength(1);
     const state = newCampaign(m0Roster, start.id);
     expect(state.roster.length).toBeGreaterThan(0); // vitals bootstrapped against the template
 
     const cleared = {
       ...state,
       visited: [start.id],
-      clearedStoryBeats: [storyBeatIdOf(start)],
+      clearedStoryBeats: [engagementBeatId(start, 0)],
     };
     const choices = travelChoices(graph, cleared);
     expect(choices.map((c) => [c.id, c.kind])).toContainEqual(['node-saltmarket', 'advance']);
@@ -98,7 +99,7 @@ describe('atlas walkability — a fresh authored skeleton', () => {
     const atTown = {
       ...newCampaign(m0Roster, town.id),
       visited: [start.id, town.id],
-      clearedStoryBeats: [storyBeatIdOf(start)],
+      clearedStoryBeats: [engagementBeatId(start, 0)],
     };
     // Commerce open: the location menu offers shop + recruit.
     const menu = buildLocationMenuBeat(town, atTown);
@@ -118,7 +119,7 @@ describe('atlas walkability — a fresh authored skeleton', () => {
     const deepIn = {
       ...newCampaign(m0Roster, gate.id),
       visited: [start.id, town.id, gate.id],
-      clearedStoryBeats: [storyBeatIdOf(start), storyBeatIdOf(gate)],
+      clearedStoryBeats: [engagementBeatId(start, 0), engagementBeatId(gate, 0)],
     };
     // Return travel: both earlier stops are listed from the gate.
     const choices = travelChoices(graph, deepIn);
@@ -131,10 +132,19 @@ describe('atlas walkability — a fresh authored skeleton', () => {
     expect(skirmish.enemies !== undefined && skirmish.enemies.length).toBeGreaterThan(0);
   });
 
-  it('the preview beat stands anywhere in the draft with the road there cleared', () => {
-    const beat = previewWorldMapBeat(graph, 'node-winter-gate');
+  it('the stateful preview walk plays the draft end to end', () => {
+    // startWalk wins the start's engagement; each walkTo travels and wins
+    // whatever is armed at the destination — a real mini play-through.
+    let walk = startWalk(graph);
+    expect(walk.lastCleared).toBe('node-emberfall');
+    walk = walkTo(graph, walk, 'node-saltmarket'); // browse — nothing armed
+    expect(walk.lastCleared).toBeUndefined();
+    walk = walkTo(graph, walk, 'node-winter-gate');
+    expect(walk.lastCleared).toBe('node-winter-gate');
+
+    const beat = previewWorldMapBeat(graph, walk);
     expect(beat.fromNodeId).toBe('node-winter-gate');
-    // Standing at the ch2 gate: both ch1 stops behind it are returnable.
+    // Standing at the cleared ch2 gate: both ch1 stops behind it are returnable.
     expect(beat.choices.map((c) => c.id)).toEqual(
       expect.arrayContaining(['node-emberfall', 'node-saltmarket']),
     );

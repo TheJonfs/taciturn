@@ -7,7 +7,7 @@
 // fix its edges); the live validation panel reports, export gates.
 
 import { DEFAULT_PLACEHOLDER_TEMPLATE_KEY } from '@campaign/index.ts';
-import type { AtlasBeatsSource, AtlasEdge, AtlasGraph, AtlasNode } from './model.ts';
+import type { AtlasEdge, AtlasEngagement, AtlasGraph, AtlasNode } from './model.ts';
 
 // The updateNode patch. Explicit `| undefined` on the OPTIONAL node fields:
 // under exactOptionalPropertyTypes that is what lets a caller CLEAR one
@@ -16,8 +16,7 @@ import type { AtlasBeatsSource, AtlasEdge, AtlasGraph, AtlasNode } from './model
 export interface AtlasNodePatch {
   readonly name?: string;
   readonly chapter?: number;
-  readonly beatsSource?: AtlasBeatsSource;
-  readonly storyBeatId?: string | undefined;
+  readonly engagements?: ReadonlyArray<AtlasEngagement>;
   readonly offset?: number | undefined;
   readonly isHub?: boolean | undefined;
   readonly farmable?: boolean | undefined;
@@ -25,8 +24,14 @@ export interface AtlasNodePatch {
   readonly y?: number;
 }
 
-// A fresh node at a canvas position: placeholder battle on the default
-// template (walkable immediately), no capabilities, the given chapter.
+// The default first engagement of a fresh node: a placeholder battle on the
+// default template (walkable immediately).
+export function defaultEngagement(): AtlasEngagement {
+  return { beatsSource: { kind: 'placeholder', templateKey: DEFAULT_PLACEHOLDER_TEMPLATE_KEY } };
+}
+
+// A fresh node at a canvas position: one default engagement, no
+// capabilities, the given chapter.
 export function addNode(
   model: AtlasGraph,
   init: { readonly id: string; readonly name: string; readonly chapter: number; readonly x: number; readonly y: number },
@@ -35,7 +40,7 @@ export function addNode(
     id: init.id,
     name: init.name,
     chapter: init.chapter,
-    beatsSource: { kind: 'placeholder', templateKey: DEFAULT_PLACEHOLDER_TEMPLATE_KEY },
+    engagements: [defaultEngagement()],
     x: Math.round(init.x),
     y: Math.round(init.y),
   };
@@ -57,15 +62,139 @@ export function updateNode(model: AtlasGraph, id: string, patch: AtlasNodePatch)
   };
 }
 
+// --- engagement-queue ops (engagement queues WI3) ---
+
+// The updateEngagement patch; `undefined` CLEARS a field, same convention as
+// AtlasNodePatch.
+export interface AtlasEngagementPatch {
+  readonly storyBeatId?: string | undefined;
+  readonly beatsSource?: AtlasEngagement['beatsSource'];
+  readonly armsAfter?: string | undefined;
+}
+
+// Every effective beat id currently in the model (explicit ids + first-
+// engagement node-id defaults). Used for fresh-id generation and by the
+// inspector's arming/gating pickers.
+export function allBeatIds(model: AtlasGraph): ReadonlyArray<string> {
+  return model.nodes.flatMap((n) =>
+    n.engagements.map((e, i) => e.storyBeatId ?? (i === 0 ? n.id : '')).filter((id) => id !== ''),
+  );
+}
+
+// The next unclaimed beat id for a new engagement at `nodeId`
+// ('node-camp' → node-camp-2, node-camp-3, …).
+export function freshBeatId(model: AtlasGraph, nodeId: string): string {
+  const taken = new Set(allBeatIds(model));
+  for (let i = 2; ; i += 1) {
+    const candidate = `${nodeId}-${i}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
+function patchEngagements(
+  model: AtlasGraph,
+  nodeId: string,
+  f: (engagements: ReadonlyArray<AtlasEngagement>) => ReadonlyArray<AtlasEngagement>,
+): AtlasGraph {
+  return {
+    ...model,
+    nodes: model.nodes.map((n) => (n.id === nodeId ? { ...n, engagements: f(n.engagements) } : n)),
+  };
+}
+
+// Append an engagement to a node's queue: a default placeholder battle
+// under a fresh explicit beat id (later engagements must carry one).
+export function addEngagement(model: AtlasGraph, nodeId: string): AtlasGraph {
+  const engagement: AtlasEngagement = { storyBeatId: freshBeatId(model, nodeId), ...defaultEngagement() };
+  return patchEngagements(model, nodeId, (list) => [...list, engagement]);
+}
+
+export function removeEngagement(model: AtlasGraph, nodeId: string, index: number): AtlasGraph {
+  return patchEngagements(model, nodeId, (list) => list.filter((_, i) => i !== index));
+}
+
+// Swap an engagement one step earlier/later in its queue.
+export function reorderEngagement(
+  model: AtlasGraph,
+  nodeId: string,
+  index: number,
+  direction: 'up' | 'down',
+): AtlasGraph {
+  return patchEngagements(model, nodeId, (list) => {
+    const swapWith = direction === 'up' ? index - 1 : index + 1;
+    if (index < 0 || index >= list.length || swapWith < 0 || swapWith >= list.length) return list;
+    const next = [...list];
+    [next[index], next[swapWith]] = [next[swapWith]!, next[index]!];
+    return next;
+  });
+}
+
+// Merge a patch into one engagement; `undefined` values CLEAR their field.
+export function updateEngagement(
+  model: AtlasGraph,
+  nodeId: string,
+  index: number,
+  patch: AtlasEngagementPatch,
+): AtlasGraph {
+  return patchEngagements(model, nodeId, (list) =>
+    list.map((e, i) => {
+      if (i !== index) return e;
+      const merged: Record<string, unknown> = { ...e, ...patch };
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === undefined) delete merged[key];
+      }
+      return merged as unknown as AtlasEngagement;
+    }),
+  );
+}
+
+// Set or clear (undefined) a win-edge's `opensOnBeat` gate.
+export function setEdgeGate(model: AtlasGraph, edge: AtlasEdge, beatId: string | undefined): AtlasGraph {
+  return {
+    ...model,
+    edges: model.edges.map((e) => {
+      if (e.from !== edge.from || e.to !== edge.to || e.on !== edge.on) return e;
+      if (beatId === undefined) {
+        const { opensOnBeat: _cleared, ...rest } = e;
+        return rest;
+      }
+      return { ...e, opensOnBeat: beatId };
+    }),
+  };
+}
+
 // Rename a node's ID — identity, so edges and the start pointer remap too.
+// When the node's FIRST engagement has no explicit storyBeatId, its
+// effective beat id IS the node id — so every `armsAfter`/`opensOnBeat`
+// reference to it remaps along (a rename must not silently dangle the
+// arming/gating graph; node-content keyed on the old id still surfaces as
+// `content-missing`, same as before).
 export function renameNodeId(model: AtlasGraph, oldId: string, newId: string): AtlasGraph {
+  const renamed = model.nodes.find((n) => n.id === oldId);
+  const beatIdMoves = renamed !== undefined && renamed.engagements[0]?.storyBeatId === undefined;
+  const remapBeat = (id: string | undefined): string | undefined =>
+    beatIdMoves && id === oldId ? newId : id;
   return {
     startId: model.startId === oldId ? newId : model.startId,
-    nodes: model.nodes.map((n) => (n.id === oldId ? { ...n, id: newId } : n)),
+    nodes: model.nodes.map((n) => {
+      const node = n.id === oldId ? { ...n, id: newId } : n;
+      if (!beatIdMoves) return node;
+      return {
+        ...node,
+        engagements: node.engagements.map((e) =>
+          e.armsAfter !== undefined && remapBeat(e.armsAfter) !== e.armsAfter
+            ? { ...e, armsAfter: remapBeat(e.armsAfter)! }
+            : e,
+        ),
+      };
+    }),
     edges: model.edges.map((e) => ({
       ...e,
       from: e.from === oldId ? newId : e.from,
       to: e.to === oldId ? newId : e.to,
+      ...(e.opensOnBeat !== undefined && remapBeat(e.opensOnBeat) !== e.opensOnBeat
+        ? { opensOnBeat: remapBeat(e.opensOnBeat)! }
+        : {}),
     })),
   };
 }

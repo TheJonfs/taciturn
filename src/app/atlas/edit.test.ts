@@ -4,21 +4,26 @@ import { describe, expect, it } from 'vitest';
 import type { AtlasGraph } from './model.ts';
 import {
   addEdge,
+  addEngagement,
   addNode,
   deleteEdge,
   deleteNode,
   freshNodeId,
+  removeEngagement,
   renameNodeId,
   reorderEdge,
+  reorderEngagement,
+  setEdgeGate,
+  updateEngagement,
   updateNode,
 } from './edit.ts';
 
 const model: AtlasGraph = {
   startId: 'node-a',
   nodes: [
-    { id: 'node-a', name: 'A', chapter: 1, beatsSource: { kind: 'none' }, x: 0, y: 0 },
-    { id: 'node-b', name: 'B', chapter: 1, beatsSource: { kind: 'none' }, offset: 2, x: 100, y: 0 },
-    { id: 'node-c', name: 'C', chapter: 1, beatsSource: { kind: 'none' }, x: 200, y: 0 },
+    { id: 'node-a', name: 'A', chapter: 1, engagements: [], x: 0, y: 0 },
+    { id: 'node-b', name: 'B', chapter: 1, engagements: [], offset: 2, x: 100, y: 0 },
+    { id: 'node-c', name: 'C', chapter: 1, engagements: [], x: 200, y: 0 },
   ],
   edges: [
     { from: 'node-a', to: 'node-b', on: 'win' },
@@ -32,7 +37,7 @@ describe('atlas edit ops', () => {
     const next = addNode(model, { id: 'node-d', name: 'D', chapter: 2, x: 10.6, y: 20.2 });
     const added = next.nodes[next.nodes.length - 1]!;
     expect(added).toMatchObject({ id: 'node-d', chapter: 2, x: 11, y: 20 });
-    expect(added.beatsSource).toEqual({ kind: 'placeholder', templateKey: 'river_ridge' });
+    expect(added.engagements).toEqual([{ beatsSource: { kind: 'placeholder', templateKey: 'river_ridge' } }]);
   });
 
   it('updateNode merges patches and clears fields patched to undefined', () => {
@@ -81,5 +86,70 @@ describe('atlas edit ops', () => {
     const withFort = addNode(model, { id: 'node-fort-rain', name: 'Fort Rain', chapter: 1, x: 0, y: 50 });
     expect(freshNodeId(withFort, 'Fort Rain!')).toBe('node-fort-rain-2');
     expect(freshNodeId(model, '—')).toBe('node-unnamed');
+  });
+});
+
+describe('atlas engagement-queue ops', () => {
+  const scene = { kind: 'placeholder-scene', marker: 'stub' } as const;
+  const queued = updateNode(addEngagement(model, 'node-b'), 'node-b', {});
+  const nodeB = (m: AtlasGraph) => m.nodes.find((n) => n.id === 'node-b')!;
+
+  it('addEngagement appends a placeholder battle under a fresh explicit beat id', () => {
+    const b = nodeB(queued);
+    expect(b.engagements).toHaveLength(1);
+    expect(b.engagements[0]).toMatchObject({
+      storyBeatId: 'node-b-2',
+      beatsSource: { kind: 'placeholder', templateKey: 'river_ridge' },
+    });
+    // A second add dodges the taken id.
+    expect(nodeB(addEngagement(queued, 'node-b')).engagements[1]!.storyBeatId).toBe('node-b-3');
+  });
+
+  it('updateEngagement merges and clears per the undefined convention', () => {
+    const armed = updateEngagement(queued, 'node-b', 0, { armsAfter: 'node-a', beatsSource: scene });
+    expect(nodeB(armed).engagements[0]).toMatchObject({ armsAfter: 'node-a', beatsSource: scene });
+    const cleared = updateEngagement(armed, 'node-b', 0, { armsAfter: undefined });
+    expect('armsAfter' in nodeB(cleared).engagements[0]!).toBe(false);
+  });
+
+  it('reorderEngagement swaps within the queue and clamps at the ends', () => {
+    const two = addEngagement(queued, 'node-b');
+    const swapped = reorderEngagement(two, 'node-b', 1, 'up');
+    expect(nodeB(swapped).engagements.map((e) => e.storyBeatId)).toEqual(['node-b-3', 'node-b-2']);
+    expect(nodeB(reorderEngagement(two, 'node-b', 0, 'up')).engagements).toEqual(nodeB(two).engagements);
+  });
+
+  it('removeEngagement drops exactly the indexed entry', () => {
+    const two = addEngagement(queued, 'node-b');
+    expect(nodeB(removeEngagement(two, 'node-b', 0)).engagements.map((e) => e.storyBeatId)).toEqual(['node-b-3']);
+  });
+
+  it('setEdgeGate sets and clears opensOnBeat', () => {
+    const edge = model.edges[0]!; // a → b
+    const gated = setEdgeGate(model, edge, 'node-a');
+    expect(gated.edges[0]).toMatchObject({ opensOnBeat: 'node-a' });
+    const ungated = setEdgeGate(gated, gated.edges[0]!, undefined);
+    expect('opensOnBeat' in ungated.edges[0]!).toBe(false);
+  });
+
+  it('renameNodeId remaps armsAfter/opensOnBeat riding the default first-engagement beat id', () => {
+    // node-a's default beat id is its node id; b arms after it and an edge
+    // gates on it. Renaming node-a must carry both references along.
+    const withRefs = setEdgeGate(
+      updateEngagement(queued, 'node-b', 0, { armsAfter: 'node-a' }),
+      queued.edges[2]!, // b → c
+      'node-a',
+    );
+    const renamed = renameNodeId(withRefs, 'node-a', 'node-alpha');
+    expect(nodeB(renamed).engagements[0]!.armsAfter).toBe('node-alpha');
+    expect(renamed.edges.find((e) => e.from === 'node-b' && e.to === 'node-c')?.opensOnBeat).toBe('node-alpha');
+    // An EXPLICIT beat id that happens to match the node id does not move.
+    const explicit = updateEngagement(withRefs, 'node-a', 0, { storyBeatId: 'node-a' });
+    const explicitA = {
+      ...explicit,
+      nodes: explicit.nodes.map((n) => (n.id === 'node-a' ? { ...n, engagements: [{ storyBeatId: 'node-a', beatsSource: scene }] } : n)),
+    };
+    const renamedExplicit = renameNodeId(explicitA, 'node-a', 'node-alpha');
+    expect(nodeB(renamedExplicit).engagements[0]!.armsAfter).toBe('node-a');
   });
 });

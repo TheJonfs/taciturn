@@ -18,8 +18,8 @@ function skeleton(overrides?: {
   startId?: string;
 }): AtlasGraph {
   const nodes: ReadonlyArray<AtlasNode> = overrides?.nodes ?? [
-    { id: 'node-alpha', name: 'Alpha', chapter: 1, beatsSource: { kind: 'placeholder', templateKey: 'river_ridge' }, x: 100, y: 100 },
-    { id: 'node-omega', name: 'Omega', chapter: 2, beatsSource: { kind: 'placeholder', templateKey: 'stonebridge' }, x: 300, y: 100 },
+    { id: 'node-alpha', name: 'Alpha', chapter: 1, engagements: [{ beatsSource: { kind: 'placeholder', templateKey: 'river_ridge' } }], x: 100, y: 100 },
+    { id: 'node-omega', name: 'Omega', chapter: 2, engagements: [{ beatsSource: { kind: 'placeholder', templateKey: 'stonebridge' } }], x: 300, y: 100 },
   ];
   return {
     startId: overrides?.startId ?? 'node-alpha',
@@ -61,7 +61,9 @@ describe('validateAtlasGraph — ids', () => {
 
   it('catches story-beat id collisions (explicit vs defaulted)', () => {
     const [a, b] = skeleton().nodes;
-    const model = skeleton({ nodes: [a!, { ...b!, storyBeatId: 'node-alpha' }] });
+    const model = skeleton({
+      nodes: [a!, { ...b!, engagements: [{ storyBeatId: 'node-alpha', beatsSource: { kind: 'placeholder', templateKey: 'stonebridge' } }] }],
+    });
     expect(rules(model)).toContain('story-beat-id-collision');
   });
 });
@@ -131,7 +133,7 @@ describe('validateAtlasGraph — node rules', () => {
 
   it('catches a content claim with no node-content entry', () => {
     const [a, b] = skeleton().nodes;
-    expect(rules(skeleton({ nodes: [a!, { ...b!, beatsSource: { kind: 'content' } }] }))).toContain('content-missing');
+    expect(rules(skeleton({ nodes: [a!, { ...b!, engagements: [{ beatsSource: { kind: 'content' } }] }] }))).toContain('content-missing');
   });
 
   it('accepts a content claim for a real node-content id', () => {
@@ -139,7 +141,7 @@ describe('validateAtlasGraph — node rules', () => {
     const model = skeleton({
       nodes: [
         a!,
-        { id: 'node-marshmoor', name: 'Marshmoor', chapter: 1, beatsSource: { kind: 'content' }, x: 300, y: 100 },
+        { id: 'node-marshmoor', name: 'Marshmoor', chapter: 1, engagements: [{ beatsSource: { kind: 'content' } }], x: 300, y: 100 },
       ],
       edges: [{ from: 'node-alpha', to: 'node-marshmoor', on: 'win' }],
     });
@@ -148,19 +150,19 @@ describe('validateAtlasGraph — node rules', () => {
 
   it('catches an unregistered placeholder template', () => {
     const [a, b] = skeleton().nodes;
-    const model = skeleton({ nodes: [a!, { ...b!, beatsSource: { kind: 'placeholder', templateKey: 'atlantis' } }] });
+    const model = skeleton({ nodes: [a!, { ...b!, engagements: [{ beatsSource: { kind: 'placeholder', templateKey: 'atlantis' } }] }] });
     expect(rules(model)).toContain('template-unknown');
   });
 
   it('catches farmable with no battle beat', () => {
     const [a, b] = skeleton().nodes;
-    const model = skeleton({ nodes: [a!, { ...b!, beatsSource: { kind: 'none' }, farmable: true }] });
+    const model = skeleton({ nodes: [a!, { ...b!, engagements: [], farmable: true }] });
     expect(rules(model)).toContain('farmable-no-battle');
   });
 
   it('warns (not errors) on a battle-less start node', () => {
     const [a, b] = skeleton().nodes;
-    const model = skeleton({ nodes: [{ ...a!, beatsSource: { kind: 'none' } }, b!] });
+    const model = skeleton({ nodes: [{ ...a!, engagements: [] }, b!] });
     const findings = validateAtlasGraph(model);
     const startFinding = findings.find((f) => f.rule === 'start-no-battle');
     expect(startFinding?.level).toBe('warning');
@@ -169,13 +171,166 @@ describe('validateAtlasGraph — node rules', () => {
   it('a pure market town (isHub, no beats) mid-road validates clean', () => {
     const [a, b] = skeleton().nodes;
     const model = skeleton({
-      nodes: [a!, { id: 'node-town', name: 'Town', chapter: 1, beatsSource: { kind: 'none' }, isHub: true, x: 200, y: 200 }, b!],
+      nodes: [a!, { id: 'node-town', name: 'Town', chapter: 1, engagements: [], isHub: true, x: 200, y: 200 }, b!],
       edges: [
         { from: 'node-alpha', to: 'node-town', on: 'win' },
         { from: 'node-town', to: 'node-omega', on: 'win' },
       ],
     });
     expect(rules(model)).toEqual([]);
+  });
+});
+
+describe('validateAtlasGraph — engagement queues + per-beat gating', () => {
+  const scene = { kind: 'placeholder-scene', marker: 'stub' } as const;
+  const battle = { kind: 'placeholder', templateKey: 'river_ridge' } as const;
+
+  // The acceptance camp: A opens the road to mission X; B arms after
+  // mission X and opens the road to the finale.
+  function campModel(): AtlasGraph {
+    return {
+      startId: 'node-start',
+      nodes: [
+        { id: 'node-start', name: 'Start', chapter: 1, engagements: [{ beatsSource: battle }], x: 0, y: 0 },
+        {
+          id: 'node-camp',
+          name: 'Camp',
+          chapter: 1,
+          engagements: [
+            { beatsSource: scene },
+            { storyBeatId: 'camp-return', beatsSource: scene, armsAfter: 'node-mission-x' },
+          ],
+          isHub: true,
+          x: 100,
+          y: 100,
+        },
+        { id: 'node-mission-x', name: 'Mission X', chapter: 1, engagements: [{ beatsSource: battle }], x: 200, y: 0 },
+        { id: 'node-finale', name: 'Finale', chapter: 1, engagements: [{ beatsSource: battle }], x: 300, y: 100 },
+      ],
+      edges: [
+        { from: 'node-start', to: 'node-camp', on: 'win' },
+        { from: 'node-camp', to: 'node-mission-x', on: 'win', opensOnBeat: 'node-camp' },
+        { from: 'node-camp', to: 'node-finale', on: 'win', opensOnBeat: 'camp-return' },
+      ],
+    };
+  }
+
+  it('the valid camp shape passes clean (no false positives)', () => {
+    expect(rules(campModel())).toEqual([]);
+  });
+
+  it('catches a later engagement with no explicit beat id', () => {
+    const model = campModel();
+    const camp = model.nodes[1]!;
+    const broken = {
+      ...model,
+      nodes: model.nodes.map((n) =>
+        n.id === 'node-camp'
+          ? { ...camp, engagements: [camp.engagements[0]!, { beatsSource: scene }] }
+          : n,
+      ),
+    };
+    expect(rules(broken)).toContain('engagement-id-missing');
+  });
+
+  it('catches beat-id collisions across engagements of different nodes', () => {
+    const model = campModel();
+    const broken = {
+      ...model,
+      nodes: model.nodes.map((n) =>
+        n.id === 'node-mission-x'
+          ? { ...n, engagements: [{ storyBeatId: 'camp-return', beatsSource: battle }] }
+          : n,
+      ),
+    };
+    expect(rules(broken)).toContain('story-beat-id-collision');
+  });
+
+  it('catches dangling arms-after and opens-on references', () => {
+    const model = campModel();
+    const badArm = {
+      ...model,
+      nodes: model.nodes.map((n) =>
+        n.id === 'node-camp'
+          ? {
+              ...n,
+              engagements: [
+                n.engagements[0]!,
+                { ...n.engagements[1]!, armsAfter: 'node-ghost' },
+              ],
+            }
+          : n,
+      ),
+    };
+    expect(rules(badArm)).toContain('arms-after-unknown');
+    const badGate = {
+      ...model,
+      edges: model.edges.map((e) => (e.to === 'node-finale' ? { ...e, opensOnBeat: 'beat-ghost' } : e)),
+    };
+    expect(rules(badGate)).toContain('opens-on-unknown');
+  });
+
+  it('catches an arming cycle as never-arming engagements', () => {
+    const model = campModel();
+    const camp = model.nodes[1]!;
+    // B arms after C; C arms after B — neither can ever arm.
+    const broken = {
+      ...model,
+      nodes: model.nodes.map((n) =>
+        n.id === 'node-camp'
+          ? {
+              ...camp,
+              engagements: [
+                camp.engagements[0]!,
+                { storyBeatId: 'camp-b', beatsSource: scene, armsAfter: 'camp-c' },
+                { storyBeatId: 'camp-c', beatsSource: scene, armsAfter: 'camp-b' },
+              ],
+            }
+          : n,
+      ),
+      // Keep the finale reachable so the only findings are the arming ones.
+      edges: model.edges.map((e) => (e.to === 'node-finale' ? { ...e, opensOnBeat: 'node-camp' } : e)),
+    };
+    const found = rules(broken);
+    expect(found.filter((r) => r === 'engagement-never-arms')).toHaveLength(2);
+    expect(found).not.toContain('unreachable-under-gating');
+  });
+
+  it('catches a node reachable structurally but not under gating (no false negatives)', () => {
+    const model = campModel();
+    // Gate the finale on a beat that itself arms after clearing the finale —
+    // mutually stuck: the finale is structurally reachable but never opens.
+    const broken = {
+      ...model,
+      nodes: model.nodes.map((n) =>
+        n.id === 'node-camp'
+          ? {
+              ...n,
+              engagements: [
+                n.engagements[0]!,
+                { ...n.engagements[1]!, armsAfter: 'node-finale' },
+              ],
+            }
+          : n,
+      ),
+    };
+    const found = rules(broken);
+    expect(found).toContain('unreachable-under-gating');
+    expect(found).toContain('engagement-never-arms');
+  });
+
+  it('warns on a placeholder scene with empty marker text', () => {
+    const model = campModel();
+    const broken = {
+      ...model,
+      nodes: model.nodes.map((n) =>
+        n.id === 'node-camp'
+          ? { ...n, engagements: [{ beatsSource: { kind: 'placeholder-scene', marker: '  ' } as const }, n.engagements[1]!] }
+          : n,
+      ),
+    };
+    const findings = validateAtlasGraph(broken);
+    expect(findings.find((f) => f.rule === 'scene-marker-empty')?.level).toBe('warning');
   });
 });
 

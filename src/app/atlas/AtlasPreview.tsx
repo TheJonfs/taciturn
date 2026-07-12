@@ -1,16 +1,17 @@
-// Atlas — the live map preview overlay.
+// Atlas — the live map preview overlay: a STATEFUL WALK.
 //
 // Renders the REAL WorldMapBeatView over the draft graph + layout (the
-// anti-drift payoff: what you preview is what ships), standing at a
-// selectable node with the road there cleared. Picking a destination on
-// the previewed map MOVES the stand-point — the preview is walkable, march
-// animation included.
+// anti-drift payoff: what you preview is what ships). The preview holds an
+// actual play-through (preview.ts): each destination pick travels there and
+// wins whatever engagement is armed, so multi-visit shapes — a camp whose
+// second story arms after a mission elsewhere and opens a different road —
+// are walkable exactly as they will ship. Restart rewinds to the start.
 
 import { useMemo, useState, type CSSProperties, type ReactElement } from 'react';
 import { WorldMapBeatView } from '../interstitial/WorldMapBeatView.tsx';
 import type { AtlasGraph } from './model.ts';
 import { toCampaignGraph, toNodeLayout } from './model.ts';
-import { previewWorldMapBeat } from './preview.ts';
+import { previewWorldMapBeat, startWalk, walkTo, type PreviewWalk } from './preview.ts';
 
 interface AtlasPreviewProps {
   readonly model: AtlasGraph;
@@ -18,38 +19,39 @@ interface AtlasPreviewProps {
 }
 
 export function AtlasPreview({ model, onClose }: AtlasPreviewProps): ReactElement {
-  const [atId, setAtId] = useState(model.startId);
   // The caller gates preview on zero validation errors, so resolution here
   // cannot throw; memo because resolution touches content/registries.
   const graph = useMemo(() => toCampaignGraph(model), [model]);
   const layout = useMemo(() => toNodeLayout(model), [model]);
-  const beat = useMemo(() => previewWorldMapBeat(graph, atId), [graph, atId]);
+  const [walk, setWalk] = useState<PreviewWalk>(() => startWalk(graph));
+  const beat = useMemo(() => previewWorldMapBeat(graph, walk), [graph, walk]);
 
   return (
     <div style={overlayStyle}>
       <div style={barStyle}>
-        <span style={titleStyle}>Live preview — the shipped world map, on your draft</span>
-        <label style={standStyle}>
-          Stand at
-          <select style={selectStyle} value={atId} onChange={(e) => setAtId(e.target.value)}>
-            {model.nodes.map((n) => (
-              <option key={n.id} value={n.id}>
-                {n.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <span style={titleStyle}>Live preview — a real walk on your draft (each visit wins what's armed there)</span>
+        <span style={walkReadoutStyle}>
+          {walk.clearedStoryBeats.length} beat{walk.clearedStoryBeats.length === 1 ? '' : 's'} cleared
+          {walk.lastCleared !== undefined ? ` · last: ${walk.lastCleared}` : ''}
+        </span>
+        <button type="button" style={restartStyle} onClick={() => setWalk(startWalk(graph))}>
+          ⟲ Restart walk
+        </button>
         <button type="button" style={closeStyle} onClick={onClose}>
           Close preview
         </button>
       </div>
       <div style={mapStyle}>
         <WorldMapBeatView
+          // Remount per walk step: the shipped runner unmounts the map after
+          // each march (march state is never reset internally), so a stateful
+          // multi-hop walk must do the same or the first march sticks.
+          key={`${walk.atId}:${walk.clearedStoryBeats.length}`}
           beat={beat}
           graph={graph}
           layout={layout}
           onAdvance={(output) => {
-            if (output?.nextNodeId !== undefined) setAtId(output.nextNodeId);
+            if (output?.nextNodeId !== undefined) setWalk((w) => walkTo(graph, w, output.nextNodeId!));
           }}
           onExitToTitle={onClose}
         />
@@ -78,16 +80,17 @@ const barStyle: CSSProperties = {
 };
 
 const titleStyle: CSSProperties = { flex: 1, color: '#9aa0ac' };
-const standStyle: CSSProperties = { display: 'flex', gap: 8, alignItems: 'center' };
+const walkReadoutStyle: CSSProperties = { color: '#7fb58a', fontSize: 12 };
 
-const selectStyle: CSSProperties = {
-  padding: '5px 8px',
+const restartStyle: CSSProperties = {
+  padding: '7px 12px',
   fontSize: 13,
-  fontFamily: 'inherit',
-  background: '#1c1e23',
-  color: '#e7e9ee',
-  border: '1px solid #2c2f36',
   borderRadius: 4,
+  border: '1px solid #2c2f36',
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+  background: '#1c1e23',
+  color: '#c7ccd6',
 };
 
 const closeStyle: CSSProperties = {

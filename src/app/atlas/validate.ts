@@ -8,10 +8,15 @@
 // substrate records as LIFTED (battle-beat start, battle-beat hub) are
 // warnings or absent here, deliberately.
 
-import { contentBeats, hasContentBeats, placeholderBattleBeat } from '@campaign/index.ts';
+import {
+  contentBeats,
+  hasContentBeats,
+  placeholderBattleBeat,
+  placeholderSceneBeat,
+} from '@campaign/index.ts';
 import type { NodeBeat } from '@campaign/index.ts';
 import { BATTLE_TEMPLATE_REGISTRY } from '@content/battles/registry.ts';
-import type { AtlasGraph, AtlasNode } from './model.ts';
+import { atlasBeatId, type AtlasGraph, type AtlasNode } from './model.ts';
 import { nodeKey } from './codegen.ts';
 
 export interface AtlasFinding {
@@ -63,19 +68,33 @@ function findingsForIds(model: AtlasGraph): AtlasFinding[] {
       seenKeys.set(key, node.id);
     }
 
-    // storyBeatId uniqueness across ALL engagements — the effective beat id
-    // (explicit or defaulted to the node id) is what the cleared guard keys.
-    const beatId = node.storyBeatId ?? node.id;
-    const beatClash = seenBeatIds.get(beatId);
-    if (beatClash !== undefined) {
-      out.push({
-        level: 'error',
-        rule: 'story-beat-id-collision',
-        message: `Nodes '${beatClash}' and '${node.id}' share the story-beat id '${beatId}'.`,
-        nodeId: node.id,
-      });
-    }
-    seenBeatIds.set(beatId, node.id);
+    // Beat-id rules across the node's ENGAGEMENT QUEUE: every effective beat
+    // id (explicit, or the node id for a defaulted first engagement) must be
+    // unique across ALL nodes' engagements — the cleared guard keys on them —
+    // and every engagement past the first must carry an explicit id (only
+    // the first may default; the runtime fails loud otherwise).
+    node.engagements.forEach((_, i) => {
+      const beatId = atlasBeatId(node, i);
+      if (beatId === undefined) {
+        out.push({
+          level: 'error',
+          rule: 'engagement-id-missing',
+          message: `Engagement ${i + 1} of '${node.id}' has no storyBeatId — only the first engagement may default to the node id.`,
+          nodeId: node.id,
+        });
+        return;
+      }
+      const beatClash = seenBeatIds.get(beatId);
+      if (beatClash !== undefined) {
+        out.push({
+          level: 'error',
+          rule: 'story-beat-id-collision',
+          message: `'${beatClash}' and engagement ${i + 1} of '${node.id}' share the story-beat id '${beatId}'.`,
+          nodeId: node.id,
+        });
+      }
+      seenBeatIds.set(beatId, node.id);
+    });
   }
 
   for (const [id, count] of seenIds) {
@@ -111,6 +130,155 @@ function findingsForEdges(model: AtlasGraph): AtlasFinding[] {
         nodeId: e.from,
       });
     }
+  }
+  return out;
+}
+
+// Every effective beat id in the model (what `armsAfter`/`opensOnBeat` may
+// legally reference).
+function effectiveBeatIds(model: AtlasGraph): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const node of model.nodes) {
+    node.engagements.forEach((_, i) => {
+      const beatId = atlasBeatId(node, i);
+      if (beatId !== undefined) ids.add(beatId);
+    });
+  }
+  return ids;
+}
+
+// Reference resolution for the arming/gating fields (engagement queues WI3):
+// `armsAfter` and `opensOnBeat` must name a real engagement's beat id.
+function findingsForBeatRefs(model: AtlasGraph): AtlasFinding[] {
+  const out: AtlasFinding[] = [];
+  const beatIds = effectiveBeatIds(model);
+  for (const node of model.nodes) {
+    node.engagements.forEach((engagement, i) => {
+      if (engagement.armsAfter !== undefined && !beatIds.has(engagement.armsAfter)) {
+        out.push({
+          level: 'error',
+          rule: 'arms-after-unknown',
+          message: `Engagement ${i + 1} of '${node.id}' arms after unknown beat '${engagement.armsAfter}'.`,
+          nodeId: node.id,
+        });
+      }
+    });
+  }
+  for (const e of model.edges) {
+    if (e.opensOnBeat !== undefined && !beatIds.has(e.opensOnBeat)) {
+      out.push({
+        level: 'error',
+        rule: 'opens-on-unknown',
+        message: `Edge ${e.from} → ${e.to} opens on unknown beat '${e.opensOnBeat}'.`,
+        nodeId: e.from,
+      });
+    }
+  }
+  return out;
+}
+
+// Reachability UNDER GATING (the deep half of the WI3 validator): a joint
+// fixpoint over reachable NODES and achievable BEATS.
+//
+//   - a beat is ACHIEVABLE when its node is reachable and its engagement can
+//     arm (first in queue, or its arms-after beat is achievable). An earlier
+//     armed-uncleared engagement only DELAYS a later one (clearing it
+//     unblocks the queue), so ordering adds no constraint here.
+//   - a win-edge is TRAVERSABLE when its gate can satisfy: explicit
+//     `opensOnBeat` achievable, or (default) the source's first engagement's
+//     beat achievable — or, for a beat-less source, the source reachable
+//     (visit-completes).
+//   - a node is REACHABLE from the start via traversable edges.
+//
+// Arming cycles (A arms-after B, B arms-after A) fall out as never-achievable
+// beats — no separate cycle walk needed. Runs only when the structural
+// prerequisites hold (no dangling refs); the structural `unreachable` rule
+// stays separate, and a node it already reported is not re-reported here.
+function findingsForGating(model: AtlasGraph, structurallyBroken: boolean): AtlasFinding[] {
+  if (structurallyBroken) return [];
+  const out: AtlasFinding[] = [];
+  const byId = new Map(model.nodes.map((n) => [n.id, n]));
+  if (!byId.has(model.startId)) return out;
+
+  const reachable = new Set<string>([model.startId]);
+  const achievable = new Set<string>();
+
+  // The arms-after requirement of engagement i (undefined = none: index 0).
+  const armsRequirement = (node: AtlasNode, i: number): string | undefined => {
+    if (i === 0) return undefined;
+    return node.engagements[i]!.armsAfter ?? atlasBeatId(node, i - 1);
+  };
+
+  // Can this edge's gate ever satisfy, given the current achievable set?
+  const traversable = (edge: { from: string; opensOnBeat?: string | undefined }): boolean => {
+    if (edge.opensOnBeat !== undefined) return achievable.has(edge.opensOnBeat);
+    const source = byId.get(edge.from);
+    if (source === undefined) return false;
+    if (source.engagements.length === 0) return reachable.has(source.id);
+    const firstBeat = atlasBeatId(source, 0);
+    return firstBeat !== undefined && achievable.has(firstBeat);
+  };
+
+  // Fixpoint: keep sweeping until neither set grows. Graphs are authoring-
+  // sized (tens of nodes), so the quadratic sweep is fine.
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const node of model.nodes) {
+      if (!reachable.has(node.id)) continue;
+      node.engagements.forEach((_, i) => {
+        const beatId = atlasBeatId(node, i);
+        if (beatId === undefined || achievable.has(beatId)) return;
+        const requirement = armsRequirement(node, i);
+        if (requirement !== undefined && !achievable.has(requirement)) return;
+        achievable.add(beatId);
+        grew = true;
+      });
+    }
+    for (const e of model.edges) {
+      if (e.on !== 'win') continue;
+      if (!reachable.has(e.from) || reachable.has(e.to)) continue;
+      if (!traversable(e)) continue;
+      reachable.add(e.to);
+      grew = true;
+    }
+  }
+
+  // Structural reachability (ungated win-edge BFS) for de-duplication: a node
+  // the plain `unreachable` rule already reported is not re-reported here.
+  const structural = new Set<string>([model.startId]);
+  const queue = [model.startId];
+  while (queue.length > 0) {
+    const at = queue.shift()!;
+    for (const e of model.edges) {
+      if (e.on !== 'win' || e.from !== at || structural.has(e.to)) continue;
+      if (!byId.has(e.to)) continue;
+      structural.add(e.to);
+      queue.push(e.to);
+    }
+  }
+
+  for (const node of model.nodes) {
+    if (!reachable.has(node.id) && structural.has(node.id)) {
+      out.push({
+        level: 'error',
+        rule: 'unreachable-under-gating',
+        message: `'${node.name}' (${node.id}) is unreachable once edge gates and arming are accounted for.`,
+        nodeId: node.id,
+      });
+    }
+    node.engagements.forEach((_, i) => {
+      const beatId = atlasBeatId(node, i);
+      if (beatId === undefined) return;
+      if (reachable.has(node.id) && !achievable.has(beatId)) {
+        out.push({
+          level: 'error',
+          rule: 'engagement-never-arms',
+          message: `Engagement ${i + 1} of '${node.id}' ('${beatId}') can never arm — its arms-after chain never clears.`,
+          nodeId: node.id,
+        });
+      }
+    });
   }
   return out;
 }
@@ -216,18 +384,32 @@ function findingsForTopology(model: AtlasGraph): AtlasFinding[] {
   return out;
 }
 
-// The resolved beats for validation, or undefined when resolution itself is
-// the finding (missing content / unknown template — reported separately).
-function tryResolveBeats(node: AtlasNode): ReadonlyArray<NodeBeat> | undefined {
-  switch (node.beatsSource.kind) {
-    case 'content':
-      return hasContentBeats(node.id) ? contentBeats(node.id) : undefined;
+// The resolved beats of ONE engagement for validation, or undefined when
+// resolution itself is the finding (missing content / unknown template /
+// missing beat id — reported separately).
+function tryResolveEngagementBeats(node: AtlasNode, index: number): ReadonlyArray<NodeBeat> | undefined {
+  const engagement = node.engagements[index]!;
+  switch (engagement.beatsSource.kind) {
+    case 'content': {
+      const beatId = atlasBeatId(node, index);
+      if (beatId === undefined || !hasContentBeats(beatId)) return undefined;
+      return contentBeats(beatId);
+    }
     case 'placeholder':
-      if (BATTLE_TEMPLATE_REGISTRY[node.beatsSource.templateKey] === undefined) return undefined;
-      return [placeholderBattleBeat(node.beatsSource.templateKey)];
-    case 'none':
-      return [];
+      if (BATTLE_TEMPLATE_REGISTRY[engagement.beatsSource.templateKey] === undefined) return undefined;
+      return [placeholderBattleBeat(engagement.beatsSource.templateKey)];
+    case 'placeholder-scene':
+      return [placeholderSceneBeat(engagement.beatsSource.marker)];
   }
+}
+
+// Every beat of every FULLY-RESOLVING node, or undefined if any engagement
+// fails to resolve (battle-dependent checks are skipped rather than judged
+// on partial information).
+function tryResolveAllBeats(node: AtlasNode): ReadonlyArray<NodeBeat> | undefined {
+  const resolved = node.engagements.map((_, i) => tryResolveEngagementBeats(node, i));
+  if (resolved.some((r) => r === undefined)) return undefined;
+  return resolved.flatMap((r) => r!);
 }
 
 function findingsForNodes(model: AtlasGraph): AtlasFinding[] {
@@ -247,25 +429,39 @@ function findingsForNodes(model: AtlasGraph): AtlasFinding[] {
       });
     }
 
-    // Beats-source resolution.
-    if (node.beatsSource.kind === 'content' && !hasContentBeats(node.id)) {
-      out.push({
-        level: 'error',
-        rule: 'content-missing',
-        message: `Node '${node.id}' claims hand-authored content but node-content.ts has none under that id.`,
-        nodeId: node.id,
-      });
-    }
-    if (node.beatsSource.kind === 'placeholder' && BATTLE_TEMPLATE_REGISTRY[node.beatsSource.templateKey] === undefined) {
-      out.push({
-        level: 'error',
-        rule: 'template-unknown',
-        message: `Node '${node.id}' uses unregistered battle template '${node.beatsSource.templateKey}'.`,
-        nodeId: node.id,
-      });
-    }
+    // Per-engagement beats-source resolution.
+    node.engagements.forEach((engagement, i) => {
+      const beatId = atlasBeatId(node, i);
+      if (engagement.beatsSource.kind === 'content' && beatId !== undefined && !hasContentBeats(beatId)) {
+        out.push({
+          level: 'error',
+          rule: 'content-missing',
+          message: `Engagement ${i + 1} of '${node.id}' claims hand-authored content but node-content.ts has none under beat id '${beatId}'.`,
+          nodeId: node.id,
+        });
+      }
+      if (
+        engagement.beatsSource.kind === 'placeholder' &&
+        BATTLE_TEMPLATE_REGISTRY[engagement.beatsSource.templateKey] === undefined
+      ) {
+        out.push({
+          level: 'error',
+          rule: 'template-unknown',
+          message: `Engagement ${i + 1} of '${node.id}' uses unregistered battle template '${engagement.beatsSource.templateKey}'.`,
+          nodeId: node.id,
+        });
+      }
+      if (engagement.beatsSource.kind === 'placeholder-scene' && engagement.beatsSource.marker.trim() === '') {
+        out.push({
+          level: 'warning',
+          rule: 'scene-marker-empty',
+          message: `Engagement ${i + 1} of '${node.id}' is a placeholder scene with no marker text.`,
+          nodeId: node.id,
+        });
+      }
+    });
 
-    const beats = tryResolveBeats(node);
+    const beats = tryResolveAllBeats(node);
     const hasBattle = beats !== undefined && beats.some((b) => b.type === 'battle');
 
     // farmable requires a battle beat (the skirmish borrows the node's
@@ -309,7 +505,7 @@ function findingsForNodes(model: AtlasGraph): AtlasFinding[] {
   // A battle-less START is legal since the canonical-probe fallback (S88)
   // but almost never what an author wants for battle one — warn, don't block.
   if (startNode !== undefined) {
-    const beats = tryResolveBeats(startNode);
+    const beats = tryResolveAllBeats(startNode);
     if (beats !== undefined && !beats.some((b) => b.type === 'battle')) {
       out.push({
         level: 'warning',
@@ -344,10 +540,18 @@ function findingsForLayout(model: AtlasGraph): AtlasFinding[] {
 // Run every rule. Errors first (export is gated on zero errors), then
 // warnings, both in rule-source order.
 export function validateAtlasGraph(model: AtlasGraph): ReadonlyArray<AtlasFinding> {
+  const ids = findingsForIds(model);
+  const edges = findingsForEdges(model);
+  const beatRefs = findingsForBeatRefs(model);
+  // The gating fixpoint only runs on structurally-sound input — dangling
+  // ids/refs would make its verdicts noise on top of the real findings.
+  const structurallyBroken = [...ids, ...edges, ...beatRefs].some((f) => f.level === 'error');
   const all = [
-    ...findingsForIds(model),
-    ...findingsForEdges(model),
+    ...ids,
+    ...edges,
+    ...beatRefs,
     ...findingsForTopology(model),
+    ...findingsForGating(model, structurallyBroken),
     ...findingsForNodes(model),
     ...findingsForLayout(model),
   ];

@@ -189,8 +189,10 @@ export function AtlasCanvas({ model, selectedId, mode, onSelect, onMove, onDrawE
         const badges = [
           ...(n.isHub === true ? ['trade'] : []),
           ...(n.farmable === true ? ['skirmish'] : []),
-          ...(n.beatsSource.kind === 'placeholder' ? ['placeholder'] : []),
-          ...(n.beatsSource.kind === 'none' ? ['no beats'] : []),
+          // Any stand-in engagement flags the node; a queue badges its depth.
+          ...(n.engagements.some((e) => e.beatsSource.kind !== 'content') ? ['placeholder'] : []),
+          ...(n.engagements.length === 0 ? ['no beats'] : []),
+          ...(n.engagements.length > 1 ? [`×${n.engagements.length}`] : []),
         ];
         return (
           <g

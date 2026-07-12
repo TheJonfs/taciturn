@@ -7,7 +7,10 @@
 
 import type { AtlasGraph } from './model.ts';
 
-const DRAFT_KEY = 'taciturn-atlas-draft-v1';
+// v2: engagement queues (nodes carry `engagements`, not `beatsSource`) — a
+// v1 draft would render as a broken model, so it is ignored per the rule
+// above.
+const DRAFT_KEY = 'taciturn-atlas-draft-v2';
 
 export function loadDraft(): AtlasGraph | null {
   try {

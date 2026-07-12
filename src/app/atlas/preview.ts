@@ -1,17 +1,22 @@
-// Atlas — live map preview plumbing.
+// Atlas — live map preview plumbing: the STATEFUL PREVIEW WALK.
 //
 // The preview renders the REAL WorldMapBeatView (the anti-drift payoff) —
-// which needs a real WorldMapChoiceBeat. This module synthesizes the
-// campaign situation "the company stands at node X, having cleared the way
-// there": every ancestor of X (and X itself) is visited + story-cleared,
-// exactly the state the driver would hold when showing the map after X's
-// win. Choices come from the REAL travelChoices selector, so the preview
-// shows frontier/returnable/badges precisely as the shipped map would.
+// which needs a real WorldMapChoiceBeat. Under engagement queues a
+// synthesized "everything on the road here is cleared" state can't express
+// the interesting cases (visit a camp, clear engagement A, go do a mission,
+// come back for B) — so the preview holds an actual play-through: a
+// `PreviewWalk` accumulates visited nodes and cleared beats exactly the way
+// a run would. ENTERING a node simulates winning its current engagement
+// (the earliest armed-and-uncleared one — one per entry, as the driver
+// plays them); entering with nothing armed is a browse, clearing nothing.
+// Choices come from the REAL travelChoices selector, so frontier /
+// returnable / badges / per-beat gating behave precisely as the shipped
+// map would.
 
 import {
   CAMPAIGN_SCHEMA_VERSION,
+  currentEngagement,
   getNode,
-  storyBeatIdOf,
   travelChoices,
   type CampaignGraph,
   type CampaignState,
@@ -20,52 +25,64 @@ import {
 
 const PREVIEW_GIL = 1000;
 
-// X and every node that can reach X via win-edges.
-function ancestorsAndSelf(graph: CampaignGraph, atId: string): ReadonlySet<string> {
-  const reversed = new Map<string, string[]>();
-  for (const e of graph.edges) {
-    if (e.on !== 'win') continue;
-    (reversed.get(e.to) ?? reversed.set(e.to, []).get(e.to)!).push(e.from);
-  }
-  const seen = new Set<string>([atId]);
-  const queue = [atId];
-  while (queue.length > 0) {
-    const at = queue.shift()!;
-    for (const prev of reversed.get(at) ?? []) {
-      if (!seen.has(prev)) {
-        seen.add(prev);
-        queue.push(prev);
-      }
-    }
-  }
-  return seen;
+// The preview's accumulated play-through.
+export interface PreviewWalk {
+  readonly atId: string;
+  readonly visited: ReadonlyArray<string>;
+  readonly clearedStoryBeats: ReadonlyArray<string>;
+  // What the last step cleared (for the toolbar readout) — undefined on a
+  // browse entry.
+  readonly lastCleared?: string;
 }
 
-// The world-map beat for "standing at `atId` with the road there cleared".
-// Pass a graph that contains atId (the caller resolves the draft model).
-export function previewWorldMapBeat(graph: CampaignGraph, atId: string): WorldMapChoiceBeat {
-  const cleared = ancestorsAndSelf(graph, atId);
-  const visited = [...cleared];
-  const clearedStoryBeats = visited
-    .map((id) => getNode(graph, id))
-    .filter((n) => n.beats.length > 0)
-    .map((n) => storyBeatIdOf(n));
-
-  const state: CampaignState = {
+// The walk's runtime state (what the travel selectors read).
+function walkState(walk: PreviewWalk): CampaignState {
+  return {
     schemaVersion: CAMPAIGN_SCHEMA_VERSION,
     roster: [],
     inventory: {},
     gil: PREVIEW_GIL,
-    currentNodeId: atId,
-    visited,
-    clearedStoryBeats,
+    currentNodeId: walk.atId,
+    visited: walk.visited,
+    clearedStoryBeats: walk.clearedStoryBeats,
     phase: 'awaiting_route',
   };
+}
 
+// Enter `nodeId`: stamp visited and, if an engagement is armed there, clear
+// it (simulating the win). Pure — returns the next walk.
+function enter(graph: CampaignGraph, walk: PreviewWalk, nodeId: string): PreviewWalk {
+  const visited = walk.visited.includes(nodeId) ? walk.visited : [...walk.visited, nodeId];
+  const probe = { ...walk, atId: nodeId, visited };
+  const armed = currentEngagement(walkState(probe), getNode(graph, nodeId));
+  if (armed === undefined) {
+    const { lastCleared: _dropped, ...rest } = probe;
+    return rest;
+  }
+  return {
+    ...probe,
+    clearedStoryBeats: [...walk.clearedStoryBeats, armed.beatId],
+    lastCleared: armed.beatId,
+  };
+}
+
+// A fresh walk: standing at the start with its first engagement won (the
+// state the driver holds when it first shows the world map).
+export function startWalk(graph: CampaignGraph): PreviewWalk {
+  return enter(graph, { atId: graph.startId, visited: [], clearedStoryBeats: [] }, graph.startId);
+}
+
+// Travel to a destination (the preview map's pick) and resolve the entry.
+export function walkTo(graph: CampaignGraph, walk: PreviewWalk, nodeId: string): PreviewWalk {
+  return enter(graph, walk, nodeId);
+}
+
+// The world-map beat for the walk's current situation.
+export function previewWorldMapBeat(graph: CampaignGraph, walk: PreviewWalk): WorldMapChoiceBeat {
   return {
     type: 'world-map-choice',
-    fromNodeId: atId,
-    choices: travelChoices(graph, state),
+    fromNodeId: walk.atId,
+    choices: travelChoices(graph, walkState(walk)),
     gil: PREVIEW_GIL,
   };
 }
