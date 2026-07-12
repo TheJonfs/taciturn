@@ -77,12 +77,20 @@ replace that one `<g>`; the march machinery doesn't change. Failsafe timer
 completes arrival if rAF stalls (hidden tab); reduced-motion + tests skip
 the walk.
 
+### Post-ship addition 2 (same session, Chris's request)
+
+**Pure market towns enabled** (`eaba72b`, ADR-0145 addendum): a hub no
+longer needs a battlefield. `probe-battle.ts` fixes ONE canonical probe
+field (template-independence pinned) behind `probeBattleFor(node)` — hires,
+the campaign-start bootstrap, and the Formation stat probes all use it when
+a node has no battle beat. And `isStoryCleared` gained visit-completes
+semantics for `beats: []` nodes, so a town on the road opens its own
+win-edges on first visit instead of blocking progression. `farmable` still
+requires a battlefield. Authoring substrate notes §2 updated (items 3 + 5
+lifted) — the authoring tool's validation checklist changed accordingly.
+
 ### Noticed, not acted on
 
-- A hub with no battle beat can't size a hire's vitals or host a skirmish
-  (`hireGeneric`/`buildSkirmishBattle` fail loud). Fine for authored content;
-  a future battle-less market town needs an explicit template source (same
-  constraint as `bootstrapRosterVitals`).
 - The skirmish result screen reuses the node name ("River Ridge — Skirmish
   Won"); if skirmishes later get flavor variety, the summary beat already
   carries a `skirmish` flag to hang it on.

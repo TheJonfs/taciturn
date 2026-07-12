@@ -128,15 +128,33 @@ M1 nodes: all combat nodes `farmable` (offsets −1/0/0/+2 placeholder);
 The Return is terminal so its valve is left un-authored (clearing it ends the
 campaign — a dead flag otherwise).
 
+## Addendum (same session): pure market towns
+
+Chris asked to lift the hub-needs-a-battlefield constraint ahead of map
+authoring. Two pieces (commit `eaba72b`):
+
+1. **Canonical probe battlefield** (`campaign/probe-battle.ts`): the
+   vitals/stat probes never fight, so the template can't change their
+   result (pinned across templates by `probe-battle.test.ts`). One
+   canonical field (Training Field) now backs hires, the campaign-start
+   bootstrap, and the Formation stat probes wherever a node-local
+   battlefield is absent; `probeBattleFor(node)` still prefers the node's
+   own field when it has one.
+2. **Visit-completes semantics** (`travel.ts#isStoryCleared`): a node with
+   `beats: []` has nothing to clear — its story completes on FIRST VISIT,
+   opening its own win-edges (progression through a town) and flipping it
+   to a returnable hub. No save-shape change (there's no beat id to
+   record).
+
+A pure market town (`isHub: true, beats: []`) is therefore authorable;
+`farmable` still requires a battlefield. The M1 graph is unchanged.
+
 ## Flagged / deferred
 
 - **The real bundle→node assignment and prices** — next economy-content
   session replaces `PLACEHOLDER_BUNDLES` + fills the price table. Spiked Maul
   sequencing note (S87 handoff) applies then; the 8 Ch3 uniques still need
   their placement flows (`grantItems` receipts).
-- **Hire vitals need the hub's battlefield** — fine for authored hubs
-  (Stonebridge); a future battle-less hub needs an explicit template source
-  (same constraint as the campaign-start bootstrap).
 - **Skirmish stub is deterministic and gear-less** — intended; M4 replaces
   the generator at the seam, nothing else moves.
 - **Watch-fors from the brief now live:** income-to-price ratio (flag if

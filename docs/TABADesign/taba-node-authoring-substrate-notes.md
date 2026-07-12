@@ -158,14 +158,19 @@ the point of having a tool:
    authored) unique across all engagements.
 2. **Reachability:** every node reachable from `startId` via win-edges; at
    least one terminal node reachable (or the campaign can't complete).
-3. **The start node must contain a battle beat** — `bootstrapRosterVitals`
-   probes effective maxes against it and throws otherwise.
+3. ~~The start node must contain a battle beat~~ — **lifted** (S88 follow-up,
+   `probe-battle.ts`): vitals/stat probes fall back to a CANONICAL probe
+   battlefield when a node has none; the template choice provably can't
+   change the numbers (pinned). A battle-beat start is still the sensible
+   authoring default.
 4. **`farmable` requires a battle beat** (the skirmish borrows the node's
    battlefield; `isFarmableNow`/`buildSkirmishBattle` guard it).
-5. **`isHub` requires a battle beat** today — recruitment sizes the hire's
-   vitals against the hub's battlefield (`hireGeneric` fails loud). A
-   battle-less market town needs an explicit template source first (noted in
-   ADR-0145).
+5. ~~`isHub` requires a battle beat~~ — **lifted** (same follow-up): a PURE
+   market town (`isHub: true, beats: []`) is fully supported. Its "story"
+   completes on FIRST VISIT (visit-completes semantics in
+   `travel.ts#isStoryCleared`), which opens its own win-edges — a town on
+   the road never blocks progression through it — and its menu offers
+   shop + recruit from arrival. It cannot be `farmable` (rule 4).
 6. **Battle beats:** template exists; `playerTeam` has placeholder slots;
    zones key resolves; `deployCap` ≤ player slots; `enemies` count ≤
    template enemy slots; every authored enemy's `classId`/ability ids
