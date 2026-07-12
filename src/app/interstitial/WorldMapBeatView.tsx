@@ -18,24 +18,12 @@
 import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
 import {
   M1_CAMPAIGN_GRAPH,
-  M1_NODES,
   type CampaignGraph,
   type TravelChoice,
   type WorldMapChoiceBeat,
 } from '@campaign/index.ts';
+import { NODE_LAYOUT } from './node-layout.ts';
 import type { BeatRendererProps } from './InterstitialRunner.tsx';
-
-// Hand-authored node positions (viewBox units). Laid out left→right to read
-// as a forward DAG: start at the left, the fork splits north/south, the side
-// node hangs above the north route, the convergent terminal sits at the right.
-const NODE_LAYOUT: Readonly<Record<string, { x: number; y: number }>> = {
-  [M1_NODES.riverRidge]: { x: 70, y: 175 },
-  [M1_NODES.stonebridge]: { x: 245, y: 85 },
-  [M1_NODES.marshmoor]: { x: 245, y: 265 },
-  [M1_NODES.theCrossing]: { x: 430, y: 265 },
-  [M1_NODES.mountainPass]: { x: 430, y: 85 },
-  [M1_NODES.theReturn]: { x: 570, y: 175 },
-};
 
 type Point = { readonly x: number; readonly y: number };
 
