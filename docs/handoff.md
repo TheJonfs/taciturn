@@ -30,6 +30,16 @@ buy/sell round-trip, a real hire persisting across reload).
 
 ### For Chris / the planner
 
+- **Node/map authoring utility (Chris's request, S88):**
+  `docs/TABADesign/taba-node-authoring-substrate-notes.md` is the enabling
+  doc — an authoritative reference of the node/graph/beat data model, the
+  validation checklist an authoring tool must enforce, a scoping sketch
+  (dev-gated in-app route reusing the real map/scene renderers for live
+  preview), and five open decisions (TS codegen vs JSON+loader; layout
+  ownership — `NODE_LAYOUT` should move out of the view either way;
+  engagement-queue support; enemy-authoring depth; where the tool runs).
+  Session-sized; sequence it before or alongside the M4 authoring beats.
+
 - **The next economy beat is CONTENT, not machinery:** real bundle→node
   assignment (replace `PLACEHOLDER_BUNDLES` in `equipment-pool.ts`), real
   prices (fill `ITEM_PRICE_OVERRIDES`), and the unique acquisition/placement
