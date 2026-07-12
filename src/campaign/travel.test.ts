@@ -108,3 +108,58 @@ describe('travelChoices', () => {
     expect(isTravelChoice(GRAPH, cleared, M1_NODES.theReturn)).toBe(false);
   });
 });
+
+describe('a PURE market town (isHub, no beats) — visit-completes semantics', () => {
+  // A synthetic graph threading a battlefield-less town INTO the road:
+  //   River Ridge → Watford Market → Stonebridge
+  // The town must not block progression (its win-edges open on VISIT, since
+  // there is no story beat to clear) and must trade like any hub.
+  const TOWN = 'node-watford-market';
+  const townGraph = {
+    startId: M1_NODES.riverRidge,
+    nodes: [
+      getNode(GRAPH, M1_NODES.riverRidge),
+      { id: TOWN, name: 'Watford Market', beats: [], isHub: true },
+      getNode(GRAPH, M1_NODES.stonebridge),
+    ],
+    edges: [
+      { from: M1_NODES.riverRidge, to: TOWN, on: 'win' as const },
+      { from: TOWN, to: M1_NODES.stonebridge, on: 'win' as const },
+    ],
+  };
+  const town = townGraph.nodes[1]!;
+
+  it('an unvisited town is a frontier destination off a cleared node', () => {
+    const cleared = stateWith({ clearedStoryBeats: [M1_NODES.riverRidge] });
+    const choices = travelChoices(townGraph, cleared);
+    expect(choices.map((c) => [c.id, c.kind])).toContainEqual([TOWN, 'advance']);
+    // …and nothing beyond it is reachable yet.
+    expect(choices.some((c) => c.id === M1_NODES.stonebridge)).toBe(false);
+  });
+
+  it('VISITING the town completes its (empty) story — its own win-edges open', () => {
+    const atTown = stateWith({
+      currentNodeId: TOWN,
+      visited: [M1_NODES.riverRidge, TOWN],
+      clearedStoryBeats: [M1_NODES.riverRidge],
+    });
+    expect(isStoryCleared(atTown, town)).toBe(true);
+    expect(hasArmedStory(atTown, town)).toBe(false);
+    const ids = travelChoices(townGraph, atTown).map((c) => c.id);
+    expect(ids).toContain(M1_NODES.stonebridge); // progression THROUGH the town
+    expect(ids).toContain(TOWN); // and the town stays returnable (hub)
+  });
+
+  it('the visited town is a returnable hub, never farmable (no battlefield)', () => {
+    const past = stateWith({
+      currentNodeId: M1_NODES.stonebridge,
+      visited: [M1_NODES.riverRidge, TOWN, M1_NODES.stonebridge],
+      clearedStoryBeats: [M1_NODES.riverRidge, M1_NODES.stonebridge],
+    });
+    const choice = travelChoices(townGraph, past).find((c) => c.id === TOWN);
+    expect(choice?.kind).toBe('revisit');
+    expect(choice?.hub).toBe(true);
+    expect(choice?.farmable).toBe(false);
+    expect(isFarmableNow(past, town)).toBe(false);
+  });
+});

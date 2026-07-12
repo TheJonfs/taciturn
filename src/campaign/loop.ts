@@ -38,7 +38,7 @@ import {
   type CampaignNode,
 } from './graph.ts';
 import { isTravelChoice } from './travel.ts';
-import { firstBattleBeat } from './sequence.ts';
+import { probeBattleFor } from './probe-battle.ts';
 import { probeEffectiveMaxes } from './snapshot-fold.ts';
 import { CAMPAIGN_SCHEMA_VERSION } from './serialization.ts';
 import { EMPTY_INVENTORY, bootstrapInventory } from './inventory.ts';
@@ -95,22 +95,16 @@ export function seedRosterStartingKits(
 // the fold's probe, chunked so a roster larger than one node's slot count
 // still resolves.
 //
-// The probe needs *a* battle template to read equipment-adjusted maxes; it
-// uses the start node's FIRST battle beat. A standalone story start node has
-// none — bootstrap fails loud (M1.5's start is a battle node). A future
-// story-only start would need a template source passed explicitly.
+// The probe needs *a* battle template to read equipment-adjusted maxes: the
+// start node's own first battle beat when it has one, the canonical probe
+// field otherwise (probe-battle.ts — a story-only or market-town start
+// bootstraps fine; the template choice can't change the numbers).
 export function bootstrapRosterVitals(
   roster: ReadonlyArray<CampaignUnit>,
   node: CampaignNode,
   catalog: Catalog,
 ): ReadonlyArray<CampaignUnit> {
-  const first = firstBattleBeat(node.beats);
-  if (first === undefined) {
-    throw new Error(
-      `bootstrapRosterVitals: start node "${node.id}" has no battle beat to probe effective maxes from`,
-    );
-  }
-  const { template, playerTeam } = first.battle;
+  const { template, playerTeam } = probeBattleFor(node);
   const maxes = probeEffectiveMaxes(template, roster, playerTeam, catalog);
   return roster.map((unit) => ({ ...unit, vitals: maxes.get(unit.id)! }));
 }

@@ -51,13 +51,13 @@ import {
   debugSeedInventory,
   deployableRoster,
   foldBattle,
-  firstBattleBeat,
   getNode,
   hasBattleAtOrAfter,
   hireGeneric,
   isComplete,
   isHubNow,
   isStoryCleared,
+  probeBattleFor,
   resolveNode,
   routeToNode,
   saveCampaign,
@@ -536,17 +536,11 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
   }
 
   if (screen.kind === 'recruit') {
-    const beat = firstBattleBeat(node.beats);
-    if (beat === undefined) {
-      // A hub with no battlefield can't size a hire (hireGeneric would
-      // throw); no authored hub lacks one — fail loud rather than render.
-      throw new Error(`CampaignApp: hub "${node.id}" has no battle beat for recruitment`);
-    }
     return (
       <RecruitScreen
         nodeName={node.name}
         state={state}
-        battle={beat.battle}
+        probe={probeBattleFor(node)}
         catalog={catalog}
         onHire={(spec) => {
           const hired = hireGeneric(state, node, spec, catalog);

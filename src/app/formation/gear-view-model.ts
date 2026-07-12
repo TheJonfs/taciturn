@@ -36,14 +36,13 @@ import {
 } from '@engine/index.ts';
 import {
   CAMPAIGN_RULESET_ID,
-  M1_CAMPAIGN_GRAPH,
+  CANONICAL_PROBE_BATTLE,
   equipOnUnit,
   equippedCounts,
-  firstBattleBeat,
-  getNode,
   probeUnitStats,
   type EffectiveUnitStats,
   type InventoryRecord,
+  type VitalsProbeBattle,
 } from '@campaign/index.ts';
 import type { CampaignUnit } from '@campaign/index.ts';
 
@@ -221,22 +220,13 @@ export function gearStatLine(item: EquipmentDefinition): string {
 
 // --- effective stats + hypothetical projections (Stage 3) ---------------
 
-// The battle template the Formation stat probes fold onto — the campaign
-// start node's battle beat, the same template `bootstrapRosterVitals`
-// probes. Any template works (the probe never fights; the slot only has
-// to pass structural checks); using a real campaign one keeps the
-// numbers on the exact fold path battles take. Resolved once, lazily.
-let probeTarget: { readonly template: Parameters<typeof probeUnitStats>[0]; readonly playerTeam: Parameters<typeof probeUnitStats>[2] } | null = null;
-function probeBattle(): NonNullable<typeof probeTarget> {
-  if (probeTarget === null) {
-    const start = getNode(M1_CAMPAIGN_GRAPH, M1_CAMPAIGN_GRAPH.startId);
-    const beat = firstBattleBeat(start.beats);
-    if (beat === undefined) {
-      throw new Error('formation stat probe: the campaign start node has no battle beat');
-    }
-    probeTarget = { template: beat.battle.template, playerTeam: beat.battle.playerTeam };
-  }
-  return probeTarget;
+// The battle template the Formation stat probes fold onto — the campaign's
+// CANONICAL probe field (probe-battle.ts; any template works — the probe
+// never fights, and the template choice can't change the numbers, pinned
+// by probe-battle.test.ts). Was the start node's battle beat; the canonical
+// field drops the graph dependency and the start-must-have-a-battle throw.
+function probeBattle(): VitalsProbeBattle {
+  return CANONICAL_PROBE_BATTLE;
 }
 
 // The unit's live effective stats (equipment/passive/class-composed via

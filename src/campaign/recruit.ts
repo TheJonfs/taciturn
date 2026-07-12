@@ -37,11 +37,11 @@ import {
   HIRE_JP_TIER1_STEPS,
 } from './economy-config.ts';
 import { partyAverageLevel } from './enemy-level.ts';
-import { storyBeatIdOf, type CampaignNode } from './graph.ts';
+import type { CampaignNode } from './graph.ts';
 import { grantItems } from './inventory.ts';
 import { spendGil } from './gil.ts';
+import { probeBattleFor } from './probe-battle.ts';
 import { COMPONENT_CATALOG, classesInSlot, seedStartingKit, tierSlot } from './progression/index.ts';
-import { firstBattleBeat } from './sequence.ts';
 import { probeEffectiveMaxes } from './snapshot-fold.ts';
 import { EMPTY_EARNED_BY_CLASS, type CampaignState, type CampaignUnit } from './types.ts';
 
@@ -164,9 +164,9 @@ export function buildHire(state: CampaignState, spec: HireSpec, catalog: Catalog
 
 // Execute the hire at `node` (the hub the player stands at): validate the
 // class/level/cap, debit the curve price, receive the starter gear through
-// the receipt door, and add the unit at effective-full vitals (probed
-// against the hub's own battlefield — fail loud if it has none, the same
-// constraint the campaign-start bootstrap documents).
+// the receipt door, and add the unit at effective-full vitals — probed
+// against the hub's own battlefield when it has one, the canonical probe
+// field otherwise (a PURE market town hires fine; see probe-battle.ts).
 export function hireGeneric(
   state: CampaignState,
   node: CampaignNode,
@@ -180,12 +180,7 @@ export function hireGeneric(
   if (!Number.isInteger(spec.level) || spec.level < 1 || spec.level > cap) {
     throw new Error(`hireGeneric: level ${spec.level} is out of range (1..${cap} — capped at party average)`);
   }
-  const beat = firstBattleBeat(node.beats);
-  if (beat === undefined) {
-    throw new Error(
-      `hireGeneric: hub "${node.id}" (beat ${storyBeatIdOf(node)}) has no battlefield to size the hire's vitals against`,
-    );
-  }
+  const probe = probeBattleFor(node);
 
   const hire = buildHire(state, spec, catalog);
 
@@ -194,7 +189,7 @@ export function hireGeneric(
   const gear = starterGearFor(spec.classId, catalog).map(([, id]) => [id, 1] as const);
   next = grantItems(next, gear);
 
-  const maxes = probeEffectiveMaxes(beat.battle.template, [hire], beat.battle.playerTeam, catalog);
+  const maxes = probeEffectiveMaxes(probe.template, [hire], probe.playerTeam, catalog);
   const healed: CampaignUnit = { ...hire, vitals: maxes.get(hire.id)! };
   return { ...next, roster: [...next.roster, healed] };
 }

@@ -90,6 +90,8 @@ export {
 } from './travel.ts';
 export type { TravelChoice } from './travel.ts';
 export { buildSkirmishBattle, generateSkirmishParty, skirmishLevelAt } from './skirmish.ts';
+export { CANONICAL_PROBE_BATTLE, probeBattleFor } from './probe-battle.ts';
+export type { VitalsProbeBattle } from './probe-battle.ts';
 export { CAMPAIGN_RULESET_ID, M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
 export { PLOT_UNIT_IDS } from './plot-unit-ids.ts';
 

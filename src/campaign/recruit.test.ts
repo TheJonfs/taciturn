@@ -147,6 +147,17 @@ describe('hireGeneric', () => {
     expect(stats!.maxHp).toBeGreaterThan(0);
   });
 
+  it('hires fine at a PURE market town (no battlefield — canonical probe)', () => {
+    const town = { id: 'node-watford-market', name: 'Watford Market', beats: [], isHub: true };
+    const state = rich();
+    const hired = hireGeneric(state, town, { classId: hireableClasses()[0]!, level: 10 }, catalog);
+    const unit = hired.roster[hired.roster.length - 1]!;
+    expect(unit.vitals.hp).toBeGreaterThan(1); // effective full via the canonical field
+    // Identical vitals to the same hire at a battlefield hub (template independence).
+    const atHub = hireGeneric(state, HUB, { classId: hireableClasses()[0]!, level: 10 }, catalog);
+    expect(unit.vitals).toEqual(atHub.roster[atHub.roster.length - 1]!.vitals);
+  });
+
   it('mints collision-free ids and readable names across consecutive hires', () => {
     let state = rich();
     const cls = hireableClasses()[0]!;

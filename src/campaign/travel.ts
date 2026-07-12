@@ -20,7 +20,14 @@ import { firstBattleBeat } from './sequence.ts';
 import type { CampaignState } from './types.ts';
 
 // Has this node's CURRENT story engagement been fully played?
+//
+// A node with NO authored engagement (a pure market town: `beats: []`) has
+// nothing to clear — its "story" completes on FIRST VISIT. That's what opens
+// its own win-edges (progression THROUGH a town) and flips it from a
+// frontier destination to a returnable; nothing is recorded in
+// `clearedStoryBeats` (there is no beat id to record).
 export function isStoryCleared(state: CampaignState, node: CampaignNode): boolean {
+  if (node.beats.length === 0) return state.visited.includes(node.id);
   return state.clearedStoryBeats.includes(storyBeatIdOf(node));
 }
 

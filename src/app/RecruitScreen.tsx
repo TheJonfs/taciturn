@@ -19,15 +19,16 @@ import {
   starterGearFor,
   type CampaignState,
   type HireSpec,
-  type NodeBattle,
+  type VitalsProbeBattle,
 } from '@campaign/index.ts';
 
 export interface RecruitScreenProps {
   readonly nodeName: string;
   readonly state: CampaignState;
-  // The hub's battlefield — the stat preview probes against it (the same
-  // template hireGeneric sizes vitals with).
-  readonly battle: NodeBattle;
+  // The stat preview's probe battlefield (probeBattleFor(node) — the hub's
+  // own field, or the canonical one at a pure market town; same template
+  // hireGeneric sizes vitals with either way).
+  readonly probe: VitalsProbeBattle;
   readonly catalog: Catalog;
   readonly onHire: (spec: HireSpec) => void;
   readonly onExit: () => void;
@@ -36,7 +37,7 @@ export interface RecruitScreenProps {
 export function RecruitScreen({
   nodeName,
   state,
-  battle,
+  probe,
   catalog,
   onHire,
   onExit,
@@ -53,7 +54,7 @@ export function RecruitScreen({
   const affordable = state.gil >= cost;
 
   const preview = buildHire(state, spec, catalog);
-  const stats = probeUnitStats(battle.template, preview, battle.playerTeam, catalog);
+  const stats = probeUnitStats(probe.template, preview, probe.playerTeam, catalog);
   const gear = starterGearFor(classId, catalog)
     .map(([, id]) => (catalog.hasItem(id) ? catalog.getItem(id).name : String(id)))
     .join(', ');

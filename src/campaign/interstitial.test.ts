@@ -156,6 +156,16 @@ describe('buildLocationMenuBeat', () => {
     expect(beat.options.map((o) => o.action)).toEqual(['skirmish', 'shop', 'recruit']);
   });
 
+  it('a PURE market town (no beats) offers commerce only, from first visit', () => {
+    const town = { id: 'node-watford-market', name: 'Watford Market', beats: [], isHub: true };
+    const state = {
+      ...newCampaign(m0Roster, town.id),
+      visited: [M1_NODES.riverRidge, town.id],
+    };
+    const beat = buildLocationMenuBeat(town, state);
+    expect(beat.options.map((o) => o.action)).toEqual(['shop', 'recruit']);
+  });
+
   it('offers nothing at a cleared node with no open capabilities', () => {
     // The Crossing: story-only, never farmable/hub.
     const crossing = getNode(GRAPH, M1_NODES.theCrossing);
