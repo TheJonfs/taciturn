@@ -419,6 +419,16 @@ These are noted to make their absence intentional rather than accidental:
   revives; Esuna cleanses; Jump pinned), reflect-gear fear, and the
   `scoreItemForUnit`/`rankItemsForUnit` gear-valuation module the M4
   generator consumes (D-ai-3 unblocked).
+  **Node-authoring tool, structural tier — SHIPPED** (ADR-0147, S90): the
+  Atlas graph editor (`?atlas`, DEV-gated) authors the campaign skeleton —
+  nodes/win-edges (order = map choice order), the new `chapter` field,
+  capabilities, drag-to-place layout, placeholder battle templates — with
+  live validation (incl. chapter-monotonicity), live preview through the
+  real `WorldMapBeatView`, and byte-identical round-trip codegen of
+  `node.ts` + `node-layout.ts` (hand-authored scenes/enemies split into
+  the tool-invisible `node-content.ts`). The economy content pass can now
+  lay out chapter graphs before keying bundles to nodes. Beat/scene/enemy
+  and economy-bundle authoring are later tiers.
   Then authoring (M4 — starts by replacing the skirmish stub), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.

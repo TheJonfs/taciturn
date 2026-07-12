@@ -44,6 +44,12 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 90 (2026-07-11) — Atlas node-authoring tool, structural tier (ADR-0147)
+
+_No player-facing changes._ (A DEV-gated campaign graph editor, a `chapter`
+field on campaign nodes, and internal module splits/codegen. The world map
+renders pixel-identically; no ability, item, node, or mechanic changed.)
+
 ## Session 89 (2026-07-11) — AI competency refresh (ADR-0146)
 
 _No player-facing changes._ (Enemy AI competency floor — enemies now use

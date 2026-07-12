@@ -11,70 +11,77 @@ been processed.
 
 ---
 
-## S89 — Pre-M4 AI competency refresh SHIPPED whole (2026-07-11)
+## S90 — Atlas node-authoring tool, structural tier SHIPPED whole (2026-07-11)
 
-All seven items of `taba-ai-refresh-brief.md` landed (ADR-0146): the audit
-(now durable as `docs/design/ai-substrate.md` — **the authoritative AI
-reference; update it when scorer branches change**), grapple-throw, the
-`aiHints.value` debuff floor, Raise, Esuna, the Jump pin, reflect-awareness,
-and the `scoreItemForUnit` gear-valuation module. Suite green (**2733**),
-`tsc -b` clean. Per-class matrix: no broken entries remain
-(`taba-ai-refresh-findings.md` has the audit + outcome).
+All of `taba-node-authoring-structural-tier-brief.md` landed (ADR-0147):
+`chapter` on `CampaignNode` (all M1 nodes ch1), the WI5 content split
+(`node-content.ts` hand-authored / `node.ts` generated-shaped), the
+`BATTLE_TEMPLATE_REGISTRY` + `placeholderBattleBeat` (River Ridge default —
+Chris's call over training-field, which has no zones), the Atlas editor
+(`?atlas`, DEV-gated, lazy chunk), validation (incl. chapter-monotonicity
+and forward-DAG acyclicity), live preview through the real
+`WorldMapBeatView` (now takes optional graph/layout props; viewBox is
+bounds-derived with the 640×350 floor), and the byte-identical M1
+round-trip pin (`codegen.test.ts`). Suite green (**2773**), `tsc -b`
+clean. Verified live in the browser: import → edit → validate-gate →
+preview march → export.
 
 ### For Chris / the planner
 
-- **M4 is unblocked on the AI side (D-ai-3 resolved).** The generator's
-  gear-assignment upgrade consumes `rankItemsForUnit(catalog, pool, profile)`
-  from `src/ai/gear-valuation.ts` (`GearScoreProfile` = classId/pa/ma/usesMp —
-  deliberately not a battle Unit). The `generateSkirmishParty` seam is
-  unchanged.
-- **Playtest is the remaining judge** (acceptance criterion). Watch
-  specifically for gold-plating: skirmishes should stay beatable-not-
-  exhausting. If enemies feel oppressive, the dials to lower are the NEW
-  floors — per-status `aiHints.value` (content), `DEFAULT_DEBUFF_VALUE`,
-  and the gear-valuation `W_*` weights — not the node offsets.
-- **AI behavior newly visible in play:** Monks heave units off ledges
-  (enemies only); Assassins open with Shadow Stitch and stop re-stitching;
-  Templars cast Raise and answer perch-campers with Jump; Enchanters Esuna
-  debuffed clusters; everyone avoids feeding Spiked Mail/Mirror Shield
-  unless the hit kills.
+- **The economy CONTENT pass is unblocked on layout:** chapter graphs can
+  now be laid out in Atlas first, then bundles keyed to nodes. Atlas does
+  NOT author `firstAvailableAt` (economy tier, deferred per brief).
+- **Workflow change:** story scenes / battle beats / enemy derivation are
+  hand-edited in `src/campaign/node-content.ts` now; `node.ts` is
+  overwritten wholesale by Atlas export. The round-trip test fails loudly
+  if the two drift from the canonical shape.
+- **Editing discipline the tool enforces:** renaming a node id in Atlas
+  orphans its `node-content` entry — validation reports `content-missing`
+  before export, and `contentBeats` throws at module init if a stale
+  export lands anyway.
 
 ### Noticed, not acted on
 
-- `countDebuffStatuses` (the Remedy-*throw* valuation) doesn't skip
-  `remedyImmune` statuses, so a throw is slightly over-valued on a
-  stat-downed ally; the engine's actual Remedy cleanse and the new Esuna
-  scorer both skip them (`countCleansableDebuffs`). One-line alignment if it
-  ever matters; left alone to avoid disturbing the throw path's tuning.
-- The AI kites: the joint planner's S59 danger tie-break makes ranged
-  debuffers step back to max range before casting (seen in the S89 tests —
-  `driveToAbility` in the test files applies committed Move legs). Good
-  behavior, but playtest may read it as "enemy runs away"; it's the
-  tie-break, not a bug.
-- Deferred-without-loss kit gaps (recorded in ai-substrate.md deferrals):
-  Tide Surge ally-tempo, Steal MP, Scramble, ally-rescue throws, stance
-  strategy, charge-delay discounts on Raise/Esuna.
+- `M1_NODES` / `M1_CAMPAIGN_GRAPH` names are historical now that the graph
+  spans the campaign; kept to avoid churning ~16 importers. Cheap cosmetic
+  rename whenever convenient (codegen emits the same names — change both
+  together; the round-trip pin will catch a half-rename).
+- The brief's WI3 validation list said "start node has a battle beat", but
+  S88 lifted that invariant (probe fallback); implemented as a WARNING.
+  Recorded in ADR-0147 — flagging so the planner can update the brief's
+  checklist if it becomes a template for later tiers.
+- Atlas edge drawing is inspector-initiated ("Draw edge from here…" →
+  click target). A drag-from-node-rim gesture would be faster at scale;
+  deferred as polish until the real multi-chapter layout session shows
+  the friction.
+- `validate.ts` checks `deployCap ≤ player slots` but the structural tier
+  can't author a violating cap (placeholders are fixed at 5 ≤ every
+  registered template's slots); the rule is live for content beats and
+  future per-node caps.
 
-### Carried from earlier (still open, low-priority — unchanged from S88)
+### Carried from earlier (still open, low-priority — unchanged from S89)
 
-- **Economy CONTENT pass is the next M3 beat** (real bundles, prices, unique
-  placement; all dials in `campaign/economy-config.ts`), then Tailored
-  Outfit; node/map authoring utility is session-sized and sequenced before or
-  alongside M4 (`taba-node-authoring-substrate-notes.md`).
+- **Economy CONTENT pass is the next M3 beat** (real bundles, prices,
+  unique placement; dials in `campaign/economy-config.ts`), then Tailored
+  Outfit; M4 authoring follows (gear seam ready per ADR-0146).
+- S89 playtest watch: AI gold-plating dials (`aiHints.value`,
+  `DEFAULT_DEBUFF_VALUE`, gear `W_*` weights); the kiting tie-break reads
+  as "enemy runs away" but is intended; `countDebuffStatuses` vs
+  `remedyImmune` one-liner.
 - JP spillover on over-threshold spend (M2 tail).
 - Enemy progression tuning for Stonebridge / Marshmoor / Mountain Pass (data).
 - Loadout 2nd-secondary UI (Magus Crown / Command Cap), "Level Up!" banner
   polish, rapid-dialogue-advance React setState-in-render warning.
 - "99 cap" guide fiction (no code clamp) — guide-doc correction someday.
 - S85/S87 playtest watch items (Epee CT-refund loops, Star Robe lifesteal,
-  Expert's Tunic × Golden Hairpin, tempo-caster stack, Scouring × dual-wield,
-  Manaeater-as-default, Terra Robe maybe weak; Cremation × Pendant,
-  Shadowblade vs HP sponges, Del's Stave dump-on-buffs, Golden Rod clock,
-  Volley Bow friendly fire, Excalibur above-curve by intent) — watch, don't
-  pre-nerf.
+  Expert's Tunic × Golden Hairpin, tempo-caster stack, Scouring ×
+  dual-wield, Manaeater-as-default, Terra Robe maybe weak; Cremation ×
+  Pendant, Shadowblade vs HP sponges, Del's Stave dump-on-buffs, Golden
+  Rod clock, Volley Bow friendly fire, Excalibur above-curve by intent) —
+  watch, don't pre-nerf.
 - FormationDevHarness (`?formation`) still shows 2 synthetic invalid units
   (Nova, Ptolemy) as a free showcase of warning states.
 - reclassUnit frees now-illegal passives but keeps now-illegal gear (D2:
   surface, don't resolve).
-- Income-to-price ratio / XP rubber-band / recruitment cap / re-entry guard
-  watch-fors from S88 remain live.
+- Income-to-price ratio / XP rubber-band / recruitment cap / re-entry
+  guard watch-fors from S88 remain live.
