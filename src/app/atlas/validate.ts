@@ -134,6 +134,37 @@ function findingsForEdges(model: AtlasGraph): AtlasFinding[] {
   return out;
 }
 
+// Phantom coherence (Ch1 substrate WI3). A phantom node is a drawn
+// destination that must never become enterable: a REAL edge pointing at
+// it would put it on the frontier the moment the edge opens — error.
+// Engagements on a phantom node are dead content (never played) — warn.
+function findingsForPhantoms(model: AtlasGraph): AtlasFinding[] {
+  const out: AtlasFinding[] = [];
+  const phantomIds = new Set(model.nodes.filter((n) => n.phantom === true).map((n) => n.id));
+  for (const e of model.edges) {
+    if (e.phantom === true) continue;
+    if (phantomIds.has(e.to)) {
+      out.push({
+        level: 'error',
+        rule: 'phantom-target-real-edge',
+        message: `Edge ${e.from} → ${e.to} is a real (non-phantom) edge into phantom node '${e.to}' — it would make the phantom enterable. Mark the edge phantom too.`,
+        nodeId: e.to,
+      });
+    }
+  }
+  for (const node of model.nodes) {
+    if (node.phantom === true && node.engagements.length > 0) {
+      out.push({
+        level: 'warning',
+        rule: 'phantom-with-engagements',
+        message: `Phantom node '${node.id}' authors ${node.engagements.length} engagement(s) that can never play.`,
+        nodeId: node.id,
+      });
+    }
+  }
+  return out;
+}
+
 // Every effective beat id in the model (what `armsAfter`/`opensOnBeat` may
 // legally reference).
 function effectiveBeatIds(model: AtlasGraph): ReadonlySet<string> {
@@ -236,7 +267,7 @@ function findingsForGating(model: AtlasGraph, structurallyBroken: boolean): Atla
       });
     }
     for (const e of model.edges) {
-      if (e.on !== 'win') continue;
+      if (e.on !== 'win' || e.phantom === true) continue;
       if (!reachable.has(e.from) || reachable.has(e.to)) continue;
       if (!traversable(e)) continue;
       reachable.add(e.to);
@@ -251,7 +282,7 @@ function findingsForGating(model: AtlasGraph, structurallyBroken: boolean): Atla
   while (queue.length > 0) {
     const at = queue.shift()!;
     for (const e of model.edges) {
-      if (e.on !== 'win' || e.from !== at || structural.has(e.to)) continue;
+      if (e.on !== 'win' || e.phantom === true || e.from !== at || structural.has(e.to)) continue;
       if (!byId.has(e.to)) continue;
       structural.add(e.to);
       queue.push(e.to);
@@ -259,6 +290,7 @@ function findingsForGating(model: AtlasGraph, structurallyBroken: boolean): Atla
   }
 
   for (const node of model.nodes) {
+    if (node.phantom === true) continue; // unreachable by design (WI3)
     if (!reachable.has(node.id) && structural.has(node.id)) {
       out.push({
         level: 'error',
@@ -283,12 +315,15 @@ function findingsForGating(model: AtlasGraph, structurallyBroken: boolean): Atla
   return out;
 }
 
-// Win-edge adjacency for the reachability/cycle/chapter walks.
+// Win-edge adjacency for the reachability/cycle/chapter walks. Phantom
+// edges (WI3) are excluded: they contribute nothing to reachability —
+// a phantom edge cannot make its target reachable, mask a real
+// unreachable node, or form a runtime cycle.
 function winAdjacency(model: AtlasGraph): ReadonlyMap<string, ReadonlyArray<string>> {
   const adj = new Map<string, string[]>();
   for (const n of model.nodes) adj.set(n.id, []);
   for (const e of model.edges) {
-    if (e.on !== 'win') continue;
+    if (e.on !== 'win' || e.phantom === true) continue;
     adj.get(e.from)?.push(e.to);
   }
   return adj;
@@ -312,6 +347,10 @@ function findingsForTopology(model: AtlasGraph): AtlasFinding[] {
     }
   }
   for (const n of model.nodes) {
+    // Phantom nodes (WI3) are unreachable BY DESIGN — exempt. The check
+    // is per-node on the flag, so a real unreachable node next to a
+    // phantom one still fires.
+    if (n.phantom === true) continue;
     if (!reachable.has(n.id)) {
       out.push({
         level: 'error',
@@ -368,7 +407,9 @@ function findingsForTopology(model: AtlasGraph): AtlasFinding[] {
   // actual reachability).
   const byId = new Map(model.nodes.map((n) => [n.id, n]));
   for (const e of model.edges) {
-    if (e.on !== 'win') continue;
+    // Phantom edges are decoration, not progression — chapter
+    // monotonicity doesn't apply to a road that is never walked.
+    if (e.on !== 'win' || e.phantom === true) continue;
     const from = byId.get(e.from);
     const to = byId.get(e.to);
     if (from === undefined || to === undefined) continue; // dangling already reported
@@ -550,6 +591,7 @@ export function validateAtlasGraph(model: AtlasGraph): ReadonlyArray<AtlasFindin
     ...ids,
     ...edges,
     ...beatRefs,
+    ...findingsForPhantoms(model),
     ...findingsForTopology(model),
     ...findingsForGating(model, structurallyBroken),
     ...findingsForNodes(model),

@@ -28,6 +28,7 @@ import {
   reorderEdge,
   reorderEngagement,
   setEdgeGate,
+  setEdgePhantom,
   setStart,
   updateEngagement,
   updateNode,
@@ -160,6 +161,7 @@ export function AtlasApp(): ReactElement {
             onReorderEngagement={(index, dir) => setModel((m) => reorderEngagement(m, selected.id, index, dir))}
             onUpdateEngagement={(index, patch) => setModel((m) => updateEngagement(m, selected.id, index, patch))}
             onSetEdgeGate={(edge, beatId) => setModel((m) => setEdgeGate(m, edge, beatId))}
+            onSetEdgePhantom={(edge, phantom) => setModel((m) => setEdgePhantom(m, edge, phantom))}
           />
         )}
       </div>

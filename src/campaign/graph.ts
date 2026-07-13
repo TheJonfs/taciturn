@@ -84,6 +84,14 @@ export interface CampaignNode {
   // offers a repeatable on-demand skirmish (M4 replaces the generated-party
   // stub at the `generateSkirmishParty` seam). Omitted → false.
   readonly farmable?: boolean;
+  // Ch1 substrate (WI3): a PHANTOM destination — shown on the map (labeled,
+  // with its dashed phantom edge) but never traversable: it never enters
+  // the frontier, travel, or reachability. Viura beyond Old Ordal is the
+  // first: the border town the party can see but the chapter never lets
+  // them reach. Validation exempts phantom nodes from `unreachable` (they
+  // are unreachable BY DESIGN) without loosening the rule for real nodes.
+  // Omitted → false.
+  readonly phantom?: boolean;
 }
 
 // The cleared-guard beat id of the engagement at `index`. Explicit
@@ -130,6 +138,12 @@ export interface CampaignEdge {
   // is MONOTONIC either way: cleared beats never un-clear, so an opened
   // edge never closes (consistent with the monotonic map).
   readonly opensOnBeat?: string;
+  // Ch1 substrate (WI3): a PHANTOM edge — rendered (dashed) but never
+  // traversable: excluded from the frontier (`isEdgeOpen` is always false),
+  // from route legality, and from reachability. Draws the road the party
+  // can see but the chapter never opens (Old Ordal → Viura). Omitted →
+  // false.
+  readonly phantom?: boolean;
 }
 
 // The whole authored graph: a forward DAG (D2) with a single entry node.
@@ -160,8 +174,12 @@ export function nextNodes(
   nodeId: string,
   outcome: CampaignOutcome,
 ): ReadonlyArray<CampaignNode> {
+  // Phantom edges are decoration, not routes (WI3): they never yield a
+  // next node — so `winChoices` can't offer them, `isWinChoice` can't
+  // route through them, and `isTerminal` ignores them (a node whose only
+  // out-edge is phantom IS terminal).
   return graph.edges
-    .filter((e) => e.from === nodeId && e.on === outcome)
+    .filter((e) => e.from === nodeId && e.on === outcome && e.phantom !== true)
     .map((e) => getNode(graph, e.to));
 }
 

@@ -52,6 +52,9 @@ export interface AtlasNode {
   readonly offset?: number;
   readonly isHub?: boolean;
   readonly farmable?: boolean;
+  // Ch1 substrate (WI3): phantom destination — drawn, labeled, never
+  // traversable. Exempt from `unreachable`; excluded from the frontier.
+  readonly phantom?: boolean;
   // Layout (world-map viewBox units) — the node-layout.ts slice.
   readonly x: number;
   readonly y: number;
@@ -64,6 +67,9 @@ export interface AtlasEdge {
   // Per-beat edge gating: the beat id whose clearing opens this edge.
   // Omitted → the source node's first engagement (today's behavior).
   readonly opensOnBeat?: string;
+  // Ch1 substrate (WI3): phantom edge — rendered dashed, never traversable,
+  // contributes nothing to reachability.
+  readonly phantom?: boolean;
 }
 
 export interface AtlasGraph {
@@ -126,12 +132,14 @@ export function toCampaignGraph(model: AtlasGraph): CampaignGraph {
       ...(n.offset !== undefined ? { offset: n.offset } : {}),
       ...(n.isHub !== undefined ? { isHub: n.isHub } : {}),
       ...(n.farmable !== undefined ? { farmable: n.farmable } : {}),
+      ...(n.phantom !== undefined ? { phantom: n.phantom } : {}),
     })),
     edges: model.edges.map((e) => ({
       from: e.from,
       to: e.to,
       on: e.on,
       ...(e.opensOnBeat !== undefined ? { opensOnBeat: e.opensOnBeat } : {}),
+      ...(e.phantom !== undefined ? { phantom: e.phantom } : {}),
     })),
   };
 }

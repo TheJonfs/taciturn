@@ -28,6 +28,7 @@ interface AtlasInspectorProps {
   readonly onUpdateEngagement: (index: number, patch: AtlasEngagementPatch) => void;
   // Per-beat edge gating: set (or clear with undefined) a win-edge's gate.
   readonly onSetEdgeGate: (edge: AtlasEdge, beatId: string | undefined) => void;
+  readonly onSetEdgePhantom: (edge: AtlasEdge, phantom: boolean) => void;
 }
 
 export function AtlasInspector(props: AtlasInspectorProps): ReactElement {
@@ -105,6 +106,14 @@ export function AtlasInspector(props: AtlasInspectorProps): ReactElement {
             onChange={(e) => props.onUpdate({ farmable: e.target.checked ? true : undefined })}
           />
           Farmable
+        </label>
+        <label style={checkStyle}>
+          <input
+            type="checkbox"
+            checked={node.phantom === true}
+            onChange={(e) => props.onUpdate({ phantom: e.target.checked ? true : undefined })}
+          />
+          Phantom <span style={mutedStyle}>(shown, never reachable)</span>
         </label>
       </div>
 
@@ -254,6 +263,14 @@ export function AtlasInspector(props: AtlasInspectorProps): ReactElement {
                 </option>
               ))}
             </select>
+          </label>
+          <label style={checkStyle} title="Drawn dashed on the map; never traversable (WI3)">
+            <input
+              type="checkbox"
+              checked={e.phantom === true}
+              onChange={(ev) => props.onSetEdgePhantom(e, ev.target.checked)}
+            />
+            Phantom
           </label>
         </div>
       ))}

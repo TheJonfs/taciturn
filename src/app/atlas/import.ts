@@ -84,6 +84,7 @@ export function fromCampaignGraph(
         ...(n.offset !== undefined ? { offset: n.offset } : {}),
         ...(n.isHub !== undefined ? { isHub: n.isHub } : {}),
         ...(n.farmable !== undefined ? { farmable: n.farmable } : {}),
+        ...(n.phantom !== undefined ? { phantom: n.phantom } : {}),
         x: pos.x,
         y: pos.y,
       };
@@ -93,6 +94,7 @@ export function fromCampaignGraph(
       to: e.to,
       on: e.on,
       ...(e.opensOnBeat !== undefined ? { opensOnBeat: e.opensOnBeat } : {}),
+      ...(e.phantom !== undefined ? { phantom: e.phantom } : {}),
     })),
   };
 }

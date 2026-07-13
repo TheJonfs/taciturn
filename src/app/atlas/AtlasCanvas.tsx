@@ -166,6 +166,9 @@ export function AtlasCanvas({ model, selectedId, mode, onSelect, onMove, onDrawE
         const uy = (b.y - a.y) / len;
         const r = 16;
         const loss = e.on === 'loss';
+        // Phantom edges (WI3): dashed + faded — the road that is drawn,
+        // never walked.
+        const phantom = e.phantom === true;
         return (
           <line
             key={`${e.from}->${e.to}:${e.on}:${i}`}
@@ -175,9 +178,9 @@ export function AtlasCanvas({ model, selectedId, mode, onSelect, onMove, onDrawE
             y2={b.y - uy * r}
             stroke={loss ? '#8f5a5a' : '#5a7fb5'}
             strokeWidth={2}
-            strokeDasharray={loss ? '4 4' : undefined}
+            strokeDasharray={loss || phantom ? '4 4' : undefined}
             markerEnd={loss ? 'url(#atlas-arrow-loss)' : 'url(#atlas-arrow)'}
-            opacity={0.8}
+            opacity={phantom ? 0.45 : 0.8}
           />
         );
       })}
@@ -187,6 +190,7 @@ export function AtlasCanvas({ model, selectedId, mode, onSelect, onMove, onDrawE
         const isStart = n.id === model.startId;
         const isEdgeSource = mode.kind === 'draw-edge' && mode.fromId === n.id;
         const badges = [
+          ...(n.phantom === true ? ['phantom'] : []),
           ...(n.isHub === true ? ['trade'] : []),
           ...(n.farmable === true ? ['skirmish'] : []),
           // Any stand-in engagement flags the node; a queue badges its depth.
@@ -204,7 +208,16 @@ export function AtlasCanvas({ model, selectedId, mode, onSelect, onMove, onDrawE
           >
             {isSelected && <circle cx={n.x} cy={n.y} r={22} fill="none" stroke="#d8b26c" strokeWidth={2} opacity={0.9} />}
             {isEdgeSource && <circle cx={n.x} cy={n.y} r={26} fill="none" stroke="#5a7fb5" strokeWidth={2} strokeDasharray="5 4" />}
-            <circle cx={n.x} cy={n.y} r={14} fill={chapterTint(n.chapter)} stroke={isSelected ? '#d8b26c' : '#5a7fb5'} strokeWidth={2} />
+            <circle
+              cx={n.x}
+              cy={n.y}
+              r={14}
+              fill={chapterTint(n.chapter)}
+              stroke={isSelected ? '#d8b26c' : '#5a7fb5'}
+              strokeWidth={2}
+              strokeDasharray={n.phantom === true ? '3 3' : undefined}
+              opacity={n.phantom === true ? 0.7 : undefined}
+            />
             <text x={n.x} y={n.y + 4} textAnchor="middle" fontSize={10} fill="#9aa0ac" pointerEvents="none">
               {n.chapter}
             </text>

@@ -131,6 +131,8 @@ export function hasAvailability(state: CampaignState, node: CampaignNode): boole
 // behavior — "clearing a node opens all its win-edges" — exactly, on every
 // existing edge.
 export function isEdgeOpen(state: CampaignState, graph: CampaignGraph, edge: CampaignEdge): boolean {
+  // A phantom edge (WI3) is never open — it is drawn, not walked.
+  if (edge.phantom === true) return false;
   if (edge.opensOnBeat !== undefined) return state.clearedStoryBeats.includes(edge.opensOnBeat);
   const source = getNode(graph, edge.from);
   if (source.engagements.length === 0) return state.visited.includes(source.id);

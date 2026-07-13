@@ -103,6 +103,7 @@ function nodeLines(node: AtlasNode, keys: ReadonlyMap<string, string>): string {
   if (node.offset !== undefined) lines.push(`    offset: ${num(node.offset)},`);
   if (node.isHub === true) lines.push('    isHub: true,');
   if (node.farmable === true) lines.push('    farmable: true,');
+  if (node.phantom === true) lines.push('    phantom: true,');
   lines.push('  },');
   return lines.join('\n');
 }
@@ -111,7 +112,8 @@ function nodeLines(node: AtlasNode, keys: ReadonlyMap<string, string>): string {
 // "opens when the source's first engagement clears" — stays implicit).
 function edgeLine(edge: AtlasEdge, keys: ReadonlyMap<string, string>): string {
   const gate = edge.opensOnBeat !== undefined ? `, opensOnBeat: ${quote(edge.opensOnBeat)}` : '';
-  return `  { from: ${ref(keys, edge.from)}, to: ${ref(keys, edge.to)}, on: ${quote(edge.on)}${gate} },`;
+  const phantom = edge.phantom === true ? ', phantom: true' : '';
+  return `  { from: ${ref(keys, edge.from)}, to: ${ref(keys, edge.to)}, on: ${quote(edge.on)}${gate}${phantom} },`;
 }
 
 const NODE_MODULE_HEADER = `// GENERATED-SHAPED — TABA campaign structural graph (Atlas graph editor).

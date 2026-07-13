@@ -257,6 +257,7 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
                 name={n.name}
                 isHere={isHere && !marching}
                 choice={choice}
+                phantom={n.phantom === true}
                 onSelect={choice !== undefined ? () => select(n.id) : undefined}
               />
             );
@@ -313,18 +314,21 @@ interface MapNodeProps {
   // 'advance' renders frontier-blue; 'revisit' renders return-gold, with
   // small badges for what the place offers (skirmish / trade).
   readonly choice?: TravelChoice | undefined;
+  // Ch1 substrate (WI3): a phantom destination — drawn as a ghost (dashed
+  // outline, faded label). Never selectable; travelChoices can't offer it.
+  readonly phantom?: boolean;
   readonly onSelect?: (() => void) | undefined;
 }
 
 const FRONTIER = '#5a7fb5';
 const RETURN_GOLD = '#8f7644';
 
-function MapNode({ x, y, name, isHere, choice, onSelect }: MapNodeProps): ReactElement {
+function MapNode({ x, y, name, isHere, choice, phantom, onSelect }: MapNodeProps): ReactElement {
   const isChoice = choice !== undefined;
   const ring = choice?.kind === 'revisit' ? RETURN_GOLD : FRONTIER;
   const fill = isHere ? '#3a4150' : isChoice ? '#243042' : '#16181d';
   const stroke = isHere ? '#9aa0ac' : isChoice ? ring : '#2c2f36';
-  const textColor = isHere || isChoice ? '#e7e9ee' : '#6b707b';
+  const textColor = isHere || isChoice ? '#e7e9ee' : phantom === true ? '#565b66' : '#6b707b';
   const interactive = onSelect !== undefined;
 
   const badges = choice === undefined
@@ -341,7 +345,16 @@ function MapNode({ x, y, name, isHere, choice, onSelect }: MapNodeProps): ReactE
       {/* Selectable nodes get an outer highlight ring (blue = frontier,
           gold = returnable). */}
       {isChoice && <circle cx={x} cy={y} r={20} fill="none" stroke={ring} strokeWidth={1.5} opacity={0.6} />}
-      <circle cx={x} cy={y} r={13} fill={fill} stroke={stroke} strokeWidth={2} />
+      <circle
+        cx={x}
+        cy={y}
+        r={13}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={2}
+        strokeDasharray={phantom === true ? '3 3' : undefined}
+        opacity={phantom === true ? 0.75 : undefined}
+      />
       <text x={x} y={y + 32} textAnchor="middle" fontSize={13} fill={textColor} fontWeight={isHere || isChoice ? 600 : 400}>
         {name}
       </text>

@@ -20,6 +20,7 @@ export interface AtlasNodePatch {
   readonly offset?: number | undefined;
   readonly isHub?: boolean | undefined;
   readonly farmable?: boolean | undefined;
+  readonly phantom?: boolean | undefined;
   readonly x?: number;
   readonly y?: number;
 }
@@ -159,6 +160,24 @@ export function setEdgeGate(model: AtlasGraph, edge: AtlasEdge, beatId: string |
         return rest;
       }
       return { ...e, opensOnBeat: beatId };
+    }),
+  };
+}
+
+// Set or clear an edge's phantom flag (WI3): drawn dashed, never
+// traversable. Cleared by DELETING the field (not `phantom: false`) so
+// the round-trip stays byte-identical with the emit-only-when-true
+// codegen.
+export function setEdgePhantom(model: AtlasGraph, edge: AtlasEdge, phantom: boolean): AtlasGraph {
+  return {
+    ...model,
+    edges: model.edges.map((e) => {
+      if (e.from !== edge.from || e.to !== edge.to || e.on !== edge.on) return e;
+      if (!phantom) {
+        const { phantom: _cleared, ...rest } = e;
+        return rest;
+      }
+      return { ...e, phantom: true };
     }),
   };
 }
