@@ -52,7 +52,9 @@ export function buildDeployedBattleConfig(
   result: DeploymentResult,
 ): BattleConfig {
   const units = template.units.map((placement) => {
-    if (placement.team !== result.team) return placement;
+    // Guests (Ch1 substrate WI4) keep their authored position: player-
+    // team but not deployable — the deployment UI never offers them.
+    if (placement.team !== result.team || placement.guest === true) return placement;
     const deployed = result.placements.get(placement.id);
     if (deployed === undefined) {
       throw new Error(

@@ -336,6 +336,22 @@ export class DemoOrchestrator {
   }
 
   private pickController(actor: Unit): Controller {
+    // Guest ally (Ch1 substrate WI4): a player-team unit the player never
+    // commands — its turns route to an AI-controlled team's controller.
+    // The AI computes friend/foe from the ACTOR's team (basic.ts), so a
+    // guest driven by the enemy team's controller instance still fights
+    // FOR the player: same scorer, right side. Checked before the charm
+    // override — a charmed guest is still AI-driven either way.
+    if (actor.guest === true) {
+      const aiTeam = this.state.teams.find((t) => t.control === 'ai');
+      const aiController = aiTeam !== undefined ? this.controllers.get(aiTeam.id) : undefined;
+      if (aiController === undefined) {
+        throw new Error(
+          `DemoOrchestrator: guest unit ${JSON.stringify(actor.id)} needs an AI-controlled team's controller, and none is registered`,
+        );
+      }
+      return aiController;
+    }
     // Control-override (Thief — Steal Heart): a charmed unit is driven by the
     // charmer's team, not its own, for the charm's duration. effectiveController
     // returns actor.team for everyone else. Win/loss & friend/foe still key off

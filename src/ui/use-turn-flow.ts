@@ -238,8 +238,13 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
   // routes the turn via `effectiveController`; this keeps the action menu in
   // lockstep so control doesn't soft-lock (engine waits on input the team-
   // gated UI never offered). Reverts automatically when the charm ends.
+  // Guest allies (Ch1 substrate WI4) are never "ours": player-team but
+  // AI-driven — the orchestrator routes their turn to the AI controller,
+  // and the action menu must stay closed in lockstep.
   const isOurTurn =
-    activeUnit !== null && humanTeams.has(effectiveController(activeUnit, catalog));
+    activeUnit !== null &&
+    activeUnit.guest !== true &&
+    humanTeams.has(effectiveController(activeUnit, catalog));
 
   const movesAvailable = state?.turnState?.budget.movesAvailable ?? 0;
   const actsAvailable = state?.turnState?.budget.actsAvailable ?? 0;

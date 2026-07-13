@@ -105,7 +105,9 @@ export function buildSkirmishBattle(
   // those with the generated party (foldEnemyTeam leaves EXTRA slots as
   // authored, so the trim is what guarantees an all-generated opposition).
   const keptEnemySlots = enemySlots.slice(0, count);
-  const players = template.units.filter((u) => u.team === playerTeam);
+  // Guests are story-battle authored (WI4): a skirmish borrowing this
+  // battlefield never inherits the story fight's guest allies.
+  const players = template.units.filter((u) => u.team === playerTeam && u.guest !== true);
   return {
     template: { ...template, units: [...players, ...keptEnemySlots] },
     playerTeam,

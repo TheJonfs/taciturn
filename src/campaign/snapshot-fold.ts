@@ -63,7 +63,10 @@ export function foldCampaignRoster(
   // that max. M0 heals to full so the clamp is a no-op today; the explicit
   // supply exercises the carry path either way.
   const maxes = probeEffectiveMaxes(template, selected, playerTeam, catalog);
-  const others = template.units.filter((u) => u.team !== playerTeam);
+  // "Others" = everyone the fold leaves as-authored: the enemy team AND
+  // guest allies (Ch1 substrate WI4 — player-team placements flagged
+  // `guest` are fixed authored units, never deploy slots).
+  const others = template.units.filter((u) => u.team !== playerTeam || u.guest === true);
   const placements = selected.map((unit, i) => {
     const max = maxes.get(unit.id)!;
     const vitals: Vitals = {
@@ -86,12 +89,16 @@ export function foldBattle(
   catalog: Catalog,
 ): BattleConfig {
   const withPlayers = foldCampaignRoster(battle.template, selected, battle.playerTeam, catalog);
-  if (battle.enemies === undefined) return withPlayers;
+  const withGuests =
+    battle.guests === undefined
+      ? withPlayers
+      : foldGuestTeam(withPlayers, battle.guests, battle.playerTeam, catalog);
+  if (battle.enemies === undefined) return withGuests;
   const enemyTeam = battle.template.units.find((u) => u.team !== battle.playerTeam)?.team;
   if (enemyTeam === undefined) {
     throw new Error('foldBattle: beat authors enemies but the template has no non-player team');
   }
-  return foldEnemyTeam(withPlayers, battle.enemies, enemyTeam, catalog);
+  return foldEnemyTeam(withGuests, battle.enemies, enemyTeam, catalog);
 }
 
 // Fold authored ENEMY progression specs onto a battle config's enemy slots
@@ -122,6 +129,32 @@ export function foldEnemyTeam(
   const others = config.units.filter((u) => u.team !== enemyTeam);
   const folded = enemies.map((enemy, i) => campaignPlacement(enemy, slots[i]!, enemyTeam, undefined, catalog));
   const keptSlots = slots.slice(enemies.length); // extra authored enemies, unchanged
+  return { ...config, units: [...others, ...folded, ...keptSlots] };
+}
+
+// Fold authored GUEST specs onto a config's guest slots (Ch1 substrate
+// WI4) — the guest sibling of `foldEnemyTeam`: the template authors
+// player-team placements flagged `guest` (position/facing + a stand-in
+// statline), and the beat's `guests` re-skin the first N of them with
+// real durable units (curve stats, leveling table, gated kit — Sera as a
+// guest is Sera the plot unit). Vitals are omitted so each guest enters
+// at effective full. Called after the player fold, on its output.
+export function foldGuestTeam(
+  config: BattleConfig,
+  guests: ReadonlyArray<CampaignUnit>,
+  playerTeam: TeamId,
+  catalog: Catalog,
+): BattleConfig {
+  const slots = config.units.filter((u) => u.team === playerTeam && u.guest === true);
+  if (guests.length > slots.length) {
+    throw new Error(
+      `foldGuestTeam: ${guests.length} guest specs but the template authors only ` +
+        `${slots.length} guest slot(s) on team ${JSON.stringify(playerTeam)}`,
+    );
+  }
+  const others = config.units.filter((u) => !(u.team === playerTeam && u.guest === true));
+  const folded = guests.map((guest, i) => campaignPlacement(guest, slots[i]!, playerTeam, undefined, catalog));
+  const keptSlots = slots.slice(guests.length); // extra authored guests, unchanged
   return { ...config, units: [...others, ...folded, ...keptSlots] };
 }
 
@@ -166,7 +199,10 @@ export function probeEffectiveMaxes(
 }
 
 function playerSlots(template: BattleConfig, playerTeam: TeamId): ReadonlyArray<UnitPlacement> {
-  return template.units.filter((u) => u.team === playerTeam);
+  // Guest placements are NOT slots (WI4): they are fixed authored units
+  // on the player's team; the deployed selection never replaces them and
+  // they never count against the deploy cap.
+  return template.units.filter((u) => u.team === playerTeam && u.guest !== true);
 }
 
 // The full effective stat block the Formation UI displays (M3 Stage 3):
@@ -289,6 +325,9 @@ function campaignPlacement(
   const withVitals: UnitPlacement = vitals !== undefined ? { ...base, vitals } : base;
   const withGender: UnitPlacement =
     unit.gender !== undefined ? { ...withVitals, gender: unit.gender } : withVitals;
+  // A guest SLOT re-skinned with a durable unit stays a guest (WI4).
+  const withGuest: UnitPlacement =
+    slot.guest === true ? { ...withGender, guest: true } : withGender;
   // TABA (ADR-0136 completion): carry the enduring portrait override into battle.
-  return unit.portrait !== undefined ? { ...withGender, portrait: unit.portrait } : withGender;
+  return unit.portrait !== undefined ? { ...withGuest, portrait: unit.portrait } : withGuest;
 }

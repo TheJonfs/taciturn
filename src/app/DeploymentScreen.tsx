@@ -116,7 +116,8 @@ function DeploymentScreenInner({
     const registry = catalog.getRuleset(template.rulesetId).terrain.tags;
     const requiredZonesPerTeam = new Map<TeamId, number>();
     for (const team of template.teams) {
-      const count = template.units.filter((u) => u.team === team.id).length;
+      // Guests (WI4) hold their authored tile and never need a zone slot.
+      const count = template.units.filter((u) => u.team === team.id && u.guest !== true).length;
       requiredZonesPerTeam.set(team.id, count);
     }
     const terrain = validateMap(template.map, registry);
@@ -141,7 +142,8 @@ function DeploymentScreenInner({
 
   const rosterUnits = useMemo<ReadonlyArray<Unit>>(() => {
     if (fullState === null) return [];
-    return [...fullState.units.values()].filter((u) => u.team === currentTeam);
+    // Guests (WI4) are not placeable — they enter at their authored tile.
+    return [...fullState.units.values()].filter((u) => u.team === currentTeam && u.guest !== true);
   }, [fullState, currentTeam]);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -163,8 +165,10 @@ function DeploymentScreenInner({
     void (async () => {
       const previewState: GameState = {
         ...fullState,
+        // Guests (WI4) stay visible in the preview like the opponents —
+        // they are fixed presences, not placeable roster units.
         units: new Map(
-          [...fullState.units].filter(([, u]) => u.team !== currentTeam),
+          [...fullState.units].filter(([, u]) => u.team !== currentTeam || u.guest === true),
         ),
       };
 
