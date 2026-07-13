@@ -11,7 +11,14 @@
 // half-valid blob into a `CampaignState`.
 
 import { classId as toClassId, EMPTY_LOADOUT, EMPTY_UNIT_EQUIPMENT } from '@engine/index.ts';
-import type { CampaignPhase, CampaignState, CampaignUnit, EarnedByClass, UnitFate } from './types.ts';
+import type {
+  CampaignFlags,
+  CampaignPhase,
+  CampaignState,
+  CampaignUnit,
+  EarnedByClass,
+  UnitFate,
+} from './types.ts';
 import { EMPTY_EARNED_BY_CLASS } from './types.ts';
 import { EMPTY_INVENTORY, bootstrapInventory, type InventoryRecord } from './inventory.ts';
 import type { UnlockToken, UnlockTokenKind } from './progression/tokens.ts';
@@ -119,7 +126,37 @@ export function deserializeCampaign(json: string): CampaignState {
       ? withEntry(rawCleared, currentNodeId)
       : rawCleared;
 
-  return { schemaVersion, roster, inventory, gil, currentNodeId, visited, clearedStoryBeats, phase };
+  // Ch1 substrate — the campaign-flag store. Omitted → empty (pre-Ch1
+  // saves set no flags); present values must be JSON scalars.
+  const flags = validateFlags(root['flags'], 'flags');
+
+  return {
+    schemaVersion,
+    roster,
+    inventory,
+    gil,
+    currentNodeId,
+    visited,
+    clearedStoryBeats,
+    flags,
+    phase,
+  };
+}
+
+// flags: a `Record<string, boolean | number | string>`. Omitted → empty
+// (the lenient-field grandfather, matching `gil`/`inventory`).
+function validateFlags(raw: unknown, where: string): CampaignFlags {
+  if (raw === undefined) return {};
+  const rec = asRecord(raw, where);
+  const out: Record<string, boolean | number | string> = {};
+  for (const [key, value] of Object.entries(rec)) {
+    if (typeof value !== 'boolean' && typeof value !== 'string') {
+      // Numbers get the shared NaN guard.
+      asNumber(value, `${where}.${key}`);
+    }
+    out[key] = value as boolean | number | string;
+  }
+  return out;
 }
 
 function withEntry(list: ReadonlyArray<string>, entry: string): ReadonlyArray<string> {

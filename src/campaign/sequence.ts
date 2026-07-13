@@ -50,6 +50,25 @@ export interface NodeBattle {
   // a kit GATED to its `unlocks`. Absent → the template's enemy placements pass
   // through as-authored (ungated, no leveling) — backward-compatible.
   readonly enemies?: ReadonlyArray<CampaignUnit>;
+  // Ch1 substrate (WI4) — authored guest allies (optional). Each spec
+  // re-skins one of the template's player-team placements flagged
+  // `guest: true` (via `foldGuestTeam`, the guest sibling of the enemy
+  // fold): the guest fights on the player's side, AI-driven,
+  // uncommandable, not in the roster, battle-long. Guest ≠ join — a
+  // post-battle roster join (Sera at Node 6) is a separate, explicit
+  // `joinPlotUnit` step; the guest system doesn't know about joining.
+  readonly guests?: ReadonlyArray<CampaignUnit>;
+  // Ch1 substrate (WI2) — record this battle's fired outcome tag into the
+  // campaign-flag store under this key (e.g. key 'ester', value
+  // 'ester-good'). Only meaningful when the template authors predicate
+  // victory conditions carrying `outcome` tags; a battle decided by an
+  // untagged condition records nothing.
+  readonly recordOutcomeAs?: string;
+  // Ch1 substrate (WI2) — outcome-branched follow-up scene: after a win,
+  // the driver plays `onOutcome[firedTag]` (when present) BEFORE the
+  // node's positional trailing scenes, which stay shared across
+  // outcomes. Tags with no entry (and wins with no tag) add nothing.
+  readonly onOutcome?: Readonly<Record<string, StoryScene>>;
 }
 
 // One line of authored dialogue. Placeholder-friendly: a display name + text,
@@ -136,4 +155,18 @@ export function hasBattleAtOrAfter(beats: ReadonlyArray<NodeBeat>, from: number)
 // never entering a formation/deployment/battle sub-flow.
 export function isStandalone(beats: ReadonlyArray<NodeBeat>): boolean {
   return firstBattleBeat(beats) === undefined;
+}
+
+// Ch1 substrate (WI2) — the outcome-branched follow-up pick, pure so the
+// driver's wiring stays a one-liner. Returns the scene beat for the
+// fired outcome tag, or undefined when the battle authored no branch /
+// the win carried no tag / the tag has no entry (all valid: the shared
+// trailing scenes still play).
+export function outcomeFollowUpScene(
+  battle: NodeBattle,
+  firedOutcome: string | undefined,
+): StorySceneBeat | undefined {
+  if (firedOutcome === undefined || battle.onOutcome === undefined) return undefined;
+  const scene = battle.onOutcome[firedOutcome];
+  return scene === undefined ? undefined : { type: 'story-scene', scene };
 }

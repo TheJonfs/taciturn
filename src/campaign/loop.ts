@@ -62,6 +62,7 @@ export function startCampaign(
     currentNodeId: graph.startId,
     visited: [graph.startId],
     clearedStoryBeats: [],
+    flags: {},
     phase: 'in_progress',
   };
 }
@@ -211,6 +212,7 @@ export function newCampaign(
     currentNodeId: startNodeId,
     visited: [startNodeId],
     clearedStoryBeats: [],
+    flags: {},
     phase: 'in_progress',
   };
 }

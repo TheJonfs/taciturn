@@ -58,11 +58,13 @@ import {
   isComplete,
   isHubNow,
   isStoryCleared,
+  outcomeFollowUpScene,
   probeBattleFor,
   resolveNode,
   routeToNode,
   saveCampaign,
   sellItem,
+  setFlag,
   shopStock,
   summarizeBattleResult,
   takeStoryRun,
@@ -385,7 +387,18 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     // Win: apply-back (heal survivors, mark lost, bank XP/JP, pay the gil
     // award — the summary shows the same amount the wallet banked).
     const gilEarned = computeGilReward(finalState, battle.playerTeam);
-    const applied = applyBattleBeatWin(state, result, finalState, catalog, battle.playerTeam);
+    let applied = applyBattleBeatWin(state, result, finalState, catalog, battle.playerTeam);
+
+    // Ch1 substrate (WI2): record the fired outcome tag into the flag
+    // store (key authored on the battle, value from the victory
+    // condition that decided it), and pick the outcome-branched
+    // follow-up scene. Both no-op for battles that author neither.
+    const firedOutcome = result.outcome.outcome;
+    if (battle.recordOutcomeAs !== undefined && firedOutcome !== undefined) {
+      applied = setFlag(applied, battle.recordOutcomeAs, firedOutcome);
+    }
+    const followUp = outcomeFollowUpScene(battle, firedOutcome);
+    const followUpBeats = followUp !== undefined ? [followUp] : [];
 
     if (skirmish) {
       // A skirmish pays its rewards and ends at the world map. It NEVER marks
@@ -420,7 +433,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
         gilEarned,
       });
       setState(applied);
-      showRun([summary], { kind: 'walk', state: applied, cursor: encounter.battleIndex + 1 });
+      showRun([summary, ...followUpBeats], { kind: 'walk', state: applied, cursor: encounter.battleIndex + 1 });
       return;
     }
 
@@ -447,9 +460,13 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     const { scenes: trailing } = takeStoryRun(armedEngagementBeats(state, node), encounter.battleIndex + 1);
     if (complete) {
       // Terminal win — the result-summary is the victory screen; then Title.
-      showRun([summary, ...trailing], { kind: 'exit' });
+      // Outcome-branched follow-up plays first, then the shared trailing run.
+      showRun([summary, ...followUpBeats, ...trailing], { kind: 'exit' });
     } else {
-      showRun([summary, ...trailing, buildRouteChoiceBeat(GRAPH, resolved)], { kind: 'route', state: resolved });
+      showRun([summary, ...followUpBeats, ...trailing, buildRouteChoiceBeat(GRAPH, resolved)], {
+        kind: 'route',
+        state: resolved,
+      });
     }
   }
 

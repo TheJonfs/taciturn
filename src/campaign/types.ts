@@ -169,8 +169,21 @@ export interface CampaignState {
   // (Dorter pattern) is a new id, not a save migration.
   readonly visited: ReadonlyArray<string>;
   readonly clearedStoryBeats: ReadonlyArray<string>;
+  // Ch1 substrate (WI2) — the persistent campaign-flag store. Keyed
+  // outcome/story facts that content sets once and later content reads
+  // (a battle's recorded outcome tag, future counters/enums). Typed
+  // wider than Ch1 needs (booleans would do today) so a Ch2 counter or
+  // enum is an authoring change, not a substrate change. Mutated only
+  // through `setFlag` (flags.ts); absent in pre-Ch1 saves → empty on
+  // load (lenient-field convention, like `gil`).
+  readonly flags: CampaignFlags;
   readonly phase: CampaignPhase;
 }
+
+// The flag store's value domain. Plain-serializable by construction
+// (D-C): JSON scalars only, no dates/objects/arrays.
+export type CampaignFlagValue = boolean | number | string;
+export type CampaignFlags = Readonly<Record<string, CampaignFlagValue>>;
 
 // Where the campaign run stands. Resume reads this to know where to drop the
 // player back in:

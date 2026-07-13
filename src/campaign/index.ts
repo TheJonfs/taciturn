@@ -10,10 +10,16 @@ export type {
   CampaignUnit,
   CampaignState,
   CampaignPhase,
+  CampaignFlags,
+  CampaignFlagValue,
   UnitFate,
   EarnedByClass,
 } from './types.ts';
 export { EMPTY_EARNED_BY_CLASS } from './types.ts';
+
+// Ch1 substrate — the persistent campaign-flag store (set at battle
+// outcome recording; get wherever content branches).
+export { setFlag, getFlag } from './flags.ts';
 
 // M2 progression — the JP economy subsystem (tables, selectors, ops).
 export * from './progression/index.ts';
@@ -52,7 +58,7 @@ export {
 } from './roster.ts';
 
 // Chunk 2 — the pure loop core (snapshot-fold in, summarize + apply-back out).
-export { foldCampaignRoster, foldEnemyTeam, foldBattle, probeEffectiveMaxes, probeUnitStats } from './snapshot-fold.ts';
+export { foldCampaignRoster, foldEnemyTeam, foldGuestTeam, foldBattle, probeEffectiveMaxes, probeUnitStats } from './snapshot-fold.ts';
 export type { EffectiveUnitStats } from './snapshot-fold.ts';
 export { authoredEnemy } from './authored-enemy.ts';
 export type { AuthoredEnemySpec } from './authored-enemy.ts';
@@ -126,6 +132,7 @@ export {
   firstBattleBeat,
   hasBattleAtOrAfter,
   isStandalone,
+  outcomeFollowUpScene,
 } from './sequence.ts';
 
 // The loop transitions + selectors.
@@ -191,6 +198,8 @@ export {
   starterGearFor,
 } from './recruit.ts';
 export type { HireSpec } from './recruit.ts';
+// Ch1 substrate (WI4) — the mid-campaign plot-unit join (Sera at Node 6).
+export { joinPlotUnit } from './join.ts';
 export { grantGil, spendGil, computeGilReward } from './gil.ts';
 export { DIFFICULTY_FACTOR, resolveEnemyLevel, partyAverageLevel } from './enemy-level.ts';
 

@@ -45,6 +45,7 @@ function walkState(walk: PreviewWalk): CampaignState {
     currentNodeId: walk.atId,
     visited: walk.visited,
     clearedStoryBeats: walk.clearedStoryBeats,
+    flags: {},
     phase: 'awaiting_route',
   };
 }
