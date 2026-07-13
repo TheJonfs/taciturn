@@ -91,6 +91,17 @@ export interface UnitPlacement {
   // to an absolute-level `Map` on the `Unit`.
   readonly xp?: number;
   readonly statsByLevel?: ReadonlyArray<BaseStats>;
+  // Ch1 substrate: death protection (cutscene-immortal bosses). A
+  // would-be-lethal hit retreats the unit instead of KO'ing it — see
+  // `Unit.deathProtected`. Hand-authored on story-battle placements;
+  // the campaign fold never sets it on player units.
+  readonly deathProtected?: true;
+  // Ch1 substrate (WI4): guest ally — player-side, AI-driven,
+  // uncontrolled, battle-long. Team stays the player's (friend/foe,
+  // heals, win/loss all read the real team); only CONTROL routes to the
+  // AI (orchestrator + turn-flow read the flag). The campaign fold
+  // treats guest placements as fixed authored units, not deploy slots.
+  readonly guest?: true;
 }
 
 // Victory conditions are data-as-config. The shape lives in

@@ -152,6 +152,36 @@ export interface Unit {
   // revived; Phoenix Down validates against `removed` and refuses.
   readonly removed: boolean;
 
+  // Ch1 substrate: battle-scoped death record. Set true on the unit's
+  // first hp>0 → 0 transition and NEVER reset — a unit revived after a
+  // KO still counts as having died this battle. Feeds the `no_deaths`
+  // victory predicate (subdue conditions). A death-protected retreat
+  // does NOT set this (retreat ≠ death).
+  readonly hasDied: boolean;
+
+  // Ch1 substrate: death protection (authored on the UnitPlacement —
+  // cutscene-immortal bosses). A would-be-lethal hit cannot KO the
+  // unit: instead the hit floors HP at 0, sets `retreated`, and the
+  // damage site emits a `system_unit_removed` with reason 'retreated'
+  // (the removal flip + log line). Never set mid-battle.
+  readonly deathProtected?: true;
+
+  // Ch1 substrate (WI4): guest ally — a player-team unit the player
+  // does not command. The ENGINE ignores this flag entirely (rules,
+  // targeting, win/loss all key off `team`); it exists for the app
+  // layer's control dispatch — the orchestrator routes a guest's turn
+  // to the AI controller, and the turn-flow UI never opens the action
+  // menu for one. Authored on the UnitPlacement; never set mid-battle.
+  readonly guest?: true;
+
+  // Ch1 substrate: set when death protection converted a lethal hit
+  // into a retreat. Always accompanied by `removed: true` once the
+  // emitted `system_unit_removed` commits (same action chain). Distinct
+  // from permadeath removal so `no_deaths` and the campaign's
+  // battle-result classification can tell "left the field" from
+  // "died": retreated units never set `hasDied`.
+  readonly retreated: boolean;
+
   // Airborne (Session 62, Dragoon Jump / ADR-0103). Transient: set when a
   // unit commits the off-field Jump leap (charged), cleared when the leap
   // resolves. An airborne unit is UNTARGETABLE — excluded from target

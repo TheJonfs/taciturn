@@ -1162,6 +1162,11 @@ function resolveAbilityEffect(
       for (const a of collectKoStatusClearSweep(workingState, args.targetUnit.id)) {
         pipelineEmissions.push(a);
       }
+      // Ch1 substrate: death protection converted this lethal hit into
+      // a retreat — queue the removal flip + log line.
+      for (const a of collectRetreatEmission(targetBefore, targetAfter)) {
+        pipelineEmissions.push(a);
+      }
       workingState = clearChargedActionsForCaster(workingState, args.targetUnit.id);
     }
   }
@@ -2837,13 +2842,14 @@ function applyDamageToTarget(state: GameState, ctx: DamageContext): GameState {
   //     Raise / Phoenix Down is required (deferred in v1).
   // Parallel to system_apply_status's KO'd-target gate at line 1855.
   if (isHealing && currentTarget.vitals.hp <= 0) return state;
-  const nextHp = isHealing
-    ? currentTarget.vitals.hp + finalDamage
-    : Math.max(0, currentTarget.vitals.hp - finalDamage);
-  const updated: Unit = {
-    ...currentTarget,
-    vitals: { ...currentTarget.vitals, hp: nextHp },
-  };
+  const updated: Unit = isHealing
+    ? {
+        ...currentTarget,
+        vitals: { ...currentTarget.vitals, hp: currentTarget.vitals.hp + finalDamage },
+      }
+    : // Damage settles through the shared lethal-write helper: floors
+      // at 0 and records death / retreat (Ch1 substrate).
+      settleHpLoss(currentTarget, currentTarget.vitals.hp - finalDamage);
   return withUnit(state, updated);
 }
 
@@ -2953,6 +2959,47 @@ function detectKO(
 ): boolean {
   if (before === undefined || after === undefined) return false;
   return before.vitals.hp > 0 && after.vitals.hp === 0;
+}
+
+// Ch1 substrate: the single place an HP-lowering write settles against
+// death protection and the battle-scoped death record. All three
+// damage writers (ability pipeline, system_damage, cover redirect)
+// route their new-HP computation through here so the rules can't
+// drift:
+//   - hp stays > 0 → plain write, nothing recorded;
+//   - lethal on a death-protected unit → hp floors at 0 and
+//     `retreated` is set (NOT `hasDied` — retreat ≠ death). The caller
+//     pairs this with `collectRetreatEmission` so the removal flip +
+//     log line ride a `system_unit_removed` in the same action chain;
+//   - lethal otherwise → hp floors at 0 and `hasDied` is set, forever
+//     (revives don't clear it — feeds the `no_deaths` predicate).
+function settleHpLoss(target: Unit, nextHp: number): Unit {
+  if (nextHp > 0) return { ...target, vitals: { ...target.vitals, hp: nextHp } };
+  if (target.deathProtected === true) {
+    return { ...target, vitals: { ...target.vitals, hp: 0 }, retreated: true };
+  }
+  return { ...target, vitals: { ...target.vitals, hp: 0 }, hasDied: true };
+}
+
+// Companion to `settleHpLoss`: when the write just flipped `retreated`
+// on, emit the `system_unit_removed` (reason 'retreated') that flips
+// `removed` and gives the action log its "X has retreated" line. The
+// KO sweeps and charged-action cleanup still run off `detectKO` —
+// a retreat is a departure, so taunts drop and charges fizzle exactly
+// as on a death.
+function collectRetreatEmission(
+  before: Unit | undefined,
+  after: Unit | undefined,
+): ProposedAction[] {
+  if (before === undefined || after === undefined) return [];
+  if (before.retreated || !after.retreated) return [];
+  return [
+    {
+      type: 'system_unit_removed',
+      source: 'system',
+      payload: { targetId: after.id, reason: 'retreated' },
+    },
+  ];
 }
 
 // Whether a status's type ticks once per the holder's CT-100 boundary.
@@ -3211,6 +3258,7 @@ export function reduceBattleEnd(
         winner: state.outcome.winner,
         conditionIndex: state.outcome.conditionIndex,
         description: state.outcome.description,
+        ...(state.outcome.outcome !== undefined ? { outcome: state.outcome.outcome } : {}),
       },
       generatedActions: [],
     };
@@ -3223,10 +3271,15 @@ export function reduceBattleEnd(
       `reduceBattleEnd: payload.conditionIndex ${condIndex} is out of range (state has ${state.victoryConditions.length} conditions)`,
     );
   }
+  // Ch1 substrate: predicate conditions may carry an outcome tag —
+  // re-derived from the condition (same source as the evaluator) so
+  // the payload stays winner + index, replay-identical.
+  const outcomeTag = cond.kind === 'predicate' ? cond.outcome : undefined;
   const decided = {
     winner: action.payload.winner,
     conditionIndex: condIndex,
     description: cond.description,
+    ...(outcomeTag !== undefined ? { outcome: outcomeTag } : {}),
   };
   const newState: GameState = {
     ...state,
@@ -3243,6 +3296,7 @@ export function reduceBattleEnd(
       winner: decided.winner,
       conditionIndex: decided.conditionIndex,
       description: decided.description,
+      ...(outcomeTag !== undefined ? { outcome: outcomeTag } : {}),
     },
     generatedActions: [],
   };
@@ -3472,11 +3526,12 @@ export function reduceCoverRedirect(
       generatedActions: emitted,
     };
   }
-  const newCover: Unit = { ...cover, vitals: { ...cover.vitals, hp: cover.vitals.hp - applied } };
+  const newCover: Unit = settleHpLoss(cover, cover.vitals.hp - applied);
   const newState = withUnit(state, newCover);
   if (detectKO(cover, newCover)) {
     for (const a of collectSourceKoSweep(newState, coverId, catalog)) emitted.push(a);
     for (const a of collectKoStatusClearSweep(newState, coverId)) emitted.push(a);
+    for (const a of collectRetreatEmission(cover, newCover)) emitted.push(a);
   }
   return {
     newState,
@@ -3542,10 +3597,7 @@ export function reduceSystemDamage(
       generatedActions: [],
     };
   }
-  const newTarget: Unit = {
-    ...target,
-    vitals: { ...target.vitals, hp: target.vitals.hp - applied },
-  };
+  const newTarget: Unit = settleHpLoss(target, target.vitals.hp - applied);
   let newState = withUnit(state, newTarget);
   // Source-KO sweep (per ADR-0028): system damage that KOs a unit
   // triggers the same auto-removal sweep as ability damage.
@@ -3555,6 +3607,9 @@ export function reduceSystemDamage(
       generatedActions.push(a);
     }
     for (const a of collectKoStatusClearSweep(newState, targetId)) {
+      generatedActions.push(a);
+    }
+    for (const a of collectRetreatEmission(target, newTarget)) {
       generatedActions.push(a);
     }
     newState = clearChargedActionsForCaster(newState, targetId);
@@ -4770,7 +4825,12 @@ export function reduceSystemUnitRemoved(
   const newTarget: Unit = { ...target, removed: true };
   return {
     newState: withUnit(state, newTarget),
-    outcome: { kind: 'system_unit_removed', targetId, turnsKOdAtRemoval },
+    outcome: {
+      kind: 'system_unit_removed',
+      targetId,
+      turnsKOdAtRemoval,
+      ...(action.payload.reason !== undefined ? { reason: action.payload.reason } : {}),
+    },
     generatedActions: [],
   };
 }

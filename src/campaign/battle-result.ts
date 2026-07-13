@@ -52,7 +52,7 @@ export function summarizeBattleResult(finalState: GameState): BattleResult {
   for (const unit of finalState.units.values()) {
     units.set(unit.id, {
       id: unit.id,
-      outcome: classify(unit.removed, unit.vitals.hp),
+      outcome: classify(unit.removed, unit.retreated, unit.vitals.hp),
       vitals: { hp: unit.vitals.hp, mp: unit.vitals.mp },
     });
   }
@@ -60,7 +60,14 @@ export function summarizeBattleResult(finalState: GameState): BattleResult {
   return { outcome: finalState.outcome, units };
 }
 
-function classify(removed: boolean, hp: number): UnitOutcome {
+function classify(removed: boolean, retreated: boolean, hp: number): UnitOutcome {
+  // Ch1 substrate: a death-protected retreat is a departure, not a
+  // death — the unit left the field alive. Checked before `removed`
+  // (retreat sets both flags) so a retreated unit is never classified
+  // `lost`. Ch1 only retreats enemies (the recurring antagonist), but
+  // the rule is side-agnostic by design: a retreated player unit must
+  // not permadeath at apply-back.
+  if (retreated) return 'survived';
   if (removed) return 'lost'; // permadeath precedence
   return hp > 0 ? 'survived' : 'downed';
 }

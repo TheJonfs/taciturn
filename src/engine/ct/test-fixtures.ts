@@ -57,6 +57,9 @@ export function makeUnit(overrides: {
   readonly turnsKOd?: number;
   readonly removed?: boolean;
   readonly airborne?: boolean;
+  readonly hasDied?: boolean;
+  readonly retreated?: boolean;
+  readonly deathProtected?: true;
 }): Unit {
   return {
     id: mkUnitId(overrides.id),
@@ -89,6 +92,9 @@ export function makeUnit(overrides: {
     turnsKOd: overrides.turnsKOd ?? 0,
     removed: overrides.removed ?? false,
     airborne: overrides.airborne ?? false,
+    hasDied: overrides.hasDied ?? false,
+    retreated: overrides.retreated ?? false,
+    ...(overrides.deathProtected === true ? { deathProtected: true as const } : {}),
   };
 }
 

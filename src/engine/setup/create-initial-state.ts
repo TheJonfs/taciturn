@@ -364,6 +364,12 @@ function placementToUnit(
     turnsKOd: 0,
     removed: false,
     airborne: false,
+    // Ch1 substrate: fresh battle — nobody has died or retreated yet;
+    // death protection is authored per-placement (story bosses).
+    hasDied: false,
+    retreated: false,
+    ...(placement.deathProtected === true ? { deathProtected: true as const } : {}),
+    ...(placement.guest === true ? { guest: true as const } : {}),
   };
 }
 

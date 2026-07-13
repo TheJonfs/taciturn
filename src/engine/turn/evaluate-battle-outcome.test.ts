@@ -1,9 +1,11 @@
 // Tests for the battle-outcome evaluator. Pure function over GameState
-// — no catalog dependency, no RNG, no hooks. The reducer's wiring of
-// `battle_end` emission is tested at the integration level
-// (`turn-flow.test.ts`).
+// + Catalog (the `unit_below_hp` predicate reads effective max HP
+// through the stat-query chain) — no RNG, no hooks fired. The
+// reducer's wiring of `battle_end` emission is tested at the
+// integration level (`turn-flow.test.ts`); the death-protection /
+// retreat write path in `victory-conditions.test.ts`.
 
-import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
+import { emptyCatalog, makeGameState, makeUnit } from '../ct/test-fixtures.ts';
 import {
   teamId,
   unitId,
@@ -18,6 +20,7 @@ const teamsAB = [
   { id: A, name: 'A', control: 'human' },
   { id: B, name: 'B', control: 'ai' },
 ] satisfies readonly Team[];
+const CATALOG = emptyCatalog();
 
 const defeatBSide: VictoryCondition = {
   kind: 'defeat_all',
@@ -34,7 +37,7 @@ describe('evaluateBattleOutcome — defeat_all', () => {
       teams: teamsAB,
       victoryConditions: [defeatBSide],
     });
-    expect(evaluateBattleOutcome(state)).toEqual({ kind: 'ongoing' });
+    expect(evaluateBattleOutcome(state, CATALOG)).toEqual({ kind: 'ongoing' });
   });
 
   it('returns decided when every unit on the named side is KO’d', () => {
@@ -45,12 +48,13 @@ describe('evaluateBattleOutcome — defeat_all', () => {
       teams: teamsAB,
       victoryConditions: [defeatBSide],
     });
-    const out = evaluateBattleOutcome(state);
+    const out = evaluateBattleOutcome(state, CATALOG);
     expect(out.kind).toBe('decided');
     if (out.kind !== 'decided') return;
     expect(out.decided.winner).toBe(A);
     expect(out.decided.conditionIndex).toBe(0);
     expect(out.decided.description).toBe('defeat enemies');
+    expect(out.decided.outcome).toBeUndefined();
   });
 
   it('survives one alive enemy among many KO’d', () => {
@@ -63,7 +67,7 @@ describe('evaluateBattleOutcome — defeat_all', () => {
       teams: teamsAB,
       victoryConditions: [defeatBSide],
     });
-    expect(evaluateBattleOutcome(state)).toEqual({ kind: 'ongoing' });
+    expect(evaluateBattleOutcome(state, CATALOG)).toEqual({ kind: 'ongoing' });
   });
 });
 
@@ -80,7 +84,7 @@ describe('evaluateBattleOutcome — first satisfied wins', () => {
         { kind: 'defeat_all', side: B, description: 'B defeated' },
       ],
     });
-    const out = evaluateBattleOutcome(state);
+    const out = evaluateBattleOutcome(state, CATALOG);
     expect(out.kind).toBe('decided');
     if (out.kind !== 'decided') return;
     expect(out.decided.conditionIndex).toBe(0);
@@ -101,12 +105,219 @@ describe('evaluateBattleOutcome — already-decided pass-through', () => {
       victoryConditions: [defeatBSide],
       outcome: decided,
     });
-    const out = evaluateBattleOutcome(state);
+    const out = evaluateBattleOutcome(state, CATALOG);
     expect(out.kind).toBe('decided');
     if (out.kind !== 'decided') return;
     expect(out.decided).toEqual(decided);
   });
 });
 
-// Keep imports tidy.
-void unitId;
+// --- Ch1 substrate: the predicate grammar ---
+
+describe('evaluateBattleOutcome — unit_below_hp (single unit)', () => {
+  // makeUnit defaults maxHpBase to 100 with no equipment/status
+  // modifiers, so hp is the percentage directly.
+  const bossBelow15: VictoryCondition = {
+    kind: 'predicate',
+    predicate: {
+      kind: 'unit_below_hp',
+      target: { kind: 'unit', unitId: unitId('boss') },
+      fraction: 0.15,
+    },
+    winner: A,
+    description: 'boss driven off',
+  };
+
+  function stateWithBossAt(hp: number, extra?: { retreated?: boolean; removed?: boolean }) {
+    const a = makeUnit({ id: 'a', spd: 10, team: 'team_a', hp: 100 });
+    const boss = makeUnit({
+      id: 'boss',
+      spd: 10,
+      team: 'team_b',
+      hp,
+      ...(extra?.retreated !== undefined ? { retreated: extra.retreated } : {}),
+      ...(extra?.removed !== undefined ? { removed: extra.removed } : {}),
+    });
+    return makeGameState({
+      units: [a, boss],
+      teams: teamsAB,
+      victoryConditions: [bossBelow15],
+    });
+  }
+
+  it('is strict: exactly at the fraction is NOT below', () => {
+    expect(evaluateBattleOutcome(stateWithBossAt(15), CATALOG)).toEqual({ kind: 'ongoing' });
+  });
+
+  it('fires just under the fraction, with the authored winner', () => {
+    const out = evaluateBattleOutcome(stateWithBossAt(14), CATALOG);
+    expect(out.kind).toBe('decided');
+    if (out.kind !== 'decided') return;
+    expect(out.decided.winner).toBe(A);
+  });
+
+  it('a retreated unit counts as below any threshold', () => {
+    const out = evaluateBattleOutcome(stateWithBossAt(0, { retreated: true, removed: true }), CATALOG);
+    expect(out.kind).toBe('decided');
+  });
+
+  it('a KO’d unit counts as below any threshold', () => {
+    expect(evaluateBattleOutcome(stateWithBossAt(0), CATALOG).kind).toBe('decided');
+  });
+
+  it('throws on an unknown unit id (authoring bug, fail loudly)', () => {
+    const bad: VictoryCondition = {
+      kind: 'predicate',
+      predicate: {
+        kind: 'unit_below_hp',
+        target: { kind: 'unit', unitId: unitId('nobody') },
+        fraction: 0.5,
+      },
+      winner: A,
+      description: 'bad ref',
+    };
+    const state = makeGameState({
+      units: [makeUnit({ id: 'a', spd: 10, team: 'team_a', hp: 100 })],
+      teams: teamsAB,
+      victoryConditions: [bad],
+    });
+    expect(() => evaluateBattleOutcome(state, CATALOG)).toThrow(/unknown unit/);
+  });
+});
+
+describe('evaluateBattleOutcome — subdue (all_of: no_deaths + side below)', () => {
+  const subdueGood: VictoryCondition = {
+    kind: 'predicate',
+    predicate: {
+      kind: 'all_of',
+      predicates: [
+        { kind: 'no_deaths', side: B },
+        { kind: 'unit_below_hp', target: { kind: 'side', side: B }, fraction: 0.25 },
+      ],
+    },
+    winner: A,
+    outcome: 'ester-good',
+    description: 'all enemies subdued without a death',
+  };
+  const standardWin: VictoryCondition = {
+    kind: 'predicate',
+    predicate: { kind: 'all_defeated', side: B },
+    winner: A,
+    outcome: 'ester-standard',
+    description: 'enemies defeated',
+  };
+
+  function subdueState(
+    enemies: ReadonlyArray<{ id: string; hp: number; hasDied?: boolean }>,
+  ) {
+    const a = makeUnit({ id: 'a', spd: 10, team: 'team_a', hp: 100 });
+    const bs = enemies.map((e) =>
+      makeUnit({
+        id: e.id,
+        spd: 10,
+        team: 'team_b',
+        hp: e.hp,
+        ...(e.hasDied !== undefined ? { hasDied: e.hasDied } : {}),
+      }),
+    );
+    return makeGameState({
+      units: [a, ...bs],
+      teams: teamsAB,
+      victoryConditions: [subdueGood, standardWin],
+    });
+  }
+
+  it('stays ongoing while any enemy is at or above the threshold', () => {
+    const state = subdueState([
+      { id: 'b1', hp: 20 },
+      { id: 'b2', hp: 25 }, // exactly 25% — strict, not subdued
+    ]);
+    expect(evaluateBattleOutcome(state, CATALOG)).toEqual({ kind: 'ongoing' });
+  });
+
+  it('ends the battle with the good outcome tag when all are subdued and none died', () => {
+    const state = subdueState([
+      { id: 'b1', hp: 20 },
+      { id: 'b2', hp: 1 },
+    ]);
+    const out = evaluateBattleOutcome(state, CATALOG);
+    expect(out.kind).toBe('decided');
+    if (out.kind !== 'decided') return;
+    expect(out.decided.conditionIndex).toBe(0);
+    expect(out.decided.outcome).toBe('ester-good');
+    expect(out.decided.winner).toBe(A);
+  });
+
+  it('a single death makes good permanently unsatisfiable — falls through to standard', () => {
+    // b1 died (revived or not — hasDied persists); b2 subdued. Good
+    // can never fire; the fight only ends when everyone is down.
+    const ongoing = subdueState([
+      { id: 'b1', hp: 0, hasDied: true },
+      { id: 'b2', hp: 10 },
+    ]);
+    expect(evaluateBattleOutcome(ongoing, CATALOG)).toEqual({ kind: 'ongoing' });
+
+    const finished = subdueState([
+      { id: 'b1', hp: 0, hasDied: true },
+      { id: 'b2', hp: 0, hasDied: true },
+    ]);
+    const out = evaluateBattleOutcome(finished, CATALOG);
+    expect(out.kind).toBe('decided');
+    if (out.kind !== 'decided') return;
+    expect(out.decided.conditionIndex).toBe(1);
+    expect(out.decided.outcome).toBe('ester-standard');
+  });
+
+  it('a revived unit still counts as having died (hasDied persists past revival)', () => {
+    // b1 was KO’d and raised back to 30% — alive and above threshold,
+    // but no_deaths is already broken for good.
+    const state = subdueState([
+      { id: 'b1', hp: 30, hasDied: true },
+      { id: 'b2', hp: 10 },
+    ]);
+    expect(evaluateBattleOutcome(state, CATALOG)).toEqual({ kind: 'ongoing' });
+  });
+});
+
+describe('evaluateBattleOutcome — subdue-leader (no_deaths + single unit below)', () => {
+  const leaderGood: VictoryCondition = {
+    kind: 'predicate',
+    predicate: {
+      kind: 'all_of',
+      predicates: [
+        { kind: 'no_deaths', side: B },
+        { kind: 'unit_below_hp', target: { kind: 'unit', unitId: unitId('leader') }, fraction: 0.25 },
+      ],
+    },
+    winner: A,
+    outcome: 'ruk-good',
+    description: 'leader subdued, no rebel deaths',
+  };
+
+  it('only the leader need be under the threshold; other units may be healthy', () => {
+    const a = makeUnit({ id: 'a', spd: 10, team: 'team_a', hp: 100 });
+    const leader = makeUnit({ id: 'leader', spd: 10, team: 'team_b', hp: 24 });
+    const rebel = makeUnit({ id: 'rebel', spd: 10, team: 'team_b', hp: 100 });
+    const state = makeGameState({
+      units: [a, leader, rebel],
+      teams: teamsAB,
+      victoryConditions: [leaderGood],
+    });
+    const out = evaluateBattleOutcome(state, CATALOG);
+    expect(out.kind).toBe('decided');
+    if (out.kind !== 'decided') return;
+    expect(out.decided.outcome).toBe('ruk-good');
+  });
+
+  it('a rebel death (not the leader) still breaks the good outcome', () => {
+    const a = makeUnit({ id: 'a', spd: 10, team: 'team_a', hp: 100 });
+    const leader = makeUnit({ id: 'leader', spd: 10, team: 'team_b', hp: 24 });
+    const rebel = makeUnit({ id: 'rebel', spd: 10, team: 'team_b', hp: 0, hasDied: true });
+    const state = makeGameState({
+      units: [a, leader, rebel],
+      teams: teamsAB,
+      victoryConditions: [leaderGood],
+    });
+    expect(evaluateBattleOutcome(state, CATALOG)).toEqual({ kind: 'ongoing' });
+  });
+});

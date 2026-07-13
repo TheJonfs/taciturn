@@ -739,11 +739,17 @@ export interface SystemXpAwardOutcome {
 // without special-casing the removed flag.
 export interface SystemUnitRemovedPayload {
   readonly targetId: UnitId;
+  // Ch1 substrate: absent = permadeath (the original Session 39a
+  // meaning); 'retreated' = a death-protected unit's lethal hit was
+  // converted to a retreat (`Unit.retreated` already set by the damage
+  // write; this action supplies the `removed` flip + the log line).
+  readonly reason?: 'retreated';
 }
 export interface SystemUnitRemovedOutcome {
   readonly kind: 'system_unit_removed';
   readonly targetId: UnitId;
   readonly turnsKOdAtRemoval: number; // for action-log attribution
+  readonly reason?: 'retreated';
 }
 
 // Session 53 (ADR-0088): `system_terrain_change` — engine-emitted action
@@ -853,6 +859,10 @@ export interface BattleEndOutcome {
   readonly winner: TeamId;
   readonly conditionIndex: number;
   readonly description: string;
+  // Ch1 substrate: the fired condition's outcome tag when it carried
+  // one (predicate conditions — e.g. "ester-good"). Mirrors
+  // `DecidedOutcome.outcome`.
+  readonly outcome?: string;
 }
 
 // === Universal envelope shared by every action ===

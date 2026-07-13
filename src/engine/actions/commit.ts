@@ -465,7 +465,7 @@ export function commitAction(
     // closes. The battle-decided guard at the loop head drains anything
     // still queued once `battle_end` reduces.
     if (checkVictory && !battleEndEnqueued && state.outcome === undefined) {
-      const evaluated = evaluateBattleOutcome(state);
+      const evaluated = evaluateBattleOutcome(state, catalog);
       if (evaluated.kind === 'decided') {
         queue.push({
           action: {

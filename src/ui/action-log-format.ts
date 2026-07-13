@@ -648,9 +648,11 @@ function formatAction(
 
     case 'system_unit_removed': {
       // Session 39b. Terminal — "Marach removed from battle."
+      // Ch1 substrate: a death-protected retreat reads "has retreated!"
+      // instead — same removal mechanics, different fiction.
       const segments: LogSegment[] = [
         unitSeg(state, action.payload.targetId),
-        plain(' removed from battle'),
+        plain(action.payload.reason === 'retreated' ? ' has retreated!' : ' removed from battle'),
       ];
       return [row({ tag: '[end]', segments, indent: false, tagKind: 'system' })];
     }
