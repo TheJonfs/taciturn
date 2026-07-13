@@ -1,6 +1,6 @@
 // Atlas round-trip pin — THE correctness test of the structural tier.
 //
-// import M1_CAMPAIGN_GRAPH → editor model → codegen → BYTE-IDENTICAL to the
+// import CAMPAIGN_GRAPH → editor model → codegen → BYTE-IDENTICAL to the
 // checked-in node.ts and node-layout.ts. If this fails, the exporter is
 // lossy (the brief's primary correctness failure): either the emitted shape
 // changed (regenerate the shipped files in the same change) or an authored
@@ -9,7 +9,7 @@
 // exporter emits references, never content.
 
 import { describe, expect, it } from 'vitest';
-import { M1_CAMPAIGN_GRAPH } from '@campaign/index.ts';
+import { CAMPAIGN_GRAPH } from '@campaign/index.ts';
 import { NODE_LAYOUT } from '../interstitial/node-layout.ts';
 import nodeModuleSource from '@campaign/node.ts?raw';
 import layoutModuleSource from '../interstitial/node-layout.ts?raw';
@@ -18,7 +18,7 @@ import { generateLayoutModule, generateNodeModule, nodeKey } from './codegen.ts'
 import { toCampaignGraph, toNodeLayout, type AtlasGraph } from './model.ts';
 
 describe('atlas round-trip (shipped M1 graph)', () => {
-  const model = fromCampaignGraph(M1_CAMPAIGN_GRAPH, NODE_LAYOUT);
+  const model = fromCampaignGraph(CAMPAIGN_GRAPH, NODE_LAYOUT);
 
   it('codegen reproduces the checked-in node.ts byte-identically', () => {
     expect(generateNodeModule(model)).toBe(nodeModuleSource);
@@ -33,10 +33,10 @@ describe('atlas round-trip (shipped M1 graph)', () => {
     // Deep-equal covers structure; each engagement's beats array must
     // additionally be the SAME reference (content merged by beat id, never
     // copied or rebuilt).
-    expect(roundTripped).toEqual(M1_CAMPAIGN_GRAPH);
+    expect(roundTripped).toEqual(CAMPAIGN_GRAPH);
     roundTripped.nodes.forEach((n, i) => {
       n.engagements.forEach((e, j) => {
-        expect(e.beats).toBe(M1_CAMPAIGN_GRAPH.nodes[i]!.engagements[j]!.beats);
+        expect(e.beats).toBe(CAMPAIGN_GRAPH.nodes[i]!.engagements[j]!.beats);
       });
     });
     expect(toNodeLayout(model)).toEqual(NODE_LAYOUT);
@@ -103,7 +103,7 @@ describe('atlas round-trip (a synthetic camp with a queue, gates, and a stub sce
     expect(text).toContain(
       "{ storyBeatId: 'camp-return', beats: [placeholderSceneBeat('Scene: the road home')], armsAfter: 'node-mission' },",
     );
-    expect(text).toContain("{ from: M1_NODES.camp, to: M1_NODES.mission, on: 'win', opensOnBeat: 'node-camp' },");
+    expect(text).toContain("{ from: CAMPAIGN_NODES.camp, to: CAMPAIGN_NODES.mission, on: 'win', opensOnBeat: 'node-camp' },");
   });
 
   it('generated text is a fixpoint: emit → resolve → import → emit is byte-stable', () => {

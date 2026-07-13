@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { InterstitialRunner } from './InterstitialRunner.tsx';
-import { M1_NODES, type BeatOutput, type InterstitialBeat } from '@campaign/index.ts';
+import { CAMPAIGN_NODES, type BeatOutput, type InterstitialBeat } from '@campaign/index.ts';
 
 function mount(ui: React.ReactElement): { container: HTMLElement; root: Root } {
   const container = document.createElement('div');
@@ -40,8 +40,8 @@ const SEQUENCE: ReadonlyArray<InterstitialBeat> = [
   { type: 'result-summary', resolution: 'win', nodeName: 'River Ridge', units: [], gilEarned: 0, skirmish: false, campaignComplete: false },
   {
     type: 'world-map-choice',
-    fromNodeId: M1_NODES.riverRidge,
-    choices: [{ id: M1_NODES.stonebridge, name: 'Stonebridge', kind: 'advance', farmable: false, hub: false }],
+    fromNodeId: CAMPAIGN_NODES.oskun,
+    choices: [{ id: CAMPAIGN_NODES.alvera, name: 'Alvera Village', kind: 'advance', farmable: false, hub: false }],
     gil: 0,
   },
 ];
@@ -70,9 +70,9 @@ describe('InterstitialRunner (3+ beat walk)', () => {
 
     // Beat 3 — the world-map. Pick the single choice → the run completes.
     expect(container.textContent).toContain('The Road Ahead');
-    clickText(container, 'March to Stonebridge');
+    clickText(container, 'March to Alvera Village');
 
-    expect(completed).toEqual({ nextNodeId: M1_NODES.stonebridge });
+    expect(completed).toEqual({ nextNodeId: CAMPAIGN_NODES.alvera });
 
     act(() => root.unmount());
     container.remove();

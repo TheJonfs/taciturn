@@ -8,19 +8,19 @@ import {
 } from './economy-config.ts';
 import { grantItems, ownedCount } from './inventory.ts';
 import { newCampaign } from './loop.ts';
-import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+import { CAMPAIGN_GRAPH, CAMPAIGN_NODES } from './node.ts';
 import { m0Roster } from './roster.ts';
 import { buyItem, itemPrice, sellBlockReason, sellItem, sellValue, shopStock } from './shop.ts';
 import type { CampaignState } from './types.ts';
 
-const GRAPH = M1_CAMPAIGN_GRAPH;
+const GRAPH = CAMPAIGN_GRAPH;
 
 function stateWith(overrides: Partial<CampaignState>): CampaignState {
-  return { ...newCampaign(m0Roster, M1_NODES.riverRidge), ...overrides };
+  return { ...newCampaign(m0Roster, CAMPAIGN_NODES.zarghidas), ...overrides };
 }
 
-const IRON_SWORD = itemId('iron_sword'); // river-ridge bundle
-const STEEL_HELM = itemId('steel_helm'); // stonebridge bundle
+const IRON_SWORD = itemId('iron_sword'); // Zarghidas starter bundle
+const STEEL_HELM = itemId('steel_helm'); // Zelmonia Castle armory bundle
 const FLAMETONGUE = itemId('flametongue'); // unique-pool (sell-blocked)
 
 describe('shopStock (cumulative, story-gated)', () => {
@@ -29,17 +29,17 @@ describe('shopStock (cumulative, story-gated)', () => {
   });
 
   it('clearing a node stocks its bundle', () => {
-    const stock = shopStock(GRAPH, stateWith({ clearedStoryBeats: [M1_NODES.riverRidge] }));
+    const stock = shopStock(GRAPH, stateWith({ clearedStoryBeats: [CAMPAIGN_NODES.zarghidas] }));
     const ids = stock.map((e) => String(e.itemId));
     expect(ids).toContain('iron_sword');
-    expect(ids).not.toContain('steel_helm'); // stonebridge not cleared
+    expect(ids).not.toContain('steel_helm'); // Zelmonia Castle not cleared
   });
 
   it('is MONOTONIC: clearing more nodes only ever adds', () => {
-    const one = shopStock(GRAPH, stateWith({ clearedStoryBeats: [M1_NODES.riverRidge] }));
+    const one = shopStock(GRAPH, stateWith({ clearedStoryBeats: [CAMPAIGN_NODES.zarghidas] }));
     const two = shopStock(
       GRAPH,
-      stateWith({ clearedStoryBeats: [M1_NODES.riverRidge, M1_NODES.stonebridge] }),
+      stateWith({ clearedStoryBeats: [CAMPAIGN_NODES.zarghidas, CAMPAIGN_NODES.alvera] }),
     );
     const oneIds = new Set(one.map((e) => String(e.itemId)));
     expect(two.length).toBeGreaterThan(one.length);
@@ -60,7 +60,7 @@ describe('shopStock (cumulative, story-gated)', () => {
 });
 
 describe('buyItem', () => {
-  const readyToBuy = stateWith({ clearedStoryBeats: [M1_NODES.riverRidge], gil: 2_000 });
+  const readyToBuy = stateWith({ clearedStoryBeats: [CAMPAIGN_NODES.zarghidas], gil: 2_000 });
 
   it('debits the price and grants the item through the receipt door', () => {
     const before = ownedCount(readyToBuy, IRON_SWORD);
@@ -88,7 +88,15 @@ describe('sellItem (D1: partial rate, uniques blocked)', () => {
   });
 
   it('sell value is the floored rate of the buy price', () => {
-    expect(sellValue(IRON_SWORD)).toBe(Math.floor(DEFAULT_ITEM_PRICE * SELL_RATE));
+    // iron_sword carries a Ch1 stub-price override; an unpriced item
+    // (long_sword — Ch2, unstamped) falls back to the flat default.
+    expect(sellValue(IRON_SWORD)).toBe(Math.floor(itemPrice(IRON_SWORD) * SELL_RATE));
+    expect(itemPrice(itemId('long_sword'))).toBe(DEFAULT_ITEM_PRICE);
+  });
+
+  it('Ch1 stub prices override the flat default', () => {
+    expect(itemPrice(IRON_SWORD)).toBe(200);
+    expect(itemPrice(itemId('staff_of_abundance'))).toBe(600);
   });
 
   it('BLOCKS selling unique-pool items (the irreversible trap)', () => {

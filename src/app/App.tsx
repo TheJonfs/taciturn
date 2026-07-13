@@ -32,11 +32,12 @@ import { marshmoorBattle } from '@content/battles/marshmoor-battle.ts';
 import { mountainPassBattle } from '@content/battles/mountain-pass-battle.ts';
 import { buildTeamBattleConfig, type BuiltTeam } from '@content/teams/index.ts';
 import {
-  M1_CAMPAIGN_GRAPH,
-  m1Roster,
+  CAMPAIGN_GRAPH,
+  ch1StartingRoster,
   startCampaign,
   saveCampaign,
   loadCampaign,
+  clearSavedCampaign,
   hasSavedCampaign,
   type CampaignState,
 } from '@campaign/index.ts';
@@ -160,7 +161,10 @@ function AppInner() {
   // reuses DeploymentScreen + BattleView but owns its own roster/graph/loop.
   const [campaignState, setCampaignState] = useState<CampaignState | null>(null);
   const startNewCampaign = useCallback((): void => {
-    const fresh = startCampaign(M1_CAMPAIGN_GRAPH, m1Roster, catalog);
+    // Ch1 (S93): the four generics ROLL here — names/genders/Brave/Faith
+    // from Math.random at the New Campaign click, persisted in the save.
+    // (App-layer randomness; the engine's per-action seeds are untouched.)
+    const fresh = startCampaign(CAMPAIGN_GRAPH, ch1StartingRoster(Math.random, catalog), catalog);
     saveCampaign(fresh); // initial autosave = the node-A retry checkpoint
     setCampaignState(fresh);
     setScreen('campaign');
@@ -168,6 +172,13 @@ function AppInner() {
   const resumeCampaign = useCallback((): void => {
     const saved = loadCampaign();
     if (saved === null) return; // button is hidden without a save; defensive
+    // A save positioned at a node the current graph doesn't have (the M1
+    // test campaign, pre-Ch1) can't resume — discard it rather than crash
+    // at getNode. Deliberate: the M1 sandbox is superseded content.
+    if (!CAMPAIGN_GRAPH.nodes.some((n) => n.id === saved.currentNodeId)) {
+      clearSavedCampaign();
+      return;
+    }
     setCampaignState(saved);
     setScreen('campaign');
   }, []);

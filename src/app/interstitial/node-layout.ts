@@ -8,7 +8,7 @@
 // frame as the floor. Paired with src/campaign/node.ts; round-trip pinned
 // by the Atlas codegen test.
 
-import { M1_NODES } from '@campaign/index.ts';
+import { CAMPAIGN_NODES } from '@campaign/index.ts';
 
 export interface NodePosition {
   readonly x: number;
@@ -16,10 +16,17 @@ export interface NodePosition {
 }
 
 export const NODE_LAYOUT: Readonly<Record<string, NodePosition>> = {
-  [M1_NODES.riverRidge]: { x: 70, y: 175 },
-  [M1_NODES.stonebridge]: { x: 245, y: 85 },
-  [M1_NODES.marshmoor]: { x: 245, y: 265 },
-  [M1_NODES.theCrossing]: { x: 430, y: 265 },
-  [M1_NODES.mountainPass]: { x: 430, y: 85 },
-  [M1_NODES.theReturn]: { x: 570, y: 175 },
+  [CAMPAIGN_NODES.zarghidas]: { x: 80, y: 90 },
+  [CAMPAIGN_NODES.oskun]: { x: 200, y: 60 },
+  [CAMPAIGN_NODES.alvera]: { x: 330, y: 55 },
+  [CAMPAIGN_NODES.zelmoniaCastle]: { x: 350, y: 150 },
+  [CAMPAIGN_NODES.zelmoniaHills]: { x: 430, y: 190 },
+  [CAMPAIGN_NODES.grekForest]: { x: 520, y: 100 },
+  [CAMPAIGN_NODES.fortCator]: { x: 650, y: 120 },
+  [CAMPAIGN_NODES.ordalCanyon]: { x: 680, y: 230 },
+  [CAMPAIGN_NODES.oldOrdal]: { x: 700, y: 330 },
+  [CAMPAIGN_NODES.mountEska]: { x: 450, y: 320 },
+  [CAMPAIGN_NODES.esterRoad]: { x: 280, y: 390 },
+  [CAMPAIGN_NODES.rukVillage]: { x: 140, y: 300 },
+  [CAMPAIGN_NODES.viura]: { x: 760, y: 420 },
 };

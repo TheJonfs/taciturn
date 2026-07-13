@@ -17,7 +17,7 @@ import { authoredEnemy } from './authored-enemy.ts';
 import { foldBattle, foldEnemyTeam } from './snapshot-fold.ts';
 import { m0Roster } from './roster.ts';
 import { firstBattleBeat, type NodeBattle } from './sequence.ts';
-import { M1_CAMPAIGN_GRAPH } from './node.ts';
+import { CAMPAIGN_GRAPH } from './node.ts';
 import { allNodeBeats, getNode } from './graph.ts';
 
 const catalog = loadDefaultCatalog();
@@ -141,24 +141,35 @@ describe('foldBattle (player + enemy composition)', () => {
   });
 });
 
-describe('River Ridge opener — the first authored enemy garrison', () => {
-  const start = getNode(M1_CAMPAIGN_GRAPH, M1_CAMPAIGN_GRAPH.startId);
-  const beat = firstBattleBeat(allNodeBeats(start))!;
+describe('Zelmonia Hills — the authored Theo Renault battle (Ch1)', () => {
+  const hills = getNode(CAMPAIGN_GRAPH, 'node-zelmonia-hills');
+  const beat = firstBattleBeat(allNodeBeats(hills))!;
 
-  it('authors a tuned enemy team (all L22, each gated to a two-active kit)', () => {
+  it('authors Theo first (L4 Hunter, one-active kit) over a leveled placeholder escort', () => {
     const enemies = beat.battle.enemies!;
     expect(enemies).toBeDefined();
-    expect(enemies.length).toBeGreaterThan(0);
-    expect(enemies.every((e) => e.level === 22)).toBe(true); // a rung below the L25 player veterans
-    expect(enemies.every((e) => e.unlocks.length === 2)).toBe(true); // deliberately limited kit
+    expect(String(enemies[0]!.id)).toBe('plot-theo');
+    expect(enemies[0]!.level).toBe(4);
+    expect(enemies[0]!.unlocks).toHaveLength(1); // pin_down only at Node 3
+    expect(enemies.slice(1).every((e) => e.level === 4)).toBe(true);
   });
 
-  it('folds into a battle with those enemies gated (an ultimate stays locked)', () => {
+  it('folds Theo onto the death-protected lead slot with a gated kit', () => {
     const config = foldBattle(beat.battle, m0Roster.slice(0, beat.battle.deployCap), catalog);
-    const fireMage = config.units.find((u) => String(u.id) === 'red_fire_mage')!;
-    const usable = new Set(fireMage.usableActives!.map(String));
-    expect(usable.has('fire_strike')).toBe(true); // its authored basic
-    expect(usable.has('flame_lance')).toBe(false); // the Pyromancer ultimate — gated out
+    const theo = config.units.find((u) => String(u.id) === 'plot-theo')!;
+    expect(theo.deathProtected).toBe(true); // the WI1 boss flag survives the fold
+    const usable = new Set(theo.usableActives!.map(String));
+    expect(usable.has('pin_down')).toBe(true);
+    expect(usable.has('charged_attack')).toBe(false); // rematch-only, gated out here
+  });
+
+  it('the battle authors the retreat conditions: Theo under 15% OR the field swept', () => {
+    const conditions = beat.battle.template.victoryConditions;
+    expect(conditions[0]).toMatchObject({
+      kind: 'predicate',
+      predicate: { kind: 'unit_below_hp', fraction: 0.15 },
+    });
+    expect(conditions.some((c) => c.kind === 'defeat_all')).toBe(true);
   });
 });
 

@@ -98,7 +98,7 @@ describe('codegen + round-trip', () => {
     expect(source).toContain('    phantom: true,'); // Viura's node line
     expect(source).toContain("on: 'win', phantom: true },"); // the phantom edge
     // The real node/edge lines stay clean of the field.
-    expect(source).not.toContain("{ from: M1_NODES.alpha, to: M1_NODES.omega, on: 'win', phantom");
+    expect(source).not.toContain("{ from: CAMPAIGN_NODES.alpha, to: CAMPAIGN_NODES.omega, on: 'win', phantom");
   });
 
   it('model → runtime graph → model preserves both phantom flags', () => {

@@ -20,7 +20,7 @@ import {
   unequipItem,
 } from './inventory.ts';
 import { newCampaign } from './loop.ts';
-import { M1_NODES } from './node.ts';
+import { CAMPAIGN_NODES } from './node.ts';
 import { m0Roster } from './roster.ts';
 import type { CampaignState } from './types.ts';
 
@@ -30,7 +30,7 @@ const ABSOLOM = itemId('absolom'); // two-handed knight sword
 const FLAMETONGUE = itemId('flametongue');
 
 function fresh(): CampaignState {
-  return newCampaign(m0Roster, M1_NODES.riverRidge);
+  return newCampaign(m0Roster, CAMPAIGN_NODES.oskun);
 }
 
 // The roster's knight (carries Flametongue + Warrior's Aegis).

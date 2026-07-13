@@ -35,7 +35,7 @@ import { RecruitScreen } from './RecruitScreen.tsx';
 import { ShopScreen } from './ShopScreen.tsx';
 import { buildDeployedBattleConfig, type DeploymentResult } from './deployment-config.ts';
 import {
-  M1_CAMPAIGN_GRAPH,
+  CAMPAIGN_GRAPH,
   applyBattleBeatWin,
   battleWasWon,
   buildLocationMenuBeat,
@@ -81,7 +81,7 @@ import {
 } from '@campaign/index.ts';
 import type { BattleConfig, Catalog, GameState, TeamId } from '@engine/index.ts';
 
-const GRAPH = M1_CAMPAIGN_GRAPH;
+const GRAPH = CAMPAIGN_GRAPH;
 
 // The beats the driver walks at a node: its CURRENT engagement's (the
 // earliest armed-and-uncleared one — engagement queues, M3). Callers reach

@@ -3,7 +3,7 @@
 // Baseline: the shipped M1 graph validates clean.
 
 import { describe, expect, it } from 'vitest';
-import { M1_CAMPAIGN_GRAPH } from '@campaign/index.ts';
+import { CAMPAIGN_GRAPH } from '@campaign/index.ts';
 import { NODE_LAYOUT } from '../interstitial/node-layout.ts';
 import { fromCampaignGraph } from './import.ts';
 import type { AtlasGraph, AtlasNode } from './model.ts';
@@ -29,8 +29,11 @@ function skeleton(overrides?: {
 }
 
 describe('validateAtlasGraph — baseline', () => {
-  it('the shipped M1 graph validates with no findings', () => {
-    expect(validateAtlasGraph(fromCampaignGraph(M1_CAMPAIGN_GRAPH, NODE_LAYOUT))).toEqual([]);
+  it('the shipped Ch1 graph validates with only the deliberate start-node warning', () => {
+    // Zarghidas is a scene+hub start (no battle beat) BY DESIGN — the
+    // validator's start-no-battle warning is expected, and nothing else.
+    const findings = validateAtlasGraph(fromCampaignGraph(CAMPAIGN_GRAPH, NODE_LAYOUT));
+    expect(findings.map((f) => [f.level, f.rule])).toEqual([['warning', 'start-no-battle']]);
   });
 
   it('a fresh placeholder skeleton validates with no findings', () => {
@@ -141,9 +144,9 @@ describe('validateAtlasGraph — node rules', () => {
     const model = skeleton({
       nodes: [
         a!,
-        { id: 'node-marshmoor', name: 'Marshmoor', chapter: 1, engagements: [{ beatsSource: { kind: 'content' } }], x: 300, y: 100 },
+        { id: 'node-grek-forest', name: 'Grek Forest', chapter: 1, engagements: [{ beatsSource: { kind: 'content' } }], x: 300, y: 100 },
       ],
-      edges: [{ from: 'node-alpha', to: 'node-marshmoor', on: 'win' }],
+      edges: [{ from: 'node-alpha', to: 'node-grek-forest', on: 'win' }],
     });
     expect(rules(model)).toEqual([]);
   });

@@ -12,12 +12,12 @@
 //
 // PLACEHOLDER FIDELITY IS THE POINT (taba-m1-brief): stylized structure, no
 // art pipeline, easy to reskin. Topology comes from the static authored graph
-// (M1_CAMPAIGN_GRAPH); the beat supplies only position + the selectable set,
+// (CAMPAIGN_GRAPH); the beat supplies only position + the selectable set,
 // so the runner stays graph-agnostic.
 
 import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
 import {
-  M1_CAMPAIGN_GRAPH,
+  CAMPAIGN_GRAPH,
   type CampaignGraph,
   type TravelChoice,
   type WorldMapChoiceBeat,
@@ -186,7 +186,7 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
   if (beat.type !== 'world-map-choice') return <></>;
   const map: WorldMapChoiceBeat = beat;
 
-  const graph = graphProp ?? M1_CAMPAIGN_GRAPH;
+  const graph = graphProp ?? CAMPAIGN_GRAPH;
   const layout = layoutProp ?? NODE_LAYOUT;
   const choiceById = new Map(map.choices.map((c) => [c.id, c]));
   const marching = march !== null;

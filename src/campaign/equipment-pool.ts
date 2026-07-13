@@ -261,47 +261,64 @@ export const TABA_NEW_ENTRIES: ReadonlyArray<TabaGearEntry> = [
   ...TABA_NEW_CH3,
 ];
 
-// --- PLACEHOLDER bundle→node assignment (M3 economy Stage 2) -----------------
-// THROWAWAY sandbox content proving the accumulation mechanism on the M1
-// graph — NOT the real campaign assignment (that session needs the campaign
-// graph + balance data and replaces this table). All Ch1-band shop items so
-// nothing outpaces the M1 band. Keyed by node id (matches M1_NODES values;
-// authored as literals to keep this module content-only).
-const PLACEHOLDER_BUNDLES: Readonly<Record<string, ReadonlyArray<string>>> = {
-  'node-river-ridge': [
+// --- Chapter 1 bundle→node assignment (taba-ch1-gear-bundles.md) -------------
+// The REAL Ch1 availability plan (S93 — replaces the M1 placeholder sandbox
+// bundles): per-item unlock triggers keyed by node id (matches
+// CAMPAIGN_NODES values; authored as literals to keep this module
+// content-only). Two axes per the gear doc: HUBS are where you buy (the
+// pool is global — D2 — so any hub sells everything unlocked so far), and
+// WAVES are when an item enters the pool. The back-half "Alvera refresh"
+// waves key on clearing Old Ordal (7) and Mount Eska (8), giving nodes
+// 6–10 new-gear-in-town moments without a back-half hub. Uniques (Pendant,
+// Flametongue, Freelancer's Charm) are NOT here — they enter via battle
+// `grants` (node-content.ts). Gauntlet of Might + Mantle of Protection are
+// held for Ch2 (unstamped, unbuyable). Costs are stubs in economy-config.
+const CH1_GEAR_BUNDLES: Readonly<Record<string, ReadonlyArray<string>>> = {
+  // Zarghidas starter kit — outfits the mixed opening party (from start).
+  'node-zarghidas': [
     'iron_sword',
-    'cutlass',
-    'dagger',
-    'padded_vest',
-    'linen_robe',
-    'buckler',
-    'guard_cap',
-  ],
-  'node-stonebridge': [
     'woodmans_axe',
     'short_bow',
-    'chain_shirt',
-    'arcane_robe',
-    'steel_helm',
-    'wand_of_depths',
+    'dagger',
+    'padded_vest',
+    'padded_jacket',
+    'guard_cap',
+    'lookouts_hood',
+    'buckler',
     'talisman_of_warding',
+    'lightfoot',
+    'diamond_bracelet',
   ],
-  'node-marshmoor': [
+  // Alvera caster wave 1 — the magic town opens with Clio (node 2 clear).
+  'node-alvera': [
+    'wand_of_depths',
     'wand_of_deepwood',
     'wand_of_lumen',
-    'staff_of_abundance',
-    'padded_jacket',
+    'linen_robe',
+    'pointy_hat',
+    'tricorn',
     'focus_band',
-    'lightfoot',
+    'livre_of_urgency',
+    'battle_dictionary',
+    'arcane_lens',
+    'capacitor_ring',
+    'talisman_of_conviction',
   ],
+  // Zelmonia Castle armory — the Heavy lane, Chris the lone early customer.
+  'node-zelmonia-castle': ['chain_shirt', 'steel_helm', 'warriors_aegis'],
+  // Fort Cator — "Sword Town" (node 5 clear).
+  'node-fort-cator': ['cutlass', 'augmentor', 'purifier'],
+  // Alvera refresh, wave 1 — premium caster power (Old Ordal / node 7 clear).
+  'node-old-ordal': ['staff_of_abundance', 'tome_of_power'],
+  // Alvera refresh, wave 2 — the all-res robe (Mount Eska / node 8 clear).
+  'node-mount-eska': ['arcane_robe'],
 };
 
-// Stamp `firstAvailableAt` onto the authored entries from the placeholder
-// table (one node per item; the table is the throwaway half, the FIELD is
-// the real mechanism the future assignment enriches directly).
+// Stamp `firstAvailableAt` onto the authored entries from the Ch1 bundle
+// table (one node per item).
 function stampFirstAvailable(entries: ReadonlyArray<TabaGearEntry>): ReadonlyArray<TabaGearEntry> {
   const nodeByItem = new Map<string, string>();
-  for (const [nodeId, items] of Object.entries(PLACEHOLDER_BUNDLES)) {
+  for (const [nodeId, items] of Object.entries(CH1_GEAR_BUNDLES)) {
     for (const id of items) {
       if (nodeByItem.has(id)) {
         throw new Error(`equipment-pool: item '${id}' is bundled at two nodes`);

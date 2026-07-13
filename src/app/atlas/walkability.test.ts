@@ -75,7 +75,7 @@ describe('atlas walkability — a fresh authored skeleton', () => {
     expect(nodeModule).toContain("import { placeholderBattleBeat } from './placeholder-beat.ts';");
     expect(nodeModule).not.toContain('contentBeats'); // nothing hand-authored
     expect(nodeModule).toContain("emberfall: 'node-emberfall',");
-    expect(generateLayoutModule(SKELETON)).toContain('[M1_NODES.winterGate]: { x: 440, y: 180 },');
+    expect(generateLayoutModule(SKELETON)).toContain('[CAMPAIGN_NODES.winterGate]: { x: 440, y: 180 },');
   });
 
   it('the start fights on its placeholder template and clearing it opens the road', () => {

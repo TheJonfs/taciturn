@@ -11,13 +11,13 @@ import {
 } from './interstitial.ts';
 import { newCampaign } from './loop.ts';
 import type { BattleResult, UnitBattleSummary } from './battle-result.ts';
-import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+import { CAMPAIGN_GRAPH, CAMPAIGN_NODES } from './node.ts';
 import { allNodeBeats, getNode } from './graph.ts';
 import { firstBattleBeat } from './sequence.ts';
 import { m0Roster } from './roster.ts';
 
-const GRAPH = M1_CAMPAIGN_GRAPH;
-const START = getNode(GRAPH, M1_NODES.riverRidge);
+const GRAPH = CAMPAIGN_GRAPH;
+const START = getNode(GRAPH, CAMPAIGN_NODES.oskun); // the first battle node
 const START_TEAM = firstBattleBeat(allNodeBeats(START))!.battle.playerTeam;
 
 // A battle result where the first two roster units fought (survived / downed)
@@ -63,7 +63,7 @@ describe('buildResultSummaryBeat', () => {
 
   it('terminal win → campaignComplete flag set (the victory screen)', () => {
     const beat = buildResultSummaryBeat({
-      node: getNode(GRAPH, M1_NODES.theReturn),
+      node: getNode(GRAPH, CAMPAIGN_NODES.rukVillage),
       roster: m0Roster,
       result: resultFor(),
       won: true,
@@ -89,25 +89,24 @@ describe('buildResultSummaryBeat', () => {
 });
 
 describe('buildRouteChoiceBeat / buildRouteChoice', () => {
-  // A campaign that just cleared the start node (the fork).
+  // A campaign that just cleared Oskun (the first battle node).
   const clearedStart = {
-    ...newCampaign(m0Roster, M1_NODES.riverRidge),
-    clearedStoryBeats: [M1_NODES.riverRidge],
+    ...newCampaign(m0Roster, CAMPAIGN_NODES.oskun),
+    clearedStoryBeats: [CAMPAIGN_NODES.oskun],
     gil: 340,
   };
 
   it('builds a world-map-choice from the travel model (frontier + returnables)', () => {
     const beat = buildRouteChoiceBeat(GRAPH, clearedStart);
     expect(beat.type).toBe('world-map-choice');
-    expect(beat.fromNodeId).toBe(M1_NODES.riverRidge);
-    // The start node's fork (frontier, authored order)… plus the cleared
-    // farmable start itself as a returnable (M3 economy Stage 1).
+    expect(beat.fromNodeId).toBe(CAMPAIGN_NODES.oskun);
+    // The next spine stop (frontier)… plus the cleared farmable node
+    // itself as a returnable (M3 economy Stage 1).
     expect(beat.choices.map((c) => c.id)).toEqual([
-      M1_NODES.stonebridge,
-      M1_NODES.marshmoor,
-      M1_NODES.riverRidge,
+      CAMPAIGN_NODES.alvera,
+      CAMPAIGN_NODES.oskun,
     ]);
-    expect(beat.choices.map((c) => c.kind)).toEqual(['advance', 'advance', 'revisit']);
+    expect(beat.choices.map((c) => c.kind)).toEqual(['advance', 'revisit']);
     // The purse snapshot rides the beat (M3 economy Stage 0).
     expect(beat.gil).toBe(340);
   });
@@ -121,13 +120,13 @@ describe('buildRouteChoiceBeat / buildRouteChoice', () => {
 describe('buildLocationMenuBeat', () => {
   it('offers a skirmish (with the resolved level) at a cleared farmable node', () => {
     const state = {
-      ...newCampaign(m0Roster, M1_NODES.riverRidge),
-      clearedStoryBeats: [M1_NODES.riverRidge],
+      ...newCampaign(m0Roster, CAMPAIGN_NODES.oskun),
+      clearedStoryBeats: [CAMPAIGN_NODES.oskun],
       gil: 75,
     };
     const beat = buildLocationMenuBeat(START, state);
     expect(beat.type).toBe('location-menu');
-    expect(beat.nodeId).toBe(M1_NODES.riverRidge);
+    expect(beat.nodeId).toBe(CAMPAIGN_NODES.oskun);
     expect(beat.gil).toBe(75);
     expect(beat.options.map((o) => o.action)).toEqual(['skirmish']);
     // The detail names the resolved enemy level (party avg + offset).
@@ -135,24 +134,26 @@ describe('buildLocationMenuBeat', () => {
   });
 
   it('offers the armed story AND the shop at an uncleared hub (Dorter coexistence)', () => {
-    const stonebridge = getNode(GRAPH, M1_NODES.stonebridge);
+    const alvera = getNode(GRAPH, CAMPAIGN_NODES.alvera);
     const state = {
-      ...newCampaign(m0Roster, M1_NODES.stonebridge),
-      visited: [M1_NODES.riverRidge, M1_NODES.stonebridge],
-      clearedStoryBeats: [M1_NODES.riverRidge],
+      ...newCampaign(m0Roster, CAMPAIGN_NODES.alvera),
+      visited: [CAMPAIGN_NODES.oskun, CAMPAIGN_NODES.alvera],
+      clearedStoryBeats: [CAMPAIGN_NODES.oskun],
     };
-    const beat = buildLocationMenuBeat(stonebridge, state);
+    const beat = buildLocationMenuBeat(alvera, state);
     expect(beat.options.map((o) => o.action)).toEqual(['story', 'shop', 'recruit']);
   });
 
-  it('offers skirmish AND shop at a cleared hub (the valve + commerce coexist)', () => {
-    const stonebridge = getNode(GRAPH, M1_NODES.stonebridge);
+  it('offers skirmish AND shop at a cleared FARMABLE hub (the valve + commerce coexist)', () => {
+    // Ch1 authors no farmable hub (Alvera trades, Oskun farms) — the
+    // coexistence shape stays pinned on a synthetic capability overlay.
+    const farmableHub = { ...getNode(GRAPH, CAMPAIGN_NODES.alvera), farmable: true };
     const state = {
-      ...newCampaign(m0Roster, M1_NODES.stonebridge),
-      visited: [M1_NODES.riverRidge, M1_NODES.stonebridge],
-      clearedStoryBeats: [M1_NODES.riverRidge, M1_NODES.stonebridge],
+      ...newCampaign(m0Roster, CAMPAIGN_NODES.alvera),
+      visited: [CAMPAIGN_NODES.oskun, CAMPAIGN_NODES.alvera],
+      clearedStoryBeats: [CAMPAIGN_NODES.oskun, CAMPAIGN_NODES.alvera],
     };
-    const beat = buildLocationMenuBeat(stonebridge, state);
+    const beat = buildLocationMenuBeat(farmableHub, state);
     expect(beat.options.map((o) => o.action)).toEqual(['skirmish', 'shop', 'recruit']);
   });
 
@@ -160,19 +161,19 @@ describe('buildLocationMenuBeat', () => {
     const town = { id: 'node-watford-market', name: 'Watford Market', chapter: 1, engagements: [], isHub: true };
     const state = {
       ...newCampaign(m0Roster, town.id),
-      visited: [M1_NODES.riverRidge, town.id],
+      visited: [CAMPAIGN_NODES.oskun, town.id],
     };
     const beat = buildLocationMenuBeat(town, state);
     expect(beat.options.map((o) => o.action)).toEqual(['shop', 'recruit']);
   });
 
   it('offers nothing at a cleared node with no open capabilities', () => {
-    // The Crossing: story-only, never farmable/hub.
-    const crossing = getNode(GRAPH, M1_NODES.theCrossing);
+    // Old Ordal: the Ch1 dead node — never farmable/hub.
+    const oldOrdal = getNode(GRAPH, CAMPAIGN_NODES.oldOrdal);
     const state = {
-      ...newCampaign(m0Roster, M1_NODES.theCrossing),
-      clearedStoryBeats: [M1_NODES.theCrossing],
+      ...newCampaign(m0Roster, CAMPAIGN_NODES.oldOrdal),
+      clearedStoryBeats: [CAMPAIGN_NODES.oldOrdal],
     };
-    expect(buildLocationMenuBeat(crossing, state).options).toEqual([]);
+    expect(buildLocationMenuBeat(oldOrdal, state).options).toEqual([]);
   });
 });

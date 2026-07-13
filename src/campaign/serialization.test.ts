@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { grantItems, newCampaign } from './index.ts';
 import { itemId } from '@engine/index.ts';
-import { M1_NODES } from './node.ts';
+import { CAMPAIGN_NODES } from './node.ts';
 import { m0Roster } from './roster.ts';
 import {
   CAMPAIGN_SCHEMA_VERSION,
@@ -15,7 +15,7 @@ import {
 } from './serialization.ts';
 import type { CampaignState } from './types.ts';
 
-const START = M1_NODES.riverRidge;
+const START = CAMPAIGN_NODES.zarghidas;
 
 function sampleState(): CampaignState {
   // A mid-run state: routed past the start to a fork branch, one unit lost,
@@ -31,8 +31,8 @@ function sampleState(): CampaignState {
   return {
     ...base,
     roster,
-    currentNodeId: M1_NODES.stonebridge,
-    visited: [START, M1_NODES.stonebridge],
+    currentNodeId: CAMPAIGN_NODES.oskun,
+    visited: [START, CAMPAIGN_NODES.oskun],
     clearedStoryBeats: [START],
   };
 }
@@ -271,11 +271,11 @@ describe('campaign serialization', () => {
   });
 
   it('grandfathers a pre-economy save: visited covers the position', () => {
-    const legacy = { ...newCampaign(m0Roster, START), currentNodeId: M1_NODES.stonebridge } as Record<string, unknown>;
+    const legacy = { ...newCampaign(m0Roster, START), currentNodeId: CAMPAIGN_NODES.oskun } as Record<string, unknown>;
     delete legacy['visited'];
     delete legacy['clearedStoryBeats'];
     const restored = deserializeCampaign(JSON.stringify(legacy));
-    expect(restored.visited).toEqual([M1_NODES.stonebridge]);
+    expect(restored.visited).toEqual([CAMPAIGN_NODES.oskun]);
     expect(restored.clearedStoryBeats).toEqual([]);
   });
 

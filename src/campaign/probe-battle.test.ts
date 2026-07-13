@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { allNodeBeats, getNode } from './graph.ts';
-import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+import { CAMPAIGN_GRAPH, CAMPAIGN_NODES } from './node.ts';
 import { CANONICAL_PROBE_BATTLE, probeBattleFor } from './probe-battle.ts';
 import { m0Roster } from './roster.ts';
 import { firstBattleBeat } from './sequence.ts';
@@ -18,7 +18,7 @@ import type { CampaignNode } from './graph.ts';
 const catalog = loadDefaultCatalog();
 
 describe('probe template independence (the market-town enabler)', () => {
-  const riverRidge = firstBattleBeat(allNodeBeats(getNode(M1_CAMPAIGN_GRAPH, M1_NODES.riverRidge)))!.battle;
+  const riverRidge = firstBattleBeat(allNodeBeats(getNode(CAMPAIGN_GRAPH, CAMPAIGN_NODES.oskun)))!.battle;
 
   it('effective max vitals are identical across templates', () => {
     const onCanonical = probeEffectiveMaxes(
@@ -44,7 +44,7 @@ describe('probe template independence (the market-town enabler)', () => {
 
 describe('probeBattleFor', () => {
   it("prefers the node's own battlefield when it has one", () => {
-    const node = getNode(M1_CAMPAIGN_GRAPH, M1_NODES.stonebridge);
+    const node = getNode(CAMPAIGN_GRAPH, CAMPAIGN_NODES.alvera);
     const probe = probeBattleFor(node);
     expect(probe.template).toBe(firstBattleBeat(allNodeBeats(node))!.battle.template);
   });

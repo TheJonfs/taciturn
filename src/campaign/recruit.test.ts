@@ -8,7 +8,7 @@ import { partyAverageLevel } from './enemy-level.ts';
 import { allNodeBeats, getNode } from './graph.ts';
 import { freeCount, ownedCount } from './inventory.ts';
 import { newCampaign } from './loop.ts';
-import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+import { CAMPAIGN_GRAPH, CAMPAIGN_NODES } from './node.ts';
 import { CAMPAIGN_RULESET_ID } from './node-content.ts';
 import { tierEntryOf } from './progression/index.ts';
 import {
@@ -25,10 +25,10 @@ import { firstBattleBeat } from './sequence.ts';
 import { probeUnitStats } from './snapshot-fold.ts';
 
 const catalog = loadDefaultCatalog();
-const GRAPH = M1_CAMPAIGN_GRAPH;
-const HUB = getNode(GRAPH, M1_NODES.stonebridge);
+const GRAPH = CAMPAIGN_GRAPH;
+const HUB = getNode(GRAPH, CAMPAIGN_NODES.alvera);
 
-const rich = () => ({ ...newCampaign(m0Roster, M1_NODES.stonebridge), gil: 50_000 });
+const rich = () => ({ ...newCampaign(m0Roster, CAMPAIGN_NODES.alvera), gil: 50_000 });
 
 describe('the hire menu (classes, cap, curve, bonus)', () => {
   it('offers exactly the Tier-1 classes', () => {

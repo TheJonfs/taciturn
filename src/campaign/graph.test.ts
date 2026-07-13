@@ -16,7 +16,7 @@ import {
   type CampaignGraph,
 } from './graph.ts';
 import { firstBattleBeat, isStandalone } from './sequence.ts';
-import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+import { CAMPAIGN_GRAPH, CAMPAIGN_NODES } from './node.ts';
 
 // A minimal graph: A forks to B (side) or C; B rejoins C; C is terminal. A
 // has a loss-edge to a retry node R (exercises outcome-awareness, which M1
@@ -76,8 +76,8 @@ describe('routing', () => {
   });
 });
 
-describe('the authored M1 graph', () => {
-  const g = M1_CAMPAIGN_GRAPH;
+describe('the authored Chapter 1 graph', () => {
+  const g = CAMPAIGN_GRAPH;
 
   it('every edge points at a node that exists', () => {
     const ids = new Set(g.nodes.map((n) => n.id));
@@ -87,9 +87,14 @@ describe('the authored M1 graph', () => {
     }
   });
 
-  it('battle nodes carry a battle beat; The Crossing is a standalone story node', () => {
+  it('battle nodes carry a battle beat; the hubs Zarghidas/Zelmonia Castle and the phantom Viura are battle-less', () => {
+    const battleless = new Set<string>([
+      CAMPAIGN_NODES.zarghidas,
+      CAMPAIGN_NODES.zelmoniaCastle,
+      CAMPAIGN_NODES.viura,
+    ]);
     for (const n of g.nodes) {
-      if (n.id === M1_NODES.theCrossing) {
+      if (battleless.has(n.id)) {
         expect(isStandalone(allNodeBeats(n))).toBe(true);
       } else {
         expect(firstBattleBeat(allNodeBeats(n))).toBeDefined();
@@ -97,24 +102,80 @@ describe('the authored M1 graph', () => {
     }
   });
 
-  it('the standalone story node sits on the south route (Marshmoor → Crossing → Return)', () => {
-    expect(winChoices(g, M1_NODES.marshmoor).map((n) => n.id)).toEqual([M1_NODES.theCrossing]);
-    expect(winChoices(g, M1_NODES.theCrossing).map((n) => n.id)).toEqual([M1_NODES.theReturn]);
+  it('the spine is linear: every non-terminal real node has exactly one real win-choice', () => {
+    for (const n of g.nodes) {
+      if (n.phantom === true) continue;
+      const choices = winChoices(g, n.id);
+      if (n.id === CAMPAIGN_NODES.rukVillage) {
+        expect(choices).toEqual([]); // the finale is terminal
+      } else {
+        expect(choices, `${n.id} should have one onward road`).toHaveLength(1);
+      }
+    }
   });
 
-  it('the start node is a genuine player-choice fork (>= 2 win-choices)', () => {
-    expect(winChoices(g, g.startId).length).toBeGreaterThanOrEqual(2);
+  it('walks start → finale in the authored order', () => {
+    const spine: string[] = [g.startId];
+    while (winChoices(g, spine[spine.length - 1]!).length > 0) {
+      spine.push(winChoices(g, spine[spine.length - 1]!)[0]!.id);
+    }
+    expect(spine).toEqual([
+      CAMPAIGN_NODES.zarghidas,
+      CAMPAIGN_NODES.oskun,
+      CAMPAIGN_NODES.alvera,
+      CAMPAIGN_NODES.zelmoniaCastle,
+      CAMPAIGN_NODES.zelmoniaHills,
+      CAMPAIGN_NODES.grekForest,
+      CAMPAIGN_NODES.fortCator,
+      CAMPAIGN_NODES.ordalCanyon,
+      CAMPAIGN_NODES.oldOrdal,
+      CAMPAIGN_NODES.mountEska,
+      CAMPAIGN_NODES.esterRoad,
+      CAMPAIGN_NODES.rukVillage,
+    ]);
   });
 
-  it('Stonebridge offers the skippable side-node AND the rejoin (skip)', () => {
-    const choices = winChoices(g, M1_NODES.stonebridge).map((n) => n.id);
-    expect(choices).toContain(M1_NODES.mountainPass); // take the side-node
-    expect(choices).toContain(M1_NODES.theReturn); // skip straight to the finale
+  it('Old Ordal keeps its REAL onward edge despite the phantom road to Viura (S92 watch-for)', () => {
+    // Phantom edges are excluded from isTerminal — if the real →Mount Eska
+    // edge were dropped, Old Ordal would become terminal and break the spine.
+    expect(isTerminal(g, CAMPAIGN_NODES.oldOrdal)).toBe(false);
+    expect(winChoices(g, CAMPAIGN_NODES.oldOrdal).map((n) => n.id)).toEqual([CAMPAIGN_NODES.mountEska]);
   });
 
-  it('the side-node rejoins the convergent terminal', () => {
-    expect(winChoices(g, M1_NODES.mountainPass).map((n) => n.id)).toEqual([M1_NODES.theReturn]);
-    expect(isTerminal(g, M1_NODES.theReturn)).toBe(true);
+  it('Viura is phantom: drawn, never a route', () => {
+    const viura = getNode(g, CAMPAIGN_NODES.viura);
+    expect(viura.phantom).toBe(true);
+    const phantomEdge = g.edges.find((e) => e.to === CAMPAIGN_NODES.viura)!;
+    expect(phantomEdge.phantom).toBe(true);
+    expect(isWinChoice(g, CAMPAIGN_NODES.oldOrdal, CAMPAIGN_NODES.viura)).toBe(false);
+  });
+
+  it('capabilities match the brief: hubs, farmables, dead nodes, chapter tags', () => {
+    const by = (id: string) => getNode(g, id);
+    for (const id of [
+      CAMPAIGN_NODES.zarghidas,
+      CAMPAIGN_NODES.alvera,
+      CAMPAIGN_NODES.zelmoniaCastle,
+      CAMPAIGN_NODES.fortCator,
+    ]) {
+      expect(by(id).isHub, `${id} should be a hub`).toBe(true);
+    }
+    for (const id of [
+      CAMPAIGN_NODES.oskun,
+      CAMPAIGN_NODES.zelmoniaHills,
+      CAMPAIGN_NODES.grekForest,
+      CAMPAIGN_NODES.ordalCanyon,
+      CAMPAIGN_NODES.mountEska,
+      CAMPAIGN_NODES.esterRoad,
+    ]) {
+      expect(by(id).farmable, `${id} should be farmable`).toBe(true);
+    }
+    // Dead nodes: Old Ordal, and Ruk Village in Ch1 (hub in Ch2).
+    for (const id of [CAMPAIGN_NODES.oldOrdal, CAMPAIGN_NODES.rukVillage]) {
+      expect(by(id).isHub ?? false).toBe(false);
+      expect(by(id).farmable ?? false).toBe(false);
+    }
+    expect(g.nodes.every((n) => n.chapter === 1)).toBe(true);
   });
 
   it('is a forward DAG (no node reaches itself by following win-edges)', () => {

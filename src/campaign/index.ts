@@ -57,6 +57,19 @@ export {
   m1Roster,
 } from './roster.ts';
 
+// Chapter 1 — the real campaign-start roster (rolled at New Campaign) and
+// the staggered plot-join units (S93).
+export {
+  CH1_CHRIS_ALCHEMIST_JP,
+  CH1_GENERIC_CLASSES,
+  CH1_START_LEVEL,
+  ch1StartingRoster,
+  clioJoinUnit,
+  rollCh1Generics,
+  seraJoinUnit,
+  thessalyJoinUnit,
+} from './ch1-roster.ts';
+
 // Chunk 2 — the pure loop core (snapshot-fold in, summarize + apply-back out).
 export { foldCampaignRoster, foldEnemyTeam, foldGuestTeam, foldBattle, probeEffectiveMaxes, probeUnitStats } from './snapshot-fold.ts';
 export type { EffectiveUnitStats } from './snapshot-fold.ts';
@@ -105,7 +118,7 @@ export type { CurrentEngagement, TravelChoice } from './travel.ts';
 export { buildSkirmishBattle, generateSkirmishParty, skirmishLevelAt } from './skirmish.ts';
 export { CANONICAL_PROBE_BATTLE, probeBattleFor } from './probe-battle.ts';
 export type { VitalsProbeBattle } from './probe-battle.ts';
-export { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+export { CAMPAIGN_GRAPH, CAMPAIGN_NODES } from './node.ts';
 export { CAMPAIGN_RULESET_ID, contentBeats, hasContentBeats } from './node-content.ts';
 export {
   DEFAULT_PLACEHOLDER_TEMPLATE_KEY,

@@ -12,7 +12,7 @@
 
 import type { AtlasEdge, AtlasEngagement, AtlasGraph, AtlasNode } from './model.ts';
 
-// The identifier key a node id gets in the generated M1_NODES table:
+// The identifier key a node id gets in the generated CAMPAIGN_NODES table:
 // 'node-river-ridge' → riverRidge. The 'node-' prefix is convention, not
 // requirement; any slug camelCases. Collisions are a validation error
 // (validate.ts) — the codegen throws as the last line of defense.
@@ -48,7 +48,7 @@ function ref(keys: ReadonlyMap<string, string>, id: string): string {
   if (key === undefined) {
     throw new Error(`atlas codegen: edge/start references unknown node id '${id}'`);
   }
-  return `M1_NODES.${key}`;
+  return `CAMPAIGN_NODES.${key}`;
 }
 
 const quote = (s: string): string => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
@@ -58,7 +58,7 @@ const quote = (s: string): string => `'${s.replace(/\\/g, '\\\\').replace(/'/g, 
 const num = (n: number): string => String(n);
 
 // The beats expression for one engagement. A content engagement references
-// node-content by its EFFECTIVE beat id: the node's M1_NODES ref when
+// node-content by its EFFECTIVE beat id: the node's CAMPAIGN_NODES ref when
 // defaulted (first engagement, no explicit id), the quoted explicit id
 // otherwise — so the generated file reads exactly like the join it performs.
 function beatsExpr(node: AtlasNode, engagement: AtlasEngagement, index: number, keys: ReadonlyMap<string, string>): string {
@@ -158,7 +158,7 @@ ${imports.join('\n')}
 
 // Node ids — stable identity (CLAUDE.md rule 4), threaded into the save as
 // the campaign position. Authored as readable slugs.
-export const M1_NODES = {
+export const CAMPAIGN_NODES = {
 ${idEntries}
 } as const;
 
@@ -170,7 +170,7 @@ const EDGES: ReadonlyArray<CampaignEdge> = [
 ${edgeEntries}
 ];
 
-export const M1_CAMPAIGN_GRAPH: CampaignGraph = {
+export const CAMPAIGN_GRAPH: CampaignGraph = {
   startId: ${ref(keys, model.startId)},
   nodes: NODES,
   edges: EDGES,
@@ -197,7 +197,7 @@ export function generateLayoutModule(model: AtlasGraph): string {
     .join('\n');
 
   return `${LAYOUT_MODULE_HEADER}
-import { M1_NODES } from '@campaign/index.ts';
+import { CAMPAIGN_NODES } from '@campaign/index.ts';
 
 export interface NodePosition {
   readonly x: number;

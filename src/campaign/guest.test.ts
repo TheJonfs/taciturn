@@ -15,7 +15,7 @@ import { newCampaign } from './loop.ts';
 import { m0Roster } from './roster.ts';
 import { plotUnits } from './plot-units.ts';
 import { getNode, type CampaignNode } from './graph.ts';
-import { M1_CAMPAIGN_GRAPH } from './node.ts';
+import { CAMPAIGN_GRAPH } from './node.ts';
 
 const catalog = loadDefaultCatalog();
 const PLAYER: TeamId = teamId('team_a');
@@ -78,7 +78,7 @@ describe('foldGuestTeam — durable units onto guest slots', () => {
 describe('skirmish — never inherits story guests', () => {
   it('buildSkirmishBattle strips guest placements from the borrowed template', () => {
     const node: CampaignNode = {
-      ...getNode(M1_CAMPAIGN_GRAPH, M1_CAMPAIGN_GRAPH.startId),
+      ...getNode(CAMPAIGN_GRAPH, CAMPAIGN_GRAPH.startId),
       engagements: [
         {
           beats: [
@@ -102,7 +102,7 @@ describe('skirmish — never inherits story guests', () => {
 });
 
 describe('joinPlotUnit', () => {
-  const node = getNode(M1_CAMPAIGN_GRAPH, M1_CAMPAIGN_GRAPH.startId);
+  const node = getNode(CAMPAIGN_GRAPH, CAMPAIGN_GRAPH.startId);
   const joiner = plotUnits[0]!;
   const withoutJoiner = () => {
     const base = newCampaign(m0Roster, node.id);

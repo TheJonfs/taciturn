@@ -6,7 +6,7 @@ import { createInitialState } from '@engine/index.ts';
 import { partyAverageLevel } from './enemy-level.ts';
 import { allNodeBeats, getNode } from './graph.ts';
 import { newCampaign } from './loop.ts';
-import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+import { CAMPAIGN_GRAPH, CAMPAIGN_NODES } from './node.ts';
 import { CLASS_TIER_MAP, tierEntryOf } from './progression/index.ts';
 import { m0Roster } from './roster.ts';
 import { firstBattleBeat } from './sequence.ts';
@@ -14,8 +14,8 @@ import { buildSkirmishBattle, generateSkirmishParty, skirmishLevelAt } from './s
 import { foldBattle } from './snapshot-fold.ts';
 
 const catalog = loadDefaultCatalog();
-const GRAPH = M1_CAMPAIGN_GRAPH;
-const state = newCampaign(m0Roster, M1_NODES.riverRidge);
+const GRAPH = CAMPAIGN_GRAPH;
+const state = newCampaign(m0Roster, CAMPAIGN_NODES.oskun);
 
 describe('generateSkirmishParty (the D3 stub behind the M4 seam)', () => {
   it('spawns exactly `count` generics at `level`', () => {
@@ -44,7 +44,7 @@ describe('generateSkirmishParty (the D3 stub behind the M4 seam)', () => {
 });
 
 describe('buildSkirmishBattle', () => {
-  const node = getNode(GRAPH, M1_NODES.riverRidge);
+  const node = getNode(GRAPH, CAMPAIGN_NODES.oskun);
 
   it('borrows the node battlefield and fights ONLY the generated party', () => {
     const battle = buildSkirmishBattle(node, state, catalog);
@@ -78,7 +78,7 @@ describe('buildSkirmishBattle', () => {
   });
 
   it('throws loudly for a node with no battle beat', () => {
-    const crossing = getNode(GRAPH, M1_NODES.theCrossing);
+    const crossing = getNode(GRAPH, CAMPAIGN_NODES.zelmoniaCastle);
     expect(() => buildSkirmishBattle(crossing, state, catalog)).toThrow(/no battle beat/);
   });
 });

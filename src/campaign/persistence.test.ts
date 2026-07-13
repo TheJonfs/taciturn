@@ -3,10 +3,10 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { newCampaign } from './loop.ts';
-import { M1_NODES } from './node.ts';
+import { CAMPAIGN_NODES } from './node.ts';
 import { m0Roster } from './roster.ts';
 
-const START = M1_NODES.riverRidge;
+const START = CAMPAIGN_NODES.zarghidas;
 import {
   clearSavedCampaign,
   hasSavedCampaign,
@@ -21,9 +21,9 @@ describe('campaign persistence', () => {
   it('round-trips a campaign through localStorage', () => {
     const state = {
       ...newCampaign(m0Roster, START),
-      currentNodeId: M1_NODES.stonebridge,
+      currentNodeId: CAMPAIGN_NODES.oskun,
       // Runtime invariant: `visited` covers the position (routeToNode stamps it).
-      visited: [START, M1_NODES.stonebridge],
+      visited: [START, CAMPAIGN_NODES.oskun],
     };
     expect(hasSavedCampaign(KEY)).toBe(false);
     saveCampaign(state, KEY);

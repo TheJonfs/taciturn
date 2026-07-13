@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEBUG_JP_GRANT, debugGrantJp } from './debug-grant-jp.ts';
 import { newCampaign } from './loop.ts';
-import { M1_NODES } from './node.ts';
+import { CAMPAIGN_NODES } from './node.ts';
 import { m1Roster } from './roster.ts';
 import { COMPONENT_CATALOG, COMPONENT_ENTRIES } from './progression/component-catalog-data.ts';
 import { earnedInClass, reclassableClasses } from './progression/ledger.ts';
@@ -13,7 +13,7 @@ import type { CampaignState, CampaignUnit } from './types.ts';
 const CAT = COMPONENT_CATALOG;
 
 function fresh(): CampaignState {
-  return newCampaign(m1Roster, M1_NODES.riverRidge);
+  return newCampaign(m1Roster, CAMPAIGN_NODES.oskun);
 }
 
 describe('debugGrantJp', () => {

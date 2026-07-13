@@ -49,6 +49,11 @@ import plotChris from './plot-chris.png';
 import plotClio from './plot-clio.png';
 import plotThessaly from './plot-thessaly.png';
 import plotSera from './plot-sera.png';
+// Ch1 named non-roster characters (S93): the recurring antagonist and the
+// Oskun guest — plus Miluda's face, landed early for her Ch2 join.
+import plotTheo from './plot-theo.png';
+import plotWiegraf from './plot-wiegraf.png';
+import plotMiluda from './plot-miluda.png';
 
 interface PortraitPair {
   readonly male: string;
@@ -131,6 +136,9 @@ const FIXED_PORTRAITS: ReadonlyMap<PortraitKey, string> = new Map([
   ['plot-clio', plotClio],
   ['plot-thessaly', plotThessaly],
   ['plot-sera', plotSera],
+  ['plot-theo', plotTheo],
+  ['plot-wiegraf', plotWiegraf],
+  ['plot-miluda', plotMiluda],
 ]);
 
 // Resolve a portrait ref to a URL (or `null` → colored-circle fallback). The

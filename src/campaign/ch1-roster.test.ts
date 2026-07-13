@@ -21,7 +21,7 @@ import { PLOT_UNIT_IDS } from './plot-unit-ids.ts';
 import { probeBattleFor } from './probe-battle.ts';
 import { probeUnitStats } from './snapshot-fold.ts';
 import { getNode } from './graph.ts';
-import { M1_CAMPAIGN_GRAPH } from './node.ts';
+import { CAMPAIGN_GRAPH } from './node.ts';
 import type { CampaignUnit } from './types.ts';
 
 const catalog = loadDefaultCatalog();
@@ -39,7 +39,7 @@ function stubRng(seed = 1): () => number {
 // the canonical probe field (node-agnostic — equipment legality and loadout
 // capacity are what's under test).
 function expectFoldable(unit: CampaignUnit): void {
-  const probe = probeBattleFor(getNode(M1_CAMPAIGN_GRAPH, M1_CAMPAIGN_GRAPH.startId));
+  const probe = probeBattleFor(getNode(CAMPAIGN_GRAPH, CAMPAIGN_GRAPH.startId));
   const stats = probeUnitStats(probe.template, unit, teamId('team_a'), catalog);
   expect(stats, `${unit.name} (${String(unit.id)}) should fold cleanly`).not.toBeNull();
 }

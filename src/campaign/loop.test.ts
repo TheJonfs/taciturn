@@ -14,7 +14,7 @@ import {
   routeToNode,
   startCampaign,
 } from './loop.ts';
-import { M1_CAMPAIGN_GRAPH, M1_NODES } from './node.ts';
+import { CAMPAIGN_GRAPH, CAMPAIGN_NODES } from './node.ts';
 import { allNodeBeats, getNode, type CampaignNode } from './graph.ts';
 import { firstBattleBeat, type NodeBattle } from './sequence.ts';
 import { foldCampaignRoster } from './snapshot-fold.ts';
@@ -24,9 +24,10 @@ import { m0Roster } from './roster.ts';
 import type { CampaignUnit } from './types.ts';
 
 const catalog = loadDefaultCatalog();
-const GRAPH = M1_CAMPAIGN_GRAPH;
-const START = getNode(GRAPH, M1_NODES.riverRidge); // the fork node
-const TERMINAL = getNode(GRAPH, M1_NODES.theReturn); // no win-edges
+const GRAPH = CAMPAIGN_GRAPH;
+const START = getNode(GRAPH, CAMPAIGN_NODES.zarghidas); // battle-less hub start (probe fallback)
+const FIRST_BATTLE = getNode(GRAPH, CAMPAIGN_NODES.oskun); // the first battle node
+const TERMINAL = getNode(GRAPH, CAMPAIGN_NODES.rukVillage); // no win-edges
 
 // The (single) battle a node's beat sequence launches.
 const battleOf = (node: CampaignNode): NodeBattle => firstBattleBeat(allNodeBeats(node))!.battle;
@@ -68,7 +69,7 @@ describe('startCampaign + bootstrap', () => {
   it('bootstraps a roster LARGER than one node deploy cap to effective full', () => {
     // m0Roster (N=8) exceeds the start node's slot count (5) — the chunked
     // probe must still heal every unit, and to AT LEAST the provisional base-max.
-    expect(m0Roster.length).toBeGreaterThan(battleOf(START).deployCap);
+    expect(m0Roster.length).toBeGreaterThan(battleOf(FIRST_BATTLE).deployCap);
     const healed = bootstrapRosterVitals(m0Roster, START, catalog);
     expect(healed).toHaveLength(m0Roster.length);
     healed.forEach((u, i) => {
@@ -91,8 +92,8 @@ describe('selectors', () => {
   it('currentNode resolves the position node id', () => {
     const a = startCampaign(GRAPH, m0Roster, catalog);
     expect(currentNode(GRAPH, a).id).toBe(START.id);
-    expect(currentNode(GRAPH, { ...a, currentNodeId: M1_NODES.stonebridge }).id).toBe(
-      M1_NODES.stonebridge,
+    expect(currentNode(GRAPH, { ...a, currentNodeId: CAMPAIGN_NODES.oskun }).id).toBe(
+      CAMPAIGN_NODES.oskun,
     );
   });
 
@@ -108,11 +109,11 @@ describe('selectors', () => {
 
   it('battleWasWon reads the outcome winner against the battle-beat player team', () => {
     const deployed = m0Roster.slice(0, 3);
-    const team = battleOf(START).playerTeam;
-    expect(battleWasWon(summarizeBattleResult(terminalState(START, deployed, 'player')), team)).toBe(
+    const team = battleOf(FIRST_BATTLE).playerTeam;
+    expect(battleWasWon(summarizeBattleResult(terminalState(FIRST_BATTLE, deployed, 'player')), team)).toBe(
       true,
     );
-    expect(battleWasWon(summarizeBattleResult(terminalState(START, deployed, 'enemy')), team)).toBe(
+    expect(battleWasWon(summarizeBattleResult(terminalState(FIRST_BATTLE, deployed, 'enemy')), team)).toBe(
       false,
     );
   });
@@ -123,9 +124,9 @@ describe('applyBattleBeatWin + resolveNode', () => {
 
   it('applyBattleBeatWin applies the result back but does NOT move the phase', () => {
     const start = startCampaign(GRAPH, m0Roster, catalog);
-    const finalState = terminalState(START, deployed, 'player');
+    const finalState = terminalState(FIRST_BATTLE, deployed, 'player');
     const result = summarizeBattleResult(finalState);
-    const applied = applyBattleBeatWin(start, result, finalState, catalog, battleOf(START).playerTeam);
+    const applied = applyBattleBeatWin(start, result, finalState, catalog, battleOf(FIRST_BATTLE).playerTeam);
 
     // Apply-back heals/marks-lost; phase holds (the NODE resolves separately).
     expect(applied.phase).toBe('in_progress');
@@ -136,8 +137,8 @@ describe('applyBattleBeatWin + resolveNode', () => {
 
   it('applyBattleBeatWin pays the gil award: X × Σ(enemy levels) (M3 economy Stage 0)', () => {
     const start = startCampaign(GRAPH, m0Roster, catalog);
-    const finalState = terminalState(START, deployed, 'player');
-    const playerTeam = battleOf(START).playerTeam;
+    const finalState = terminalState(FIRST_BATTLE, deployed, 'player');
+    const playerTeam = battleOf(FIRST_BATTLE).playerTeam;
     const applied = applyBattleBeatWin(start, summarizeBattleResult(finalState), finalState, catalog, playerTeam);
 
     let enemyLevels = 0;
@@ -167,8 +168,8 @@ describe('applyBattleBeatWin + resolveNode', () => {
   });
 
   it('resolveNode works for a battle-less standalone node (no apply-back ran)', () => {
-    // The Crossing is a standalone story node; it still resolves + routes.
-    const atCrossing = { ...startCampaign(GRAPH, m0Roster, catalog), currentNodeId: M1_NODES.theCrossing };
+    // Zelmonia Castle is a standalone story node; it still resolves + routes.
+    const atCrossing = { ...startCampaign(GRAPH, m0Roster, catalog), currentNodeId: CAMPAIGN_NODES.zelmoniaCastle };
     const resolved = resolveNode(atCrossing, GRAPH);
     expect(resolved.phase).toBe('awaiting_route');
     expect(resolved.roster).toBe(atCrossing.roster); // unchanged — no battle
@@ -180,39 +181,38 @@ describe('routeToNode', () => {
     // Simulate the real sequence: a resolved (awaiting_route, beat-cleared)
     // state, then pick — resolveNode is what opens the node's win-edges.
     const awaiting = resolveNode(startCampaign(GRAPH, m0Roster, catalog), GRAPH);
-    const routed = routeToNode(awaiting, GRAPH, M1_NODES.marshmoor);
-    expect(routed.currentNodeId).toBe(M1_NODES.marshmoor);
+    const routed = routeToNode(awaiting, GRAPH, CAMPAIGN_NODES.oskun);
+    expect(routed.currentNodeId).toBe(CAMPAIGN_NODES.oskun);
     expect(routed.phase).toBe('in_progress'); // ready to fight the chosen node
     // Travel stamps the destination as visited (M3 economy Stage 1).
-    expect(routed.visited).toContain(M1_NODES.marshmoor);
+    expect(routed.visited).toContain(CAMPAIGN_NODES.oskun);
     // The roster is carried unchanged (applyBattleBeatWin already healed it).
     expect(routed.roster).toBe(awaiting.roster);
   });
 
   it('throws on an illegal route (not a travel choice)', () => {
     const start = startCampaign(GRAPH, m0Roster, catalog);
-    // The Return is not reachable from an uncleared start node.
-    expect(() => routeToNode(start, GRAPH, M1_NODES.theReturn)).toThrow(/not a travel choice/);
+    // The finale is not reachable from an uncleared start node.
+    expect(() => routeToNode(start, GRAPH, CAMPAIGN_NODES.rukVillage)).toThrow(/not a travel choice/);
   });
 
-  it('allows RETURN travel to a visited, cleared, farmable node (M3 Stage 1)', () => {
-    // Clear the start, advance to Marshmoor — then travel BACK to the start.
+  it('allows RETURN travel to a visited, cleared node with availability (M3 Stage 1)', () => {
+    // Clear the start (a hub), advance to Oskun — then travel BACK to it.
     const cleared = resolveNode(startCampaign(GRAPH, m0Roster, catalog), GRAPH);
-    const atMarshmoor = routeToNode(cleared, GRAPH, M1_NODES.marshmoor);
-    const back = routeToNode(atMarshmoor, GRAPH, M1_NODES.riverRidge);
-    expect(back.currentNodeId).toBe(M1_NODES.riverRidge);
+    const atOskun = routeToNode(cleared, GRAPH, CAMPAIGN_NODES.oskun);
+    const back = routeToNode(atOskun, GRAPH, CAMPAIGN_NODES.zarghidas);
+    expect(back.currentNodeId).toBe(CAMPAIGN_NODES.zarghidas);
     // …and its cleared beat STAYS cleared (re-entry must not replay it).
-    expect(back.clearedStoryBeats).toContain(M1_NODES.riverRidge);
+    expect(back.clearedStoryBeats).toContain(CAMPAIGN_NODES.zarghidas);
   });
 
-  it('refuses travel to a visited node with nothing on offer', () => {
-    // The Crossing cleared: story-only, no valve, no hub → not a destination.
+  it('refuses travel to a visited DEAD node (no hub, no valve — Old Ordal)', () => {
     const state = {
       ...startCampaign(GRAPH, m0Roster, catalog),
-      currentNodeId: M1_NODES.marshmoor,
-      visited: [M1_NODES.riverRidge, M1_NODES.marshmoor, M1_NODES.theCrossing],
-      clearedStoryBeats: [M1_NODES.riverRidge, M1_NODES.marshmoor, M1_NODES.theCrossing],
+      currentNodeId: CAMPAIGN_NODES.mountEska,
+      visited: [CAMPAIGN_NODES.oldOrdal, CAMPAIGN_NODES.mountEska],
+      clearedStoryBeats: [CAMPAIGN_NODES.oldOrdal],
     };
-    expect(() => routeToNode(state, GRAPH, M1_NODES.theCrossing)).toThrow(/not a travel choice/);
+    expect(() => routeToNode(state, GRAPH, CAMPAIGN_NODES.oldOrdal)).toThrow(/not a travel choice/);
   });
 });

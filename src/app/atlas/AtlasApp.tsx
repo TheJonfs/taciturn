@@ -10,7 +10,7 @@
 // Beat/scene/enemy and economy-bundle authoring are later tiers.
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactElement } from 'react';
-import { M1_CAMPAIGN_GRAPH } from '@campaign/index.ts';
+import { CAMPAIGN_GRAPH } from '@campaign/index.ts';
 import { NODE_LAYOUT } from '../interstitial/node-layout.ts';
 import type { AtlasEdge, AtlasGraph, AtlasNode } from './model.ts';
 import { fromCampaignGraph } from './import.ts';
@@ -39,7 +39,7 @@ import { AtlasInspector } from './AtlasInspector.tsx';
 import { AtlasPreview } from './AtlasPreview.tsx';
 import { AtlasExport } from './AtlasExport.tsx';
 
-const shippedModel = (): AtlasGraph => fromCampaignGraph(M1_CAMPAIGN_GRAPH, NODE_LAYOUT);
+const shippedModel = (): AtlasGraph => fromCampaignGraph(CAMPAIGN_GRAPH, NODE_LAYOUT);
 
 export function AtlasApp(): ReactElement {
   const [model, setModel] = useState<AtlasGraph>(() => loadDraft() ?? shippedModel());
