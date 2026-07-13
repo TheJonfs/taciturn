@@ -11,87 +11,95 @@ been processed.
 
 ---
 
-## S92 — Ch1 substrate SHIPPED whole (2026-07-12)
+## S93 — Chapter 1 authored & LIVE (2026-07-13)
 
-All four pieces of `taba-ch1-substrate-brief.md` landed in one session
-(ADR-0149): the victory-condition grammar + death-protection + death
-tracking (WI1), the campaign-flag store + outcome-branched post-battle
-scenes (WI2), phantom node/edge with Atlas authoring (WI3), and guest
-allies + `joinPlotUnit` (WI4). Suite green (**2848**, was 2798), `tsc -b`
-clean, saves back-compatible (flags lenient-absent, no schema bump),
-Atlas round-trip pin byte-identical. Design docs updated:
-`turn-structure.md` (victory grammar + death protection),
-`atlas-guide.md` (phantom + the new NodeBattle fields, validation rules
-table).
+The whole Ch1 authoring brief shipped (ADR-0150): the M1 test graph is
+replaced by the real 13-node Chapter 1, walkable start→finale on
+placeholders, all four substrate features exercised, gear waves + stub
+prices live, campaign start reset to the true L1 party with rolled
+generics. Suite green (**2869**, was 2848), `tsc -b` clean, Atlas
+round-trip pin byte-identical on the renamed
+`CAMPAIGN_NODES`/`CAMPAIGN_GRAPH`. Portraits for Theo/Wiegraf/Miluda
+landed mid-session, bust-cropped + registered.
+
+### Verified live in-browser (the S92 eyeball item)
+
+Oskun's guest battle ran end-to-end in the preview: menu stays closed on
+Wiegraf's turn, he acts sanely (moved toward the line), the log names him
+in player-blue. Player turns open the menu normally. The battle "hang"
+first observed was NOT a bug — the preview pane is a hidden tab, so rAF/
+timer throttling stalls AI pacing; `window.__taciturnDebug.pump(n)`
+(shipped for exactly this) drives it. Plays normally in a visible tab.
 
 ### For Chris / the planner
 
-- **The Ch1 Atlas layout session is unblocked**: nodes 3/8/9/10's outcome
-  logic, the 9/10 `onOutcome` scene branches, Viura's phantom edge, and
-  the 1/6 guests are all authorable in `node-content.ts` / Atlas now.
-- **Design points settled at session start (recorded in ADR-0149):**
-  D-sub-1 → boss retreat presents post-battle only (no mid-battle beat);
-  D-sub-2 → confirmed, subdue ENDS the battle as a win; the missing
-  plot-unit-join mechanism → built (`joinPlotUnit`, campaign/join.ts).
-- **Brief write-backs (audit findings):** guests are NOT
-  Steal-Heart-minus-timer — Steal Heart flips control and keeps team; a
-  guest keeps team and flips control, which the existing seams handle
-  almost for free (the AI's team-derived friend/foe is *correct* for
-  guests). "Same mechanism as Clio/Thessaly joining" didn't exist — plot
-  units were seeded into the initial roster; the runtime join is new.
-  Scenes are inline beats, not sceneRefs, so `onOutcome` maps tag →
-  inline `StoryScene`.
-- **Threshold semantics pinned** (per the brief's watch-for lean): strict
-  `<` for below-fraction; "died" = ever hit 0 HP this battle, revival
-  does not clear it; a not-standing unit counts as below any threshold.
+- **Play the chapter.** The one series to measure is party-average-level
+  entering each node (pins the offset curve). Authored placeholder lineup
+  levels are 2/3/4/6/7/8/9/10/7/13 for nodes 1–10 — tune freely in
+  `node-content.ts` (`lineup(level)` per node).
+- **Design nits noticed while walking Zarghidas** (surface, don't fix
+  reflexively):
+  - The location-menu labels battle-flavor a scene-only story option:
+    Zarghidas shows "March on the enemy / The battle for this place
+    awaits" for its opening SCENE. A beats-aware label ("Continue the
+    story"?) is a small render-layer fix.
+  - During a GUEST's turn the action-menu placard reads "Opponent's turn"
+    — readable but wrong-flavored for an ally. Cosmetic.
+  - Campaign start shows the Zarghidas hub MENU before the opening scene
+    (hub + armed story = Dorter coexistence, and startCampaign marks the
+    start visited). If Chris wants scene-first-then-menu at campaign
+    start, that's an entry-resolution tweak, not authoring.
+- **Kit-seeding at L1** (ADR-0150 watch-for): every starter arrives with
+  its full Tier-1 class kit unlocked (the shipped hire-tool convention),
+  and that seeded spend counts toward reclass-tier thresholds — priced
+  for L25 veterans, now applied at L1. If early reclass options open too
+  fast in playtest, dial the seed scope.
+- **Chris's Alchemist trickle** is 100 JP (`CH1_CHRIS_ALCHEMIST_JP`) —
+  sized to "buy one cheap ability"; confirm against real component costs.
+- **Join gear is authored judgment** (brief didn't pin it): Clio
+  wand_of_depths+linen_robe, Thessaly battle_dictionary+linen_robe+
+  pointy_hat, Sera dagger+padded_vest+lookouts_hood. Tune freely in
+  `ch1-roster.ts`.
+- **Pendant of Lumara** is granted at the Oskun battle (brief allowed
+  node 0–1; node 0 has no battle beat to hang a grant on).
+- **Miluda's portrait is registered** (`plot-miluda`) but nothing
+  references it yet — her Ch2 join will (her m1Roster debug unit doesn't
+  carry a portrait key).
 
 ### Noticed, not acted on
 
-- **Same-boundary decide edge:** battle_end's outcome is decided at the
-  checkpoint that satisfies it; a generated action still draining on the
-  same boundary (e.g. a poison tick killing an enemy right after the
-  good-outcome battle_end enqueued) does not retro-downgrade the recorded
-  outcome. Documented in ADR-0149; revisit only if a playtest ever
-  surfaces it as feeling wrong.
-- **Retreated player units** classify `survived` with hp 0 in the battle
-  summary — apply-back would carry 0 HP. Unreachable in Ch1 (only the
-  antagonist is death-protected); if a future chapter protects a player
-  unit, decide the carry-HP rule then.
-- **AI charm asymmetry re-confirmed** (audit): the AI driving a charmed
-  PLAYER unit computes foes from the puppet's real team (backwards);
-  unreached while no enemy has Steal Heart. Unchanged by WI4 — guests
-  route around it because team and side agree.
-- **Guest turn-flow UI**: `isOurTurn` gating is tested at the hook level
-  and the orchestrator routing end-to-end (guest-control.test.ts), but no
-  browser playtest of a guest battle happened (no shipped battle authors
-  one yet). First Ch1 authoring session should eyeball Oskun's guest
-  fight live: menu stays closed on the guest's turn, guest acts sanely,
-  banner/log read right.
-- **`evaluateBattleOutcome` now takes the catalog** — any future caller
-  outside commit.ts must thread it.
+- Theo's kit tuning is placeholder: L4 = pin_down only; L10 = all three
+  Marksmanship actives + Eagle Eye equipped. Chris said exact JP/kit
+  comes later.
+- The whiteboard map's Ivalice/Ordallia border (red line) isn't drawn on
+  the world map — a render-layer backdrop feature; goes with the future
+  map-illustration backdrop (Chris may re-place nodes over an image
+  later; positions are one Atlas drag session).
+- Skirmish-stub enemy ids (`skirmish-enemy-N`) are reused by story-battle
+  lineups — unique within a battle, harmless across battles; the M4
+  generator replaces them anyway.
+- `node-content.ts` now calls `loadDefaultCatalog()` at module init
+  (authoring-time derivation only; ADR-0150 consequences note).
+- Old M1-sandbox saves are silently discarded at Resume (deliberate,
+  ADR-0150). Saves made on Ch1 nodes are v2-normal.
 
-### Carried from earlier (still open, low-priority — unchanged from S91)
+### Carried from earlier (still open, low-priority — pruned)
 
-- **Economy CONTENT pass remains the other M3 beat** (real bundles,
-  prices, unique placement; dials in `campaign/economy-config.ts`), then
-  Tailored Outfit; M4 authoring follows (gear seam ready per ADR-0146).
-- `WorldMapBeatView` march-state reset rider (hoist into the component if
-  a surface ever keeps it mounted across advances).
-- TERMINAL node with a multi-engagement queue sets `won` on clearing its
-  current engagement (edge-count-based isTerminal); cheap validation
-  warning if Ch1 authoring trips on it. Note: phantom edges are now
-  excluded from isTerminal (a node whose only out-edge is phantom IS
-  terminal) — that's load-bearing for Old Ordal if it ends a spur.
+- **Economy content remaining:** cost TUNING pass (stub prices shipped
+  S93; D-econ-6) + Tailored Outfit; then M4 authoring proper (real maps,
+  lineups via the `generateSkirmishParty` seam, dialogue — M4/M5).
+- `WorldMapBeatView` march-state reset rider (hoist if a surface keeps it
+  mounted across advances).
 - Two win-edges between the same (from, to) pair still deduped by
-  `addEdge` (not authorable in-tool); flag if a layout wants it.
+  `addEdge`; flag if a layout wants it.
 - Engagement-queue acceptance test uses hand-built graphs; add a
-  shipped-content pin when the real graph gains a camp.
+  shipped-content pin when the real graph gains a camp (Ch2).
 - Progressive reveal stays a small render-layer rider.
-- Atlas beat-editor tier before M5 authoring volume; `M1_NODES` cosmetic
-  rename; drag-from-rim edge gesture deferred.
+- Atlas beat-editor tier before M5 authoring volume; drag-from-rim edge
+  gesture deferred.
 - S89 playtest watch: AI gold-plating dials; kiting tie-break intended.
 - JP spillover on over-threshold spend; enemy progression tuning for
-  Stonebridge/Marshmoor/Mountain Pass.
+  the recycled battlefields.
 - Loadout 2nd-secondary UI, "Level Up!" banner polish,
   rapid-dialogue-advance setState-in-render warning, "99 cap" guide
   fiction.
@@ -106,4 +114,9 @@ table).
 - reclassUnit frees now-illegal passives but keeps now-illegal gear (D2:
   surface, don't resolve).
 - Income-to-price ratio / XP rubber-band / recruitment cap / re-entry
-  guard watch-fors from S88 remain live.
+  guard watch-fors from S88 remain live — now measurable on real Ch1.
+- Retreated player units classify `survived` with hp 0 (apply-back would
+  carry 0 HP); unreachable in Ch1 (only Theo is protected). Decide the
+  carry-HP rule if a future chapter protects a player unit.
+- AI charm asymmetry (charmed PLAYER unit foe computation) unreached
+  while no enemy has Steal Heart.

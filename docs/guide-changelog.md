@@ -44,6 +44,57 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 93 (2026-07-13) — CHAPTER 1 IS THE LIVE CAMPAIGN (ADR-0150)
+
+The M1 test campaign (River Ridge → The Return) is **replaced wholesale** by
+the real Chapter 1 — this reshapes most of what a campaign guide would say:
+
+- **New campaign map:** a 13-stop road out of Ivalice and back — Zarghidas
+  Trade City → Oskun Fields → Alvera Village → Zelmonia Castle → Zelmonia
+  Hills → Grek Forest → Fort Cator → Ordal Canyon → Old Ordal → Mount Eska →
+  Ester Road → Ruk Village (finale). Old Ordal also shows a **dashed road to
+  Viura** that never opens — the capital stays on the horizon. Old saves from
+  the test campaign are discarded (can't resume onto removed nodes).
+- **New starting party:** Lumen (L1 Pyromancer, Wand of Lumen) and Chris (L1
+  Knight, Iron Sword — can also switch to Alchemist from the start, with 100
+  JP banked there) plus **four rolled recruits** (Alchemist, Hunter, Monk,
+  Geosage — names, genders, and Brave/Faith 50–70 rolled fresh at each New
+  Campaign; the Geosage carries the Wand of the Deepwood). Everyone starts at
+  level 1. The old L25 test roster is gone.
+- **Companions join as the story unfolds:** Clio (L2 Hydrologist) after
+  Alvera, Thessaly (L3 Calculator) after Grek Forest, Sera (L5 Assassin)
+  after Ordal Canyon — where she first fights beside you as a **guest**.
+- **Guest allies (first shipped use):** Wiegraf Folles (L2 Alchemist with
+  Potion + Phoenix Down) fights alongside the party at Oskun Fields, and Sera
+  at Ordal Canyon. Guests are AI-driven and uncommandable, fight on your
+  side, and don't count against the 5-unit deploy cap.
+- **Special battles:** Theo Renault, an Ordallian commander (Hunter), bars
+  Zelmonia Hills (L4) and returns at Mount Eska (L10). He **cannot be
+  killed** — drive him below ~15% HP (or sweep his escort) and he retreats.
+  Ester Road and Ruk Village are **subdue-secret** fights: beat every
+  deserter (Ester) or just the Rebel Captain (Ruk) below 25% HP **without
+  killing a single enemy** for a better outcome the story remembers; one
+  enemy death locks you to the standard defeat-all path.
+- **Unique gear from story beats:** Pendant of Lumara (Oskun, for Lumen's
+  fire lesson), **Flametongue** (Zelmonia Hills, after Theo retreats),
+  Freelancer's Charm (Mount Eska).
+- **Shops now follow the story:** four hub towns (Zarghidas, Alvera, Zelmonia
+  Castle, Fort Cator) unlock gear in waves — Zarghidas starter kit at
+  campaign start; Alvera's caster gear when it's cleared; the castle's Heavy
+  lane on arrival; Fort Cator's Cutlass lane at node 5; and late-chapter
+  restocks (Staff of Abundance + Tome of Power after Old Ordal, Arcane Robe
+  after Mount Eska). Anything unlocked is buyable at any hub. **Real stub
+  prices** replace the flat 500-gil default for all Ch1 stock (basics
+  ~150–300, standard ~300–500, premium ~500–700). Gauntlet of Might and
+  Mantle of Protection are no longer buyable in Ch1 (held for Ch2).
+- **Farmable stops:** Oskun, Zelmonia Hills, Grek Forest, Ordal Canyon, Mount
+  Eska, and Ester Road offer repeatable skirmishes once cleared; Old Ordal
+  and Ruk Village offer nothing after their stories (in Ch1).
+- Caveat for the guide: battles currently recycle existing battlefields with
+  placeholder enemy lineups, and scenes are one-line author's notes — real
+  maps, enemies, and dialogue land in later milestones. Structure, joins,
+  shops, and special-battle rules above are real and stable.
+
 ## Session 92 (2026-07-12) — Ch1 substrate: outcome conditions, flags, phantom edge, guests (ADR-0149)
 
 _No player-facing changes in shipped content._ (Four campaign capabilities

@@ -457,6 +457,24 @@ These are noted to make their absence intentional rather than accidental:
   Clio/Thessaly" mechanism didn't exist — plot units were seeded, not
   joined). Nodes 3/8/9/10's battle logic and the 1/6 guest fights are now
   authorable in `node-content.ts`; the Ch1 layout session is unblocked.
+  **Chapter 1 authored & LIVE — SHIPPED whole** (ADR-0150, S93): the M1
+  test graph is replaced by the real 13-node Ch1 spine (Zarghidas →
+  Ruk Village + the Zelmonia Castle scene-hub + the Viura phantom),
+  hand-authored in codegen shape (round-trip pin green) with layout from
+  the whiteboard map; graph identifiers renamed chapter-neutral
+  (`CAMPAIGN_NODES`/`CAMPAIGN_GRAPH`). All four substrate features are
+  exercised in shipped content: Theo Renault death-protected retreats
+  (3/8), Wiegraf + Sera guests (1/6, Sera guest→join), subdue-secret
+  outcome branches + flags (9/10), staggered joins via the new
+  `NodeBattle.joins` driver rider (Clio@2/Thessaly@4/Sera@6), unique
+  drops via `NodeBattle.grants` (Pendant/Flametongue/Charm). Campaign
+  start is the true L1 party (Lumen + Chris + four generics ROLLED at
+  the New Campaign click); story battles carry skirmish-stub lineups at
+  authored offset-curve levels; the real Ch1 gear waves + stub prices
+  landed (the economy CONTENT pass's availability half is done — cost
+  TUNING still pending, D-econ-6). First live guest battle verified
+  in-browser. Remaining before M4-proper: real maps, enemy lineups,
+  and dialogue (M4/M5); Tailored Outfit.
   Then authoring (M4 — starts by replacing the skirmish stub), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.

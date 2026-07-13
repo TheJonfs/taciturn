@@ -341,6 +341,8 @@ interface NodeBattle {
   guests?: CampaignUnit[];     // guest allies re-skinning guest slots (ADR-0149)
   recordOutcomeAs?: string;    // flag key the fired outcome tag writes to (ADR-0149)
   onOutcome?: Record<string, StoryScene>; // outcome-branched follow-up scene (ADR-0149)
+  joins?: CampaignUnit[];      // post-battle joinPlotUnit roster joins (ADR-0150)
+  grants?: ItemId[];           // unique item drops on win, via receipt (ADR-0150)
 }
 ```
 
@@ -353,9 +355,12 @@ engagements are model-supported but not driver/save-exercised.
   `src/content/battles/` and beats *reference* them.
 - **Authored enemies** (`enemies?`) re-skin the template's enemy slots:
   curve stats at an authored level, mid-battle leveling, kits gated to
-  authored unlocks. The shipped pattern derives them *from* the template's
-  own slots (`riverRidgeEnemies()`), overriding only level + kit breadth.
-  Absent → the template's enemies pass through as-authored.
+  authored unlocks. The shipped Ch1 pattern generates placeholder lineups
+  via the skirmish stub (`generateSkirmishParty`) at an authored fixed
+  level, with named characters (Theo, the Ruk captain) authored as
+  `enemies[0]` over a reordered lead slot (ADR-0150). Absent → the
+  template's enemies pass through as-authored (the L25-era fixtures —
+  every Ch1 story battle authors enemies for this reason).
 - **Placeholder beats** (§5) are ordinary single-battle beats built from
   the template registry; the runtime can't tell them apart from "real"
   ones.
