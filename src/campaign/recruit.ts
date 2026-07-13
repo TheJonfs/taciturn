@@ -39,6 +39,7 @@ import {
 import { partyAverageLevel } from './enemy-level.ts';
 import type { CampaignNode } from './graph.ts';
 import { grantItems } from './inventory.ts';
+import { withInnatePassives } from './innate-passives.ts';
 import { spendGil } from './gil.ts';
 import { probeBattleFor } from './probe-battle.ts';
 import { COMPONENT_CATALOG, classesInSlot, seedStartingKit, tierSlot } from './progression/index.ts';
@@ -123,10 +124,16 @@ export interface HireSpec {
 // exact unit (probeUnitStats on this) before committing gil.
 export function buildHire(state: CampaignState, spec: HireSpec, catalog: Catalog): CampaignUnit {
   const classDef = catalog.getClass(spec.classId);
-  const loadout: Loadout = {
-    actionBuckets: { [bucketId('first_action')]: [classDef.firstActionCommandSet] },
-    passiveBuckets: {},
-  };
+  // Class innates arrive equipped (S94, Chris) — a fresh hire fights like
+  // a member of its class, not a blank sheet.
+  const loadout: Loadout = withInnatePassives(
+    {
+      actionBuckets: { [bucketId('first_action')]: [classDef.firstActionCommandSet] },
+      passiveBuckets: {},
+    },
+    spec.classId,
+    catalog,
+  );
   const kit = seedStartingKit(spec.classId, loadout, catalog, COMPONENT_CATALOG);
 
   let equipment: UnitEquipment = EMPTY_UNIT_EQUIPMENT;

@@ -63,6 +63,7 @@ import { mountainPassBattle } from '@content/battles/mountain-pass-battle.ts';
 import { deploymentZonesFor } from '@content/deployment/index.ts';
 import { authoredEnemy } from './authored-enemy.ts';
 import { clioJoinUnit, seraJoinUnit, thessalyJoinUnit } from './ch1-roster.ts';
+import { withInnatePassives } from './innate-passives.ts';
 import { generateSkirmishParty } from './skirmish.ts';
 import type { CampaignUnit } from './types.ts';
 import type { NodeBattle, NodeBeat, StoryScene, StorySceneBeat } from './sequence.ts';
@@ -102,12 +103,16 @@ function theoRenault(level: number, fullKit: boolean): CampaignUnit {
       classId: hunter,
       level,
       gender: 'male',
-      loadout: {
-        actionBuckets: { [bucketId('first_action')]: [catalog.getClass(hunter).firstActionCommandSet] },
-        // The rematch (L10) fights sharper: Eagle Eye equipped (native —
-        // free-in-class). Exact JP/kit tuning is deferred (Chris, S93).
-        passiveBuckets: fullKit ? { [bucketId('support')]: [abilityId('eagle_eye')] } : {},
-      },
+      loadout: withInnatePassives(
+        {
+          actionBuckets: { [bucketId('first_action')]: [catalog.getClass(hunter).firstActionCommandSet] },
+          // The rematch (L10) fights sharper: Eagle Eye also equipped.
+          // Exact JP/kit tuning is deferred (Chris, S93).
+          passiveBuckets: fullKit ? { [bucketId('support')]: [abilityId('eagle_eye')] } : {},
+        },
+        hunter,
+        catalog,
+      ),
       equipment: {
         ...EMPTY_UNIT_EQUIPMENT,
         rightHand: itemId('short_bow'),
@@ -141,10 +146,14 @@ function wiegrafGuest(): CampaignUnit {
       classId: alchemist,
       level: 2,
       gender: 'male',
-      loadout: {
-        actionBuckets: { [bucketId('first_action')]: [catalog.getClass(alchemist).firstActionCommandSet] },
-        passiveBuckets: {},
-      },
+      loadout: withInnatePassives(
+        {
+          actionBuckets: { [bucketId('first_action')]: [catalog.getClass(alchemist).firstActionCommandSet] },
+          passiveBuckets: {},
+        },
+        alchemist,
+        catalog,
+      ),
       equipment: {
         leftHand: itemId('buckler'),
         rightHand: itemId('iron_sword'),
@@ -174,10 +183,14 @@ function rukCaptain(level: number): CampaignUnit {
     classId: knight,
     level,
     gender: 'male',
-    loadout: {
-      actionBuckets: { [bucketId('first_action')]: [catalog.getClass(knight).firstActionCommandSet] },
-      passiveBuckets: {},
-    },
+    loadout: withInnatePassives(
+      {
+        actionBuckets: { [bucketId('first_action')]: [catalog.getClass(knight).firstActionCommandSet] },
+        passiveBuckets: {},
+      },
+      knight,
+      catalog,
+    ),
     equipment: {
       ...EMPTY_UNIT_EQUIPMENT,
       rightHand: itemId('iron_sword'),

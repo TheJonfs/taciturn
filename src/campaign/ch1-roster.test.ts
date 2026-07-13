@@ -118,3 +118,51 @@ describe('the staggered plot joins', () => {
     }
   });
 });
+
+describe('S94 feedback round — innates equipped, limited kits', () => {
+  const roster = ch1StartingRoster(stubRng(), catalog);
+
+  // Every free PASSIVE of a unit's class must be equipped somewhere in its
+  // passive buckets (the S94 auto-equip; 'attack' and other actives exempt).
+  function expectInnatesEquipped(unit: CampaignUnit): void {
+    const equipped = new Set(
+      Object.values(unit.loadout.passiveBuckets).flat().map(String),
+    );
+    for (const id of catalog.getClass(unit.classId).freeAbilities) {
+      if (catalog.getAbility(id).kind !== 'passive') continue;
+      expect(equipped.has(String(id)), `${unit.name} should equip innate ${String(id)}`).toBe(true);
+    }
+  }
+
+  it('every starter and join unit has its class innates equipped', () => {
+    for (const unit of [...roster, clioJoinUnit(catalog), thessalyJoinUnit(catalog), seraJoinUnit(catalog)]) {
+      expectInnatesEquipped(unit);
+    }
+  });
+
+  it('the named cast starts with LIMITED kits; generics keep the full class kit', () => {
+    const unlockIds = (u: CampaignUnit) => u.unlocks.map((t) => String(t.id)).sort();
+    expect(unlockIds(roster[0]!)).toEqual(['fire_strike']); // Lumen: just Scorch
+    expect(unlockIds(roster[1]!)).toEqual(['power_attack']); // Chris: just Power Attack
+    expect(unlockIds(clioJoinUnit(catalog))).toEqual(['water_strike']); // Clio: just Water Lash
+    expect(unlockIds(seraJoinUnit(catalog))).toEqual(['hamstring']); // Sera: her signature
+    expect(unlockIds(thessalyJoinUnit(catalog))).toEqual(['exact_rhythm', 'height', 'prime']);
+    // The rolled generics keep the hire-tool convention (full Tier-1 kit).
+    for (const generic of roster.slice(2)) {
+      expect(generic.unlocks.length).toBeGreaterThan(1);
+    }
+  });
+
+  it('authored kits land at zero available JP (earned == spent), trickle intact', () => {
+    const lumen = roster[0]!;
+    expect(lumen.earnedByClass).toEqual({ fire_mage: 100 });
+    const chris = roster[1]!;
+    expect(chris.earnedByClass).toEqual({ knight: 100, alchemist: CH1_CHRIS_ALCHEMIST_JP });
+    expect(thessalyJoinUnit(catalog).earnedByClass).toEqual({ calculator: 450 });
+  });
+
+  it('Lumen and Chris swapped bodies: Jacket on Lumen, Vest on Chris (S94)', () => {
+    expect(String(roster[0]!.equipment.armor)).toBe('padded_jacket');
+    expect(String(roster[1]!.equipment.armor)).toBe('padded_vest');
+  });
+});

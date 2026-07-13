@@ -17,6 +17,7 @@
 import { EMPTY_UNIT_EQUIPMENT, bucketId, classId, type Catalog, type ClassId, type Loadout } from '@engine/index.ts';
 import { authoredEnemy } from './authored-enemy.ts';
 import { partyAverageLevel, resolveEnemyLevel } from './enemy-level.ts';
+import { withInnatePassives } from './innate-passives.ts';
 import { allNodeBeats, type CampaignNode } from './graph.ts';
 import { COMPONENT_CATALOG, seedStartingKit } from './progression/index.ts';
 import { firstBattleBeat, type NodeBattle } from './sequence.ts';
@@ -55,12 +56,17 @@ export function generateSkirmishParty(
 ): ReadonlyArray<CampaignUnit> {
   return Array.from({ length: count }, (_, i) => {
     const cls = STUB_CLASS_ROTATION[i % STUB_CLASS_ROTATION.length]!;
-    // The class's first-action command set is its whole stub loadout; the
-    // starting kit derives the matching unlocks so its actives are usable.
-    const loadout: Loadout = {
-      actionBuckets: { [bucketId('first_action')]: [catalog.getClass(cls).firstActionCommandSet] },
-      passiveBuckets: {},
-    };
+    // The class's first-action command set plus its innate passives (S94:
+    // every created unit fights like a member of its class); the starting
+    // kit derives the matching unlocks so its actives are usable.
+    const loadout: Loadout = withInnatePassives(
+      {
+        actionBuckets: { [bucketId('first_action')]: [catalog.getClass(cls).firstActionCommandSet] },
+        passiveBuckets: {},
+      },
+      cls,
+      catalog,
+    );
     const kit = seedStartingKit(cls, loadout, catalog, COMPONENT_CATALOG);
     return authoredEnemy({
       id: `skirmish-enemy-${i + 1}`,

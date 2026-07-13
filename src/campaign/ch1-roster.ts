@@ -8,14 +8,16 @@
 // mid-chapter through the runtime `joinPlotUnit` mechanism (ADR-0149 WI4),
 // authored here as fixed-level join units.
 //
-// Kit convention: every unit built here carries its class starting kit
-// EXPLICITLY (`seedStartingKit` at build time) rather than relying on
-// `startCampaign`'s auto-seed — the join units never pass through
-// campaign-start seeding, and Chris's authored Alchemist JP trickle would
-// make the auto-seed skip him (it treats any earned JP as "already
-// authored"). Building all of them through one door keeps the whole cast
-// uniform. This matches the hire tool's convention: a Tier-1 unit arrives
-// with its class kit unlocked; the tree beyond stays earned.
+// Kit convention (revised S94, Chris): the NAMED cast starts SMALL — an
+// authored kit of one signature basic each (Lumen: Scorch; Chris: Power
+// Attack; Clio: Water Lash; Sera: Hamstring; Thessaly: an Exact
+// Rhythm/Height/Prime Math line), with earned JP = the kit's cost so
+// available lands at 0 and the tree is earned from there. The rolled
+// GENERICS keep the hire-tool convention (full Tier-1 class kit,
+// `seedStartingKit`). Either way the kit is authored at BUILD time — the
+// join units never pass through campaign-start seeding, and Chris's
+// Alchemist JP trickle would make the auto-seed skip him. Class-innate
+// passives (`freeAbilities`) arrive EQUIPPED on everyone (S94).
 //
 // The M1 roster (`m1Roster` — L25 leads + Alice/Miluda/Can'tano) stays
 // authored in roster.ts for debug harnesses, and Miluda is slated to join
@@ -36,9 +38,16 @@ import {
   type UnitEquipment,
 } from '@engine/index.ts';
 import { buildBaseStats } from '@content/teams/index.ts';
+import { withInnatePassives } from './innate-passives.ts';
 import { PLOT_UNIT_IDS } from './plot-unit-ids.ts';
 import { HIRE_NAMES, starterGearFor } from './recruit.ts';
-import { COMPONENT_CATALOG, seedStartingKit } from './progression/index.ts';
+import {
+  COMPONENT_CATALOG,
+  componentMetaOf,
+  seedStartingKit,
+  tokenKey,
+  type UnlockToken,
+} from './progression/index.ts';
 import { EMPTY_EARNED_BY_CLASS, type CampaignUnit } from './types.ts';
 
 const FIRST_ACTION = bucketId('first_action');
@@ -86,8 +95,30 @@ interface Ch1UnitSpec {
   readonly innate?: AbilityId;
   readonly portrait?: string;
   readonly classAccessOverride?: ReadonlyArray<ClassId>;
-  // Extra banked JP merged over the seeded kit's spend (Chris's trickle).
+  // Extra banked JP merged over the kit's spend (Chris's trickle).
   readonly extraJp?: Readonly<Record<string, number>>;
+  // AUTHORED starting kit (S94, Chris): exactly these unlocks, with
+  // earned JP set to their summed cost (available lands at 0 — the
+  // seedStartingKit invariant, kept). Absent → the full class starting
+  // kit (`seedStartingKit`), the rolled-generic/hire convention. The
+  // named cast starts SMALL: one signature basic each; the tree is
+  // earned from there.
+  readonly kit?: ReadonlyArray<UnlockToken>;
+}
+
+// earned == spent per class for an authored token list (the same
+// attribution seedStartingKit uses: each component's cost lands in its
+// native class's pool, so the derived `spentInClass` zeroes out).
+function authoredKitEarnings(tokens: ReadonlyArray<UnlockToken>): Record<string, number> {
+  const earned: Record<string, number> = {};
+  for (const token of tokens) {
+    if (!COMPONENT_CATALOG.has(tokenKey(token))) {
+      throw new Error(`ch1-roster: authored kit token ${tokenKey(token)} is not in the component catalog`);
+    }
+    const meta = componentMetaOf(token, COMPONENT_CATALOG);
+    earned[String(meta.nativeClass)] = (earned[String(meta.nativeClass)] ?? 0) + meta.cost;
+  }
+  return earned;
 }
 
 // The one door every Ch1 authored unit is built through: class first-action
@@ -97,11 +128,20 @@ interface Ch1UnitSpec {
 function ch1Unit(spec: Ch1UnitSpec, catalog: Catalog): CampaignUnit {
   const brave = spec.brave ?? NAMED_BRAVE;
   const faith = spec.faith ?? NAMED_FAITH;
-  const loadout: Loadout = {
-    actionBuckets: { [FIRST_ACTION]: [catalog.getClass(spec.classId).firstActionCommandSet] },
-    passiveBuckets: spec.innate !== undefined ? { [SUPPORT]: [spec.innate] } : {},
-  };
-  const kit = seedStartingKit(spec.classId, loadout, catalog, COMPONENT_CATALOG);
+  // Class innates auto-equipped (S94, Chris) — the signature innate first
+  // (authored identity), then the class's free passives in their buckets.
+  const loadout: Loadout = withInnatePassives(
+    {
+      actionBuckets: { [FIRST_ACTION]: [catalog.getClass(spec.classId).firstActionCommandSet] },
+      passiveBuckets: spec.innate !== undefined ? { [SUPPORT]: [spec.innate] } : {},
+    },
+    spec.classId,
+    catalog,
+  );
+  const kit =
+    spec.kit !== undefined
+      ? { unlocks: spec.kit, earnedByClass: authoredKitEarnings(spec.kit) }
+      : seedStartingKit(spec.classId, loadout, catalog, COMPONENT_CATALOG);
   let earnedByClass =
     Object.keys(kit.earnedByClass).length > 0 ? kit.earnedByClass : EMPTY_EARNED_BY_CLASS;
   if (spec.extraJp !== undefined) {
@@ -151,10 +191,12 @@ function lumenAtStart(catalog: Catalog): CampaignUnit {
       gender: 'female',
       innate: abilityId('ascendant_flame'),
       portrait: String(PLOT_UNIT_IDS.lumen),
+      // Starts knowing just Scorch (S94, Chris) — the fire lesson is earned.
+      kit: [{ kind: 'ability', id: abilityId('fire_strike') }],
       equipment: {
         ...EMPTY_UNIT_EQUIPMENT,
         rightHand: itemId('wand_of_lumen'),
-        armor: itemId('padded_vest'),
+        armor: itemId('padded_jacket'),
       },
     },
     catalog,
@@ -176,10 +218,12 @@ function chrisAtStart(catalog: Catalog): CampaignUnit {
       portrait: String(PLOT_UNIT_IDS.chris),
       classAccessOverride: [classId('knight'), classId('alchemist')],
       extraJp: { alchemist: CH1_CHRIS_ALCHEMIST_JP },
+      // Starts knowing just Power Attack (S94, Chris).
+      kit: [{ kind: 'ability', id: abilityId('power_attack') }],
       equipment: {
         ...EMPTY_UNIT_EQUIPMENT,
         rightHand: itemId('iron_sword'),
-        armor: itemId('padded_jacket'),
+        armor: itemId('padded_vest'),
       },
     },
     catalog,
@@ -253,6 +297,8 @@ export function clioJoinUnit(catalog: Catalog): CampaignUnit {
       gender: 'female',
       innate: abilityId('tidal_cadence'),
       portrait: String(PLOT_UNIT_IDS.clio),
+      // Starts knowing just Water Lash (S94, Chris).
+      kit: [{ kind: 'ability', id: abilityId('water_strike') }],
       equipment: {
         ...EMPTY_UNIT_EQUIPMENT,
         rightHand: itemId('wand_of_depths'),
@@ -276,6 +322,13 @@ export function thessalyJoinUnit(catalog: Catalog): CampaignUnit {
       gender: 'female',
       portrait: String(PLOT_UNIT_IDS.thessaly),
       classAccessOverride: [classId('calculator'), classId('earth_mage')],
+      // Starts with one castable Math line (S94, Chris): Exact Rhythm on
+      // Height/Prime.
+      kit: [
+        { kind: 'ability', id: abilityId('exact_rhythm') },
+        { kind: 'mathParameter', id: 'height' },
+        { kind: 'mathValue', id: 'prime' },
+      ],
       equipment: {
         ...EMPTY_UNIT_EQUIPMENT,
         leftHand: itemId('battle_dictionary'),
@@ -302,6 +355,9 @@ export function seraJoinUnit(catalog: Catalog): CampaignUnit {
       gender: 'female',
       portrait: String(PLOT_UNIT_IDS.sera),
       classAccessOverride: [classId('assassin'), classId('monk')],
+      // Starts with her restricted signature, Hamstring (S94, Chris —
+      // deliberately revising S84's earned-not-seeded for the L5 join).
+      kit: [{ kind: 'ability', id: abilityId('hamstring') }],
       equipment: {
         ...EMPTY_UNIT_EQUIPMENT,
         rightHand: itemId('dagger'),
