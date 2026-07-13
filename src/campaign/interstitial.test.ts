@@ -133,7 +133,7 @@ describe('buildLocationMenuBeat', () => {
     expect(beat.options[0]!.detail).toMatch(/enemy level/i);
   });
 
-  it('offers the armed story AND the shop at an uncleared hub (Dorter coexistence)', () => {
+  it('offers the armed story AND the shop at an uncleared hub (pure builder; the S94 story-first driver bypasses this menu)', () => {
     const alvera = getNode(GRAPH, CAMPAIGN_NODES.alvera);
     const state = {
       ...newCampaign(m0Roster, CAMPAIGN_NODES.alvera),

@@ -57,7 +57,6 @@ import {
   hasBattleAtOrAfter,
   hireGeneric,
   isComplete,
-  isHubNow,
   isStoryCleared,
   joinPlotUnit,
   outcomeFollowUpScene,
@@ -177,15 +176,15 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
       return runScreen([buildRouteChoiceBeat(GRAPH, st)], { kind: 'route', state: st }, key);
     }
     const entryNode = getNode(GRAPH, st.currentNodeId);
-    if (isStoryCleared(st, entryNode) || isHubNow(st, entryNode)) {
-      // ENTRY RESOLUTION (M3 economy Stages 1–2). Two cases share the menu:
-      //   - the story beat is CLEARED → the one hard rule: it NEVER replays;
-      //     the menu offers what's here now (skirmish/shop). Per-BEAT guard —
-      //     a future re-armed later engagement is a new id and walks below.
-      //   - the story beat is ARMED but commerce coexists (a hub — the
-      //     Dorter pattern): the brief's "presented as options when several
-      //     coexist". The menu offers the battle AND the shop; a plain
-      //     combat node (no hub) still enters its battle directly below.
+    if (isStoryCleared(st, entryNode)) {
+      // ENTRY RESOLUTION (M3 Stages 1–2; STORY-FIRST per S94, Chris): the
+      // location menu shows only when nothing story is armed — a cleared
+      // beat NEVER replays, so the menu offers what's here now
+      // (skirmish/shop/recruit; visit-completes for a beat-less market
+      // town). An ARMED story — hub or not — walks its beats directly
+      // below: at a commercial hub the story battle comes first and the
+      // shop opens once it's won (this revises the S88 Dorter-coexistence
+      // menu, which offered story + shop side by side).
       return runScreen([buildLocationMenuBeat(entryNode, st)], { kind: 'location', state: st }, key);
     }
     const entryBeats = armedEngagementBeats(st, entryNode);
