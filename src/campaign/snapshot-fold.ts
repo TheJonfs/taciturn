@@ -328,6 +328,11 @@ function campaignPlacement(
   // A guest SLOT re-skinned with a durable unit stays a guest (WI4).
   const withGuest: UnitPlacement =
     slot.guest === true ? { ...withGender, guest: true } : withGender;
+  // A death-protected SLOT re-skinned with a durable unit stays protected
+  // (WI1 — Ch1 authoring: the boss placement authors the flag; the fold
+  // must not strip it when an authored enemy spec supplies who stands there).
+  const withProtection: UnitPlacement =
+    slot.deathProtected === true ? { ...withGuest, deathProtected: true } : withGuest;
   // TABA (ADR-0136 completion): carry the enduring portrait override into battle.
-  return unit.portrait !== undefined ? { ...withGuest, portrait: unit.portrait } : withGuest;
+  return unit.portrait !== undefined ? { ...withProtection, portrait: unit.portrait } : withProtection;
 }

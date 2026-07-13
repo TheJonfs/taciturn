@@ -53,11 +53,13 @@ import {
   deployableRoster,
   foldBattle,
   getNode,
+  grantItems,
   hasBattleAtOrAfter,
   hireGeneric,
   isComplete,
   isHubNow,
   isStoryCleared,
+  joinPlotUnit,
   outcomeFollowUpScene,
   probeBattleFor,
   resolveNode,
@@ -399,6 +401,17 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     }
     const followUp = outcomeFollowUpScene(battle, firedOutcome);
     const followUpBeats = followUp !== undefined ? [followUp] : [];
+
+    // Ch1 authoring: post-battle roster joins + unique item grants, authored
+    // on the battle beat (story battles only — a skirmish's synthesized
+    // battle never authors them). Joins probe against this node's field;
+    // grants enter through the receipt door.
+    if (battle.joins !== undefined) {
+      for (const unit of battle.joins) applied = joinPlotUnit(applied, node, unit, catalog);
+    }
+    if (battle.grants !== undefined) {
+      applied = grantItems(applied, battle.grants.map((id) => [id, 1] as const));
+    }
 
     if (skirmish) {
       // A skirmish pays its rewards and ends at the world map. It NEVER marks

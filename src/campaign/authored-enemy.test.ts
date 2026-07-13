@@ -161,3 +161,31 @@ describe('River Ridge opener — the first authored enemy garrison', () => {
     expect(usable.has('flame_lance')).toBe(false); // the Pyromancer ultimate — gated out
   });
 });
+
+describe('death-protected slots survive the enemy fold (Ch1 WI1 authoring)', () => {
+  // The Ch1 boss pattern: the template variant flags an enemy PLACEMENT as
+  // death-protected, and an authored enemy spec supplies who stands there.
+  // The fold must carry the slot's flag onto the re-skinned placement, the
+  // same way it carries `guest`.
+  const firstEnemySlotId = riverRidgeBattle.units.find((u) => u.team === ENEMY)!.id;
+  const protectedTemplate = {
+    ...riverRidgeBattle,
+    units: riverRidgeBattle.units.map((u) =>
+      u.id === firstEnemySlotId ? { ...u, deathProtected: true as const } : u,
+    ),
+  };
+
+  it('the re-skinned boss placement keeps deathProtected', () => {
+    const folded = foldEnemyTeam(protectedTemplate, [weakKnight('boss', 10)], ENEMY, catalog);
+    const boss = folded.units.find((u) => String(u.id) === 'boss')!;
+    expect(boss.deathProtected).toBe(true);
+    // Other re-skinned/authored slots carry no flag.
+    expect(folded.units.filter((u) => u.deathProtected === true)).toHaveLength(1);
+  });
+
+  it('the engine threads the folded flag onto the Unit', () => {
+    const folded = foldEnemyTeam(protectedTemplate, [weakKnight('boss', 10)], ENEMY, catalog);
+    const state = createInitialState(folded, catalog);
+    expect(state.units.get(folded.units.find((u) => String(u.id) === 'boss')!.id)?.deathProtected).toBe(true);
+  });
+});

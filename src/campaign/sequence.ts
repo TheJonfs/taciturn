@@ -26,7 +26,7 @@
 // `NodeBattle` lives here (not graph.ts) so graph.ts can import the beat types
 // without a cycle: sequence.ts → engine only; graph.ts → sequence.ts.
 
-import type { BattleConfig, DeploymentZoneConfig, TeamId } from '@engine/index.ts';
+import type { BattleConfig, DeploymentZoneConfig, ItemId, TeamId } from '@engine/index.ts';
 import type { PortraitRef } from '../assets/portraits/index.ts';
 import type { CampaignUnit } from './types.ts';
 
@@ -69,6 +69,17 @@ export interface NodeBattle {
   // node's positional trailing scenes, which stay shared across
   // outcomes. Tags with no entry (and wins with no tag) add nothing.
   readonly onOutcome?: Readonly<Record<string, StoryScene>>;
+  // Ch1 authoring — post-battle roster joins (optional): plot units the
+  // driver appends to the durable roster via `joinPlotUnit` after this
+  // battle is won (Clio at Alvera, Thessaly at Grek Forest, Sera at
+  // Ordal Canyon). A story battle never replays (per-beat cleared
+  // guard), so a join fires exactly once; skirmishes never author joins.
+  readonly joins?: ReadonlyArray<CampaignUnit>;
+  // Ch1 authoring — unique item grants on win (optional): found gear
+  // keyed to this battle (Pendant of Lumara at Oskun, Flametongue at
+  // Zelmonia Hills, Freelancer's Charm at Mount Eska), entering the
+  // party inventory through the receipt door (`grantItems`).
+  readonly grants?: ReadonlyArray<ItemId>;
 }
 
 // One line of authored dialogue. Placeholder-friendly: a display name + text,
