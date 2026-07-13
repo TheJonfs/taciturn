@@ -48,6 +48,7 @@ import {
   computeGilReward,
   currentEngagement,
   debugGrantJp,
+  debugGrantLevel,
   debugSeedGrants,
   debugSeedInventory,
   deployableRoster,
@@ -560,6 +561,24 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
             📈 Grant JP (dev)
           </button>
         )}
+        {/* Dev-only level grant (S94): +1 level to every active party member,
+            healed to the new effective full. Repeatable BY DESIGN — press N
+            times to stage the party anywhere on the chapter's enemy curve.
+            Same DEV gating + persistence as its siblings. */}
+        {import.meta.env.DEV && (
+          <button
+            type="button"
+            style={devGrantLevelChipStyle}
+            onClick={() => {
+              const leveled = debugGrantLevel(state, node, catalog);
+              setState(leveled);
+              saveCampaign(leveled);
+            }}
+            title="Dev: grant +1 level to every active party member, healed to full (repeatable; persists to the save)"
+          >
+            ⬆️ Level up (dev)
+          </button>
+        )}
       </>
     );
   }
@@ -675,6 +694,12 @@ const devSeedChipStyle: CSSProperties = {
 const devGrantJpChipStyle: CSSProperties = {
   ...devSeedChipStyle,
   bottom: 44,
+};
+
+// The level-grant chip stacks above the JP chip (S94).
+const devGrantLevelChipStyle: CSSProperties = {
+  ...devSeedChipStyle,
+  bottom: 78,
 };
 
 // Stamp control flags so BattleView wires a human controller for the player
