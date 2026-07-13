@@ -44,6 +44,36 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 94 (2026-07-13) — Ch1 feedback round: kits, per-town shops, story-first towns, map reveal (ADR-0151)
+
+Same-day revisions from Chris's first Chapter 1 playthrough — several change
+what the guide says about towns and starting abilities:
+
+- **Starting abilities are now small for the named cast:** Lumen knows only
+  Scorch; Chris only Power Attack; Clio joins with only Water Lash; Sera
+  joins already knowing Hamstring (her restricted signature); Thessaly joins
+  with one Math line (Exact Rhythm + Height + Prime). Everything else is
+  earned with JP. Rolled recruits and hires still arrive with their full
+  Tier-1 class kit.
+- **Class innate passives arrive equipped** on every new unit (yours and
+  enemies): a fresh Knight has Counter/Martial Expertise/Bravestrider slotted,
+  a fresh Pyromancer has Ignition/Aether Bloom/Smolder/Hotfoot, etc. They
+  cost nothing in their own class and can be unequipped like anything else.
+- **Each town sells only ITS gear now** — Alvera doesn't carry Zarghidas's
+  starter kit; the Staff of Abundance / Tome of Power / Arcane Robe
+  restocks still appear AT Alvera after Old Ordal / Mount Eska clear.
+  Selling works anywhere.
+- **Towns with a story battle fight first:** on first arrival the battle
+  starts directly; the shop/recruit menu appears only after the town's
+  story is cleared. (Campaign start likewise opens on the Zarghidas scene
+  now, not a menu.)
+- **The map reveals as you travel:** only visited places and your current
+  choices are drawn — plus Old Ordal and Viura, visible from the start as
+  the far-off destination. Everything else appears as the road opens.
+- Lumen and Chris swapped starting body armor (Jacket/Vest).
+- Dev-only (not player-facing, listed for completeness): a level-up debug
+  chip joins the JP one.
+
 ## Session 93 (2026-07-13) — CHAPTER 1 IS THE LIVE CAMPAIGN (ADR-0150)
 
 The M1 test campaign (River Ridge → The Return) is **replaced wholesale** by
