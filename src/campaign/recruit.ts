@@ -100,8 +100,9 @@ export function starterGearFor(classId: ClassId, catalog: Catalog): ReadonlyArra
 }
 
 // Placeholder name pool for generics (indexed by roster size; a repeat gets
-// a numeral suffix so the barracks stays readable).
-const HIRE_NAMES: ReadonlyArray<string> = [
+// a numeral suffix so the barracks stays readable). Exported as the sampling
+// list the Ch1 campaign-start roll also draws from (ch1-roster.ts).
+export const HIRE_NAMES: ReadonlyArray<string> = [
   'Bram', 'Odette', 'Fenwick', 'Isolde', 'Corin', 'Maren',
   'Tobias', 'Elsbeth', 'Garrick', 'Nyra', 'Piers', 'Sable',
 ];
