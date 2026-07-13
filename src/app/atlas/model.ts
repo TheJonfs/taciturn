@@ -55,6 +55,8 @@ export interface AtlasNode {
   // Ch1 substrate (WI3): phantom destination — drawn, labeled, never
   // traversable. Exempt from `unreachable`; excluded from the frontier.
   readonly phantom?: boolean;
+  // Progressive reveal (S94): shown on the map from campaign start.
+  readonly alwaysVisible?: boolean;
   // Layout (world-map viewBox units) — the node-layout.ts slice.
   readonly x: number;
   readonly y: number;
@@ -133,6 +135,7 @@ export function toCampaignGraph(model: AtlasGraph): CampaignGraph {
       ...(n.isHub !== undefined ? { isHub: n.isHub } : {}),
       ...(n.farmable !== undefined ? { farmable: n.farmable } : {}),
       ...(n.phantom !== undefined ? { phantom: n.phantom } : {}),
+      ...(n.alwaysVisible !== undefined ? { alwaysVisible: n.alwaysVisible } : {}),
     })),
     edges: model.edges.map((e) => ({
       from: e.from,

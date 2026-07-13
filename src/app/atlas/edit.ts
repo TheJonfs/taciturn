@@ -21,6 +21,7 @@ export interface AtlasNodePatch {
   readonly isHub?: boolean | undefined;
   readonly farmable?: boolean | undefined;
   readonly phantom?: boolean | undefined;
+  readonly alwaysVisible?: boolean | undefined;
   readonly x?: number;
   readonly y?: number;
 }

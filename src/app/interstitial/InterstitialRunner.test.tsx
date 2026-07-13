@@ -78,3 +78,32 @@ describe('InterstitialRunner (3+ beat walk)', () => {
     container.remove();
   });
 });
+
+describe('WorldMapBeatView — progressive reveal (S94)', () => {
+  it('hides unvisited non-frontier nodes; always-visible teases show from the start', () => {
+    const beat: InterstitialBeat = {
+      type: 'world-map-choice',
+      fromNodeId: CAMPAIGN_NODES.zarghidas,
+      choices: [{ id: CAMPAIGN_NODES.oskun, name: 'Oskun Fields', kind: 'advance', farmable: false, hub: false }],
+      gil: 0,
+      visited: [CAMPAIGN_NODES.zarghidas],
+    };
+    const { container, root } = mount(
+      <InterstitialRunner beats={[beat]} onComplete={() => {}} onExitToTitle={() => {}} />,
+    );
+
+    // Here + frontier render…
+    expect(container.textContent).toContain('Zarghidas Trade City');
+    expect(container.textContent).toContain('Oskun Fields');
+    // …the authored teases render (Old Ordal + phantom Viura)…
+    expect(container.textContent).toContain('Old Ordal');
+    expect(container.textContent).toContain('Viura');
+    // …and the rest of the chapter stays hidden.
+    expect(container.textContent).not.toContain('Alvera Village');
+    expect(container.textContent).not.toContain('Ruk Village');
+    expect(container.textContent).not.toContain('Mount Eska');
+
+    act(() => root.unmount());
+    container.remove();
+  });
+});

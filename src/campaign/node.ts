@@ -101,6 +101,7 @@ const NODES: ReadonlyArray<CampaignNode> = [
     chapter: 1,
     engagements: [{ beats: contentBeats(CAMPAIGN_NODES.oldOrdal) }],
     offset: 2,
+    alwaysVisible: true,
   },
   {
     id: CAMPAIGN_NODES.mountEska,
@@ -131,6 +132,7 @@ const NODES: ReadonlyArray<CampaignNode> = [
     chapter: 1,
     engagements: [],
     phantom: true,
+    alwaysVisible: true,
   },
 ];
 

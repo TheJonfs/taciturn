@@ -92,6 +92,12 @@ export interface CampaignNode {
   // are unreachable BY DESIGN) without loosening the rule for real nodes.
   // Omitted → false.
   readonly phantom?: boolean;
+  // Progressive map reveal (S94, Chris): the world map hides nodes until
+  // the party has visited them or they enter the travel frontier — EXCEPT
+  // nodes flagged always-visible, which show from campaign start (Old
+  // Ordal + Viura: the destination tease before the Mount Eska rug-pull).
+  // Presentation-only — never affects travel/reachability. Omitted → false.
+  readonly alwaysVisible?: boolean;
 }
 
 // The cleared-guard beat id of the engagement at `index`. Explicit

@@ -104,6 +104,7 @@ function nodeLines(node: AtlasNode, keys: ReadonlyMap<string, string>): string {
   if (node.isHub === true) lines.push('    isHub: true,');
   if (node.farmable === true) lines.push('    farmable: true,');
   if (node.phantom === true) lines.push('    phantom: true,');
+  if (node.alwaysVisible === true) lines.push('    alwaysVisible: true,');
   lines.push('  },');
   return lines.join('\n');
 }

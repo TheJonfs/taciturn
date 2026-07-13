@@ -100,6 +100,10 @@ export function AtlasInspector(props: AtlasInspectorProps): ReactElement {
           Hub (trade)
         </label>
         <label style={checkStyle}>
+          <input type="checkbox" checked={node.alwaysVisible === true} onChange={(e) => props.onUpdate({ alwaysVisible: e.target.checked ? true : undefined })} />
+          Always visible (map tease)
+        </label>
+        <label style={checkStyle}>
           <input
             type="checkbox"
             checked={node.farmable === true}

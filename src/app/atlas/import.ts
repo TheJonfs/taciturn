@@ -85,6 +85,7 @@ export function fromCampaignGraph(
         ...(n.isHub !== undefined ? { isHub: n.isHub } : {}),
         ...(n.farmable !== undefined ? { farmable: n.farmable } : {}),
         ...(n.phantom !== undefined ? { phantom: n.phantom } : {}),
+        ...(n.alwaysVisible !== undefined ? { alwaysVisible: n.alwaysVisible } : {}),
         x: pos.x,
         y: pos.y,
       };

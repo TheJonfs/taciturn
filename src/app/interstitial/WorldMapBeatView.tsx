@@ -191,6 +191,21 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
   const choiceById = new Map(map.choices.map((c) => [c.id, c]));
   const marching = march !== null;
 
+  // Progressive reveal (S94, Chris): the map shows only where the party has
+  // been, where it can go next, and the authored always-visible teases (Old
+  // Ordal + Viura — the destination on the horizon). A beat with no
+  // `visited` (the Atlas preview's authoring view) shows everything. Edges
+  // draw only between two visible endpoints, so hidden roads stay hidden.
+  const revealed =
+    map.visited === undefined
+      ? undefined
+      : new Set([map.fromNodeId, ...map.visited, ...map.choices.map((c) => c.id)]);
+  const isVisible = (nodeId: string): boolean => {
+    if (revealed === undefined) return true;
+    if (revealed.has(nodeId)) return true;
+    return graph.nodes.find((n) => n.id === nodeId)?.alwaysVisible === true;
+  };
+
   const select = (toId: string): void => {
     if (marching) return; // one march at a time; clicks ignored en route
     const waypoints = roadBetween(graph, layout, map.fromNodeId, toId);
@@ -224,7 +239,7 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
           {/* Edges first, so nodes draw on top. Solid-blue = an edge into a
               frontier destination (forward progress); the rest stay dashed. */}
           {graph.edges
-            .filter((e) => e.on === 'win')
+            .filter((e) => e.on === 'win' && isVisible(e.from) && isVisible(e.to))
             .map((e) => {
               const a = layout[e.from];
               const b = layout[e.to];
@@ -246,7 +261,7 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
 
           {graph.nodes.map((n) => {
             const pos = layout[n.id];
-            if (pos === undefined) return null;
+            if (pos === undefined || !isVisible(n.id)) return null;
             const isHere = n.id === map.fromNodeId;
             const choice = marching ? undefined : choiceById.get(n.id);
             return (

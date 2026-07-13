@@ -77,6 +77,11 @@ export interface WorldMapChoiceBeat {
   // The party's current gil balance (M3 economy Stage 0) — the map header's
   // purse display, snapshotted at beat build (beats are immutable data).
   readonly gil: number;
+  // Progressive reveal (S94): the node ids the party has visited. The map
+  // shows visited + choice + always-visible nodes and hides the rest.
+  // ABSENT → show everything (the Atlas preview's authoring view, and any
+  // pre-S94 beat producer).
+  readonly visited?: ReadonlyArray<string>;
 }
 
 // One thing the player can DO at a location (M3 economy Stages 1–3).
@@ -179,6 +184,7 @@ export function buildRouteChoiceBeat(
     fromNodeId: state.currentNodeId,
     choices: travelChoices(graph, state),
     gil: state.gil,
+    visited: state.visited,
   };
 }
 
