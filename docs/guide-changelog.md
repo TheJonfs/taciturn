@@ -44,6 +44,20 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 92 (2026-07-12) — Ch1 substrate: outcome conditions, flags, phantom edge, guests (ADR-0149)
+
+_No player-facing changes in shipped content._ (Four campaign capabilities
+landed for the upcoming Chapter 1, none yet used by any shipped battle:
+victory conditions beyond defeat-all — subdue-without-killing wins with
+good/standard outcomes, boss retreat thresholds, death-protected units that
+retreat instead of dying; a persistent campaign-flag store with
+outcome-branched post-battle scenes; phantom map destinations shown but
+never reachable; and guest allies — player-side AI-driven units. When Ch1
+battles author these, the guide will need sections on subdue objectives,
+outcome-dependent scenes, and uncontrollable guest allies.)
+
+---
+
 ## Session 91 (2026-07-12) — Engagement queues + per-beat edge gating (ADR-0148)
 
 _No player-facing changes in shipped content._ (A campaign-model capability

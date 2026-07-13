@@ -439,6 +439,24 @@ These are noted to make their absence intentional rather than accidental:
   save migration (a first engagement's beat id defaults to the node id);
   every shipped node plays identically. Ch1's camp-based non-linear
   layout is now authorable and walkable on placeholders end-to-end.
+  **Ch1 substrate — SHIPPED whole** (ADR-0149, S92): the four capabilities
+  the Ch1 arc needs before its Atlas layout — (1) the victory-condition
+  grammar (`predicate` conditions with authored winner + outcome tag:
+  `all_defeated`/`no_deaths`/`unit_below_hp`/`all_of`; strict-< thresholds;
+  subdue ENDS the battle as a win), death-protection (lethal hit →
+  retreated, not dead; retreat ≠ death for `no_deaths`) and battle-scoped
+  `hasDied` tracking; (2) the persistent campaign-flag store
+  (`CampaignState.flags`, `boolean|number|string`, lenient-absent save
+  compat) with `recordOutcomeAs` flag writes and `onOutcome`
+  outcome-branched post-battle scenes; (3) phantom nodes/edges (drawn
+  dashed, never traversable, exempt-per-flag from `unreachable`, Atlas
+  authoring + byte-identical round-trip); (4) guest allies (player-team +
+  AI-driven via `Unit.guest` — NOT Steal-Heart composition; fold treats
+  guest placements as fixed units, skirmishes strip them) plus the new
+  `joinPlotUnit` mid-campaign roster append (the brief's "same as
+  Clio/Thessaly" mechanism didn't exist — plot units were seeded, not
+  joined). Nodes 3/8/9/10's battle logic and the 1/6 guest fights are now
+  authorable in `node-content.ts`; the Ch1 layout session is unblocked.
   Then authoring (M4 — starts by replacing the skirmish stub), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.

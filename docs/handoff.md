@@ -11,87 +11,98 @@ been processed.
 
 ---
 
-## S91 — Engagement queues + per-beat edge gating SHIPPED whole (2026-07-12)
+## S92 — Ch1 substrate SHIPPED whole (2026-07-12)
 
-All of `taba-engagement-queues-brief.md` landed in one session (ADR-0148),
-runtime AND Atlas halves — no split needed. `CampaignNode.beats` →
-`engagements: Engagement[]`; `CampaignEdge.opensOnBeat?`; temporal
-story-cleared; the driver walks the current engagement; Atlas authors
-queues/arming/gates/placeholder-scenes, validates under gating (joint
-fixpoint), and preview-walks statefully. Saves untouched (first
-engagement's beat id defaults to the node id). Suite green (**2798**, was
-2773), `tsc -b` clean, round-trip pin byte-identical on the regenerated
-`node.ts`. Verified live: authored a Stonebridge camp (2-engagement queue,
-`armsAfter: node-mountain-pass`, The-Return edge gated on the second
-beat), walked the full divergence in the preview, checked the emitted
-codegen text. `atlas-guide.md` updated throughout (it is the durable
-reference for all of this).
+All four pieces of `taba-ch1-substrate-brief.md` landed in one session
+(ADR-0149): the victory-condition grammar + death-protection + death
+tracking (WI1), the campaign-flag store + outcome-branched post-battle
+scenes (WI2), phantom node/edge with Atlas authoring (WI3), and guest
+allies + `joinPlotUnit` (WI4). Suite green (**2848**, was 2798), `tsc -b`
+clean, saves back-compatible (flags lenient-absent, no schema bump),
+Atlas round-trip pin byte-identical. Design docs updated:
+`turn-structure.md` (victory grammar + death protection),
+`atlas-guide.md` (phantom + the new NodeBattle fields, validation rules
+table).
 
 ### For Chris / the planner
 
-- **Ch1 layout is unblocked**: a camp-based non-linear Chapter 1 can now
-  be laid out in Atlas and walked on placeholder battles + stub scenes
-  before any dialogue exists. The brief's payoff is real — I built the
-  demo camp in the tool in ~a minute.
-- **Brief write-back** (audit findings, recorded in ADR-0148): the brief's
-  `src/campaign/validate.ts` doesn't exist (validation is
-  `src/app/atlas/validate.ts`); `sequence.ts` is cursor helpers, the
-  driver is `CampaignApp.tsx`; per-engagement source "none" became
-  `engagements: []` at node level (a zero-beat engagement is degenerate).
-- **Approved semantics** (Chris, session start): temporal story-cleared
-  (camp trades between engagements); immediate default-arming chains (no
-  "must leave node" rule); stateful preview; content re-keyed by beat id.
+- **The Ch1 Atlas layout session is unblocked**: nodes 3/8/9/10's outcome
+  logic, the 9/10 `onOutcome` scene branches, Viura's phantom edge, and
+  the 1/6 guests are all authorable in `node-content.ts` / Atlas now.
+- **Design points settled at session start (recorded in ADR-0149):**
+  D-sub-1 → boss retreat presents post-battle only (no mid-battle beat);
+  D-sub-2 → confirmed, subdue ENDS the battle as a win; the missing
+  plot-unit-join mechanism → built (`joinPlotUnit`, campaign/join.ts).
+- **Brief write-backs (audit findings):** guests are NOT
+  Steal-Heart-minus-timer — Steal Heart flips control and keeps team; a
+  guest keeps team and flips control, which the existing seams handle
+  almost for free (the AI's team-derived friend/foe is *correct* for
+  guests). "Same mechanism as Clio/Thessaly joining" didn't exist — plot
+  units were seeded into the initial roster; the runtime join is new.
+  Scenes are inline beats, not sceneRefs, so `onOutcome` maps tag →
+  inline `StoryScene`.
+- **Threshold semantics pinned** (per the brief's watch-for lean): strict
+  `<` for below-fraction; "died" = ever hit 0 HP this battle, revival
+  does not clear it; a not-standing unit counts as below any threshold.
 
 ### Noticed, not acted on
 
-- `WorldMapBeatView` never resets its internal march state — the shipped
-  runner masks it by unmounting per beat, and the Atlas preview now
-  remounts it per walk step (`key=` in `AtlasPreview.tsx`). If any future
-  surface keeps the map mounted across advances, hoist the fix into the
-  component (reset march on beat change) instead of another key.
-- A TERMINAL node with a multi-engagement queue sets `won` on clearing its
-  current engagement (isTerminal is edge-count-based, unchanged).
-  Authorable-but-odd; a validation warning is cheap if Ch1 authoring ever
-  trips on it.
-- Two win-edges between the same (from, to) pair are still deduped by
-  `addEdge`, so "two different beats each open the same road" is not
-  authorable in-tool (it IS expressible in hand-written models). No
-  current need; flag if a chapter layout wants it.
-- The engagement-queue acceptance test (`engagement-queue.test.ts`) uses
-  hand-built graphs with placeholder beats — if the M1 graph ever gains a
-  real camp, add a shipped-content pin next to it.
+- **Same-boundary decide edge:** battle_end's outcome is decided at the
+  checkpoint that satisfies it; a generated action still draining on the
+  same boundary (e.g. a poison tick killing an enemy right after the
+  good-outcome battle_end enqueued) does not retro-downgrade the recorded
+  outcome. Documented in ADR-0149; revisit only if a playtest ever
+  surfaces it as feeling wrong.
+- **Retreated player units** classify `survived` with hp 0 in the battle
+  summary — apply-back would carry 0 HP. Unreachable in Ch1 (only the
+  antagonist is death-protected); if a future chapter protects a player
+  unit, decide the carry-HP rule then.
+- **AI charm asymmetry re-confirmed** (audit): the AI driving a charmed
+  PLAYER unit computes foes from the puppet's real team (backwards);
+  unreached while no enemy has Steal Heart. Unchanged by WI4 — guests
+  route around it because team and side agree.
+- **Guest turn-flow UI**: `isOurTurn` gating is tested at the hook level
+  and the orchestrator routing end-to-end (guest-control.test.ts), but no
+  browser playtest of a guest battle happened (no shipped battle authors
+  one yet). First Ch1 authoring session should eyeball Oskun's guest
+  fight live: menu stays closed on the guest's turn, guest acts sanely,
+  banner/log read right.
+- **`evaluateBattleOutcome` now takes the catalog** — any future caller
+  outside commit.ts must thread it.
 
-### Carried from earlier (still open, low-priority — unchanged from S90)
+### Carried from earlier (still open, low-priority — unchanged from S91)
 
-- **Economy CONTENT pass is the next M3 beat** (real bundles, prices,
-  unique placement; dials in `campaign/economy-config.ts`), then Tailored
-  Outfit; M4 authoring follows (gear seam ready per ADR-0146). Chapter
-  graphs can now be laid out in Atlas first — including the Ch1 camp.
-- **Progressive reveal** stays a small render-layer rider (S90 assessment
-  unchanged; composes with per-beat gating for free — the frontier update
-  IS the reveal trigger).
-- Atlas beat-editor tier before M5 authoring volume; ownership boundary
-  must be redrawn per-block first (guide §6).
-- `M1_NODES` / `M1_CAMPAIGN_GRAPH` names are historical; cheap cosmetic
-  rename whenever convenient (change codegen + shipped file together).
-- Atlas edge drawing is inspector-initiated; drag-from-rim gesture
-  deferred until a real multi-chapter layout session shows friction.
-- S89 playtest watch: AI gold-plating dials (`aiHints.value`,
-  `DEFAULT_DEBUFF_VALUE`, gear `W_*` weights); kiting tie-break reads as
-  "enemy runs away" but is intended.
-- JP spillover on over-threshold spend (M2 tail); enemy progression tuning
-  for Stonebridge / Marshmoor / Mountain Pass (data).
-- Loadout 2nd-secondary UI (Magus Crown / Command Cap), "Level Up!" banner
-  polish, rapid-dialogue-advance React setState-in-render warning.
-- "99 cap" guide fiction (no code clamp) — guide-doc correction someday.
-- S85/S87 playtest watch items (Epee CT-refund loops, Star Robe lifesteal,
-  Expert's Tunic × Golden Hairpin, tempo-caster stack, Scouring ×
-  dual-wield, Manaeater-as-default, Terra Robe maybe weak; Cremation ×
-  Pendant, Shadowblade vs HP sponges, Del's Stave dump-on-buffs, Golden
-  Rod clock, Volley Bow friendly fire, Excalibur above-curve by intent) —
-  watch, don't pre-nerf.
-- FormationDevHarness (`?formation`) still shows 2 synthetic invalid units
-  (Nova, Ptolemy) as a free showcase of warning states.
+- **Economy CONTENT pass remains the other M3 beat** (real bundles,
+  prices, unique placement; dials in `campaign/economy-config.ts`), then
+  Tailored Outfit; M4 authoring follows (gear seam ready per ADR-0146).
+- `WorldMapBeatView` march-state reset rider (hoist into the component if
+  a surface ever keeps it mounted across advances).
+- TERMINAL node with a multi-engagement queue sets `won` on clearing its
+  current engagement (edge-count-based isTerminal); cheap validation
+  warning if Ch1 authoring trips on it. Note: phantom edges are now
+  excluded from isTerminal (a node whose only out-edge is phantom IS
+  terminal) — that's load-bearing for Old Ordal if it ends a spur.
+- Two win-edges between the same (from, to) pair still deduped by
+  `addEdge` (not authorable in-tool); flag if a layout wants it.
+- Engagement-queue acceptance test uses hand-built graphs; add a
+  shipped-content pin when the real graph gains a camp.
+- Progressive reveal stays a small render-layer rider.
+- Atlas beat-editor tier before M5 authoring volume; `M1_NODES` cosmetic
+  rename; drag-from-rim edge gesture deferred.
+- S89 playtest watch: AI gold-plating dials; kiting tie-break intended.
+- JP spillover on over-threshold spend; enemy progression tuning for
+  Stonebridge/Marshmoor/Mountain Pass.
+- Loadout 2nd-secondary UI, "Level Up!" banner polish,
+  rapid-dialogue-advance setState-in-render warning, "99 cap" guide
+  fiction.
+- S85/S87 playtest watch items (Epee CT-refund loops, Star Robe
+  lifesteal, Expert's Tunic × Golden Hairpin, tempo-caster stack,
+  Scouring × dual-wield, Manaeater-as-default, Terra Robe maybe weak;
+  Cremation × Pendant, Shadowblade vs HP sponges, Del's Stave
+  dump-on-buffs, Golden Rod clock, Volley Bow friendly fire, Excalibur
+  above-curve by intent) — watch, don't pre-nerf.
+- FormationDevHarness still shows 2 synthetic invalid units (Nova,
+  Ptolemy) as a warning-state showcase.
 - reclassUnit frees now-illegal passives but keeps now-illegal gear (D2:
   surface, don't resolve).
 - Income-to-price ratio / XP rubber-band / recruitment cap / re-entry

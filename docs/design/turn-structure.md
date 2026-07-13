@@ -107,30 +107,25 @@ Initial CT values matter for first-turn order. v1 default: each unit's initial C
 
 Win/loss conditions are evaluated after **every committed action** (per ADR-0074). `commitAction` runs the victory-condition check once each action in the chain commits — a unit's turn action, a `charged_action_resolve`, a status tick, a reaction — so whichever action satisfies a condition decides the battle at the moment it becomes true, not at the next turn boundary. (An earlier design checked only at turn_end; that missed `charged_action_resolve`, which is a between-turns scheduler event with no turn_end, and let an extra turn fire after the last enemy fell.) The pre-battle setup phase opts out of the check — setup actions run before the battle proper. The Ruleset declares the conditions for a given battle.
 
-Common conditions, declared as data:
+Conditions are declared as data on the `BattleConfig` (copied onto `GameState` at setup). Two shapes exist (ADR-0149):
 
-- **Defeat all enemy units.** Default for most battles.
-- **Defeat specific enemy unit(s).** Boss/objective patterns.
-- **Survive N turns.** Defensive/escape patterns.
-- **Reach specific tile.** Escape/objective patterns.
-- **Protect specific ally unit(s).** Failure if they fall.
+- **`defeat_all`** — the v1 default every battle authors; the winner is derived as "the other team."
+- **`predicate`** — a composable predicate plus an explicit authored `winner` and an optional `outcome` tag. The tag rides the `DecidedOutcome` so the campaign layer can record and branch on *how* the battle was won, not just who won (e.g. `"ester-good"` vs `"ester-standard"`).
 
-```typescript
-interface VictoryCondition {
-  side: TeamId;
-  predicate: (state: GameState) => boolean;
-  description: string;  // human-readable
-}
+The predicate grammar (`VictoryPredicate`, `engine/types/battle-outcome.ts`):
 
-interface RulesetVictory {
-  conditions: VictoryCondition[];
-  // first satisfied condition wins; ordering matters for tiebreaks
-}
-```
+- **`all_defeated(side)`** — every unit on `side` is down (`hp <= 0`; removed/retreated units sit at 0 so they count).
+- **`no_deaths(side)`** — no unit on `side` has died this battle. Reads the battle-scoped `Unit.hasDied` flag: set on the hp>0 → 0 transition, never reset (a revived unit still counts as having died), and *not* set by a death-protected retreat.
+- **`unit_below_hp(target, fraction)`** — one named unit, or every unit on a side, is *strictly below* `fraction` of effective max HP. A unit no longer standing (KO'd, removed, retreated) counts as below any threshold.
+- **`all_of([...])`** — shallow AND (a subdue condition is `no_deaths` AND `unit_below_hp`). There is no OR variant: an OR is two conditions in the ordered list — first-satisfied wins.
 
-When a victory condition is satisfied, the engine emits a `battle_end` system action with the winning team. The GameState's `outcome` field is populated. No further actions process.
+**Death protection** (`UnitPlacement.deathProtected`, cutscene-immortal bosses): a would-be-lethal hit cannot KO the unit — the damage write floors HP at 0, sets `Unit.retreated`, and emits a `system_unit_removed` with `reason: 'retreated'` (the `removed` flip plus the "has retreated!" log line). The KO sweeps and charged-action cleanup run as on a death (a retreat is a departure), but `hasDied` stays false — retreat ≠ death, so a retreating boss never breaks a `no_deaths` condition. The campaign's battle-result summarizer classifies retreated units as `survived`, never `lost`.
+
+When a victory condition is satisfied, the engine emits a `battle_end` system action with the winning team. The GameState's `outcome` field is populated (including the fired condition's outcome tag, when it carries one). No further actions process.
 
 Defeat conditions (e.g., all your units fall) are typically the same predicate evaluated for the opposite team.
+
+The doc's earlier sketch listed survive-N-turns / reach-tile / protect-unit conditions; those remain future variants — the closed union + exhaustive evaluator switch is the designed extension point.
 
 ## Forced turns and AI
 
@@ -157,7 +152,7 @@ For online/spectator views, the same flow applies: the spectator client receives
 - Set Facing has both implicit (after movement/attack) and explicit (player choice at turn end, free) modes.
 - Turn end: apply CT cost based on consumed budgets, fire onTurnEnd hooks, decrement turn-based status durations, check win conditions, return to projection.
 - Battle start: place units, apply initial effects, initialize CT queue with semi-random initial CT values, begin first turn.
-- Victory conditions are data on the Ruleset; standard check point is turn_end.
+- Victory conditions are data on the BattleConfig (copied to GameState); checked after every committed action (ADR-0074). Grammar: `defeat_all` plus predicate conditions (`all_defeated` / `no_deaths` / `unit_below_hp` / `all_of`) with authored winner + outcome tag (ADR-0149).
 - Forced-action turns (Stop, Berserk, Charm, AI control) route through the same action lifecycle with different controllers.
 - Replay walks the action log forward applying the reducer; outcomes stored on actions make this deterministic without re-rolling RNG.
 

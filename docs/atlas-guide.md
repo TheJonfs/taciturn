@@ -270,6 +270,7 @@ interface CampaignNode {
   offset?: number;            // enemy-level offset (A.3)
   isHub?: boolean;            // commerce here once visited (A.3)
   farmable?: boolean;         // repeatable skirmish once cleared (A.3)
+  phantom?: boolean;          // shown on the map, never reachable (A.3)
 }
 
 interface Engagement {
@@ -305,6 +306,16 @@ independent flags that coexist and change meaning over campaign progress
 - **`offset`** — the one scaling lever: skirmish level =
   `resolveEnemyLevel(partyAverage, offset)`. Prices challenge and all three
   rewards (XP/JP/gil) together.
+- **`phantom`** (ADR-0149) — a drawn-but-never-traversable destination
+  (Viura beyond Old Ordal: the town the party can see but the chapter
+  never opens). Renders as a ghost (dashed outline, faded label); never
+  enters the frontier, travel, or reachability. Pair it with a
+  `phantom: true` **edge** (dashed on both canvases) — validation errors
+  on a *real* edge into a phantom node (`phantom-target-real-edge`, it
+  would make the phantom enterable) and warns on engagements authored on
+  one (`phantom-with-engagements`, dead content). Phantom nodes are
+  exempt from `unreachable` *per-flag* — a real unreachable node next to
+  a phantom one still errors.
 
 ## A.4 Beats — what happens when you enter a node
 
@@ -327,6 +338,9 @@ interface NodeBattle {
   zones: DeploymentZoneConfig; // deployment zones (content registry)
   deployCap: number;           // K of N roster units deployable (5 shipped)
   enemies?: CampaignUnit[];    // authored enemy progression (optional)
+  guests?: CampaignUnit[];     // guest allies re-skinning guest slots (ADR-0149)
+  recordOutcomeAs?: string;    // flag key the fired outcome tag writes to (ADR-0149)
+  onOutcome?: Record<string, StoryScene>; // outcome-branched follow-up scene (ADR-0149)
 }
 ```
 
@@ -417,7 +431,9 @@ on them).
 | `scene-marker-empty` | warning | A placeholder scene with no marker text. |
 | `start-missing` | error | `startId` must be a node. |
 | `edge-dangling` / `edge-self` | error | Edges must resolve to nodes; no self-loops. |
-| `unreachable` | error | Every node reachable from the start via win-edges. |
+| `unreachable` | error | Every node reachable from the start via win-edges. Phantom nodes are exempt per-flag (unreachable by design); phantom edges contribute nothing to reachability. |
+| `phantom-target-real-edge` | error | A real (non-phantom) edge into a phantom node — it would make the phantom enterable. Mark the edge phantom too. |
+| `phantom-with-engagements` | warning | Engagements authored on a phantom node can never play (dead content). |
 | `no-terminal` | error | At least one terminal reachable, or the campaign can't complete. |
 | `cycle` | error | Win-edges must form a forward DAG. |
 | `chapter-regression` | error | A win-edge may not lead to an earlier chapter (loss-edges exempt). |
