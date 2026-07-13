@@ -570,10 +570,10 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
       <ShopScreen
         nodeName={node.name}
         state={state}
-        stock={shopStock(GRAPH, state)}
+        stock={shopStock(GRAPH, state, node.id)}
         catalog={catalog}
         onBuy={(itemId) => {
-          const bought = buyItem(state, GRAPH, itemId);
+          const bought = buyItem(state, GRAPH, node.id, itemId);
           setState(bought);
           saveCampaign(bought); // transactions persist immediately, like roster edits
         }}

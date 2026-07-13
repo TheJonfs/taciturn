@@ -1,10 +1,12 @@
-// TABA economy — the shop (M3 economy brief, Stage 2).
+// TABA economy — the shop (M3 economy brief, Stage 2; PER-HUB stock S94).
 //
-// The AVAILABLE POOL is cumulative and story-gated: the union of item
-// bundles (`firstAvailableAt` on gear-pool entries) from every node whose
-// story beat is CLEARED — monotonic, never delists. Clearing combat nodes
-// feeds the pool; you SPEND it at hub locations (D2) — the pool is global,
-// the access is a place.
+// Stock is PER LOCATION and story-gated (S94, Chris — revising the D2
+// global pool): an entry is on a hub's shelves when it is SOLD THERE
+// (`soldAt` — where you buy) AND its unlock trigger has fired
+// (`firstAvailableAt` — the node whose cleared story beat puts it in
+// stock; usually the hub itself, but the Alvera back-half refreshes key
+// on Old Ordal / Mount Eska clears). Within a hub, stock stays monotonic
+// — cleared beats never un-clear, so shelves only ever grow.
 //
 // The two transactions are thin compositions of existing doors:
 //   BUY  = spendGil + grantItems  (receipt stays the ONE way in — the
@@ -48,29 +50,35 @@ function clearedNodeIds(graph: CampaignGraph, state: CampaignState): ReadonlySet
   return ids;
 }
 
-// The current shop stock: every 'shop' entry whose `firstAvailableAt` node
-// is cleared, in gear-pool (authoring) order. Monotonic by construction —
-// `clearedStoryBeats` only grows, so the union never shrinks.
-export function shopStock(graph: CampaignGraph, state: CampaignState): ReadonlyArray<TabaGearEntry> {
+// The shop stock AT `nodeId` (the hub the player stands at): every 'shop'
+// entry sold at this hub whose unlock trigger is cleared, in gear-pool
+// (authoring) order.
+export function shopStock(
+  graph: CampaignGraph,
+  state: CampaignState,
+  nodeId: string,
+): ReadonlyArray<TabaGearEntry> {
   const cleared = clearedNodeIds(graph, state);
   return TABA_GEAR_POOL.filter(
     (e) =>
       e.acquisition === 'shop' &&
+      e.soldAt === nodeId &&
       e.firstAvailableAt !== undefined &&
       cleared.has(e.firstAvailableAt),
   );
 }
 
-// Buy one instance of a stocked item: gil out, item in through the receipt
-// door. Fails loud on an unstocked item or insufficient gil (spendGil's
-// guard) — the UI disables both, so reaching either is a bug.
+// Buy one instance of an item stocked at `nodeId`: gil out, item in through
+// the receipt door. Fails loud on an unstocked item or insufficient gil
+// (spendGil's guard) — the UI disables both, so reaching either is a bug.
 export function buyItem(
   state: CampaignState,
   graph: CampaignGraph,
+  nodeId: string,
   itemId: ItemId,
 ): CampaignState {
-  if (!shopStock(graph, state).some((e) => e.itemId === itemId)) {
-    throw new Error(`buyItem: ${JSON.stringify(itemId)} is not in the current shop stock`);
+  if (!shopStock(graph, state, nodeId).some((e) => e.itemId === itemId)) {
+    throw new Error(`buyItem: ${JSON.stringify(itemId)} is not stocked at ${JSON.stringify(nodeId)}`);
   }
   return grantItems(spendGil(state, itemPrice(itemId)), [[itemId, 1]]);
 }

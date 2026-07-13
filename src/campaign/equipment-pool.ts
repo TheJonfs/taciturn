@@ -38,14 +38,18 @@ export interface TabaGearEntry {
   readonly chapter: GearChapter;
   readonly acquisition: GearAcquisition;
   /**
-   * M3 economy Stage 2 — the node whose clearing puts this item in the shop
-   * pool (the pool is the UNION over all cleared nodes; monotonic, never
-   * delists). Absent → not yet assigned to any node, so not buyable. Today
-   * only the PLACEHOLDER sandbox bundles below stamp this; the real
-   * bundle→node assignment (needs the campaign graph + balance data) is its
-   * own session and will replace them.
+   * M3 economy Stage 2 — the node whose clearing puts this item in stock
+   * (the unlock TRIGGER; usually the selling hub itself, but a back-half
+   * refresh can key on a later node's clear). Absent → not yet assigned,
+   * so not buyable.
    */
   readonly firstAvailableAt?: string;
+  /**
+   * S94 (Chris) — the hub node WHERE this item is sold. Stock is
+   * per-location: Alvera sells Alvera's gear, not Zarghidas's. Absent →
+   * sold nowhere (unassigned).
+   */
+  readonly soldAt?: string;
 }
 
 const entry = (id: string, chapter: GearChapter, acquisition: GearAcquisition): TabaGearEntry => ({
@@ -261,74 +265,106 @@ export const TABA_NEW_ENTRIES: ReadonlyArray<TabaGearEntry> = [
   ...TABA_NEW_CH3,
 ];
 
-// --- Chapter 1 bundle→node assignment (taba-ch1-gear-bundles.md) -------------
-// The REAL Ch1 availability plan (S93 — replaces the M1 placeholder sandbox
-// bundles): per-item unlock triggers keyed by node id (matches
-// CAMPAIGN_NODES values; authored as literals to keep this module
-// content-only). Two axes per the gear doc: HUBS are where you buy (the
-// pool is global — D2 — so any hub sells everything unlocked so far), and
-// WAVES are when an item enters the pool. The back-half "Alvera refresh"
-// waves key on clearing Old Ordal (7) and Mount Eska (8), giving nodes
-// 6–10 new-gear-in-town moments without a back-half hub. Uniques (Pendant,
-// Flametongue, Freelancer's Charm) are NOT here — they enter via battle
-// `grants` (node-content.ts). Gauntlet of Might + Mantle of Protection are
-// held for Ch2 (unstamped, unbuyable). Costs are stubs in economy-config.
-const CH1_GEAR_BUNDLES: Readonly<Record<string, ReadonlyArray<string>>> = {
-  // Zarghidas starter kit — outfits the mixed opening party (from start).
-  'node-zarghidas': [
-    'iron_sword',
-    'woodmans_axe',
-    'short_bow',
-    'dagger',
-    'padded_vest',
-    'padded_jacket',
-    'guard_cap',
-    'lookouts_hood',
-    'buckler',
-    'talisman_of_warding',
-    'lightfoot',
-    'diamond_bracelet',
-  ],
-  // Alvera caster wave 1 — the magic town opens with Clio (node 2 clear).
-  'node-alvera': [
-    'wand_of_depths',
-    'wand_of_deepwood',
-    'wand_of_lumen',
-    'linen_robe',
-    'pointy_hat',
-    'tricorn',
-    'focus_band',
-    'livre_of_urgency',
-    'battle_dictionary',
-    'arcane_lens',
-    'capacitor_ring',
-    'talisman_of_conviction',
-  ],
-  // Zelmonia Castle armory — the Heavy lane, Chris the lone early customer.
-  'node-zelmonia-castle': ['chain_shirt', 'steel_helm', 'warriors_aegis'],
-  // Fort Cator — "Sword Town" (node 5 clear).
-  'node-fort-cator': ['cutlass', 'augmentor', 'purifier'],
-  // Alvera refresh, wave 1 — premium caster power (Old Ordal / node 7 clear).
-  'node-old-ordal': ['staff_of_abundance', 'tome_of_power'],
-  // Alvera refresh, wave 2 — the all-res robe (Mount Eska / node 8 clear).
-  'node-mount-eska': ['arcane_robe'],
-};
+// --- Chapter 1 wave→hub assignment (taba-ch1-gear-bundles.md) ----------------
+// The REAL Ch1 availability plan (S93, per-hub S94): each wave names the
+// HUB that sells it (`soldAt` — Alvera sells Alvera's gear, not
+// Zarghidas's; Chris's S94 call revising the D2 global pool) and the node
+// whose clearing UNLOCKS it (`firstAvailableAt` — usually the hub itself;
+// the two "Alvera refresh" waves key on clearing Old Ordal (7) and Mount
+// Eska (8), giving the back half new-gear-in-town moments without a new
+// hub). Node ids are literals matching CAMPAIGN_NODES values (this module
+// stays content-only). Uniques (Pendant, Flametongue, Freelancer's Charm)
+// are NOT here — they enter via battle `grants` (node-content.ts).
+// Gauntlet of Might + Mantle of Protection are held for Ch2 (unstamped,
+// unbuyable). Costs are stubs in economy-config.
+interface Ch1GearWave {
+  readonly soldAt: string;
+  readonly unlocksOn: string;
+  readonly items: ReadonlyArray<string>;
+}
 
-// Stamp `firstAvailableAt` onto the authored entries from the Ch1 bundle
-// table (one node per item).
+const CH1_GEAR_WAVES: ReadonlyArray<Ch1GearWave> = [
+  // Zarghidas starter kit — outfits the mixed opening party (from start).
+  {
+    soldAt: 'node-zarghidas',
+    unlocksOn: 'node-zarghidas',
+    items: [
+      'iron_sword',
+      'woodmans_axe',
+      'short_bow',
+      'dagger',
+      'padded_vest',
+      'padded_jacket',
+      'guard_cap',
+      'lookouts_hood',
+      'buckler',
+      'talisman_of_warding',
+      'lightfoot',
+      'diamond_bracelet',
+    ],
+  },
+  // Alvera caster wave 1 — the magic town opens with Clio (node 2 clear).
+  {
+    soldAt: 'node-alvera',
+    unlocksOn: 'node-alvera',
+    items: [
+      'wand_of_depths',
+      'wand_of_deepwood',
+      'wand_of_lumen',
+      'linen_robe',
+      'pointy_hat',
+      'tricorn',
+      'focus_band',
+      'livre_of_urgency',
+      'battle_dictionary',
+      'arcane_lens',
+      'capacitor_ring',
+      'talisman_of_conviction',
+    ],
+  },
+  // Zelmonia Castle armory — the Heavy lane, Chris the lone early customer.
+  {
+    soldAt: 'node-zelmonia-castle',
+    unlocksOn: 'node-zelmonia-castle',
+    items: ['chain_shirt', 'steel_helm', 'warriors_aegis'],
+  },
+  // Fort Cator — "Sword Town" (node 5 clear).
+  {
+    soldAt: 'node-fort-cator',
+    unlocksOn: 'node-fort-cator',
+    items: ['cutlass', 'augmentor', 'purifier'],
+  },
+  // Alvera refresh, wave 1 — premium caster power (Old Ordal / node 7 clear).
+  {
+    soldAt: 'node-alvera',
+    unlocksOn: 'node-old-ordal',
+    items: ['staff_of_abundance', 'tome_of_power'],
+  },
+  // Alvera refresh, wave 2 — the all-res robe (Mount Eska / node 8 clear).
+  {
+    soldAt: 'node-alvera',
+    unlocksOn: 'node-mount-eska',
+    items: ['arcane_robe'],
+  },
+];
+
+// Stamp `soldAt` + `firstAvailableAt` onto the authored entries from the
+// Ch1 wave table (one wave per item).
 function stampFirstAvailable(entries: ReadonlyArray<TabaGearEntry>): ReadonlyArray<TabaGearEntry> {
-  const nodeByItem = new Map<string, string>();
-  for (const [nodeId, items] of Object.entries(CH1_GEAR_BUNDLES)) {
-    for (const id of items) {
-      if (nodeByItem.has(id)) {
-        throw new Error(`equipment-pool: item '${id}' is bundled at two nodes`);
+  const waveByItem = new Map<string, Ch1GearWave>();
+  for (const wave of CH1_GEAR_WAVES) {
+    for (const id of wave.items) {
+      if (waveByItem.has(id)) {
+        throw new Error(`equipment-pool: item '${id}' is bundled in two waves`);
       }
-      nodeByItem.set(id, nodeId);
+      waveByItem.set(id, wave);
     }
   }
   return entries.map((e) => {
-    const nodeId = nodeByItem.get(String(e.itemId));
-    return nodeId === undefined ? e : { ...e, firstAvailableAt: nodeId };
+    const wave = waveByItem.get(String(e.itemId));
+    return wave === undefined
+      ? e
+      : { ...e, firstAvailableAt: wave.unlocksOn, soldAt: wave.soldAt };
   });
 }
 

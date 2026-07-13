@@ -23,28 +23,59 @@ const IRON_SWORD = itemId('iron_sword'); // Zarghidas starter bundle
 const STEEL_HELM = itemId('steel_helm'); // Zelmonia Castle armory bundle
 const FLAMETONGUE = itemId('flametongue'); // unique-pool (sell-blocked)
 
-describe('shopStock (cumulative, story-gated)', () => {
+describe('shopStock (per-hub, story-gated — S94)', () => {
   it('is empty before any node clears', () => {
-    expect(shopStock(GRAPH, stateWith({}))).toEqual([]);
+    expect(shopStock(GRAPH, stateWith({}), CAMPAIGN_NODES.zarghidas)).toEqual([]);
   });
 
-  it('clearing a node stocks its bundle', () => {
-    const stock = shopStock(GRAPH, stateWith({ clearedStoryBeats: [CAMPAIGN_NODES.zarghidas] }));
-    const ids = stock.map((e) => String(e.itemId));
+  it('clearing a hub stocks its own shelves', () => {
+    const cleared = stateWith({ clearedStoryBeats: [CAMPAIGN_NODES.zarghidas] });
+    const ids = shopStock(GRAPH, cleared, CAMPAIGN_NODES.zarghidas).map((e) => String(e.itemId));
     expect(ids).toContain('iron_sword');
-    expect(ids).not.toContain('steel_helm'); // Zelmonia Castle not cleared
+    expect(ids).not.toContain('steel_helm'); // Zelmonia Castle's shelf, not here
   });
 
-  it('is MONOTONIC: clearing more nodes only ever adds', () => {
-    const one = shopStock(GRAPH, stateWith({ clearedStoryBeats: [CAMPAIGN_NODES.zarghidas] }));
+  it("a hub sells ONLY its own gear: Alvera does not carry Zarghidas's", () => {
+    const bothCleared = stateWith({
+      clearedStoryBeats: [CAMPAIGN_NODES.zarghidas, CAMPAIGN_NODES.alvera],
+    });
+    const alvera = shopStock(GRAPH, bothCleared, CAMPAIGN_NODES.alvera).map((e) => String(e.itemId));
+    expect(alvera).toContain('wand_of_lumen');
+    expect(alvera).not.toContain('iron_sword'); // Zarghidas gear stays home
+    const zarghidas = shopStock(GRAPH, bothCleared, CAMPAIGN_NODES.zarghidas).map((e) => String(e.itemId));
+    expect(zarghidas).toContain('iron_sword');
+    expect(zarghidas).not.toContain('wand_of_lumen');
+  });
+
+  it("the Alvera refreshes unlock on Old Ordal / Mount Eska clears but sell AT Alvera", () => {
+    const beforeRefresh = stateWith({ clearedStoryBeats: [CAMPAIGN_NODES.alvera] });
+    expect(
+      shopStock(GRAPH, beforeRefresh, CAMPAIGN_NODES.alvera).map((e) => String(e.itemId)),
+    ).not.toContain('staff_of_abundance');
+    const afterOldOrdal = stateWith({
+      clearedStoryBeats: [CAMPAIGN_NODES.alvera, CAMPAIGN_NODES.oldOrdal],
+    });
+    const shelves = shopStock(GRAPH, afterOldOrdal, CAMPAIGN_NODES.alvera).map((e) => String(e.itemId));
+    expect(shelves).toContain('staff_of_abundance');
+    expect(shelves).toContain('tome_of_power');
+    // …and Old Ordal itself (a dead node) sells nothing.
+    expect(shopStock(GRAPH, afterOldOrdal, CAMPAIGN_NODES.oldOrdal)).toEqual([]);
+  });
+
+  it('is MONOTONIC per hub: clearing more nodes only ever adds', () => {
+    const one = shopStock(
+      GRAPH,
+      stateWith({ clearedStoryBeats: [CAMPAIGN_NODES.alvera] }),
+      CAMPAIGN_NODES.alvera,
+    );
     const two = shopStock(
       GRAPH,
-      stateWith({ clearedStoryBeats: [CAMPAIGN_NODES.zarghidas, CAMPAIGN_NODES.alvera] }),
+      stateWith({ clearedStoryBeats: [CAMPAIGN_NODES.alvera, CAMPAIGN_NODES.oldOrdal] }),
+      CAMPAIGN_NODES.alvera,
     );
-    const oneIds = new Set(one.map((e) => String(e.itemId)));
     expect(two.length).toBeGreaterThan(one.length);
-    for (const id of oneIds) {
-      expect(two.some((e) => String(e.itemId) === id)).toBe(true);
+    for (const e of one) {
+      expect(two.some((x) => x.itemId === e.itemId)).toBe(true);
     }
   });
 
@@ -52,9 +83,12 @@ describe('shopStock (cumulative, story-gated)', () => {
     const all = stateWith({
       clearedStoryBeats: GRAPH.nodes.map((n) => n.id),
     });
-    for (const entry of shopStock(GRAPH, all)) {
-      expect(entry.acquisition).toBe('shop');
-      expect(entry.firstAvailableAt).toBeDefined();
+    for (const hub of GRAPH.nodes) {
+      for (const entry of shopStock(GRAPH, all, hub.id)) {
+        expect(entry.acquisition).toBe('shop');
+        expect(entry.firstAvailableAt).toBeDefined();
+        expect(entry.soldAt).toBe(hub.id);
+      }
     }
   });
 });
@@ -64,18 +98,18 @@ describe('buyItem', () => {
 
   it('debits the price and grants the item through the receipt door', () => {
     const before = ownedCount(readyToBuy, IRON_SWORD);
-    const bought = buyItem(readyToBuy, GRAPH, IRON_SWORD);
+    const bought = buyItem(readyToBuy, GRAPH, CAMPAIGN_NODES.zarghidas, IRON_SWORD);
     expect(bought.gil).toBe(2_000 - itemPrice(IRON_SWORD));
     expect(ownedCount(bought, IRON_SWORD)).toBe(before + 1);
   });
 
-  it('refuses an item not in the current stock (story gate holds)', () => {
-    expect(() => buyItem(readyToBuy, GRAPH, STEEL_HELM)).toThrow(/not in the current shop stock/);
+  it('refuses an item not stocked at this hub (story + location gates hold)', () => {
+    expect(() => buyItem(readyToBuy, GRAPH, CAMPAIGN_NODES.zarghidas, STEEL_HELM)).toThrow(/not stocked at/);
   });
 
   it('refuses on insufficient gil (spendGil re-validates)', () => {
     const broke = { ...readyToBuy, gil: itemPrice(IRON_SWORD) - 1 };
-    expect(() => buyItem(broke, GRAPH, IRON_SWORD)).toThrow(/insufficient gil/);
+    expect(() => buyItem(broke, GRAPH, CAMPAIGN_NODES.zarghidas, IRON_SWORD)).toThrow(/insufficient gil/);
   });
 });
 
