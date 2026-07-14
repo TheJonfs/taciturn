@@ -318,6 +318,18 @@ function actionHadEffect(
     // keeps "heal a full-HP ally" (spends MP, heals nothing) a no-effect no-XP
     // action. A TARGET's MP change IS an effect (e.g. Steal MP's drain).
     if (id !== casterId && b.vitals.mp !== a.vitals.mp) return true;
+    // A TARGET's displacement IS an effect (S94: Bear's Heave and other
+    // zero-damage throws/knockbacks earned nothing — the reposition is the
+    // whole point of those kits). The caster's own movement stays excluded,
+    // like its MP: self-repositioning shouldn't farm XP.
+    if (
+      id !== casterId &&
+      (b.position.x !== a.position.x ||
+        b.position.y !== a.position.y ||
+        b.position.layer !== a.position.layer)
+    ) {
+      return true;
+    }
   }
   return false;
 }
@@ -4475,7 +4487,19 @@ export function reduceUseCompound(
     mpAfter: newMp,
     stockpileAfter: have + 1,
   };
-  return { newState, outcome, generatedActions: [] };
+  // TABA S94: Compound earns like Throw Item (Chris) — a stockpile build is
+  // a connecting action for the alchemist's own progression. Self-targeted
+  // and 100% accurate, so the flat base applies (no target-level delta);
+  // same leveling opt-in as every other award.
+  const generatedActions: ProposedAction[] = [];
+  if (action.isReaction !== true && actor.statsByLevel !== undefined) {
+    generatedActions.push({
+      type: 'system_xp_award',
+      source: 'system',
+      payload: { unitId: actor.id, amount: Math.max(1, XP_BASE_VALUE) },
+    });
+  }
+  return { newState, outcome, generatedActions };
 }
 
 // --- Throw Item ---

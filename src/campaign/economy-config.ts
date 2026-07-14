@@ -12,8 +12,9 @@
 // --- Stage 0: currency + reward wiring ---
 
 // X in the gil award `gil = X × Σ(enemy_levels)` paid once per battle win
-// (story and skirmish alike). PLACEHOLDER (D-econ-6).
-export const GIL_PER_ENEMY_LEVEL = 10;
+// (story and skirmish alike). PLACEHOLDER (D-econ-6); doubled 10 → 20 in
+// S94 batch three (Chris: 10/level reads too lean in the early game).
+export const GIL_PER_ENEMY_LEVEL = 20;
 
 // S94 — the enemy kit framework's one dial: a generated level-L enemy has
 // L × this much JP to "spend" down its class's component list (authoring

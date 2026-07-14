@@ -55,11 +55,33 @@ function cureAbility(power = 5): ActiveAbilityDefinition {
     effects: { damage: { tags: ['holy', 'healing'], power_coefficient: power } },
   };
 }
+function shoveAbility(): ActiveAbilityDefinition {
+  // Zero damage, guaranteed knockback — the Bear's-Heave shape: the
+  // displacement IS the effect (S94).
+  return {
+    id: abilityId('shove'),
+    name: 'Shove',
+    kind: 'active',
+    bucket: bucketId('first_action'),
+    baseCost: 1,
+    availability: 'hidden',
+    targeting: { kind: 'single_unit', range: { horizontal: 1, vertical: 3 }, rangeMode: 'melee' },
+    actionSpeed: 0,
+    mpCost: 0,
+    effects: {
+      damage: {
+        tags: ['physical'],
+        power_coefficient: 0,
+        knockback: { distance: 1, chance: 100, factors: {} },
+      },
+    },
+  };
+}
 function battleSkill(): CommandSetDefinition {
   return {
     id: commandSetId('battle_skill'),
     name: 'Battle Skill',
-    members: [abilityId('attack'), abilityId('cure')],
+    members: [abilityId('attack'), abilityId('cure'), abilityId('shove')],
     baseCost: 1,
     availability: 'hidden',
   };
@@ -89,10 +111,19 @@ function stats(maxHpBase: number): BaseStats {
 }
 const catalog = createCatalog({
   statusTypes: [],
-  abilities: [attackAbility(), cureAbility()],
+  abilities: [attackAbility(), cureAbility(), shoveAbility()],
   commandSets: [battleSkill()],
   classes: [knightClass()],
-  items: [],
+  items: [
+    {
+      id: itemId('tonic'),
+      name: 'Tonic',
+      kind: 'consumable',
+      availability: 'hidden',
+      compoundMpCost: 8,
+      effects: { hpRestore: { coefficient: 12 } },
+    },
+  ],
   rulesets: [makeTestRuleset({ damagePipelineStages: DEFAULT_TEST_DAMAGE_PIPELINE })],
 });
 
@@ -225,6 +256,64 @@ describe('XP emission', () => {
       source: 'player',
       actorId: a.id,
       payload: { abilityId: abilityId('cure'), target: { kind: 'unit', unitId: ally.id } },
+    };
+    const r = commitAction(state, action, catalog);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(xpAwards(r.committed)).toHaveLength(1);
+  });
+});
+
+describe('XP emission — S94 batch three', () => {
+  it('a zero-damage displacement (shove/heave) IS an effect and earns', () => {
+    const a = caster('a', 20);
+    const b = makeUnit({ id: 'b', spd: 10, hp: 100, maxHpBase: 100, team: 'team_b', position: { x: 1, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [a, b], map: flatMap(4, 4), turnState: activeTurn('a') });
+    const action: ProposedAction = {
+      type: 'use_ability',
+      source: 'player',
+      actorId: a.id,
+      payload: { abilityId: abilityId('shove'), target: { kind: 'unit', unitId: b.id } },
+    };
+    const r = commitAction(state, action, catalog);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const moved = r.newState.units.get(b.id)!;
+    expect(moved.vitals.hp).toBe(100); // no damage…
+    expect(moved.position).not.toEqual({ x: 1, y: 0, layer: 0 }); // …but displaced
+    expect(xpAwards(r.committed)).toHaveLength(1);
+  });
+
+  it('Compound earns the flat base (self action, no target delta)', () => {
+    const a = caster('a', 20);
+    const state = makeGameState({ units: [a], map: flatMap(3, 3), turnState: activeTurn('a') });
+    const action: ProposedAction = {
+      type: 'use_compound',
+      source: 'player',
+      actorId: a.id,
+      payload: { itemId: itemId('tonic') },
+    };
+    const r = commitAction(state, action, catalog);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const awards = xpAwards(r.committed);
+    expect(awards).toHaveLength(1);
+    if (awards[0]!.type !== 'system_xp_award') return;
+    expect(awards[0]!.payload.amount).toBe(10); // XP_BASE_VALUE, no delta
+    expect(r.newState.units.get(a.id)!.xp).toBe(10);
+  });
+
+  it('an ENEMY-side leveling unit earns from its connecting actions too', () => {
+    // The campaign fold stamps statsByLevel on authored enemies — awards are
+    // team-agnostic (mid-battle enemy leveling is a feature, ADR-0139).
+    const enemy: Unit = { ...caster('e', 5), team: 'team_b' as Unit['team'] };
+    const target = makeUnit({ id: 'p', spd: 10, hp: 100, maxHpBase: 100, team: 'team_a', position: { x: 1, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [enemy, target], map: flatMap(3, 3), turnState: activeTurn('e') });
+    const action: ProposedAction = {
+      type: 'use_ability',
+      source: 'system',
+      actorId: enemy.id,
+      payload: { abilityId: abilityId('attack'), target: { kind: 'unit', unitId: target.id } },
     };
     const r = commitAction(state, action, catalog);
     expect(r.ok).toBe(true);

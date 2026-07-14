@@ -44,6 +44,9 @@ export function defaultConnectingPredicate(action: Action): boolean {
   if (action.type === 'use_ability' && action.payload.riderSource !== undefined) return false;
   const outcome = action.outcome;
   if (outcome === undefined) return false;
+  // Compound always connects (S94, Chris — it earns like Throw Item): a
+  // self-targeted, 100%-accuracy stockpile build with no per-target results.
+  if (outcome.kind === 'use_compound') return true;
   if (
     outcome.kind !== 'use_ability' &&
     outcome.kind !== 'use_throw_item' &&
