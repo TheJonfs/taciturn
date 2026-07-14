@@ -8,16 +8,17 @@
 // mid-chapter through the runtime `joinPlotUnit` mechanism (ADR-0149 WI4),
 // authored here as fixed-level join units.
 //
-// Kit convention (revised S94, Chris): the NAMED cast starts SMALL — an
-// authored kit of one signature basic each (Lumen: Scorch; Chris: Power
-// Attack; Clio: Water Lash; Sera: Hamstring; Thessaly: an Exact
-// Rhythm/Height/Prime Math line), with earned JP = the kit's cost so
-// available lands at 0 and the tree is earned from there. The rolled
-// GENERICS keep the hire-tool convention (full Tier-1 class kit,
-// `seedStartingKit`). Either way the kit is authored at BUILD time — the
-// join units never pass through campaign-start seeding, and Chris's
-// Alchemist JP trickle would make the auto-seed skip him. Class-innate
-// passives (`freeAbilities`) arrive EQUIPPED on everyone (S94).
+// Kit convention (revised S94, Chris — both rounds): EVERYONE starts
+// SMALL. The named cast gets one authored signature basic each (Lumen:
+// Scorch; Chris: Power Attack; Clio: Water Lash; Sera: Hamstring;
+// Thessaly: an Exact Rhythm/Height/Prime Math line); the rolled generics
+// get their class's single CHEAPEST active (Potion / Charged Attack /
+// Bear's Heave / Rock Toss). Earned JP = the kit's cost so available
+// lands at 0 and the tree is earned from there. Kits are authored at
+// BUILD time — the join units never pass through campaign-start seeding,
+// and Chris's Alchemist JP trickle would make the auto-seed skip him.
+// Hires keep the full-kit convention (recruit.ts). Class-innate passives
+// (`freeAbilities`) arrive EQUIPPED on everyone (S94).
 //
 // The M1 roster (`m1Roster` — L25 leads + Alice/Miluda/Can'tano) stays
 // authored in roster.ts for debug harnesses, and Miluda is slated to join
@@ -43,8 +44,8 @@ import { PLOT_UNIT_IDS } from './plot-unit-ids.ts';
 import { HIRE_NAMES, starterGearFor } from './recruit.ts';
 import {
   COMPONENT_CATALOG,
+  COMPONENT_ENTRIES,
   componentMetaOf,
-  seedStartingKit,
   tokenKey,
   type UnlockToken,
 } from './progression/index.ts';
@@ -99,11 +100,37 @@ interface Ch1UnitSpec {
   readonly extraJp?: Readonly<Record<string, number>>;
   // AUTHORED starting kit (S94, Chris): exactly these unlocks, with
   // earned JP set to their summed cost (available lands at 0 — the
-  // seedStartingKit invariant, kept). Absent → the full class starting
-  // kit (`seedStartingKit`), the rolled-generic/hire convention. The
-  // named cast starts SMALL: one signature basic each; the tree is
-  // earned from there.
-  readonly kit?: ReadonlyArray<UnlockToken>;
+  // seedStartingKit invariant, kept). Every Ch1 unit starts SMALL: the
+  // named cast one signature basic each, the rolled generics their
+  // class's cheapest active; the tree is earned from there. (Hires keep
+  // the full-kit convention — recruit.ts.)
+  readonly kit: ReadonlyArray<UnlockToken>;
+}
+
+// A rolled generic's one starting unlock (S94 round two, Chris): its
+// class's single CHEAPEST active-side component — Potion on the starting
+// Alchemist, Rock Toss on the Geosage, Charged Attack on the Hunter,
+// Bear's Heave on the Monk. "Active-side" = castable: active abilities and
+// item components (passives arrive innate-equipped separately; none of the
+// generic classes are Math casters). Restricted components excluded; ties
+// break by catalog authoring order — deterministic.
+function cheapestClassActive(cls: ClassId, catalog: Catalog): UnlockToken {
+  let best: { readonly token: UnlockToken; readonly cost: number } | undefined;
+  for (const meta of COMPONENT_ENTRIES) {
+    if (meta.nativeClass !== cls || meta.restrictedToUnit !== undefined) continue;
+    if (meta.token.kind === 'ability') {
+      if (!catalog.hasAbility(meta.token.id) || catalog.getAbility(meta.token.id).kind !== 'active') {
+        continue;
+      }
+    } else if (meta.token.kind !== 'item') {
+      continue;
+    }
+    if (best === undefined || meta.cost < best.cost) best = { token: meta.token, cost: meta.cost };
+  }
+  if (best === undefined) {
+    throw new Error(`cheapestClassActive: class ${String(cls)} has no active components`);
+  }
+  return best.token;
 }
 
 // earned == spent per class for an authored token list (the same
@@ -138,10 +165,7 @@ function ch1Unit(spec: Ch1UnitSpec, catalog: Catalog): CampaignUnit {
     spec.classId,
     catalog,
   );
-  const kit =
-    spec.kit !== undefined
-      ? { unlocks: spec.kit, earnedByClass: authoredKitEarnings(spec.kit) }
-      : seedStartingKit(spec.classId, loadout, catalog, COMPONENT_CATALOG);
+  const kit = { unlocks: spec.kit, earnedByClass: authoredKitEarnings(spec.kit) };
   let earnedByClass =
     Object.keys(kit.earnedByClass).length > 0 ? kit.earnedByClass : EMPTY_EARNED_BY_CLASS;
   if (spec.extraJp !== undefined) {
@@ -270,6 +294,8 @@ export function rollCh1Generics(rng: () => number, catalog: Catalog): ReadonlyAr
         gender: rng() < 0.5 ? 'male' : 'female',
         brave: rollBetween(rng, ROLL_MIN, ROLL_MAX),
         faith: rollBetween(rng, ROLL_MIN, ROLL_MAX),
+        // One starting skill: the class's cheapest active (S94 round two).
+        kit: [cheapestClassActive(cls, catalog)],
         equipment: genericStartingGear(cls, catalog),
       },
       catalog,

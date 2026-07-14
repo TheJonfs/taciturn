@@ -26,16 +26,16 @@ Viura tease, Zarghidas shop selling exactly its 12-item starter kit.
 
 ### For Chris / the planner
 
-- **Open design question from the kit change:** the rolled generics and
-  hires still get the FULL Tier-1 class kit (you named only the five plot
-  units) — so day-one Fenwick out-toolkits single-Scorch Lumen. If that
-  reads wrong in play, the same `kit:` mechanism limits them in minutes;
-  say the word and which basics each class starts with.
-- **Level-up debug chip shipped the simple way** (+1 level to the whole
-  active party, healed to full, repeatable — stacked above Grant JP).
-  Alternatives if you want them instead: per-unit level grants in the
-  dossier, or XP injection through the real award path. Talk it through
-  whenever.
+- **RESOLVED (round two): generics now start with one skill** — their
+  class's cheapest active (Potion / Charged Attack / Bear's Heave / Rock
+  Toss, via `cheapestClassActive`). Hires deliberately keep the full
+  Tier-1 kit (paid convenience). If a specific pick reads wrong (e.g.
+  Charged Attack over Scramble — a 100-JP tie broken by authoring
+  order), it's a one-line authored override.
+- **Level-up debug chip confirmed as-is by Chris** (party-wide +1,
+  repeatable). Chris is running a Ch1 playtest speedrun next — expect a
+  feedback batch; the offset-curve measure (party avg entering each
+  node) is the series to ask about.
 - Remaining S93 cosmetic nit STILL open: a GUEST's turn shows
   "Opponent's turn" in the action-menu placard (menu-before-scene and
   the "March on the enemy" scene label were both mooted by story-first

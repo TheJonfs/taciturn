@@ -140,16 +140,28 @@ describe('S94 feedback round — innates equipped, limited kits', () => {
     }
   });
 
-  it('the named cast starts with LIMITED kits; generics keep the full class kit', () => {
+  it('the named cast starts with LIMITED kits (one signature basic each)', () => {
     const unlockIds = (u: CampaignUnit) => u.unlocks.map((t) => String(t.id)).sort();
     expect(unlockIds(roster[0]!)).toEqual(['fire_strike']); // Lumen: just Scorch
     expect(unlockIds(roster[1]!)).toEqual(['power_attack']); // Chris: just Power Attack
     expect(unlockIds(clioJoinUnit(catalog))).toEqual(['water_strike']); // Clio: just Water Lash
     expect(unlockIds(seraJoinUnit(catalog))).toEqual(['hamstring']); // Sera: her signature
     expect(unlockIds(thessalyJoinUnit(catalog))).toEqual(['exact_rhythm', 'height', 'prime']);
-    // The rolled generics keep the hire-tool convention (full Tier-1 kit).
-    for (const generic of roster.slice(2)) {
-      expect(generic.unlocks.length).toBeGreaterThan(1);
+  });
+
+  it("each generic starts with exactly its class's cheapest active (S94 round two)", () => {
+    const byClass = new Map(roster.slice(2).map((u) => [String(u.classId), u]));
+    const expected: ReadonlyArray<readonly [string, string]> = [
+      ['alchemist', 'potion'], // an item component — Alchemy casts items
+      ['hunter', 'charged_attack'], // ties Scramble at 100; authoring order wins
+      ['monk', 'bears_heave'],
+      ['earth_mage', 'earth_strike'], // Rock Toss
+    ];
+    for (const [cls, skill] of expected) {
+      const unit = byClass.get(cls)!;
+      expect(unit.unlocks.map((t) => String(t.id)), cls).toEqual([skill]);
+      // earned == the one component's cost, in the unit's own class pool.
+      expect(Object.keys(unit.earnedByClass)).toEqual([cls]);
     }
   });
 

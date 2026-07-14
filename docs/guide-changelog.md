@@ -53,8 +53,10 @@ what the guide says about towns and starting abilities:
   Scorch; Chris only Power Attack; Clio joins with only Water Lash; Sera
   joins already knowing Hamstring (her restricted signature); Thessaly joins
   with one Math line (Exact Rhythm + Height + Prime). Everything else is
-  earned with JP. Rolled recruits and hires still arrive with their full
-  Tier-1 class kit.
+  earned with JP. (Round two, same session:) the four rolled starting
+  recruits also begin with just ONE skill — their class's cheapest:
+  Potion, Charged Attack, Bear's Heave, Rock Toss. Only tavern HIRES
+  still arrive with the full Tier-1 kit (you pay for the convenience).
 - **Class innate passives arrive equipped** on every new unit (yours and
   enemies): a fresh Knight has Counter/Martial Expertise/Bravestrider slotted,
   a fresh Pyromancer has Ignition/Aether Bloom/Smolder/Hotfoot, etc. They

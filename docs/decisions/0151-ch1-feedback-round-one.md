@@ -37,6 +37,16 @@ Two deliberate revisions inside this:
   handoff: a full-kit generic out-toolkits single-ability Lumen on day
   one — if that reads wrong in play, limit the generics next.
 
+**Amendment (same day, round two):** Chris took the flagged option — each
+rolled generic now starts with exactly its class's single CHEAPEST
+active-side component (`cheapestClassActive`: active abilities + item
+components, restricted excluded, ties by catalog authoring order): Potion
+(Alchemist), Charged Attack (Hunter — ties Scramble at 100, authoring
+order wins), Bear's Heave (Monk), Rock Toss (Geosage). With that, EVERY
+Ch1-authored unit has an explicit authored kit (`Ch1UnitSpec.kit` is now
+required); only hires keep the full-kit convention (recruit.ts,
+"functional on arrival" — deliberately, they're a paid convenience).
+
 ## Shop stock is PER HUB (revises D2's global pool)
 
 **Decision: an item is buyable only at the hub that sells it.**
