@@ -73,6 +73,12 @@ import {
 
 const BACKGROUND = '#0e0f12';
 
+// S94: battle-end pacing — how often to check whether the winning action's
+// animation has drained, and how long the final frame lingers before the
+// post-battle flow takes over.
+const BATTLE_END_POLL_MS = 100;
+const BATTLE_END_LINGER_MS = 600;
+
 // Wheel-zoom step. A 100px wheel delta produces this much zoom-factor
 // change. Tuned so a single notch on a typical mouse wheel feels like
 // a discrete zoom step rather than a snap.
@@ -546,6 +552,12 @@ function BattleViewInner({
   // Fire `onBattleEnd` exactly once with the terminal state. Ref-held so a
   // changing callback identity never re-fires it; `latestState` at first
   // `outcome` IS the final state (the `battle_end` commit is terminal).
+  //
+  // S94 (Chris): the WINNING action gets to finish animating before the
+  // post-battle flow takes over — poll the renderer's animator and fire
+  // only once its queue drains (plus a short beat so the final frame
+  // reads as a moment, not a cut). A missing renderer (tests, teardown
+  // races) falls through immediately, preserving the old timing.
   const onBattleEndRef = useRef(onBattleEnd);
   onBattleEndRef.current = onBattleEnd;
   const battleEndFiredRef = useRef(false);
@@ -554,8 +566,28 @@ function BattleViewInner({
     const cb = onBattleEndRef.current;
     if (cb === undefined) return;
     battleEndFiredRef.current = true;
-    cb(latestState);
-  }, [outcome, latestState]);
+    if (renderer === null) {
+      cb(latestState);
+      return;
+    }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = (): void => {
+      if (cancelled) return;
+      if (renderer.isIdle()) {
+        timer = setTimeout(() => {
+          if (!cancelled) cb(latestState);
+        }, BATTLE_END_LINGER_MS);
+        return;
+      }
+      timer = setTimeout(poll, BATTLE_END_POLL_MS);
+    };
+    poll();
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) clearTimeout(timer);
+    };
+  }, [outcome, latestState, renderer]);
 
   // Dev-only debug hooks (DebugBattleMenu; rendered only under
   // import.meta.env.DEV). Force an outcome, or crystallize one unit mid-battle.
