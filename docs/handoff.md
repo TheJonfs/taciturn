@@ -26,8 +26,26 @@ Suite green (**2879**),
 Browser-verified: scene-first start, four-node reveal with the dashed
 Viura tease, Zarghidas shop selling exactly its 12-item starter kit.
 
+### Batch two (2026-07-14, ADR-0152) — Chris's speedrun feedback
+
+All eleven items shipped: rider procs no longer double-earn XP/JP
+(engine + earning predicate); Compound/Throw Item unlocked via the
+delivery-action rule (wielded command sets contribute non-component
+members); the vanishing-Oskun map state committed at scene resolution;
+the Pixi canvas-text double-free fixed (plain destroy in
+elevation-label-layer); gendered name pools + ♀/♂ on roster cards; the
+ENEMY-KIT FRAMEWORK (enemy-kit.ts — level × ENEMY_JP_PER_LEVEL budget
+spent as a curriculum prefix, 50–70 Brave/Faith band, Dagger-where-legal;
+dial in economy-config, placeholder 100); and the winning action now
+animates out (+600ms linger) before the post-battle flow. Suite **2885**,
+tsc clean; the Oskun repro browser-verified.
+
 ### For Chris / the planner
 
+- **Enemy-kit dial to tune in playtest:** ENEMY_JP_PER_LEVEL = 100 and
+  the buy-in-authoring-order prefix policy are first drafts — measure
+  alongside the offset curve. Story-lineup equipment beyond the Dagger
+  floor is M4 authoring surface.
 - **RESOLVED (round two): generics now start with one skill** — their
   class's cheapest active (Potion / Charged Attack / Bear's Heave / Rock
   Toss, via `cheapestClassActive`). Hires deliberately keep the full

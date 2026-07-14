@@ -44,6 +44,29 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 94, batch two (2026-07-14) — playtest fixes + the enemy-kit framework (ADR-0152)
+
+From Chris's Chapter 1 speedrun:
+
+- **Fixed: weapon procs no longer double-pay XP/JP.** An attack whose wand
+  resonance fired was earning (and logging) the award twice; procs now earn
+  nothing — one action, one award.
+- **Fixed: Compound and Throw Item work.** They ride the Alchemy command
+  set wherever it's wielded (Alchemist primary or anyone's secondary);
+  which ITEMS you can throw is still gated by what you've unlocked.
+- **Fixed: the world map no longer "loses" your next destination** after a
+  Manage Roster detour from a just-finished scene.
+- **Fixed: a canvas crash** (Pixi text teardown) that could hit during play.
+- **Enemy kits now scale with level:** a generated enemy "spends" level ×
+  100 JP down its class tree in order — an L2 rebel knows one or two
+  basics, not Tidal Wave. Enemy Brave/Faith roll the same 50–70 band as
+  your recruits, and enemies carry at least a Dagger where their class
+  can hold one.
+- **The winning blow now finishes animating** (plus a short beat) before
+  the victory screen appears.
+- **Names match genders** for rolled recruits and hires, and roster cards
+  in Formation/Manage show ♀/♂.
+
 ## Session 94 (2026-07-13) — Ch1 feedback round: kits, per-town shops, story-first towns, map reveal (ADR-0151)
 
 Same-day revisions from Chris's first Chapter 1 playthrough — several change
