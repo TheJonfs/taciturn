@@ -31,10 +31,26 @@ describe('generateSkirmishParty (the D3 stub behind the M4 seam)', () => {
     }
   });
 
-  it('arms each generic with a usable kit and PLAIN gear (no equipment)', () => {
+  it('arms each generic with a level-budgeted kit and basic gear (S94 framework)', () => {
     for (const enemy of generateSkirmishParty(25, 3, catalog)) {
       expect(enemy.unlocks.length).toBeGreaterThan(0);
-      expect(Object.values(enemy.equipment).every((v) => v === undefined || v === null)).toBe(true);
+      // Basic gear: a Dagger wherever the class may legally hold one.
+      expect(String(enemy.equipment.rightHand ?? '')).toMatch(/dagger|^$/);
+      // Rolled band, like the player's generics.
+      expect(enemy.brave).toBeGreaterThanOrEqual(50);
+      expect(enemy.brave).toBeLessThanOrEqual(70);
+      expect(enemy.faith).toBeGreaterThanOrEqual(50);
+      expect(enemy.faith).toBeLessThanOrEqual(70);
+    }
+  });
+
+  it('the kit budget scales with level: an L2 knows less than an L25 (S94)', () => {
+    const low = generateSkirmishParty(2, 6, catalog);
+    const high = generateSkirmishParty(25, 6, catalog);
+    for (let i = 0; i < 6; i += 1) {
+      expect(low[i]!.unlocks.length).toBeLessThan(high[i]!.unlocks.length);
+      expect(low[i]!.unlocks.length).toBeGreaterThan(0); // never a blank sheet
+      expect(low[i]!.unlocks.length).toBeLessThanOrEqual(2); // ~200 JP of basics
     }
   });
 

@@ -15,6 +15,13 @@
 // (story and skirmish alike). PLACEHOLDER (D-econ-6).
 export const GIL_PER_ENEMY_LEVEL = 10;
 
+// S94 — the enemy kit framework's one dial: a generated level-L enemy has
+// L × this much JP to "spend" down its class's component list (authoring
+// order, stop at the first unaffordable — a coherent curriculum prefix).
+// L2 ≈ two basics; L10 ≈ most of a Tier-1 tree. PLACEHOLDER; tune from
+// playtest alongside the offset curve.
+export const ENEMY_JP_PER_LEVEL = 100;
+
 // The party's opening purse at campaign start. PLACEHOLDER (D-econ-6).
 export const STARTING_GIL = 0;
 

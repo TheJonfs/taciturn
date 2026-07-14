@@ -14,12 +14,12 @@
 // M4's real generator replaces this function at this signature; nothing else
 // moves.
 
-import { EMPTY_UNIT_EQUIPMENT, bucketId, classId, type Catalog, type ClassId, type Loadout } from '@engine/index.ts';
+import { bucketId, classId, type Catalog, type ClassId, type Loadout } from '@engine/index.ts';
 import { authoredEnemy } from './authored-enemy.ts';
+import { basicEnemyGear, enemyBraveFaith, enemyKitForLevel } from './enemy-kit.ts';
 import { partyAverageLevel, resolveEnemyLevel } from './enemy-level.ts';
 import { withInnatePassives } from './innate-passives.ts';
 import { allNodeBeats, type CampaignNode } from './graph.ts';
-import { COMPONENT_CATALOG, seedStartingKit } from './progression/index.ts';
 import { firstBattleBeat, type NodeBattle } from './sequence.ts';
 import type { CampaignState, CampaignUnit } from './types.ts';
 
@@ -46,7 +46,10 @@ const STUB_NAMES: ReadonlyArray<string> = [
 ];
 
 // THE M4 SEAM. Generate the skirmish's enemy party: `count` generics at
-// `level`, Tier-1 classes, standard class kits, no gear. Deterministic —
+// `level`, Tier-1 classes, each with a LEVEL-BUDGETED kit, rolled-band
+// Brave/Faith, and basic gear (the S94 enemy-kit framework — see
+// enemy-kit.ts; before it, the stub handed every enemy the FULL class
+// starting kit, so an L2 Hydrologist cast Tidal Wave). Deterministic —
 // same inputs, same party (the repeat-farm variance lever belongs to the
 // real generator, not the stub).
 export function generateSkirmishParty(
@@ -57,8 +60,7 @@ export function generateSkirmishParty(
   return Array.from({ length: count }, (_, i) => {
     const cls = STUB_CLASS_ROTATION[i % STUB_CLASS_ROTATION.length]!;
     // The class's first-action command set plus its innate passives (S94:
-    // every created unit fights like a member of its class); the starting
-    // kit derives the matching unlocks so its actives are usable.
+    // every created unit fights like a member of its class).
     const loadout: Loadout = withInnatePassives(
       {
         actionBuckets: { [bucketId('first_action')]: [catalog.getClass(cls).firstActionCommandSet] },
@@ -67,15 +69,15 @@ export function generateSkirmishParty(
       cls,
       catalog,
     );
-    const kit = seedStartingKit(cls, loadout, catalog, COMPONENT_CATALOG);
     return authoredEnemy({
       id: `skirmish-enemy-${i + 1}`,
       name: STUB_NAMES[i % STUB_NAMES.length]!,
       classId: cls,
       level,
       loadout,
-      equipment: EMPTY_UNIT_EQUIPMENT,
-      unlocks: kit.unlocks,
+      equipment: basicEnemyGear(cls, catalog),
+      unlocks: enemyKitForLevel(cls, level, catalog),
+      ...enemyBraveFaith(level, i),
     });
   });
 }
