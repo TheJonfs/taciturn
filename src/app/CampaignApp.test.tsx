@@ -93,3 +93,40 @@ describe('CampaignApp — re-entering a CLEARED node (M3 economy Stage 1)', () =
     container.remove();
   });
 });
+
+describe('CampaignApp — battle-less resolution commits before detours (S94)', () => {
+  it('keeps the frontier after a Manage Roster round-trip from the first world map', () => {
+    // Fresh campaign: the Zarghidas scene plays first (story-first entry),
+    // then the world map. The resolution used to live only in the run's
+    // completion callback — a Manage Roster detour rebuilt the map from the
+    // PRE-scene state (no Oskun, scene re-armed): the vanishing-Oskun bug.
+    const fresh = startCampaign(CAMPAIGN_GRAPH, m0Roster, catalog);
+    const { container, root } = mount(
+      <CampaignApp initialState={fresh} catalog={catalog} onExitToTitle={() => {}} />,
+    );
+
+    // Scene → world map.
+    expect(container.textContent).toContain('Opening scene');
+    clickAria(container, 'Advance dialogue');
+    expect(container.textContent).toContain('The Road Ahead');
+    expect(container.textContent).toContain('Oskun Fields');
+
+    // Detour into roster management and straight back.
+    const manage = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Manage Roster',
+    )!;
+    act(() => manage.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    const back = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.includes('The Road Ahead'),
+    )!;
+    act(() => back.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+
+    // The frontier is intact — Oskun offered, the scene NOT re-armed.
+    expect(container.textContent).toContain('The Road Ahead');
+    expect(container.textContent).toContain('Oskun Fields');
+    expect(container.textContent).not.toContain('Opening scene');
+
+    act(() => root.unmount());
+    container.remove();
+  });
+});

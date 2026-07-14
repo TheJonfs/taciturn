@@ -323,7 +323,9 @@ function actionHadEffect(
 }
 
 // Build the `system_xp_award` for a connecting action, or null when no XP is
-// owed. Skips reactions and non-leveling units (no `statsByLevel` → opt-out).
+// owed. Skips reactions, RIDER casts (weapon `attackProcs` — the weapon acts,
+// not the wielder; without this the root attack + its proc each paid, the S94
+// double-award bug), and non-leveling units (no `statsByLevel` → opt-out).
 // ONE award per action (the AoE-single-grant rule — this is emitted once per
 // resolve, not per target); delta from the primary target; +KO bonus if any
 // target was killed. Shared by the use_ability / throw / charged-resolve paths.
@@ -334,8 +336,9 @@ function buildXpAward(
   target: AbilityTarget,
   results: ReadonlyArray<AbilityTargetResult>,
   isReaction: boolean,
+  isRider: boolean,
 ): ProposedAction | null {
-  if (isReaction) return null;
+  if (isReaction || isRider) return null;
   if (caster.statsByLevel === undefined) return null; // opt-in: leveling units only
   if (!actionHadEffect(before, after, caster.id, results)) return null;
   const delta = primaryTargetLevel(before, target, caster.level) - caster.level;
@@ -626,7 +629,8 @@ export function reduceUseAbility(
   }
 
   // TABA M2: award XP to the caster for this connecting, effect-having action
-  // (one grant per cast; skipped for reactions / non-leveling units / no-effect).
+  // (one grant per cast; skipped for reactions / rider procs / non-leveling
+  // units / no-effect).
   const xpAward = buildXpAward(
     state,
     resolved.newState,
@@ -634,6 +638,7 @@ export function reduceUseAbility(
     action.payload.target,
     resolved.perTargetResults,
     action.isReaction === true,
+    isRider,
   );
   if (xpAward !== null) generatedActions.push(xpAward);
 
@@ -4271,6 +4276,7 @@ export function reduceChargedActionResolve(
     primaryTarget,
     allResults,
     action.isReaction === true,
+    false, // a charged resolve is never a rider
   );
   if (xpAward === null) return resolved;
   return { ...resolved, generatedActions: [...resolved.generatedActions, xpAward] };
@@ -4560,6 +4566,7 @@ export function reduceUseThrowItem(
     action.payload.target,
     [result.targetResult],
     action.isReaction === true,
+    false, // a thrown item is never a rider
   );
   const generatedActions = xpAward !== null
     ? [...result.generatedActions, xpAward]

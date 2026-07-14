@@ -14,6 +14,7 @@ import {
   bucketId,
   classId,
   commandSetId,
+  itemId,
   unitId,
   type Action,
   type ActiveAbilityDefinition,
@@ -154,6 +155,29 @@ describe('XP emission', () => {
     if (award.type !== 'system_xp_award') return;
     expect(r.newState.units.get(b.id)!.vitals.hp).toBe(0); // killed
     expect(award.payload.amount).toBe(20); // max(1, 10+0) + 10 KO
+  });
+
+  it('a RIDER cast (weapon proc) earns NO XP — the weapon acts, not the wielder (S94)', () => {
+    // The root attack pays once; its equipment-proc follow-up (same actor,
+    // riderSource set) must not pay again — the double-award bug.
+    const a = caster('a', 20);
+    const b = makeUnit({ id: 'b', spd: 10, hp: 100, maxHpBase: 100, team: 'team_b', position: { x: 1, y: 0, layer: 0 } });
+    const state = makeGameState({ units: [a, b], map: flatMap(3, 3), turnState: activeTurn('a') });
+    const rider: ProposedAction = {
+      type: 'use_ability',
+      source: 'system',
+      actorId: a.id,
+      payload: {
+        abilityId: abilityId('attack'),
+        target: { kind: 'unit', unitId: b.id },
+        riderSource: { kind: 'equipment_proc', itemId: itemId('test_wand') },
+      },
+    };
+    const r = commitAction(state, rider, catalog);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.newState.units.get(b.id)!.vitals.hp).toBeLessThan(100); // it DID connect
+    expect(xpAwards(r.committed)).toHaveLength(0); // …but paid nothing
   });
 
   it('a caster with no statsByLevel earns NO XP (opt-out — Mage War / enemies)', () => {

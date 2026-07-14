@@ -38,6 +38,10 @@ export type ConnectingActionPredicate = (action: Action) => boolean;
 
 export function defaultConnectingPredicate(action: Action): boolean {
   if (action.isReaction) return false; // reactions never earn
+  // Rider casts (weapon attackProcs) never earn either — the weapon acts,
+  // not the wielder. Mirrors the engine's XP-award guard (S94: the root
+  // attack + its proc each banked JP — the double-award bug).
+  if (action.type === 'use_ability' && action.payload.riderSource !== undefined) return false;
   const outcome = action.outcome;
   if (outcome === undefined) return false;
   if (

@@ -40,6 +40,7 @@ function act(over: {
   kind?: string | null;
   hits?: ReadonlyArray<boolean>;
   seq?: number;
+  rider?: boolean;
 }): Action {
   const {
     actor = 'u1',
@@ -48,6 +49,7 @@ function act(over: {
     kind = 'use_ability',
     hits = [true],
     seq = 0,
+    rider = false,
   } = over;
   return {
     sequenceNumber: seq,
@@ -58,7 +60,7 @@ function act(over: {
     chainDepth: 0,
     isReaction,
     type,
-    payload: {},
+    payload: rider ? { riderSource: { kind: 'equipment_proc' } } : {},
     outcome:
       kind === null ? undefined : { kind, perTargetResults: hits.map((hit) => ({ hit })) },
   } as unknown as Action;

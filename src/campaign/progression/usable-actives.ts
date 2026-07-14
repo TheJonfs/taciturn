@@ -6,11 +6,17 @@
 // projection between them, applied at the campaign→battle fold.
 //
 // The allowlist = the class's always-free abilities (Attack and any innate
-// actives — never gated) UNION the unit's unlocked ability tokens. Note that
-// actives are NOT free-in-class (unlike R/S/M passives): a fresh unit's
-// command-set actives are all locked until bought, which is the whole point
-// of "the combat kit comes online as you spend" (brief). Including passive
-// ids is harmless — passives never route through `use_ability`.
+// actives — never gated) UNION the unit's unlocked ability tokens UNION the
+// NON-COMPONENT members of every wielded command set (S94 fix). That last
+// clause is the delivery-action rule: Compound / Throw Item are Alchemy's
+// structural verbs — they were never JP components, so without it the
+// allowlist stranded them (an Alchemist with Potion unlocked couldn't
+// throw it; a Knight wielding Alchemy as a secondary was blocked the same
+// way). A member that IS a component (Scorch in Fire Spells) stays locked
+// until bought — the whole point of "the combat kit comes online as you
+// spend" (brief) is untouched; resource gating for items stays on
+// `usableItems`. Including passive ids is harmless — passives never route
+// through `use_ability`.
 //
 // The engine consumes the resulting allowlist opaquely (`undefined ⇒ all
 // usable`), knowing nothing about JP — so Mage War, whose fold never stamps
@@ -24,6 +30,8 @@ import type {
   MathSkillValue,
 } from '@engine/index.ts';
 import type { CampaignUnit } from '../types.ts';
+import { COMPONENT_CATALOG } from './component-catalog-data.ts';
+import { tokenKey } from './tokens.ts';
 
 export function usableActiveIds(
   unit: CampaignUnit,
@@ -31,6 +39,17 @@ export function usableActiveIds(
 ): ReadonlyArray<AbilityId> {
   const cls = catalog.getClass(unit.classId);
   const out = new Set<AbilityId>(cls.freeAbilities);
+  // Wielded command sets contribute their NON-gated members (the
+  // delivery-action rule — see header).
+  for (const sets of Object.values(unit.loadout.actionBuckets)) {
+    for (const commandSetId of sets) {
+      for (const memberId of catalog.getCommandSet(commandSetId).members) {
+        if (!COMPONENT_CATALOG.has(tokenKey({ kind: 'ability', id: memberId }))) {
+          out.add(memberId);
+        }
+      }
+    }
+  }
   for (const token of unit.unlocks) {
     if (token.kind === 'ability') out.add(token.id);
   }

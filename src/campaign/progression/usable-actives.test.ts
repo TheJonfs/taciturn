@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from '@content/index.ts';
 import {
   abilityId,
+  bucketId,
   classId,
+  commandSetId,
   EMPTY_LOADOUT,
   EMPTY_UNIT_EQUIPMENT,
   itemId,
@@ -86,5 +88,54 @@ describe('combinator-component projections', () => {
     expect(new Set(usableMathValueIds(u))).toEqual(new Set([3, 'prime']));
     expect(usableMathParameterIds(unit())).toEqual([]);
     expect(usableMathValueIds(unit())).toEqual([]);
+  });
+});
+
+describe('the delivery-action rule (S94): wielded command sets contribute non-component members', () => {
+  const FIRST_ACTION = bucketId('first_action');
+  const SECONDARY = bucketId('secondary_command_sets');
+
+  it('an Alchemist with only a potion unlock can Compound and Throw Item', () => {
+    const alchemist = unit({
+      classId: classId('alchemist'),
+      loadout: {
+        actionBuckets: { [FIRST_ACTION]: [commandSetId('alchemy')] },
+        passiveBuckets: {},
+      },
+      unlocks: [{ kind: 'item', id: itemId('potion') }],
+    });
+    const usable = new Set(usableActiveIds(alchemist, catalog).map(String));
+    expect(usable.has('compound')).toBe(true);
+    expect(usable.has('throw_item')).toBe(true);
+  });
+
+  it('a Knight wielding Alchemy as a SECONDARY gets the delivery actions too', () => {
+    const knight = unit({
+      classId: classId('knight'),
+      loadout: {
+        actionBuckets: {
+          [FIRST_ACTION]: [commandSetId('battle_skill')],
+          [SECONDARY]: [commandSetId('alchemy')],
+        },
+        passiveBuckets: {},
+      },
+      unlocks: [{ kind: 'item', id: itemId('potion') }],
+    });
+    const usable = new Set(usableActiveIds(knight, catalog).map(String));
+    expect(usable.has('compound')).toBe(true);
+    expect(usable.has('throw_item')).toBe(true);
+  });
+
+  it('component members of a wielded set stay LOCKED until bought (Scorch)', () => {
+    const mage = unit({
+      classId: classId('fire_mage'),
+      loadout: {
+        actionBuckets: { [FIRST_ACTION]: [commandSetId('fire_spells')] },
+        passiveBuckets: {},
+      },
+      unlocks: [],
+    });
+    const usable = new Set(usableActiveIds(mage, catalog).map(String));
+    expect(usable.has('fire_strike')).toBe(false); // a JP component — still gated
   });
 });

@@ -25,7 +25,7 @@
 // won battle"). A reload mid-sequence (e.g. during a post-battle scene) resumes
 // at the world map. Save schema is unchanged (v2).
 
-import { useState, type CSSProperties, type ReactElement } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
 import { BattleView } from './BattleView.tsx';
 import { DeploymentScreen } from './DeploymentScreen.tsx';
 import { FormationScreen } from './FormationScreen.tsx';
@@ -163,6 +163,23 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
   // its NodeBattle from the node's beats by index (fresh across renders).
   const node = getNode(GRAPH, state.currentNodeId);
 
+  // Commit a BATTLE-LESS resolution to the live state (S94 fix — the
+  // vanishing-Oskun bug). `resolutionRun` builds the world-map run from a
+  // RESOLVED (awaiting_route, beat-cleared) snapshot but only embeds it in
+  // the run's `done`; the battle path commits via handleBattleEnd, the
+  // story-only path never did. Until the player picked a route, the live
+  // `state` stayed pre-scene — so a Manage Roster detour rebuilt the map
+  // from it (frontier missing, scene re-armed). Committing here (and
+  // saving — same checkpoint semantics as the battle path's resolve) keeps
+  // every detour and reload consistent with what the map shows.
+  useEffect(() => {
+    if (screen.kind !== 'run' || screen.done.kind !== 'route') return;
+    if (state.phase === 'awaiting_route') return; // already committed (battle path)
+    const resolved = screen.done.state;
+    saveCampaign(resolved);
+    setState(resolved);
+  }, [screen, state.phase]);
+
   // --- run plumbing ---
 
   // The first screen for a starting/routed-into node — PURE (no save/setState).
@@ -228,9 +245,11 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
   }
 
   // A node whose sequence has ended (standalone / trailing story with no more
-  // battles) — set the phase and show its closing run. No `awaiting_route`
-  // checkpoint save here (a battle-less resolution has nothing to protect from
-  // a re-fight); the route/exit persists on completion.
+  // battles) — set the phase and show its closing run. The resolved state is
+  // COMMITTED (setState + save) by the route-run effect above once this run
+  // shows, so mid-run detours (Manage Roster) and reloads see the resolution
+  // (S94 fix); this builder itself stays pure (planEntry calls it at render
+  // time).
   function resolutionRun(
     st: CampaignState,
     prefixScenes: ReadonlyArray<InterstitialBeat>,

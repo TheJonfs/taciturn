@@ -76,19 +76,20 @@ export class ElevationLabelLayer {
   // called from `BattleRenderer.redrawStaticLayers()` on WebGL context
   // restore (S50 fix).
   //
-  // S50 memory mitigation: when destroying children, pass
-  // `{ texture: true, textureSource: true }` so Pixi releases the
-  // per-instance canvas-text bitmaps. Default `destroy()` only removes
-  // the Container/Text wrapper and leaves the underlying GPU texture
-  // referenced — across repeated redraws (e.g. one per context-loss /
-  // restore cycle) those orphaned bitmaps compound. Safe to destroy
-  // aggressively here because `draw` is the only path that creates
-  // labels: any future redraw allocates fresh bitmaps from scratch.
+  // S94 fix (revises the S50 mitigation): plain `destroy()` — NEVER
+  // `{ texture: true, textureSource: true }` on canvas Text. A canvas
+  // Text's texture is POOL-MANAGED by Pixi's CanvasTextSystem (reference
+  // counting + texture GC): destroying it directly here and letting the
+  // system return it to the TexturePool on unload is a double-free that
+  // corrupts the pool bucket — the playtest crash at
+  // `TexturePool.returnTexture: cannot read 'push' of undefined`. The
+  // pool + GC already reclaim the bitmap after a plain destroy, so the
+  // S50 leak concern is covered by Pixi's own lifecycle.
   draw(map: BattleMap): void {
     // Clear any previous labels first (supports repaints).
     for (const child of [...this.container.children]) {
       this.container.removeChild(child);
-      child.destroy({ texture: true, textureSource: true });
+      child.destroy();
     }
     for (const tile of map.tiles) {
       const label = elevationLabelFor(tile.elevation);
