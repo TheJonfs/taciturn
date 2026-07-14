@@ -99,7 +99,10 @@ export function FormationScreen({
                 >
                   <span style={invalid ? warnCheckStyle : checkStyle}>{invalid ? '⚠' : on ? '✓' : ''}</span>
                   <span style={nameStyle}>{u.name}</span>
-                  <span style={metaStyle}>{classLabel(u.classId)}</span>
+                  <span style={metaStyle}>
+                    {classLabel(u.classId)}
+                    {u.gender !== undefined ? ` ${u.gender === 'female' ? '♀' : '♂'}` : ''}
+                  </span>
                   <span style={metaStyle}>Lv {u.level}</span>
                   <span style={metaStyle}>
                     {invalid ? 'loadout invalid' : `HP ${u.vitals.hp} · MP ${u.vitals.mp}`}

@@ -41,7 +41,7 @@ import {
 import { buildBaseStats } from '@content/teams/index.ts';
 import { withInnatePassives } from './innate-passives.ts';
 import { PLOT_UNIT_IDS } from './plot-unit-ids.ts';
-import { HIRE_NAMES, starterGearFor } from './recruit.ts';
+import { HIRE_NAMES_FEMALE, HIRE_NAMES_MALE, starterGearFor } from './recruit.ts';
 import {
   COMPONENT_CATALOG,
   COMPONENT_ENTRIES,
@@ -276,22 +276,26 @@ function genericStartingGear(cls: ClassId, catalog: Catalog): UnitEquipment {
   return equipment;
 }
 
-// Roll the four campaign-start generics: classes fixed, names sampled
-// without replacement from the hire pool, genders 50/50, Brave/Faith rolled
-// 50–70, all L1 with Zarghidas class starting gear. `rng` is the ONLY
-// source of variation — the app passes Math.random at the New Campaign
-// click and the rolled results persist in the save; tests pass a stub.
+// Roll the four campaign-start generics: classes fixed, genders 50/50,
+// names sampled without replacement from the pool MATCHING the rolled
+// gender (S94 fix — a female Monk is named from the female list, so the
+// name never fights the portrait), Brave/Faith rolled 50–70, all L1 with
+// Zarghidas class starting gear. `rng` is the ONLY source of variation —
+// the app passes Math.random at the New Campaign click and the rolled
+// results persist in the save; tests pass a stub.
 export function rollCh1Generics(rng: () => number, catalog: Catalog): ReadonlyArray<CampaignUnit> {
-  const namePool = [...HIRE_NAMES];
+  const pools = { male: [...HIRE_NAMES_MALE], female: [...HIRE_NAMES_FEMALE] };
   return CH1_GENERIC_CLASSES.map((cls, i) => {
-    const name = namePool.splice(Math.floor(rng() * namePool.length), 1)[0]!;
+    const gender = rng() < 0.5 ? ('male' as const) : ('female' as const);
+    const pool = pools[gender];
+    const name = pool.splice(Math.floor(rng() * pool.length), 1)[0]!;
     return ch1Unit(
       {
         id: `ch1-gen-${i + 1}-${String(cls)}`,
         name,
         classId: cls,
         level: CH1_START_LEVEL,
-        gender: rng() < 0.5 ? 'male' : 'female',
+        gender,
         brave: rollBetween(rng, ROLL_MIN, ROLL_MAX),
         faith: rollBetween(rng, ROLL_MIN, ROLL_MAX),
         // One starting skill: the class's cheapest active (S94 round two).

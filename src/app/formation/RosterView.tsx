@@ -222,7 +222,8 @@ function UnitCard({
           <div className="tf-cl">
             <span className="c" style={{ color: col }}>
               {className(unit.classId)}
-            </span>{' '}
+            </span>
+            {unit.gender !== undefined ? ` ${unit.gender === 'female' ? '♀' : '♂'}` : ''}{' '}
             <span className="lv">· Lv {unit.level}</span>
           </div>
         </div>

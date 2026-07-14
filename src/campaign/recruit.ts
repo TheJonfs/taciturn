@@ -27,6 +27,7 @@ import {
   type Catalog,
   type ClassId,
   type EquipmentSlotId,
+  type Gender,
   type ItemId,
   type Loadout,
   type UnitEquipment,
@@ -100,16 +101,21 @@ export function starterGearFor(classId: ClassId, catalog: Catalog): ReadonlyArra
   return picks;
 }
 
-// Placeholder name pool for generics (indexed by roster size; a repeat gets
-// a numeral suffix so the barracks stays readable). Exported as the sampling
-// list the Ch1 campaign-start roll also draws from (ch1-roster.ts).
-export const HIRE_NAMES: ReadonlyArray<string> = [
-  'Bram', 'Odette', 'Fenwick', 'Isolde', 'Corin', 'Maren',
-  'Tobias', 'Elsbeth', 'Garrick', 'Nyra', 'Piers', 'Sable',
+// Placeholder name pools for generics, GENDERED (S94: a rolled/derived
+// gender draws a matching name, so the name never fights the portrait).
+// Exported as the sampling lists the Ch1 campaign-start roll also draws
+// from (ch1-roster.ts). A repeat gets a numeral suffix so the barracks
+// stays readable.
+export const HIRE_NAMES_MALE: ReadonlyArray<string> = [
+  'Bram', 'Fenwick', 'Corin', 'Tobias', 'Garrick', 'Piers',
+];
+export const HIRE_NAMES_FEMALE: ReadonlyArray<string> = [
+  'Odette', 'Isolde', 'Maren', 'Elsbeth', 'Nyra', 'Sable',
 ];
 
-function hireName(state: CampaignState): string {
-  const base = HIRE_NAMES[state.roster.length % HIRE_NAMES.length]!;
+function hireName(state: CampaignState, gender: Gender | undefined): string {
+  const pool = gender === 'female' ? HIRE_NAMES_FEMALE : HIRE_NAMES_MALE;
+  const base = pool[state.roster.length % pool.length]!;
   const taken = state.roster.filter((u) => u.name === base || u.name.startsWith(`${base} `)).length;
   return taken === 0 ? base : `${base} ${taken + 1}`;
 }
@@ -148,11 +154,12 @@ export function buildHire(state: CampaignState, spec: HireSpec, catalog: Catalog
       ? { ...kit.earnedByClass, [String(spec.classId)]: (kit.earnedByClass[String(spec.classId)] ?? 0) + bonus }
       : (Object.keys(kit.earnedByClass).length > 0 ? kit.earnedByClass : EMPTY_EARNED_BY_CLASS);
 
+  const gender = classDef.defaultGender;
   const unit: CampaignUnit = {
     // Roster length only grows (lost units are retained), so it mints a
     // collision-free, deterministic id.
     id: unitId(`hire-${state.roster.length + 1}-${String(spec.classId)}`),
-    name: hireName(state),
+    name: hireName(state, gender),
     classId: spec.classId,
     level: spec.level,
     brave: 70,
@@ -166,7 +173,6 @@ export function buildHire(state: CampaignState, spec: HireSpec, catalog: Catalog
     unlocks: kit.unlocks,
     fate: 'active',
   };
-  const gender = classDef.defaultGender;
   return gender !== undefined ? { ...unit, gender } : unit;
 }
 
