@@ -14,12 +14,14 @@ been processed.
 ## S94 — Ch1 feedback round one (2026-07-13, same day as S93)
 
 Chris played the fresh Chapter 1 and all seven feedback items shipped
-(ADR-0151): class innates auto-equip on every created unit; the named
-cast starts with authored one-signature kits (generics keep full kits);
-Lumen/Chris armor swap; PER-HUB shop stock (revises D2); STORY-FIRST
-entry at hubs (revises the S88 Dorter menu; campaign start now opens on
-the Zarghidas scene); progressive map reveal with always-visible Old
-Ordal + Viura teases; and a dev level-up chip. Suite green (**2878**),
+(ADR-0151), plus the same-day round two: class innates auto-equip on
+every created unit; EVERY Ch1 unit starts with an authored small kit
+(named cast one signature each; generics their class's cheapest active —
+only hires keep full kits); Lumen/Chris armor swap; PER-HUB shop stock
+(revises D2); STORY-FIRST entry at hubs (revises the S88 Dorter menu;
+campaign start now opens on the Zarghidas scene); progressive map reveal
+with always-visible Old Ordal + Viura teases; and a dev level-up chip.
+Suite green (**2879**),
 `tsc -b` clean, Atlas round-trip pin regenerated for `alwaysVisible`.
 Browser-verified: scene-first start, four-node reveal with the dashed
 Viura tease, Zarghidas shop selling exactly its 12-item starter kit.
