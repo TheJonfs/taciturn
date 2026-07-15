@@ -40,6 +40,19 @@ dial in economy-config, placeholder 100); and the winning action now
 animates out (+600ms linger) before the post-battle flow. Suite **2885**,
 tsc clean; the Oskun repro browser-verified.
 
+### Batch three (2026-07-14, ADR-0152 addendum) — speedrun continued
+
+Compound earns (flat base via use_compound award + JP predicate);
+target displacement counts as an effect (zero-damage heaves earn, both
+sides); GIL_PER_ENEMY_LEVEL 10 → 20; and the PASSIVE-ENEMY bug: the AI
+enumerated LOCKED abilities, a locked best-plan nulled the whole joint
+plan, and stubs wandered — enumeration now respects usableActives (and
+pickCompoundItem respects usableItems). Counter-fear was refuted by
+trace. Suite **2890**. Latent (noted in ADR): the joint planner still
+fail-hard-nulls if its best plan fails validation for reasons other
+than locks — unreachable now, revisit if a new validation dimension
+lands.
+
 ### For Chris / the planner
 
 - **Enemy-kit dial to tune in playtest:** ENEMY_JP_PER_LEVEL = 100 and

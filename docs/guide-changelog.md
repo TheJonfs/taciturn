@@ -44,6 +44,20 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 94, batch three (2026-07-14) — earning gaps, fightier low-level enemies, richer purses (ADR-0152 addendum)
+
+- **Compound now earns XP/JP** (flat base — it's self-targeted), matching
+  Throw Item. The award line still appears when the turn ends.
+- **Zero-damage throws earn too:** Bear's Heave and other pure-displacement
+  moves count as connecting actions — for your units and enemies alike
+  (that's why the enemy Monk seemed to earn nothing).
+- **Low-level enemies actually fight now.** The AI was planning around
+  abilities the unit hadn't unlocked, and when that plan fell through it
+  gave up its turn — the wandering you saw. It now plans only with what a
+  unit truly knows: expect the L2 monk to punch (hard — Barehanded), the
+  poacher to reposition and line up Charged Attack.
+- **Gil doubled:** battle awards now pay 20 gil × total enemy levels.
+
 ## Session 94, batch two (2026-07-14) — playtest fixes + the enemy-kit framework (ADR-0152)
 
 From Chris's Chapter 1 speedrun:

@@ -92,7 +92,24 @@ farm XP. Enemy-side awards were otherwise already live (the fold stamps
 **Gil doubled.** `GIL_PER_ENEMY_LEVEL` 10 → 20 (early-game income read
 too lean against the Ch1 stub prices).
 
-**Low-level AI passivity** — see the addendum below once diagnosed.
+**Low-level AI passivity — the AI planned with LOCKED abilities.** The
+counter-fear hypothesis was refuted by trace (the reaction penalty is a
+capped multiplicative shave — it cannot push a landed attack below Wait).
+The real mechanism: `enumerateActiveAbilities` ignored `usableActives`,
+so with gating live and lean kits a LOCKED command-set member (Storm
+Stoop on the L2 monk, Pin Down on the hunter) scored well, won the joint
+plan, then failed commit-validation — and `pickJointActOrMove`'s
+fail-hard null discarded the valid lesser attack along with it, leaving
+the unit to wander and end its turn. Enumeration now respects the
+allowlist (`undefined` ⇒ ungated, the engine's own semantics), and
+`pickCompoundItem` gates on `usableItems` the same way. Probe before →
+after: monk wander → unarmed 15-damage attack (Barehanded innate); hunter
+wander → move + Charged Attack; hydrologist wander → move + Water Lash.
+Regression test walks every real Oskun stub's full turn and requires each
+to act. (Latent robustness note, not fixed here: the joint planner still
+nulls wholesale if its BEST plan fails validation for any other reason —
+with enumeration honest this is unreachable in practice; revisit if a
+new validation dimension appears.)
 
 ## Consequences
 
@@ -105,3 +122,7 @@ too lean against the Ch1 stub prices).
   are the first draft of "how strong is a generated enemy's kit" — tune
   with the offset curve. Story-lineup EQUIPMENT authoring beyond the
   Dagger floor is still M4 surface.
+- Batch three consequences: suite 2885 → 2890; `tsc -b` clean. The
+  S89 utility floors (DEFAULT_DEBUFF_VALUE + aiHints.value set) surfaced
+  again during the AI trace as the chip-vs-utility asymmetry dial — not
+  the cause here, still the gold-plating watch item.
