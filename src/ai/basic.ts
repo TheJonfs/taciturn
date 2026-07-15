@@ -812,7 +812,11 @@ function pickCompoundItem(
     const item = catalog.getItem(id);
     return item.kind === 'consumable' ? item.compoundMpCost : Infinity;
   };
-  const canAfford = (id: ItemId): boolean => actor.vitals.mp >= mpFor(id);
+  // TABA M2 gating (S94): a locked item can't be compounded — propose
+  // only what the combinator gate would accept (`undefined` ⇒ ungated).
+  const usable = (id: ItemId): boolean =>
+    actor.usableItems === undefined || actor.usableItems.has(id);
+  const canAfford = (id: ItemId): boolean => usable(id) && actor.vitals.mp >= mpFor(id);
 
   // Look at adjacent risk: any ally KO'd or wounded?
   const anyKO = allies.length < state.units.size
@@ -850,6 +854,13 @@ function enumerateActiveAbilities(
   const push = (memberId: AbilityId): void => {
     if (seen.has(memberId)) return;
     seen.add(memberId);
+    // TABA M2 gating (S94 fix — the passive low-level enemy bug): respect
+    // the battle-facing allowlist. The AI must plan only with abilities
+    // the unit can legally cast: a LOCKED member scored well, won the
+    // joint plan, then failed commit-validation — and the planner's
+    // fail-hard null discarded the valid lesser attack with it, leaving
+    // the unit to wander and end turn. `undefined` ⇒ ungated (Mage War).
+    if (actor.usableActives !== undefined && !actor.usableActives.has(memberId)) return;
     if (!catalog.hasAbility(memberId)) return;
     const ability = catalog.getAbility(memberId);
     if (ability.kind !== 'active') return;

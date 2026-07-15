@@ -73,6 +73,27 @@ equipment/kit overrides remain future authoring surface.
   draw from their class-default gender's pool. Formation deploy cards and
   manage-roster cards show ♀/♂ beside the class.
 
+## Batch three (same session, Chris's continued speedrun)
+
+**Compound earns like Throw Item.** Compound commits a `use_compound`
+action (not `use_ability`), so neither the engine XP award nor the JP
+connecting predicate ever saw it. `reduceUseCompound` now emits the
+flat-base award (self action — no target-level delta) for leveling,
+non-reaction actors, and `use_compound` outcomes always connect for JP.
+
+**Displacement is an effect.** `actionHadEffect` only counted HP/status/MP
+changes, so a zero-damage grapple-throw (Bear's Heave with no fall damage)
+earned nothing — for enemies too, which is what read as "the enemy Monk
+didn't earn." A TARGET's position change now counts; the caster's own
+movement stays excluded (like its MP cost) so self-repositioning can't
+farm XP. Enemy-side awards were otherwise already live (the fold stamps
+`statsByLevel` on authored enemies — now pinned by test).
+
+**Gil doubled.** `GIL_PER_ENEMY_LEVEL` 10 → 20 (early-game income read
+too lean against the Ch1 stub prices).
+
+**Low-level AI passivity** — see the addendum below once diagnosed.
+
 ## Consequences
 
 - Suite 2879 → 2885; `tsc -b` clean. Browser-verified: the Manage Roster
