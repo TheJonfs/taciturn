@@ -92,6 +92,20 @@ farm XP. Enemy-side awards were otherwise already live (the fold stamps
 **Gil doubled.** `GIL_PER_ENEMY_LEVEL` 10 → 20 (early-game income read
 too lean against the Ch1 stub prices).
 
+**Math Skill earns (Thessaly's follow-up report).** Two layers deep: a
+CT-only Math cast (Exact Rhythm) applies its effect through GENERATED
+`system_ct_push` actions committed after the root resolve, so the
+before/after diff in `actionHadEffect` could never see it — no award, XP
+stuck at 0. The award site now vouches for pending target-ward CT pushes
+(`ctPushLanded` → a `generatedEffect` flag on `buildXpAward`); self-only
+pushes (Tidal Pull refunds and kin) stay excluded, preserving the
+self-spam guard, and a cast matching nobody still earns nothing. A
+target's inline CT change also now counts in `actionHadEffect` proper
+(defensive — reaction-time CT shifts). Note: the log's "· +N JP" text
+rides the XP-award row, so the missing XP award also hid JP in the log;
+the JP LEDGER itself already counted Math casts (their per-target results
+record hits).
+
 **Low-level AI passivity — the AI planned with LOCKED abilities.** The
 counter-fear hypothesis was refuted by trace (the reaction penalty is a
 capped multiplicative shave — it cannot push a landed attack below Wait).

@@ -330,6 +330,11 @@ function actionHadEffect(
     ) {
       return true;
     }
+    // A TARGET's CT change IS an effect (S94: Exact Rhythm's whole payoff
+    // is the tempo shift — a CT-only Math cast earned nothing). The
+    // caster's own CT stays excluded, like its MP and position: turn-cost
+    // bookkeeping isn't an effect.
+    if (id !== casterId && b.ct !== a.ct) return true;
   }
   return false;
 }
@@ -349,10 +354,13 @@ function buildXpAward(
   results: ReadonlyArray<AbilityTargetResult>,
   isReaction: boolean,
   isRider: boolean,
+  // An effect the state diff can't see yet: a pending generated action
+  // (target-ward CT push) that the caller vouches for (S94 — Exact Rhythm).
+  generatedEffect = false,
 ): ProposedAction | null {
   if (isReaction || isRider) return null;
   if (caster.statsByLevel === undefined) return null; // opt-in: leveling units only
-  if (!actionHadEffect(before, after, caster.id, results)) return null;
+  if (!generatedEffect && !actionHadEffect(before, after, caster.id, results)) return null;
   const delta = primaryTargetLevel(before, target, caster.level) - caster.level;
   const koed = results.some((r) => (r.damage ?? 0) > 0 && r.hpAfter === 0);
   const amount = Math.max(1, XP_BASE_VALUE + delta) + (koed ? XP_KO_BONUS : 0);
@@ -643,6 +651,19 @@ export function reduceUseAbility(
   // TABA M2: award XP to the caster for this connecting, effect-having action
   // (one grant per cast; skipped for reactions / rider procs / non-leveling
   // units / no-effect).
+  //
+  // S94: a CT effect lands as a GENERATED `system_ct_push` committed after
+  // this resolve, so the before/after diff in `actionHadEffect` can't see
+  // it — a CT-only Math cast (Exact Rhythm) read as no-effect and earned
+  // nothing. A pending push against someone OTHER than the caster counts
+  // as an effect (self-pushes — Tidal Pull refunds and kin — stay
+  // excluded, like the caster's own MP/position).
+  const ctPushLanded = generatedActions.some(
+    (a) =>
+      a.type === 'system_ct_push' &&
+      a.payload.targetId !== actor.id &&
+      a.payload.delta !== 0,
+  );
   const xpAward = buildXpAward(
     state,
     resolved.newState,
@@ -651,6 +672,7 @@ export function reduceUseAbility(
     resolved.perTargetResults,
     action.isReaction === true,
     isRider,
+    ctPushLanded,
   );
   if (xpAward !== null) generatedActions.push(xpAward);
 

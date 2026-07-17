@@ -57,6 +57,9 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
   unit truly knows: expect the L2 monk to punch (hard — Barehanded), the
   poacher to reposition and line up Charged Attack.
 - **Gil doubled:** battle awards now pay 20 gil × total enemy levels.
+- **Math Skill earns:** a calculation that connects — even a pure tempo
+  shift like Exact Rhythm — now awards XP like any other action (and the
+  log's JP note appears with it).
 
 ## Session 94, batch two (2026-07-14) — playtest fixes + the enemy-kit framework (ADR-0152)
 

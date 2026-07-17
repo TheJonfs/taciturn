@@ -407,3 +407,64 @@ describe('Calculator kit — Thoughtful Pacing (Movement)', () => {
     expect(after.vitals.mp).toBeGreaterThan(30);
   });
 });
+
+describe('Math Skill XP (S94) — a CT-only cast is a connecting, earning action', () => {
+  const catalog = loadDefaultCatalog();
+
+  it('Exact Rhythm on matched CTs awards XP once to a leveling caster', () => {
+    // Exact Rhythm's whole payoff is the tempo shift; pre-fix the
+    // no-effect guard only read HP/status/MP/position, so a CT-only Math
+    // cast earned nothing (Thessaly's report). A target's CT change now
+    // counts as an effect.
+    const state0 = freshTurnState(
+      createInitialState(
+        makeConfig([
+          { id: 'caster', cls: 'calculator', team: 'team_a', ct: 0, mp: 40 },
+          { id: 'foe1', team: 'team_b', ct: 30 },
+          { id: 'foe2', team: 'team_b', ct: 50 },
+        ]),
+        catalog,
+      ),
+      'caster',
+    );
+    // Opt the caster into leveling (statsByLevel is the engine's opt-in).
+    const units = new Map(state0.units);
+    const caster = units.get(unitId('caster'))!;
+    units.set(caster.id, { ...caster, statsByLevel: new Map([[caster.level + 1, caster.baseStats]]) });
+    const state = { ...state0, units };
+
+    const result = commitAction(state, castMath('caster', 'exact_rhythm', 'ct', 5), catalog);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The CTs really shifted…
+    expect(result.newState.units.get(unitId('foe1'))!.ct).toBeLessThan(30);
+    // …and exactly ONE award was emitted (the AoE-single-grant rule).
+    const awards = result.committed.filter((a) => a.type === 'system_xp_award');
+    expect(awards).toHaveLength(1);
+    const award = awards[0]!;
+    if (award.type !== 'system_xp_award') return;
+    expect(award.payload.unitId).toBe(unitId('caster'));
+    expect(award.payload.amount).toBeGreaterThan(0);
+  });
+
+  it('a Math cast matching NOBODY still earns nothing (no-effect guard holds)', () => {
+    const state0 = freshTurnState(
+      createInitialState(
+        makeConfig([
+          { id: 'caster', cls: 'calculator', team: 'team_a', ct: 0, mp: 40 },
+          { id: 'foe1', team: 'team_b', ct: 7 }, // no multiple-of-5 match
+        ]),
+        catalog,
+      ),
+      'caster',
+    );
+    const units = new Map(state0.units);
+    const caster = units.get(unitId('caster'))!;
+    units.set(caster.id, { ...caster, statsByLevel: new Map([[caster.level + 1, caster.baseStats]]) });
+    const state = { ...state0, units };
+
+    const result = commitAction(state, castMath('caster', 'exact_rhythm', 'ct', 5), catalog);
+    if (!result.ok) return; // an unmatchable cast may be rejected outright — also fine
+    expect(result.committed.filter((a) => a.type === 'system_xp_award')).toHaveLength(0);
+  });
+});

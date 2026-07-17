@@ -51,7 +51,11 @@ pickCompoundItem respects usableItems). Counter-fear was refuted by
 trace. Suite **2890**. Latent (noted in ADR): the joint planner still
 fail-hard-nulls if its best plan fails validation for reasons other
 than locks — unreachable now, revisit if a new validation dimension
-lands.
+lands. FOLLOW-UP shipped same day: Math Skill earns — CT effects land as
+generated system_ct_push actions the before/after effect diff couldn't
+see; the award site now vouches for pending target-ward pushes
+(generatedEffect flag), self-pushes excluded, no-match casts still earn
+nothing. Suite **2892**.
 
 ### For Chris / the planner
 
