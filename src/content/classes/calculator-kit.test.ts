@@ -451,9 +451,12 @@ describe('Math Skill XP (S94) — a CT-only cast is a connecting, earning action
     const state0 = freshTurnState(
       createInitialState(
         makeConfig([
-          { id: 'caster', cls: 'calculator', team: 'team_a', ct: 0, mp: 40 },
+          { id: 'caster', cls: 'calculator', team: 'team_a', ct: 0, mp: 99 },
           { id: 'ally1', team: 'team_a', ct: 30 },
           { id: 'ally2', team: 'team_a', ct: 50 },
+          // A bystander so defeat-all can't decide the battle vacuously
+          // between the two casts (CT 7 — never a multiple-of-5 match).
+          { id: 'foe', team: 'team_b', ct: 7 },
         ]),
         catalog,
       ),
@@ -471,6 +474,20 @@ describe('Math Skill XP (S94) — a CT-only cast is a connecting, earning action
     expect(result.newState.units.get(unitId('ally1'))!.statuses.length).toBeGreaterThan(0);
     // …and exactly one award.
     expect(result.committed.filter((a) => a.type === 'system_xp_award')).toHaveLength(1);
+
+    // STACK_INDEPENDENT (Chris): a REPEAT cast adds a fresh stack — a
+    // real effect — so it earns again. Reset the turn and cast twice.
+    const again = freshTurnState(
+      { ...result.newState },
+      'caster',
+    );
+    const second = commitAction(again, castMath('caster', 'engineered_defenses', 'ct', 5), catalog);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.newState.units.get(unitId('ally1'))!.statuses.length).toBeGreaterThan(
+      result.newState.units.get(unitId('ally1'))!.statuses.length,
+    );
+    expect(second.committed.filter((a) => a.type === 'system_xp_award')).toHaveLength(1);
   });
 
   it('Sculpted Enhancement (stackable buff) awards XP on matched targets', () => {
