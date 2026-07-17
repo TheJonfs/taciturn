@@ -55,7 +55,9 @@ lands. FOLLOW-UP shipped same day: Math Skill earns — CT effects land as
 generated system_ct_push actions the before/after effect diff couldn't
 see; the award site now vouches for pending target-ward pushes
 (generatedEffect flag), self-pushes excluded, no-match casts still earn
-nothing. Suite **2892**.
+nothing. Engineered Defenses + Sculpted Enhancement verified already
+earning (status appliers — inline state change; pinned by test). Suite
+**2894**.
 
 ### For Chris / the planner
 

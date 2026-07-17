@@ -447,6 +447,55 @@ describe('Math Skill XP (S94) — a CT-only cast is a connecting, earning action
     expect(award.payload.amount).toBeGreaterThan(0);
   });
 
+  it('Engineered Defenses (status applier) awards XP on matched targets', () => {
+    const state0 = freshTurnState(
+      createInitialState(
+        makeConfig([
+          { id: 'caster', cls: 'calculator', team: 'team_a', ct: 0, mp: 40 },
+          { id: 'ally1', team: 'team_a', ct: 30 },
+          { id: 'ally2', team: 'team_a', ct: 50 },
+        ]),
+        catalog,
+      ),
+      'caster',
+    );
+    const units = new Map(state0.units);
+    const caster = units.get(unitId('caster'))!;
+    units.set(caster.id, { ...caster, statsByLevel: new Map([[caster.level + 1, caster.baseStats]]) });
+    const state = { ...state0, units };
+
+    const result = commitAction(state, castMath('caster', 'engineered_defenses', 'ct', 5), catalog);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Statuses really applied…
+    expect(result.newState.units.get(unitId('ally1'))!.statuses.length).toBeGreaterThan(0);
+    // …and exactly one award.
+    expect(result.committed.filter((a) => a.type === 'system_xp_award')).toHaveLength(1);
+  });
+
+  it('Sculpted Enhancement (stackable buff) awards XP on matched targets', () => {
+    const state0 = freshTurnState(
+      createInitialState(
+        makeConfig([
+          { id: 'caster', cls: 'calculator', team: 'team_a', ct: 0, mp: 40 },
+          { id: 'ally1', team: 'team_a', ct: 30 },
+        ]),
+        catalog,
+      ),
+      'caster',
+    );
+    const units = new Map(state0.units);
+    const caster = units.get(unitId('caster'))!;
+    units.set(caster.id, { ...caster, statsByLevel: new Map([[caster.level + 1, caster.baseStats]]) });
+    const state = { ...state0, units };
+
+    const result = commitAction(state, castMath('caster', 'sculpted_enhancement', 'ct', 5), catalog);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.newState.units.get(unitId('ally1'))!.statuses.length).toBeGreaterThan(0);
+    expect(result.committed.filter((a) => a.type === 'system_xp_award')).toHaveLength(1);
+  });
+
   it('a Math cast matching NOBODY still earns nothing (no-effect guard holds)', () => {
     const state0 = freshTurnState(
       createInitialState(
