@@ -13,6 +13,8 @@ import { raspPendant } from '../content/items/rasp-pendant.ts';
 import { wandOfDepths } from '../content/items/wand-of-depths.ts';
 import { wandOfLumen } from '../content/items/wand-of-lumen.ts';
 import { moonRobe } from '../content/items/moon-robe.ts';
+import { lance } from '../content/items/lance.ts';
+import { prismWand } from '../content/items/prism-wand.ts';
 import { wandOfPotential } from '../content/items/wand-of-potential.ts';
 import { wandOfDepthsApplyShift } from '../content/abilities/wand-of-depths-apply-shift.ts';
 import { wandOfPotentialApplyShift } from '../content/abilities/wand-of-potential-apply-shift.ts';
@@ -86,6 +88,21 @@ describe('formatItemDetail', () => {
     const d = formatItemDetail(wandOfLumen, cat);
     const joined = d.lines.join('\n');
     expect(joined).toContain('On fire-tagged casts: Burn applies with +1 stack');
+  });
+
+  it('surfaces lance pierce (S95 display sweep — the 2-tile line)', () => {
+    const cat = makeCat();
+    const d = formatItemDetail(lance, cat);
+    expect(d.lines.join('\n')).toContain('pierces — strikes a 2-tile line');
+  });
+
+  it('surfaces the Prism Wand any-of elemental gate (S95 — sourceAbilityTagAny)', () => {
+    const cat = makeCat();
+    const d = formatItemDetail(prismWand, cat);
+    const joined = d.lines.join('\n');
+    // Before the sweep this rendered as "all casts" — the any-of arm was missing.
+    expect(joined).not.toContain('all casts');
+    expect(joined).toContain('fire/water/earth/lightning-tagged casts');
   });
 
   it('summarizes a bow with range, two-handed, elevation variance, and range-from-height (S52)', () => {

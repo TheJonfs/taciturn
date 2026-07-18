@@ -478,6 +478,15 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
     }
   }
 
+  // Lance pierce (S95 display sweep — the field shipped S62/ADR-0102 with
+  // no detail arm, so all five lances hid their signature behavior).
+  if (item.kind === 'weapon' && item.pierces === true) {
+    lines.push(
+      'Basic Attack: pierces — strikes a 2-tile line (the target and the unit behind; ' +
+        'an intervening ally is hit too)',
+    );
+  }
+
   // Weapon-attack AoE (Volley Bow — the target-anchored attack-shape seam).
   if (item.kind === 'weapon' && item.attackAoe !== undefined) {
     lines.push(
@@ -554,10 +563,16 @@ export function formatItemDetail(item: ItemDefinition, catalog: Catalog): Detail
           : mod.statusTag !== undefined
             ? `${String(mod.statusTag)}-tagged statuses`
             : 'statuses';
-      const gate =
-        mod.sourceAbilityTagAll !== undefined && mod.sourceAbilityTagAll.length > 0
-          ? `${mod.sourceAbilityTagAll.map(String).join('+')}-tagged casts`
-          : 'all casts';
+      // S95 display sweep: the `sourceAbilityTagAny` gate (Prism Wand)
+      // rendered as "all casts" — the any-of arm was missing.
+      const gateParts: string[] = [];
+      if (mod.sourceAbilityTagAll !== undefined && mod.sourceAbilityTagAll.length > 0) {
+        gateParts.push(`${mod.sourceAbilityTagAll.map(String).join('+')}-tagged`);
+      }
+      if (mod.sourceAbilityTagAny !== undefined && mod.sourceAbilityTagAny.length > 0) {
+        gateParts.push(`${mod.sourceAbilityTagAny.map(String).join('/')}-tagged`);
+      }
+      const gate = gateParts.length > 0 ? `${gateParts.join(' ')} casts` : 'all casts';
       const stacks = Math.abs(mod.delta) === 1 ? 'stack' : 'stacks';
       lines.push(
         `On ${gate}: ${subject} applies with ${mod.delta >= 0 ? '+' : ''}${mod.delta} ${stacks}`,
