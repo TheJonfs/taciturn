@@ -62,10 +62,5 @@ export { purchaseComponent } from './purchase.ts';
 export type { StartingKit } from './starting-kit.ts';
 export { seedStartingKit } from './starting-kit.ts';
 
-export {
-  computeEarnedJp,
-  defaultConnectingPredicate,
-  defaultJpBase,
-  SPILLOVER_FRACTION,
-} from './earning.ts';
-export type { ConnectingActionPredicate, EarnOptions, JpBaseFn } from './earning.ts';
+export { computeEarnedJp, defaultJpBase, SPILLOVER_FRACTION } from './earning.ts';
+export type { EarnOptions, JpBaseFn } from './earning.ts';

@@ -1,68 +1,45 @@
 // TABA M2 progression — the per-action JP earning mechanism.
 //
-// JP is earned PER connecting action (Chris's rule). For each connecting
-// action taken by a PLAYER-ROSTER unit:
-//   - the ACTOR earns `base(actorLevel)` JP — default `floor(10 + level/4)` —
-//     into its own current class;
+// JP FOLLOWS XP (S95 earning audit, Chris's rule). The engine already
+// decides which actions earn — reactions, rider procs, the no-effect
+// anti-grind guard, Worldcraft's generated-change vouch, the charged-
+// resolve Charging exclusion — and marks every earning action with a
+// generated `system_xp_award` in the log. Rather than re-deriving that
+// predicate in parallel (the S94 whack-a-mole: two dispatchers over the
+// same effect shapes, each with its own silent gaps — a hit-based JP
+// predicate paid on no-op heals the XP guard rejected, and on barrier
+// attacks XP never paid), the JP walk keys off the awards themselves:
+// one `system_xp_award` to a roster unit = one connecting action.
+//
+// For each award to a PLAYER-ROSTER unit:
+//   - the recipient earns `base(rosterLevel)` JP — default
+//     `floor(10 + level/4)` — into its own current class;
 //   - EVERY OTHER roster unit (in battle AND on the bench) earns
 //     `SPILLOVER_FRACTION` (1/8) of that amount into ITS current class.
-// (A Knight swings its sword → Knight JP for the Knight, a slice of Pyromancer
-// JP for the benched Pyromancer.) Enemy actions earn nothing.
+// (A Knight swings its sword → Knight JP for the Knight, a slice of
+// Pyromancer JP for the benched Pyromancer.) Awards to enemies and
+// guests pay nothing — they're not in the roster.
 //
-// Mechanism (M2 substrate audit): a POST-HOC read of the terminal action log —
-// NO engine hook (rules 1 & 8 untouched); deterministic (the log is a replay
-// artifact). Because the SPILLOVER reaches benched units not in the battle,
-// this needs the full roster, so it runs at apply-back (which has both the log
-// and the roster), not in the battle-facing summarizer.
-//
-// The trigger (`connecting`) and the distribution are SHARED with XP — only
-// `base` differs — so both are injectable and XP reuses this with a different
-// `base` equation.
+// Mechanism unchanged from the M2 substrate audit: a POST-HOC read of
+// the terminal action log — NO engine hook (rules 1 & 8 untouched);
+// deterministic (the log is a replay artifact). Because the SPILLOVER
+// reaches benched units not in the battle, this needs the full roster,
+// so it runs at apply-back (which has both the log and the roster), not
+// in the battle-facing summarizer.
 
 import type { Action, UnitId } from '@engine/index.ts';
 import type { CampaignUnit } from '../types.ts';
 
-// Base JP the action-taker earns, as a function of its level. Default:
-// `floor(10 + level/4)`. Injectable so XP reuses the trigger with its own
-// equation.
+// Base JP the earning unit banks, as a function of its ROSTER level (the
+// level it entered battle at — in-battle level-ups don't inflate the walk).
 export type JpBaseFn = (level: number) => number;
 export const defaultJpBase: JpBaseFn = (level) => Math.floor(10 + level / 4);
 
-// The fraction of the actor's base that every OTHER roster unit earns.
+// The fraction of the earner's base that every OTHER roster unit earns.
 export const SPILLOVER_FRACTION = 1 / 8;
-
-// Does this action earn? Default: a non-reaction ability / thrown-item /
-// charged-resolve that landed at least one hit. Injectable so the final rule
-// (e.g. excluding pure buffs/heals) is a one-line swap, not a rewrite.
-export type ConnectingActionPredicate = (action: Action) => boolean;
-
-export function defaultConnectingPredicate(action: Action): boolean {
-  if (action.isReaction) return false; // reactions never earn
-  // Rider casts (weapon attackProcs) never earn either — the weapon acts,
-  // not the wielder. Mirrors the engine's XP-award guard (S94: the root
-  // attack + its proc each banked JP — the double-award bug).
-  if (action.type === 'use_ability' && action.payload.riderSource !== undefined) return false;
-  const outcome = action.outcome;
-  if (outcome === undefined) return false;
-  // Compound always connects (S94, Chris — it earns like Throw Item): a
-  // self-targeted, 100%-accuracy stockpile build with no per-target results.
-  if (outcome.kind === 'use_compound') return true;
-  if (
-    outcome.kind !== 'use_ability' &&
-    outcome.kind !== 'use_throw_item' &&
-    outcome.kind !== 'charged_action_resolve'
-  ) {
-    return false;
-  }
-  // "Connecting" = at least one per-target result landed. A total miss earns
-  // nothing; the charged COMMIT (no per-target results yet) earns nothing and
-  // only its RESOLVE counts — so no double-count.
-  return outcome.perTargetResults.some((r) => r.hit);
-}
 
 export interface EarnOptions {
   readonly base?: JpBaseFn;
-  readonly connecting?: ConnectingActionPredicate;
   readonly spilloverFraction?: number;
 }
 
@@ -76,7 +53,6 @@ export function computeEarnedJp(
   options: EarnOptions = {},
 ): ReadonlyMap<UnitId, number> {
   const base = options.base ?? defaultJpBase;
-  const connecting = options.connecting ?? defaultConnectingPredicate;
   const spillover = options.spilloverFraction ?? SPILLOVER_FRACTION;
 
   const levelOf = new Map<UnitId, number>();
@@ -88,17 +64,19 @@ export function computeEarnedJp(
   };
 
   for (const action of actionLog) {
-    const actor = action.actorId;
-    // Only player-roster connecting actions generate JP.
-    if (actor === undefined || !levelOf.has(actor)) continue;
-    if (!connecting(action)) continue;
+    if (action.type !== 'system_xp_award') continue;
+    const recipient = action.payload.unitId;
+    // Only awards to player-roster units generate JP (enemy leveling units
+    // earn XP in-battle too — their awards are in the same log).
+    const level = levelOf.get(recipient);
+    if (level === undefined) continue;
 
-    const b = base(levelOf.get(actor)!);
-    add(actor, b);
+    const b = base(level);
+    add(recipient, b);
     const share = b * spillover;
     if (share > 0) {
       for (const other of roster) {
-        if (other.id !== actor) add(other.id, share);
+        if (other.id !== recipient) add(other.id, share);
       }
     }
   }

@@ -91,20 +91,20 @@ describe('applyBattleResult', () => {
   });
 
   it('banks per-action JP per current class, with roster spillover, excluding lost', () => {
-    // One connecting use_ability by the survived unit. The earning walk reads
-    // only actorId/isReaction/outcome, so we build just those.
-    const connect = (actor: UnitId): Action =>
+    // One connecting action by the survived unit, represented by its engine
+    // mark: the generated `system_xp_award` in the log (S95 — JP follows XP;
+    // the walk keys off awards, not outcome shapes).
+    const connect = (to: UnitId): Action =>
       ({
         sequenceNumber: 0,
-        source: { kind: 'player' },
-        actorId: actor,
+        source: { kind: 'system' },
+        actorId: undefined,
         timestamp: { tick: 0, ct: 0 },
         seed: 0,
         chainDepth: 0,
         isReaction: false,
-        type: 'use_ability',
-        payload: {},
-        outcome: { kind: 'use_ability', perTargetResults: [{ hit: true }] },
+        type: 'system_xp_award',
+        payload: { unitId: to, amount: 10 },
       }) as unknown as Action;
 
     const finalState: GameState = { ...terminalState(), actionLog: [connect(deployed[0]!.id)] };
