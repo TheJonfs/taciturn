@@ -475,6 +475,11 @@ These are noted to make their absence intentional rather than accidental:
   TUNING still pending, D-econ-6). First live guest battle verified
   in-browser. Remaining before M4-proper: real maps, enemy lineups,
   and dialogue (M4/M5); Tailored Outfit.
+  **Ch1 hardening (S94–95):** three playtest fix batches (ADR-0151/0152)
+  + the S95 earning-coverage audit (ADR-0153 — six zero-earn gaps + the
+  charged over-earn fixed; JP now keys off XP awards; merged coverage
+  table in ai-substrate.md) + stock-refresh badge, larger Road Ahead,
+  guest placard.
   Then authoring (M4 — starts by replacing the skirmish stub), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.

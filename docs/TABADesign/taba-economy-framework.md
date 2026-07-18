@@ -83,11 +83,27 @@ does not block on M4; it has one input that arrives later.
 
 ---
 
-## 5. Shops: cumulative & story-gated
+## 5. Shops: per-hub, cumulative & story-gated
 
-Shop stock is a **monotonic pool** — reaching a node adds its bundle (§9) permanently; nothing ever
-delists. "Grind later to backfill what you skipped" only works if past stock stays purchasable. Unlock is
-additive; the pool only grows.
+*Revised S94 (ADR-0151): stock is **per-hub**, not a single global pool. Playtest overruled the original
+global-pool model, and per-hub is better — towns become distinctive, and theme-clustering (§9.2 rule 2) is
+promoted from flavor to **structural identity**: a hub *is* what it sells.*
+
+Each hub sells **its own** stock. That stock is still **monotonic** — it only ever grows, never delists, so
+"grind later to backfill what you skipped" holds *at that hub*. What changed is scope: clearing a node no
+longer floods every shop; it adds items to a **specific hub's** stock.
+
+So a buyable item carries two facts:
+- **Where** it sells — its **hub** (Zarghidas / a themed town / a castle / a fort).
+- **When** it appears there — an availability trigger (a node-clear). Wave-1 items unlock at the hub itself;
+  **refresh-wave** items unlock at a *later* node but appear at their assigned hub (e.g. a Ch1 refresh
+  triggered by clearing Old Ordal that stocks the Staff of Abundance *in Alvera*).
+
+**Consequence — refreshes need a signal.** Because a refresh lands in a hub you may have left long ago, and
+nothing about your current location tells you a distant town restocked, an expanded shop is *undiscoverable
+by default*. Return travel is free, so the cost of going is nil; the gap is purely notification. A
+stock-refresh signal (a scene line "word from Alvera — the arcanists have restocked," and/or a new-stock
+badge on the hub) is therefore a **required companion** to any refresh wave, not a nicety.
 
 Uniqueness stays gated by the **receipt → `grantItems`** door (the one path into inventory), so
 single-instance uniques can't be duplicated through the shop even as their *availability* is node-keyed
@@ -169,14 +185,20 @@ simple; the *authoring* is the real design work, and it's what we most need to t
 
 ### 9.1 Mechanism
 
-Every buyable item gets a **`firstAvailableAt: nodeId`**. Clearing that node adds it to the permanent pool
-(§5). A **bundle** is the set of items sharing a `firstAvailableAt` — the *unit* of story-gating. Findable
-uniques work the same way, but their "unlock" is "becomes findable at node X" via the receipt door rather
-than "enters shop stock."
+*Revised S94: an item now carries **two** facts — a **hub** (where it sells, §5) and an availability
+**trigger** (when it appears there).*
 
-So the whole story-gating design reduces to two questions, repeated per item:
-1. **Which bundle is it in?** (what unlocks together)
-2. **Which node does that bundle key to?** (when it unlocks)
+Every buyable item is assigned to a **hub** and gets an availability trigger (a `firstAvailableAt: nodeId`
+node-clear). Clearing that node adds the item to **that hub's** stock permanently (§5). A **bundle** is a
+set of items sharing a hub + trigger — the *unit* of story-gating. Wave-1 bundles trigger at the hub node
+itself; refresh bundles trigger at a later node but land in an earlier hub. Findable uniques work by trigger
+too, but their "unlock" is "becomes findable at node X" via the receipt door rather than "enters a hub's
+stock."
+
+So the story-gating design reduces to three questions per item:
+1. **Which hub sells it?** (where — the town's identity)
+2. **Which bundle is it in?** (what unlocks together)
+3. **Which node-clear triggers it?** (when it appears in that hub)
 
 ### 9.2 Proposed grouping logic (four rules, in priority order)
 
@@ -184,10 +206,10 @@ So the whole story-gating design reduces to two questions, repeated per item:
    the wall — WP20 gear cannot precede the level where it stops one-shotting the field (cf. the Spiked
    Maul survival sweep, which *derives* such a gate from HP-by-level data). Balance data sets these
    ceilings.
-2. **Theme-cluster (flavor & legibility).** Within its tier, group items by narrative association: a
-   class-introduction node unlocks that class's signature gear; a themed region unlocks themed gear
-   (a volcanic pass → fire kit); a merchant hub → a broad general restock. Makes unlocks feel *authored*,
-   not arbitrary, and lets the shop double as worldbuilding.
+2. **Theme-cluster (now structural, not just flavor).** Under per-hub stock (§5), a hub *is* what it sells,
+   so grouping items by narrative association is load-bearing identity, not decoration: a class-introduction
+   town stocks that class's gear (Alvera the caster town as Clio joins), a castle stocks Heavy, a fort
+   stocks martial. Towns become distinct destinations you return to *for specific things*.
 3. **Lane-stagger (pacing).** Don't dump weapons + armor + accessories at a single node. Stagger lanes
    across adjacent nodes so each clear is a meaningful-but-digestible refresh, not a flood-then-drought.
 4. **Anchor placement (hand-set overrides).** Specific items pinned to specific moments regardless of

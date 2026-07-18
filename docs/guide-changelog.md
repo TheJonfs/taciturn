@@ -44,6 +44,39 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 95 (2026-07-18) — earning-coverage audit, stock-refresh notice, bigger world map (ADR-0153)
+
+Commits: `a6023bc` (earning fixes), `5ec9e43` (JP follows XP), `eada1b0`
+(item display), `d8be26e` (stock badge + map), `8e0d9f4` (placard/subtitle).
+
+- **XP/JP now awarded for several actions that silently earned nothing:**
+  - **Worldcraft casts** (Pillar/Pit/Hill/Valley/Barrier) — terraforming earns.
+  - **Attacking a Barrier** (the single-target basic-Attack route) earns.
+  - **Bear's Heave** (the real grapple throw — repeat heaves earn each time).
+  - **Steal MP** (draining a target with MP; an empty target still earns nothing).
+  - **Chakra** when it refuels an **ally's** MP (pure self-refuel still doesn't earn).
+  - **Rapids Rush (Tide Surge)** — a landed CT surge earns at resolve.
+- **Charged casts that do nothing no longer earn.** Since campaign XP shipped,
+  EVERY charged resolve awarded XP even on a total miss or a no-op (e.g. Esuna
+  with nothing to cleanse). Whiffed nukes now earn 0, same as instant misses.
+- **The earning rule, stated:** an action earns iff it changed something other
+  than the caster's own bookkeeping (own MP/position/CT never earn; changes to
+  other units and to the battlefield always do). JP triggers exactly when XP
+  does — the two can no longer disagree.
+- **Known quirk:** throwing/knocking a unit to a lethal fall doesn't pay the
+  +10 KO bonus (the fall is a separate event); the base award still lands.
+- **New-stock notice on the world map:** when a shop restocks in a town you've
+  left (Alvera restocks after Old Ordal and again after Mount Eska), that town
+  shows a gold **"new stock!"** badge on the Road Ahead until you visit it, and
+  the aftermath scene mentions the restock.
+- **The Road Ahead is bigger** — the world map now uses most of the screen.
+- **Item text fixes:** all five lances now state their 2-tile **pierce** line
+  (behavior unchanged — it was always there, just undisplayed); the Prism
+  Wand's extra-Burn-stack line now correctly says it applies to **elemental**
+  casts, not "all casts".
+- **Guest turns read "Ally's turn — <name>"** instead of "Opponent's turn";
+  shop subtitles speak as the town ("Alvera Village keeps its own shelves").
+
 ## Session 94, batch three (2026-07-14) — earning gaps, fightier low-level enemies, richer purses (ADR-0152 addendum)
 
 - **Compound now earns XP/JP** (flat base — it's self-targeted), matching
