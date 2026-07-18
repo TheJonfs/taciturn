@@ -112,39 +112,62 @@ each wing keeps its own front/back line. Facing toward the opposing centroid.
 Deployment-time exposure proxy is centroid distance, *not* the coverage map (neither
 team is placed yet).
 
-## Effect-discriminant coverage
+## Effect-discriminant coverage (AI scoring × XP/JP earning)
 
-The scorer's dispatch surface vs the content's effect vocabulary. **This is the table
-to check when adding abilities.** (State as of S89.)
+The dispatch surface of the TWO generic registries that walk effect shapes — the AI
+scorer and the XP/JP earning predicate — vs the content's effect vocabulary. Both
+fail *silently* on an unhandled shape (no score / no award, no error), which is how
+the S94 one-bug-per-session whack-a-mole happened; **this is the table to check when
+adding abilities.** (AI state as of S89; earning audited + fixed S95.)
 
-| Discriminant | Scored? | How / gap |
-|---|---|---|
-| `damage` (physical/magical/elemental) | ✓ | projection × killValue × reaction penalty |
-| `damage` `healing` tag | ✓ | heal candidates (single-unit + Chakra self-AoE); AoE-heal splash unvalued |
-| `damage.knockback` | ✓ | expected knock-into-hazard fall value (S66); flat-ground shove = 0 |
-| `damage.chainBonus` | ✓ | per-cluster `targetCount` threading |
-| `damage.lanceBonus`, `healingStat`, `noFaithScaling`, variance bands | ✓ | free via pipeline |
-| `damage.ctPush` rider | — | rider unvalued (damage still scored) |
-| `damage.lifesteal` rider | — | heal-back unvalued (damage still scored) |
-| `statusEffects` buff (`aiHints.polarity: 'buff'`) | ✓ | buff potency (MA × #offensives, damped); AoE buffs by coverage (S74) |
-| `statusEffects` debuff, damage-less, single-unit | ✓ | S89 floor: content-declared `aiHints.value` × real land chance (`computeStatusChance`) × target hpRatio; Vulnerable keeps its setup→exploit math |
-| `statusEffects` debuff on damage-less tile AoE | ~ | coarse flat weight (15/target × hpRatio) |
-| `aoe` diamond/square/cross/line/cone | ✓ | footprint via `aoeFootprint` + shape hooks |
-| `worldcraft` elevation/barrier | ✓ | Tier A fall / B perch + barrier denial / C revert traps (S57–61) |
-| `stealHeart`, `stealBuffs` | ✓ | S69 |
-| `mpDrain` (Steal MP) | **✗ invisible** | no damage/status → never proposed |
-| `ctEffects` (Tide Surge ally tempo; Exact Rhythm) | ✗ / ✓ | invisible as a regular ability; valued inside Math Skill only |
-| `cleanse` (Esuna) | ✓ | S89: `bestCleanseCandidate` (cleansable count mirrors the dispatcher's `remedyImmune` skip) |
-| `removeKO` (Raise) | ✓ | S89: `bestReviveCandidate` (still excluded from the *heal* path — revive is its own candidate) |
-| `jumpLeap` (Jump) | ✓ | rides the S74 charged tile-pin branch (`tile` targeting + damage); pinned by scenario test (S89); airborne-safety unvalued |
-| `grappleThrow` + `grapple_throw` targeting | ✓ | S89: `bestGrappleThrowCandidate` — enemy ledge-throws via the shared fall value |
-| `selfMove` (Scramble) | **✗ invisible** | no damage/status → never proposed |
-| `setStance` / `clearCasterExclusivityGroup` | — | stance riders unvalued; damaging stance Fists are scored as plain attacks (AI stance-swaps incidentally, never deliberately) |
-| `selfCtRefund` rider | — | unvalued (damage still scored) |
-| Alchemist `effects: {}` (Compound/Throw) | ✓ | dedicated item-economy candidates |
-| item choice (which gear to equip) | ✓ (module) | `src/ai/gear-valuation.ts` — `scoreItemForUnit` / `rankItemsForUnit`, the M4 generator seam (stat gear + common patterns; exotic riders deliberately 0) |
-| weapon `attackProcs` | ~ | v1: Silence-proc vs mage-class ×1.5 lean only |
-| equipment `magicalReflectPercent` / thorn reflect | ✓ | S89: `reflectCostForAttack` nets the reflected fraction off the score; clean kills exempt (no posthumous reflect) |
+Earning columns read against **Chris's earning rule (S95):** a connecting action
+earns iff it changed something *other than the caster's own bookkeeping* — changes
+to other units AND to the world (terrain, barriers) count; the caster's own MP,
+position, and CT don't. **JP follows XP structurally** (S95): the JP walk keys off
+the engine's generated `system_xp_award` log entries rather than re-deriving a
+predicate, so the two can no longer disagree — one earns column covers both.
+
+| Discriminant | AI scores? | Earns XP/JP? | Notes |
+|---|---|---|---|
+| `damage` (physical/magical/elemental) | ✓ | ✓ | AI: projection × killValue × reaction penalty. Earning: HP diff; +10 KO bonus; total miss earns 0 |
+| `damage` `healing` tag | ✓ | ✓ | AI: heal candidates; AoE-heal splash unvalued. Earning: heal-on-full = no effect, earns 0 (anti-grind, deliberate) |
+| `damage.knockback` | ✓ | ✓ | AI: knock-into-hazard fall value (S66). Earning: target displacement is an effect even at 0 damage (S94); a lethal knock-off-ledge KO lands via generated fall damage, so it never credits the +KO bonus (known limitation) |
+| `damage.chainBonus` / `lanceBonus` / `healingStat` / `noFaithScaling` / variance | ✓ | ✓ | free via pipeline both ways |
+| `damage.ctPush` / `lifesteal` riders | — | ✓ | AI: rider unvalued (damage still scored). Earning: the damage earns; riders add nothing extra (one award per action) |
+| `statusEffects` buff / debuff | ✓ | ✓ | AI: buff potency / S89 debuff floor. Earning: status-count diff; a REFRESH re-apply (count unchanged) earns 0 (deliberate); STACK_INDEPENDENT repeat casts earn again (S94, pinned) |
+| `aoe` (all shapes) | ✓ | ✓ | Earning: ONE award per cast (AoE-single-grant), not per target |
+| `worldcraft` elevation/barrier | ✓ | ✓ **S95** | AI: Tier A/B/C (S57–61). Earning: was a silent zero (resolveWorldcraft bypassed the award site); now vouched by the pending terrain/barrier change |
+| basic Attack on a barrier tile | ✓ (denial) | ✓ **S95** | was a silent zero on the single-target route (the AoE route already earned via tile damage) |
+| `stealHeart`, `stealBuffs` | ✓ | ✓ | Earning: inline status transfer → status-count diff (Steal Buffs pinned S95; Steal Heart same mechanism, contest-gated) |
+| `mpDrain` (Steal MP) | **✗ invisible** | ✓ **S95** | AI: no damage/status → never proposed. Earning: was a silent zero (the drain is a GENERATED action the diff can't see); now in the pending-effect vouch, gated on the drainee actually having MP |
+| `mpRestore` (Chakra) | ✓ (heal path) | ✓ **S95** | Earning: ally refuel was a silent zero (generated restore); vouched, gated on restoree headroom. Refueling only the caster's OWN MP earns 0 (self bookkeeping, pinned) |
+| `ctEffects` (Tide Surge; Exact Rhythm) | ✗ / ✓ | ✓ | S94 fixed the instant/Math path (pending-push vouch); **S95** fixed the charged path (Tide Surge) — the vouch now runs at both award sites |
+| `cleanse` (Esuna) | ✓ | ✓ | Earning: inline removal → status-count diff (pinned S95); cleansing a clean target earns 0 |
+| `removeKO` (Raise) | ✓ | ✓ | Earning: HP 0 → N diff (pinned S95) |
+| `jumpLeap` (Jump) | ✓ | ✓ | Earning: rides the charged damage path |
+| `grappleThrow` (Bear's Heave) | ✓ | ✓ **S95** | was a silent zero — the S94 displacement fix covered knockback *riders*, but the real grapple path bypassed the award site. Repeat heaves earn again (pinned). Lethal ledge-throws: same KO-bonus limitation as knockback |
+| `selfMove` (Scramble) | **✗ invisible** | ✗ deliberate | caster's own movement is bookkeeping (pinned S95) |
+| `setStance` / `clearCasterExclusivityGroup` | — | ✓ when it changes | a genuine stance change is a self-buff (status-count diff); re-setting the same stance (REFRESH) adds nothing |
+| `selfCtRefund` rider | — | — | caster's own CT excluded; the damage earns |
+| Alchemist `effects: {}` (Compound/Throw) | ✓ | ✓ | Compound: flat base, always connects (S94). Throw: inline consumable effects → diff; no-op throw earns 0 |
+| charged resolves (all of the above) | — | fixed **S95** | EVERY charged resolve earned regardless of effect — finalizeResolution's inline Charging-status removal read as "the caster changed." The award site now excludes the Charging type id; total-miss nukes and no-op casts earn 0 |
+| reactions / weapon `attackProcs` (rider casts) | ~ | ✗ deliberate | the weapon/reaction acts, not the unit (S94 double-earn fix) |
+| item choice (which gear to equip) | ✓ (module) | n/a | `src/ai/gear-valuation.ts` — the M4 generator seam |
+| equipment `magicalReflectPercent` / thorn reflect | ✓ | n/a (reaction-side) | S89: `reflectCostForAttack` |
+
+Earning implementation: `buildXpAward` / `actionHadEffect` /
+`pendingGeneratedEffectLanded` in `src/engine/actions/reducers.ts` (awards emit
+during resolution); the JP walk is `computeEarnedJp` in
+`src/campaign/progression/earning.ts`. The executable audit pinning every row is
+`src/engine/actions/earning-coverage.test.ts` (+ `xp-emission.test.ts`,
+`calculator-kit.test.ts` for the S94 rows).
+
+**The third registry — item display.** `formatItemDetail`
+(`src/ui/detail-text.ts`) dispatches the same silent-failure way over *item
+definition fields* (a different axis than ability effects). The S95 sweep method:
+diff the field list of `item-definition.ts` against the arms in `detail-text.ts` —
+two gaps found and fixed (lance `pierces`, Prism Wand `sourceAbilityTagAny`); every
+mechanical field now has an arm. Re-run that diff when adding item fields.
 
 ## Inherited constraints (non-negotiable, from the S56–66 arcs)
 
