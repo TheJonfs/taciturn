@@ -302,18 +302,28 @@ function actionHadEffect(
   after: GameState,
   casterId: UnitId,
   results: ReadonlyArray<AbilityTargetResult>,
+  // S95 (earning audit): the charged-resolve path removes the caster's
+  // Charging status INLINE before the diff runs, which read as "the caster
+  // changed" and made EVERY charged resolve earn — total-miss nukes and
+  // no-op cleanses included. The resolve site passes the Charging type id
+  // so that bookkeeping removal is invisible to the effect check.
+  ignoreCasterStatusTypeId?: StatusTypeId,
 ): boolean {
   const ids = new Set<UnitId>([casterId]);
   for (const r of results) {
     if (r.target.kind === 'unit') ids.add(r.target.unitId);
     else if (r.target.kind === 'tile' && (r.damage ?? 0) > 0) return true;
   }
+  const statusCount = (u: Unit): number =>
+    u.id === casterId && ignoreCasterStatusTypeId !== undefined
+      ? u.statuses.filter((s) => s.typeId !== ignoreCasterStatusTypeId).length
+      : u.statuses.length;
   for (const id of ids) {
     const b = before.units.get(id);
     const a = after.units.get(id);
     if (b === undefined || a === undefined) continue;
     if (b.vitals.hp !== a.vitals.hp) return true;
-    if (b.statuses.length !== a.statuses.length) return true;
+    if (statusCount(b) !== statusCount(a)) return true;
     // The CASTER's MP change is the cast COST, not an effect — excluding it
     // keeps "heal a full-HP ally" (spends MP, heals nothing) a no-effect no-XP
     // action. A TARGET's MP change IS an effect (e.g. Steal MP's drain).
@@ -355,16 +365,70 @@ function buildXpAward(
   isReaction: boolean,
   isRider: boolean,
   // An effect the state diff can't see yet: a pending generated action
-  // (target-ward CT push) that the caller vouches for (S94 — Exact Rhythm).
+  // (target-ward CT push / MP drain / MP restore, or a Worldcraft terrain
+  // change) that the caller vouches for (S94 Exact Rhythm; widened S95).
   generatedEffect = false,
+  // See actionHadEffect — the charged-resolve site's Charging removal.
+  ignoreCasterStatusTypeId?: StatusTypeId,
 ): ProposedAction | null {
   if (isReaction || isRider) return null;
   if (caster.statsByLevel === undefined) return null; // opt-in: leveling units only
-  if (!generatedEffect && !actionHadEffect(before, after, caster.id, results)) return null;
+  if (
+    !generatedEffect &&
+    !actionHadEffect(before, after, caster.id, results, ignoreCasterStatusTypeId)
+  ) {
+    return null;
+  }
   const delta = primaryTargetLevel(before, target, caster.level) - caster.level;
   const koed = results.some((r) => (r.damage ?? 0) > 0 && r.hpAfter === 0);
   const amount = Math.max(1, XP_BASE_VALUE + delta) + (koed ? XP_KO_BONUS : 0);
   return { type: 'system_xp_award', source: 'system', payload: { unitId: caster.id, amount } };
+}
+
+// S95 (earning audit): effects that land as GENERATED system actions are
+// invisible to actionHadEffect's before/after diff at award time — the S94
+// Exact Rhythm bug, which turned out to be a family: CT pushes, MP drains
+// (Steal MP), and MP restores (Chakra) all commit after the resolve. A
+// pending TARGET-ward entry that will actually change something counts as
+// an effect; self-ward entries stay excluded, like the caster's own
+// MP/position/CT bookkeeping. The "will actually change something" reads
+// (drainee has MP; restoree has headroom) keep the anti-grind guard honest —
+// draining an empty tank is still a no-effect action.
+function pendingGeneratedEffectLanded(
+  before: GameState,
+  catalog: Catalog,
+  casterId: UnitId,
+  pending: ReadonlyArray<ProposedAction>,
+): boolean {
+  for (const a of pending) {
+    if (
+      a.type === 'system_ct_push' &&
+      a.payload.targetId !== casterId &&
+      a.payload.delta !== 0
+    ) {
+      return true;
+    }
+    if (a.type === 'system_mp_drain' && a.payload.target !== casterId && a.payload.amount > 0) {
+      const t = before.units.get(a.payload.target);
+      if (t !== undefined && t.vitals.mp > 0) return true;
+    }
+    if (
+      a.type === 'system_mp_restore' &&
+      a.payload.targetId !== casterId &&
+      a.payload.amount > 0
+    ) {
+      const t = before.units.get(a.payload.targetId);
+      if (t !== undefined) {
+        const maxMp = runModifyStatQuery(before, catalog, {
+          unit: t,
+          statName: 'maxMp',
+          baseValue: t.baseStats.maxMpBase,
+        });
+        if (t.vitals.mp < maxMp) return true;
+      }
+    }
+  }
+  return false;
 }
 
 export function reduceUseAbility(
@@ -607,7 +671,7 @@ export function reduceUseAbility(
     const tile = tileAt(workingState.map, pos.x, pos.y, pos.layer);
     if (tile?.barrier !== undefined) {
       const atkActor = workingState.units.get(actor.id) ?? actor;
-      return resolveBarrierAttack(workingState, catalog, ability, atkActor, pos, mpCost);
+      return resolveBarrierAttack(workingState, catalog, action, ability, atkActor, pos, mpCost);
     }
   }
 
@@ -652,17 +716,15 @@ export function reduceUseAbility(
   // (one grant per cast; skipped for reactions / rider procs / non-leveling
   // units / no-effect).
   //
-  // S94: a CT effect lands as a GENERATED `system_ct_push` committed after
-  // this resolve, so the before/after diff in `actionHadEffect` can't see
-  // it — a CT-only Math cast (Exact Rhythm) read as no-effect and earned
-  // nothing. A pending push against someone OTHER than the caster counts
-  // as an effect (self-pushes — Tidal Pull refunds and kin — stay
-  // excluded, like the caster's own MP/position).
-  const ctPushLanded = generatedActions.some(
-    (a) =>
-      a.type === 'system_ct_push' &&
-      a.payload.targetId !== actor.id &&
-      a.payload.delta !== 0,
+  // S94/S95: CT pushes, MP drains, and MP restores land as GENERATED system
+  // actions committed after this resolve, so the before/after diff in
+  // `actionHadEffect` can't see them — the shared vouch counts a pending
+  // target-ward entry that will actually change something as an effect.
+  const generatedEffect = pendingGeneratedEffectLanded(
+    state,
+    catalog,
+    actor.id,
+    generatedActions,
   );
   const xpAward = buildXpAward(
     state,
@@ -672,7 +734,7 @@ export function reduceUseAbility(
     resolved.perTargetResults,
     action.isReaction === true,
     isRider,
-    ctPushLanded,
+    generatedEffect,
   );
   if (xpAward !== null) generatedActions.push(xpAward);
 
@@ -760,7 +822,6 @@ function resolveGrappleThrow(
       `resolveGrappleThrow: throwee ${JSON.stringify(target.unitId)} not found`,
     );
   }
-  void actor; // the thrower; no self-mutation — kept for signature parity.
   const from = throwee.position;
   const dest = target.destination;
   const fromTile = tileAt(state.map, from.x, from.y, from.layer);
@@ -771,24 +832,39 @@ function resolveGrappleThrow(
   const newState = withUnit(state, { ...throwee, position: dest });
   const dropDistance = fromTile.elevation - destTile.elevation;
   const fall = fallDamageAction(throwee.id, dropDistance);
+  const perTargetResults: AbilityTargetResult[] = [
+    {
+      target: { kind: 'unit', unitId: throwee.id },
+      hit: true,
+      displacedTo: dest,
+      hpAfter: throwee.vitals.hp,
+    },
+  ];
   const outcome: UseAbilityOutcome = {
     kind: 'use_ability',
     abilityId: ability.id,
-    perTargetResults: [
-      {
-        target: { kind: 'unit', unitId: throwee.id },
-        hit: true,
-        displacedTo: dest,
-        hpAfter: throwee.vitals.hp,
-      },
-    ],
+    perTargetResults,
     mpSpent: mpCost,
   };
-  return {
+  // S95 (earning audit): the shipped Bear's Heave routes HERE, not through
+  // the damage pipeline — the S94 "displacement is an effect" fix covered
+  // knockback riders but this path never called the award site, so real
+  // heaves earned nothing. The throwee's position change is the effect
+  // (actionHadEffect's S94 displacement check sees it). Known limitation,
+  // shared with knockback: a lethal ledge-throw's KO lands via the generated
+  // fall-damage action, so it never credits the +KO bonus.
+  const xpAward = buildXpAward(
+    state,
     newState,
-    outcome,
-    generatedActions: fall !== null ? [fall] : [],
-  };
+    actor,
+    { kind: 'unit', unitId: throwee.id },
+    perTargetResults,
+    action.isReaction === true,
+    isRiderCast(action.payload),
+  );
+  const generatedActions: ProposedAction[] = fall !== null ? [fall] : [];
+  if (xpAward !== null) generatedActions.push(xpAward);
+  return { newState, outcome, generatedActions };
 }
 
 // Session 54: Worldcraft cast resolution (Pillar/Pit/Hill/Valley/Barrier).
@@ -816,7 +892,27 @@ function resolveWorldcraft(
     mpSpent: mpCost,
     mpAfter: cast.actor.vitals.mp,
   };
-  return { newState, outcome, generatedActions: [...cast.actions] };
+  // S95 (earning audit): a Worldcraft cast earns — terraforming is the main
+  // thing a Terraformer does (Chris's rule: changes to the WORLD count like
+  // changes to other units; only the caster's own bookkeeping is excluded).
+  // The terrain/barrier mutation lands as generated system actions, so the
+  // pending change is the vouch (per-target results are empty by design).
+  const worldChanged = cast.actions.some(
+    (a) => a.type === 'system_terrain_change' || a.type === 'system_barrier_change',
+  );
+  const xpAward = buildXpAward(
+    state,
+    newState,
+    actor,
+    action.payload.target,
+    [],
+    action.isReaction === true,
+    isRiderCast(action.payload),
+    worldChanged,
+  );
+  const generatedActions =
+    xpAward !== null ? [...cast.actions, xpAward] : [...cast.actions];
+  return { newState, outcome, generatedActions };
 }
 
 // Session 54: a basic attack (or any damaging, non-AoE ability) aimed at a
@@ -827,6 +923,7 @@ function resolveWorldcraft(
 function resolveBarrierAttack(
   state: GameState,
   catalog: Catalog,
+  action: Extract<Action, { type: 'use_ability' }>,
   ability: ActiveAbilityDefinition,
   actor: Unit,
   pos: Position,
@@ -847,10 +944,27 @@ function resolveBarrierAttack(
       },
     });
   }
+  const perTargetResults: AbilityTargetResult[] = [
+    { target: { kind: 'tile', position: pos }, hit: amount > 0, damage: amount },
+  ];
+  // S95 (earning audit): damaging a barrier earns — destroying denial is a
+  // battlefield change like any other (the AoE route already earned via the
+  // tile-damage check; this single-target route bypassed the award site).
+  // actionHadEffect's tile-damage check handles the amount-0 no-op.
+  const xpAward = buildXpAward(
+    state,
+    state,
+    actor,
+    { kind: 'tile', position: pos },
+    perTargetResults,
+    action.isReaction === true,
+    isRiderCast(action.payload),
+  );
+  if (xpAward !== null) generatedActions.push(xpAward);
   const outcome: UseAbilityOutcome = {
     kind: 'use_ability',
     abilityId: ability.id,
-    perTargetResults: [{ target: { kind: 'tile', position: pos }, hit: amount > 0, damage: amount }],
+    perTargetResults,
     mpSpent: mpCost,
     mpAfter: actor.vitals.mp,
   };
@@ -4298,11 +4412,21 @@ export function reduceChargedActionResolve(
   // TABA M2: XP for the resolved charged cast (the big nukes land here, not in
   // reduceUseAbility). `state` is pre-resolution, `resolved.newState` post; the
   // primary target is the charge's first unit ref (else self → delta 0).
+  //
+  // S95 (earning audit): two effect-visibility fixes at this site —
+  //   1. finalizeResolution removes the caster's Charging status INLINE, which
+  //      read as "the caster changed" and made every charged resolve earn
+  //      (total-miss nukes, no-op cleanses). The Charging type id is excluded
+  //      from the caster's status diff.
+  //   2. Charged CT effects (Tide Surge) land as generated pushes the diff
+  //      can't see — the same pending-effect vouch as the instant path.
   const firstTarget = ca.targets[0];
   const primaryTarget: AbilityTarget =
     firstTarget !== undefined && firstTarget.kind === 'unit'
       ? { kind: 'unit', unitId: firstTarget.unitId }
       : { kind: 'self' };
+  const chargingTypeId = catalog.getRuleset(state.ruleset.id).chargedActions
+    .chargingStatusTypeId;
   const xpAward = buildXpAward(
     state,
     resolved.newState,
@@ -4311,6 +4435,8 @@ export function reduceChargedActionResolve(
     allResults,
     action.isReaction === true,
     false, // a charged resolve is never a rider
+    pendingGeneratedEffectLanded(state, catalog, caster.id, allEmissions),
+    chargingTypeId,
   );
   if (xpAward === null) return resolved;
   return { ...resolved, generatedActions: [...resolved.generatedActions, xpAward] };
