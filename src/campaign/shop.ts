@@ -68,6 +68,47 @@ export function shopStock(
   );
 }
 
+// --- stock-refresh notification (S95 WI2) ---
+//
+// Per-hub stock means a refresh wave lands in a hub the party may have left
+// long ago; nothing about the current location signals it, so an expanded
+// shop is undiscoverable by default (economy §5, revised). The fix is a
+// per-hub SEEN record on CampaignState: the stocked item ids at the last
+// moment the party stood at that hub. Current stock ⊖ seen drives the map's
+// new-stock badge; standing at the hub restamps the record.
+
+// Stamp the CURRENT node's stock as seen. Called on arrival (routeToNode)
+// and on beat-clear (resolveNode — the hub's own wave-1 unlocks while the
+// party is still standing there). No-op object churn is avoided when the
+// record is already current.
+export function markShopStockSeen(state: CampaignState, graph: CampaignGraph): CampaignState {
+  const stock = shopStock(graph, state, state.currentNodeId).map((e) => String(e.itemId));
+  const prev = state.shopStockSeen?.[state.currentNodeId] ?? [];
+  if (prev.length === stock.length && stock.every((id, i) => prev[i] === id)) return state;
+  return {
+    ...state,
+    shopStockSeen: { ...state.shopStockSeen, [state.currentNodeId]: stock },
+  };
+}
+
+// Hubs whose shelves hold something the party hasn't seen — the map badge
+// set. The current node is excluded (the party is standing there; its
+// record is stamped by the same transitions that got them there).
+export function nodesWithUnseenStock(
+  graph: CampaignGraph,
+  state: CampaignState,
+): ReadonlyArray<string> {
+  const out: string[] = [];
+  for (const node of graph.nodes) {
+    if (node.id === state.currentNodeId) continue;
+    const stock = shopStock(graph, state, node.id);
+    if (stock.length === 0) continue;
+    const seen = new Set(state.shopStockSeen?.[node.id] ?? []);
+    if (stock.some((e) => !seen.has(String(e.itemId)))) out.push(node.id);
+  }
+  return out;
+}
+
 // Buy one instance of an item stocked at `nodeId`: gil out, item in through
 // the receipt door. Fails loud on an unstocked item or insufficient gil
 // (spendGil's guard) — the UI disables both, so reaching either is a bug.

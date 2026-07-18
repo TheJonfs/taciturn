@@ -10,7 +10,16 @@ import { grantItems, ownedCount } from './inventory.ts';
 import { newCampaign } from './loop.ts';
 import { CAMPAIGN_GRAPH, CAMPAIGN_NODES } from './node.ts';
 import { m0Roster } from './roster.ts';
-import { buyItem, itemPrice, sellBlockReason, sellItem, sellValue, shopStock } from './shop.ts';
+import {
+  buyItem,
+  itemPrice,
+  markShopStockSeen,
+  nodesWithUnseenStock,
+  sellBlockReason,
+  sellItem,
+  sellValue,
+  shopStock,
+} from './shop.ts';
 import type { CampaignState } from './types.ts';
 
 const GRAPH = CAMPAIGN_GRAPH;
@@ -90,6 +99,67 @@ describe('shopStock (per-hub, story-gated — S94)', () => {
         expect(entry.soldAt).toBe(hub.id);
       }
     }
+  });
+});
+
+describe('stock-refresh notification (S95 WI2)', () => {
+  // The party visited Alvera when only wave 1 was stocked — the seen record
+  // a real playthrough carries into the back half.
+  function wave1Seen(): NonNullable<CampaignState['shopStockSeen']> {
+    const atAlvera = stateWith({
+      clearedStoryBeats: [CAMPAIGN_NODES.alvera],
+      currentNodeId: CAMPAIGN_NODES.alvera,
+    });
+    return markShopStockSeen(atAlvera, GRAPH).shopStockSeen!;
+  }
+
+  it('a refresh wave landing in a hub left behind flags that hub', () => {
+    // Old Ordal's clear stocks the Staff + Tome in ALVERA — far away.
+    const state = stateWith({
+      clearedStoryBeats: [CAMPAIGN_NODES.alvera, CAMPAIGN_NODES.oldOrdal],
+      currentNodeId: CAMPAIGN_NODES.oldOrdal,
+      shopStockSeen: wave1Seen(),
+    });
+    expect(nodesWithUnseenStock(GRAPH, state)).toContain(CAMPAIGN_NODES.alvera);
+  });
+
+  it('no flag when nothing new landed (seen record is current)', () => {
+    const state = stateWith({
+      clearedStoryBeats: [CAMPAIGN_NODES.alvera],
+      currentNodeId: CAMPAIGN_NODES.oskun,
+      shopStockSeen: wave1Seen(),
+    });
+    expect(nodesWithUnseenStock(GRAPH, state)).not.toContain(CAMPAIGN_NODES.alvera);
+  });
+
+  it('revisiting the hub restamps the record and clears the flag', () => {
+    const flagged = stateWith({
+      clearedStoryBeats: [CAMPAIGN_NODES.alvera, CAMPAIGN_NODES.oldOrdal],
+      currentNodeId: CAMPAIGN_NODES.alvera, // the party walked back
+      shopStockSeen: wave1Seen(),
+    });
+    const restamped = markShopStockSeen(flagged, GRAPH);
+    const elsewhere = { ...restamped, currentNodeId: CAMPAIGN_NODES.oldOrdal };
+    expect(nodesWithUnseenStock(GRAPH, elsewhere)).not.toContain(CAMPAIGN_NODES.alvera);
+  });
+
+  it('the node the party stands at never flags', () => {
+    const state = stateWith({
+      clearedStoryBeats: [CAMPAIGN_NODES.alvera, CAMPAIGN_NODES.oldOrdal],
+      currentNodeId: CAMPAIGN_NODES.alvera,
+      // No seen record at all — everything at Alvera is technically unseen.
+      shopStockSeen: {},
+    });
+    expect(nodesWithUnseenStock(GRAPH, state)).not.toContain(CAMPAIGN_NODES.alvera);
+  });
+
+  it('markShopStockSeen is a no-op (same reference) when already current', () => {
+    const atAlvera = stateWith({
+      clearedStoryBeats: [CAMPAIGN_NODES.alvera],
+      currentNodeId: CAMPAIGN_NODES.alvera,
+    });
+    const once = markShopStockSeen(atAlvera, GRAPH);
+    expect(markShopStockSeen(once, GRAPH)).toBe(once);
   });
 });
 

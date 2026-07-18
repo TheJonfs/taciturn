@@ -115,6 +115,19 @@ describe('buildRouteChoiceBeat / buildRouteChoice', () => {
     const beats = buildRouteChoice(GRAPH, clearedStart);
     expect(beats.map((b) => b.type)).toEqual(['world-map-choice']);
   });
+
+  it('carries the new-stock hub set for the map badge (S95 WI2)', () => {
+    // Old Ordal's clear landed the Staff + Tome in Alvera, whose seen record
+    // still holds only wave 1 (empty here) — the beat flags Alvera.
+    const backHalf = {
+      ...newCampaign(m0Roster, CAMPAIGN_NODES.oldOrdal),
+      clearedStoryBeats: [CAMPAIGN_NODES.alvera, CAMPAIGN_NODES.oldOrdal],
+      visited: [CAMPAIGN_NODES.alvera, CAMPAIGN_NODES.oldOrdal],
+      shopStockSeen: {},
+    };
+    const beat = buildRouteChoiceBeat(GRAPH, backHalf);
+    expect(beat.newStock).toContain(CAMPAIGN_NODES.alvera);
+  });
 });
 
 describe('buildLocationMenuBeat', () => {

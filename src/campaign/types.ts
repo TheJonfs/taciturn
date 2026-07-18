@@ -177,6 +177,15 @@ export interface CampaignState {
   // through `setFlag` (flags.ts); absent in pre-Ch1 saves → empty on
   // load (lenient-field convention, like `gil`).
   readonly flags: CampaignFlags;
+  // S95 (WI2, stock-refresh notification) — per-hub memory of the shop
+  // stock the player has SEEN: hub node id → the stocked item ids at the
+  // last moment the party stood there. Refresh waves land in hubs the
+  // party may have left long ago (per-hub stock, §5 revised); the diff
+  // between a hub's CURRENT stock and this record drives the map's
+  // new-stock badge, which persists until the hub is revisited. OPTIONAL
+  // (absent = nothing seen — pre-S95 saves and the catalog-free test
+  // factory); stamped by `markShopStockSeen` on arrival and on beat-clear.
+  readonly shopStockSeen?: Readonly<Record<string, ReadonlyArray<string>>>;
   readonly phase: CampaignPhase;
 }
 

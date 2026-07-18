@@ -32,6 +32,7 @@ import { STARTING_GIL } from './economy-config.ts';
 import { computeGilReward, grantGil } from './gil.ts';
 import { getNode, isTerminal, type CampaignGraph, type CampaignNode } from './graph.ts';
 import { currentEngagement, isTravelChoice } from './travel.ts';
+import { markShopStockSeen } from './shop.ts';
 import { probeBattleFor } from './probe-battle.ts';
 import { probeEffectiveMaxes } from './snapshot-fold.ts';
 import { CAMPAIGN_SCHEMA_VERSION } from './serialization.ts';
@@ -165,7 +166,10 @@ export function resolveNode(state: CampaignState, graph: CampaignGraph): Campaig
   }
   const phase = isTerminal(graph, state.currentNodeId) ? 'won' : 'awaiting_route';
   const clearedStoryBeats = [...state.clearedStoryBeats, played.beatId];
-  return { ...state, clearedStoryBeats, phase };
+  // S95 (WI2): the clear may have unlocked this hub's own stock wave while
+  // the party stands here — stamp it seen so leaving doesn't badge the
+  // place they just shopped.
+  return markShopStockSeen({ ...state, clearedStoryBeats, phase }, graph);
 }
 
 // The second half of the win transition: the player picked `nextNodeId` at the
@@ -189,7 +193,12 @@ export function routeToNode(
   const visited = state.visited.includes(nextNodeId)
     ? state.visited
     : [...state.visited, nextNodeId];
-  return { ...state, currentNodeId: nextNodeId, visited, phase: 'in_progress' };
+  // S95 (WI2): arriving at a hub marks its current stock seen — the map's
+  // new-stock badge clears for this hub the moment the party visits.
+  return markShopStockSeen(
+    { ...state, currentNodeId: nextNodeId, visited, phase: 'in_progress' },
+    graph,
+  );
 }
 
 export function isComplete(state: CampaignState): boolean {

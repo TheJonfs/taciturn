@@ -468,7 +468,8 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
     battle(riverRidgeBattle, 'river_ridge', { enemies: lineup(9) }),
     marker(
       'Old Ordal — the road not taken',
-      'Beyond the ruins the road runs on toward Viura, deep in Ordallia. The company is recalled home; the capital stays a light on the horizon.',
+      'Beyond the ruins the road runs on toward Viura, deep in Ordallia. The company is recalled home; the capital stays a light on the horizon. ' +
+        'Word from Alvera — the arcanists have restocked.',
     ),
   ],
   'node-mount-eska': [
@@ -479,7 +480,8 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
     }),
     marker(
       'Mount Eska — aftermath',
-      'Theo withdraws a second time. Among the abandoned baggage: the Freelancer’s Charm. Alvera restocks (Arcane Robe).',
+      'Theo withdraws a second time. Among the abandoned baggage: the Freelancer’s Charm. ' +
+        'Word from Alvera — the arcanists have restocked.',
     ),
   ],
   'node-ester-road': [

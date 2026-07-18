@@ -35,6 +35,7 @@ import type { CampaignGraph, CampaignNode } from './graph.ts';
 import type { StorySceneBeat } from './sequence.ts';
 import { hasArmedStory, isFarmableNow, isHubNow, travelChoices, type TravelChoice } from './travel.ts';
 import { maxHireLevel } from './recruit.ts';
+import { nodesWithUnseenStock } from './shop.ts';
 import { skirmishLevelAt } from './skirmish.ts';
 import type { CampaignState, CampaignUnit } from './types.ts';
 
@@ -82,6 +83,11 @@ export interface WorldMapChoiceBeat {
   // ABSENT → show everything (the Atlas preview's authoring view, and any
   // pre-S94 beat producer).
   readonly visited?: ReadonlyArray<string>;
+  // Stock-refresh notification (S95 WI2): hubs whose shelves hold something
+  // the party hasn't seen (a refresh wave landed since their last visit).
+  // The map badges these until the hub is revisited. ABSENT → no badges
+  // (Atlas preview, pre-S95 producers).
+  readonly newStock?: ReadonlyArray<string>;
 }
 
 // One thing the player can DO at a location (M3 economy Stages 1–3).
@@ -185,6 +191,7 @@ export function buildRouteChoiceBeat(
     choices: travelChoices(graph, state),
     gil: state.gil,
     visited: state.visited,
+    newStock: nodesWithUnseenStock(graph, state),
   };
 }
 

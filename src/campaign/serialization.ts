@@ -130,6 +130,11 @@ export function deserializeCampaign(json: string): CampaignState {
   // saves set no flags); present values must be JSON scalars.
   const flags = validateFlags(root['flags'], 'flags');
 
+  // S95 (WI2) — per-hub seen-stock memory for the new-stock badge. Omitted →
+  // absent (pre-S95 saves: every stocked hub badges once, then self-heals on
+  // the next visit — harmless).
+  const shopStockSeen = validateShopStockSeen(root['shopStockSeen'], 'shopStockSeen');
+
   return {
     schemaVersion,
     roster,
@@ -139,8 +144,24 @@ export function deserializeCampaign(json: string): CampaignState {
     visited,
     clearedStoryBeats,
     flags,
+    ...(shopStockSeen !== undefined ? { shopStockSeen } : {}),
     phase,
   };
+}
+
+// shopStockSeen: a `Record<string, string[]>` (hub node id → seen item ids).
+// Omitted → undefined (the field is optional on CampaignState).
+function validateShopStockSeen(
+  raw: unknown,
+  where: string,
+): Readonly<Record<string, ReadonlyArray<string>>> | undefined {
+  if (raw === undefined) return undefined;
+  const rec = asRecord(raw, where);
+  const out: Record<string, ReadonlyArray<string>> = {};
+  for (const [key, value] of Object.entries(rec)) {
+    out[key] = validateStringArray(value, `${where}.${key}`);
+  }
+  return out;
 }
 
 // flags: a `Record<string, boolean | number | string>`. Omitted → empty

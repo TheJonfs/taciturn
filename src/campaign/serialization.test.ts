@@ -50,6 +50,18 @@ describe('campaign serialization', () => {
     expect(restored).toEqual(state);
   });
 
+  it('round-trips the per-hub seen-stock record (S95 WI2)', () => {
+    const state: CampaignState = {
+      ...newCampaign(m0Roster, START),
+      shopStockSeen: { 'node-alvera': ['wand_of_lumen', 'linen_robe'] },
+    };
+    const restored = deserializeCampaign(serializeCampaign(state));
+    expect(restored).toEqual(state);
+    // …and a pre-S95 save (no field) still loads, with the field absent.
+    const legacy = deserializeCampaign(serializeCampaign(newCampaign(m0Roster, START)));
+    expect(legacy.shopStockSeen).toBeUndefined();
+  });
+
   it('preserves stable unit identity across the round-trip', () => {
     const state = newCampaign(m0Roster, START);
     const restored = deserializeCampaign(serializeCampaign(state));

@@ -273,6 +273,7 @@ export function WorldMapBeatView({ beat, onAdvance, onExitToTitle, onManageRoste
                 isHere={isHere && !marching}
                 choice={choice}
                 phantom={n.phantom === true}
+                newStock={map.newStock?.includes(n.id) === true}
                 onSelect={choice !== undefined ? () => select(n.id) : undefined}
               />
             );
@@ -332,13 +333,16 @@ interface MapNodeProps {
   // Ch1 substrate (WI3): a phantom destination — drawn as a ghost (dashed
   // outline, faded label). Never selectable; travelChoices can't offer it.
   readonly phantom?: boolean;
+  // Stock-refresh notification (S95 WI2): this hub's shelves hold something
+  // the party hasn't seen — a gold marker + "new stock" badge until visited.
+  readonly newStock?: boolean;
   readonly onSelect?: (() => void) | undefined;
 }
 
 const FRONTIER = '#5a7fb5';
 const RETURN_GOLD = '#8f7644';
 
-function MapNode({ x, y, name, isHere, choice, phantom, onSelect }: MapNodeProps): ReactElement {
+function MapNode({ x, y, name, isHere, choice, phantom, newStock, onSelect }: MapNodeProps): ReactElement {
   const isChoice = choice !== undefined;
   const ring = choice?.kind === 'revisit' ? RETURN_GOLD : FRONTIER;
   const fill = isHere ? '#3a4150' : isChoice ? '#243042' : '#16181d';
@@ -346,9 +350,14 @@ function MapNode({ x, y, name, isHere, choice, phantom, onSelect }: MapNodeProps
   const textColor = isHere || isChoice ? '#e7e9ee' : phantom === true ? '#565b66' : '#6b707b';
   const interactive = onSelect !== undefined;
 
-  const badges = choice === undefined
-    ? []
-    : [...(choice.farmable ? ['skirmish'] : []), ...(choice.hub ? ['trade'] : [])];
+  // The new-stock badge is independent of selectability — it must survive
+  // the march (choices blank while marching) and persist until the hub is
+  // actually visited.
+  const badges = [
+    ...(choice?.farmable === true ? ['skirmish'] : []),
+    ...(choice?.hub === true ? ['trade'] : []),
+    ...(newStock === true ? ['new stock!'] : []),
+  ];
 
   return (
     <g
@@ -370,6 +379,16 @@ function MapNode({ x, y, name, isHere, choice, phantom, onSelect }: MapNodeProps
         strokeDasharray={phantom === true ? '3 3' : undefined}
         opacity={phantom === true ? 0.75 : undefined}
       />
+      {/* New-stock marker (S95 WI2): a gold coin pinned to the node's
+          shoulder — visible at a glance before reading the badge line. */}
+      {newStock === true && (
+        <g aria-label={`${name}: new stock`}>
+          <circle cx={x + 11} cy={y - 11} r={5.5} fill="#d8b26c" stroke="#8f7644" strokeWidth={1.2} />
+          <text x={x + 11} y={y - 8} textAnchor="middle" fontSize={8} fontWeight={700} fill="#16181d">
+            !
+          </text>
+        </g>
+      )}
       <text x={x} y={y + 32} textAnchor="middle" fontSize={13} fill={textColor} fontWeight={isHere || isChoice ? 600 : 400}>
         {name}
       </text>
@@ -398,8 +417,13 @@ const rootStyle: CSSProperties = {
   background: '#0e0f12',
 };
 
+// S95 (WI3): the Road Ahead owns its footprint — it is NOT tied to the
+// battle map's canvas size (separate surface entirely), so it can take the
+// screen real estate the map deserves. Width grows to 1080px where the
+// viewport allows; the SVG's height is clamped below so a tall future
+// layout letterboxes (preserveAspectRatio) instead of overflowing.
 const panelStyle: CSSProperties = {
-  width: 680,
+  width: 'min(1080px, 94vw)',
   background: '#16181d',
   border: '1px solid #2c2f36',
   borderRadius: 8,
@@ -424,7 +448,15 @@ const purseStyle: CSSProperties = {
 const titleStyle: CSSProperties = { margin: 0, fontSize: 18, fontWeight: 600 };
 const subtitleStyle: CSSProperties = { marginTop: 4, fontSize: 13, color: '#9aa0ac' };
 
-const svgStyle: CSSProperties = { display: 'block', width: '100%', height: 'auto', background: '#101216' };
+const svgStyle: CSSProperties = {
+  display: 'block',
+  width: '100%',
+  height: 'auto',
+  // WI3: keep the header + footer on screen even if a future layout's
+  // bounds-derived viewBox turns tall — the SVG letterboxes, never scrolls.
+  maxHeight: 'calc(100vh - 230px)',
+  background: '#101216',
+};
 
 const footerStyle: CSSProperties = {
   display: 'flex',

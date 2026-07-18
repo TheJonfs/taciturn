@@ -167,6 +167,13 @@ describe('applyBattleBeatWin + resolveNode', () => {
     expect(isComplete(done)).toBe(true);
   });
 
+  it("resolveNode stamps the just-cleared hub's own stock as seen (S95 WI2)", () => {
+    // Clearing Zarghidas unlocks its starter kit while the party stands
+    // there — leaving must not badge the shop they were just in.
+    const resolved = resolveNode(startCampaign(GRAPH, m0Roster, catalog), GRAPH);
+    expect(resolved.shopStockSeen?.[CAMPAIGN_NODES.zarghidas]).toContain('iron_sword');
+  });
+
   it('resolveNode works for a battle-less standalone node (no apply-back ran)', () => {
     // Zelmonia Castle is a standalone story node; it still resolves + routes.
     const atCrossing = { ...startCampaign(GRAPH, m0Roster, catalog), currentNodeId: CAMPAIGN_NODES.zelmoniaCastle };
@@ -204,6 +211,14 @@ describe('routeToNode', () => {
     expect(back.currentNodeId).toBe(CAMPAIGN_NODES.zarghidas);
     // …and its cleared beat STAYS cleared (re-entry must not replay it).
     expect(back.clearedStoryBeats).toContain(CAMPAIGN_NODES.zarghidas);
+  });
+
+  it("routeToNode restamps the arrival hub's stock as seen (S95 WI2)", () => {
+    // Erase the seen record, then walk back to Zarghidas — arrival stamps it.
+    const cleared = resolveNode(startCampaign(GRAPH, m0Roster, catalog), GRAPH);
+    const atOskun = { ...routeToNode(cleared, GRAPH, CAMPAIGN_NODES.oskun), shopStockSeen: {} };
+    const back = routeToNode(atOskun, GRAPH, CAMPAIGN_NODES.zarghidas);
+    expect(back.shopStockSeen?.[CAMPAIGN_NODES.zarghidas]).toContain('iron_sword');
   });
 
   it('refuses travel to a visited DEAD node (no hub, no valve — Old Ordal)', () => {
