@@ -58,7 +58,9 @@ export function ShopScreen({
         <div style={headerStyle}>
           <div>
             <h1 style={titleStyle}>{nodeName} — Shop</h1>
-            <div style={subtitleStyle}>Stock grows as the campaign advances. Nothing ever leaves it.</div>
+            {/* S95 (WI4): per-hub stock (S94) — the subtitle speaks in the
+                town's voice, not the old global-pool's. */}
+            <div style={subtitleStyle}>{nodeName} keeps its own shelves. They only ever grow.</div>
           </div>
           <div style={purseStyle} aria-label="Party gil">
             {state.gil} gil

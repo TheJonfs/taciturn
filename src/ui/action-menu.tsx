@@ -58,9 +58,14 @@ export function ActionMenu({ turnFlow, catalog, engineState, onOpenUnitDetail }:
   const { state, isOurTurn, activeUnit } = turnFlow;
 
   if (!isOurTurn || activeUnit === null) {
+    // S95 (WI4): a GUEST is player-side but AI-driven — its turn is an
+    // ally acting alone, not the opponent's. The placard reads accordingly.
+    const guestTurn = activeUnit !== null && activeUnit.guest === true;
     return (
       <Panel header="Action Menu">
-        <StatusLine>Opponent&apos;s turn</StatusLine>
+        <StatusLine>
+          {guestTurn ? `Ally's turn — ${activeUnit.name}` : "Opponent's turn"}
+        </StatusLine>
       </Panel>
     );
   }
