@@ -11,10 +11,16 @@ been processed.
 
 ---
 
-## S95 — Earning-coverage audit + Ch1 shop/map polish (2026-07-18)
+## S95/S96 — Earning-coverage audit + Ch1 shop/map polish + playtest batch (2026-07-18)
 
-All four work items of the S95 brief shipped (ADR-0153). Suite **2918**,
-`tsc -b` clean, Atlas round-trip intact.
+All four work items of the S95 brief shipped (ADR-0153), plus the same-day
+S96 playtest batch (ADR-0154): **weapon-delivered ⇒ weapon-ranged always**
+(the Dagger-Hunter 5-tile Charged Attack — melee fallback lands in
+`computeAbilityRange`, one seam for validation/AI/UI; tooltips read
+"weapon range") and **out-of-battle max changes re-normalize vitals**
+(equip/unequip/reclass now refill to effective full — the Padded Jacket
+6-MP repro, browser-verified through the Manage Roster flow both
+directions). Suite **2929**, `tsc -b` clean, Atlas round-trip intact.
 
 **WI1 (the centerpiece):** the executable audit
 (`src/engine/actions/earning-coverage.test.ts`, real content catalog) found

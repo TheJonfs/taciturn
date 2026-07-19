@@ -44,6 +44,25 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 96 (2026-07-18, same day) — weapon-ranged skills, gear changes refill HP/MP (ADR-0154)
+
+Commits: `febcacf` (weapon-ranged), `ed4a612` (vitals refill).
+
+- **Weapon skills now truly use your weapon's reach.** Charged Attack and Pin
+  Down (Hunter) previously kept their bow-style 2–5 band even with a dagger or
+  bare hands — a melee Hunter could shoot across the map. Now every
+  weapon-delivered skill (Marksmanship, the Knight's Battle Skills, Steal
+  HP/MP, basic Attack) reaches exactly as far as the equipped weapon: a bow's
+  full band (dead zone included), or adjacent-only for melee weapons and
+  fists. The flip side is intended: a bow-wielding Knight's Battle Skills now
+  strike at bow range. Ability tooltips say "weapon range" instead of fixed
+  numbers.
+- **Changing gear or class between battles now updates current HP/MP.**
+  Equipping a +MaxMP piece (e.g. Padded Jacket) used to leave the unit at its
+  old current MP for the next fight; reclassing had the same staleness. Any
+  equip, unequip, or class change now re-fills the unit to its new effective
+  full — both directions (removing the piece lowers current to the new max).
+
 ## Session 95 (2026-07-18) — earning-coverage audit, stock-refresh notice, bigger world map (ADR-0153)
 
 Commits: `a6023bc` (earning fixes), `5ec9e43` (JP follows XP), `eada1b0`
