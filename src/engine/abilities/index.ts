@@ -58,7 +58,9 @@ export {
   type EquipResultOk,
 } from './equip.ts';
 export {
-  buildElevationChanges,
+  bridgeFallLanding,
+  buildElevationCast,
   resolveWorldcraftCast,
+  type ElevationCast,
   type WorldcraftCast,
 } from './worldcraft-resolution.ts';

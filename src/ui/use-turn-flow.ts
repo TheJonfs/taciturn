@@ -31,6 +31,7 @@ import {
   runModifyAoeShape,
   runModifyAoeVerticalTolerance,
   tileAt,
+  tilesAt,
   validateAction,
   weaponAttackAoeSpec,
   weaponRangeFromHeightSpec,
@@ -1321,18 +1322,22 @@ export function computeLegalTargets(
       const tx = actor.position.x + dx;
       const ty = actor.position.y + dy;
       if (tx < 0 || ty < 0 || tx >= state.map.width || ty >= state.map.height) continue;
-      const tile = tileAt(state.map, tx, ty, 0);
-      if (tile === undefined) continue;
-      const pos: Position = { x: tx, y: ty, layer: 0 };
-      const proposed: ProposedAction = {
-        type: 'use_ability',
-        source: 'player',
-        actorId: actor.id,
-        payload: { abilityId: ability.id, target: { kind: 'tile', position: pos } },
-      };
-      if (!validateAction(state, proposed, catalog).valid) continue;
-      positions.push(pos);
-      tileKeys.add(positionKey(pos));
+      // S96 (bridges): offer the WHOLE stack at each cell — a bridge deck
+      // is a legal tile target the layer-0-only scan silently never
+      // offered (validation would have accepted it; offer and gate agree
+      // again).
+      for (const tile of tilesAt(state.map, tx, ty)) {
+        const pos: Position = { x: tx, y: ty, layer: tile.layer };
+        const proposed: ProposedAction = {
+          type: 'use_ability',
+          source: 'player',
+          actorId: actor.id,
+          payload: { abilityId: ability.id, target: { kind: 'tile', position: pos } },
+        };
+        if (!validateAction(state, proposed, catalog).valid) continue;
+        positions.push(pos);
+        tileKeys.add(positionKey(pos));
+      }
     }
   }
   return { positions, unitIds, tilePositions: tileKeys };

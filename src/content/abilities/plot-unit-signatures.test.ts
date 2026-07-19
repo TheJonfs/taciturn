@@ -19,6 +19,7 @@ import { defaultDamageHandlers } from '../../engine/damage/default-handlers.ts';
 import { reduceTurnStart } from '../../engine/actions/reducers.ts';
 import { expectActiveAbility } from '../../engine/actions/validate.ts';
 import { makeGameState, makeUnit } from '../../engine/ct/test-fixtures.ts';
+import { flatMap } from '../../engine/map/test-fixtures.ts';
 import { loadoutOf } from '../../engine/abilities/test-fixtures.ts';
 import { bulwarkOath } from './bulwark-oath.ts';
 
@@ -100,7 +101,8 @@ describe('Bulwark Oath (Chris) — cover wiring', () => {
       loadout: loadoutOf({ passive: [[SUPPORT, [abilityId('bulwark_oath')]]] }),
     });
     const attack = expectActiveAbility(catalog, abilityId('power_attack'));
-    const state = atTier(makeGameState({ units: [attacker, ally, chris] }), 2); // 20 % at chapter 2
+    // S96: the cover vertical gate reads tile elevations — supply a real map.
+    const state = atTier(makeGameState({ units: [attacker, ally, chris], map: flatMap(6, 1) }), 2); // 20 % at chapter 2
     const ctx = runDamagePipeline({
       state,
       catalog,

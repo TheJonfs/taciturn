@@ -21,7 +21,7 @@
 
 import type { Catalog } from '../catalog/index.ts';
 import type { CoverParams } from '../catalog/definitions/ability-definition.ts';
-import { horizontalDistance, verticalDistance } from '../map/index.ts';
+import { horizontalDistance, tileAt, verticalDistance } from '../map/index.ts';
 import { DEFAULT_SCENARIO_TIER, type GameState, type ProposedAction, type Unit } from '../types/index.ts';
 import type { DamageHandler } from './registry.ts';
 
@@ -61,7 +61,16 @@ function findCoverer(
     if (params === null) continue;
     const dist = horizontalDistance(u.position, target.position);
     if (dist > params.range) continue;
-    if (verticalDistance(u.position.layer, target.position.layer) > params.verticalTolerance) continue;
+    // S96 (bridge audit fix): the vertical gate reads true tile ELEVATIONS,
+    // not layer indices — pre-S96 this passed `position.layer` (always 0 on
+    // single-layer maps, so it never mattered), which would have let a
+    // coverer on a bridge 4 above its ally read as vertical distance 1.
+    const covererTile = tileAt(state.map, u.position.x, u.position.y, u.position.layer);
+    const targetTile = tileAt(state.map, target.position.x, target.position.y, target.position.layer);
+    if (covererTile === undefined || targetTile === undefined) continue;
+    if (verticalDistance(covererTile.elevation, targetTile.elevation) > params.verticalTolerance) {
+      continue;
+    }
     if (
       best === null ||
       params.redirectPerTier > best.params.redirectPerTier ||

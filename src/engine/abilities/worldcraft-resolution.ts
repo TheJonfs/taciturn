@@ -21,7 +21,7 @@ import type { Catalog } from '../catalog/index.ts';
 import type { ActiveAbilityDefinition } from '../catalog/index.ts';
 import { enqueueWorldcraftEffect } from '../effects/queue.ts';
 import { runModifyStatQuery } from '../hooks/runners.ts';
-import { tileAt } from '../map/index.ts';
+import { tileAt, unitAt } from '../map/index.ts';
 import type {
   AbilityTarget,
   BarrierState,
@@ -29,8 +29,10 @@ import type {
   ProposedAction,
   TerrainTileChange,
   TerrainType,
+  Tile,
   TileCoord,
   Unit,
+  UnitId,
   WorldcraftEffectEntry,
 } from '../types/index.ts';
 
@@ -62,7 +64,7 @@ function terrainForElevation(
   return originalTerrain;
 }
 
-// Build the per-tile elevation changes for an `elevation` Worldcraft cast
+// Build the per-tile effects of an `elevation` Worldcraft cast
 // (Pillar/Pit single tile; Hill/Valley 3×3 kernel) anchored at `anchor`.
 // Offsets that fall outside the map are skipped. Elevation is floored at 0
 // (deep-water floor) — a Pit on a low tile can't dig below the water table.
@@ -70,12 +72,25 @@ function terrainForElevation(
 // water floor) is filtered out, so this can return an empty set. Exported so
 // `validateAction` can reject a cast that would change nothing without
 // re-deriving the kernel geometry (single source of truth, S55).
-export function buildElevationChanges(
+//
+// S96 (bridges, ADR-0155): a kernel cell landing on a DECK tile (layer ≥ 1)
+// is not earth — it cannot be reshaped, only smashed:
+//   - a LOWERING delta destroys the deck (collected in `destroyTiles`; the
+//     caller emits a permanent, non-queued `system_bridge_destroy`);
+//   - a RAISING delta is skipped (there is no earth up there to pile; the
+//     single-tile Pillar case gets a specific validation rejection).
+export interface ElevationCast {
+  readonly tileChanges: TerrainTileChange[];
+  readonly destroyTiles: Array<{ readonly x: number; readonly y: number; readonly layer: number }>;
+}
+
+export function buildElevationCast(
   state: GameState,
   anchor: { readonly x: number; readonly y: number; readonly layer: number },
   deltas: ReadonlyArray<{ readonly dx: number; readonly dy: number; readonly delta: number }>,
-): TerrainTileChange[] {
+): ElevationCast {
   const changes: TerrainTileChange[] = [];
+  const destroyTiles: ElevationCast['destroyTiles'] = [];
   for (const d of deltas) {
     const x = anchor.x + d.dx;
     const y = anchor.y + d.dy;
@@ -84,6 +99,10 @@ export function buildElevationChanges(
     if (x < 0 || y < 0 || x >= state.map.width || y >= state.map.height) continue;
     const tile = tileAt(state.map, x, y, anchor.layer);
     if (tile === undefined) continue;
+    if (tile.layer >= 1) {
+      if (d.delta < 0) destroyTiles.push({ x, y, layer: tile.layer });
+      continue;
+    }
     const newElevation = Math.max(0, tile.elevation + d.delta);
     if (newElevation === tile.elevation) continue;
     changes.push({
@@ -96,7 +115,45 @@ export function buildElevationChanges(
       newTerrain: terrainForElevation(tile.terrain, tile.elevation, newElevation),
     });
   }
-  return changes;
+  return { tileChanges: changes, destroyTiles };
+}
+
+// The landing tile for a unit dropped by a collapsing deck at (x, y): the
+// layer-0 tile there, or — when occupied — the first free cardinal-neighbor
+// layer-0 tile (N/E/S/W order, deterministic). Null when nowhere exists
+// (`validateAction` rejects the cast in that pathological case; the reducer
+// fails loud if it is somehow reached). Shared by validation and the
+// `system_bridge_destroy` reducer so offer and gate can't drift.
+export function bridgeFallLanding(
+  state: GameState,
+  x: number,
+  y: number,
+  // The unit being dropped — its own pre-fall position must not count as
+  // an occupied blocker (it vacates the deck as it falls).
+  fallerId?: UnitId,
+): Tile | null {
+  const free = (tx: number, ty: number): Tile | null => {
+    const t = tileAt(state.map, tx, ty, 0);
+    if (t === undefined) return null;
+    const occupant = unitAt(state, tx, ty, 0);
+    if (occupant !== undefined && occupant.id !== fallerId) return null;
+    return t;
+  };
+  const below = free(x, y);
+  if (below !== null) return below;
+  for (const [dx, dy] of [
+    [0, -1],
+    [1, 0],
+    [0, 1],
+    [-1, 0],
+  ] as const) {
+    const nx = x + dx;
+    const ny = y + dy;
+    if (nx < 0 || ny < 0 || nx >= state.map.width || ny >= state.map.height) continue;
+    const t = free(nx, ny);
+    if (t !== null) return t;
+  }
+  return null;
 }
 
 // Barrier HP = caster PA × MA (per blueprint). Both stats are read computed
@@ -143,7 +200,22 @@ export function resolveWorldcraftCast(
       );
     }
     const anchor = target.position;
-    const tileChanges = buildElevationChanges(state, anchor, spec.deltas);
+    const { tileChanges, destroyTiles } = buildElevationCast(state, anchor, spec.deltas);
+    // S96 (bridges): deck cells in the kernel are destroyed PERMANENTLY —
+    // the destroy action rides beside the terrain change but never enters
+    // the effect queue (the queue is the home of revertible effects; the
+    // earth remembers, carpentry doesn't). A destroy-only cast (Pit on a
+    // deck) consumes no queue slot at all.
+    const destroyAction: ProposedAction | null =
+      destroyTiles.length > 0
+        ? { type: 'system_bridge_destroy', source: 'system', payload: { tiles: destroyTiles } }
+        : null;
+    if (tileChanges.length === 0) {
+      return {
+        actor,
+        actions: destroyAction !== null ? [destroyAction] : [],
+      };
+    }
     castAction = {
       type: 'system_terrain_change',
       source: 'system',
@@ -154,6 +226,15 @@ export function resolveWorldcraftCast(
       abilityId: ability.id,
       tileChanges,
       castTick: state.tick,
+    };
+    const enqueuedElevation = enqueueWorldcraftEffect(state, catalog, actor, entry);
+    return {
+      actor: enqueuedElevation.unit,
+      actions: [
+        castAction,
+        ...(destroyAction !== null ? [destroyAction] : []),
+        ...enqueuedElevation.revertActions,
+      ],
     };
   } else {
     // barrier

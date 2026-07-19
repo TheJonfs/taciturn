@@ -48,6 +48,7 @@ import {
 import { computeOutgoingHitChance } from '../damage/hit-chance.ts';
 import { enumerateMathSkillTargets } from '../targeting/index.ts';
 import { tileAt, unitAt } from '../map/accessors.ts';
+import { BRIDGE_MIN_CLEARANCE } from '../map/bridges.ts';
 import { endpointFrom, inRange } from '../map/range.ts';
 import { aoeFootprint, cardinalFromTo } from '../map/aoe.ts';
 import { applyKnockback, type KnockbackDirection } from '../map/knockback.ts';
@@ -100,6 +101,9 @@ import {
   type SystemTerrainChangeOutcome,
   type SystemBarrierChangeOutcome,
   type SystemBarrierDamageOutcome,
+  type SystemBridgeDestroyOutcome,
+  type BridgeDestroyTile,
+  type BridgeFall,
   type BattleMap,
   type BarrierState,
   type BarrierTileChange,
@@ -120,7 +124,7 @@ import { isRiderCast } from './payload-helpers.ts';
 import { computeMpCost } from '../abilities/cost.ts';
 import { castMpDumpApplies, castMpDumpSpec, mpDumpBonusSp } from '../abilities/mp-dump.ts';
 import { computeAbilityRange } from '../abilities/range.ts';
-import { resolveWorldcraftCast } from '../abilities/worldcraft-resolution.ts';
+import { bridgeFallLanding, resolveWorldcraftCast } from '../abilities/worldcraft-resolution.ts';
 import { computeBarrierDamage } from '../damage/barrier-damage.ts';
 import { getEquippedWeapon, getWeaponInSlot, swingResolvesAsHeal } from '../items/equipment.ts';
 import { attackAoeForWeapon } from '../items/weapon-attack-aoe.ts';
@@ -5072,9 +5076,100 @@ export function reduceSystemTerrainChange(
     fallDamageUnitIds.push(occupant.id);
   }
 
+  // S96 RAM rule (ADR-0155, Chris): a raise that would leave less than
+  // BRIDGE_MIN_CLEARANCE under a deck destroys the deck — Worldcraft is a
+  // violent act against carpentry in its way. Chained as a generated
+  // permanent destroy (occupants of the rammed span fall in that reducer;
+  // they land softly on the freshly-risen ground). Reverts can't ram:
+  // they restore authored elevations, which the map validator already
+  // guarantees clear every deck.
+  const rammed: BridgeDestroyTile[] = [];
+  for (const c of tileChanges) {
+    if (c.newElevation <= c.originalElevation) continue;
+    const deck = tileAt(newMap, c.x, c.y, c.layer + 1);
+    if (deck !== undefined && c.newElevation > deck.elevation - BRIDGE_MIN_CLEARANCE) {
+      rammed.push({ x: c.x, y: c.y, layer: c.layer + 1 });
+    }
+  }
+  if (rammed.length > 0) {
+    generatedActions.push({
+      type: 'system_bridge_destroy',
+      source: 'system',
+      payload: { tiles: rammed },
+    });
+  }
+
   return {
     newState,
     outcome: { kind: 'system_terrain_change', tileChanges, appliedCount, fallDamageUnitIds },
+    generatedActions,
+  };
+}
+
+// --- system_bridge_destroy ---
+//
+// S96 (bridges, ADR-0155). PERMANENTLY removes deck tiles (layer ≥ 1) from
+// the map — the one non-revertible Worldcraft consequence, deliberately
+// outside the effect queue (the queue is the home of revertible effects).
+// Emitted by a lowering Worldcraft cast whose kernel lands on deck cells,
+// and by the RAM rule above. Any barrier standing on a destroyed deck is
+// removed with its tile (the barrier lives ON the tile object). Each
+// occupant falls to `bridgeFallLanding` (the layer-0 tile below, else the
+// first free cardinal neighbor) and takes the full true-elevation drop as
+// falling damage. Validation pre-checks landing feasibility for the cast
+// path; the reducer fails loud if the pathological no-landing case is
+// somehow reached.
+export function reduceSystemBridgeDestroy(
+  state: GameState,
+  action: Extract<Action, { type: 'system_bridge_destroy' }>,
+): ReduceResult<SystemBridgeDestroyOutcome> {
+  const { tiles } = action.payload;
+  const keys = new Set(tiles.map((t) => terrainKey(t.x, t.y, t.layer)));
+
+  let appliedCount = 0;
+  const newTiles: Tile[] = state.map.tiles.filter((t) => {
+    if (t.layer >= 1 && keys.has(terrainKey(t.x, t.y, t.layer))) {
+      appliedCount++;
+      return false;
+    }
+    return true;
+  });
+  let working: GameState = { ...state, map: { ...state.map, tiles: newTiles } };
+
+  const fallen: BridgeFall[] = [];
+  const generatedActions: ProposedAction[] = [];
+  for (const td of tiles) {
+    // Deck elevation read off the PRE-removal map (the tile is gone from
+    // `working`); occupancy off the working state so successive falls in
+    // one action see each other's landings.
+    const deck = tileAt(state.map, td.x, td.y, td.layer);
+    if (deck === undefined || deck.layer < 1) continue;
+    const occupant = unitAt(working, td.x, td.y, td.layer);
+    if (occupant === undefined) continue;
+    const landing = bridgeFallLanding(working, td.x, td.y, occupant.id);
+    if (landing === null) {
+      throw new Error(
+        `reduceSystemBridgeDestroy: no landing tile below collapsing deck at ` +
+          `(${td.x}, ${td.y}) — validation should have rejected this cast`,
+      );
+    }
+    working = withUnit(working, {
+      ...occupant,
+      position: { x: landing.x, y: landing.y, layer: landing.layer },
+    });
+    const drop = deck.elevation - landing.elevation;
+    fallen.push({
+      unitId: occupant.id,
+      to: { x: landing.x, y: landing.y, layer: landing.layer },
+      drop,
+    });
+    const fall = fallDamageAction(occupant.id, drop);
+    if (fall !== null) generatedActions.push(fall);
+  }
+
+  return {
+    newState: working,
+    outcome: { kind: 'system_bridge_destroy', appliedCount, fallen },
     generatedActions,
   };
 }

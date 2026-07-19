@@ -509,6 +509,28 @@ export class Animator {
         // redraw is triggered where the renderer observes committed actions.
         return null;
 
+      case 'system_bridge_destroy': {
+        // S96 (bridges): the deck removal itself is a static-layer redraw
+        // (same path as terrain change), but occupants of the collapsed
+        // span RELOCATE — settle each fallen unit's sprite onto its landing
+        // tile via a short flash (the fall DAMAGE arrives as separate
+        // generated system_damage actions with their own flashes).
+        const fallen = action.outcome?.fallen ?? [];
+        const specs: FlashTargetSpec[] = [];
+        for (const f of fallen) {
+          const snap = this.snapshots.get(f.unitId);
+          if (snap === undefined) continue;
+          specs.push({
+            unitId: f.unitId,
+            hpAfter: snap.hp,
+            koAfter: snap.ko,
+            positionAfter: positionCenter(f.to),
+          });
+        }
+        if (specs.length === 0) return null;
+        return { kind: 'flash', targets: specs, totalMs: ATTACK_FLASH_DURATION_MS, elapsed: 0 };
+      }
+
       case 'wait':
       case 'status_tick':
       case 'system_apply_status':

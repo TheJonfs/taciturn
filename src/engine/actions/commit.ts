@@ -175,6 +175,8 @@ function envelopeFor(
       return { ...envelope, type: 'system_barrier_change', payload: proposed.payload };
     case 'system_barrier_damage':
       return { ...envelope, type: 'system_barrier_damage', payload: proposed.payload };
+    case 'system_bridge_destroy':
+      return { ...envelope, type: 'system_bridge_destroy', payload: proposed.payload };
     case 'status_remove':
       return { ...envelope, type: 'status_remove', payload: proposed.payload };
     case 'status_decrement_stack':

@@ -743,6 +743,17 @@ function formatAction(
       const text = destroyed ? `barrier destroyed (${applied})` : `barrier −${applied}`;
       return [row({ tag: '[barrier]', segments: [plain(text)], indent: true, tagKind: 'system' })];
     }
+
+    case 'system_bridge_destroy': {
+      // S96 (bridges). A deck span collapsed — permanent, never reverts.
+      // Fall damage rides the generated `[fall]` rows.
+      const n = action.outcome?.appliedCount ?? action.payload.tiles.length;
+      const fellCount = action.outcome?.fallen.length ?? 0;
+      const spanWord = n === 1 ? 'bridge span' : 'bridge spans';
+      const base = `${n} ${spanWord} destroyed`;
+      const text = fellCount > 0 ? `${base} — ${fellCount} fell` : base;
+      return [row({ tag: '[bridge]', segments: [plain(text)], indent: true, tagKind: 'system' })];
+    }
     default: {
       // Exhaustiveness check (Session 31 — same gap that crashed the UI
       // when system_mp_drain shipped to v1 content without a formatter
@@ -907,6 +918,7 @@ function categorize(action: Action, catalog: Catalog): {
     case 'system_terrain_change':
     case 'system_barrier_change':
     case 'system_barrier_damage':
+    case 'system_bridge_destroy':
       // Battlefield-shape changes are tactical events.
       return { category: 'event', icon: null };
     // --- state: bookkeeping already shown on the unit cards / queue /

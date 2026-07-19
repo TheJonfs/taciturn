@@ -31,6 +31,7 @@ import {
   reduceSystemTerrainChange,
   reduceSystemBarrierChange,
   reduceSystemBarrierDamage,
+  reduceSystemBridgeDestroy,
   reduceTurnEnd,
   reduceTurnStart,
   reduceUseAbility,
@@ -90,6 +91,8 @@ export function reduce(state: GameState, action: Action, catalog: Catalog): Redu
       return reduceSystemBarrierChange(state, action) as ReduceResult<ActionOutcome>;
     case 'system_barrier_damage':
       return reduceSystemBarrierDamage(state, action) as ReduceResult<ActionOutcome>;
+    case 'system_bridge_destroy':
+      return reduceSystemBridgeDestroy(state, action) as ReduceResult<ActionOutcome>;
     case 'system_apply_status':
       return reduceSystemApplyStatus(state, action, catalog) as ReduceResult<ActionOutcome>;
     case 'system_ct_push':

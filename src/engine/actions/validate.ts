@@ -37,7 +37,7 @@ import { hasLineOfSight } from '../map/line-of-sight.ts';
 import { arcTargetable } from '../map/arc.ts';
 import { UnknownDefinitionError } from '../catalog/index.ts';
 import { computeMpCost } from '../abilities/cost.ts';
-import { buildElevationChanges } from '../abilities/worldcraft-resolution.ts';
+import { bridgeFallLanding, buildElevationCast } from '../abilities/worldcraft-resolution.ts';
 import { computeAbilityRange } from '../abilities/range.ts';
 import { rangeFromHeightBonus, weaponRangeFromHeightSpec } from '../abilities/range-height.ts';
 import { isRiderCast } from './payload-helpers.ts';
@@ -110,6 +110,7 @@ export function validateAction(
     case 'system_terrain_change':
     case 'system_barrier_change':
     case 'system_barrier_damage':
+    case 'system_bridge_destroy':
     case 'status_remove':
     case 'status_decrement_stack':
     case 'battle_end':
@@ -639,8 +640,16 @@ function validateUseAbility(
         );
         if (!losOk) return invalid('Line of sight is blocked');
       } else if (tileRangeMode === 'arc') {
-        const arcOk = arcTargetable(state.map, actor.position, tilePos);
-        if (!arcOk) return invalid('Arc target is covered');
+        // S96 (bridges, ADR-0155): elevation Worldcraft is EXEMPT from the
+        // arc cover gate — it shapes the earth from below, not a projectile
+        // from above, so a deck overhead doesn't protect the ground beneath
+        // it (the RAM rule depends on casting under a span). Everything
+        // else keeps the cover rule: a bridge shields from lobs.
+        const isElevationWorldcraft = ability.effects.worldcraft?.kind === 'elevation';
+        if (!isElevationWorldcraft) {
+          const arcOk = arcTargetable(state.map, actor.position, tilePos);
+          if (!arcOk) return invalid('Arc target is covered');
+        }
       }
     }
     // Session 45: a caster-reposition (Scramble) additionally requires the
@@ -665,11 +674,28 @@ function validateUseAbility(
     // consumed, zero visible effect (Chris's "returned to menu" report). Reuse
     // the resolver's own kernel builder so validation can't drift from it; a
     // *partial* cast (some tiles change) stays valid.
+    //
+    // S96 (bridges, ADR-0155): the builder now also reports deck DESTROYS —
+    // a destroying cast is an effect (Pit on a bridge is the point). A raise
+    // aimed at a deck gets its own message (there is no earth up there), and
+    // a destroy whose occupant would have nowhere to land (under-tile and
+    // all four cardinal neighbors occupied/missing — pathological) is
+    // rejected loud rather than crashing the reducer.
     const elevationSpec = ability.effects.worldcraft;
     if (elevationSpec?.kind === 'elevation') {
-      const changes = buildElevationChanges(state, tilePos, elevationSpec.deltas);
-      if (changes.length === 0) {
+      const { tileChanges, destroyTiles } = buildElevationCast(state, tilePos, elevationSpec.deltas);
+      if (tileChanges.length === 0 && destroyTiles.length === 0) {
+        const anchorTile = tileAt(state.map, tilePos.x, tilePos.y, tilePos.layer);
+        if (anchorTile !== undefined && anchorTile.layer >= 1) {
+          return invalid('Cannot raise a bridge — there is no earth to shape');
+        }
         return invalid('Target area would not be affected by this ability');
+      }
+      for (const d of destroyTiles) {
+        const occupant = unitAt(state, d.x, d.y, d.layer);
+        if (occupant !== undefined && bridgeFallLanding(state, d.x, d.y, occupant.id) === null) {
+          return invalid('No landing below the collapsing bridge');
+        }
       }
     }
     return VALID;

@@ -77,11 +77,12 @@ import {
   runModifyAttackerElevation,
   runModifyStatQuery,
   tileAt,
+  tilesAt,
   unitAt,
   weaponRangeFromHeightSpec,
   aoeFootprint,
   applyKnockback,
-  buildElevationChanges,
+  buildElevationCast,
   cardinalFromTo,
   computeAbilityChance,
   computeStatusChance,
@@ -1476,11 +1477,14 @@ function tilesInAbilityRange(
       // routinely lands outside the map for units near the edge, so we
       // skip rather than treat it as a programmer error.
       if (tx < 0 || ty < 0 || tx >= state.map.width || ty >= state.map.height) continue;
-      const t = tileAt(state.map, tx, ty, 0);
-      if (t === undefined) continue;
-      const candidatePos: Position = { x: tx, y: ty, layer: 0 };
-      if (!positionInAbilityRange(state, actor, source, candidatePos, ability, catalog)) continue;
-      out.push(t);
+      // S96 (bridges): enumerate the WHOLE stack at each cell, not just
+      // layer 0 — a bridge deck is a legal tile anchor (Pit-the-bridge)
+      // that a layer-0-only scan silently never proposed.
+      for (const t of tilesAt(state.map, tx, ty)) {
+        const candidatePos: Position = { x: tx, y: ty, layer: t.layer };
+        if (!positionInAbilityRange(state, actor, source, candidatePos, ability, catalog)) continue;
+        out.push(t);
+      }
     }
   }
   return out;
@@ -2247,7 +2251,7 @@ function enumerateWorldcraftWorks(
 
 // Best Pit/Valley cast as a scored pool candidate (S57 Tier A). A
 // Worldcraft elevation cast is scored as an AoE *fall-damage* ability:
-// reuse the engine's own `buildElevationChanges` (single source of truth —
+// reuse the engine's own `buildElevationCast` (single source of truth —
 // no drift from the terrain-change reducer) to resolve per-tile drops at a
 // candidate anchor, then sum signed fall damage over the footprint's
 // occupants. Enemies score positive (× killValue); allies and the caster
@@ -2295,6 +2299,10 @@ function bestWorldcraftFallCandidate(
 // pre-change occupant takes `FALLING_DAMAGE_PER_LEVEL × dropDistance` when
 // dropDistance > 1. Enemy drops are good (× killValue); ally/self drops are
 // bad (× FRIENDLY_FIRE_PENALTY_FACTOR). KO'd occupants are ignored.
+//
+// S96 (bridges): a lowering cast landing on DECK tiles destroys the span —
+// its occupants fall the full deck-to-ground drop. Valued through the same
+// fall gate, so the AI weighs Pit-the-bridge exactly like shove-off-a-cliff.
 function scoreWorldcraftFall(
   state: GameState,
   actor: Unit,
@@ -2302,11 +2310,20 @@ function scoreWorldcraftFall(
   deltas: ReadonlyArray<{ readonly dx: number; readonly dy: number; readonly delta: number }>,
 ): number {
   let total = 0;
-  for (const c of buildElevationChanges(state, anchor, deltas)) {
+  const { tileChanges, destroyTiles } = buildElevationCast(state, anchor, deltas);
+  for (const c of tileChanges) {
     const dropDistance = c.originalElevation - c.newElevation;
     const occupant = unitAt(state, c.x, c.y, c.layer);
     if (occupant === undefined) continue;
     total += fallValueForOccupant(actor, occupant, dropDistance);
+  }
+  for (const d of destroyTiles) {
+    const occupant = unitAt(state, d.x, d.y, d.layer);
+    if (occupant === undefined) continue;
+    const deck = tileAt(state.map, d.x, d.y, d.layer);
+    const below = tileAt(state.map, d.x, d.y, 0);
+    if (deck === undefined || below === undefined) continue;
+    total += fallValueForOccupant(actor, occupant, deck.elevation - below.elevation);
   }
   return total;
 }
@@ -2393,10 +2410,10 @@ const PERCH_DAMP = 0.5;
 // not emit fall damage (scoring-only).
 function withElevationChanges(
   state: GameState,
-  changes: ReturnType<typeof buildElevationChanges>,
+  changes: ReturnType<typeof buildElevationCast>['tileChanges'],
 ): GameState {
   if (changes.length === 0) return state;
-  const byKey = new Map<string, ReturnType<typeof buildElevationChanges>[number]>();
+  const byKey = new Map<string, ReturnType<typeof buildElevationCast>['tileChanges'][number]>();
   for (const c of changes) byKey.set(positionKey({ x: c.x, y: c.y, layer: c.layer }), c);
   const tiles = state.map.tiles.map((t) => {
     const c = byKey.get(positionKey({ x: t.x, y: t.y, layer: t.layer }));
@@ -2433,7 +2450,7 @@ function bestPerchCandidate(
     if (spec.deltas.some((d) => d.delta < 0) || !spec.deltas.some((d) => d.delta > 0)) continue;
     for (const tile of tilesInAbilityRange(state, actor, actor.position, ability, catalog)) {
       const anchor: Position = { x: tile.x, y: tile.y, layer: tile.layer };
-      const changes = buildElevationChanges(state, anchor, spec.deltas);
+      const { tileChanges: changes } = buildElevationCast(state, anchor, spec.deltas);
       if (changes.length === 0) continue;
       const score = scorePerchLiftInPlace(state, catalog, actor, changes, priority);
       if (score <= 0) continue;
@@ -2459,7 +2476,7 @@ function scorePerchLiftInPlace(
   state: GameState,
   catalog: Catalog,
   actor: Unit,
-  changes: ReturnType<typeof buildElevationChanges>,
+  changes: ReturnType<typeof buildElevationCast>['tileChanges'],
   priority: Unit,
 ): number {
   const hypo = withElevationChanges(state, changes);

@@ -20,13 +20,20 @@
 //     contain unreachable zones (locked-off areas, scenery islands).
 //     If gameplay needs reachability, an ability-specific check
 //     belongs at the pathfinding layer.
-//   - Layer consistency. v1 single-layer; multi-layer rules land when
-//     bridges / multi-floor features arrive.
 //   - Elevation upper bound. The river-ridge spec uses 0-9; nothing in
 //     the engine enforces a ceiling, so the validator stays open-ended
 //     on that. A ruleset-level cap can land if needed.
+//
+// S96 (bridges, ADR-0155): the deferred multi-layer rules land. A layer ≥ 1
+// tile is a DECK (bridge span / platform):
+//   - it must sit over an existing layer-0 tile at the same (x, y);
+//   - it must clear that under-tile by at least BRIDGE_MIN_CLEARANCE
+//     (the deck's own occlusion band + one unit of headroom);
+//   - v1 caps the stack at ONE deck layer (no layer ≥ 2) until a
+//     multi-floor consumer arrives.
 
 import type { BattleMap } from '../types/index.ts';
+import { BRIDGE_MIN_CLEARANCE } from './bridges.ts';
 import type { TerrainRegistry } from './terrain-registry.ts';
 
 export interface MapValidationError {
@@ -35,7 +42,10 @@ export interface MapValidationError {
     | 'unknown_terrain'
     | 'tile_out_of_bounds'
     | 'duplicate_tile_position'
-    | 'negative_elevation';
+    | 'negative_elevation'
+    | 'deck_without_ground'
+    | 'deck_clearance_too_low'
+    | 'layer_too_deep';
   readonly message: string;
 }
 
@@ -88,6 +98,39 @@ export function validateMap(
       errors.push({
         code: 'unknown_terrain',
         message: `Tile at (${tile.x}, ${tile.y}, layer ${tile.layer}) has unregistered terrain '${tile.terrain}'.`,
+      });
+    }
+  }
+
+  // S96 multi-layer rules (see header). Second pass so the layer-0 index is
+  // complete regardless of tile authoring order.
+  const groundByCell = new Map<string, number>();
+  for (const tile of map.tiles) {
+    if (tile.layer === 0) groundByCell.set(`${tile.x},${tile.y}`, tile.elevation);
+  }
+  for (const tile of map.tiles) {
+    if (tile.layer === 0) continue;
+    if (tile.layer >= 2) {
+      errors.push({
+        code: 'layer_too_deep',
+        message: `Tile at (${tile.x}, ${tile.y}, layer ${tile.layer}): v1 supports at most one deck layer (layer 1).`,
+      });
+      continue;
+    }
+    const groundElevation = groundByCell.get(`${tile.x},${tile.y}`);
+    if (groundElevation === undefined) {
+      errors.push({
+        code: 'deck_without_ground',
+        message: `Deck tile at (${tile.x}, ${tile.y}, layer ${tile.layer}) has no layer-0 tile beneath it.`,
+      });
+      continue;
+    }
+    if (tile.elevation < groundElevation + BRIDGE_MIN_CLEARANCE) {
+      errors.push({
+        code: 'deck_clearance_too_low',
+        message:
+          `Deck tile at (${tile.x}, ${tile.y}) at elevation ${tile.elevation} clears its ` +
+          `under-tile (elevation ${groundElevation}) by less than ${BRIDGE_MIN_CLEARANCE}.`,
       });
     }
   }

@@ -43,6 +43,7 @@ export type ActionType =
   | 'system_terrain_change'
   | 'system_barrier_change'
   | 'system_barrier_damage'
+  | 'system_bridge_destroy'
   | 'status_remove'
   | 'status_decrement_stack'
   | 'battle_end';
@@ -844,6 +845,39 @@ export interface SystemBarrierDamageOutcome {
   readonly destroyed: boolean;
 }
 
+// S96 (bridges, ADR-0155): `system_bridge_destroy` — PERMANENTLY removes
+// one or more layer≥1 deck tiles from the map. Unlike `system_terrain_change`
+// this is not revertible and never enters the Worldcraft effect queue: the
+// earth remembers, carpentry doesn't. Emitted by (a) a lowering Worldcraft
+// cast (Pit/Valley) whose kernel lands on deck tiles, and (b) the RAM rule —
+// a terrain raise that would leave less than the minimum clearance under a
+// deck (reduceSystemTerrainChange chains the destroy). Any barrier standing
+// on the deck is removed with its tile. Occupants of a destroyed deck fall
+// to the layer-0 tile at their (x,y) — or, if that tile is occupied, the
+// first free cardinal-neighbor layer-0 tile (N/E/S/W order) — taking the
+// full true-elevation drop as falling damage via the shared helper.
+export interface BridgeDestroyTile {
+  readonly x: number;
+  readonly y: number;
+  readonly layer: number;
+}
+export interface SystemBridgeDestroyPayload {
+  readonly tiles: ReadonlyArray<BridgeDestroyTile>;
+}
+export interface BridgeFall {
+  readonly unitId: UnitId;
+  readonly to: Position;
+  readonly drop: number;
+}
+export interface SystemBridgeDestroyOutcome {
+  readonly kind: 'system_bridge_destroy';
+  // How many of the addressed tiles existed (at layer ≥ 1) and were removed.
+  readonly appliedCount: number;
+  // Units dropped by the collapsing deck: landing position + elevation drop.
+  // The damage itself rides generated `system_damage` falling actions.
+  readonly fallen: ReadonlyArray<BridgeFall>;
+}
+
 // `battle_end` is the terminal system action that commits when a
 // victory condition fires. Carries the winning team and the index of
 // the satisfied condition (back-pointer into `state.victoryConditions`
@@ -981,6 +1015,11 @@ export type Action = ActionEnvelope &
         readonly outcome?: SystemBarrierDamageOutcome;
       }
     | {
+        readonly type: 'system_bridge_destroy';
+        readonly payload: SystemBridgeDestroyPayload;
+        readonly outcome?: SystemBridgeDestroyOutcome;
+      }
+    | {
         readonly type: 'system_apply_status';
         readonly payload: SystemApplyStatusPayload;
         readonly outcome?: SystemApplyStatusOutcome;
@@ -1042,6 +1081,7 @@ export type ActionOutcome =
   | SystemTerrainChangeOutcome
   | SystemBarrierChangeOutcome
   | SystemBarrierDamageOutcome
+  | SystemBridgeDestroyOutcome
   | StatusRemoveOutcome
   | StatusDecrementStackOutcome
   | BattleEndOutcome;
@@ -1188,6 +1228,11 @@ export type ProposedAction =
       readonly type: 'system_barrier_damage';
       readonly source: 'system';
       readonly payload: SystemBarrierDamagePayload;
+    }
+  | {
+      readonly type: 'system_bridge_destroy';
+      readonly source: 'system';
+      readonly payload: SystemBridgeDestroyPayload;
     }
   | {
       readonly type: 'system_apply_status';

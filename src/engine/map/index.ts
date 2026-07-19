@@ -20,6 +20,7 @@ export {
   type RangeParams,
 } from './range.ts';
 export { hasLineOfSight } from './line-of-sight.ts';
+export { BRIDGE_DECK_THICKNESS, BRIDGE_MIN_CLEARANCE } from './bridges.ts';
 export { FALLING_DAMAGE_PER_LEVEL, fallDamageAction } from './fall-damage.ts';
 export {
   applyKnockback,

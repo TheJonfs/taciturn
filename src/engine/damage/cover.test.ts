@@ -8,6 +8,7 @@
 import { createCatalog } from '../catalog/index.ts';
 import { makeTestRuleset, DEFAULT_TEST_DAMAGE_PIPELINE } from '../catalog/test-fixtures.ts';
 import { makeGameState, makeUnit } from '../ct/test-fixtures.ts';
+import { flatMap, mapWith } from '../map/test-fixtures.ts';
 import { loadoutOf } from '../abilities/test-fixtures.ts';
 import { compileReactionAbility } from '../abilities/reaction-compiler.ts';
 import {
@@ -116,6 +117,9 @@ describe('coverRedirect handler — finder + fraction + emission', () => {
   function scenario(over: {
     readonly scenarioTier?: number;
     readonly coverPos?: { x: number; y: number; layer: number };
+    // S96: the vertical gate reads true tile ELEVATIONS (the audit's
+    // layer-as-elevation fix) — height scenarios raise the coverer's TILE.
+    readonly coverElevation?: number;
     readonly coverTeam?: string;
     readonly coverHp?: number;
     readonly pass?: PassiveAbilityDefinition;
@@ -127,12 +131,18 @@ describe('coverRedirect handler — finder + fraction + emission', () => {
       id: 'chris',
       spd: 10,
       team: over.coverTeam ?? 'team_a',
-      position: over.coverPos ?? { x: 1, y: 0, layer: 0 },
+      position: over.coverPos ?? { x: 1, y: 0, layer: 0 }, // (mirrored in the map build below)
       hp: over.coverHp ?? 100,
       maxHpBase: 100,
       loadout: COVER_LOADOUT,
     });
-    const base = makeGameState({ units: [ally, cover] });
+    const coverPos = over.coverPos ?? { x: 1, y: 0, layer: 0 };
+    const tiles = [];
+    for (let x = 0; x < 6; x++) {
+      const elevation = x === coverPos.x && coverPos.y === 0 ? (over.coverElevation ?? 0) : 0;
+      tiles.push({ x, y: 0, elevation });
+    }
+    const base = makeGameState({ units: [ally, cover], map: mapWith({ width: 6, height: 1, tiles }) });
     const state: GameState = { ...base, scenarioTier: over.scenarioTier ?? 1 };
     const env: PipelineEnv = { state, catalog: cat, seed: 0, stage: 'target' };
     return { ally, env };
@@ -171,7 +181,7 @@ describe('coverRedirect handler — finder + fraction + emission', () => {
   });
 
   it('does not redirect when the coverer is beyond vertical tolerance', () => {
-    const { ally, env } = scenario({ coverPos: { x: 1, y: 0, layer: 9 } });
+    const { ally, env } = scenario({ coverElevation: 9 });
     expect(coverRedirect(ctxFor('att', ally, 100), env).emittedActions ?? []).toHaveLength(0);
   });
 
@@ -215,7 +225,10 @@ describe('cover in the full pipeline — ally hit reduced + redirect emitted', (
     const attacker = makeUnit({ id: 'att', spd: 10, pa: 5, team: 'team_b', position: { x: 5, y: 0, layer: 0 } });
     const ally = makeUnit({ id: 'ally', spd: 10, team: 'team_a', position: { x: 0, y: 0, layer: 0 }, hp: 100, maxHpBase: 100 });
     const cover = makeUnit({ id: 'chris', spd: 10, team: 'team_a', position: { x: 1, y: 0, layer: 0 }, hp: 100, maxHpBase: 100, loadout: COVER_LOADOUT });
-    const state: GameState = { ...makeGameState({ units: [attacker, ally, cover] }), scenarioTier: 2 };
+    const state: GameState = {
+      ...makeGameState({ units: [attacker, ally, cover], map: flatMap(6, 1) }),
+      scenarioTier: 2,
+    };
     const ctx = runDamagePipeline({
       state,
       catalog: cat,

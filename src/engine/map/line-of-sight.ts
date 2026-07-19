@@ -26,13 +26,14 @@
 //   doc's open question), threaded in when the action layer lands.
 // - Blocking columns are assumed 1 elevation unit tall. Tile properties
 //   may eventually carry an explicit height parameter.
-// - Terrain-mass occlusion applies per tile at (x, y) across *all* layers,
-//   so on a future multi-layer map a ray passing *under* a bridge would read
-//   as buried in the upper tile. v1 maps are effectively single-layer; a
-//   layer-aware ray is the refinement if stacked maps land.
+// - S96: the multi-layer limit is CLOSED — a layer ≥ 1 tile occludes only
+//   its deck band ((elevation − BRIDGE_DECK_THICKNESS, elevation)); rays
+//   pass over the deck top and under the underside. Bedrock occlusion
+//   applies to layer-0 tiles only.
 
 import { tilesAt } from './accessors.ts';
 import { bresenhamCells } from './bresenham.ts';
+import { BRIDGE_DECK_THICKNESS } from './bridges.ts';
 import type { BattleMap, Tile } from '../types/index.ts';
 import type { RangeEndpoint } from './range.ts';
 
@@ -40,18 +41,35 @@ const BLOCKS_LOS_PROPERTY = 'blocks_los';
 const BLOCKER_HEIGHT = 1;
 
 function tileBlocksAt(tile: Tile, rayElevation: number): boolean {
-  // Terrain-mass occlusion (S69 follow-up): the ray is *strictly below* this
-  // tile's ground surface → it is buried inside the terrain (a hill / raised
-  // ground / mesa between the endpoints), so it blocks. Strict (`<`) is
-  // load-bearing: a level shot across flat ground rides exactly at
-  // `tile.elevation` (ray == surface) and must pass, and a shot that grazes a
-  // smooth up/down slope rides the surface too. Only ground that *rises above*
-  // the interpolated sightline occludes. This makes a tall hump between two
-  // units block a straight-line shot the way intuition expects; previously
-  // only barriers / `blocks_los` columns occluded and terrain mass was
-  // transparent (you could shoot through a mountain). Endpoints are excluded
-  // by the caller, so standing-on-a-cliff doesn't block your own shot.
-  if (rayElevation < tile.elevation) return true;
+  // S96 (bridges, ADR-0155): a layer ≥ 1 tile is a DECK, not bedrock — solid
+  // only in its thin body, the open band (elevation − thickness, elevation)
+  // hanging below its surface. A ray at deck-top grazes over (strict `<`,
+  // matching the ground convention below), a ray grazing the underside
+  // passes (strict `>`, matching the blocks_los column convention), and
+  // anything lower passes clean beneath — this removes the documented
+  // "buried under a bridge" limit. Barrier / blocks_los checks still apply
+  // below (a Barrier standing ON a deck blocks its band above the deck).
+  if (tile.layer > 0) {
+    if (
+      rayElevation > tile.elevation - BRIDGE_DECK_THICKNESS &&
+      rayElevation < tile.elevation
+    ) {
+      return true;
+    }
+  } else if (rayElevation < tile.elevation) {
+    // Terrain-mass occlusion (S69 follow-up): the ray is *strictly below* this
+    // tile's ground surface → it is buried inside the terrain (a hill / raised
+    // ground / mesa between the endpoints), so it blocks. Strict (`<`) is
+    // load-bearing: a level shot across flat ground rides exactly at
+    // `tile.elevation` (ray == surface) and must pass, and a shot that grazes a
+    // smooth up/down slope rides the surface too. Only ground that *rises above*
+    // the interpolated sightline occludes. This makes a tall hump between two
+    // units block a straight-line shot the way intuition expects; previously
+    // only barriers / `blocks_los` columns occluded and terrain mass was
+    // transparent (you could shoot through a mountain). Endpoints are excluded
+    // by the caller, so standing-on-a-cliff doesn't block your own shot.
+    return true;
+  }
 
   // Session 53: a Barrier blocks line-of-sight (Chris's call). Unlike a
   // `blocks_los` terrain column — which grazes-pass on a strict `>` floor so

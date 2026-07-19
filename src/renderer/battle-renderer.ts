@@ -375,7 +375,9 @@ export class BattleRenderer {
         (a) =>
           a.type === 'system_terrain_change' ||
           a.type === 'system_barrier_change' ||
-          a.type === 'system_barrier_damage',
+          a.type === 'system_barrier_damage' ||
+          // S96 (bridges): a destroyed deck removes a tile outright.
+          a.type === 'system_bridge_destroy',
       )
     ) {
       this.redrawStaticLayers();
@@ -629,8 +631,23 @@ export class BattleRenderer {
       const t = tiles[i]!;
       if (t.layer > top.layer) top = t;
     }
-    const pos: Position = { x: tileX, y: tileY, layer: top.layer };
-    const occupant = unitAt(this.lastState, tileX, tileY, top.layer) ?? null;
+    // S96 (bridges) INTERIM stack rule, pending the over/under UX pass: if
+    // the topmost tile is unoccupied but a LOWER layer holds a unit, the
+    // pick resolves to the occupied layer — so a unit standing under a
+    // bridge stays clickable/targetable. Topmost still wins when it holds
+    // a unit (or nobody does). The full toggle affordance replaces this.
+    let picked = top;
+    if (unitAt(this.lastState, tileX, tileY, top.layer) === undefined) {
+      for (const t of tiles) {
+        if (t.layer === top.layer) continue;
+        if (unitAt(this.lastState, tileX, tileY, t.layer) !== undefined) {
+          picked = t;
+          break;
+        }
+      }
+    }
+    const pos: Position = { x: tileX, y: tileY, layer: picked.layer };
+    const occupant = unitAt(this.lastState, tileX, tileY, picked.layer) ?? null;
     // Bug 1 instrumentation (Session 24.5): if a sprite is rendered at
     // (tileX, tileY) but `unitAt(state, tileX, tileY, top.layer)` returns
     // null, there's a layer-mismatch between the unit's `position.layer`
