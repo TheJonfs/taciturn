@@ -43,7 +43,7 @@ export const monk: ClassDefinition = {
     moveRange: 3,
     jump: 3,
     terrainCosts: new Map(),
-    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart', 'rock', 'grass_rock']),
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart', 'rock', 'grass_rock', 'bridge']),
   },
   evasion: { front: 11, side: 8, back: 3 },
   equipmentSlots: {

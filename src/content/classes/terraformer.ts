@@ -50,7 +50,7 @@ export const terraformer: ClassDefinition = {
     terrainCosts: new Map(),
     // Universal water-enterable (ADR-0073). See knight.ts for the
     // convention.
-    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart', 'rock', 'grass_rock']),
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart', 'rock', 'grass_rock', 'bridge']),
   },
   evasion: { front: 6, side: 3, back: 0 },
   equipmentSlots: {
