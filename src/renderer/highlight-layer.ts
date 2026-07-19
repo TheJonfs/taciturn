@@ -9,6 +9,14 @@
 // legal target and inside the hovered AoE footprint reads as the
 // brighter overlay color. Either channel can be cleared independently.
 //
+// S97 (stacked cells): highlight geometry is per-LAYER, not per-cell.
+// A position on a stacked cell's lifted deck paints the lifted rect; a
+// position on the covered ground paints only the bottom sliver the lift
+// leaves visible. An AoE that hits both layers (the vertical-tolerance
+// rule) therefore lights both areas distinctly instead of one merged
+// cell. The layer reads the shared `StackGeometry` (set at mount /
+// map-mutation) so its geometry can never disagree with the tile art.
+//
 // The layer is stateless externally: callers pass a fresh set of
 // positions and a kind on each `setBase`/`setOverlay`; the layer clears
 // and redraws the corresponding graphics. v1 only — content authoring
@@ -17,6 +25,7 @@
 
 import { Container, Graphics, Text } from 'pixi.js';
 import type { Position } from '@engine/index.ts';
+import { intersectRect, type PixelRect, type StackGeometry } from './world.ts';
 import {
   HIGHLIGHT_ALPHA,
   HIGHLIGHT_COLORS,
@@ -37,6 +46,30 @@ export interface KernelCell {
   readonly delta: number;
 }
 
+// The pixel rects a highlight for `p` should paint: the lifted rect
+// for a stacked cell's deck, the visible sliver strips (clipped to the
+// inset footprint) for its covered ground, the plain inset footprint
+// otherwise.
+function highlightRects(p: Position, geo: StackGeometry | null): ReadonlyArray<PixelRect> {
+  const px = p.x * TILE_SIZE + TILE_INSET / 2;
+  const py = p.y * TILE_SIZE + TILE_INSET / 2;
+  const size = TILE_SIZE - TILE_INSET;
+  const footprint: PixelRect = { px, py, w: size, h: size };
+  if (geo !== null) {
+    const lift = geo.liftFor(p);
+    if (lift > 0) return [{ px: px - lift, py: py - lift, w: size, h: size }];
+    if (geo.isCoveredGround(p)) {
+      const rects: PixelRect[] = [];
+      for (const r of geo.visibleGroundRects(p.x, p.y)) {
+        const clipped = intersectRect(r, footprint);
+        if (clipped !== null) rects.push(clipped);
+      }
+      if (rects.length > 0) return rects;
+    }
+  }
+  return [footprint];
+}
+
 export class HighlightLayer {
   readonly container: Container;
   private readonly baseGfx: Graphics;
@@ -46,6 +79,14 @@ export class HighlightLayer {
   // above the overlay so the +3/−2 labels read on top of everything.
   private readonly kernelGfx: Graphics;
   private readonly kernelText: Container;
+  // S97: stacked-cell geometry, set at mount and on map mutation. Null
+  // (single-layer map / pre-mount) → every rect is the plain footprint.
+  private geo: StackGeometry | null = null;
+  // Last-drawn inputs per channel, retained so a geometry swap (bridge
+  // destroyed mid-battle) can repaint in-flight highlights against the
+  // new stack shapes.
+  private lastBase: { positions: ReadonlyArray<Position>; kind: HighlightKind } = { positions: [], kind: 'none' };
+  private lastOverlay: { positions: ReadonlyArray<Position>; kind: HighlightKind } = { positions: [], kind: 'none' };
 
   constructor() {
     this.container = new Container();
@@ -58,17 +99,27 @@ export class HighlightLayer {
     this.container.addChild(this.baseGfx, this.overlayGfx, this.kernelGfx, this.kernelText);
   }
 
+  // S97: swap the stacked-cell geometry (mount / map mutation) and
+  // repaint both channels against it.
+  setStackGeometry(geo: StackGeometry | null): void {
+    this.geo = geo;
+    this.drawChannel(this.baseGfx, this.lastBase.positions, this.lastBase.kind, HIGHLIGHT_ALPHA);
+    this.drawChannel(this.overlayGfx, this.lastOverlay.positions, this.lastOverlay.kind, HIGHLIGHT_OVERLAY_ALPHA);
+  }
+
   // Replace the base highlight set. Pass `kind: 'none'` or an empty
   // array to clear.
   setBase(positions: ReadonlyArray<Position>, kind: HighlightKind): void {
-    drawHighlights(this.baseGfx, positions, kind, HIGHLIGHT_ALPHA);
+    this.lastBase = { positions, kind };
+    this.drawChannel(this.baseGfx, positions, kind, HIGHLIGHT_ALPHA);
   }
 
   // Replace the overlay highlight set (drawn on top of base). Pass
   // `kind: 'none'` or an empty array to clear. Used for AoE preview
   // on hover and currently-hovered-target accenting.
   setOverlay(positions: ReadonlyArray<Position>, kind: HighlightKind): void {
-    drawHighlights(this.overlayGfx, positions, kind, HIGHLIGHT_OVERLAY_ALPHA);
+    this.lastOverlay = { positions, kind };
+    this.drawChannel(this.overlayGfx, positions, kind, HIGHLIGHT_OVERLAY_ALPHA);
   }
 
   // Session 55: replace the Worldcraft kernel preview. Each cell is tinted by
@@ -80,35 +131,62 @@ export class HighlightLayer {
       this.kernelText.removeChild(child);
       child.destroy();
     }
-    const size = TILE_SIZE - TILE_INSET;
     for (const { position: p, delta } of cells) {
       if (delta === 0) continue;
-      const px = p.x * TILE_SIZE + TILE_INSET / 2;
-      const py = p.y * TILE_SIZE + TILE_INSET / 2;
+      const rects = highlightRects(p, this.geo);
       const color = delta > 0 ? HIGHLIGHT_COLORS.heal : HIGHLIGHT_COLORS.attack;
       // Alpha scales with magnitude so the center (±3/±4) reads stronger than
       // the corners (±1) — the kernel's "shape" is legible at a glance.
       const alpha = Math.min(HIGHLIGHT_OVERLAY_ALPHA, 0.18 + 0.12 * Math.abs(delta));
-      this.kernelGfx.rect(px, py, size, size);
-      this.kernelGfx.fill({ color, alpha });
-      this.kernelGfx.stroke({ color, alpha: HIGHLIGHT_STROKE_ALPHA, width: HIGHLIGHT_STROKE_WIDTH });
-      this.kernelText.addChild(buildKernelLabel(`${delta > 0 ? '+' : '−'}${Math.abs(delta)}`, px, py, size));
+      for (const { px, py, w, h } of rects) {
+        this.kernelGfx.rect(px, py, w, h);
+        this.kernelGfx.fill({ color, alpha });
+        this.kernelGfx.stroke({ color, alpha: HIGHLIGHT_STROKE_ALPHA, width: HIGHLIGHT_STROKE_WIDTH });
+      }
+      // Label centers on the first (largest-relevance) rect.
+      const first = rects[0]!;
+      this.kernelText.addChild(
+        buildKernelLabel(`${delta > 0 ? '+' : '−'}${Math.abs(delta)}`, first.px, first.py, first.w, first.h),
+      );
     }
   }
 
   clear(): void {
-    this.baseGfx.clear();
-    this.overlayGfx.clear();
+    this.setBase([], 'none');
+    this.setOverlay([], 'none');
     this.setKernelOverlay([]);
+  }
+
+  private drawChannel(
+    g: Graphics,
+    positions: ReadonlyArray<Position>,
+    kind: HighlightKind,
+    alpha: number,
+  ): void {
+    g.clear();
+    if (kind === 'none' || positions.length === 0) return;
+    const color = HIGHLIGHT_COLORS[kind];
+    for (const p of positions) {
+      for (const { px, py, w, h } of highlightRects(p, this.geo)) {
+        g.rect(px, py, w, h);
+        g.fill({ color, alpha });
+        // Stroke outline gives a hard edge that reads against any terrain
+        // texture, including the new grass overlay (session 26.5 polish).
+        g.stroke({ color, alpha: HIGHLIGHT_STROKE_ALPHA, width: HIGHLIGHT_STROKE_WIDTH });
+      }
+    }
   }
 }
 
-function buildKernelLabel(label: string, px: number, py: number, size: number): Text {
+function buildKernelLabel(label: string, px: number, py: number, w: number, h: number): Text {
   const text = new Text({
     text: label,
     style: {
       fontFamily: 'system-ui, sans-serif',
-      fontSize: Math.round(size * 0.4),
+      // Sized against the full tile even when the rect is a sliver —
+      // a sliver-scaled digit would be illegible; the outline keeps it
+      // readable where it overlaps the deck art above.
+      fontSize: Math.round((TILE_SIZE - TILE_INSET) * 0.4),
       fontWeight: 'bold',
       fill: 0xffffff,
       stroke: { color: 0x000000, width: 3, join: 'round' },
@@ -116,28 +194,7 @@ function buildKernelLabel(label: string, px: number, py: number, size: number): 
     },
   });
   text.anchor.set(0.5);
-  text.x = px + size / 2;
-  text.y = py + size / 2;
+  text.x = px + w / 2;
+  text.y = py + h / 2;
   return text;
-}
-
-function drawHighlights(
-  g: Graphics,
-  positions: ReadonlyArray<Position>,
-  kind: HighlightKind,
-  alpha: number,
-): void {
-  g.clear();
-  if (kind === 'none' || positions.length === 0) return;
-  const color = HIGHLIGHT_COLORS[kind];
-  for (const p of positions) {
-    const px = p.x * TILE_SIZE + TILE_INSET / 2;
-    const py = p.y * TILE_SIZE + TILE_INSET / 2;
-    const size = TILE_SIZE - TILE_INSET;
-    g.rect(px, py, size, size);
-    g.fill({ color, alpha });
-    // Stroke outline gives a hard edge that reads against any terrain
-    // texture, including the new grass overlay (session 26.5 polish).
-    g.stroke({ color, alpha: HIGHLIGHT_STROKE_ALPHA, width: HIGHLIGHT_STROKE_WIDTH });
-  }
 }

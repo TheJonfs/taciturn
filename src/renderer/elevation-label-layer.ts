@@ -21,6 +21,7 @@
 
 import { Container, Text } from 'pixi.js';
 import type { BattleMap, Tile } from '@engine/index.ts';
+import type { StackGeometry } from './world.ts';
 import {
   ELEVATION_LABEL_COLOR_HIGH,
   ELEVATION_LABEL_COLOR_LOW,
@@ -85,7 +86,13 @@ export class ElevationLabelLayer {
   // `TexturePool.returnTexture: cannot read 'push' of undefined`. The
   // pool + GC already reclaim the bitmap after a plain destroy, so the
   // S50 leak concern is covered by Pixi's own lifecycle.
-  draw(map: BattleMap): void {
+  //
+  // S97 (stacked cells): the deck tile's digit rides the deck's visual
+  // lift (top-right of the lifted rect); the covered ground tile's
+  // digit drops to the bottom-right corner, inside the sliver the lift
+  // leaves visible — each layer's digit sits on its own visible area,
+  // dissolving the overprint symptom from ADR-0155.
+  draw(map: BattleMap, geo?: StackGeometry | null): void {
     // Clear any previous labels first (supports repaints).
     for (const child of [...this.container.children]) {
       this.container.removeChild(child);
@@ -93,12 +100,14 @@ export class ElevationLabelLayer {
     }
     for (const tile of map.tiles) {
       const label = elevationLabelFor(tile.elevation);
-      this.container.addChild(buildLabel(tile, label));
+      this.container.addChild(
+        buildLabel(tile, label, geo?.liftFor(tile) ?? 0, geo?.isCoveredGround(tile) ?? false),
+      );
     }
   }
 }
 
-function buildLabel(tile: Tile, label: string): Text {
+function buildLabel(tile: Tile, label: string, lift: number, covered: boolean): Text {
   const text = new Text({
     text: label,
     style: {
@@ -114,13 +123,24 @@ function buildLabel(tile: Tile, label: string): Text {
       align: 'right',
     },
   });
-  // Anchor at top-right (1, 0); position at the tile's top-right
-  // corner inset by ELEVATION_LABEL_PADDING.
-  text.anchor.set(1, 0);
   const tilePxX = tile.x * TILE_SIZE + TILE_INSET / 2;
   const tilePxY = tile.y * TILE_SIZE + TILE_INSET / 2;
   const tilePxSize = TILE_SIZE - TILE_INSET;
-  text.x = tilePxX + tilePxSize - ELEVATION_LABEL_PADDING;
-  text.y = tilePxY + ELEVATION_LABEL_PADDING;
+  if (covered) {
+    // Covered ground tile of a stack: bottom-right corner (anchor
+    // bottom-right) — inside the visible L-sliver for every straight-
+    // span configuration (the corner belongs to whichever strip the
+    // diagonal lift leaves open; see StackGeometry.visibleGroundRects).
+    text.anchor.set(1, 1);
+    text.x = tilePxX + tilePxSize - ELEVATION_LABEL_PADDING;
+    text.y = tilePxY + tilePxSize - ELEVATION_LABEL_PADDING;
+    return text;
+  }
+  // Anchor at top-right (1, 0); position at the tile's top-right corner
+  // inset by ELEVATION_LABEL_PADDING — shifted up-left by the deck lift
+  // when the tile is a stacked cell's lifted deck.
+  text.anchor.set(1, 0);
+  text.x = tilePxX + tilePxSize - ELEVATION_LABEL_PADDING - lift;
+  text.y = tilePxY + ELEVATION_LABEL_PADDING - lift;
   return text;
 }

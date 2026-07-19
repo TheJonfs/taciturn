@@ -62,6 +62,39 @@ export const TERRAIN_FALLBACK_COLOR = 0xff00ff;
 export const TILE_OUTLINE_COLOR = 0x000000;
 export const TILE_OUTLINE_ALPHA = 0.18;
 
+// S97 — stacked-cell deck lift (the bridge over/under UI pass). The top
+// tile of a stacked cell (ADR-0155) draws shifted up by an elevation-
+// proportional, clamped pixel amount; the bottom tile peeks out in the
+// uncovered strip. The clamp floor keeps the ground tile's sliver tall
+// enough for its elevation digit + a tap; the ceiling keeps a tall
+// span's art from overrunning the cell above. Visual lift is
+// deliberately NOT 1:1 with mechanical elevation (see the brief's
+// lift-vs-readability watch-for).
+export const DECK_LIFT_PX_PER_ELEVATION = 5;
+export const DECK_LIFT_MIN_PX = 14;
+export const DECK_LIFT_MAX_PX = 22;
+// Drop shadow painted over the ground tile's footprint beneath a lifted
+// deck. Reads as "shaded under the span" and anchors the lifted art to
+// its true cell.
+export const DECK_SHADOW_COLOR = 0x000000;
+export const DECK_SHADOW_ALPHA = 0.32;
+
+// S97 — the stack chip (the stacked-cell layer chooser, WI3). Two
+// small labeled segments (deck digit on top, ground digit below) beside
+// the cell; the active segment carries the gold accent
+// (ACTIVE_HIGHLIGHT_COLOR — "the thing you act on right now", same
+// family as the facing arrows). Segment size is a finger-tolerant tap
+// target at default zoom.
+export const STACK_CHIP_SEG_WIDTH = 26;
+export const STACK_CHIP_SEG_HEIGHT = 20;
+export const STACK_CHIP_SEG_GAP = 3;
+export const STACK_CHIP_GAP = 4; // cell edge → chip
+export const STACK_CHIP_CORNER = 4;
+export const STACK_CHIP_BG = 0x14171c;
+export const STACK_CHIP_BG_ALPHA = 0.92;
+export const STACK_CHIP_BORDER_INACTIVE = 0x8b8f99;
+export const STACK_CHIP_TEXT = 0xe8eaee;
+
 // Cliff-edge overlay (Session 32 / ADR-0072). For each tile, the
 // renderer reads the four cardinal neighbors' elevations; for any
 // neighbor with strictly lower elevation, draws a "cliff face" strip

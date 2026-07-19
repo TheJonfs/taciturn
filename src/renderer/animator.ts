@@ -30,7 +30,7 @@ import {
   TURN_END_PAUSE_MS,
   TURN_START_PAUSE_MS,
 } from './constants.ts';
-import { lerp, positionCenter, tileCenter, type ScreenPoint } from './world.ts';
+import { lerp, positionCenter, type StackGeometry, type ScreenPoint } from './world.ts';
 
 // Exhaustiveness helper. Reaching this function means the discriminated
 // switch missed an `Action` type — TypeScript turns that into a compile
@@ -106,6 +106,11 @@ type Anim = MoveAnim | FlashAnim | PauseAnim | TileHighlightAnim;
 
 export class Animator {
   private readonly snapshots: Map<UnitId, UnitVisualSnapshot> = new Map();
+  // S97 (stacked cells): the shared deck-lift geometry. Set by the
+  // renderer at mount and refreshed on map mutation (bridge destroyed
+  // → stack dissolves → landing positions compute unlifted). Null on a
+  // single-layer map — every read degrades to the plain tile center.
+  private geo: StackGeometry | null = null;
   private readonly queue: Action[] = [];
   // Multi-anim staging: some actions (charged_action_resolve) produce a
   // sequence of anims rather than a single one. `pendingAnims` holds
@@ -117,6 +122,12 @@ export class Animator {
 
   initSnapshot(unitId: UnitId, snap: UnitVisualSnapshot): void {
     this.snapshots.set(unitId, snap);
+  }
+
+  // S97: install / refresh the stacked-cell geometry all position
+  // computations read through.
+  setStackGeometry(geo: StackGeometry | null): void {
+    this.geo = geo;
   }
 
   getSnapshot(unitId: UnitId): UnitVisualSnapshot | undefined {
@@ -524,7 +535,7 @@ export class Animator {
             unitId: f.unitId,
             hpAfter: snap.hp,
             koAfter: snap.ko,
-            positionAfter: positionCenter(f.to),
+            positionAfter: positionCenter(f.to, this.geo),
           });
         }
         if (specs.length === 0) return null;
@@ -566,7 +577,7 @@ export class Animator {
     const segT = totalProgress - segIdx;
     const from = a.path[segIdx]!;
     const to = a.path[segIdx + 1] ?? from;
-    snap.position = lerp(tileCenter(from.x, from.y), tileCenter(to.x, to.y), segT);
+    snap.position = lerp(positionCenter(from, this.geo), positionCenter(to, this.geo), segT);
     // Mid-tween facing follows current segment direction.
     snap.facing = inferFacing(from, to, snap.facing);
   }
@@ -588,7 +599,7 @@ export class Animator {
         const snap = this.snapshots.get(a.unitId);
         if (snap === undefined) return;
         const last = a.path[a.path.length - 1] ?? a.path[0]!;
-        snap.position = tileCenter(last.x, last.y);
+        snap.position = positionCenter(last, this.geo);
         snap.facing = a.facingAfter;
         return;
       }
@@ -649,7 +660,7 @@ export class Animator {
       // sprite onto the new tile at flash finalize. `displacedTo` is
       // populated by the reducer when applyKnockback moved the target.
       const positionAfter =
-        result.displacedTo !== undefined ? positionCenter(result.displacedTo) : undefined;
+        result.displacedTo !== undefined ? positionCenter(result.displacedTo, this.geo) : undefined;
       specs.push({
         unitId: targetId,
         hpAfter,

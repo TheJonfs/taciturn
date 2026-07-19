@@ -14,6 +14,17 @@
 //      added on top. Tiles whose terrain has no manifest entry stay
 //      bare (the rect shows through).
 //
+// S97 (bridge over/under UI): stacked cells draw in two passes. The
+// base pass holds every tile that is NOT a lifted deck (including the
+// covered ground tile of a stack, drawn at its true footprint). The
+// deck pass sits above the base pass's texture overlay and draws, per
+// lifted deck: a drop-shadow rect over the ground footprint, then the
+// deck's rect shifted up by the stack's visual lift (see
+// `StackGeometry` in world.ts). The ground tile "peeks" out of the
+// bottom sliver the lift uncovers — shaded by the shadow, which is the
+// under-the-span read. Texture sprites route to the matching pass's
+// overlay container so draw order holds once art loads.
+//
 // Per-tile variant selection is deterministic: the renderer threads the
 // battle's `masterSeed` into `pickTerrainVariantIndex(seed, x, y, n)`
 // (see `assets/terrain/index.ts`). Same seed + same map → same per-
@@ -23,7 +34,10 @@
 import { Container, Graphics, Sprite, type Texture } from 'pixi.js';
 import type { BattleMap, TerrainType } from '@engine/index.ts';
 import { pickTerrainVariantIndex } from '../assets/terrain/index.ts';
+import type { StackGeometry } from './world.ts';
 import {
+  DECK_SHADOW_ALPHA,
+  DECK_SHADOW_COLOR,
   TERRAIN_COLORS,
   TERRAIN_FALLBACK_COLOR,
   TERRAIN_TINT_DEFAULT,
@@ -37,12 +51,16 @@ import {
 export class TileLayer {
   readonly container: Container;
   private readonly graphics: Graphics;
-  // Texture overlay container. Sits above `graphics` in the layer
-  // hierarchy so loaded textures cover the colored rects. Cleared and
-  // re-populated by `applyTerrainTextures`; before that runs (or for
-  // terrains without manifest entries) it stays empty and the rects
-  // show.
+  // Texture overlay for the base pass. Sits above `graphics` so loaded
+  // textures cover the colored rects. Cleared and re-populated by
+  // `applyTerrainTextures`; before that runs (or for terrains without
+  // manifest entries) it stays empty and the rects show.
   private readonly overlay: Container;
+  // S97 deck pass: shadow + lifted-deck rects, above the base overlay
+  // so a lifted deck covers the ground tile's texture, with the deck's
+  // own textures on top.
+  private readonly deckGraphics: Graphics;
+  private readonly deckOverlay: Container;
 
   constructor() {
     this.container = new Container();
@@ -50,15 +68,23 @@ export class TileLayer {
     this.graphics = new Graphics();
     this.overlay = new Container();
     this.overlay.label = 'tile-overlay';
+    this.deckGraphics = new Graphics();
+    this.deckOverlay = new Container();
+    this.deckOverlay.label = 'tile-deck-overlay';
     this.container.addChild(this.graphics);
     this.container.addChild(this.overlay);
+    this.container.addChild(this.deckGraphics);
+    this.container.addChild(this.deckOverlay);
   }
 
-  draw(map: BattleMap): void {
+  draw(map: BattleMap, geo?: StackGeometry | null): void {
     const g = this.graphics;
     g.clear();
+    const dg = this.deckGraphics;
+    dg.clear();
 
-    // Group tiles by layer so higher layers draw on top of lower ones.
+    // Group tiles by layer so higher layers draw on top of lower ones
+    // (within each pass).
     const byLayer: ReadonlyMap<number, typeof map.tiles> = groupByLayer(map);
     const sortedLayers = [...byLayer.keys()].sort((a, b) => a - b);
     for (const layer of sortedLayers) {
@@ -69,9 +95,21 @@ export class TileLayer {
         const px = tile.x * TILE_SIZE + TILE_INSET / 2;
         const py = tile.y * TILE_SIZE + TILE_INSET / 2;
         const size = TILE_SIZE - TILE_INSET;
-        g.rect(px, py, size, size);
-        g.fill(color);
-        g.stroke({ color: TILE_OUTLINE_COLOR, alpha: TILE_OUTLINE_ALPHA, width: 1 });
+        const lift = geo?.liftFor(tile) ?? 0;
+        if (lift > 0) {
+          // Lifted deck: shadow over the true footprint (darkening the
+          // ground tile drawn in the base pass beneath), then the deck
+          // rect shifted up-left by the lift.
+          dg.rect(px, py, size, size);
+          dg.fill({ color: DECK_SHADOW_COLOR, alpha: DECK_SHADOW_ALPHA });
+          dg.rect(px - lift, py - lift, size, size);
+          dg.fill(color);
+          dg.stroke({ color: TILE_OUTLINE_COLOR, alpha: TILE_OUTLINE_ALPHA, width: 1 });
+        } else {
+          g.rect(px, py, size, size);
+          g.fill(color);
+          g.stroke({ color: TILE_OUTLINE_COLOR, alpha: TILE_OUTLINE_ALPHA, width: 1 });
+        }
       }
     }
   }
@@ -91,15 +129,19 @@ export class TileLayer {
     terrainType: TerrainType,
     textures: ReadonlyArray<Texture>,
     masterSeed: number,
+    geo?: StackGeometry | null,
   ): void {
     if (textures.length === 0) return;
     // Remove any existing sprites of this terrain so re-applying after
     // a HMR or content swap doesn't pile up duplicates. Sprites are
-    // labeled with their terrain type for cheap removal.
-    for (const child of [...this.overlay.children]) {
-      if (child.label === `tile-${terrainType}`) {
-        this.overlay.removeChild(child);
-        child.destroy();
+    // labeled with their terrain type for cheap removal — from both
+    // passes' overlays.
+    for (const parent of [this.overlay, this.deckOverlay]) {
+      for (const child of [...parent.children]) {
+        if (child.label === `tile-${terrainType}`) {
+          parent.removeChild(child);
+          child.destroy();
+        }
       }
     }
     const size = TILE_SIZE - TILE_INSET;
@@ -111,8 +153,9 @@ export class TileLayer {
       if (texture === undefined) continue;
       const sprite = new Sprite(texture);
       sprite.label = `tile-${terrainType}`;
-      sprite.x = tile.x * TILE_SIZE + TILE_INSET / 2;
-      sprite.y = tile.y * TILE_SIZE + TILE_INSET / 2;
+      const lift = geo?.liftFor(tile) ?? 0;
+      sprite.x = tile.x * TILE_SIZE + TILE_INSET / 2 - lift;
+      sprite.y = tile.y * TILE_SIZE + TILE_INSET / 2 - lift;
       // Fill the tile square on both axes. Scaling by a single dimension
       // (the old `max(w, h)`) only covered the tile when the texture was
       // square; a non-square variant (e.g. S70's 256×139 rock) left the
@@ -124,7 +167,9 @@ export class TileLayer {
         size / Math.max(texture.height, 1),
       );
       if (tint !== TERRAIN_TINT_DEFAULT) sprite.tint = tint;
-      this.overlay.addChild(sprite);
+      // Lifted decks go to the deck pass so their art sits above the
+      // ground tile's texture AND above the shadow rect.
+      (lift > 0 ? this.deckOverlay : this.overlay).addChild(sprite);
     }
   }
 }
