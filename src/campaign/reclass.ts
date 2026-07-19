@@ -29,6 +29,7 @@ import {
 } from '@engine/index.ts';
 import type { CampaignUnit } from './types.ts';
 import { canEquipPassive, tokenKey, type ComponentCatalog } from './progression/index.ts';
+import { refillVitalsToEffectiveFull } from './vitals.ts';
 
 const FIRST_ACTION = bucketId('first_action');
 const SECONDARY = bucketId('secondary_command_sets');
@@ -62,7 +63,9 @@ export function reclassUnit(
   }
 
   const loadout: Loadout = { actionBuckets, passiveBuckets };
-  return { ...unit, classId: newClassId, loadout };
+  // S96: a class swap moves the HP/MP curves — re-normalize stored vitals
+  // to the new effective full (the between-battles invariant; vitals.ts).
+  return refillVitalsToEffectiveFull({ ...unit, classId: newClassId, loadout }, catalog);
 }
 
 // A passive stays equipped through a reclass iff it's still legal in the new

@@ -95,6 +95,14 @@ describe('reclassUnit', () => {
     expect(out.loadout.actionBuckets[bucketId('secondary_command_sets')]).toEqual([]);
   });
 
+  it('re-normalizes vitals to the NEW class curves (S96 — no stale HP/MP through a reclass)', () => {
+    const out = reclassUnit(knight(), classId('monk'), catalog, CAT);
+    // The fixture's arbitrary {100, 20} must be replaced by the Monk's
+    // effective full at L20 — whatever it is, it isn't the stale carry.
+    expect(out.vitals).not.toEqual({ hp: 100, mp: 20 });
+    expect(out.vitals.hp).toBeGreaterThan(0);
+  });
+
   it('is a no-op (same reference) when already in the target class', () => {
     const u = knight();
     expect(reclassUnit(u, classId('knight'), catalog, CAT)).toBe(u);

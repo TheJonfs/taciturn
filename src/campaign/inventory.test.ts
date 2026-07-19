@@ -109,10 +109,32 @@ describe('inventory — equip / unequip ops', () => {
   it('unequip returns the instance to the pool', () => {
     let state = fresh();
     const kId = knightId(state);
-    state = unequipItem(state, kId, 'rightHand');
+    state = unequipItem(state, kId, 'rightHand', cat);
     expect(freeCount(state, FLAMETONGUE)).toBe(1);
     const knight = state.roster.find((u) => u.id === kId)!;
     expect(knight.equipment.rightHand).toBeNull();
+  });
+
+  it('equipping a +MaxMP piece refills current MP to the new effective full (S96 — the Padded Jacket repro)', () => {
+    // Chris's Ch1 report: swap to a Padded Jacket (+15 MaxMP) in Manage
+    // Roster → arrive at battle with the OLD current MP. Equip must
+    // re-normalize stored vitals to the new full.
+    let state = grantItems(fresh(), [[itemId('padded_jacket'), 1]]);
+    const kId = knightId(state);
+    const before = state.roster.find((u) => u.id === kId)!;
+    state = equipItem(state, kId, 'armor', itemId('padded_jacket'), cat);
+    const after = state.roster.find((u) => u.id === kId)!;
+    expect(after.vitals.mp).toBeGreaterThan(before.vitals.mp); // topped up to the raised full
+  });
+
+  it('unequipping the piece pulls current MP back down to the lowered full (S96)', () => {
+    let state = grantItems(fresh(), [[itemId('padded_jacket'), 1]]);
+    const kId = knightId(state);
+    state = equipItem(state, kId, 'armor', itemId('padded_jacket'), cat);
+    const raised = state.roster.find((u) => u.id === kId)!.vitals.mp;
+    state = unequipItem(state, kId, 'armor', cat);
+    const lowered = state.roster.find((u) => u.id === kId)!.vitals.mp;
+    expect(lowered).toBeLessThan(raised); // no stranded MP above the new max
   });
 
   it('cross-unit contention: the last free instance equips once, then fails loud elsewhere', () => {

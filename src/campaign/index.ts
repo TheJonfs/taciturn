@@ -79,7 +79,7 @@ export type { AuthoredEnemySpec } from './authored-enemy.ts';
 export { summarizeBattleResult } from './battle-result.ts';
 export type { BattleResult, UnitBattleSummary, UnitOutcome } from './battle-result.ts';
 export { applyBattleResult } from './apply-back.ts';
-export { effectiveMaxVitals } from './vitals.ts';
+export { effectiveMaxVitals, refillVitalsToEffectiveFull } from './vitals.ts';
 
 // The branching graph model + routing (M1) and the authored graph.
 export type {

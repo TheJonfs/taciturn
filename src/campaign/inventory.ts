@@ -38,6 +38,7 @@ import {
   type UnitId,
 } from '@engine/index.ts';
 import type { CampaignState, CampaignUnit } from './types.ts';
+import { refillVitalsToEffectiveFull } from './vitals.ts';
 
 export type InventoryRecord = Readonly<Record<string, number>>;
 
@@ -221,7 +222,9 @@ export function equipItem(
         `(owned ${ownedCount(state, itemId)}, all equipped)`,
     );
   }
-  return withUnit(state, equipOnUnit(unit, slot, itemId, catalog));
+  // S96: gear can move MaxHP/MaxMP — re-normalize stored vitals to the new
+  // effective full (the between-battles invariant; see vitals.ts).
+  return withUnit(state, refillVitalsToEffectiveFull(equipOnUnit(unit, slot, itemId, catalog), catalog));
 }
 
 // Clear a slot; the instance returns to the free pool by derivation.
@@ -229,11 +232,17 @@ export function unequipItem(
   state: CampaignState,
   unitId: UnitId,
   slot: EquipmentSlotId,
+  catalog: Catalog,
 ): CampaignState {
   const unit = rosterUnit(state, unitId);
   if (unit.equipment[slot] === null) return state;
-  return withUnit(state, {
-    ...unit,
-    equipment: { ...unit.equipment, [slot]: null },
-  });
+  // S96: same re-normalization as equipItem — removing a +MaxMP piece must
+  // pull current MP down to the new full, not strand it above max.
+  return withUnit(
+    state,
+    refillVitalsToEffectiveFull(
+      { ...unit, equipment: { ...unit.equipment, [slot]: null } },
+      catalog,
+    ),
+  );
 }

@@ -10,7 +10,12 @@
 
 import { useState, type ReactElement } from 'react';
 import type { Catalog, EquipmentSlotId, ItemId } from '@engine/index.ts';
-import { equipOnUnit, type CampaignUnit, type InventoryRecord } from '@campaign/index.ts';
+import {
+  equipOnUnit,
+  refillVitalsToEffectiveFull,
+  type CampaignUnit,
+  type InventoryRecord,
+} from '@campaign/index.ts';
 import {
   SLOT_LABEL,
   SLOT_ORDER,
@@ -53,7 +58,12 @@ export function GearSlots({
   }
 
   function pick(slot: EquipmentSlotId, itemId: ItemId | null): void {
-    onChange(equipOnUnit(unit, slot, itemId, catalog));
+    // S96: gear can move MaxHP/MaxMP — the APPLY re-normalizes stored
+    // vitals to the new effective full (Chris's Padded Jacket repro: +15
+    // MaxMP arrived in battle with the old current MP). Preview paths
+    // (gearStatLine etc.) keep calling equipOnUnit bare — only the
+    // persisted edit refills.
+    onChange(refillVitalsToEffectiveFull(equipOnUnit(unit, slot, itemId, catalog), catalog));
     setOpenSlot(null);
     setSearch('');
     onFocus(null);
