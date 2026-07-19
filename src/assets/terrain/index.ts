@@ -56,6 +56,9 @@ import type { TerrainType } from '@engine/index.ts';
 // Pass's high ground (elevation ≥ 7 — the SW massif and NE ridge), and
 // `grass_rock` two grass-over-stone variants for the mid band (elev 5-6)
 // — a visual transition between the green lowlands and the bare heights.
+// S96: `bridge` reuses the rampart plank art as a placeholder (the S47
+// rampart source IS wooden planking; authored bridge-deck art can swap in
+// here without touching consumers).
 export const TERRAIN_MANIFEST: ReadonlyMap<TerrainType, ReadonlyArray<string>> = new Map([
   ['ground', [ground01Url, ground02Url, ground03Url]],
   ['water_shallow', [shallowWater01Url, shallowWater02Url, shallowWater03Url]],
@@ -63,6 +66,7 @@ export const TERRAIN_MANIFEST: ReadonlyMap<TerrainType, ReadonlyArray<string>> =
   ['rampart', [rampart01Url, rampart02Url, rampart03Url]],
   ['rock', [rock01Url, rock02Url, rock03Url]],
   ['grass_rock', [grassRock01Url, grassRock02Url]],
+  ['bridge', [rampart01Url, rampart02Url, rampart03Url]],
 ]);
 
 // Returns the texture-URL pool for a terrain type, or `null` if no

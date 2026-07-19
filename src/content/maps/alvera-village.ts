@@ -1,7 +1,8 @@
 // Alvera Village — the Chapter 1 node-2 battlefield (S96, Chris's grid).
 //
 // Spec: `docs/maps/alvera-village.md` (v1.0). The grid below is Chris's
-// elevation data verbatim. 16×16 single layer.
+// elevation data verbatim. 16×16 — plus the game's FIRST multi-layer
+// feature, the western bridge deck (see BRIDGE_DECK below).
 //
 // Theme: a riverside village. Elevation-8 tiles are BUILDING WALLS —
 // ordinary ground tiles so tall (5-6 above the streets) that no jump
@@ -86,6 +87,21 @@ function terrainFromElevation(elev: number): string {
   return 'ground';
 }
 
+// S96 (bridges, ADR-0155) — the WESTERN BRIDGE: the game's first layer-1
+// deck, spanning the river between the NW manor and the SW house. Three
+// deck tiles at x=2 cross the shallow-deep-shallow band (y=7-9) at
+// elevation 3 — one step up from the elev-2 approaches at (2,6) and
+// (2,10), and exactly BRIDGE_MIN_CLEARANCE above each under-tile
+// (shallow 1 / deep 0 / shallow 1). Destroying a span (Pit, or a ram
+// from below) dumps its occupant into the river. A second bridge may
+// join later; this one is the experiment.
+const BRIDGE_DECK: ReadonlyArray<{ x: number; y: number }> = [
+  { x: 2, y: 7 },
+  { x: 2, y: 8 },
+  { x: 2, y: 9 },
+];
+const BRIDGE_DECK_ELEVATION = 3;
+
 function buildAlveraVillage(): BattleMap {
   const tiles: Tile[] = [];
   for (let y = 0; y < ALVERA_VILLAGE_HEIGHT; y++) {
@@ -101,6 +117,16 @@ function buildAlveraVillage(): BattleMap {
         properties: [],
       });
     }
+  }
+  for (const d of BRIDGE_DECK) {
+    tiles.push({
+      x: d.x,
+      y: d.y,
+      layer: 1,
+      elevation: BRIDGE_DECK_ELEVATION,
+      terrain: 'bridge',
+      properties: [],
+    });
   }
   return {
     width: ALVERA_VILLAGE_WIDTH,

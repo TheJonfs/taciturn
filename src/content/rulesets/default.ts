@@ -167,6 +167,11 @@ export const defaultRuleset: RulesetDefinition = {
   // walkable by every class — see each class's `canEnter`); the distinct
   // ids exist purely so the renderer can paint stone / grass-over-stone
   // art by elevation. Both carry `'land'`.
+  // S96 (bridges, ADR-0155): `bridge` joins for deck tiles (layer ≥ 1
+  // spans — Alvera's western river bridge first). Behaves as land for
+  // pathfinding like rampart/rock; the distinct id exists for renderer /
+  // content identity and so Worldcraft's terrain derivation never
+  // reshapes it (decks are destroyed, not reshaped). Carries `'land'`.
   terrain: {
     tags: new Map<string, ReadonlySet<string>>([
       ['ground', new Set(['land'])],
@@ -175,6 +180,7 @@ export const defaultRuleset: RulesetDefinition = {
       ['rampart', new Set(['land'])],
       ['rock', new Set(['land'])],
       ['grass_rock', new Set(['land'])],
+      ['bridge', new Set(['land'])],
     ]),
   },
 

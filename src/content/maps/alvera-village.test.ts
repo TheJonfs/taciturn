@@ -9,21 +9,57 @@ import {
   ALVERA_VILLAGE_HEIGHT,
   ALVERA_VILLAGE_WIDTH,
 } from './alvera-village.ts';
-import { tileAt } from '@engine/index.ts';
+import { tileAt, validateMap } from '@engine/index.ts';
 
 describe('Alvera Village map — structural', () => {
-  it('is a 16×16 grid with every (x, y) covered exactly once at layer 0', () => {
+  it('is a 16×16 grid, every (x, y) covered once at layer 0, plus the 3-tile bridge deck', () => {
     expect(ALVERA_VILLAGE_WIDTH).toBe(16);
     expect(ALVERA_VILLAGE_HEIGHT).toBe(16);
-    expect(alveraVillage.tiles.length).toBe(16 * 16);
+    expect(alveraVillage.tiles.length).toBe(16 * 16 + 3);
     const seen = new Set<string>();
+    let deckCount = 0;
     for (const t of alveraVillage.tiles) {
       const key = `${t.x},${t.y},${t.layer}`;
       expect(seen.has(key)).toBe(false);
       seen.add(key);
-      expect(t.layer).toBe(0);
+      if (t.layer !== 0) deckCount++;
     }
-    expect(seen.size).toBe(16 * 16);
+    expect(deckCount).toBe(3);
+  });
+
+  it('passes the map validator, multi-layer rules included (S96)', () => {
+    const registry = new Map([
+      ['ground', new Set(['land'])],
+      ['water_shallow', new Set(['water', 'shallow'])],
+      ['water_deep', new Set(['water', 'deep'])],
+      ['rampart', new Set(['land'])],
+      ['bridge', new Set(['land'])],
+    ]);
+    const result = validateMap(alveraVillage, registry);
+    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe('Alvera Village map — the western bridge (S96, first layer-1 deck)', () => {
+  it('three deck tiles at x=2 span the river (y=7-9) at elevation 3', () => {
+    for (const y of [7, 8, 9]) {
+      const deck = tileAt(alveraVillage, 2, y, 1)!;
+      expect(deck).toBeDefined();
+      expect(deck.elevation).toBe(3);
+      expect(deck.terrain).toBe('bridge');
+    }
+  });
+
+  it('the river flows on beneath the deck (layer-0 water untouched)', () => {
+    expect(tileAt(alveraVillage, 2, 7, 0)!.terrain).toBe('water_shallow');
+    expect(tileAt(alveraVillage, 2, 8, 0)!.terrain).toBe('water_deep');
+    expect(tileAt(alveraVillage, 2, 9, 0)!.terrain).toBe('water_shallow');
+  });
+
+  it('both approaches sit one step below the deck (walkable at jump 1+)', () => {
+    expect(tileAt(alveraVillage, 2, 6, 0)!.elevation).toBe(2);
+    expect(tileAt(alveraVillage, 2, 10, 0)!.elevation).toBe(2);
   });
 });
 
