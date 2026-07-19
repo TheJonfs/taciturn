@@ -20,6 +20,8 @@ import { riverRidgeBattle } from './river-ridge-battle.ts';
 import { stonebridgeBattle } from './stonebridge-battle.ts';
 import { marshmoorBattle } from './marshmoor-battle.ts';
 import { mountainPassBattle } from './mountain-pass-battle.ts';
+import { oskunFieldsBattle } from './oskun-fields-battle.ts';
+import { alveraVillageBattle } from './alvera-village-battle.ts';
 
 export interface BattleTemplateEntry {
   // Display name for authoring pickers.
@@ -36,6 +38,8 @@ export const BATTLE_TEMPLATE_REGISTRY: Readonly<Record<string, BattleTemplateEnt
   stonebridge: { label: 'Stonebridge', template: stonebridgeBattle, zonesKey: 'stonebridge' },
   marshmoor: { label: 'Marshmoor', template: marshmoorBattle, zonesKey: 'marshmoor' },
   mountain_pass: { label: 'Mountain Pass', template: mountainPassBattle, zonesKey: 'mountain_pass' },
+  oskun_fields: { label: 'Oskun Fields', template: oskunFieldsBattle, zonesKey: 'oskun_fields' },
+  alvera_village: { label: 'Alvera Village', template: alveraVillageBattle, zonesKey: 'alvera_village' },
 };
 
 // Look up a template by registry key. Throws loud on an unknown key — a

@@ -60,6 +60,8 @@ import type {
 import { loadDefaultCatalog } from '@content/index.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import { mountainPassBattle } from '@content/battles/mountain-pass-battle.ts';
+import { oskunFieldsBattle } from '@content/battles/oskun-fields-battle.ts';
+import { alveraVillageBattle } from '@content/battles/alvera-village-battle.ts';
 import { deploymentZonesFor } from '@content/deployment/index.ts';
 import { authoredEnemy } from './authored-enemy.ts';
 import { clioJoinUnit, seraJoinUnit, thessalyJoinUnit } from './ch1-roster.ts';
@@ -240,10 +242,11 @@ function withLeadEnemySlot(template: BattleConfig, protectLead: boolean): Battle
   return { ...template, units: [...others, leadSlot, ...enemies.slice(1)] };
 }
 
-// Node 1 — Oskun Fields: River Ridge plus Wiegraf's guest slot at (3,1)
-// (land, outside the northern deploy zone, no authored unit stands there).
+// Node 1 — Oskun Fields on its OWN map (S96) plus Wiegraf's guest slot at
+// (4,3) — land (elev 3), just north of the player's west-bank zone, no
+// authored unit stands there.
 const oskunTemplate: BattleConfig = {
-  ...withGuestSlot(riverRidgeBattle, 'ch1-guest-slot-oskun', { x: 3, y: 1, layer: 0 }),
+  ...withGuestSlot(oskunFieldsBattle, 'ch1-guest-slot-oskun', { x: 4, y: 3, layer: 0 }),
   battleId: 'ch1_oskun_v1',
 };
 
@@ -404,7 +407,7 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
       'Oskun Fields — the road out',
       'Wiegraf Folles and the Dead Men hold the fields; he fights alongside the company as a guest.',
     ),
-    battle(oskunTemplate, 'river_ridge', {
+    battle(oskunTemplate, 'oskun_fields', {
       guests: [wiegrafGuest()],
       enemies: lineup(2),
       grants: [itemId('pendant_of_lumara')],
@@ -415,7 +418,7 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
     ),
   ],
   'node-alvera': [
-    battle(riverRidgeBattle, 'river_ridge', {
+    battle(alveraVillageBattle, 'alvera_village', {
       enemies: lineup(3),
       joins: [clioJoinUnit(catalog)],
     }),

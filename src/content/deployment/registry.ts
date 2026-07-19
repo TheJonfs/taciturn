@@ -104,6 +104,29 @@ const mountainPassAmbush: DeploymentZoneConfig = {
   ],
 };
 
+// Oskun Fields (16×16, S96): an east-west engagement across the col-7
+// stream. Blue (player) on the west-bank fields cols 3-5 / rows 4-7
+// (12 tiles, elev 2-4); Red (enemy) on the eastern knolls cols 9-11 /
+// rows 4-7 (12 tiles, elev 3-5). Proposed layout — one Atlas-free edit
+// to re-place if playtest wants a different axis.
+const oskunFieldsDefault: DeploymentZoneConfig = {
+  teams: [
+    { team: TEAM_BLUE, subZones: [{ tiles: rect(3, 5, 4, 7) }] },
+    { team: TEAM_RED, subZones: [{ tiles: rect(9, 11, 4, 7) }] },
+  ],
+};
+
+// Alvera Village (16×16, S96): a ford assault on the village. Blue
+// (player) on the east-west road cols 6-11 / rows 10-11 (12 tiles, all
+// elev 2); Red (enemy) in the NW fields cols 1-4 / rows 4-6 (12 tiles,
+// elev 2-3) across the row-8 river. Proposed layout, same caveat.
+const alveraVillageDefault: DeploymentZoneConfig = {
+  teams: [
+    { team: TEAM_BLUE, subZones: [{ tiles: rect(6, 11, 10, 11) }] },
+    { team: TEAM_RED, subZones: [{ tiles: rect(1, 4, 4, 6) }] },
+  ],
+};
+
 // mapKey → (configName → config). 'default' is the convention every map
 // provides; further keys are alternate layouts on the same terrain.
 export const DEPLOYMENT_ZONE_REGISTRY: Readonly<
@@ -113,6 +136,8 @@ export const DEPLOYMENT_ZONE_REGISTRY: Readonly<
   stonebridge: { default: stonebridgeDefault },
   marshmoor: { default: marshmoorDefault },
   mountain_pass: { default: mountainPassAmbush },
+  oskun_fields: { default: oskunFieldsDefault },
+  alvera_village: { default: alveraVillageDefault },
 };
 
 // Look up a map's deployment-zone config by name (defaults to 'default').
