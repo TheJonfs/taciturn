@@ -12,13 +12,31 @@ import { makeGameState, makeUnit } from '../engine/ct/test-fixtures.ts';
 import { classes, loadDefaultCatalog } from './index.ts';
 import { alveraVillage } from './maps/alvera-village.ts';
 
+// Chris's S97 ruling: every class can enter every authored terrain —
+// per-class terrain RESTRICTION is not a design lever in v1 (terrain
+// differentiation lives in per-class terrainCosts, e.g. Tidewalker).
+// The list below is the full authored-map terrain vocabulary; a new
+// terrain type must be added here AND to every class's canEnter (the
+// legacy `'water'` literal lives only in test fixtures and is exempt).
+const AUTHORED_TERRAINS = [
+  'ground',
+  'water_shallow',
+  'water_deep',
+  'rampart',
+  'rock',
+  'grass_rock',
+  'bridge',
+] as const;
+
 describe('bridge terrain walkability (S97 regression)', () => {
-  it("every class's canEnter admits 'bridge' (decks are walkable by all, like rampart)", () => {
+  it("every class's canEnter admits every authored terrain (Chris's S97 ruling)", () => {
     for (const cls of classes) {
-      expect(
-        cls.movement.canEnter.has('bridge'),
-        `${String(cls.id)} cannot enter 'bridge' terrain`,
-      ).toBe(true);
+      for (const terrain of AUTHORED_TERRAINS) {
+        expect(
+          cls.movement.canEnter.has(terrain),
+          `${String(cls.id)} cannot enter '${terrain}' terrain`,
+        ).toBe(true);
+      }
     }
   });
 

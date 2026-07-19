@@ -45,12 +45,13 @@ deck-art click, chip tap committing the deck layer, sprite riding the lift.
 
 ### Noticed, not acted on
 
-- Three classes (Enchanter, Templar, Thief) also lack `'rampart'` in
-  `canEnter` (every other class has it). Looks like a template drift from
-  when they were authored, not a design choice — they can't stand on
-  Stonebridge/Alvera rampart tiles (elev-8 walls are unreachable anyway,
-  but Stonebridge has walkable ramparts). Surfacing rather than fixing:
-  Chris should rule if it's intentional flavor.
+- ~~Enchanter/Templar/Thief rampart gap~~ — RESOLVED same session: Chris
+  ruled every class enters every terrain; the three classes got `rampart`
+  and the regression test now pins the full authored-terrain vocabulary
+  for all classes (per-class terrain differentiation lives in
+  `terrainCosts` only). A NEW terrain type must be added to every class's
+  `canEnter` + the `AUTHORED_TERRAINS` list in
+  `src/content/bridge-walkability.test.ts`.
 - Browser-preview tooling note: the tile-info readout updates one
   `javascript_exec` call behind a synthetic pointer dispatch (React flush
   timing), and the camera lerp advances only on pumped frames in the
