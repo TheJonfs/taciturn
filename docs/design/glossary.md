@@ -78,7 +78,7 @@ Proper nouns and key technical terms used across the architecture documents. Whe
 
 **Jump** — A *Unit* stat governing the maximum *Elevation* differential the unit can traverse in a single tile step. *See: map-and-battlefield.md.*
 
-**Layer** — The discrete vertical position of a *Tile* at a given (x, y). Layer 0 is ground; higher layers represent bridges, hover positions, or upper floors. Distinct from *Elevation*. v1 maps constrained to layer 0 only. *See: core-types.md.*
+**Layer** — The discrete vertical position of a *Tile* at a given (x, y). Layer 0 is ground; layer ≥ 1 is a **Deck** (bridge span / platform — S96, first shipped on Alvera Village). Distinct from *Elevation*. Decks sit ≥ 2 above their under-tile, occlude LoS only in their 1-thick band, and are permanently destroyable by Worldcraft. *See: core-types.md, ADR-0155.*
 
 **Learning State** — Per-(unit, command-set) record of which actions within a *Command Set* the unit has learned. *See: ability-slots.md.*
 

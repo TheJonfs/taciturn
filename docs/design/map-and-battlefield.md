@@ -90,7 +90,7 @@ Ranged with line-of-sight requirement. The engine traces a line from source cent
 
 Ties at exact tile boundaries lean toward "doesn't block" to keep play feeling generous. Used by the straight-line spells (and any ability flagged `straight_line`); **not** bows, which arc. A Vantage wielder's *source* elevation reads +2 (ADR-0115), letting it see over cover it otherwise couldn't.
 
-> **Known limit:** terrain occlusion checks every tile at an (x, y) across all layers, so on a future multi-layer map a ray passing *under* a bridge would read as buried in the upper tile. v1 maps are single-layer; a layer-aware ray is the refinement if stacked maps land.
+> **S96 (bridges, ADR-0155) — the multi-layer limit is closed.** A layer ≥ 1 tile is a DECK, not bedrock: it occludes only its thin body, the open band `(elevation − BRIDGE_DECK_THICKNESS, elevation)` (thickness 1, mirroring the Barrier's height-1 convention pointed downward). Rays pass over the deck top, graze the underside, and travel clean beneath. Bedrock occlusion (`ray < elevation` blocks) applies to layer-0 tiles only.
 
 ### Arc
 
@@ -99,7 +99,9 @@ Ranged with no straight-line requirement, but with overhead-clearance rules:
 - Target tile must not be covered: no tile at higher layer at target's (x, y).
 - **Bounded apex (S69 follow-up):** an intermediate tile blocks the lob only when its ground surface rises *more than `ARC_LOB_CLEARANCE` (5) above the higher of the two endpoints*. So walls, buildings, and low humps are lobbed over (the FFT "shoot over cover" feel) but a genuine mountain blocks. The clearance is a flat ceiling above the higher endpoint, not a true parabola — generous near the endpoints by design (you can lob over an adjacent wall). `5` mirrors the bow's height-delta damage falloff (a bow already deals 0 at a +5 delta), and Vantage is *not* folded into the apex.
 
-Used by bows (the "lobs over cover" sense), grenades, mortars, rain-of-arrows. Bridges and ceilings provide cover from arcs but not from straight-line attacks (and vice versa, conveniently).
+Used by bows (the "lobs over cover" sense), grenades, mortars, rain-of-arrows. Bridges and ceilings provide cover from arcs but not from straight-line attacks (and vice versa, conveniently — though a deck's own thin band does block straight-line rays crossing it; see above).
+
+> **S96 exemption (ADR-0155):** elevation Worldcraft (Pillar/Pit/Hill/Valley) bypasses the arc cover gate — it shapes the earth from below, not a projectile from above. Without the exemption nothing could ever target the ground beneath a span, and the bridge RAM rule would be unreachable. Barrier placement (tile_set) and every other arc ability keep the cover rule.
 
 ## Area of effect
 
@@ -113,7 +115,7 @@ For each candidate tile in the shape's footprint at the anchor:
 - Check that a tile exists at that (x, y) within vertical tolerance.
 - If multiple tiles at that (x, y) qualify (e.g., ground tile and bridge tile both within tolerance), all qualifying tiles are affected — units on each get hit independently.
 
-This last rule is interesting: a fireball at ground level under a bridge could hit both a unit standing on the ground and a unit on the bridge above, if the bridge is within vertical tolerance. We may want to constrain this for some abilities ("vertical tolerance applies, but only to the highest qualifying layer") — flagged as an open question.
+This last rule is interesting: a fireball at ground level under a bridge could hit both a unit standing on the ground and a unit on the bridge above, if the bridge is within vertical tolerance. **S96 (ADR-0155): confirmed as the ruling** — vertical tolerance alone decides which layers a blast reaches (a tolerance-2 spell under a deck 4 above leaves the bridge-standers safe; a low span catches both). A per-ability `layerScope` override ('all' | 'highest' | 'lowest') remains the natural extension, deliberately unbuilt until an ability wants it.
 
 ## Tile properties
 

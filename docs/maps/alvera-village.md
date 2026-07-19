@@ -68,6 +68,17 @@ The **diagonal channel** (deep, with shallow fringes) runs (15,0) → (8,7), joi
 - **The dry east bank**: row 8 from x11 east is ground — the long way around, no water cost.
 - The NE triangle beyond the diagonal rises to a SE shelf (elev 2–3) that walks down the east edge to the bank.
 
+### The western bridge (S96 — the game's first multi-layer deck)
+
+Three `bridge` tiles at **layer 1**, x=2, y=7–9, elevation 3 — spanning the
+river between the manor and the SW house. Approaches at (2,6) and (2,10)
+sit one step below (elev 2); clearance over the water is exactly the
+minimum 2 (shallows) / 3 (channel). Anyone can walk over it; anyone can
+wade under it; a straight-line shot passes beneath the span but not
+through its band. Worldcraft destroys it permanently (Pit/Valley on the
+deck, or a ram from below) — occupants drop into the river. Per
+ADR-0155. A second bridge may join after the experiment.
+
 ### The streets
 
 The east-west **road** at row 10 (elev 2, full width) and two north-south **lanes** at cols 5 and 11 running to the south map edge between the houses. The lanes are wall-flanked corridors — cover from straight-line spells, ambush geometry for melee.

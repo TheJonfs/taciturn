@@ -44,6 +44,36 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 96, continued further (2026-07-18) — rampart walls + BRIDGES (ADR-0155)
+
+Commits: `a71bb7c` (ramparts + picker), `37a51e0` + `3b9ec03` (bridges).
+
+- **Alvera's building walls** now use the dressed-stone rampart terrain
+  (Stonebridge's keep art) — visibly architecture, not grass. Both new Ch1
+  maps also joined Mage War's New Battle picker.
+- **BRIDGES.** Alvera's western river crossing (x=2, spanning the river
+  between the manor and the SW house) is the game's first true bridge:
+  walk OVER the span or wade UNDER it — two different places at the same
+  map square.
+  - Straight-line spells pass beneath the span (only the deck's own
+    1-tile-thick body blocks); a bridge overhead still covers you from
+    lobbed/arcing attacks, exactly as before.
+  - Area spells decide who's hit by their vertical tolerance: a blast
+    anchored under a high bridge leaves the bridge-standers safe (and
+    vice versa); a low span can catch both layers at once.
+  - **Bridges are destroyable — permanently.** A Terraformer's Pit or
+    Valley on a span smashes it: everyone on it falls the FULL height to
+    whatever lies below (at Alvera: into the river), and no Worldcraft
+    revert ever restores it. Raising earth (Pillar/Hill) can't target a
+    deck — but a raise UNDER a span that crowds it too closely RAMS it
+    apart (its occupants land on the risen ground, usually softly).
+  - The enemy AI weighs smashing an occupied bridge the same way it
+    weighs shoving you off a cliff — don't loiter on spans near an
+    enemy Terraformer.
+  - Interim UI note: stacked squares still draw only the bridge and the
+    elevation digits overprint; a unit underneath stays clickable, but
+    expect visual rough edges until the over/under interface pass lands.
+
 ## Session 96, continued (2026-07-18) — new maps: Oskun Fields + Alvera Village
 
 Commits: `e05cc08`. Map specs: `docs/maps/oskun-fields.md`, `docs/maps/alvera-village.md`.

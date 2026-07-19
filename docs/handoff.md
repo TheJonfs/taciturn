@@ -11,6 +11,41 @@ been processed.
 
 ---
 
+## S96 addendum — BRIDGES: the mechanical substrate shipped (2026-07-18)
+
+The audit (`docs/bridge-overpass-audit.md`) became the implementation the
+same session. All of Chris's rulings landed (ADR-0155): deck LoS band
+(thickness 1), AoE-by-vertical-tolerance confirmed as-is, **permanent
+Worldcraft destruction** (Pit/Valley on deck; raise-at-deck invalid; the
+RAM rule for raises crowding clearance < 2 from below; elevation
+Worldcraft exempt from arc cover so under-span casts work), map-validator
+multi-layer rules, `cover.ts` layer-as-elevation fix, AI+UI stack
+enumeration fixes, AI deck-destroy fall valuation, interim
+occupant-priority hit-test. New ActionType `system_bridge_destroy` (all
+five lockstep sites). **Alvera's western bridge** (x=2, y=7-9, elev-3
+deck, `bridge` terrain riding rampart plank art) is live content. Suite
+**2971**, `tsc -b` clean. Browser-verified: Alvera boots with the deck
+rendering over the river.
+
+### For Chris / the planner — bridge follow-ups
+
+- **The over/under UI/visualization pass is the open half**: stacked
+  cells overdraw (deck only), elevation digits overprint, both layers'
+  highlights merge, and picking is occupant-priority topmost — the
+  designed toggle affordance replaces it. Session-sized; interaction
+  design wanted first (click-cycles-stack vs modifier vs stack chip).
+  The isometric view stays parked as its own future project.
+- **Manual under-bridge move ordering**: you currently cannot click a
+  move destination UNDER the span (the pick resolves to the deck when
+  both are empty) — pathfinding still routes under it fine on its own.
+  Known interim wart, falls to the UX pass.
+- Deferred edges (in the ADR): charged tile-cast anchored on a deck
+  destroyed mid-charge (no v1 content combo); deployment zones exclude
+  stacked cells by convention; per-ability AoE `layerScope` unbuilt
+  until a consumer.
+- Playtest hooks: Pit-the-bridge vs enemy Terraformers (the AI values
+  it); ramming your own span from below is legal — watch for feel.
+
 ## S95/S96 — Earning-coverage audit + Ch1 shop/map polish + playtest batch (2026-07-18)
 
 All four work items of the S95 brief shipped (ADR-0153), plus the same-day
