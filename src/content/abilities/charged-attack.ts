@@ -42,8 +42,11 @@ export const chargedAttack: ActiveAbilityDefinition = {
   availability: 'available',
   tags: ['physical', 'weapon'],
   targeting: {
-    // Fallback band (no bow equipped); the weapon-range fork overrides
-    // to the equipped bow's range for this weapon-tagged attack.
+    // WEAPON-RANGED (S96): the reach is ALWAYS the equipped weapon's — a
+    // bow's declared band, or the melee band for a rangeless weapon /
+    // bare hands. The authored band below is never the live reach (it
+    // documents the bow-flavored intent; pre-S96 it leaked as the
+    // fallback, letting a Dagger Hunter fire at 5 tiles).
     kind: 'tile',
     range: { horizontal: 5, minHorizontal: 2, vertical: 99 },
     rangeMode: 'arc',

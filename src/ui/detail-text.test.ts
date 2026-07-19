@@ -15,6 +15,7 @@ import { wandOfLumen } from '../content/items/wand-of-lumen.ts';
 import { moonRobe } from '../content/items/moon-robe.ts';
 import { lance } from '../content/items/lance.ts';
 import { prismWand } from '../content/items/prism-wand.ts';
+import { chargedAttack } from '../content/abilities/charged-attack.ts';
 import { wandOfPotential } from '../content/items/wand-of-potential.ts';
 import { wandOfDepthsApplyShift } from '../content/abilities/wand-of-depths-apply-shift.ts';
 import { wandOfPotentialApplyShift } from '../content/abilities/wand-of-potential-apply-shift.ts';
@@ -88,6 +89,14 @@ describe('formatItemDetail', () => {
     const d = formatItemDetail(wandOfLumen, cat);
     const joined = d.lines.join('\n');
     expect(joined).toContain('On fire-tagged casts: Burn applies with +1 stack');
+  });
+
+  it('a weapon-delivered ability reads "weapon range", not the authored band (S96)', () => {
+    const cat = makeCat();
+    const d = formatAbilityDetail(chargedAttack, cat);
+    const joined = d.lines.join('\n');
+    expect(joined).toContain('weapon range');
+    expect(joined).not.toContain('2-5'); // the bow-flavored authored numbers stay hidden
   });
 
   it('surfaces lance pierce (S95 display sweep — the 2-tile line)', () => {

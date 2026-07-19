@@ -39,6 +39,8 @@ export const pinDown: ActiveAbilityDefinition = {
   availability: 'available',
   tags: ['weapon'],
   targeting: {
+    // WEAPON-RANGED (S96): reach is always the equipped weapon's (see
+    // charged-attack.ts) — the authored band documents bow intent only.
     kind: 'single_unit',
     range: { horizontal: 5, minHorizontal: 2, vertical: 99 },
     rangeMode: 'arc',

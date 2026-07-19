@@ -13,6 +13,7 @@
 
 import {
   abilityId,
+  isWeaponDelivered,
   statusTypeId,
   type AbilityDefinition,
   type AbilityId,
@@ -861,7 +862,13 @@ function formatActiveDetail(ability: ActiveAbilityDefinition, catalog: Catalog):
         : ability.targeting.kind === 'unit_or_tile'
           ? 'unit or tile'
           : 'unit';
-    lines.push(`Target: ${label} · ${formatRange(range.horizontal, range.vertical)} (${mode})`);
+    // S96: a weapon-delivered ability's reach is the equipped weapon's, not
+    // the authored band — say so instead of printing numbers that only hold
+    // for one weapon class.
+    const reach = isWeaponDelivered(ability)
+      ? 'weapon range'
+      : formatRange(range.horizontal, range.vertical);
+    lines.push(`Target: ${label} · ${reach} (${mode})`);
   } else if (ability.targeting.kind === 'self') {
     lines.push('Target: self');
   }

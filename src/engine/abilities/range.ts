@@ -29,6 +29,12 @@ export interface AbilityRangeView {
   readonly minHorizontal: number | undefined;
 }
 
+// The implicit reach of a weapon that declares no `range` (and of bare
+// hands): adjacent, ±3 elevation — the band the universal `attack` authors.
+// S96: this is the fallback for EVERY weapon-delivered ability, so a melee
+// weapon can't inherit an ability's bow-flavored authored band.
+export const MELEE_WEAPON_RANGE = { horizontal: 1, vertical: 3 } as const;
+
 export function computeAbilityRange(
   state: GameState,
   catalog: Catalog,
@@ -52,14 +58,16 @@ export function computeAbilityRange(
   if (targeting.kind === 'math_skill') {
     return { horizontal: Infinity, vertical: Infinity, minHorizontal: undefined };
   }
-  // Session 45: weapon-sourced range fork. Weapon-delivered abilities (the
-  // universal Attack and weapon-tagged Battle Skills like Lightning Stab; the
-  // Thief's Steal HP, and — per Chris — Steal MP via its `'weapon'` ability
-  // tag) read the equipped weapon's range when it declares one — a bow reaches
-  // 2-5 where the ability hardcodes melee 1. Parallel in spirit to the
-  // `physicalVariance` fork: the weapon carries the swing's reach, not the
-  // abstract ability. The hook chain still composes on top of the resolved
-  // base. Absent → ability-declared range (melee).
+  // Session 45 / S96 (Chris's ruling): weapon-sourced range. A weapon-
+  // delivered ability (the universal Attack, weapon-tagged Battle Skills and
+  // Marksmanship skills, the Thief's Steal HP / Steal MP) ALWAYS takes its
+  // reach from the equipped weapon — a declared range (bows: 2-5) when the
+  // weapon has one, the implicit melee band otherwise. The ability's authored
+  // band is NEVER the reach of a weapon-delivered ability: pre-S96 it leaked
+  // as the fallback, so a Dagger Hunter fired Charged Attack at the ability's
+  // bow-flavored 5 tiles. Parallel in spirit to the `physicalVariance` fork:
+  // the weapon carries the swing's reach, not the abstract ability. The hook
+  // chain still composes on top of the resolved base.
   let baseHorizontal = targeting.range.horizontal;
   let baseVertical = targeting.range.vertical;
   let minHorizontal = targeting.range.minHorizontal;
@@ -67,8 +75,16 @@ export function computeAbilityRange(
     const weapon = weaponOverride ?? getEquippedWeapon(unit, catalog);
     if (weapon?.range !== undefined) {
       baseHorizontal = weapon.range.max;
-      minHorizontal = weapon.range.min ?? minHorizontal;
-      if (weapon.range.vertical !== undefined) baseVertical = weapon.range.vertical;
+      minHorizontal = weapon.range.min ?? undefined;
+      baseVertical = weapon.range.vertical ?? MELEE_WEAPON_RANGE.vertical;
+    } else {
+      // Rangeless weapon (swords, daggers…) or bare hands: the swing's
+      // reach is the standard melee band (what `attack` authors), with no
+      // dead zone — an authored `minHorizontal` (Pin Down's bow min 2)
+      // belongs to the ranged delivery, not the stab.
+      baseHorizontal = MELEE_WEAPON_RANGE.horizontal;
+      baseVertical = MELEE_WEAPON_RANGE.vertical;
+      minHorizontal = undefined;
     }
   }
   const composed = runModifyAbilityRange(state, catalog, {

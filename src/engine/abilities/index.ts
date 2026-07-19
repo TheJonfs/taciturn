@@ -35,8 +35,9 @@ export {
   mpDumpBonusSp,
   prospectiveMpDumpBonusSp,
 } from './mp-dump.ts';
-export { computeAbilityRange, type AbilityRangeView } from './range.ts';
+export { computeAbilityRange, MELEE_WEAPON_RANGE, type AbilityRangeView } from './range.ts';
 export {
+  isWeaponDelivered,
   weaponRangeFromHeightSpec,
   rangeFromHeightBonus,
   maxRangeFromHeightBonus,
