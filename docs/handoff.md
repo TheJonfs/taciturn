@@ -46,6 +46,18 @@ decoupled from the battle map; reveal/no-frame-jump intact. **WI4:** guest
 placard ("Ally's turn — Sera", pinned by component test) + per-hub shop
 subtitle.
 
+### S96 continued — the first campaign-authored maps
+
+**Oskun Fields + Alvera Village shipped** from Chris's elevation grids
+(commit e05cc08; specs in docs/maps/). Ch1 nodes 1-2 now fight on their
+own battlefields. Alvera introduces ARCHITECTURE: elev-8 walls, elev-3
+interiors, four door gaps — the substrate for Chris's announced
+special-features pass. **Deployment layouts are PROPOSALS** (Oskun:
+west-bank vs eastern-knolls across the stream; Alvera: road-defense vs
+NW-fields ford assault) — re-placing a zone is one registry edit.
+Browser-verified through a fresh campaign into the Oskun battle. Suite
+**2951**, tsc clean.
+
 ### For Chris / the planner
 
 - **Session intent was to stay open for Ch1 playtest/debug** — the audit +

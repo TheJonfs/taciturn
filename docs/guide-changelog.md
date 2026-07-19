@@ -44,6 +44,24 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 96, continued (2026-07-18) — new maps: Oskun Fields + Alvera Village
+
+Commits: `e05cc08`. Map specs: `docs/maps/oskun-fields.md`, `docs/maps/alvera-village.md`.
+
+- **Chapter 1's first two story battles have their own battlefields** (both
+  previously reused River Ridge):
+  - **Oskun Fields** (first battle): open farmland split by a winding shallow
+    stream — wadeable everywhere it runs. Your company deploys on the west
+    bank; the enemy holds knolls across the ford. High ground on the western
+    ridge (up to elev 6) and a south-central hill; a deep pond in the SW corner.
+  - **Alvera Village** (second battle): a riverside village with real
+    **buildings** — walls too tall to jump, interiors entered only through
+    door gaps (four buildings, four doors). A deep river crosses the map with
+    two shallow fords and a dry eastern flank route. You defend from the
+    village road; the enemy assaults from the fields across the river. Walls
+    block straight-line spells like terrain — the lanes are true cover.
+- Wiegraf still joins the Oskun fight as a guest (new position, west bank).
+
 ## Session 96 (2026-07-18, same day) — weapon-ranged skills, gear changes refill HP/MP (ADR-0154)
 
 Commits: `febcacf` (weapon-ranged), `ed4a612` (vitals refill).
