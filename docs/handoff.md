@@ -11,141 +11,68 @@ been processed.
 
 ---
 
-## S96 addendum — BRIDGES: the mechanical substrate shipped (2026-07-18)
+## S97 — bridge over/under UI shipped (2026-07-19)
 
-The audit (`docs/bridge-overpass-audit.md`) became the implementation the
-same session. All of Chris's rulings landed (ADR-0155): deck LoS band
-(thickness 1), AoE-by-vertical-tolerance confirmed as-is, **permanent
-Worldcraft destruction** (Pit/Valley on deck; raise-at-deck invalid; the
-RAM rule for raises crowding clearance < 2 from below; elevation
-Worldcraft exempt from arc cover so under-span casts work), map-validator
-multi-layer rules, `cover.ts` layer-as-elevation fix, AI+UI stack
-enumeration fixes, AI deck-destroy fall valuation, interim
-occupant-priority hit-test. New ActionType `system_bridge_destroy` (all
-five lockstep sites). **Alvera's western bridge** (x=2, y=7-9, elev-3
-deck, `bridge` terrain riding rampart plank art) is live content. Suite
-**2971**, `tsc -b` clean. Browser-verified: Alvera boots with the deck
-rendering over the river.
+The whole S97 brief landed (ADR-0156): diagonal deck lift + shadow with the
+ground peeking in an L-sliver (per-layer digits and highlights), geometric
+hit-test + UI-side context-first layer resolution (the under-span move wart
+is fixed), and the tap-safe stack chip for the both-valid case. WI4
+accelerators deferred per Chris. Plus a real catch: **S96 had left decks
+unwalkable** — `'bridge'` was in the ruleset but no class `canEnter`; fixed
+across all 14 classes with a regression test. Suite **2997**, `tsc -b`
+clean. Browser-verified on Alvera end-to-end: sliver click under the span,
+deck-art click, chip tap committing the deck layer, sprite riding the lift.
 
-### For Chris / the planner — bridge follow-ups
+### For Chris — playtest with eyes on
 
-- **The over/under UI/visualization pass is the open half**: stacked
-  cells overdraw (deck only), elevation digits overprint, both layers'
-  highlights merge, and picking is occupant-priority topmost — the
-  designed toggle affordance replaces it. Session-sized; interaction
-  design wanted first (click-cycles-stack vs modifier vs stack chip).
-  The isometric view stays parked as its own future project.
-- **Manual under-bridge move ordering**: you currently cannot click a
-  move destination UNDER the span (the pick resolves to the deck when
-  both are empty) — pathfinding still routes under it fine on its own.
-  Known interim wart, falls to the UX pass.
-- Deferred edges (in the ADR): charged tile-cast anchored on a deck
-  destroyed mid-charge (no v1 content combo); deployment zones exclude
-  stacked cells by convention; per-ability AoE `layerScope` unbuilt
-  until a consumer.
-- Playtest hooks: Pit-the-bridge vs enemy Terraformers (the AI values
-  it); ramming your own span from below is legal — watch for feel.
-
-## S95/S96 — Earning-coverage audit + Ch1 shop/map polish + playtest batch (2026-07-18)
-
-All four work items of the S95 brief shipped (ADR-0153), plus the same-day
-S96 playtest batch (ADR-0154): **weapon-delivered ⇒ weapon-ranged always**
-(the Dagger-Hunter 5-tile Charged Attack — melee fallback lands in
-`computeAbilityRange`, one seam for validation/AI/UI; tooltips read
-"weapon range") and **out-of-battle max changes re-normalize vitals**
-(equip/unequip/reclass now refill to effective full — the Padded Jacket
-6-MP repro, browser-verified through the Manage Roster flow both
-directions). Suite **2929**, `tsc -b` clean, Atlas round-trip intact.
-
-**WI1 (the centerpiece):** the executable audit
-(`src/engine/actions/earning-coverage.test.ts`, real content catalog) found
-**six silent zero-earns** (Worldcraft, barrier attacks, the real Bear's
-Heave path, Steal MP, Chakra ally-refuel, charged Tide Surge) and **one
-systemic over-earn** (EVERY charged resolve earned since M2 — the inline
-Charging-status removal read as an effect; whiffed nukes now earn 0). All
-fixed + pinned. Chris's rulings, now canon: earning = "changed something
-other than the caster's own bookkeeping; world changes count"; **JP follows
-XP** — `computeEarnedJp` keys off `system_xp_award` log entries, the
-hit-based predicate is deleted. The **merged coverage table** (AI × earning
-× display) lives in `docs/design/ai-substrate.md` — the checklist for any
-new effect shape. Display ride-along fixed lance `pierces` + Prism Wand
-`sourceAbilityTagAny`; every item field now has a detail arm.
-
-**WI2:** stock-refresh notification — `CampaignState.shopStockSeen`
-(optional field, lenient load; stamped in `routeToNode` + `resolveNode`),
-`nodesWithUnseenStock` → gold "new stock!" badge on the Road Ahead until the
-hub is visited; aftermath scene lines at Old Ordal + Mount Eska.
-Browser-verified end-to-end (badge → march back → buy Staff of Abundance →
-badge gone). **WI3:** Road Ahead now min(1080px, 94vw) — footprint confirmed
-decoupled from the battle map; reveal/no-frame-jump intact. **WI4:** guest
-placard ("Ally's turn — Sera", pinned by component test) + per-hub shop
-subtitle.
-
-### S96 continued — the first campaign-authored maps
-
-**Oskun Fields + Alvera Village shipped** from Chris's elevation grids
-(commit e05cc08; specs in docs/maps/). Ch1 nodes 1-2 now fight on their
-own battlefields. Alvera introduces ARCHITECTURE: elev-8 walls, elev-3
-interiors, four door gaps — the substrate for Chris's announced
-special-features pass. **Deployment layouts are PROPOSALS** (Oskun:
-west-bank vs eastern-knolls across the stream; Alvera: road-defense vs
-NW-fields ford assault) — re-placing a zone is one registry edit.
-Browser-verified through a fresh campaign into the Oskun battle. Suite
-**2951**, tsc clean.
-
-### For Chris / the planner
-
-- **Session intent was to stay open for Ch1 playtest/debug** — the audit +
-  UI items are done and committed; the next feedback batch can land on a
-  clean tree.
-- **Design footnote (low stakes):** a solo Chakra that refuels only the
-  caster's own MP earns nothing (self-bookkeeping rule). Pinned as
-  deliberate; flag if you want self-refuel to earn.
-- **Known limitation (accepted, in ADR + table):** lethal displacement
-  (heave/knockback off a ledge) never pays the +KO bonus — the KO arrives
-  via the generated fall-damage action. Revisit only if kill-credit starts
-  mattering (e.g. kill-count achievements).
-- **XP economy note:** the charged over-earn fix is a mild global XP *nerf*
-  (whiffed/no-op charged casts paid since M2); the six zero-earn fixes are
-  buffs to those kits (Terraformer especially). Watch the offset-curve
-  playtest series with that in mind.
+- **The lift is DIAGONAL (up-left), not the straight-up shift you approved
+  trying first** — straight-up self-occludes on the live N–S bridge
+  (each deck's overhang lands exactly on the next cell's sliver; interior
+  under-cells would never peek). Reasoning in ADR-0156; the vector +
+  clamps are constants (`DECK_LIFT_*` in renderer/constants.ts) if the
+  look needs tuning. Judge in playtest.
+- **Unit-over-unit reading:** both stacked occupants draw above all tile
+  art (deck occupant z-sorted above ground occupant, ground occupant
+  overlaps the lifted deck art). Chris pre-accepted pending a look.
+- **AoE both-layers dual highlight** (the brief's most-confusing-case
+  watch-for) and **cross-layer targeting feel** were NOT browser-exercised
+  — the drawing/resolution code is shared with the verified move flows and
+  unit-tested, but nobody has *seen* a Fireball light deck + river slivers
+  together yet. First Worldcraft/AoE playtest over the bridge should look.
+- **Chip lingering on stale hover:** the chip stays visible if the pointer
+  never re-hovers after a state change (e.g. keyboard-driven turns). Clears
+  on the next mouse move; cosmetic. Flag if it annoys.
 
 ### Noticed, not acted on
 
-- The world-map SVG nodes aren't in the browser accessibility tree as
-  clickable buttons for coordinate-clicks in the preview pane (worked via
-  DOM dispatch; real mouse use is fine). Purely a tooling nit, but if a11y
-  becomes a goal, `<g role="button">` without tabindex/keyboard handling is
-  the gap.
-- Pre-S95 saves have no `shopStockSeen` → every stocked hub badges once,
-  then self-heals on visit (documented in serialization.ts; dev-only saves,
-  accepted).
-- `docs/TABADesign/taba-economy-framework.md` §5/§9 (the planner's per-hub
-  revision) committed alongside this session's docs.
+- Three classes (Enchanter, Templar, Thief) also lack `'rampart'` in
+  `canEnter` (every other class has it). Looks like a template drift from
+  when they were authored, not a design choice — they can't stand on
+  Stonebridge/Alvera rampart tiles (elev-8 walls are unreachable anyway,
+  but Stonebridge has walkable ramparts). Surfacing rather than fixing:
+  Chris should rule if it's intentional flavor.
+- Browser-preview tooling note: the tile-info readout updates one
+  `javascript_exec` call behind a synthetic pointer dispatch (React flush
+  timing), and the camera lerp advances only on pumped frames in the
+  hidden pane — both bit this session's verification. `pump(400)` then
+  dispatch-then-read-in-separate-calls is the reliable pattern.
 
-### Carried from earlier (still open, low-priority — pruned)
+### Carried from earlier (still open, low-priority)
 
-- **Economy content remaining:** cost TUNING pass (D-econ-6) + Tailored
-  Outfit; then M4 authoring proper (real maps, lineups via the
-  `generateSkirmishParty` seam, dialogue — M4/M5).
-- Enemy-kit dial (ENEMY_JP_PER_LEVEL = 100, buy-order prefix) — measure in
-  playtest alongside the offset curve; party-avg-per-node is the series.
-- Theo kit tuning placeholder (L4 pin_down only; L10 full Marksmanship +
-  Eagle Eye); exact JP/kit later per Chris.
-- Latent (ADR-0152): the joint planner still fail-hard-nulls if its best
-  plan fails validation for reasons other than locks — unreachable now.
-- `WorldMapBeatView` march-state reset rider; win-edge dedupe in `addEdge`;
-  engagement-queue shipped-content pin when a camp lands (Ch2); Atlas
-  beat-editor tier before M5 volume.
-- Kit-seeding tier-threshold watch; S89 AI gold-plating dials; JP spillover
-  seam; "Level Up!" banner polish; rapid-dialogue setState warning; "99
-  cap" guide fiction.
-- S85/S87 gear watch list (Epee loops, Star Robe lifesteal, Expert's Tunic
-  × Golden Hairpin, tempo-caster stack, Scouring × dual-wield, Manaeater
-  default, Terra Robe, Cremation × Pendant, Shadowblade vs sponges, Del's
-  Stave, Golden Rod clock, Volley Bow friendly fire, Excalibur by intent).
-- FormationDevHarness synthetic invalid units intended; reclassUnit keeps
-  now-illegal gear (D2: surface, don't resolve); retreated units carry hp 0
-  in apply-back (unreachable in Ch1); AI charm asymmetry unreached.
-- Preview pane is a HIDDEN tab — battles stall on rAF throttling;
-  `window.__taciturnDebug.pump(n)` drives them.
+- ADR-0155 deferred edges: `layerScope` (needs a consumer), deployment
+  zones exclude stacked cells by convention, charged tile-cast on a
+  mid-charge-destroyed deck (no v1 content combo).
+- Playtest hooks from S96: Pit-the-bridge vs enemy Terraformers; ramming
+  your own span from below is legal — watch for feel.
+- Economy content remaining: cost TUNING pass (D-econ-6) + Tailored
+  Outfit; then M4 authoring proper (real maps, lineups via
+  `generateSkirmishParty`, dialogue — M4/M5).
+- Enemy-kit dial (ENEMY_JP_PER_LEVEL = 100) — measure in playtest
+  alongside the offset curve; Theo kit tuning placeholder.
+- Latent (ADR-0152): joint planner fail-hard-null path unreachable now.
+- `WorldMapBeatView` march-state reset rider; win-edge dedupe in
+  `addEdge`; engagement-queue shipped-content pin when a camp lands (Ch2);
+  Atlas beat-editor tier before M5 volume.
+- S85/S87 gear watch list; kit-seeding tier-threshold watch; JP spillover
+  seam; "Level Up!" banner polish; "99 cap" guide fiction.
+- Pre-S95 saves badge-once self-heal (documented, accepted).

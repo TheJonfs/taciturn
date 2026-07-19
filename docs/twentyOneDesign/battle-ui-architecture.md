@@ -760,15 +760,22 @@ Hover is transient; click is pinning. Clicking pins the inspection so it persist
 - **In IDLE state**: clicking empty area off the map dismisses any open detail panel and clears any pinned inspection. Standard "click outside to close."
 - **In MOVE-SELECT or TARGET-SELECT state**: clicking off-map does nothing. Cancellation requires explicit ESC or right-click (which dispatches to the back-navigation pattern).
 
-### Layer Toggle (Deferred)
+### Layer Toggle (Deferred) — superseded for sparse bridges by S97
 
-Single-layer maps (River Ridge included) need no UI for this. When multi-layer maps come online (bridges, upper floors), the design adds:
+Single-layer maps (River Ridge included) need no UI for this. When a DENSE
+multi-layer map comes online (upper floors), the design adds:
 - Layer indicator in top bar
 - Hotkey for cycling layers (probably PageUp/PageDown or Q/E)
 - Visual treatment of inactive layers (semi-transparent)
-- Click disambiguation when a tile has multiple layers
 
-For first playable: layer 0 only. The renderer reads tile layer info but doesn't surface a toggle.
+**S97 (ADR-0156):** the SPARSE-bridge case ships without this global mode.
+Stacked cells render with a clamped diagonal deck lift + drop shadow (the
+ground peeks in an L-sliver, each layer with its own digit and highlight);
+clicks resolve context-first (the layer that's legal for the current action
+wins when only one is), and a two-segment **stack chip** appears beside the
+cell only when both layers are valid — tap-safe, no modifier keys. The
+global layer-focus mode above stays deferred until a dense multi-floor map
+actually needs it.
 
 ### Visual Feedback
 

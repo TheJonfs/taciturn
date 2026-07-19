@@ -44,6 +44,32 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 97 (2026-07-19) — bridge over/under UI + decks walkable (ADR-0156)
+
+Commits: `ef6e2b0` (walkability fix), `fb55d6a` (deck lift), `07f5624` (picking + chip).
+
+- **You can now walk ONTO bridge decks.** A bug from the bridge session made
+  deck tiles unenterable for every class — fixed. Any unit can climb onto a
+  span from an approach within its Jump (Alvera's deck is one step up from
+  both banks).
+- **Bridges now render with the deck visibly lifted** off the ground below:
+  the span floats up-and-left with a shadow, and the river underneath peeks
+  out along the deck's right/bottom edges with its own elevation number.
+  Move and targeting highlights light each layer separately — a blast that
+  would hit both the deck and the water under it shows both lit.
+- **Clicking over/under a span now does what you mean.** If only one layer
+  is a legal move destination or valid target, the click picks it
+  automatically — you can order a unit into the water UNDER the bridge by
+  clicking the cell (previously impossible). The visible ground sliver is
+  also directly clickable.
+- **New: the stack chip.** When BOTH layers of a bridge cell are valid (e.g.
+  a Hydrologist who could stop on the deck or swim beneath it), a small
+  two-button picker appears beside the cell showing each layer's elevation
+  number — tap the one you mean. It also appears while confirming a move to
+  a bridge cell (tap the other number to switch layers before confirming)
+  and when hovering a span outside your turn to inspect the tile under it.
+  Works by tap — no modifier keys.
+
 ## Session 96, continued further (2026-07-18) — rampart walls + BRIDGES (ADR-0155)
 
 Commits: `a71bb7c` (ramparts + picker), `37a51e0` + `3b9ec03` (bridges).
