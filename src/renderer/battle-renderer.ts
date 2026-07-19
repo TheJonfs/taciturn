@@ -47,12 +47,38 @@ import {
 } from './deployment-facing-layer.ts';
 import { Animator } from './animator.ts';
 import { CameraController, type PanInput } from './camera-controller.ts';
-import { positionCenter, type ScreenPoint } from './world.ts';
+import { positionCenter, StackGeometry, type ScreenPoint } from './world.ts';
+import { StackChipLayer, type StackChipSegment } from './stack-chip-layer.ts';
 import { resolveUnitPortrait } from '../assets/portraits/index.ts';
 import { terrainTexturePoolFor } from '../assets/terrain/index.ts';
 
-export type TileClickHandler = (pos: Position, unit: Unit | null) => void;
-export type TileHoverHandler = (pos: Position | null, unit: Unit | null) => void;
+// S97 (bridge over/under UI): one layer of the cell a pointer event
+// landed on. `stack` on the click/hover handlers carries every layer at
+// the cell, topmost first, so the UI can resolve the layer from action
+// context (WI2) instead of trusting the renderer's geometric pick.
+export interface TileStackEntry {
+  readonly pos: Position;
+  readonly occupant: Unit | null;
+}
+
+export type TileClickHandler = (
+  pos: Position,
+  unit: Unit | null,
+  stack: ReadonlyArray<TileStackEntry>,
+) => void;
+export type TileHoverHandler = (
+  pos: Position | null,
+  unit: Unit | null,
+  stack: ReadonlyArray<TileStackEntry>,
+) => void;
+
+// UI-facing chip request: which stacked cell, which layers to offer
+// (deck-first), and which is currently active.
+export interface StackChipRequest {
+  readonly x: number;
+  readonly y: number;
+  readonly segments: ReadonlyArray<StackChipSegment>;
+}
 
 export class BattleRenderer {
   readonly app: Application;
@@ -108,6 +134,14 @@ export class BattleRenderer {
   private readonly animator: Animator = new Animator();
   private camera: CameraController | null = null;
   private catalog: Catalog | null = null;
+  // S97: stacked-cell visual geometry (deck lift). Built at mount,
+  // rebuilt on any map mutation; the single source every layer + the
+  // hit-test read so art and picking can't disagree.
+  private stackGeo: StackGeometry | null = null;
+  // S97: the stacked-cell layer-chooser chip (WI3). UI-driven via
+  // `setStackChip`; taps route through the hit-test as layer-explicit
+  // tile clicks.
+  private readonly stackChipLayer: StackChipLayer;
   private lastActiveUnit: UnitId | null = null;
   private lastState: GameState | null = null;
   private tileClickHandler: TileClickHandler | null = null;
@@ -146,7 +180,12 @@ export class BattleRenderer {
     this.highlightLayer = new HighlightLayer();
     this.unitLayer = new Container();
     this.unitLayer.label = 'units';
+    // S97: stacked cells z-sort unit sprites by their position's layer
+    // (deck occupant draws over the ground occupant where the lifted
+    // deck art overlaps). zIndex is set per-frame in applyVisualState.
+    this.unitLayer.sortableChildren = true;
     this.deploymentFacingLayer = new DeploymentFacingLayer();
+    this.stackChipLayer = new StackChipLayer();
     this.world.addChild(
       this.tileLayer.container,
       this.cliffEdgeLayer.container,
@@ -157,6 +196,9 @@ export class BattleRenderer {
       this.deploymentZoneLayer.container,
       this.highlightLayer.container,
       this.unitLayer,
+      // The stack chip draws above units so its tap target is never
+      // occluded by a sprite (S97).
+      this.stackChipLayer.container,
       this.deploymentFacingLayer.container,
     );
 
@@ -185,10 +227,15 @@ export class BattleRenderer {
   mount(state: GameState, catalog: Catalog, playerTeam?: TeamId): void {
     this.lastState = state;
     this.catalog = catalog;
-    this.tileLayer.draw(state.map);
-    this.cliffEdgeLayer.draw(state.map);
+    // S97: stacked-cell geometry precedes every layer draw — it's the
+    // shared source of the deck lift.
+    this.stackGeo = new StackGeometry(state.map);
+    this.animator.setStackGeometry(this.stackGeo);
+    this.highlightLayer.setStackGeometry(this.stackGeo);
+    this.tileLayer.draw(state.map, this.stackGeo);
+    this.cliffEdgeLayer.draw(state.map, this.stackGeo);
     this.barrierLayer.draw(state.map);
-    this.elevationLabelLayer.draw(state.map);
+    this.elevationLabelLayer.draw(state.map, this.stackGeo);
 
     this.camera = new CameraController({
       mapWidth: state.map.width,
@@ -216,7 +263,7 @@ export class BattleRenderer {
       this.sprites.set(unit.id, sprite);
       this.unitLayer.addChild(sprite.container);
       this.animator.initSnapshot(unit.id, {
-        position: positionCenter(unit.position),
+        position: positionCenter(unit.position, this.stackGeo),
         facing: unit.facing,
         hp: unit.vitals.hp,
         // maxHp / maxMp are not on the snapshot — the renderer live-reads
@@ -319,6 +366,7 @@ export class BattleRenderer {
               terrainType,
               textures,
               currentState.rng.masterSeed,
+              this.stackGeo,
             );
           })
           .catch((err: unknown) => {
@@ -359,7 +407,6 @@ export class BattleRenderer {
   // the orchestrator wrapper whenever it commits a step.
   playActions(actions: ReadonlyArray<Action>, newState: GameState): void {
     this.lastState = newState;
-    this.animator.enqueue(actions);
     // Session 53 (Piece 7): a `system_terrain_change` mutates tile
     // elevation/terrain, which the static tile/cliff/elevation-label layers
     // captured once at mount. Re-draw them against the new map so the
@@ -370,6 +417,12 @@ export class BattleRenderer {
     // expiry / destruction (system_barrier_change|damage) also mutate the
     // map's tile-side state, so they trigger the same redraw — that's how the
     // BarrierLayer learns a wall appeared or fell.
+    //
+    // S97: the redraw runs BEFORE the animator enqueue — it rebuilds the
+    // stacked-cell geometry, and anim specs whose landing positions are
+    // computed at enqueue (bridge-destroy fall settles, knockback
+    // displacement) must read the post-mutation lift (a fallen unit
+    // lands on ground that is no longer under a deck).
     if (
       actions.some(
         (a) =>
@@ -382,6 +435,7 @@ export class BattleRenderer {
     ) {
       this.redrawStaticLayers();
     }
+    this.animator.enqueue(actions);
   }
 
   // True when the animator has nothing left to play. The orchestrator
@@ -486,7 +540,15 @@ export class BattleRenderer {
     if (this.destroyed) return;
     if (this.lastState === null) return;
     const map = this.lastState.map;
-    this.tileLayer.draw(map);
+    // S97: rebuild the stacked-cell geometry against the mutated map
+    // (a destroyed bridge dissolves its stack — the lift disappears)
+    // and propagate to every consumer. The chip is hidden; the UI's
+    // state-driven effect re-shows it if still warranted.
+    this.stackGeo = new StackGeometry(map);
+    this.animator.setStackGeometry(this.stackGeo);
+    this.highlightLayer.setStackGeometry(this.stackGeo);
+    this.stackChipLayer.show(null, null);
+    this.tileLayer.draw(map, this.stackGeo);
     // S55 fix: `tileLayer.draw` only repaints the colored fallback rects;
     // the texture-sprite overlay was built once per terrain type at mount and
     // never refreshed. A terrain change that crosses the water/land boundary
@@ -500,11 +562,11 @@ export class BattleRenderer {
     // whose new terrain has no loaded pool fall back to the (correct) rect.
     const masterSeed = this.lastState.rng.masterSeed;
     for (const [terrainType, textures] of this.terrainTextures) {
-      this.tileLayer.applyTerrainTextures(map, terrainType, textures, masterSeed);
+      this.tileLayer.applyTerrainTextures(map, terrainType, textures, masterSeed, this.stackGeo);
     }
-    this.cliffEdgeLayer.draw(map);
+    this.cliffEdgeLayer.draw(map, this.stackGeo);
     this.barrierLayer.draw(map);
-    this.elevationLabelLayer.draw(map);
+    this.elevationLabelLayer.draw(map, this.stackGeo);
     if (this.deploymentTeam !== null && this.deploymentZones !== null) {
       this.deploymentZoneLayer.draw(
         this.deploymentZones,
@@ -550,7 +612,7 @@ export class BattleRenderer {
     }
     this.deploymentSprites.add(unit.id);
     sprite.setVisualState({
-      position: positionCenter(unit.position),
+      position: positionCenter(unit.position, this.stackGeo),
       facing: unit.facing,
       hp: unit.vitals.hp,
       maxHp: Math.max(unit.vitals.hp, 1),
@@ -587,92 +649,145 @@ export class BattleRenderer {
 
   private onPointerTap(e: FederatedPointerEvent): void {
     if (this.tileClickHandler === null || this.lastState === null) return;
-    const hit = this.hitTest(e);
+    const local = this.world.toLocal(e.global);
+    // S97: a tap on the stack chip is a layer-EXPLICIT click on the
+    // chip's cell — it routes through the same handler as a click on
+    // the layer's own art, checked before tile resolution so the chip
+    // is never shadowed by the geometry under it.
+    const chipPos = this.stackChipLayer.segmentAt(local);
+    if (chipPos !== null) {
+      const stack = this.stackEntriesAt(chipPos.x, chipPos.y);
+      const occupant = unitAt(this.lastState, chipPos.x, chipPos.y, chipPos.layer) ?? null;
+      this.tileClickHandler(chipPos, occupant, stack);
+      return;
+    }
+    const hit = this.hitTest(local);
     if (hit === null) return;
-    this.tileClickHandler(hit.pos, hit.occupant);
+    this.tileClickHandler(hit.pos, hit.occupant, hit.stack);
   }
 
   private onPointerMove(e: FederatedPointerEvent): void {
     if (this.tileHoverHandler === null || this.lastState === null) return;
-    const hit = this.hitTest(e);
+    const local = this.world.toLocal(e.global);
+    // S97: freeze hover while the pointer crosses the stack chip — the
+    // chip anchors beside its cell, and re-resolving hover on the way
+    // to it would hide it before the tap lands.
+    if (this.stackChipLayer.containsPoint(local)) return;
+    const hit = this.hitTest(local);
     if (hit === null) {
       if (this.lastHoverKey !== null) {
         this.lastHoverKey = null;
-        this.tileHoverHandler(null, null);
+        this.tileHoverHandler(null, null, []);
       }
       return;
     }
     const key = `${hit.pos.x},${hit.pos.y},${hit.pos.layer}`;
     if (key === this.lastHoverKey) return; // dedupe same-tile moves
     this.lastHoverKey = key;
-    this.tileHoverHandler(hit.pos, hit.occupant);
+    this.tileHoverHandler(hit.pos, hit.occupant, hit.stack);
   }
 
   private onPointerLeave(): void {
     if (this.tileHoverHandler === null) return;
     if (this.lastHoverKey === null) return;
     this.lastHoverKey = null;
-    this.tileHoverHandler(null, null);
+    this.tileHoverHandler(null, null, []);
   }
 
-  private hitTest(e: FederatedPointerEvent): { pos: Position; occupant: Unit | null } | null {
+  // Every layer at (x, y), topmost first, with occupants — the `stack`
+  // the click/hover contract hands the UI for context resolution.
+  private stackEntriesAt(x: number, y: number): TileStackEntry[] {
+    if (this.lastState === null) return [];
+    const tiles = [...tilesAt(this.lastState.map, x, y)].sort((a, b) => b.layer - a.layer);
+    return tiles.map((t) => ({
+      pos: { x, y, layer: t.layer },
+      occupant: unitAt(this.lastState!, x, y, t.layer) ?? null,
+    }));
+  }
+
+  // S97 hit-test: GEOMETRIC resolution — the pick is the layer whose
+  // art is visually under the pointer. The lifted deck's rect (which
+  // overhangs up-left of its footprint) wins where it covers the point;
+  // any other point on a stacked cell is the peeking ground. Context
+  // resolution (WI2 — "which layer is legal for the current action")
+  // is the UI's job, fed by the full `stack`; the old S96 interim
+  // occupant-priority rule is gone from here and survives only as the
+  // UI's inspection tiebreak.
+  private hitTest(
+    local: { x: number; y: number },
+  ): { pos: Position; occupant: Unit | null; stack: TileStackEntry[] } | null {
     if (this.lastState === null) return null;
-    const local = this.world.toLocal(e.global);
+    const map = this.lastState.map;
     const tileX = Math.floor(local.x / TILE_SIZE);
     const tileY = Math.floor(local.y / TILE_SIZE);
-    const map = this.lastState.map;
+
+    // Pass 1: lifted deck rects. The up-left shift means the deck art
+    // of this cell, the east/south neighbor, or the southeast diagonal
+    // can cover a point in this cell's nominal square.
+    const geo = this.stackGeo;
+    if (geo !== null) {
+      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) {
+        const cx = tileX + dx;
+        const cy = tileY + dy;
+        const rect = geo.deckRect(cx, cy);
+        if (rect === undefined) continue;
+        if (
+          local.x >= rect.px &&
+          local.x < rect.px + rect.w &&
+          local.y >= rect.py &&
+          local.y < rect.py + rect.h
+        ) {
+          const s = geo.stackAt(cx, cy)!;
+          const pos: Position = { x: cx, y: cy, layer: s.deckLayer };
+          return {
+            pos,
+            occupant: unitAt(this.lastState, cx, cy, s.deckLayer) ?? null,
+            stack: this.stackEntriesAt(cx, cy),
+          };
+        }
+      }
+    }
+
+    // Pass 2: the nominal cell. On a stacked cell any point not caught
+    // by a deck rect is the ground layer (the peeking sliver or the
+    // shadowed footprint).
     if (tileX < 0 || tileY < 0 || tileX >= map.width || tileY >= map.height) return null;
     const tiles = tilesAt(map, tileX, tileY);
     if (tiles.length === 0) return null;
-    // Topmost layer wins for hit-testing — matches the visual stacking
-    // in TileLayer.draw.
-    let top = tiles[0]!;
-    for (let i = 1; i < tiles.length; i++) {
-      const t = tiles[i]!;
-      if (t.layer > top.layer) top = t;
+    const stack = this.stackEntriesAt(tileX, tileY);
+    const s = geo?.stackAt(tileX, tileY);
+    const layer = s !== undefined ? s.groundLayer : tiles[0]!.layer;
+    const pos: Position = { x: tileX, y: tileY, layer };
+    return {
+      pos,
+      occupant: unitAt(this.lastState, tileX, tileY, layer) ?? null,
+      stack,
+    };
+  }
+
+  // ---- stack chip (S97 / WI3) ----
+
+  // Show the layer-chooser chip on a stacked cell, or hide it (null).
+  // The UI decides WHEN the chip is warranted (both layers valid for
+  // the current action / idle inspection); the renderer only places and
+  // draws it. The chip flips to the cell's left edge on the last map
+  // column so it never hangs off-map.
+  setStackChip(request: StackChipRequest | null): void {
+    if (this.destroyed) return;
+    if (request === null) {
+      this.stackChipLayer.show(null, null);
+      return;
     }
-    // S96 (bridges) INTERIM stack rule, pending the over/under UX pass: if
-    // the topmost tile is unoccupied but a LOWER layer holds a unit, the
-    // pick resolves to the occupied layer — so a unit standing under a
-    // bridge stays clickable/targetable. Topmost still wins when it holds
-    // a unit (or nobody does). The full toggle affordance replaces this.
-    let picked = top;
-    if (unitAt(this.lastState, tileX, tileY, top.layer) === undefined) {
-      for (const t of tiles) {
-        if (t.layer === top.layer) continue;
-        if (unitAt(this.lastState, tileX, tileY, t.layer) !== undefined) {
-          picked = t;
-          break;
-        }
-      }
-    }
-    const pos: Position = { x: tileX, y: tileY, layer: picked.layer };
-    const occupant = unitAt(this.lastState, tileX, tileY, picked.layer) ?? null;
-    // Bug 1 instrumentation (Session 24.5): if a sprite is rendered at
-    // (tileX, tileY) but `unitAt(state, tileX, tileY, top.layer)` returns
-    // null, there's a layer-mismatch between the unit's `position.layer`
-    // and the topmost-tile-layer the hit-test uses. Catches the case
-    // where a multi-layer map's unit sits at layer 0 but the hit-test
-    // resolves to a higher layer.
-    if (import.meta.env.DEV && occupant === null) {
-      for (const u of this.lastState.units.values()) {
-        if (u.position.x === tileX && u.position.y === tileY && u.vitals.hp > 0) {
-          // eslint-disable-next-line no-console
-          console.debug(
-            '[hit-test] occupant mismatch at',
-            `(${tileX},${tileY})`,
-            '— sprite layer',
-            u.position.layer,
-            'vs hit-test layer',
-            top.layer,
-            'unit',
-            String(u.id),
-          );
-          break;
-        }
-      }
-    }
-    return { pos, occupant };
+    const mapWidth = this.lastState?.map.width ?? Number.POSITIVE_INFINITY;
+    this.stackChipLayer.show(
+      {
+        x: request.x,
+        y: request.y,
+        segments: request.segments,
+        flipToLeft: request.x >= mapWidth - 1,
+      },
+      this.stackGeo,
+    );
   }
 
   // ---- per-frame ----
@@ -758,6 +873,11 @@ export class BattleRenderer {
         continue;
       }
       sprite.container.visible = true;
+      // S97: on a stacked cell the deck occupant draws over the ground
+      // occupant (unitLayer.sortableChildren). Engine position layer is
+      // the authority; ties (the common single-layer case) keep
+      // insertion order.
+      sprite.container.zIndex = unit?.position.layer ?? 0;
       const mp = snap.mp;
       // Per ADR-0058: read effective `maxMp` per-frame via
       // `runModifyStatQuery` so equipment / status contributions

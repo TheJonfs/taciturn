@@ -84,7 +84,12 @@ export function abilityRoute(
   }
   return undefined;
 }
-import type { BattleRenderer } from '@renderer/index.ts';
+import type {
+  BattleRenderer,
+  StackChipRequest,
+  TileStackEntry,
+} from '@renderer/index.ts';
+import { resolveContextLayer, resolveInspectionEntry } from './stack-click-resolution.ts';
 import type { UiController } from '@app/controllers/index.ts';
 import {
   INITIAL_TURN_FLOW,
@@ -638,7 +643,11 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
 
   useEffect(() => {
     if (renderer === null) return;
-    const handler = (pos: Position, occupant: Unit | null): void => {
+    const handler = (
+      pos: Position,
+      _clickOccupant: Unit | null,
+      stack: ReadonlyArray<TileStackEntry>,
+    ): void => {
       if (state === null) return;
 
       // Inspection (open the unit detail panel) is allowed regardless of
@@ -648,21 +657,31 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       // still wants to click a unit and inspect it. Checked before the
       // active-unit guard below (which the move/target branches require)
       // so a unit click in idle / action-menu always opens the panel.
-      // (S43 pause-inspect fix.)
+      // (S43 pause-inspect fix.) S97: on a stacked cell the clicked
+      // layer's occupant wins; an empty clicked layer falls back to the
+      // topmost occupied layer (the old S96 rule, demoted to tiebreak).
       if (
-        occupant !== null &&
         onInspectUnit !== undefined &&
         (flowState.kind === 'action-menu' || flowState.kind === 'idle')
       ) {
-        onInspectUnit(occupant.id);
-        return;
+        const inspected = resolveInspectionEntry(pos, stack);
+        if (inspected.occupant !== null) {
+          onInspectUnit(inspected.occupant.id);
+          return;
+        }
       }
 
       // Move / target picking need an active unit to act with.
       if (activeUnit === null) return;
 
       if (flowState.kind === 'move-select') {
-        const isLegal = legalMoveDestinations.some((d) => samePosition(d, pos));
+        // S97 context resolution: on a stacked cell, a click resolves to
+        // the layer that's a legal destination when only one is (the
+        // under-span move fix); a click on a legal layer stands as-is.
+        const resolved = resolveContextLayer(pos, stack, (e) =>
+          legalMoveDestinations.some((d) => samePosition(d, e.pos)),
+        );
+        const isLegal = legalMoveDestinations.some((d) => samePosition(d, resolved.pos));
         if (!isLegal) {
           // Click outside the highlight = cancel back to action-menu.
           dispatch({ kind: 'cancel' });
@@ -671,13 +690,40 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
         // Always-confirm: transition into move-await-confirm rather
         // than committing directly. The Confirm/Cancel row in the
         // action menu drives the actual commit.
-        dispatch({ kind: 'pickMoveDestination', destination: pos });
+        dispatch({ kind: 'pickMoveDestination', destination: resolved.pos });
+        return;
+      }
+
+      if (flowState.kind === 'move-await-confirm') {
+        // S97: while the confirm row is up, a layer-explicit click (the
+        // stack chip, or the other layer's art) on the SAME stacked cell
+        // re-pins the destination to that layer. Any other click is
+        // ignored, as before.
+        const resolved = resolveContextLayer(pos, stack, (e) =>
+          legalMoveDestinations.some((d) => samePosition(d, e.pos)),
+        );
+        const d = flowState.destination;
+        if (
+          resolved.pos.x === d.x &&
+          resolved.pos.y === d.y &&
+          resolved.pos.layer !== d.layer &&
+          legalMoveDestinations.some((m) => samePosition(m, resolved.pos))
+        ) {
+          dispatch({ kind: 'pickMoveDestination', destination: resolved.pos });
+        }
         return;
       }
 
       if (flowState.kind === 'target-select') {
         const ability = catalog.getAbility(flowState.abilityId);
         if (ability.kind !== 'active') return;
+        // S97 context resolution: a stacked-cell click resolves to the
+        // layer holding the valid target when only one does.
+        const resolvedTarget = resolveContextLayer(pos, stack, (e) =>
+          legalTargetsState.positions.some((p) => samePosition(p, e.pos)),
+        );
+        const tPos = resolvedTarget.pos;
+        const occupant = resolvedTarget.occupant;
         // Session 39b: Throw Item's target click goes to the item-
         // picker instead of building a full use_ability action. The
         // target must be an actual unit at the click position; reject
@@ -700,7 +746,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
               console.debug(
                 '[targeting] throw_item click cancel — no stocked item is throwable at',
                 occupant.id,
-                `(${pos.x},${pos.y},${pos.layer})`,
+                `(${tPos.x},${tPos.y},${tPos.layer})`,
               );
             }
             dispatch({ kind: 'cancel' });
@@ -709,7 +755,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
           dispatch({ kind: 'pickThrowTarget', targetUnitId: occupant.id });
           return;
         }
-        const action = buildAction(activeUnit.id, ability, pos, occupant, flowState.tileMode);
+        const action = buildAction(activeUnit.id, ability, tPos, occupant, flowState.tileMode);
         if (action === null) {
           // Bug 1 instrumentation: clicking a single_unit-targeted
           // ability on a tile with no occupant returns null and cancels.
@@ -719,7 +765,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
             // eslint-disable-next-line no-console
             console.debug(
               '[targeting] click cancel — buildAction null',
-              `(${pos.x},${pos.y},${pos.layer})`,
+              `(${tPos.x},${tPos.y},${tPos.layer})`,
               'occupant=',
               occupant?.id ?? 'null',
               'ability=',
@@ -738,7 +784,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
             // eslint-disable-next-line no-console
             console.debug(
               '[targeting] click cancel — canCommit false',
-              `(${pos.x},${pos.y},${pos.layer})`,
+              `(${tPos.x},${tPos.y},${tPos.layer})`,
               'target=',
               occupant?.id ?? 'tile',
               'ability=',
@@ -757,18 +803,27 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       if (flowState.kind === 'tile-set-target-select') {
         const ability = catalog.getAbility(flowState.abilityId);
         if (ability.kind !== 'active' || ability.targeting.kind !== 'tile_set') return;
+        // S97 context resolution: stacked-cell clicks resolve to the
+        // layer that's a valid anchor / far-end when only one is.
+        const resolvedTile = resolveContextLayer(pos, stack, (e) =>
+          tileSetTargeting?.phase === 'anchor'
+            ? tileSetTargeting.anchors.some((a) => samePosition(a, e.pos))
+            : tileSetTargeting?.phase === 'extent'
+              ? tileSetTargeting.lines.has(positionKey(e.pos))
+              : false,
+        ).pos;
         if (flowState.anchor === null) {
           // Anchor phase: only a tile a barrier line can start from is a valid
           // first click. Anything else cancels out (matches target-select's
           // click-outside-the-highlight behavior).
           const validAnchor =
             tileSetTargeting?.phase === 'anchor' &&
-            tileSetTargeting.anchors.some((a) => samePosition(a, pos));
+            tileSetTargeting.anchors.some((a) => samePosition(a, resolvedTile));
           if (!validAnchor) {
             dispatch({ kind: 'cancel' });
             return;
           }
-          dispatch({ kind: 'pickTileSetAnchor', anchor: pos });
+          dispatch({ kind: 'pickTileSetAnchor', anchor: resolvedTile });
           return;
         }
         // Extent phase: a valid far-end commits the line; any other click
@@ -776,7 +831,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
         // anchor) so the player can re-aim without leaving the picker.
         const line =
           tileSetTargeting?.phase === 'extent'
-            ? tileSetTargeting.lines.get(positionKey(pos))
+            ? tileSetTargeting.lines.get(positionKey(resolvedTile))
             : undefined;
         if (line !== undefined) {
           const action = tileSetAction(activeUnit.id, ability.id, line);
@@ -792,13 +847,26 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       if (flowState.kind === 'grapple-throw-target-select') {
         const ability = catalog.getAbility(flowState.abilityId);
         if (ability.kind !== 'active' || ability.targeting.kind !== 'grapple_throw') return;
+        // S97 context resolution: stacked-cell clicks resolve to the
+        // layer holding the valid throwee / landing tile when only one does.
+        const resolvedGrapple = resolveContextLayer(pos, stack, (e) => {
+          const candidates =
+            grappleTargeting?.phase === 'throwee'
+              ? grappleTargeting.throwees
+              : grappleTargeting?.phase === 'destination'
+                ? grappleTargeting.destinations
+                : [];
+          return candidates.some((p) => samePosition(p, e.pos));
+        });
+        const gPos = resolvedGrapple.pos;
+        const occupant = resolvedGrapple.occupant;
         if (flowState.throweeId === null) {
           // Throwee phase: clicking a highlighted unit grabs it. Anything else
           // cancels out (matches the target-select click-outside behavior).
           const isThrowee =
             occupant !== null &&
             grappleTargeting?.phase === 'throwee' &&
-            grappleTargeting.throwees.some((p) => samePosition(p, pos));
+            grappleTargeting.throwees.some((p) => samePosition(p, gPos));
           if (!isThrowee || occupant === null) {
             dispatch({ kind: 'cancel' });
             return;
@@ -810,9 +878,9 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
         // click cancels back to throwee re-pick (the two-stage cancel).
         const isDest =
           grappleTargeting?.phase === 'destination' &&
-          grappleTargeting.destinations.some((p) => samePosition(p, pos));
+          grappleTargeting.destinations.some((p) => samePosition(p, gPos));
         if (isDest) {
-          const action = grappleThrowAction(activeUnit.id, ability.id, flowState.throweeId, pos);
+          const action = grappleThrowAction(activeUnit.id, ability.id, flowState.throweeId, gPos);
           if (canCommitAction(state, catalog, activeUnit, action)) {
             submitTargetedActionInternal(action);
             return;
@@ -825,7 +893,7 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     renderer.setOnTileClick(handler);
     return () => renderer.setOnTileClick(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renderer, flowState, state, activeUnit, legalMoveDestinations, tileSetTargeting, grappleTargeting, catalog, confirmStep, onInspectUnit]);
+  }, [renderer, flowState, state, activeUnit, legalMoveDestinations, legalTargetsState, tileSetTargeting, grappleTargeting, catalog, confirmStep, onInspectUnit]);
 
   // ===== Renderer side effects: tile hover =====
 
@@ -843,8 +911,46 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
     // Single hover handler that always updates `cursorTile` (for the
     // tile-info panel) and additionally dispatches a state-specific
     // event when in target-select / move-select.
-    const handler = (pos: Position | null): void => {
-      setCursorTile(pos);
+    //
+    // S97: hover applies the same context resolution as a click would,
+    // so the hover accent / AoE preview / forecast anchor always show
+    // the layer the click will actually commit on a stacked cell.
+    const handler = (
+      pos: Position | null,
+      _unit: Unit | null,
+      stack: ReadonlyArray<TileStackEntry>,
+    ): void => {
+      let resolved = pos;
+      if (pos !== null) {
+        if (flowState.kind === 'move-select' || flowState.kind === 'move-await-confirm') {
+          resolved = resolveContextLayer(pos, stack, (e) =>
+            legalMoveDestinations.some((d) => samePosition(d, e.pos)),
+          ).pos;
+        } else if (flowState.kind === 'target-select') {
+          resolved = resolveContextLayer(pos, stack, (e) =>
+            legalTargetsState.positions.some((p) => samePosition(p, e.pos)),
+          ).pos;
+        } else if (flowState.kind === 'tile-set-target-select') {
+          resolved = resolveContextLayer(pos, stack, (e) =>
+            tileSetTargeting?.phase === 'anchor'
+              ? tileSetTargeting.anchors.some((a) => samePosition(a, e.pos))
+              : tileSetTargeting?.phase === 'extent'
+                ? tileSetTargeting.lines.has(positionKey(e.pos))
+                : false,
+          ).pos;
+        } else if (flowState.kind === 'grapple-throw-target-select') {
+          resolved = resolveContextLayer(pos, stack, (e) => {
+            const candidates =
+              grappleTargeting?.phase === 'throwee'
+                ? grappleTargeting.throwees
+                : grappleTargeting?.phase === 'destination'
+                  ? grappleTargeting.destinations
+                  : [];
+            return candidates.some((p) => samePosition(p, e.pos));
+          }).pos;
+        }
+      }
+      setCursorTile(resolved);
       if (
         flowState.kind === 'target-select' ||
         flowState.kind === 'tile-set-target-select' ||
@@ -852,9 +958,9 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       ) {
         // Session 55/76: tile-set / grapple-throw reuse `hoverTarget` for their
         // hover overlays.
-        dispatch({ kind: 'hoverTarget', position: pos });
+        dispatch({ kind: 'hoverTarget', position: resolved });
       } else if (flowState.kind === 'move-select') {
-        dispatch({ kind: 'hoverMove', position: pos });
+        dispatch({ kind: 'hoverMove', position: resolved });
       }
     };
     renderer.setOnTileHover(handler);
@@ -876,7 +982,59 @@ export function useTurnFlow(args: UseTurnFlowArgs): TurnFlow {
       renderer.setOnTileHover(null);
       if (flowState.kind !== 'move-select') setCursorScreen(null);
     };
-  }, [renderer, flowState.kind]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renderer, flowState.kind, legalMoveDestinations, legalTargetsState, tileSetTargeting, grappleTargeting]);
+
+  // ===== Stack chip (S97 / WI3) =====
+
+  // Show the stacked-cell layer chooser exactly when disambiguation is
+  // warranted: hovering a stacked cell whose BOTH layers are valid for
+  // the current pick (move-select / target-select), the pinned stacked
+  // destination while its confirm row is up (so a tap can re-pin the
+  // other layer — the touch path), or idle/action-menu inspection of a
+  // stacked cell (the chip switches which layer the panel inspects).
+  // Everywhere else the chip stays hidden — single-layer cells never
+  // see it (the sparse, local intent from the brief).
+  useEffect(() => {
+    if (renderer === null || state === null) return;
+    const buildRequest = (
+      x: number,
+      y: number,
+      activeLayer: number,
+    ): StackChipRequest | null => {
+      const tiles = [...tilesAt(state.map, x, y)].sort((a, b) => b.layer - a.layer);
+      if (tiles.length < 2) return null;
+      return {
+        x,
+        y,
+        segments: tiles.map((t) => ({
+          layer: t.layer,
+          label: String(t.elevation),
+          active: t.layer === activeLayer,
+        })),
+      };
+    };
+
+    let request: StackChipRequest | null = null;
+    if (flowState.kind === 'move-await-confirm') {
+      const d = flowState.destination;
+      const validHere = legalMoveDestinations.filter((m) => m.x === d.x && m.y === d.y);
+      if (validHere.length >= 2) request = buildRequest(d.x, d.y, d.layer);
+    } else if (cursorTile !== null) {
+      const { x, y } = cursorTile;
+      if (flowState.kind === 'move-select') {
+        const validHere = legalMoveDestinations.filter((m) => m.x === x && m.y === y);
+        if (validHere.length >= 2) request = buildRequest(x, y, cursorTile.layer);
+      } else if (flowState.kind === 'target-select') {
+        const validHere = legalTargetsState.positions.filter((p) => p.x === x && p.y === y);
+        if (validHere.length >= 2) request = buildRequest(x, y, cursorTile.layer);
+      } else if (flowState.kind === 'idle' || flowState.kind === 'action-menu') {
+        request = buildRequest(x, y, cursorTile.layer);
+      }
+    }
+    renderer.setStackChip(request);
+    return () => renderer.setStackChip(null);
+  }, [renderer, state, flowState, cursorTile, legalMoveDestinations, legalTargetsState]);
 
   // ===== Forecast composition =====
 

@@ -5,7 +5,14 @@
 // pushes committed actions into it as the orchestrator drives the
 // engine forward. The renderer never calls back into the engine.
 
-export { BattleRenderer, type TileClickHandler } from './battle-renderer.ts';
+export {
+  BattleRenderer,
+  type StackChipRequest,
+  type TileClickHandler,
+  type TileHoverHandler,
+  type TileStackEntry,
+} from './battle-renderer.ts';
+export { type StackChipSegment } from './stack-chip-layer.ts';
 export { type HighlightKind } from './highlight-layer.ts';
 export { type PanInput } from './camera-controller.ts';
 // Deployment-phase layers (Session 35 / Phase E). The layer classes are
