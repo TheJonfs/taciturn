@@ -22,7 +22,7 @@ This map is also the intended home of the coming **special-features pass** (Chri
 
 ## Elevation Grid
 
-Elevation convention (universal; ADR-0073): **0** deep water (3 MP), **1** shallow water (2 MP), **≥2** land. **8 = building wall** (jump-impassable height; ground terrain).
+Elevation convention (universal; ADR-0073): **0** deep water (3 MP), **1** shallow water (2 MP), **≥2** land. **8 = building wall** — the `rampart` terrain (Stonebridge's dressed-stone keep art, S47), jump-impassable by height.
 
 ```
         0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15

@@ -78,6 +78,11 @@ const ELEVATION_GRID: ReadonlyArray<ReadonlyArray<number>> = [
 function terrainFromElevation(elev: number): string {
   if (elev === 0) return 'water_deep';
   if (elev === 1) return 'water_shallow';
+  // S96 (Chris): every elev-8 tile in Alvera is a building wall — dressed
+  // stone, the Stonebridge keep's `rampart` terrain (art authored S47).
+  // Land-tagged and enterable in principle, unreachable by jump in practice
+  // (5-6 above the streets) — identical semantics to Stonebridge's walls.
+  if (elev === 8) return 'rampart';
   return 'ground';
 }
 

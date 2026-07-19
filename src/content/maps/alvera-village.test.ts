@@ -49,7 +49,7 @@ describe('Alvera Village map — the river', () => {
 });
 
 describe('Alvera Village map — architecture (elev-8 walls, doors)', () => {
-  it('building walls stand at elev 8 (ground terrain, jump-impassable height)', () => {
+  it('building walls stand at elev 8 with the rampart terrain (Stonebridge keep art)', () => {
     for (const [x, y] of [
       [0, 0], // NW manor corner
       [0, 11], // SW house corner
@@ -58,7 +58,13 @@ describe('Alvera Village map — architecture (elev-8 walls, doors)', () => {
     ] as const) {
       const t = tileAt(alveraVillage, x, y, 0)!;
       expect(t.elevation).toBe(8);
-      expect(t.terrain).toBe('ground');
+      expect(t.terrain).toBe('rampart');
+    }
+  });
+
+  it('every rampart tile is elev 8 and every elev-8 tile is rampart (walls exactly)', () => {
+    for (const t of alveraVillage.tiles) {
+      expect(t.terrain === 'rampart').toBe(t.elevation === 8);
     }
   });
 

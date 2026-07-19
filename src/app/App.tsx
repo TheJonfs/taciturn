@@ -30,6 +30,8 @@ import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import { stonebridgeBattle } from '@content/battles/stonebridge-battle.ts';
 import { marshmoorBattle } from '@content/battles/marshmoor-battle.ts';
 import { mountainPassBattle } from '@content/battles/mountain-pass-battle.ts';
+import { oskunFieldsBattle } from '@content/battles/oskun-fields-battle.ts';
+import { alveraVillageBattle } from '@content/battles/alvera-village-battle.ts';
 import { buildTeamBattleConfig, type BuiltTeam } from '@content/teams/index.ts';
 import {
   CAMPAIGN_GRAPH,
@@ -50,13 +52,23 @@ type Slot = 0 | 1;
 
 // S47: two maps live; the setup screen picks between them. Both configs
 // declare the same two teams in the same order, so TEAM_IDS / TEAM_NAMES
-// stay derived from one canonical config.
-export type MapId = 'river_ridge' | 'stonebridge' | 'marshmoor' | 'mountain_pass';
+// stay derived from one canonical config. S96: the two Ch1 story maps
+// join the picker — their templates restage the same 5v5, and Mage War
+// exposure doubles as a quick map-inspection surface.
+export type MapId =
+  | 'river_ridge'
+  | 'stonebridge'
+  | 'marshmoor'
+  | 'mountain_pass'
+  | 'oskun_fields'
+  | 'alvera_village';
 export const MAP_OPTIONS: ReadonlyArray<{ id: MapId; label: string; config: BattleConfig }> = [
   { id: 'river_ridge', label: 'River Ridge', config: riverRidgeBattle },
   { id: 'stonebridge', label: 'Stonebridge', config: stonebridgeBattle },
   { id: 'marshmoor', label: 'Marshmoor', config: marshmoorBattle },
   { id: 'mountain_pass', label: 'Mountain Pass', config: mountainPassBattle },
+  { id: 'oskun_fields', label: 'Oskun Fields', config: oskunFieldsBattle },
+  { id: 'alvera_village', label: 'Alvera Village', config: alveraVillageBattle },
 ];
 function battleForMap(id: MapId): BattleConfig {
   return MAP_OPTIONS.find((m) => m.id === id)!.config;
