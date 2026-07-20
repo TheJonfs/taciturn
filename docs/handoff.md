@@ -11,69 +11,80 @@ been processed.
 
 ---
 
-## S97 — bridge over/under UI shipped (2026-07-19)
+## S98 — Cartographer shipped (2026-07-20)
 
-The whole S97 brief landed (ADR-0156): diagonal deck lift + shadow with the
-ground peeking in an L-sliver (per-layer digits and highlights), geometric
-hit-test + UI-side context-first layer resolution (the under-span move wart
-is fixed), and the tap-safe stack chip for the both-valid case. WI4
-accelerators deferred per Chris. Plus a real catch: **S96 had left decks
-unwalkable** — `'bridge'` was in the ruleset but no class `canEnter`; fixed
-across all 14 classes with a regression test. Suite **2997**, `tsc -b`
-clean. Browser-verified on Alvera end-to-end: sliver click under the span,
-deck-art click, chip tap committing the deck layer, sprite riding the lift.
+The whole map-authoring Tier 1 landed (ADR-0157): the six shipped maps +
+deployment registry migrated to the generated `MapSpec` format (data-identical
+verified pre-overwrite; byte-identical round-trip pinned by
+`src/app/cartographer/codegen.test.ts`), and the `?cartographer` DEV editor —
+paint elevation (bands derive terrain live), terrain overrides, properties,
+zones with sub-zones/caps, deck toggles; engine-validator gating + a
+connectivity *warning*; real-`BattleRenderer` preview; Atlas-style export
+overlay. Acceptance proven end-to-end in-browser: a fresh map authored in the
+tool, exported through the real codegen, wired, deployed, and fought on (AI
+acting, CT ticking). The scratch "Proving Grounds" wiring was reverted after
+proof — recreate any time via the tool. Suite 3025, `tsc -b` clean.
 
-### For Chris — playtest with eyes on
+### For Chris — first real authoring session
 
-- **The lift is DIAGONAL (up-left), not the straight-up shift you approved
-  trying first** — straight-up self-occludes on the live N–S bridge
-  (each deck's overhang lands exactly on the next cell's sliver; interior
-  under-cells would never peek). Reasoning in ADR-0156; the vector +
-  clamps are constants (`DECK_LIFT_*` in renderer/constants.ts) if the
-  look needs tuning. Judge in playtest.
-- **Unit-over-unit reading:** both stacked occupants draw above all tile
-  art (deck occupant z-sorted above ground occupant, ground occupant
-  overlaps the lifted deck art). Chris pre-accepted pending a look.
-- **AoE both-layers dual highlight** (the brief's most-confusing-case
-  watch-for) and **cross-layer targeting feel** were NOT browser-exercised
-  — the drawing/resolution code is shared with the verified move flows and
-  unit-tested, but nobody has *seen* a Fireball light deck + river slivers
-  together yet. First Worldcraft/AoE playtest over the bridge should look.
-- **Chip lingering on stale hover:** the chip stays visible if the pointer
-  never re-hovers after a state change (e.g. keyboard-driven turns). Clears
-  on the next mouse move; cosmetic. Flag if it annoys.
+- **Open `?cartographer` in dev.** Pick a shipped map or "+ New map…". Export
+  gives you two files to paste over (`src/content/maps/<slug>.ts` +
+  `src/content/deployment/registry.ts`); `tsc` + the round-trip test vouch. For
+  a NEW map to be *fightable*, also add a battle template + `BATTLE_TEMPLATE_
+  REGISTRY` entry (same key) — the export overlay reminds you.
+- **Hand edits to the six map modules / the zone registry are overwritten
+  wholesale** by the next export (file headers say so). Prose lives in
+  `docs/maps/` now — Mountain Pass got a new doc holding its old header prose.
+- **Deck editing is minimal by design** (brief's deferral): toggle-deck brush +
+  deck elevation via the Inspect-mode tile readout. Full bridge authoring
+  (multi-span chains, ramp placement guidance) is the deferred tier — the
+  `bridge_ramp` property brush exists, but the art-chain conventions from S97
+  are on the author to follow for now.
+- **Tier 2 (enemy placement) is the agreed fast-follow** (Chris's call,
+  ADR-0157): a second canvas mode placing class+level+position+facing, kits
+  auto-filled via `enemyKitForLevel`. The brush/mode architecture is the seam.
 
 ### Noticed, not acted on
 
-- ~~Enchanter/Templar/Thief rampart gap~~ — RESOLVED same session: Chris
-  ruled every class enters every terrain; the three classes got `rampart`
-  and the regression test now pins the full authored-terrain vocabulary
-  for all classes (per-class terrain differentiation lives in
-  `terrainCosts` only). A NEW terrain type must be added to every class's
-  `canEnter` + the `AUTHORED_TERRAINS` list in
-  `src/content/bridge-walkability.test.ts`.
-- Browser-preview tooling note: the tile-info readout updates one
-  `javascript_exec` call behind a synthetic pointer dispatch (React flush
-  timing), and the camera lerp advances only on pumped frames in the
-  hidden pane — both bit this session's verification. `pump(400)` then
-  dispatch-then-read-in-separate-calls is the reliable pattern.
+- The tool's `window.confirm` guards (map switch / reset) block automated
+  browsers — stub `window.confirm = () => true` when driving it via the
+  preview pane. Human use unaffected.
+- Browser-pane synthetic drags sample sparsely, so drag-painting via
+  automation skips tiles (real mouse drags are fine — the canvas applies per
+  pointermove). Also re-confirmed from S97: dispatch-then-read must be
+  separate `javascript_exec` calls (React flush), and a page left open across
+  `main.tsx` HMR edits accumulates duplicate React roots — hard-reload before
+  driving UI flows.
+- Deployment-zone painting on the tool canvas removes a tile from any other
+  zone (no-overlap by construction); the engine validator double-checks on
+  export anyway.
+
+### Carried from S97 (playtest-with-eyes-on, still pending)
+
+- **Bridge lift is DIAGONAL (up-left), not straight-up** — judge in playtest
+  (ADR-0156; `DECK_LIFT_*` constants tunable).
+- **Unit-over-unit stacked reading** pre-accepted pending a look; **AoE
+  dual-highlight** over the bridge and cross-layer targeting feel never
+  browser-exercised — first Worldcraft/AoE playtest over Alvera's bridge
+  should look.
+- **Stack chip lingers on stale hover** after keyboard-driven state changes;
+  cosmetic.
 
 ### Carried from earlier (still open, low-priority)
 
-- ADR-0155 deferred edges: `layerScope` (needs a consumer), deployment
-  zones exclude stacked cells by convention, charged tile-cast on a
-  mid-charge-destroyed deck (no v1 content combo).
-- Playtest hooks from S96: Pit-the-bridge vs enemy Terraformers; ramming
-  your own span from below is legal — watch for feel.
-- Economy content remaining: cost TUNING pass (D-econ-6) + Tailored
-  Outfit; then M4 authoring proper (real maps, lineups via
-  `generateSkirmishParty`, dialogue — M4/M5).
-- Enemy-kit dial (ENEMY_JP_PER_LEVEL = 100) — measure in playtest
-  alongside the offset curve; Theo kit tuning placeholder.
+- ADR-0155 deferred edges: `layerScope` (needs a consumer), deployment zones
+  exclude stacked cells by convention, charged tile-cast on a destroyed deck.
+- Pit-the-bridge vs enemy Terraformers; ramming your own span from below is
+  legal — watch feel.
+- Economy: cost TUNING pass (D-econ-6) + Tailored Outfit; then M4 authoring
+  proper (real maps now unblocked by Cartographer; lineups via
+  `generateSkirmishParty`; dialogue — M4/M5).
+- Enemy-kit dial (ENEMY_JP_PER_LEVEL = 100) — measure in playtest; Theo kit
+  placeholder.
 - Latent (ADR-0152): joint planner fail-hard-null path unreachable now.
-- `WorldMapBeatView` march-state reset rider; win-edge dedupe in
-  `addEdge`; engagement-queue shipped-content pin when a camp lands (Ch2);
-  Atlas beat-editor tier before M5 volume.
+- `WorldMapBeatView` march-state reset rider; win-edge dedupe in `addEdge`;
+  engagement-queue shipped-content pin when a camp lands (Ch2); Atlas
+  beat-editor tier before M5 volume.
 - S85/S87 gear watch list; kit-seeding tier-threshold watch; JP spillover
   seam; "Level Up!" banner polish; "99 cap" guide fiction.
 - Pre-S95 saves badge-once self-heal (documented, accepted).

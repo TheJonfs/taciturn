@@ -480,6 +480,15 @@ These are noted to make their absence intentional rather than accidental:
   charged over-earn fixed; JP now keys off XP awards; merged coverage
   table in ai-substrate.md) + stock-refresh badge, larger Road Ahead,
   guest placard.
+  **Map substrate for M4 (S96–98):** the two Ch1 story maps (Oskun Fields,
+  Alvera Village) + bridges (ADR-0155/0156), then the **Cartographer**
+  map-authoring tool (ADR-0157, S98) — DEV-gated `?cartographer` editor,
+  Atlas-shaped: the six shipped maps migrated to its generated `MapSpec`
+  format (byte-identical round-trip pinned), elevation/terrain/property/
+  zone painting, real-renderer preview, engine-validator gating; verified
+  by authoring and fighting on a fresh map end-to-end. The ~8 remaining
+  Ch1 battlefields are now Chris-authorable in-tool; the enemy-placement
+  tier fast-follows.
   Then authoring (M4 — starts by replacing the skirmish stub), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.

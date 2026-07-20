@@ -44,6 +44,13 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 98 (2026-07-20)
+
+_No player-facing changes._ (The Cartographer map-authoring tool — a DEV-only
+editor at `?cartographer` — and the migration of the six shipped map modules to
+its generated format. Map data is verified identical; nothing a player sees
+changed. ADR-0157.)
+
 ## Session 97 (2026-07-19) — bridge over/under UI + decks walkable (ADR-0156)
 
 Commits: `ef6e2b0` (walkability fix), `fb55d6a` (deck lift), `07f5624` (picking + chip).
