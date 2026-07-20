@@ -56,6 +56,7 @@ The design docs in `docs/design/` are authoritative. When working on a subsystem
 | Code organization, module boundaries | `docs/architecture/overview.md` |
 | Existing content (id ↔ name lookup) | `docs/content-id-registry.md` |
 | Campaign nodes/beats model, the Atlas authoring tool | `docs/atlas-guide.md` |
+| Battle-map authoring, the Cartographer tool | `docs/cartographer-guide.md` |
 | Adding a new `ActionType` discriminant | `docs/conventions/action-types.md` |
 
 For decisions made during implementation, check `docs/decisions/` (ADR-style records).
