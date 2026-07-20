@@ -91,7 +91,15 @@ export function CartographerCanvas({
     initialViewBox(model.spec.width, model.spec.height),
   );
   const drag = useRef<
-    | { readonly kind: 'pan'; readonly startView: ViewBox; readonly startPt: { x: number; y: number }; moved: boolean }
+    | {
+        readonly kind: 'pan';
+        readonly startView: ViewBox;
+        readonly startPt: { x: number; y: number };
+        // px-per-viewBox-unit at drag start (CTM scale) — deltas divide by
+        // this; rect-proportional deltas would repeat the letterbox drift.
+        readonly startScale: number;
+        moved: boolean;
+      }
     | { readonly kind: 'paint'; readonly painted: Set<string> }
     | null
   >(null);
@@ -99,14 +107,18 @@ export function CartographerCanvas({
   const spec = model.spec;
   const config = defaultZoneConfig(model);
 
+  // Client → viewBox via the SVG's own screen matrix. A linear map over
+  // getBoundingClientRect (the Atlas idiom) is WRONG here: with
+  // preserveAspectRatio="meet" the viewBox letterboxes inside the element
+  // whenever aspects differ, so a rect-proportional mapping drifts by
+  // whole tiles toward the left/right edges (S98 Chris bug report). The
+  // CTM accounts for the letterbox exactly.
   const toViewPoint = (clientX: number, clientY: number): { x: number; y: number } => {
     const svg = svgRef.current;
-    if (svg === null) return { x: 0, y: 0 };
-    const rect = svg.getBoundingClientRect();
-    return {
-      x: view.x + ((clientX - rect.left) / rect.width) * view.w,
-      y: view.y + ((clientY - rect.top) / rect.height) * view.h,
-    };
+    const ctm = svg?.getScreenCTM();
+    if (svg === null || ctm === null || ctm === undefined) return { x: 0, y: 0 };
+    const pt = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
+    return { x: pt.x, y: pt.y };
   };
 
   const tileAtClient = (clientX: number, clientY: number): { x: number; y: number } | null => {
@@ -150,6 +162,7 @@ export function CartographerCanvas({
         kind: 'pan',
         startView: view,
         startPt: { x: e.clientX, y: e.clientY },
+        startScale: svgRef.current?.getScreenCTM()?.a ?? 1,
         moved: false,
       };
       return;
@@ -162,11 +175,8 @@ export function CartographerCanvas({
     const d = drag.current;
     if (d === null) return;
     if (d.kind === 'pan') {
-      const svg = svgRef.current;
-      if (svg === null) return;
-      const rect = svg.getBoundingClientRect();
-      const dx = ((e.clientX - d.startPt.x) / rect.width) * d.startView.w;
-      const dy = ((e.clientY - d.startPt.y) / rect.height) * d.startView.h;
+      const dx = (e.clientX - d.startPt.x) / d.startScale;
+      const dy = (e.clientY - d.startPt.y) / d.startScale;
       if (Math.abs(e.clientX - d.startPt.x) + Math.abs(e.clientY - d.startPt.y) > 3) d.moved = true;
       setView({ ...d.startView, x: d.startView.x - dx, y: d.startView.y - dy });
     } else {
