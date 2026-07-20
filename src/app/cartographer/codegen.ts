@@ -191,10 +191,22 @@ function asRect(
   return { x0, x1, y0, y1 };
 }
 
+// Canonical order: row-major within layer. Shipped lists are already
+// row-major (rect() enumerates that way), so sorting is the identity on
+// them — and editor paint order never leaks into the bytes.
+const sortTiles = (
+  tiles: ReadonlyArray<{ readonly x: number; readonly y: number; readonly layer: number }>,
+): Array<{ readonly x: number; readonly y: number; readonly layer: number }> =>
+  [...tiles].sort((a, b) =>
+    a.layer - b.layer !== 0 ? a.layer - b.layer : a.y - b.y !== 0 ? a.y - b.y : a.x - b.x,
+  );
+
 function tilesExpr(sub: ZoneSubZone, indent: string): string {
-  const r = asRect(sub.tiles);
+  const tiles = sortTiles(sub.tiles);
+  if (tiles.length === 0) return '[]';
+  const r = asRect(tiles);
   if (r !== null) return `rect(${r.x0}, ${r.x1}, ${r.y0}, ${r.y1})`;
-  const lines = sub.tiles
+  const lines = tiles
     .map((t) => `${indent}  { x: ${t.x}, y: ${t.y}, layer: ${t.layer} },`)
     .join('\n');
   return `[\n${lines}\n${indent}]`;
@@ -204,7 +216,7 @@ function teamLines(entry: ZoneTeamEntry): string {
   const simple =
     entry.subZones.length === 1 &&
     entry.subZones[0]!.cap === undefined &&
-    asRect(entry.subZones[0]!.tiles) !== null;
+    asRect(sortTiles(entry.subZones[0]!.tiles)) !== null;
   if (simple) {
     return `    { team: ${teamConst(entry.team)}, subZones: [{ tiles: ${tilesExpr(entry.subZones[0]!, '')} }] },`;
   }

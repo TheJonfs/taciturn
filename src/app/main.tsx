@@ -43,9 +43,20 @@ const useFormationHarness = params.has('formation');
 const useAtlas = import.meta.env.DEV && params.has('atlas');
 const AtlasApp = lazy(() => import('./atlas/AtlasApp.tsx').then((m) => ({ default: m.AtlasApp })));
 
+// Dev-only Cartographer battle-map editor (`?cartographer`, S98 map-authoring
+// tier). Same gating pattern as Atlas.
+const useCartographer = import.meta.env.DEV && params.has('cartographer');
+const CartographerApp = lazy(() =>
+  import('./cartographer/CartographerApp.tsx').then((m) => ({ default: m.CartographerApp })),
+);
+
 createRoot(rootElement).render(
   <StrictMode>
-    {useAtlas ? (
+    {useCartographer ? (
+      <Suspense fallback={null}>
+        <CartographerApp />
+      </Suspense>
+    ) : useAtlas ? (
       <Suspense fallback={null}>
         <AtlasApp />
       </Suspense>

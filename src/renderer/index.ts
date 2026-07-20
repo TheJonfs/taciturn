@@ -33,3 +33,7 @@ export {
 // CSS form; renderer reads the Pixi form. Single source of truth.
 // Per Session 31.5 polish #3.
 export { TEAM_PALETTE, TEAM_PALETTE_FALLBACK_CSS, TEAM_PALETTE_FALLBACK_PIXI } from './constants.ts';
+// Terrain fallback fills — the Cartographer canvas (S98) paints tiles
+// with the same table the tile layer uses, so tool and renderer can't
+// drift. Same single-source rationale as TEAM_PALETTE.
+export { TERRAIN_COLORS, TERRAIN_FALLBACK_COLOR } from './constants.ts';
