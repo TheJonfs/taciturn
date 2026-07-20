@@ -14,11 +14,9 @@
 // M4's real generator replaces this function at this signature; nothing else
 // moves.
 
-import { bucketId, classId, type Catalog, type ClassId, type Loadout } from '@engine/index.ts';
-import { authoredEnemy } from './authored-enemy.ts';
-import { basicEnemyGear, enemyBraveFaith, enemyKitForLevel } from './enemy-kit.ts';
+import { classId, type Catalog, type ClassId } from '@engine/index.ts';
+import { generatedEnemyUnit } from './enemy-kit.ts';
 import { partyAverageLevel, resolveEnemyLevel } from './enemy-level.ts';
-import { withInnatePassives } from './innate-passives.ts';
 import { allNodeBeats, type CampaignNode } from './graph.ts';
 import { firstBattleBeat, type NodeBattle } from './sequence.ts';
 import type { CampaignState, CampaignUnit } from './types.ts';
@@ -57,29 +55,19 @@ export function generateSkirmishParty(
   count: number,
   catalog: Catalog,
 ): ReadonlyArray<CampaignUnit> {
-  return Array.from({ length: count }, (_, i) => {
-    const cls = STUB_CLASS_ROTATION[i % STUB_CLASS_ROTATION.length]!;
-    // The class's first-action command set plus its innate passives (S94:
-    // every created unit fights like a member of its class).
-    const loadout: Loadout = withInnatePassives(
-      {
-        actionBuckets: { [bucketId('first_action')]: [catalog.getClass(cls).firstActionCommandSet] },
-        passiveBuckets: {},
-      },
-      cls,
-      catalog,
-    );
-    return authoredEnemy({
+  return Array.from({ length: count }, (_, i) =>
+    // The shared generated-enemy constructor (S98: also backs authored
+    // lineups) — class first-action set + innates, level-budgeted kit,
+    // deterministic Brave/Faith, basic gear.
+    generatedEnemyUnit({
       id: `skirmish-enemy-${i + 1}`,
       name: STUB_NAMES[i % STUB_NAMES.length]!,
-      classId: cls,
+      classId: STUB_CLASS_ROTATION[i % STUB_CLASS_ROTATION.length]!,
       level,
-      loadout,
-      equipment: basicEnemyGear(cls, catalog),
-      unlocks: enemyKitForLevel(cls, level, catalog),
-      ...enemyBraveFaith(level, i),
-    });
-  });
+      index: i,
+      catalog,
+    }),
+  );
 }
 
 // Build the skirmish encounter for a farmable node: the node's own

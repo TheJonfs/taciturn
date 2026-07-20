@@ -13,24 +13,36 @@
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactElement } from 'react';
 import type { CartographerModel } from './model.ts';
-import { importZoneRegistry, SHIPPED_MAP_SPECS, shippedMapSpec } from './import.ts';
+import {
+  importZoneRegistry,
+  SHIPPED_MAP_SPECS,
+  shippedLineupModel,
+  shippedMapSpec,
+} from './import.ts';
 import { validateModel } from './validate.ts';
 import {
   addSubZone,
+  clearLineup,
   clearTerrainOverride,
   freshMapModel,
+  moveEnemySlot,
   nudgeElevation,
   paintTerrain,
+  placeLineupUnit,
+  removeLineupUnitAt,
   removeSubZone,
   resizeMap,
   setBands,
+  setBattleId,
   setDeckElevation,
   setElevation,
   setKey,
   setLabel,
+  setLineupFacing,
   setSubZoneCap,
   toggleDeck,
   toggleProperty,
+  updateEnemySlot,
   zoneErase,
   zonePaint,
 } from './edit.ts';
@@ -45,7 +57,7 @@ const DEFAULT_DEPLOY_COUNT = 5; // the v1 roster maximum per side
 const shippedModel = (key: string): CartographerModel => {
   const spec = shippedMapSpec(key);
   if (spec === undefined) throw new Error(`cartographer: unknown shipped map '${key}'`);
-  return { spec, registry: importZoneRegistry() };
+  return { spec, registry: importZoneRegistry(), lineup: shippedLineupModel(key) };
 };
 
 export function CartographerApp(): ReactElement {
@@ -83,6 +95,15 @@ export function CartographerApp(): ReactElement {
           return zoneErase(m, x, y);
         case 'deck-toggle':
           return toggleDeck(m, x, y);
+        case 'unit':
+          return placeLineupUnit(m, brush.side, x, y, { classId: 'monk', level: 3 });
+        case 'unit-enemy':
+          return placeLineupUnit(m, 'enemy', x, y, {
+            classId: brush.classId,
+            level: brush.level,
+          });
+        case 'unit-erase':
+          return removeLineupUnitAt(m, x, y);
       }
     });
   };
@@ -185,6 +206,12 @@ export function CartographerApp(): ReactElement {
           onRemoveSubZone={(team, i) => setModel((m) => removeSubZone(m, team, i))}
           onSetSubZoneCap={(team, i, cap) => setModel((m) => setSubZoneCap(m, team, i, cap))}
           onSetDeckElevation={(x, y, e) => setModel((m) => setDeckElevation(m, x, y, e))}
+          onSetBattleId={(id) => setModel((m) => setBattleId(m, id))}
+          onClearLineup={() => setModel(clearLineup)}
+          onUpdateEnemy={(i, patch) => setModel((m) => updateEnemySlot(m, i, patch))}
+          onMoveEnemy={(i, d) => setModel((m) => moveEnemySlot(m, i, d))}
+          onSetLineupFacing={(kind, i, f) => setModel((m) => setLineupFacing(m, kind, i, f))}
+          onRemoveLineupUnit={(x, y) => setModel((m) => removeLineupUnitAt(m, x, y))}
         />
       </div>
 

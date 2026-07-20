@@ -4,7 +4,9 @@
 // route through the pure edit.ts helpers via the callbacks.
 
 import { useState, type CSSProperties, type ReactElement } from 'react';
+import type { Direction } from '@engine/index.ts';
 import type { TerrainBand } from '@content/maps/map-format.ts';
+import { loadDefaultCatalog } from '@content/index.ts';
 import type { Brush } from './CartographerCanvas.tsx';
 import type { CartographerModel, ZoneTeamKey } from './model.ts';
 import {
@@ -12,8 +14,20 @@ import {
   defaultZoneConfig,
   effectiveTerrain,
   elevationAt,
+  lineupUnitAt,
   zoneMembership,
+  type LineupUnitKind,
 } from './edit.ts';
+
+// Class options for the enemy brush — every catalog class, sorted by name.
+let classOptionsCache: ReadonlyArray<{ id: string; name: string }> | null = null;
+const classOptions = (): ReadonlyArray<{ id: string; name: string }> =>
+  (classOptionsCache ??= loadDefaultCatalog()
+    .classes()
+    .map((c) => ({ id: String(c.id), name: c.name }))
+    .sort((a, b) => a.name.localeCompare(b.name)));
+
+const DIRECTIONS: ReadonlyArray<Direction> = ['N', 'E', 'S', 'W'];
 
 // The complete authored terrain vocabulary (S98 findings) — pinned by
 // AUTHORED_TERRAINS, the ruleset tags, and every class's canEnter. New
@@ -49,6 +63,13 @@ interface CartographerInspectorProps {
   readonly onRemoveSubZone: (team: ZoneTeamKey, index: number) => void;
   readonly onSetSubZoneCap: (team: ZoneTeamKey, index: number, cap: number | undefined) => void;
   readonly onSetDeckElevation: (x: number, y: number, elevation: number) => void;
+  // Tier 2 — the unit mode.
+  readonly onSetBattleId: (battleId: string) => void;
+  readonly onClearLineup: () => void;
+  readonly onUpdateEnemy: (index: number, patch: { classId?: string; level?: number }) => void;
+  readonly onMoveEnemy: (index: number, delta: -1 | 1) => void;
+  readonly onSetLineupFacing: (kind: LineupUnitKind, index: number, facing: Direction) => void;
+  readonly onRemoveLineupUnit: (x: number, y: number) => void;
 }
 
 export function CartographerInspector(props: CartographerInspectorProps): ReactElement {
@@ -56,6 +77,8 @@ export function CartographerInspector(props: CartographerInspectorProps): ReactE
   const spec = model.spec;
   const config = defaultZoneConfig(model);
   const [elevationValue, setElevationValue] = useState(3);
+  const [enemyBrushClass, setEnemyBrushClass] = useState('monk');
+  const [enemyBrushLevel, setEnemyBrushLevel] = useState(3);
 
   const brushIs = (b: Brush): boolean => JSON.stringify(b) === JSON.stringify(brush);
   const brushButton = (label: string, b: Brush, title?: string): ReactElement => (
@@ -206,6 +229,123 @@ export function CartographerInspector(props: CartographerInspectorProps): ReactE
         <div style={chipRowStyle}>{brushButton('erase zone', { kind: 'zone-erase' })}</div>
       </Section>
 
+      <Section title="Units — battle lineup">
+        {model.lineup === null ? (
+          <div style={hintStyle}>
+            No lineup authored. Place a unit to start one — player staging, guest markers, and
+            enemy slots (class + level; kits auto-fill from the enemy-kit framework at fold time).
+          </div>
+        ) : (
+          <Row label="battle id">
+            <input
+              style={inputStyle}
+              value={model.lineup.battleId}
+              onChange={(e) => props.onSetBattleId(e.target.value)}
+            />
+          </Row>
+        )}
+        <div style={chipRowStyle}>
+          {brushButton(
+            `place player (${model.lineup?.players.length ?? 0}/5)`,
+            { kind: 'unit', side: 'player' },
+            'Player staging slots — deployment overrides these positions; the template needs all 5',
+          )}
+          {brushButton(
+            `place guest (${model.lineup?.guests.length ?? 0})`,
+            { kind: 'unit', side: 'guest' },
+            'Guest-ally markers (WI4) — node-content re-skins them in order',
+          )}
+          {brushButton('erase unit', { kind: 'unit-erase' })}
+        </div>
+        <div style={chipRowStyle}>
+          {brushButton(
+            `place enemy: ${enemyBrushClass} L${enemyBrushLevel}`,
+            { kind: 'unit-enemy', classId: enemyBrushClass, level: enemyBrushLevel },
+          )}
+          <select
+            style={selectStyle}
+            value={enemyBrushClass}
+            onChange={(e) => {
+              setEnemyBrushClass(e.target.value);
+              if (brush.kind === 'unit-enemy') {
+                props.onBrush({ kind: 'unit-enemy', classId: e.target.value, level: enemyBrushLevel });
+              }
+            }}
+          >
+            {classOptions().map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <input
+            style={numStyle}
+            type="number"
+            min={1}
+            max={50}
+            value={enemyBrushLevel}
+            onChange={(e) => {
+              const v = Math.max(1, Math.min(50, Number(e.target.value) || 1));
+              setEnemyBrushLevel(v);
+              if (brush.kind === 'unit-enemy') {
+                props.onBrush({ kind: 'unit-enemy', classId: enemyBrushClass, level: v });
+              }
+            }}
+          />
+        </div>
+        {model.lineup !== null && model.lineup.enemies.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {model.lineup.enemies.map((e, i) => (
+              <div key={i} style={chipRowStyle}>
+                <span style={{ ...dimTextStyle, width: 20, color: i === 0 ? '#d8b26c' : undefined }}>
+                  {i === 0 ? '★' : `#${i}`}
+                </span>
+                <select
+                  style={selectStyle}
+                  value={e.classId}
+                  onChange={(ev) => props.onUpdateEnemy(i, { classId: ev.target.value })}
+                >
+                  {classOptions().map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  style={numStyle}
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={e.level}
+                  onChange={(ev) =>
+                    props.onUpdateEnemy(i, {
+                      level: Math.max(1, Math.min(50, Number(ev.target.value) || 1)),
+                    })
+                  }
+                />
+                <span style={dimTextStyle}>
+                  ({e.x},{e.y})
+                </span>
+                <button type="button" style={smallButtonStyle} onClick={() => props.onMoveEnemy(i, -1)}>
+                  ↑
+                </button>
+                <button type="button" style={smallButtonStyle} onClick={() => props.onMoveEnemy(i, 1)}>
+                  ↓
+                </button>
+              </div>
+            ))}
+            <div style={hintStyle}>★ = lead slot; the campaign fold re-skins enemies by this order.</div>
+          </div>
+        )}
+        {model.lineup !== null && (
+          <div style={chipRowStyle}>
+            <button type="button" style={smallButtonStyle} onClick={props.onClearLineup}>
+              clear lineup
+            </button>
+          </div>
+        )}
+      </Section>
+
       <Section title="Bridge decks (layer 1)">
         <div style={chipRowStyle}>{brushButton('toggle deck', { kind: 'deck-toggle' })}</div>
         {spec.decks.length > 0 && (
@@ -285,7 +425,14 @@ export function CartographerInspector(props: CartographerInspectorProps): ReactE
 
       {selected !== null && (
         <Section title={`Tile (${selected.x}, ${selected.y})`}>
-          <TileReadout model={model} x={selected.x} y={selected.y} onSetDeckElevation={props.onSetDeckElevation} />
+          <TileReadout
+            model={model}
+            x={selected.x}
+            y={selected.y}
+            onSetDeckElevation={props.onSetDeckElevation}
+            onSetLineupFacing={props.onSetLineupFacing}
+            onRemoveLineupUnit={props.onRemoveLineupUnit}
+          />
         </Section>
       )}
     </div>
@@ -297,17 +444,30 @@ function TileReadout({
   x,
   y,
   onSetDeckElevation,
+  onSetLineupFacing,
+  onRemoveLineupUnit,
 }: {
   readonly model: CartographerModel;
   readonly x: number;
   readonly y: number;
   readonly onSetDeckElevation: (x: number, y: number, elevation: number) => void;
+  readonly onSetLineupFacing: (kind: LineupUnitKind, index: number, facing: Direction) => void;
+  readonly onRemoveLineupUnit: (x: number, y: number) => void;
 }): ReactElement {
   const spec = model.spec;
   const override = spec.terrainOverrides.find((o) => o.x === x && o.y === y);
   const tag = spec.properties.find((p) => p.x === x && p.y === y);
   const deck = deckAt(spec, x, y);
   const zone = zoneMembership(defaultZoneConfig(model), x, y);
+  const unit = lineupUnitAt(model.lineup, x, y);
+  const unitSlot =
+    unit === undefined || model.lineup === null
+      ? undefined
+      : unit.kind === 'player'
+        ? model.lineup.players[unit.index]
+        : unit.kind === 'guest'
+          ? model.lineup.guests[unit.index]
+          : model.lineup.enemies[unit.index];
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
       <span>elevation {elevationAt(spec, x, y)}</span>
@@ -333,6 +493,33 @@ function TileReadout({
           />{' '}
           ({deck.terrain})
         </label>
+      )}
+      {unit !== undefined && unitSlot !== undefined && (
+        <>
+          <span>
+            unit: {unit.kind}
+            {unit.kind === 'enemy' &&
+              ` — ${model.lineup!.enemies[unit.index]!.classId} L${model.lineup!.enemies[unit.index]!.level}` +
+                (unit.index === 0 ? ' (lead)' : ` (#${unit.index})`)}
+            {unitSlot.layer === 1 ? ' — on the deck' : ''}
+          </span>
+          <div style={chipRowStyle}>
+            <span style={dimTextStyle}>facing</span>
+            {DIRECTIONS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                style={unitSlot.facing === d ? activeChipStyle : chipStyle}
+                onClick={() => onSetLineupFacing(unit.kind, unit.index, d)}
+              >
+                {d}
+              </button>
+            ))}
+            <button type="button" style={smallButtonStyle} onClick={() => onRemoveLineupUnit(x, y)}>
+              remove
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

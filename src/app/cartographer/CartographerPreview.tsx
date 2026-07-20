@@ -18,8 +18,12 @@ import {
 import { BattleRenderer } from '@renderer/index.ts';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { buildMapFromSpec } from '@content/maps/map-format.ts';
+import { buildBattleFromLineup } from '@content/battles/lineup-format.ts';
+import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
+import { enemiesFromLineup, foldEnemyTeam } from '@campaign/index.ts';
 import type { CartographerModel } from './model.ts';
 import { defaultZoneConfig } from './edit.ts';
+import { lineupSpecFromModel } from './export-spec.ts';
 import { zoneConfigToEngine } from './validate.ts';
 
 const BACKGROUND = 0x101216;
@@ -40,11 +44,25 @@ export function CartographerPreview({ model, onClose }: CartographerPreviewProps
   // The caller gates the overlay on zero validation errors, so the build
   // is safe; remount whenever the authored data changes (cheap at map
   // scale — the AtlasPreview remount idiom).
+  //
+  // With a lineup authored, the preview runs the REAL campaign chain:
+  // restage the base config onto the slots, build the authored enemies
+  // (class + level + enemy-kit framing), and fold them onto the enemy
+  // slots — so the sprites, classes, and facings on screen are exactly
+  // what a story battle on this lineup fights.
   const state = useMemo(() => {
+    const map = buildMapFromSpec(model.spec);
+    const lineup = model.lineup;
+    if (lineup !== null && lineup.players.length > 0 && lineup.enemies.length > 0) {
+      const spec = lineupSpecFromModel(model);
+      const config = buildBattleFromLineup(spec, map, riverRidgeBattle);
+      const folded = foldEnemyTeam(config, enemiesFromLineup(spec, catalog), teamId('team_b'), catalog);
+      return createInitialState(folded, catalog);
+    }
     const config: BattleConfig = {
       battleId: 'cartographer_preview',
       rulesetId: rulesetId('default'),
-      map: buildMapFromSpec(model.spec),
+      map,
       teams: [
         { id: teamId('team_a'), name: 'Blue', control: 'human' },
         { id: teamId('team_b'), name: 'Red', control: 'ai' },
@@ -54,7 +72,7 @@ export function CartographerPreview({ model, onClose }: CartographerPreviewProps
       masterSeed: PREVIEW_SEED,
     };
     return createInitialState(config, catalog);
-  }, [model.spec, catalog]);
+  }, [model, catalog]);
 
   const zones = useMemo(() => {
     const config = defaultZoneConfig(model);

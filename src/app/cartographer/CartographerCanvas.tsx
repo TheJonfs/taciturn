@@ -16,7 +16,13 @@
 import { useRef, useState, type CSSProperties, type ReactElement } from 'react';
 import { TERRAIN_COLORS, TERRAIN_FALLBACK_COLOR } from '@renderer/index.ts';
 import type { CartographerModel, ZoneTeamKey } from './model.ts';
-import { defaultZoneConfig, effectiveTerrain, zoneMembership } from './edit.ts';
+import {
+  defaultZoneConfig,
+  effectiveTerrain,
+  lineupUnitAt,
+  zoneMembership,
+  type LineupUnitKind,
+} from './edit.ts';
 
 export type Brush =
   | { readonly kind: 'inspect' }
@@ -27,7 +33,12 @@ export type Brush =
   | { readonly kind: 'property'; readonly property: string }
   | { readonly kind: 'zone'; readonly team: ZoneTeamKey; readonly subZone: number }
   | { readonly kind: 'zone-erase' }
-  | { readonly kind: 'deck-toggle' };
+  | { readonly kind: 'deck-toggle' }
+  // Tier 2 — the unit mode. The enemy brush carries its own class/level
+  // (edited in the inspector); placement itself dedupes occupied tiles.
+  | { readonly kind: 'unit'; readonly side: 'player' | 'guest' }
+  | { readonly kind: 'unit-enemy'; readonly classId: string; readonly level: number }
+  | { readonly kind: 'unit-erase' };
 
 // Brushes that should apply at most once per tile per stroke (toggles and
 // increments — repeat application while the pointer sits on a tile would
@@ -36,6 +47,9 @@ const ONCE_PER_STROKE: ReadonlySet<Brush['kind']> = new Set([
   'elevation-nudge',
   'property',
   'deck-toggle',
+  'unit',
+  'unit-enemy',
+  'unit-erase',
 ]);
 
 interface CartographerCanvasProps {
@@ -59,6 +73,27 @@ const ZONE_STROKE: Readonly<Record<ZoneTeamKey, string>> = {
   team_a: '#5a7fb5',
   team_b: '#b55a5a',
 };
+
+const UNIT_FILL: Readonly<Record<LineupUnitKind, string>> = {
+  player: '#3b5a8f',
+  guest: '#3b8f7a',
+  enemy: '#8f3b3b',
+};
+
+// A small wedge on the chip rim pointing the unit's facing.
+function facingWedge(cx: number, cy: number, r: number, facing: string): string {
+  const tip = r + 6;
+  switch (facing) {
+    case 'N':
+      return `${cx - 4},${cy - r} ${cx + 4},${cy - r} ${cx},${cy - tip}`;
+    case 'S':
+      return `${cx - 4},${cy + r} ${cx + 4},${cy + r} ${cx},${cy + tip}`;
+    case 'E':
+      return `${cx + r},${cy - 4} ${cx + r},${cy + 4} ${cx + tip},${cy}`;
+    default:
+      return `${cx - r},${cy - 4} ${cx - r},${cy + 4} ${cx - tip},${cy}`;
+  }
+}
 
 const hex = (n: number): string => `#${n.toString(16).padStart(6, '0')}`;
 
@@ -262,6 +297,40 @@ export function CartographerCanvas({
               </text>
             </g>
           )}
+          {(() => {
+            const unit = lineupUnitAt(model.lineup, x, y);
+            if (unit === undefined) return null;
+            const cx = px + TILE / 2;
+            const cy = py + TILE / 2;
+            const r = TILE * 0.3;
+            const slot =
+              unit.kind === 'player'
+                ? model.lineup!.players[unit.index]!
+                : unit.kind === 'guest'
+                  ? model.lineup!.guests[unit.index]!
+                  : model.lineup!.enemies[unit.index]!;
+            const isLead = unit.kind === 'enemy' && unit.index === 0;
+            return (
+              <g pointerEvents="none">
+                <polygon points={facingWedge(cx, cy, r, slot.facing)} fill="#e7e9ee" opacity={0.9} />
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={r}
+                  fill={UNIT_FILL[unit.kind]}
+                  stroke={isLead ? '#d8b26c' : '#e7e9ee'}
+                  strokeWidth={isLead ? 2.2 : 1.4}
+                />
+                <text x={cx} y={cy + 3.5} textAnchor="middle" fontSize={9} fontWeight={700} fill="#f2f3f6">
+                  {unit.kind === 'enemy'
+                    ? model.lineup!.enemies[unit.index]!.level
+                    : unit.kind === 'player'
+                      ? 'P'
+                      : 'G'}
+                </text>
+              </g>
+            );
+          })()}
           {isSelected && (
             <rect
               x={px + 0.8}

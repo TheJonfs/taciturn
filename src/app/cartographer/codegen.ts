@@ -9,6 +9,7 @@
 // the shipped files in the same change).
 
 import type { MapSpec } from '@content/maps/map-format.ts';
+import type { LineupSpec } from '@content/battles/lineup-format.ts';
 import type { MapZoneEntry, ZoneSubZone, ZoneTeamEntry } from './model.ts';
 
 const quote = (s: string): string => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
@@ -305,5 +306,87 @@ export function deploymentZonesFor(
   }
   return config;
 }
+`;
+}
+
+// ---------------------------------------------------------------------------
+// Battle-lineup module (Tier 2 — the unit mode)
+// ---------------------------------------------------------------------------
+
+const LINEUP_MODULE_HEADER = `// GENERATED-SHAPED — battle-lineup module (Cartographer unit mode).
+//
+// This module is codegen output of the Cartographer map-authoring tool (the
+// \`?cartographer\` dev route): the lineup's spec — ordered player staging,
+// guest markers, and enemy slots, each with position + facing (enemy slots
+// also carry an authored class + level) — plus the BattleConfig restaged
+// from it. ENEMY SLOT ORDER IS MEANINGFUL (lead = slot 0; the campaign fold
+// re-skins by index). The authored classes/levels are consumed campaign-side
+// via \`enemiesFromLineup\` (src/campaign/lineup.ts). Hand edits are legal
+// TypeScript but the next Cartographer export of this lineup OVERWRITES THE
+// FILE WHOLESALE. Round-trip fidelity is pinned by the Cartographer codegen
+// test.
+`;
+
+// The six hand-written Mage War battle files stay hand-written (Chris's S98
+// call); river_ridge is doubly off-limits — it IS the base config a lineup
+// module spreads, so a generated file at its key would import itself.
+// Exported so validation can gate Export instead of letting the overlay
+// throw mid-render.
+export const RESERVED_LINEUP_KEYS: ReadonlySet<string> = new Set(['river_ridge']);
+
+const slotLine = (s: { x: number; y: number; layer: number; facing: string }): string =>
+  `    { x: ${s.x}, y: ${s.y}, layer: ${s.layer}, facing: ${quote(s.facing)} },`;
+
+// The generated src/content/battles/<slug>-battle.ts.
+export function generateLineupModule(spec: LineupSpec): string {
+  assertKey(spec.mapKey);
+  const PREFIX = constPrefix(spec.key);
+  const camel = camelKey(spec.key);
+  const mapCamel = camelKey(spec.mapKey);
+  if (RESERVED_LINEUP_KEYS.has(spec.key)) {
+    throw new Error(
+      `cartographer codegen: '${spec.key}' is the hand-written base battle — a generated lineup cannot take its key`,
+    );
+  }
+
+  const list = (
+    label: 'players' | 'guests',
+    slots: ReadonlyArray<{ x: number; y: number; layer: number; facing: string }>,
+  ): string =>
+    slots.length === 0
+      ? `  ${label}: [],`
+      : `  ${label}: [\n${slots.map(slotLine).join('\n')}\n  ],`;
+
+  const enemyLines = spec.enemies
+    .map(
+      (e) =>
+        `    { x: ${e.x}, y: ${e.y}, layer: ${e.layer}, facing: ${quote(e.facing)}, classId: ${quote(e.classId)}, level: ${e.level} },`,
+    )
+    .join('\n');
+  const enemiesExpr =
+    spec.enemies.length === 0 ? '  enemies: [],' : `  enemies: [\n${enemyLines}\n  ],`;
+
+  return `${LINEUP_MODULE_HEADER}
+import type { BattleConfig } from '@engine/index.ts';
+
+import { buildBattleFromLineup, type LineupSpec } from '@content/battles/lineup-format.ts';
+import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
+import { ${mapCamel} } from '@content/maps/${docSlug(spec.mapKey)}.ts';
+
+// Lineup '${spec.key}' on map '${spec.mapKey}' — battle id '${spec.battleId}'.
+export const ${PREFIX}_LINEUP: LineupSpec = {
+  key: ${quote(spec.key)},
+  mapKey: ${quote(spec.mapKey)},
+  battleId: ${quote(spec.battleId)},
+${list('players', spec.players)}
+${list('guests', spec.guests)}
+${enemiesExpr}
+};
+
+export const ${camel}Battle: BattleConfig = buildBattleFromLineup(
+  ${PREFIX}_LINEUP,
+  ${mapCamel},
+  riverRidgeBattle,
+);
 `;
 }

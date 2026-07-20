@@ -3,7 +3,7 @@
 // keep the edited map's registry entry in sync with the spec, and all
 // position lists stay within map bounds after a resize.
 
-import type { TerrainType } from '@engine/index.ts';
+import type { Direction, TerrainType } from '@engine/index.ts';
 import {
   terrainForElevation,
   type MapSpec,
@@ -11,6 +11,7 @@ import {
 } from '@content/maps/map-format.ts';
 import type {
   CartographerModel,
+  LineupModel,
   MapZoneEntry,
   ZoneConfig,
   ZoneTeamKey,
@@ -177,7 +178,7 @@ export function setKey(model: CartographerModel, key: string): CartographerModel
   const registry = model.registry.map((e) =>
     e.mapKey === model.spec.key ? { ...e, mapKey: key } : e,
   );
-  return { spec: { ...model.spec, key }, registry };
+  return { ...model, spec: { ...model.spec, key }, registry };
 }
 
 // Resize, preserving the overlap: new tiles arrive at the default ground
@@ -223,7 +224,16 @@ export function resizeMap(
         }
       : e,
   );
-  return { spec: nextSpec, registry };
+  const lineup =
+    model.lineup === null
+      ? null
+      : {
+          ...model.lineup,
+          players: model.lineup.players.filter(within),
+          guests: model.lineup.guests.filter(within),
+          enemies: model.lineup.enemies.filter(within),
+        };
+  return { spec: nextSpec, registry, lineup };
 }
 
 // ---------------------------------------------------------------------------
@@ -397,5 +407,144 @@ export function freshMapModel(
     properties: [],
     decks: [],
   };
-  return { spec, registry };
+  return { spec, registry, lineup: null };
+}
+
+// ---------------------------------------------------------------------------
+// Lineup (Tier 2 — the unit mode)
+// ---------------------------------------------------------------------------
+
+export type LineupUnitKind = 'player' | 'guest' | 'enemy';
+
+const withLineup = (model: CartographerModel, lineup: LineupModel | null): CartographerModel => ({
+  ...model,
+  lineup,
+});
+
+const emptyLineup = (model: CartographerModel): LineupModel => ({
+  battleId: `${model.spec.key}_v1`,
+  players: [],
+  guests: [],
+  enemies: [],
+});
+
+// Which lineup unit stands on (x, y), if any — units never share a tile.
+export function lineupUnitAt(
+  lineup: LineupModel | null,
+  x: number,
+  y: number,
+): { kind: LineupUnitKind; index: number } | undefined {
+  if (lineup === null) return undefined;
+  const kinds: ReadonlyArray<LineupUnitKind> = ['player', 'guest', 'enemy'];
+  const lists = [lineup.players, lineup.guests, lineup.enemies] as const;
+  for (let k = 0; k < kinds.length; k++) {
+    const index = lists[k]!.findIndex((s) => s.x === x && s.y === y);
+    if (index !== -1) return { kind: kinds[k]!, index };
+  }
+  return undefined;
+}
+
+// Default facing for a fresh slot: face the far half of the map (enemies
+// authored in the north face south, and vice versa) — editable after.
+const defaultFacing = (spec: MapSpec, y: number): Direction =>
+  y < spec.height / 2 ? 'S' : 'N';
+
+// Place a lineup unit. Stands on the tile's deck if one exists (bridge
+// defenders stand ON the span); refuses an occupied tile.
+export function placeLineupUnit(
+  model: CartographerModel,
+  kind: LineupUnitKind,
+  x: number,
+  y: number,
+  enemyDefaults: { classId: string; level: number },
+): CartographerModel {
+  const lineup = model.lineup ?? emptyLineup(model);
+  if (lineupUnitAt(lineup, x, y) !== undefined) return model;
+  const layer = model.spec.decks.some((d) => d.x === x && d.y === y) ? 1 : 0;
+  const slot = { x, y, layer, facing: defaultFacing(model.spec, y) };
+  switch (kind) {
+    case 'player':
+      return withLineup(model, { ...lineup, players: [...lineup.players, slot] });
+    case 'guest':
+      return withLineup(model, { ...lineup, guests: [...lineup.guests, slot] });
+    case 'enemy':
+      return withLineup(model, {
+        ...lineup,
+        enemies: [...lineup.enemies, { ...slot, ...enemyDefaults }],
+      });
+  }
+}
+
+export function removeLineupUnitAt(
+  model: CartographerModel,
+  x: number,
+  y: number,
+): CartographerModel {
+  const lineup = model.lineup;
+  if (lineup === null) return model;
+  const not = <T extends { x: number; y: number }>(s: T): boolean => s.x !== x || s.y !== y;
+  return withLineup(model, {
+    ...lineup,
+    players: lineup.players.filter(not),
+    guests: lineup.guests.filter(not),
+    enemies: lineup.enemies.filter(not),
+  });
+}
+
+export function setLineupFacing(
+  model: CartographerModel,
+  kind: LineupUnitKind,
+  index: number,
+  facing: Direction,
+): CartographerModel {
+  const lineup = model.lineup;
+  if (lineup === null) return model;
+  const patch = <T extends { facing: Direction }>(list: ReadonlyArray<T>): T[] =>
+    list.map((s, i) => (i === index ? { ...s, facing } : s));
+  switch (kind) {
+    case 'player':
+      return withLineup(model, { ...lineup, players: patch(lineup.players) });
+    case 'guest':
+      return withLineup(model, { ...lineup, guests: patch(lineup.guests) });
+    case 'enemy':
+      return withLineup(model, { ...lineup, enemies: patch(lineup.enemies) });
+  }
+}
+
+export function updateEnemySlot(
+  model: CartographerModel,
+  index: number,
+  patch: { classId?: string; level?: number },
+): CartographerModel {
+  const lineup = model.lineup;
+  if (lineup === null) return model;
+  return withLineup(model, {
+    ...lineup,
+    enemies: lineup.enemies.map((s, i) => (i === index ? { ...s, ...patch } : s)),
+  });
+}
+
+// Reorder an enemy slot (order is meaningful — lead = slot 0).
+export function moveEnemySlot(
+  model: CartographerModel,
+  index: number,
+  delta: -1 | 1,
+): CartographerModel {
+  const lineup = model.lineup;
+  if (lineup === null) return model;
+  const target = index + delta;
+  if (target < 0 || target >= lineup.enemies.length) return model;
+  const enemies = [...lineup.enemies];
+  const [moved] = enemies.splice(index, 1);
+  enemies.splice(target, 0, moved!);
+  return withLineup(model, { ...lineup, enemies });
+}
+
+export function setBattleId(model: CartographerModel, battleId: string): CartographerModel {
+  const lineup = model.lineup ?? emptyLineup(model);
+  return withLineup(model, { ...lineup, battleId });
+}
+
+export function clearLineup(model: CartographerModel): CartographerModel {
+  return withLineup(model, null);
 }

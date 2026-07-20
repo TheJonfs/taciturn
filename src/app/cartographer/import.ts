@@ -14,7 +14,8 @@ import { RIVER_RIDGE_SPEC } from '@content/maps/river-ridge.ts';
 import { STONEBRIDGE_SPEC } from '@content/maps/stonebridge.ts';
 import { DEPLOYMENT_ZONE_REGISTRY } from '@content/deployment/registry.ts';
 import type { MapSpec } from '@content/maps/map-format.ts';
-import type { MapZoneEntry, ZoneTeamKey } from './model.ts';
+import type { LineupSpec } from '@content/battles/lineup-format.ts';
+import type { LineupModel, MapZoneEntry, ZoneTeamKey } from './model.ts';
 
 // The shipped, Cartographer-owned maps, in registry order. Training Field
 // is deliberately absent — it's a hand-written test probe, not a
@@ -30,6 +31,24 @@ export const SHIPPED_MAP_SPECS: ReadonlyArray<MapSpec> = [
 
 export function shippedMapSpec(key: string): MapSpec | undefined {
   return SHIPPED_MAP_SPECS.find((s) => s.key === key);
+}
+
+// Shipped GENERATED lineup modules, keyed by map key (Tier 2). The six
+// original battle files are hand-written Mage War content (Chris's S98
+// call) and never appear here; when a Cartographer-authored lineup ships,
+// add its `<PREFIX>_LINEUP` import so the tool can reload it — same
+// convention as SHIPPED_MAP_SPECS for new maps.
+export const SHIPPED_LINEUPS: ReadonlyArray<LineupSpec> = [];
+
+export function shippedLineupModel(mapKey: string): LineupModel | null {
+  const spec = SHIPPED_LINEUPS.find((l) => l.mapKey === mapKey);
+  if (spec === undefined) return null;
+  return {
+    battleId: spec.battleId,
+    players: spec.players,
+    guests: spec.guests,
+    enemies: spec.enemies,
+  };
 }
 
 // The shipped registry as the editor's zone model, preserving file order

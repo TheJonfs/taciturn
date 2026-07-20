@@ -13,6 +13,7 @@
 // ambush config) even where the v1 canvas only paints the simple cases.
 
 import type { MapSpec } from '@content/maps/map-format.ts';
+import type { EnemyLineupSlot, LineupSlot } from '@content/battles/lineup-format.ts';
 
 // The two team slots every shipped config uses. A third team id in the
 // registry would be an engine-level change; the importer throws on one.
@@ -48,12 +49,24 @@ export interface MapZoneEntry {
   readonly configs: ReadonlyArray<ZoneConfig>;
 }
 
+// The current map's authored lineup (Tier 2, the unit mode) — the spatial
+// slots plus each enemy's class/level. `null` = no lineup authored. On
+// export it becomes a LineupSpec with key/mapKey = the map's key. ENEMY
+// ORDER IS MEANINGFUL (lead = slot 0; the campaign fold re-skins by index).
+export interface LineupModel {
+  readonly battleId: string;
+  readonly players: ReadonlyArray<LineupSlot>;
+  readonly guests: ReadonlyArray<LineupSlot>;
+  readonly enemies: ReadonlyArray<EnemyLineupSlot>;
+}
+
 // The whole editor state: the map being edited plus the full registry
 // (the edited map's entry lives inside `registry`, kept in sync by the
-// edit helpers; `mapKey` names it).
+// edit helpers; `mapKey` names it) plus the map's lineup, if any.
 export interface CartographerModel {
   readonly spec: MapSpec;
   readonly registry: ReadonlyArray<MapZoneEntry>;
+  readonly lineup: LineupModel | null;
 }
 
 // The edited map's zone entry (present for shipped maps; a fresh map gets

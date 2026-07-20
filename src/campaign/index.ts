@@ -117,6 +117,10 @@ export {
 } from './travel.ts';
 export type { CurrentEngagement, TravelChoice } from './travel.ts';
 export { buildSkirmishBattle, generateSkirmishParty, skirmishLevelAt } from './skirmish.ts';
+// S98 Tier 2 — authored lineups (Cartographer unit mode): the identity half
+// of a generated lineup module, framed by the shared enemy-kit constructor.
+export { enemiesFromLineup } from './lineup.ts';
+export { generatedEnemyUnit } from './enemy-kit.ts';
 export { CANONICAL_PROBE_BATTLE, probeBattleFor } from './probe-battle.ts';
 export type { VitalsProbeBattle } from './probe-battle.ts';
 export { CAMPAIGN_GRAPH, CAMPAIGN_NODES } from './node.ts';

@@ -6,7 +6,13 @@
 
 import { useMemo, useState, type CSSProperties, type ReactElement } from 'react';
 import type { CartographerModel } from './model.ts';
-import { docSlug, generateMapModule, generateZoneRegistryModule } from './codegen.ts';
+import {
+  docSlug,
+  generateLineupModule,
+  generateMapModule,
+  generateZoneRegistryModule,
+} from './codegen.ts';
+import { lineupSpecFromModel } from './export-spec.ts';
 import { shippedMapSpec } from './import.ts';
 
 interface CartographerExportProps {
@@ -35,6 +41,14 @@ export function CartographerExport({ model, onClose }: CartographerExportProps):
         label: 'src/content/deployment/registry.ts',
         text: generateZoneRegistryModule(model.registry),
       },
+      ...(model.lineup !== null
+        ? [
+            {
+              label: `src/content/battles/${docSlug(model.spec.key)}-battle.ts`,
+              text: generateLineupModule(lineupSpecFromModel(model)),
+            },
+          ]
+        : []),
     ],
     [model],
   );
@@ -54,8 +68,10 @@ export function CartographerExport({ model, onClose }: CartographerExportProps):
       <div style={barStyle}>
         <span style={titleStyle}>
           Export — generated modules (paste over the shipped files)
-          {isNewMap &&
+          {isNewMap && model.lineup === null &&
             ' — NEW map: to fight on it, also add a battle template + BATTLE_TEMPLATE_REGISTRY entry (same key) and, for a quick battle, a MAP_OPTIONS entry in App.tsx'}
+          {model.lineup !== null &&
+            ' — lineup: register the battle in BATTLE_TEMPLATE_REGISTRY (same key), and in node-content use enemies: enemiesFromLineup(<KEY>_LINEUP, catalog); add the lineup to SHIPPED_LINEUPS in cartographer/import.ts so the tool can reload it'}
         </span>
         <button type="button" style={closeStyle} onClick={onClose}>
           Close

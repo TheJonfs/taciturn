@@ -30,7 +30,7 @@ import { oskunFields } from '@content/maps/oskun-fields.ts';
 import { alveraVillage } from '@content/maps/alvera-village.ts';
 import type { BattleMap } from '@engine/index.ts';
 
-import { generateMapModule, generateZoneRegistryModule } from './codegen.ts';
+import { generateLineupModule, generateMapModule, generateZoneRegistryModule } from './codegen.ts';
 import { importZoneRegistry, SHIPPED_MAP_SPECS, shippedMapSpec } from './import.ts';
 
 const SHIPPED_SOURCES: ReadonlyArray<{ key: string; source: string; map: BattleMap }> = [
@@ -117,5 +117,38 @@ describe('cartographer codegen — synthetic fixpoint', () => {
 
   it('rejects malformed keys loudly', () => {
     expect(() => generateMapModule({ ...SYNTHETIC, key: 'Bad-Key' })).toThrow(/snake_case/);
+  });
+});
+
+describe('cartographer codegen — lineup round trip (Tier 2)', () => {
+  it('re-emits the compiled lineup fixture byte-identical', async () => {
+    const [{ LINEUP_FIXTURE_LINEUP }, { default: raw }] = await Promise.all([
+      import('./lineup-fixture-battle.ts'),
+      import('./lineup-fixture-battle.ts?raw'),
+    ]);
+    expect(generateLineupModule(LINEUP_FIXTURE_LINEUP)).toBe(raw);
+  });
+
+  it('the fixture module builds a coherent battle (restage + guest + id synthesis)', async () => {
+    const { LINEUP_FIXTURE_LINEUP, lineupFixtureBattle } = await import('./lineup-fixture-battle.ts');
+    expect(lineupFixtureBattle.battleId).toBe('lineup_fixture_v1');
+    expect(lineupFixtureBattle.units).toHaveLength(5 + 1 + 6);
+    expect(lineupFixtureBattle.units.filter((u) => u.guest === true)).toHaveLength(1);
+    // Sixth enemy slot synthesized a fresh id past the base's five.
+    expect(lineupFixtureBattle.units.map((u) => String(u.id))).toContain('lineup_fixture_enemy_6');
+    expect(LINEUP_FIXTURE_LINEUP.enemies[0]!.classId).toBe('monk'); // lead slot
+  });
+
+  it('refuses a lineup keyed as the hand-written base battle', () => {
+    expect(() =>
+      generateLineupModule({
+        key: 'river_ridge',
+        mapKey: 'river_ridge',
+        battleId: 'x_v1',
+        players: [],
+        guests: [],
+        enemies: [{ x: 0, y: 0, layer: 0, facing: 'N', classId: 'monk', level: 1 }],
+      }),
+    ).toThrow(/hand-written base battle/);
   });
 });

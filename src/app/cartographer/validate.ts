@@ -8,6 +8,7 @@
 // mistake worth flagging before a playtest finds it.
 
 import {
+  classId,
   teamId,
   validateDeploymentZones,
   validateMap,
@@ -16,8 +17,11 @@ import {
 } from '@engine/index.ts';
 import { defaultRuleset } from '@content/rulesets/default.ts';
 import { buildMapFromSpec } from '@content/maps/map-format.ts';
+import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
+import { loadDefaultCatalog } from '@content/index.ts';
 import type { CartographerModel, ZoneConfig } from './model.ts';
-import { defaultZoneConfig } from './edit.ts';
+import { RESERVED_LINEUP_KEYS } from './codegen.ts';
+import { defaultZoneConfig, zoneMembership } from './edit.ts';
 
 export interface CartographerFinding {
   readonly level: 'error' | 'warn';
@@ -88,6 +92,99 @@ export function validateModel(
 
   if (terrainResult.ok && zoneResult.ok) {
     findings.push(...connectivityAdvisory(model, config));
+  }
+  findings.push(...lineupFindings(model, config));
+  return findings;
+}
+
+// The base config a generated lineup module spreads — its player-fixture
+// count is the staging count every lineup must author.
+const BASE_PLAYER_COUNT = riverRidgeBattle.units.filter(
+  (u) => u.team === riverRidgeBattle.teams[0]!.id && u.guest !== true,
+).length;
+
+let catalogSingleton: ReturnType<typeof loadDefaultCatalog> | null = null;
+const catalog = (): ReturnType<typeof loadDefaultCatalog> =>
+  (catalogSingleton ??= loadDefaultCatalog());
+
+// Lineup checks (Tier 2). Errors gate export like everything else; the
+// zone-adjacency checks are warnings (staging outside the player zone is
+// odd but legal — deployment overrides player positions anyway).
+function lineupFindings(
+  model: CartographerModel,
+  config: ZoneConfig | undefined,
+): CartographerFinding[] {
+  const lineup = model.lineup;
+  if (lineup === null) return [];
+  const findings: CartographerFinding[] = [];
+  const spec = model.spec;
+
+  if (RESERVED_LINEUP_KEYS.has(spec.key)) {
+    findings.push({
+      level: 'error',
+      message:
+        `lineup: '${spec.key}' is the hand-written base battle every lineup spreads — ` +
+        `rename the map key (save-as) to export a lineup here`,
+    });
+  }
+  if (!/^[a-z][a-z0-9_]*$/.test(lineup.battleId)) {
+    findings.push({
+      level: 'error',
+      message: `lineup: battle id '${lineup.battleId}' must be snake_case`,
+    });
+  }
+  if (lineup.players.length !== BASE_PLAYER_COUNT) {
+    findings.push({
+      level: 'error',
+      message: `lineup: ${lineup.players.length}/${BASE_PLAYER_COUNT} player staging slots placed`,
+    });
+  }
+  if (lineup.enemies.length === 0) {
+    findings.push({ level: 'error', message: 'lineup: no enemy slots placed' });
+  }
+
+  const all = [
+    ...lineup.players.map((s) => ({ ...s, what: 'player slot' })),
+    ...lineup.guests.map((s) => ({ ...s, what: 'guest slot' })),
+    ...lineup.enemies.map((s) => ({ ...s, what: 'enemy slot' })),
+  ];
+  const seen = new Set<string>();
+  for (const s of all) {
+    const key = `${s.x},${s.y}`;
+    if (seen.has(key)) {
+      findings.push({ level: 'error', message: `lineup: two units share tile (${s.x},${s.y})` });
+    }
+    seen.add(key);
+    if (s.x < 0 || s.x >= spec.width || s.y < 0 || s.y >= spec.height) {
+      findings.push({
+        level: 'error',
+        message: `lineup: ${s.what} (${s.x},${s.y}) is out of bounds`,
+      });
+    } else if (s.layer === 1 && !spec.decks.some((d) => d.x === s.x && d.y === s.y)) {
+      findings.push({
+        level: 'error',
+        message: `lineup: ${s.what} (${s.x},${s.y}) stands on layer 1 but the tile has no deck`,
+      });
+    }
+  }
+
+  for (const e of lineup.enemies) {
+    if (!catalog().hasClass(classId(e.classId))) {
+      findings.push({ level: 'error', message: `lineup: unknown class '${e.classId}'` });
+    }
+    if (!Number.isInteger(e.level) || e.level < 1 || e.level > 50) {
+      findings.push({
+        level: 'error',
+        message: `lineup: enemy at (${e.x},${e.y}) has level ${e.level} (expected 1-50)`,
+      });
+    }
+    const zone = config !== undefined ? zoneMembership(config, e.x, e.y) : undefined;
+    if (zone?.team === 'team_a') {
+      findings.push({
+        level: 'warn',
+        message: `lineup: enemy at (${e.x},${e.y}) stands inside the player deployment zone`,
+      });
+    }
   }
   return findings;
 }

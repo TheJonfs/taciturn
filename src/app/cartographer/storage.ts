@@ -28,7 +28,8 @@ export function loadDraft(): CartographerModel | null {
     ) {
       return null;
     }
-    return parsed;
+    // Tier-1 drafts predate the lineup field — normalize it in.
+    return { ...parsed, lineup: parsed.lineup ?? null };
   } catch {
     return null;
   }

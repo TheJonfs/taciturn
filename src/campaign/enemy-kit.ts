@@ -25,16 +25,21 @@
 // placeholder story lineups — and M4's real generator inherits the dial.
 
 import {
+  bucketId,
   EMPTY_UNIT_EQUIPMENT,
   itemId,
   slotIneligibilityReason,
   type Catalog,
   type ClassId,
   type EquipmentSlotId,
+  type Loadout,
   type UnitEquipment,
 } from '@engine/index.ts';
+import { authoredEnemy } from './authored-enemy.ts';
 import { ENEMY_JP_PER_LEVEL } from './economy-config.ts';
+import { withInnatePassives } from './innate-passives.ts';
 import { COMPONENT_ENTRIES, type UnlockToken } from './progression/index.ts';
+import type { CampaignUnit } from './types.ts';
 
 // The JP a generated level-L enemy may have "spent" on its kit.
 export function enemyJpBudget(level: number): number {
@@ -87,4 +92,40 @@ export function basicEnemyGear(cls: ClassId, catalog: Catalog): UnitEquipment {
     return { ...EMPTY_UNIT_EQUIPMENT, rightHand: dagger };
   }
   return EMPTY_UNIT_EQUIPMENT;
+}
+
+// One fully-framed generated enemy: the class's first-action command set +
+// innate passives, level-budgeted curriculum kit, deterministic Brave/Faith
+// band roll, basic gear. Extracted from the skirmish stub (S98 Tier 2) so
+// authored lineups (`enemiesFromLineup`) and generated skirmish parties
+// build enemies through the SAME constructor — one framework, two callers.
+export function generatedEnemyUnit(args: {
+  readonly id: string;
+  readonly name: string;
+  readonly classId: ClassId;
+  readonly level: number;
+  // Slot index — salts the deterministic Brave/Faith roll so a party
+  // doesn't share one statline.
+  readonly index: number;
+  readonly catalog: Catalog;
+}): CampaignUnit {
+  const { id, name, classId: cls, level, index, catalog } = args;
+  const loadout: Loadout = withInnatePassives(
+    {
+      actionBuckets: { [bucketId('first_action')]: [catalog.getClass(cls).firstActionCommandSet] },
+      passiveBuckets: {},
+    },
+    cls,
+    catalog,
+  );
+  return authoredEnemy({
+    id,
+    name,
+    classId: cls,
+    level,
+    loadout,
+    equipment: basicEnemyGear(cls, catalog),
+    unlocks: enemyKitForLevel(cls, level, catalog),
+    ...enemyBraveFaith(level, index),
+  });
 }
