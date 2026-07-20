@@ -27,6 +27,15 @@ proof — recreate any time via the tool. Suite 3025, `tsc -b` clean.
 
 ### For Chris — first real authoring session
 
+- **Read `docs/cartographer-guide.md`** (S98 cont.) — the full user's guide:
+  modify-existing and author-new workflows through wiring a fresh map to a
+  Ch1 story node. Linked from the CLAUDE.md context table.
+- **Pointer-to-tile offset FIXED** (S98 cont., commit `0725546`): the canvas
+  mapped clicks proportionally over the element, ignoring SVG letterboxing —
+  off by whole tiles toward the left/right edges (Chris's report). Now uses
+  the SVG screen CTM; verified far-left/far-right clicks land exactly.
+  **AtlasCanvas has the same latent bug** — flagged as a spawned task chip;
+  port the same fix (matters for node drag precision into node-layout.ts).
 - **Open `?cartographer` in dev.** Pick a shipped map or "+ New map…". Export
   gives you two files to paste over (`src/content/maps/<slug>.ts` +
   `src/content/deployment/registry.ts`); `tsc` + the round-trip test vouch. For
