@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="256" height="256" shape-rendering="crispEdges">
+  <!-- Bridge deck, rising toward the SOUTH (high edge = south; the north
+       edge is the low bridge-end lip meeting the bank). Same body as
+       bridge-flat-ns plus: a dark→light gradient along the travel axis
+       (low end shaded, high end lit — matches the lit-from-upper-left
+       "higher is lighter" convention) and a threshold lip at the low
+       (north) edge. Plank rows compress slightly toward the low end to
+       cheat foreshortening. -->
+  <defs>
+    <linearGradient id="rise_s_shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#140c06" stop-opacity="0.36"/>
+      <stop offset="0.5" stop-color="#140c06" stop-opacity="0.10"/>
+      <stop offset="0.62" stop-color="#fff0d2" stop-opacity="0"/>
+      <stop offset="1" stop-color="#fff0d2" stop-opacity="0.20"/>
+    </linearGradient>
+  </defs>
+  <!-- planks: shorter rows near the low (north) end, opening up southward -->
+  <rect x="7" y="0" width="34" height="4.4" fill="#8d6c46"/>
+  <rect x="7" y="4.4" width="34" height="4.8" fill="#846440"/>
+  <rect x="7" y="9.2" width="34" height="5.2" fill="#93724b"/>
+  <rect x="7" y="14.4" width="34" height="5.8" fill="#7f603c"/>
+  <rect x="7" y="20.2" width="34" height="6.4" fill="#8a6a45"/>
+  <rect x="7" y="26.6" width="34" height="6.8" fill="#8f6e48"/>
+  <rect x="7" y="33.4" width="34" height="7.2" fill="#82633e"/>
+  <rect x="7" y="40.6" width="34" height="7.4" fill="#8b6b46"/>
+  <!-- plank seams -->
+  <g fill="#55402a" opacity="0.85">
+    <rect x="7" y="4.0" width="34" height="0.8"/>
+    <rect x="7" y="8.8" width="34" height="0.8"/>
+    <rect x="7" y="14.0" width="34" height="0.8"/>
+    <rect x="7" y="19.8" width="34" height="0.8"/>
+    <rect x="7" y="26.2" width="34" height="0.8"/>
+    <rect x="7" y="33.0" width="34" height="0.8"/>
+    <rect x="7" y="40.2" width="34" height="0.8"/>
+  </g>
+  <!-- stringer rails -->
+  <rect x="7" y="0" width="3" height="48" fill="#6b5136"/>
+  <rect x="38" y="0" width="3" height="48" fill="#6b5136"/>
+  <rect x="7" y="0" width="1" height="48" fill="#5a452c"/>
+  <rect x="40" y="0" width="1" height="48" fill="#5a452c"/>
+  <!-- incline shading: dark at the low north end, lit at the high south end -->
+  <rect x="7" y="0" width="34" height="48" fill="url(#rise_s_shade)"/>
+  <!-- threshold lip at the low (north) edge: dark step + lit riser line -->
+  <rect x="7" y="0" width="34" height="2.2" fill="#4a3826"/>
+  <rect x="7" y="2.2" width="34" height="0.9" fill="#a3835c"/>
+</svg>

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="256" height="256" shape-rendering="crispEdges">
+  <!-- Bridge deck, rising toward the WEST (high edge = west; the east
+       edge is the low bridge-end lip meeting the bank). Horizontal
+       mirror of bridge-rise-e: lit at the west, shaded at the east, lip
+       on the east edge, plank columns compressing toward the low (east)
+       end. -->
+  <defs>
+    <linearGradient id="rise_w_shade" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#140c06" stop-opacity="0.36"/>
+      <stop offset="0.5" stop-color="#140c06" stop-opacity="0.10"/>
+      <stop offset="0.62" stop-color="#fff0d2" stop-opacity="0"/>
+      <stop offset="1" stop-color="#fff0d2" stop-opacity="0.20"/>
+    </linearGradient>
+  </defs>
+  <!-- planks: widest at the high (west) end, compressing eastward -->
+  <rect x="0" y="7" width="7.4" height="34" fill="#8b6b46"/>
+  <rect x="7.4" y="7" width="7.2" height="34" fill="#82633e"/>
+  <rect x="14.6" y="7" width="6.8" height="34" fill="#8f6e48"/>
+  <rect x="21.4" y="7" width="6.4" height="34" fill="#8a6a45"/>
+  <rect x="27.8" y="7" width="5.8" height="34" fill="#7f603c"/>
+  <rect x="33.6" y="7" width="5.2" height="34" fill="#93724b"/>
+  <rect x="38.8" y="7" width="4.8" height="34" fill="#846440"/>
+  <rect x="43.6" y="7" width="4.4" height="34" fill="#8d6c46"/>
+  <!-- plank seams -->
+  <g fill="#55402a" opacity="0.85">
+    <rect x="7.0" y="7" width="0.8" height="34"/>
+    <rect x="14.2" y="7" width="0.8" height="34"/>
+    <rect x="21.0" y="7" width="0.8" height="34"/>
+    <rect x="27.4" y="7" width="0.8" height="34"/>
+    <rect x="33.2" y="7" width="0.8" height="34"/>
+    <rect x="38.4" y="7" width="0.8" height="34"/>
+    <rect x="43.2" y="7" width="0.8" height="34"/>
+  </g>
+  <!-- stringer rails -->
+  <rect x="0" y="7" width="48" height="3" fill="#6b5136"/>
+  <rect x="0" y="38" width="48" height="3" fill="#6b5136"/>
+  <rect x="0" y="7" width="48" height="1" fill="#5a452c"/>
+  <rect x="0" y="40" width="48" height="1" fill="#5a452c"/>
+  <!-- incline shading: lit west, shaded east -->
+  <rect x="0" y="7" width="48" height="34" fill="url(#rise_w_shade)"/>
+  <!-- threshold lip at the low (east) edge: lit riser line + dark step -->
+  <rect x="44.9" y="7" width="0.9" height="34" fill="#a3835c"/>
+  <rect x="45.8" y="7" width="2.2" height="34" fill="#4a3826"/>
+</svg>

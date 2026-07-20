@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="256" height="256" shape-rendering="crispEdges">
+  <!-- Bridge deck, flat, north-south travel axis (S97 bridge art kit).
+       Deck spans full height; transparent 7px margins left/right make the
+       deck read narrower than the tile so the ground sliver peeks beside
+       the lifted art. Planks run across the travel axis; stringer rails
+       ride the deck edges. -->
+  <!-- planks (8 rows of 6) -->
+  <rect x="7" y="0" width="34" height="6" fill="#8d6c46"/>
+  <rect x="7" y="6" width="34" height="6" fill="#846440"/>
+  <rect x="7" y="12" width="34" height="6" fill="#93724b"/>
+  <rect x="7" y="18" width="34" height="6" fill="#7f603c"/>
+  <rect x="7" y="24" width="34" height="6" fill="#8a6a45"/>
+  <rect x="7" y="30" width="34" height="6" fill="#8f6e48"/>
+  <rect x="7" y="36" width="34" height="6" fill="#82633e"/>
+  <rect x="7" y="42" width="34" height="6" fill="#8b6b46"/>
+  <!-- plank seams -->
+  <g fill="#55402a" opacity="0.85">
+    <rect x="7" y="5.6" width="34" height="0.8"/>
+    <rect x="7" y="11.6" width="34" height="0.8"/>
+    <rect x="7" y="17.6" width="34" height="0.8"/>
+    <rect x="7" y="23.6" width="34" height="0.8"/>
+    <rect x="7" y="29.6" width="34" height="0.8"/>
+    <rect x="7" y="35.6" width="34" height="0.8"/>
+    <rect x="7" y="41.6" width="34" height="0.8"/>
+  </g>
+  <!-- stringer rails -->
+  <rect x="7" y="0" width="3" height="48" fill="#6b5136"/>
+  <rect x="38" y="0" width="3" height="48" fill="#6b5136"/>
+  <rect x="7" y="0" width="1" height="48" fill="#5a452c"/>
+  <rect x="40" y="0" width="1" height="48" fill="#5a452c"/>
+  <!-- nail heads on the rails at plank centers -->
+  <g fill="#54402a">
+    <rect x="8" y="2.6" width="1.2" height="1.2"/>
+    <rect x="8" y="8.6" width="1.2" height="1.2"/>
+    <rect x="8" y="14.6" width="1.2" height="1.2"/>
+    <rect x="8" y="20.6" width="1.2" height="1.2"/>
+    <rect x="8" y="26.6" width="1.2" height="1.2"/>
+    <rect x="8" y="32.6" width="1.2" height="1.2"/>
+    <rect x="8" y="38.6" width="1.2" height="1.2"/>
+    <rect x="8" y="44.6" width="1.2" height="1.2"/>
+    <rect x="38.8" y="2.6" width="1.2" height="1.2"/>
+    <rect x="38.8" y="8.6" width="1.2" height="1.2"/>
+    <rect x="38.8" y="14.6" width="1.2" height="1.2"/>
+    <rect x="38.8" y="20.6" width="1.2" height="1.2"/>
+    <rect x="38.8" y="26.6" width="1.2" height="1.2"/>
+    <rect x="38.8" y="32.6" width="1.2" height="1.2"/>
+    <rect x="38.8" y="38.6" width="1.2" height="1.2"/>
+    <rect x="38.8" y="44.6" width="1.2" height="1.2"/>
+  </g>
+</svg>

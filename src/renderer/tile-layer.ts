@@ -34,6 +34,7 @@
 import { Container, Graphics, Sprite, type Texture } from 'pixi.js';
 import type { BattleMap, TerrainType } from '@engine/index.ts';
 import { pickTerrainVariantIndex } from '../assets/terrain/index.ts';
+import { bridgeDeckVariantFor, BRIDGE_DECK_VARIANT_ORDER } from './bridge-variant.ts';
 import type { StackGeometry } from './world.ts';
 import {
   DECK_SHADOW_ALPHA,
@@ -61,6 +62,16 @@ export class TileLayer {
   // own textures on top.
   private readonly deckGraphics: Graphics;
   private readonly deckOverlay: Container;
+  // Terrain types whose texture pool has applied. A lifted deck whose
+  // terrain is textured SKIPS its solid fallback fill — the bridge kit
+  // is deliberately narrower than the tile (transparent side margins),
+  // and the fallback rect behind it would defeat the narrowing. Base-
+  // pass tiles keep their fills regardless (their art is opaque).
+  private readonly texturedTerrains: Set<TerrainType> = new Set();
+  // Retained draw inputs so a late-arriving texture pool can repaint
+  // the deck pass without the renderer re-supplying them.
+  private lastMap: BattleMap | null = null;
+  private lastGeo: StackGeometry | null = null;
 
   constructor() {
     this.container = new Container();
@@ -78,10 +89,10 @@ export class TileLayer {
   }
 
   draw(map: BattleMap, geo?: StackGeometry | null): void {
+    this.lastMap = map;
+    this.lastGeo = geo ?? null;
     const g = this.graphics;
     g.clear();
-    const dg = this.deckGraphics;
-    dg.clear();
 
     // Group tiles by layer so higher layers draw on top of lower ones
     // (within each pass).
@@ -91,25 +102,48 @@ export class TileLayer {
       const tiles = byLayer.get(layer);
       if (tiles === undefined) continue;
       for (const tile of tiles) {
+        if ((geo?.liftFor(tile) ?? 0) > 0) continue; // deck pass draws these
         const color = TERRAIN_COLORS[tile.terrain] ?? TERRAIN_FALLBACK_COLOR;
         const px = tile.x * TILE_SIZE + TILE_INSET / 2;
         const py = tile.y * TILE_SIZE + TILE_INSET / 2;
         const size = TILE_SIZE - TILE_INSET;
-        const lift = geo?.liftFor(tile) ?? 0;
-        if (lift > 0) {
-          // Lifted deck: shadow over the true footprint (darkening the
-          // ground tile drawn in the base pass beneath), then the deck
-          // rect shifted up-left by the lift.
-          dg.rect(px, py, size, size);
-          dg.fill({ color: DECK_SHADOW_COLOR, alpha: DECK_SHADOW_ALPHA });
-          dg.rect(px - lift, py - lift, size, size);
-          dg.fill(color);
-          dg.stroke({ color: TILE_OUTLINE_COLOR, alpha: TILE_OUTLINE_ALPHA, width: 1 });
-        } else {
-          g.rect(px, py, size, size);
-          g.fill(color);
-          g.stroke({ color: TILE_OUTLINE_COLOR, alpha: TILE_OUTLINE_ALPHA, width: 1 });
-        }
+        g.rect(px, py, size, size);
+        g.fill(color);
+        g.stroke({ color: TILE_OUTLINE_COLOR, alpha: TILE_OUTLINE_ALPHA, width: 1 });
+      }
+    }
+
+    this.redrawDeckPass();
+  }
+
+  // The deck pass: per lifted deck tile, the drop shadow on its true
+  // footprint plus — only while its terrain's art hasn't applied — the
+  // solid fallback fill at the lifted rect. Re-run when a texture pool
+  // lands so the fallback fill disappears behind transparent-margin art.
+  private redrawDeckPass(): void {
+    const map = this.lastMap;
+    const geo = this.lastGeo;
+    const dg = this.deckGraphics;
+    dg.clear();
+    if (map === null || geo === null) return;
+    // Decks draw FULL-BLEED (no TILE_INSET): a span's pieces are
+    // authored edge-to-edge so consecutive tiles butt into one
+    // continuous bridge — the inset gap made a span read as separate
+    // floating planks. Full-bleed also matches the hit-test's deckRect
+    // exactly.
+    const sorted = [...map.tiles].sort((a, b) => a.layer - b.layer);
+    for (const tile of sorted) {
+      const lift = geo.liftFor(tile);
+      if (lift <= 0) continue;
+      const px = tile.x * TILE_SIZE;
+      const py = tile.y * TILE_SIZE;
+      dg.rect(px, py, TILE_SIZE, TILE_SIZE);
+      dg.fill({ color: DECK_SHADOW_COLOR, alpha: DECK_SHADOW_ALPHA });
+      if (!this.texturedTerrains.has(tile.terrain)) {
+        const color = TERRAIN_COLORS[tile.terrain] ?? TERRAIN_FALLBACK_COLOR;
+        dg.rect(px - lift, py - lift, TILE_SIZE, TILE_SIZE);
+        dg.fill(color);
+        dg.stroke({ color: TILE_OUTLINE_COLOR, alpha: TILE_OUTLINE_ALPHA, width: 1 });
       }
     }
   }
@@ -148,14 +182,24 @@ export class TileLayer {
     const tint = TERRAIN_TINTS[terrainType] ?? TERRAIN_TINT_DEFAULT;
     for (const tile of map.tiles) {
       if (tile.terrain !== terrainType) continue;
-      const idx = pickTerrainVariantIndex(masterSeed, tile.x, tile.y, textures.length);
+      // S97: bridge decks wear ORIENTED art — the pool is the six-piece
+      // kit in BRIDGE_DECK_VARIANT_ORDER, indexed by the map-derived
+      // variant instead of the seeded pick.
+      const idx =
+        terrainType === 'bridge'
+          ? Math.max(0, BRIDGE_DECK_VARIANT_ORDER.indexOf(bridgeDeckVariantFor(map, tile)))
+          : pickTerrainVariantIndex(masterSeed, tile.x, tile.y, textures.length);
       const texture = textures[idx];
       if (texture === undefined) continue;
       const sprite = new Sprite(texture);
       sprite.label = `tile-${terrainType}`;
       const lift = geo?.liftFor(tile) ?? 0;
-      sprite.x = tile.x * TILE_SIZE + TILE_INSET / 2 - lift;
-      sprite.y = tile.y * TILE_SIZE + TILE_INSET / 2 - lift;
+      // Lifted decks draw full-bleed (see redrawDeckPass) so span
+      // pieces butt seamlessly; base tiles keep the inset grid look.
+      const inset = lift > 0 ? 0 : TILE_INSET / 2;
+      const drawSize = lift > 0 ? TILE_SIZE : size;
+      sprite.x = tile.x * TILE_SIZE + inset - lift;
+      sprite.y = tile.y * TILE_SIZE + inset - lift;
       // Fill the tile square on both axes. Scaling by a single dimension
       // (the old `max(w, h)`) only covered the tile when the texture was
       // square; a non-square variant (e.g. S70's 256×139 rock) left the
@@ -163,13 +207,20 @@ export class TileLayer {
       // scale stretches any aspect ratio to fill exactly — terrain
       // textures tolerate the slight stretch better than a grey gap.
       sprite.scale.set(
-        size / Math.max(texture.width, 1),
-        size / Math.max(texture.height, 1),
+        drawSize / Math.max(texture.width, 1),
+        drawSize / Math.max(texture.height, 1),
       );
       if (tint !== TERRAIN_TINT_DEFAULT) sprite.tint = tint;
       // Lifted decks go to the deck pass so their art sits above the
       // ground tile's texture AND above the shadow rect.
       (lift > 0 ? this.deckOverlay : this.overlay).addChild(sprite);
+    }
+    // Art has (re)applied for this terrain: lifted decks of this type
+    // drop their solid fallback fill so transparent margins show the
+    // ground beneath rather than the fill.
+    if (!this.texturedTerrains.has(terrainType)) {
+      this.texturedTerrains.add(terrainType);
+      this.redrawDeckPass();
     }
   }
 }

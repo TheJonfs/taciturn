@@ -42,6 +42,12 @@ import rock02Url from './rock-02.png';
 import rock03Url from './rock-03.png';
 import grassRock01Url from './grass-rock-01.png';
 import grassRock02Url from './grass-rock-02.png';
+import bridgeFlatNsUrl from './bridge-flat-ns.svg';
+import bridgeFlatEwUrl from './bridge-flat-ew.svg';
+import bridgeRiseNUrl from './bridge-rise-n.svg';
+import bridgeRiseSUrl from './bridge-rise-s.svg';
+import bridgeRiseEUrl from './bridge-rise-e.svg';
+import bridgeRiseWUrl from './bridge-rise-w.svg';
 import type { TerrainType } from '@engine/index.ts';
 
 // Session 33 (ADR-0073): `water_shallow` / `water_deep` ship with
@@ -59,6 +65,14 @@ import type { TerrainType } from '@engine/index.ts';
 // S96: `bridge` reuses the rampart plank art as a placeholder (the S47
 // rampart source IS wooden planking; authored bridge-deck art can swap in
 // here without touching consumers).
+//
+// S97: `bridge` now ships the six-piece ORIENTED deck kit (SVG,
+// transparent side margins so the narrowed deck shows the ground sliver
+// beside the lifted art). Unlike every other pool, bridge variants are
+// NOT seed-picked: the entry order here is `BRIDGE_DECK_VARIANT_ORDER`
+// (renderer/bridge-variant.ts), and the tile layer indexes it by the
+// map-derived variant. Keep the two in lockstep — the selection module
+// owns the order.
 export const TERRAIN_MANIFEST: ReadonlyMap<TerrainType, ReadonlyArray<string>> = new Map([
   ['ground', [ground01Url, ground02Url, ground03Url]],
   ['water_shallow', [shallowWater01Url, shallowWater02Url, shallowWater03Url]],
@@ -66,7 +80,16 @@ export const TERRAIN_MANIFEST: ReadonlyMap<TerrainType, ReadonlyArray<string>> =
   ['rampart', [rampart01Url, rampart02Url, rampart03Url]],
   ['rock', [rock01Url, rock02Url, rock03Url]],
   ['grass_rock', [grassRock01Url, grassRock02Url]],
-  ['bridge', [rampart01Url, rampart02Url, rampart03Url]],
+  // Order = BRIDGE_DECK_VARIANT_ORDER: flat_ns, flat_ew, rise_n,
+  // rise_s, rise_e, rise_w.
+  ['bridge', [
+    bridgeFlatNsUrl,
+    bridgeFlatEwUrl,
+    bridgeRiseNUrl,
+    bridgeRiseSUrl,
+    bridgeRiseEUrl,
+    bridgeRiseWUrl,
+  ]],
 ]);
 
 // Returns the texture-URL pool for a terrain type, or `null` if no
