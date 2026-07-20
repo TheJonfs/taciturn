@@ -102,15 +102,18 @@ const BRIDGE_DECK: ReadonlyArray<{ x: number; y: number }> = [
 ];
 const BRIDGE_DECK_ELEVATION = 3;
 
-// S97 (bridge art kit): the southern RAMP — a layer-0 bridge-terrain
-// tile on the elev-2 approach at (2, 10). The deck's visual lift shifts
-// span art up-left, which seats the NORTH end on its bank but pulls the
-// SOUTH end off its bank; extending the bridge-terrain chain one cell
-// onto dry ground gives the span a rising approach piece to land on
-// (Chris's call). Purely a terrain swap: single standing place, layer
-// 0, bank elevation — NOT a stacked cell, no clearance implications.
-// The art-kit selection rule reads the chain and puts the rise_n piece
-// here while (2, 9) above the river flattens.
+// S97 (bridge art kit): the southern RAMP — the `bridge_ramp` tile
+// PROPERTY on the ordinary elev-2 ground approach at (2, 10). The
+// deck's visual lift shifts span art up-left, which seats the NORTH
+// end on its bank but pulls the SOUTH end off its bank; the ramp gives
+// the span a rising approach piece to land on (Chris's call). The
+// property is renderer-facing dressing ONLY: the tile stays a normal
+// single-layer ground tile (grass fill/art, ordinary walkability, no
+// stacked cell — a same-elevation layer-1 deck would fail the
+// validator's BRIDGE_MIN_CLEARANCE rule and needlessly engage the
+// stacked-cell UI). The renderer draws the kit's rise piece lifted
+// over the grass so it butts the shifted span art, and the art-kit
+// selection rule counts the property as part of the bridge chain.
 const BRIDGE_RAMP: ReadonlyArray<{ x: number; y: number }> = [{ x: 2, y: 10 }];
 
 function buildAlveraVillage(): BattleMap {
@@ -125,8 +128,8 @@ function buildAlveraVillage(): BattleMap {
         y,
         layer: 0,
         elevation: elev,
-        terrain: isRamp ? 'bridge' : terrainFromElevation(elev),
-        properties: [],
+        terrain: terrainFromElevation(elev),
+        properties: isRamp ? ['bridge_ramp'] : [],
       });
     }
   }

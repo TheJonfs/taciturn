@@ -56,13 +56,21 @@ export const BRIDGE_DECK_VARIANT_ORDER: ReadonlyArray<BridgeDeckVariant> = [
   'rise_w',
 ];
 
-// The topmost bridge-terrain tile at a cell — the walkable surface of
-// the span there, whatever layer it rides (a lifted deck or a layer-0
-// bank ramp). Undefined when the cell isn't part of a bridge.
+// A tile that is part of a bridge's walkable surface chain: a
+// bridge-terrain deck, or an ordinary ground tile dressed with the
+// `bridge_ramp` property (the S97 bank-ramp convention — see
+// alvera-village.ts).
+export function isBridgeSurface(tile: Tile): boolean {
+  return tile.terrain === 'bridge' || tile.properties.includes('bridge_ramp');
+}
+
+// The topmost bridge-surface tile at a cell — the walkable surface of
+// the span there, whatever layer it rides (a lifted deck or a bank
+// ramp). Undefined when the cell isn't part of a bridge.
 function bridgeTileAt(map: BattleMap, x: number, y: number): Tile | undefined {
   let top: Tile | undefined;
   for (const t of map.tiles) {
-    if (t.x !== x || t.y !== y || t.terrain !== 'bridge') continue;
+    if (t.x !== x || t.y !== y || !isBridgeSurface(t)) continue;
     if (top === undefined || t.layer > top.layer) top = t;
   }
   return top;

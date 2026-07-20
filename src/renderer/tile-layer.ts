@@ -102,7 +102,11 @@ export class TileLayer {
       const tiles = byLayer.get(layer);
       if (tiles === undefined) continue;
       for (const tile of tiles) {
-        if ((geo?.liftFor(tile) ?? 0) > 0) continue; // deck pass draws these
+        // Stacked decks route to the deck pass. Ramp cells do NOT —
+        // their own (ground) art belongs at the footprint; the lifted
+        // bridge overlay is added separately in applyTerrainTextures.
+        const stack = geo?.stackAt(tile.x, tile.y);
+        if (stack !== undefined && stack.deckLayer === tile.layer) continue;
         const color = TERRAIN_COLORS[tile.terrain] ?? TERRAIN_FALLBACK_COLOR;
         const px = tile.x * TILE_SIZE + TILE_INSET / 2;
         const py = tile.y * TILE_SIZE + TILE_INSET / 2;
@@ -135,11 +139,16 @@ export class TileLayer {
     for (const tile of sorted) {
       const lift = geo.liftFor(tile);
       if (lift <= 0) continue;
+      const ramp = geo.isRampCell(tile.x, tile.y);
       const px = tile.x * TILE_SIZE;
       const py = tile.y * TILE_SIZE;
       dg.rect(px, py, TILE_SIZE, TILE_SIZE);
       dg.fill({ color: DECK_SHADOW_COLOR, alpha: DECK_SHADOW_ALPHA });
-      if (!this.texturedTerrains.has(tile.terrain)) {
+      // Fallback fill at the lifted rect while the deck's art loads.
+      // Ramp cells skip it — their own (ground) art draws at the
+      // footprint in the base pass; the bridge overlay arrives with the
+      // bridge pool.
+      if (!ramp && !this.texturedTerrains.has(tile.terrain)) {
         const color = TERRAIN_COLORS[tile.terrain] ?? TERRAIN_FALLBACK_COLOR;
         dg.rect(px - lift, py - lift, TILE_SIZE, TILE_SIZE);
         dg.fill(color);
@@ -193,35 +202,18 @@ export class TileLayer {
       if (texture === undefined) continue;
       const sprite = new Sprite(texture);
       sprite.label = `tile-${terrainType}`;
-      const lift = geo?.liftFor(tile) ?? 0;
-      // Bridge art draws full-bleed (see redrawDeckPass) so span pieces
-      // butt seamlessly — lifted decks AND layer-0 bank ramps alike;
-      // other terrain keeps the inset grid look. A ramp keeps its base-
-      // pass fill beneath the art (its cell has no other tile below, so
-      // the transparent margins would otherwise show the void).
-      const fullBleed = lift > 0 || terrainType === 'bridge';
-      const inset = fullBleed ? 0 : TILE_INSET / 2;
-      let drawW = fullBleed ? TILE_SIZE : size;
-      let drawH = drawW;
-      let drawX = tile.x * TILE_SIZE + inset - lift;
-      let drawY = tile.y * TILE_SIZE + inset - lift;
-      // A layer-0 bank ramp stretches toward an adjacent LIFTED span
-      // piece: the span's art shifts up-left with the visual lift while
-      // the ramp sits at its true footprint, which would leave a
-      // lift-sized diagonal jog at the joint. Extending the ramp's art
-      // north/west by the neighbor's lift closes the seam (the deck's
-      // drop shadow falls on the stretched strip, reading as the span
-      // shading its own approach).
-      if (terrainType === 'bridge' && lift === 0 && geo != null) {
-        const northLift = geo.stackAt(tile.x, tile.y - 1)?.liftPx ?? 0;
-        const westLift = geo.stackAt(tile.x - 1, tile.y)?.liftPx ?? 0;
-        drawY -= northLift;
-        drawH += northLift;
-        drawX -= westLift;
-        drawW += westLift;
-      }
-      sprite.x = drawX;
-      sprite.y = drawY;
+      // The tile's OWN art rides the lift only when the tile is a
+      // stacked cell's deck — a ramp cell's ground art stays at its
+      // footprint (the lifted bridge overlay is added separately below).
+      const stack = geo?.stackAt(tile.x, tile.y);
+      const lift = stack !== undefined && stack.deckLayer === tile.layer ? stack.liftPx : 0;
+      // Lifted decks draw full-bleed (see redrawDeckPass) so span
+      // pieces butt seamlessly; base tiles keep the inset grid look.
+      const inset = lift > 0 ? 0 : TILE_INSET / 2;
+      const drawW = lift > 0 ? TILE_SIZE : size;
+      const drawH = drawW;
+      sprite.x = tile.x * TILE_SIZE + inset - lift;
+      sprite.y = tile.y * TILE_SIZE + inset - lift;
       // Fill the tile square on both axes. Scaling by a single dimension
       // (the old `max(w, h)`) only covered the tile when the texture was
       // square; a non-square variant (e.g. S70's 256×139 rock) left the
@@ -237,6 +229,32 @@ export class TileLayer {
       // ground tile's texture AND above the shadow rect.
       (lift > 0 ? this.deckOverlay : this.overlay).addChild(sprite);
     }
+
+    // S97 bank ramps: when the bridge pool applies, ramp-tagged cells
+    // additionally get the kit's rise piece drawn LIFTED over their own
+    // ground art (which stays at the footprint above), matched to the
+    // adjacent span's lift so the pieces butt.
+    if (terrainType === 'bridge' && geo != null) {
+      for (const tile of map.tiles) {
+        if (!tile.properties.includes('bridge_ramp')) continue;
+        if (geo.stackAt(tile.x, tile.y) !== undefined) continue;
+        const idx = Math.max(0, BRIDGE_DECK_VARIANT_ORDER.indexOf(bridgeDeckVariantFor(map, tile)));
+        const texture = textures[idx];
+        if (texture === undefined) continue;
+        const sprite = new Sprite(texture);
+        sprite.label = `tile-${terrainType}`;
+        const lift = geo.liftFor(tile);
+        sprite.x = tile.x * TILE_SIZE - lift;
+        sprite.y = tile.y * TILE_SIZE - lift;
+        sprite.scale.set(
+          TILE_SIZE / Math.max(texture.width, 1),
+          TILE_SIZE / Math.max(texture.height, 1),
+        );
+        if (tint !== TERRAIN_TINT_DEFAULT) sprite.tint = tint;
+        this.deckOverlay.addChild(sprite);
+      }
+    }
+
     // Art has (re)applied for this terrain: lifted decks of this type
     // drop their solid fallback fill so transparent margins show the
     // ground beneath rather than the fill.

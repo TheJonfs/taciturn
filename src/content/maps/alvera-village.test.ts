@@ -57,12 +57,14 @@ describe('Alvera Village map — the western bridge (S96, first layer-1 deck)', 
     expect(tileAt(alveraVillage, 2, 9, 0)!.terrain).toBe('water_shallow');
   });
 
-  it('the southern approach carries the S97 layer-0 bridge ramp at bank elevation', () => {
+  it('the southern approach carries the S97 bridge_ramp property on ordinary ground', () => {
     const ramp = tileAt(alveraVillage, 2, 10, 0)!;
-    expect(ramp.terrain).toBe('bridge');
+    // Renderer-facing dressing only: the tile stays normal ground at
+    // bank elevation with a single standing place (no stacked cell —
+    // a same-elevation layer-1 deck would fail BRIDGE_MIN_CLEARANCE).
+    expect(ramp.terrain).toBe('ground');
     expect(ramp.elevation).toBe(2);
-    // Single standing place — the ramp is a terrain swap, NOT a
-    // stacked cell (no layer-1 tile above it).
+    expect(ramp.properties).toContain('bridge_ramp');
     expect(tileAt(alveraVillage, 2, 10, 1)).toBeUndefined();
   });
 

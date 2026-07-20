@@ -86,6 +86,12 @@ export function deckLiftPx(deckElevation: number, groundElevation: number): numb
 // nothing.
 export class StackGeometry {
   private readonly stacks: Map<string, StackVisual> = new Map();
+  // S97 bank ramps: single-layer cells tagged with the `bridge_ramp`
+  // tile property. The cell's own (ground) art stays at its footprint,
+  // but the bridge-kit ramp piece drawn OVER it — and everything that
+  // should sit ON the ramp (unit sprites, highlights, labels) — rides
+  // this lift, matched to the adjacent lifted span so the pieces butt.
+  private readonly rampLifts: Map<string, number> = new Map();
 
   constructor(map: BattleMap) {
     const byCell = new Map<string, Tile[]>();
@@ -106,6 +112,20 @@ export class StackGeometry {
         liftPx: deckLiftPx(deck.elevation, ground.elevation),
       });
     }
+    // Ramp pass (after stacks — a ramp matches its neighbor span's
+    // lift). Ramp-tagged cells inside a stack are ignored: the stack's
+    // own lift governs there.
+    for (const tile of map.tiles) {
+      if (!tile.properties.includes('bridge_ramp')) continue;
+      const key = `${tile.x},${tile.y}`;
+      if (this.stacks.has(key)) continue;
+      let lift = 0;
+      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]] as const) {
+        const s = this.stacks.get(`${tile.x + dx},${tile.y + dy}`);
+        if (s !== undefined) lift = Math.max(lift, s.liftPx);
+      }
+      this.rampLifts.set(key, lift > 0 ? lift : DECK_LIFT_MIN_PX);
+    }
   }
 
   // Stack info for a cell, or undefined for the common single-tile case.
@@ -114,11 +134,21 @@ export class StackGeometry {
   }
 
   // Visual up-left shift for the tile at `p`: the stack's lift when `p`
-  // is a stacked cell's top (deck) tile, else 0. Middle layers of a
+  // is a stacked cell's top (deck) tile; a ramp cell's lift on any
+  // layer (the cell is single-tile); else 0. Middle layers of a
   // 3+-tile stack (no v1 content) draw unlifted like the ground.
   liftFor(p: Position): number {
-    const s = this.stacks.get(`${p.x},${p.y}`);
-    return s !== undefined && p.layer === s.deckLayer ? s.liftPx : 0;
+    const key = `${p.x},${p.y}`;
+    const s = this.stacks.get(key);
+    if (s !== undefined) return p.layer === s.deckLayer ? s.liftPx : 0;
+    return this.rampLifts.get(key) ?? 0;
+  }
+
+  // True when the cell is a `bridge_ramp`-tagged single-layer cell —
+  // its OWN terrain art draws unlifted at the footprint while the
+  // bridge-kit overlay (and everything standing on it) rides liftFor.
+  isRampCell(x: number, y: number): boolean {
+    return this.rampLifts.has(`${x},${y}`);
   }
 
   // True when `p` is the lifted deck tile of a stacked cell.

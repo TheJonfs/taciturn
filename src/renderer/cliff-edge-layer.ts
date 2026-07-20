@@ -127,6 +127,10 @@ export class CliffEdgeLayer {
     g.clear();
 
     for (const tile of map.tiles) {
+      // S97 bank ramps: the lifted bridge overlay covers the cell, so
+      // its own edge strips would paint on top of the ramp art — skip
+      // them (neighbors' strips are unaffected).
+      if (geo?.isRampCell(tile.x, tile.y) ?? false) continue;
       const tileColor = paletteColorFor(tile);
       const tilePxSize = TILE_SIZE - TILE_INSET;
       const lift = geo?.liftFor(tile) ?? 0;

@@ -84,6 +84,40 @@ describe('StackGeometry', () => {
   });
 });
 
+describe('bridge_ramp cells', () => {
+  const geo = new StackGeometry(
+    mapOf([
+      tile(2, 7, 0, 1),
+      tile(2, 7, 1, 3), // stacked span, lift from elev delta 2
+      {
+        x: 2, y: 8, layer: 0, elevation: 2,
+        terrain: 'ground', properties: ['bridge_ramp'],
+      },
+    ]),
+  );
+
+  it('lifts a ramp cell to match the adjacent span', () => {
+    const spanLift = geo.stackAt(2, 7)!.liftPx;
+    expect(geo.isRampCell(2, 8)).toBe(true);
+    expect(geo.liftFor({ x: 2, y: 8, layer: 0 })).toBe(spanLift);
+    // Not a stacked cell — no stack entry, not covered ground.
+    expect(geo.stackAt(2, 8)).toBeUndefined();
+    expect(geo.isCoveredGround({ x: 2, y: 8, layer: 0 })).toBe(false);
+  });
+
+  it('falls back to the minimum lift for a ramp with no adjacent span', () => {
+    const lone = new StackGeometry(
+      mapOf([
+        {
+          x: 4, y: 4, layer: 0, elevation: 2,
+          terrain: 'ground', properties: ['bridge_ramp'],
+        },
+      ]),
+    );
+    expect(lone.liftFor({ x: 4, y: 4, layer: 0 })).toBe(DECK_LIFT_MIN_PX);
+  });
+});
+
 describe('positionCenter with stack geometry', () => {
   const geo = new StackGeometry(mapOf([tile(2, 7, 0, 1), tile(2, 7, 1, 3)]));
 

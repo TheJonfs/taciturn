@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BattleMap, Tile } from '@engine/index.ts';
 import { alveraVillage } from '../content/maps/alvera-village.ts';
-import { bridgeDeckVariantFor, BRIDGE_DECK_VARIANT_ORDER } from './bridge-variant.ts';
+import { bridgeDeckVariantFor, isBridgeSurface, BRIDGE_DECK_VARIANT_ORDER } from './bridge-variant.ts';
 
 function tile(
   x: number,
@@ -13,8 +13,9 @@ function tile(
   layer: number,
   elevation: number,
   terrain = layer > 0 ? 'bridge' : 'ground',
+  properties: string[] = [],
 ): Tile {
-  return { x, y, layer, elevation, terrain, properties: [] };
+  return { x, y, layer, elevation, terrain, properties };
 }
 
 function mapOf(tiles: Tile[]): BattleMap {
@@ -22,10 +23,10 @@ function mapOf(tiles: Tile[]): BattleMap {
 }
 
 function deckAt(map: BattleMap, x: number, y: number): Tile {
-  // The topmost bridge-terrain tile at the cell (a lifted deck, or the
-  // layer-0 bank ramp).
+  // The topmost bridge-surface tile at the cell (a lifted deck, or a
+  // bridge_ramp-tagged bank tile).
   const t = [...map.tiles]
-    .filter((t) => t.x === x && t.y === y && t.terrain === 'bridge')
+    .filter((t) => t.x === x && t.y === y && isBridgeSurface(t))
     .sort((a, b) => b.layer - a.layer)[0];
   if (t === undefined) throw new Error(`no bridge tile at (${x},${y})`);
   return t;
@@ -42,11 +43,15 @@ describe('bridgeDeckVariantFor', () => {
     expect(bridgeDeckVariantFor(alveraVillage, deckAt(alveraVillage, 2, 10))).toBe('rise_n');
   });
 
-  it('puts the ramp art on a lower layer-0 chain tile, not the deck above it', () => {
+  it('puts the ramp art on a lower ramp-tagged chain tile, not the deck above it', () => {
     // Mini version of the Alvera south end: a 1-tile deck over water,
-    // a bank ramp south of it, plain banks elsewhere.
+    // a bridge_ramp-tagged ground tile south of it, plain banks
+    // elsewhere.
     const map = mapOf([
-      tile(4, 3, 0, 2), tile(4, 4, 0, 0), tile(4, 5, 0, 2, 'bridge'), tile(4, 6, 0, 2),
+      tile(4, 3, 0, 2),
+      tile(4, 4, 0, 0),
+      tile(4, 5, 0, 2, 'ground', ['bridge_ramp']),
+      tile(4, 6, 0, 2),
       tile(4, 4, 1, 3),
     ]);
     expect(bridgeDeckVariantFor(map, deckAt(map, 4, 4))).toBe('rise_s');
