@@ -7,8 +7,8 @@ contract Atlas proved: the shipped map modules are its codegen output, exports a
 round-trips of what it imports, and the preview is the **real battle renderer** — what you author
 is what ships.
 
-Shipped in S98 (ADR-0157). This is the Tier 1 tool: terrain + deployment. Enemy-party placement
-is the designed second mode, not yet built.
+Shipped in S98: Tier 1 (terrain + deployment, ADR-0157) and Tier 2 (the **unit mode** — battle
+lineups: player staging, guest markers, and enemy slots with class + level, ADR-0158).
 
 ---
 
@@ -82,6 +82,25 @@ file.
   sub-zones, and an erase brush. Painting a tile into a zone removes it from any other zone
   (overlap is an engine validation error). Most maps want one uncapped sub-zone per side;
   Mountain Pass's split ambush (two capped enemy sub-zones) is the precedent for more.
+- **Units — battle lineup** — the Tier 2 mode. Three placement brushes plus erase:
+  - **Place player** — the five staging slots every battle template needs. Deployment overrides
+    these positions in play; they're the authored fallback, so put them in or near the player
+    zone.
+  - **Place guest** — WI4 guest-ally markers (Wiegraf-style). They export as guest-flagged
+    slots the node's `guests:` list re-skins in order — this replaces the hand `withGuestSlot`
+    step for tool-authored battles.
+  - **Place enemy** — with the class picker + level beside the brush. Each enemy slot carries
+    its authored class + level; **kits are NOT authored** — they auto-fill at fold time from the
+    enemy-kit framework (level-budgeted curriculum prefix, deterministic Brave/Faith, basic
+    gear), exactly like skirmish generics.
+  - Chips on the canvas show a facing wedge, the enemy's level, and a **gold ring on the lead
+    slot**. **Enemy order is meaningful**: the campaign fold re-skins slots by index (lead =
+    slot 0 — where a named unit like Theo lands; death-protection keys off it). Reorder with
+    the ↑↓ arrows in the enemy list.
+  - Select a unit's tile in Inspect mode to edit facing (N/E/S/W) or remove it. Facing is real
+    data — for AI units the authored facing is authoritative in battle, never defaulted.
+  - Placing on a deck tile stands the unit ON the deck (bridge defenders).
+  - The **battle id** input names the exported `BattleConfig` (snake_case).
 - **Bridge decks** — a toggle brush. Placing a deck defaults it to ground elevation + 2 (the
   validator's minimum clearance) with `bridge` terrain; select the tile in Inspect mode to edit
   deck elevation. This is deliberately minimal — full bridge authoring (span/ramp art guidance)
@@ -165,46 +184,53 @@ Ridge). Replacing a stand-in takes the tool export plus three small hand-wirings
    wants a split.
 5. Get the strip to ✓ (or knowingly-⚠), Preview, Export, paste both files.
 
-### 5b. Make it a battle template
+### 5b. Author the lineup (the unit mode does the battle template for you)
 
-Create `src/content/battles/<key>-battle.ts` by the restage pattern every shipped map uses
-(crib `oskun-fields-battle.ts`): spread `riverRidgeBattle`, swap in your map, give it a
-`battleId`, and restage the ten `STARTING_POSITIONS` onto sensible tiles (these are the
-authored fallback positions; campaign play replaces the lineups but keeps the staging). Then
-register it in `src/content/battles/registry.ts`:
+Still in the tool: place the **five player staging slots**, any **guest markers** the node's
+story wants (one per authored guest, in `guests:` order), and the **enemy slots** — class +
+level each, ordered so slot 0 (★) is where the node's named lead (Theo, a captain) will land.
+Set the battle id. Export now emits a third file, the generated
+`src/content/battles/<key>-battle.ts` — the `LINEUP_SPEC` plus the `BattleConfig` restaged
+from it (this file replaces the hand `STARTING_POSITIONS` template entirely). Paste it in,
+then register the battle in `src/content/battles/registry.ts`:
 
 ```ts
 zelmonia_hills: { label: 'Zelmonia Hills', template: zelmoniaHillsBattle, zonesKey: 'zelmonia_hills' },
 ```
 
-The registry key must equal the map/zones key — one name per battlefield across both registries.
-This alone also makes the map selectable as an Atlas placeholder battle.
+The registry key must equal the map/zones key — one name per battlefield across both
+registries. This alone also makes the map selectable as an Atlas placeholder battle. Also add
+the lineup to `SHIPPED_LINEUPS` in `src/app/cartographer/import.ts` (one import line, like
+`SHIPPED_MAP_SPECS` for the map) so the tool can reload it later.
 
 (Optional, for quick iteration: add a `MAP_OPTIONS` entry in `src/app/App.tsx` and the map
-becomes a one-click quick battle from the setup screen — the fastest way to *fight* on it
-without campaign context.)
+becomes a one-click quick battle from the setup screen — note quick battles rebuild both teams
+in the team builder, so they exercise the map, not the authored enemy classes.)
 
 ### 5c. Point the story node at it
 
 Ch1 battle beats live in `src/campaign/node-content.ts`, built by the `battle(template,
-zonesKey, extras)` helper. Find the node's entry and swap both arguments:
+zonesKey, extras)` helper. Find the node's entry, swap in the generated template + zones key,
+and feed the authored classes/levels through `enemiesFromLineup`:
 
 ```ts
 'node-zelmonia-hills': [
   marker(/* … */),
-  battle(zelmoniaHillsTemplate, 'zelmonia_hills', {   // was river_ridge
-    enemies: [theoRenault(4, false), ...lineup(4, 4)],
+  battle(zelmoniaHillsBattle, 'zelmonia_hills', {     // was river_ridge
+    enemies: [theoRenault(4, false), ...enemiesFromLineup(ZELMONIA_HILLS_LINEUP, catalog).slice(1)],
     grants: [itemId('flametongue')],
     /* … */
   }),
 ],
 ```
 
-where `zelmoniaHillsTemplate` is your new template, wrapped with the node's existing
-modifiers if it had any (`withGuestSlot`, `withLeadEnemySlot`, custom `victoryConditions`,
-`battleId`) — keep the node's `enemies`/`joins`/`grants`/outcome riders exactly as they were;
-they're map-independent. Guest-slot and named-enemy positions are authored coordinates —
-restage them onto your terrain.
+`enemiesFromLineup(spec, catalog)` builds one enemy per slot, index-aligned — the tool's slot
+order is exactly where each stands. Named/restricted units stay hand-authored: put Theo first
+in the `enemies:` list and he re-skins the ★ lead slot (the `.slice(1)` drops the generic the
+tool authored there). A node with no named units just uses the whole
+`enemiesFromLineup(...)` list. Keep the node's `joins`/`grants`/outcome riders as they were —
+they're map-independent. Guests: the node's `guests: [wiegrafGuest()]` re-skins your guest
+markers in placement order, no `withGuestSlot` needed.
 
 ### 5d. Verify
 
@@ -232,13 +258,21 @@ quick-battle route from 5b is the fast sanity loop before the campaign walk.
   them — export early, export often (pasting into the repo is your save point, and git is your
   history).
 
-## 7. Where the Cartographer is going (planned tiers)
+## 7. Lineup fine print
 
-- **Tier 2 — enemy-party placement** (agreed fast-follow, ADR-0157): a second canvas mode
-  placing enemy units — class + level + position + facing — with kits auto-filled by the
-  `enemy-kit.ts` framework, exported as a battle **lineup** referencing a map key, separate from
-  the map template. This replaces the hand-restaged `STARTING_POSITIONS` step in 5b for story
-  lineups.
+- **The six shipped Mage War battle files stay hand-written** (Chris's call) — the tool
+  generates battle files for new maps. `river_ridge` is a hard validation error as a lineup
+  key (it's the base config every lineup spreads); to author a story lineup on River Ridge
+  itself, save the map under a new key first.
+- **Kit/equipment override per enemy is deliberately out of scope** (the Atlas enemy-depth
+  parallel): a lineup enemy is `class + level`, framed by the enemy-kit framework. A
+  hand-authored `AuthoredEnemySpec` in node-content is the escape hatch for bespoke kits.
+- The `LineupSpec` format carries `key` and `mapKey` separately — the tool emits them equal,
+  but the format supports several lineups standing on one map (hand-organized).
+
+## 8. Where the Cartographer is going (planned tiers)
+
 - **Full bridge/stacked-cell authoring** — multi-span chains, ramp guidance, per-deck
   properties.
-- Possible later: undo/redo, marquee selection, elevation smoothing brushes.
+- Possible later: per-enemy kit overrides, undo/redo, marquee selection, elevation smoothing
+  brushes.

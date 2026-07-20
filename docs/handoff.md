@@ -11,7 +11,16 @@ been processed.
 
 ---
 
-## S98 — Cartographer shipped (2026-07-20)
+## S98 — Cartographer shipped, BOTH tiers (2026-07-20)
+
+**Tier 2 landed same-session (ADR-0158):** the unit mode — player staging +
+guest markers + enemy slots (class + level, kits framework-framed via the
+shared `generatedEnemyUnit` constructor extracted from the skirmish stub),
+generated `<key>-battle.ts` lineup modules (compiled fixture round-trip pin),
+`enemiesFromLineup` as the node-content consumer, preview running the real
+fold (authored classes as real sprites). The guide's §5b/5c now describe the
+lineup flow; §7 has the fine print (river_ridge reserved; per-enemy kit
+override deferred). The "enemy tier fast-follows" line below is superseded.
 
 The whole map-authoring Tier 1 landed (ADR-0157): the six shipped maps +
 deployment registry migrated to the generated `MapSpec` format (data-identical

@@ -47,9 +47,10 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 ## Session 98 (2026-07-20)
 
 _No player-facing changes._ (The Cartographer map-authoring tool — a DEV-only
-editor at `?cartographer` — and the migration of the six shipped map modules to
-its generated format. Map data is verified identical; nothing a player sees
-changed. ADR-0157.)
+editor at `?cartographer` — the migration of the six shipped map modules to
+its generated format, and its Tier 2 enemy-lineup authoring mode. Map data is
+verified identical and the enemy-kit refactor is behavior-preserving; nothing
+a player sees changed. ADR-0157/0158.)
 
 ## Session 97 (2026-07-19) — bridge over/under UI + decks walkable (ADR-0156)
 
