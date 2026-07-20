@@ -5,9 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   mountainPass,
-  MOUNTAIN_PASS_GRASS_ROCK_ELEVATION,
   MOUNTAIN_PASS_HEIGHT,
-  MOUNTAIN_PASS_ROCK_ELEVATION,
   MOUNTAIN_PASS_WIDTH,
 } from './mountain-pass.ts';
 import { tileAt, validateMap, type TerrainRegistry } from '@engine/index.ts';
@@ -69,18 +67,19 @@ describe('Mountain Pass map — terrain', () => {
   });
 
   it('paints three elevation bands: ≥7 rock, 5-6 grass_rock, ≤4 ground (S70 visual)', () => {
+    // The thresholds live as band data in MOUNTAIN_PASS_SPEC now (S98
+    // Cartographer migration); the test pins the resulting terrain DATA at
+    // and around each band boundary.
     for (const t of mountainPass.tiles) {
-      const expected =
-        t.elevation >= MOUNTAIN_PASS_ROCK_ELEVATION
-          ? 'rock'
-          : t.elevation >= MOUNTAIN_PASS_GRASS_ROCK_ELEVATION
-            ? 'grass_rock'
-            : 'ground';
+      const expected = t.elevation >= 7 ? 'rock' : t.elevation >= 5 ? 'grass_rock' : 'ground';
       expect(t.terrain).toBe(expected);
     }
-    // Spot-checks across the bands.
+    // Spot-checks across the bands, incl. both sides of each boundary.
     expect(tileAt(mountainPass, 9, 13, 0)!.terrain).toBe('rock'); // elev 10
-    expect(tileAt(mountainPass, 1, 0, 0)!.terrain).toBe('grass_rock'); // elev 5
+    expect(tileAt(mountainPass, 5, 0, 0)!.terrain).toBe('rock'); // elev 7 — rock floor
+    expect(tileAt(mountainPass, 0, 0, 0)!.terrain).toBe('grass_rock'); // elev 6 — top of mid band
+    expect(tileAt(mountainPass, 1, 0, 0)!.terrain).toBe('grass_rock'); // elev 5 — mid-band floor
+    expect(tileAt(mountainPass, 2, 0, 0)!.terrain).toBe('ground'); // elev 4 — lowlands
     expect(tileAt(mountainPass, 2, 2, 0)!.terrain).toBe('ground'); // elev 3
   });
 

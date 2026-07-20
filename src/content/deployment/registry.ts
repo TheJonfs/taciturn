@@ -1,17 +1,14 @@
-// Per-map deployment-zone registry.
+// GENERATED-SHAPED — per-map deployment-zone registry (Cartographer map editor).
 //
-// Session 70 (ADR pending): the seam between terrain and deployment
-// layout. A terrain is keyed to one-or-more named zone configs; the
-// combiner (`assembleBattlefield`) pairs a chosen config with the terrain.
-// Today every existing map has a single `default` config migrated 1:1
-// from its old baked-in zones (single sub-zone per side, no caps — the
-// behavior-preserving degenerate case). Adding a *second* config for any
-// terrain is pure authoring: add a key here, no map or engine change.
-// That "one terrain, many layouts" property is what the extraction buys.
-//
-// The machinery that *selects* a config by context (story vs random
-// battle) is deliberately NOT here — that's campaign work. The registry
-// just holds configs; callers name one.
+// The seam between terrain and deployment layout (S70): a map key maps to
+// one-or-more named zone configs; callers pair a chosen config with the
+// terrain (`assembleBattlefield`). The machinery that *selects* a config by
+// context (story vs random battle) is deliberately NOT here — this registry
+// just holds configs.
+// This module is codegen output of the Cartographer map-authoring tool (the
+// `?cartographer` dev route): hand edits are legal TypeScript but the next
+// Cartographer export OVERWRITES THIS FILE WHOLESALE. Round-trip fidelity
+// is pinned by the Cartographer codegen test.
 
 import { teamId, type DeploymentZoneConfig } from '@engine/index.ts';
 import { rect } from './zone-helpers.ts';
@@ -19,8 +16,7 @@ import { rect } from './zone-helpers.ts';
 const TEAM_BLUE = teamId('team_a');
 const TEAM_RED = teamId('team_b');
 
-// River Ridge (14×14): Blue rows 0-2 / cols 5-8 (12); Red rows 11-13 /
-// cols 5-8 (12). Verbatim from the old `deploymentZoneFor`.
+// river_ridge — 'default'.
 const riverRidgeDefault: DeploymentZoneConfig = {
   teams: [
     { team: TEAM_BLUE, subZones: [{ tiles: rect(5, 8, 0, 2) }] },
@@ -28,8 +24,7 @@ const riverRidgeDefault: DeploymentZoneConfig = {
   ],
 };
 
-// Stonebridge (16×16): Blue rows 0-1 / cols 5-8 (8); Red rows 14-15 /
-// cols 5-8 (8).
+// stonebridge — 'default'.
 const stonebridgeDefault: DeploymentZoneConfig = {
   teams: [
     { team: TEAM_BLUE, subZones: [{ tiles: rect(5, 8, 0, 1) }] },
@@ -37,8 +32,7 @@ const stonebridgeDefault: DeploymentZoneConfig = {
   ],
 };
 
-// Marshmoor (16×16): Blue NE corner cols 13-15 / rows 0-2 (9); Red SW
-// corner cols 0-2 / rows 13-15 (9).
+// marshmoor — 'default'.
 const marshmoorDefault: DeploymentZoneConfig = {
   teams: [
     { team: TEAM_BLUE, subZones: [{ tiles: rect(13, 15, 0, 2) }] },
@@ -46,17 +40,10 @@ const marshmoorDefault: DeploymentZoneConfig = {
   ],
 };
 
-// Mountain Pass (16×16) — the first SPLIT config (S70). The victim (Blue,
-// team_a) deploys as one contiguous block in the NW valley basin; the
-// ambusher (Red, team_b) splits across two disjoint SE-heights sub-zones
-// flanking the defile: the dominant SW massif (cap 3) and the lower NE
-// edge (cap 2). Caps sum to 5 = the 5v5 roster, so the ambusher fills
-// exactly. Tiles per the brief's D1; assignment per D2 (Chris, S70).
-const mountainPassAmbush: DeploymentZoneConfig = {
+// mountain_pass — 'default'.
+const mountainPassDefault: DeploymentZoneConfig = {
   teams: [
     {
-      // Victim — NW valley basin (elev 3-5). One sub-zone, uncapped:
-      // 8 tiles for 5 units.
       team: TEAM_BLUE,
       subZones: [
         {
@@ -74,23 +61,13 @@ const mountainPassAmbush: DeploymentZoneConfig = {
       ],
     },
     {
-      // Ambusher — two SE-heights sub-zones flanking the defile.
       team: TEAM_RED,
       subZones: [
         {
-          // SW massif — the dominant wall (elev 7-10). Cap 3.
           cap: 3,
-          tiles: [
-            { x: 8, y: 12, layer: 0 },
-            { x: 9, y: 12, layer: 0 },
-            { x: 8, y: 13, layer: 0 },
-            { x: 9, y: 13, layer: 0 },
-            { x: 8, y: 14, layer: 0 },
-            { x: 9, y: 14, layer: 0 },
-          ],
+          tiles: rect(8, 9, 12, 14),
         },
         {
-          // NE edge — the lower, weaker flank (elev 5-8). Cap 2.
           cap: 2,
           tiles: [
             { x: 14, y: 11, layer: 0 },
@@ -104,11 +81,7 @@ const mountainPassAmbush: DeploymentZoneConfig = {
   ],
 };
 
-// Oskun Fields (16×16, S96): an east-west engagement across the col-7
-// stream. Blue (player) on the west-bank fields cols 3-5 / rows 4-7
-// (12 tiles, elev 2-4); Red (enemy) on the eastern knolls cols 9-11 /
-// rows 4-7 (12 tiles, elev 3-5). Proposed layout — one Atlas-free edit
-// to re-place if playtest wants a different axis.
+// oskun_fields — 'default'.
 const oskunFieldsDefault: DeploymentZoneConfig = {
   teams: [
     { team: TEAM_BLUE, subZones: [{ tiles: rect(3, 5, 4, 7) }] },
@@ -116,10 +89,7 @@ const oskunFieldsDefault: DeploymentZoneConfig = {
   ],
 };
 
-// Alvera Village (16×16, S96): a ford assault on the village. Blue
-// (player) on the east-west road cols 6-11 / rows 10-11 (12 tiles, all
-// elev 2); Red (enemy) in the NW fields cols 1-4 / rows 4-6 (12 tiles,
-// elev 2-3) across the row-8 river. Proposed layout, same caveat.
+// alvera_village — 'default'.
 const alveraVillageDefault: DeploymentZoneConfig = {
   teams: [
     { team: TEAM_BLUE, subZones: [{ tiles: rect(6, 11, 10, 11) }] },
@@ -135,7 +105,7 @@ export const DEPLOYMENT_ZONE_REGISTRY: Readonly<
   river_ridge: { default: riverRidgeDefault },
   stonebridge: { default: stonebridgeDefault },
   marshmoor: { default: marshmoorDefault },
-  mountain_pass: { default: mountainPassAmbush },
+  mountain_pass: { default: mountainPassDefault },
   oskun_fields: { default: oskunFieldsDefault },
   alvera_village: { default: alveraVillageDefault },
 };
