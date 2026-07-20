@@ -102,18 +102,30 @@ const BRIDGE_DECK: ReadonlyArray<{ x: number; y: number }> = [
 ];
 const BRIDGE_DECK_ELEVATION = 3;
 
+// S97 (bridge art kit): the southern RAMP — a layer-0 bridge-terrain
+// tile on the elev-2 approach at (2, 10). The deck's visual lift shifts
+// span art up-left, which seats the NORTH end on its bank but pulls the
+// SOUTH end off its bank; extending the bridge-terrain chain one cell
+// onto dry ground gives the span a rising approach piece to land on
+// (Chris's call). Purely a terrain swap: single standing place, layer
+// 0, bank elevation — NOT a stacked cell, no clearance implications.
+// The art-kit selection rule reads the chain and puts the rise_n piece
+// here while (2, 9) above the river flattens.
+const BRIDGE_RAMP: ReadonlyArray<{ x: number; y: number }> = [{ x: 2, y: 10 }];
+
 function buildAlveraVillage(): BattleMap {
   const tiles: Tile[] = [];
   for (let y = 0; y < ALVERA_VILLAGE_HEIGHT; y++) {
     const row = ELEVATION_GRID[y]!;
     for (let x = 0; x < ALVERA_VILLAGE_WIDTH; x++) {
       const elev = row[x]!;
+      const isRamp = BRIDGE_RAMP.some((r) => r.x === x && r.y === y);
       tiles.push({
         x,
         y,
         layer: 0,
         elevation: elev,
-        terrain: terrainFromElevation(elev),
+        terrain: isRamp ? 'bridge' : terrainFromElevation(elev),
         properties: [],
       });
     }

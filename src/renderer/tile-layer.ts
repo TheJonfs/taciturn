@@ -194,12 +194,34 @@ export class TileLayer {
       const sprite = new Sprite(texture);
       sprite.label = `tile-${terrainType}`;
       const lift = geo?.liftFor(tile) ?? 0;
-      // Lifted decks draw full-bleed (see redrawDeckPass) so span
-      // pieces butt seamlessly; base tiles keep the inset grid look.
-      const inset = lift > 0 ? 0 : TILE_INSET / 2;
-      const drawSize = lift > 0 ? TILE_SIZE : size;
-      sprite.x = tile.x * TILE_SIZE + inset - lift;
-      sprite.y = tile.y * TILE_SIZE + inset - lift;
+      // Bridge art draws full-bleed (see redrawDeckPass) so span pieces
+      // butt seamlessly — lifted decks AND layer-0 bank ramps alike;
+      // other terrain keeps the inset grid look. A ramp keeps its base-
+      // pass fill beneath the art (its cell has no other tile below, so
+      // the transparent margins would otherwise show the void).
+      const fullBleed = lift > 0 || terrainType === 'bridge';
+      const inset = fullBleed ? 0 : TILE_INSET / 2;
+      let drawW = fullBleed ? TILE_SIZE : size;
+      let drawH = drawW;
+      let drawX = tile.x * TILE_SIZE + inset - lift;
+      let drawY = tile.y * TILE_SIZE + inset - lift;
+      // A layer-0 bank ramp stretches toward an adjacent LIFTED span
+      // piece: the span's art shifts up-left with the visual lift while
+      // the ramp sits at its true footprint, which would leave a
+      // lift-sized diagonal jog at the joint. Extending the ramp's art
+      // north/west by the neighbor's lift closes the seam (the deck's
+      // drop shadow falls on the stretched strip, reading as the span
+      // shading its own approach).
+      if (terrainType === 'bridge' && lift === 0 && geo != null) {
+        const northLift = geo.stackAt(tile.x, tile.y - 1)?.liftPx ?? 0;
+        const westLift = geo.stackAt(tile.x - 1, tile.y)?.liftPx ?? 0;
+        drawY -= northLift;
+        drawH += northLift;
+        drawX -= westLift;
+        drawW += westLift;
+      }
+      sprite.x = drawX;
+      sprite.y = drawY;
       // Fill the tile square on both axes. Scaling by a single dimension
       // (the old `max(w, h)`) only covered the tile when the texture was
       // square; a non-square variant (e.g. S70's 256×139 rock) left the
@@ -207,8 +229,8 @@ export class TileLayer {
       // scale stretches any aspect ratio to fill exactly — terrain
       // textures tolerate the slight stretch better than a grey gap.
       sprite.scale.set(
-        drawSize / Math.max(texture.width, 1),
-        drawSize / Math.max(texture.height, 1),
+        drawW / Math.max(texture.width, 1),
+        drawH / Math.max(texture.height, 1),
       );
       if (tint !== TERRAIN_TINT_DEFAULT) sprite.tint = tint;
       // Lifted decks go to the deck pass so their art sits above the

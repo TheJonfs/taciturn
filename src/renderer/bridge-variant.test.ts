@@ -22,16 +22,35 @@ function mapOf(tiles: Tile[]): BattleMap {
 }
 
 function deckAt(map: BattleMap, x: number, y: number): Tile {
-  const t = map.tiles.find((t) => t.x === x && t.y === y && t.layer === 1);
-  if (t === undefined) throw new Error(`no deck tile at (${x},${y})`);
+  // The topmost bridge-terrain tile at the cell (a lifted deck, or the
+  // layer-0 bank ramp).
+  const t = [...map.tiles]
+    .filter((t) => t.x === x && t.y === y && t.terrain === 'bridge')
+    .sort((a, b) => b.layer - a.layer)[0];
+  if (t === undefined) throw new Error(`no bridge tile at (${x},${y})`);
   return t;
 }
 
 describe('bridgeDeckVariantFor', () => {
-  it('renders the Alvera western bridge as the hump-bridge arc (Chris 1-2-3)', () => {
+  it('renders the Alvera bridge: rise onto the span, flat across, ramp on the bank', () => {
     expect(bridgeDeckVariantFor(alveraVillage, deckAt(alveraVillage, 2, 7))).toBe('rise_s');
     expect(bridgeDeckVariantFor(alveraVillage, deckAt(alveraVillage, 2, 8))).toBe('flat_ns');
-    expect(bridgeDeckVariantFor(alveraVillage, deckAt(alveraVillage, 2, 9))).toBe('rise_n');
+    expect(bridgeDeckVariantFor(alveraVillage, deckAt(alveraVillage, 2, 9))).toBe('flat_ns');
+    // The S97 layer-0 ramp at (2, 10): rises toward the higher span
+    // tile north of it; the elev-8 house wall south of it is beyond
+    // the connectable-step threshold and casts no vote.
+    expect(bridgeDeckVariantFor(alveraVillage, deckAt(alveraVillage, 2, 10))).toBe('rise_n');
+  });
+
+  it('puts the ramp art on a lower layer-0 chain tile, not the deck above it', () => {
+    // Mini version of the Alvera south end: a 1-tile deck over water,
+    // a bank ramp south of it, plain banks elsewhere.
+    const map = mapOf([
+      tile(4, 3, 0, 2), tile(4, 4, 0, 0), tile(4, 5, 0, 2, 'bridge'), tile(4, 6, 0, 2),
+      tile(4, 4, 1, 3),
+    ]);
+    expect(bridgeDeckVariantFor(map, deckAt(map, 4, 4))).toBe('rise_s');
+    expect(bridgeDeckVariantFor(map, deckAt(map, 4, 5))).toBe('rise_n');
   });
 
   it('picks flat pieces for interior tiles and level-connected ends (EW axis)', () => {

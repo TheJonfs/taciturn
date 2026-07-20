@@ -9,22 +9,30 @@
 // by construction, so no seed is involved and replays/reloads are
 // trivially stable.
 //
-// Rules (per deck tile):
-//   - Axis: same-layer neighbors N/S vs E/W. Both axes present (an
+// Rules (per bridge tile — the SPAN is the chain of adjacent
+// bridge-terrain tiles at any layer, so a layer-0 approach RAMP on a
+// bank is part of the same bridge as the lifted deck it leads to):
+//   - Axis: span continuations N/S vs E/W. Both axes present (an
 //     L-bend — no authored content) → the axis with more continuations
 //     wins, tie → NS. Neither (a single-tile span) → NS.
-//   - A tile is an END on a side where the span doesn't continue. Each
-//     end compares the deck's elevation to the topmost tile beyond it
-//     (the bank a walker steps onto): lower bank → the deck rises away
-//     from it (high edge toward the span interior); higher bank → the
-//     deck rises toward it; equal / off-map → no incline.
+//   - IN-SPAN slope: a span neighbor at HIGHER elevation votes a rise
+//     toward it (the lower tile carries the ramp art; the higher
+//     neighbor stays flat toward it). Equal-elevation neighbors vote
+//     nothing.
+//   - END slope: on a side where the span doesn't continue, compare
+//     the tile's elevation to the topmost tile beyond it (the bank a
+//     walker steps onto): lower bank → rise away from it (high edge
+//     toward the span interior); higher bank → rise toward it; equal /
+//     off-map → no incline.
 //   - One incline vote → that rise piece. Two agreeing votes (a
 //     consistently sloping ramp) → that rise piece. Conflicting votes
 //     (a one-tile arch — the kit has no double-incline piece) or no
 //     votes → the axis's flat piece.
 //
-// Alvera's western bridge (deck elev 3, both approaches elev 2) reads,
-// north to south: rise_s, flat_ns, rise_n — the hump-bridge arc.
+// Alvera's western bridge (deck elev 3, north approach elev 2, and the
+// S97 layer-0 ramp tile at (2, 10) elev 2) reads, north to south:
+// rise_s, flat_ns, flat_ns, rise_n — the span flattens onto the rising
+// bank ramp.
 
 import type { BattleMap, Tile } from '@engine/index.ts';
 
@@ -48,11 +56,16 @@ export const BRIDGE_DECK_VARIANT_ORDER: ReadonlyArray<BridgeDeckVariant> = [
   'rise_w',
 ];
 
-function spanContinues(map: BattleMap, x: number, y: number, layer: number): boolean {
+// The topmost bridge-terrain tile at a cell — the walkable surface of
+// the span there, whatever layer it rides (a lifted deck or a layer-0
+// bank ramp). Undefined when the cell isn't part of a bridge.
+function bridgeTileAt(map: BattleMap, x: number, y: number): Tile | undefined {
+  let top: Tile | undefined;
   for (const t of map.tiles) {
-    if (t.x === x && t.y === y && t.layer === layer) return true;
+    if (t.x !== x || t.y !== y || t.terrain !== 'bridge') continue;
+    if (top === undefined || t.layer > top.layer) top = t;
   }
-  return false;
+  return top;
 }
 
 // The tile a walker steps onto at (x, y) — the topmost layer present.
@@ -64,6 +77,13 @@ function topmostAt(map: BattleMap, x: number, y: number): Tile | undefined {
   }
   return top;
 }
+
+// A span end only slopes toward/away from a bank it plausibly
+// CONNECTS to. A bank further than this from the tile's elevation is
+// scenery, not an approach (Alvera's southern ramp abuts an elev-8
+// house wall — the bridge must not "rise toward" a wall), so it casts
+// no vote. 2 matches the game's practical single-step climb range.
+const BRIDGE_END_MAX_STEP = 2;
 
 // The incline vote for one span end. `intoSpan` is the rise variant
 // whose high edge faces the span interior (bank lower than deck);
@@ -78,38 +98,48 @@ function endVote(
 ): BridgeDeckVariant | null {
   const bank = topmostAt(map, tile.x + dx, tile.y + dy);
   if (bank === undefined) return null;
-  if (bank.elevation < tile.elevation) return intoSpan;
-  if (bank.elevation > tile.elevation) return towardBank;
-  return null;
+  const delta = bank.elevation - tile.elevation;
+  if (delta === 0 || Math.abs(delta) > BRIDGE_END_MAX_STEP) return null;
+  return delta < 0 ? intoSpan : towardBank;
 }
 
 export function bridgeDeckVariantFor(map: BattleMap, tile: Tile): BridgeDeckVariant {
-  const n = spanContinues(map, tile.x, tile.y - 1, tile.layer);
-  const s = spanContinues(map, tile.x, tile.y + 1, tile.layer);
-  const e = spanContinues(map, tile.x + 1, tile.y, tile.layer);
-  const w = spanContinues(map, tile.x - 1, tile.y, tile.layer);
+  const n = bridgeTileAt(map, tile.x, tile.y - 1);
+  const s = bridgeTileAt(map, tile.x, tile.y + 1);
+  const e = bridgeTileAt(map, tile.x + 1, tile.y);
+  const w = bridgeTileAt(map, tile.x - 1, tile.y);
 
-  const nsAxis = (n ? 1 : 0) + (s ? 1 : 0) >= (e ? 1 : 0) + (w ? 1 : 0);
+  const nsAxis =
+    (n !== undefined ? 1 : 0) + (s !== undefined ? 1 : 0) >=
+    (e !== undefined ? 1 : 0) + (w !== undefined ? 1 : 0);
+
+  // Per axis side: a continuing span neighbor votes only when it sits
+  // HIGHER (the lower tile carries the ramp art); a span end defers to
+  // the bank beyond it.
+  const sideVote = (
+    neighbor: Tile | undefined,
+    dx: number,
+    dy: number,
+    towardNeighbor: BridgeDeckVariant,
+    awayFromNeighbor: BridgeDeckVariant,
+  ): BridgeDeckVariant | null => {
+    if (neighbor !== undefined) {
+      return neighbor.elevation > tile.elevation ? towardNeighbor : null;
+    }
+    return endVote(map, tile, dx, dy, awayFromNeighbor, towardNeighbor);
+  };
 
   const votes: BridgeDeckVariant[] = [];
   if (nsAxis) {
-    if (!n) {
-      const v = endVote(map, tile, 0, -1, 'rise_s', 'rise_n');
-      if (v !== null) votes.push(v);
-    }
-    if (!s) {
-      const v = endVote(map, tile, 0, 1, 'rise_n', 'rise_s');
-      if (v !== null) votes.push(v);
-    }
+    const vn = sideVote(n, 0, -1, 'rise_n', 'rise_s');
+    if (vn !== null) votes.push(vn);
+    const vs = sideVote(s, 0, 1, 'rise_s', 'rise_n');
+    if (vs !== null) votes.push(vs);
   } else {
-    if (!w) {
-      const v = endVote(map, tile, -1, 0, 'rise_e', 'rise_w');
-      if (v !== null) votes.push(v);
-    }
-    if (!e) {
-      const v = endVote(map, tile, 1, 0, 'rise_w', 'rise_e');
-      if (v !== null) votes.push(v);
-    }
+    const vw = sideVote(w, -1, 0, 'rise_w', 'rise_e');
+    if (vw !== null) votes.push(vw);
+    const ve = sideVote(e, 1, 0, 'rise_e', 'rise_w');
+    if (ve !== null) votes.push(ve);
   }
 
   const flat: BridgeDeckVariant = nsAxis ? 'flat_ns' : 'flat_ew';
