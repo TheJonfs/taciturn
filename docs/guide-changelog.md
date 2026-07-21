@@ -48,9 +48,10 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 _No player-facing changes._ (The Cartographer map-authoring tool — a DEV-only
 editor at `?cartographer` — the migration of the six shipped map modules to
-its generated format, and its Tier 2 enemy-lineup authoring mode. Map data is
-verified identical and the enemy-kit refactor is behavior-preserving; nothing
-a player sees changed. ADR-0157/0158.)
+its generated format, its Tier 2 enemy-lineup authoring mode, and its Tier 3
+per-enemy kit/loadout/gear overrides. Map data is verified identical and the
+enemy-kit refactors are behavior-preserving; nothing a player sees changed.
+ADR-0157/0158/0159.)
 
 ## Session 97 (2026-07-19) — bridge over/under UI + decks walkable (ADR-0156)
 

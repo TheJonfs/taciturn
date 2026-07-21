@@ -13,6 +13,16 @@ been processed.
 
 ## S98 — Cartographer shipped, BOTH tiers (2026-07-20)
 
+**Tier 3 landed too (ADR-0159, 2026-07-21):** the per-enemy ✎ override
+editor — three-mode kit (auto/budget/explicit picks with costs; implied JP
+always shown — enemies have no wallet, the kit IS the earned JP), full
+loadout (secondary set + R/S/M on the real capacity budget), full gear
+catalog with † on pool-managed items, name/Brave/Faith/gender riders.
+`composeLineupEnemyDraft` is the single composer the fold, the editor echo,
+and validation share; restricted signature components stay hand-authored.
+Guide §3 (unit mode) + §7 updated. Named minibosses are now fully
+tool-authorable; portraits/death-protection remain node-content riders.
+
 **Tier 2 landed same-session (ADR-0158):** the unit mode — player staging +
 guest markers + enemy slots (class + level, kits framework-framed via the
 shared `generatedEnemyUnit` constructor extracted from the skirmish stub),

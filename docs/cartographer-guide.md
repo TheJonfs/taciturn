@@ -101,6 +101,26 @@ file.
     data — for AI units the authored facing is authoritative in battle, never defaulted.
   - Placing on a deck tile stands the unit ON the deck (bridge defenders).
   - The **battle id** input names the exported `BattleConfig` (snake_case).
+  - **✎ opens the per-enemy override editor** (Tier 3; ✱ marks overridden rows). Everything in
+    it is optional — an untouched field keeps the framework default, and `reset all` returns
+    the enemy to plain class+level:
+    - **Name / Brave / Faith / gender** — named-miniboss riders (Brave/Faith placeholders show
+      the deterministic band roll they'd otherwise get).
+    - **Kit** — three modes. *Auto (level)*: the standard level × dial budget. *JP budget*: the
+      same curriculum prefix at a budget you set, decoupled from level. *Explicit picks*:
+      per-component checkboxes with JP costs — full control of what's learned. The implied JP
+      total is always shown (enemies have no JP wallet; the kit **is** the earned JP). Choosing
+      a secondary command set adds that class's components to the picker — unlock its actives
+      or the secondary casts nothing.
+    - **Loadout** — the secondary command set and R/S/M equipped passives. Class innates
+      auto-equip on top, deduplicated, like every campaign unit.
+    - **Equipment** — *default (basic gear)* or *custom*: per-slot selects filtered by the real
+      class/slot legality rules (a monk's hands offer nothing — that's the class definition,
+      not a bug). **†** marks pool-managed gear (TABA uniques/exotics — legal, but generation
+      never hands it out and the AI undervalues exotic effects).
+    - The **legality echo** at the bottom runs the engine's draft resolver on exactly the
+      composition the campaign fold ships — capacity (equipment-aware), two-handed grips,
+      dual-wield, item-pair legality. Errors also land in the validation strip and gate Export.
 - **Bridge decks** — a toggle brush. Placing a deck defaults it to ground elevation + 2 (the
   validator's minimum clearance) with `bridge` terrain; select the tile in Inspect mode to edit
   deck elevation. This is deliberately minimal — full bridge authoring (span/ramp art guidance)
@@ -264,9 +284,11 @@ quick-battle route from 5b is the fast sanity loop before the campaign walk.
   generates battle files for new maps. `river_ridge` is a hard validation error as a lineup
   key (it's the base config every lineup spreads); to author a story lineup on River Ridge
   itself, save the map under a new key first.
-- **Kit/equipment override per enemy is deliberately out of scope** (the Atlas enemy-depth
-  parallel): a lineup enemy is `class + level`, framed by the enemy-kit framework. A
-  hand-authored `AuthoredEnemySpec` in node-content is the escape hatch for bespoke kits.
+- **Per-enemy overrides (Tier 3, ADR-0159)** cover kit, loadout, gear, and identity riders —
+  but **unit-restricted signature components** (Sera's Hamstring) are deliberately excluded
+  from the picker and rejected by validation: unit identity stays hand-authored. The
+  `AuthoredEnemySpec` path in node-content also remains for what the format doesn't model
+  (portraits, death protection — node-content riders).
 - The `LineupSpec` format carries `key` and `mapKey` separately — the tool emits them equal,
   but the format supports several lineups standing on one map (hand-organized).
 
@@ -274,5 +296,4 @@ quick-battle route from 5b is the fast sanity loop before the campaign walk.
 
 - **Full bridge/stacked-cell authoring** — multi-span chains, ramp guidance, per-deck
   properties.
-- Possible later: per-enemy kit overrides, undo/redo, marquee selection, elevation smoothing
-  brushes.
+- Possible later: undo/redo, marquee selection, elevation smoothing brushes.

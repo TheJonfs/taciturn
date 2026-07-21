@@ -490,9 +490,12 @@ These are noted to make their absence intentional rather than accidental:
   tier ALSO shipped (ADR-0158, same session): lineup authoring — player
   staging/guests/enemy slots with class+level, kits framework-framed,
   generated `<key>-battle.ts` modules, `enemiesFromLineup` node-content
-  consumer. The ~8 remaining Ch1 battlefields + their story lineups are
-  now Chris-authorable in-tool (named units still hand-lead in
-  node-content).
+  consumer; plus the Tier 3 per-enemy override editor (ADR-0159 — kit
+  dial/explicit picks, full loadout on the real capacity budget, full
+  gear catalog, name/Brave/Faith/gender). The ~8 remaining Ch1
+  battlefields + story lineups incl. named minibosses are now
+  Chris-authorable in-tool (unit-restricted signature kits still
+  hand-authored in node-content).
   Then authoring (M4 — starts by replacing the skirmish stub), story (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.
