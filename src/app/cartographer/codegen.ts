@@ -357,12 +357,7 @@ export function generateLineupModule(spec: LineupSpec): string {
       ? `  ${label}: [],`
       : `  ${label}: [\n${slots.map(slotLine).join('\n')}\n  ],`;
 
-  const enemyLines = spec.enemies
-    .map(
-      (e) =>
-        `    { x: ${e.x}, y: ${e.y}, layer: ${e.layer}, facing: ${quote(e.facing)}, classId: ${quote(e.classId)}, level: ${e.level} },`,
-    )
-    .join('\n');
+  const enemyLines = spec.enemies.map(emitEnemySlot).join('\n');
   const enemiesExpr =
     spec.enemies.length === 0 ? '  enemies: [],' : `  enemies: [\n${enemyLines}\n  ],`;
 
@@ -389,4 +384,74 @@ export const ${camel}Battle: BattleConfig = buildBattleFromLineup(
   riverRidgeBattle,
 );
 `;
+}
+
+// One enemy slot: single-line without overrides, expanded with them.
+// Override fields emit in a FIXED order and only when authored — the
+// canonical shape the round-trip fixture pins.
+function emitEnemySlot(e: {
+  readonly x: number;
+  readonly y: number;
+  readonly layer: number;
+  readonly facing: string;
+  readonly classId: string;
+  readonly level: number;
+  readonly overrides?: {
+    readonly name?: string;
+    readonly brave?: number;
+    readonly faith?: number;
+    readonly gender?: string;
+    readonly jpBudget?: number;
+    readonly unlocks?: ReadonlyArray<{ readonly kind: string; readonly id: string }>;
+    readonly secondaryCommandSet?: string;
+    readonly passives?: Readonly<Record<string, ReadonlyArray<string> | undefined>>;
+    readonly equipment?: Readonly<Record<string, string | undefined>>;
+  };
+}): string {
+  const head = `x: ${e.x}, y: ${e.y}, layer: ${e.layer}, facing: ${quote(e.facing)}, classId: ${quote(e.classId)}, level: ${e.level}`;
+  const o = e.overrides;
+  if (o === undefined) return `    { ${head} },`;
+
+  const lines: string[] = [];
+  if (o.name !== undefined) lines.push(`        name: ${quote(o.name)},`);
+  if (o.brave !== undefined) lines.push(`        brave: ${o.brave},`);
+  if (o.faith !== undefined) lines.push(`        faith: ${o.faith},`);
+  if (o.gender !== undefined) lines.push(`        gender: ${quote(o.gender)},`);
+  if (o.jpBudget !== undefined) lines.push(`        jpBudget: ${o.jpBudget},`);
+  if (o.unlocks !== undefined) {
+    if (o.unlocks.length === 0) {
+      lines.push('        unlocks: [],');
+    } else {
+      lines.push('        unlocks: [');
+      for (const u of o.unlocks) {
+        lines.push(`          { kind: ${quote(u.kind)}, id: ${quote(u.id)} },`);
+      }
+      lines.push('        ],');
+    }
+  }
+  if (o.secondaryCommandSet !== undefined) {
+    lines.push(`        secondaryCommandSet: ${quote(o.secondaryCommandSet)},`);
+  }
+  if (o.passives !== undefined) {
+    const buckets = (['reaction', 'support', 'movement'] as const)
+      .filter((b) => (o.passives?.[b]?.length ?? 0) > 0)
+      .map((b) => `${b}: [${o.passives![b]!.map(quote).join(', ')}]`);
+    if (buckets.length > 0) lines.push(`        passives: { ${buckets.join(', ')} },`);
+  }
+  if (o.equipment !== undefined) {
+    const slots = (['leftHand', 'rightHand', 'headgear', 'armor', 'accessory'] as const)
+      .filter((s) => o.equipment?.[s] !== undefined)
+      .map((s) => `${s}: ${quote(o.equipment![s]!)}`);
+    lines.push(`        equipment: { ${slots.join(', ')} },`);
+  }
+
+  if (lines.length === 0) return `    { ${head} },`;
+  return [
+    '    {',
+    `      ${head},`,
+    '      overrides: {',
+    ...lines,
+    '      },',
+    '    },',
+  ].join('\n');
 }

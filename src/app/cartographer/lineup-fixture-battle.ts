@@ -33,8 +33,28 @@ export const LINEUP_FIXTURE_LINEUP: LineupSpec = {
     { x: 12, y: 2, layer: 0, facing: 'S' },
   ],
   enemies: [
-    { x: 1, y: 13, layer: 0, facing: 'N', classId: 'monk', level: 4 },
-    { x: 2, y: 13, layer: 0, facing: 'N', classId: 'fire_mage', level: 3 },
+    {
+      x: 1, y: 13, layer: 0, facing: 'N', classId: 'monk', level: 4,
+      overrides: {
+        name: 'Grond of the Ford',
+        brave: 85,
+        faith: 40,
+        gender: 'male',
+        unlocks: [
+          { kind: 'ability', id: 'bears_heave' },
+          { kind: 'ability', id: 'serpents_coil' },
+        ],
+        secondaryCommandSet: 'fire_spells',
+        passives: { reaction: ['counterpunch'] },
+        equipment: { rightHand: 'dagger', armor: 'padded_vest' },
+      },
+    },
+    {
+      x: 2, y: 13, layer: 0, facing: 'N', classId: 'fire_mage', level: 3,
+      overrides: {
+        jpBudget: 600,
+      },
+    },
     { x: 1, y: 14, layer: 0, facing: 'N', classId: 'hunter', level: 3 },
     { x: 2, y: 14, layer: 0, facing: 'N', classId: 'water_mage', level: 3 },
     { x: 0, y: 13, layer: 0, facing: 'E', classId: 'alchemist', level: 3 },

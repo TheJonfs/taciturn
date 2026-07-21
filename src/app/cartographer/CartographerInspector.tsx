@@ -8,6 +8,8 @@ import type { Direction } from '@engine/index.ts';
 import type { TerrainBand } from '@content/maps/map-format.ts';
 import { loadDefaultCatalog } from '@content/index.ts';
 import type { Brush } from './CartographerCanvas.tsx';
+import { EnemyEditor } from './EnemyEditor.tsx';
+import type { EnemyOverridesPatch } from './edit.ts';
 import type { CartographerModel, ZoneTeamKey } from './model.ts';
 import {
   deckAt,
@@ -67,6 +69,7 @@ interface CartographerInspectorProps {
   readonly onSetBattleId: (battleId: string) => void;
   readonly onClearLineup: () => void;
   readonly onUpdateEnemy: (index: number, patch: { classId?: string; level?: number }) => void;
+  readonly onUpdateEnemyOverrides: (index: number, patch: EnemyOverridesPatch | null) => void;
   readonly onMoveEnemy: (index: number, delta: -1 | 1) => void;
   readonly onSetLineupFacing: (kind: LineupUnitKind, index: number, facing: Direction) => void;
   readonly onRemoveLineupUnit: (x: number, y: number) => void;
@@ -79,6 +82,7 @@ export function CartographerInspector(props: CartographerInspectorProps): ReactE
   const [elevationValue, setElevationValue] = useState(3);
   const [enemyBrushClass, setEnemyBrushClass] = useState('monk');
   const [enemyBrushLevel, setEnemyBrushLevel] = useState(3);
+  const [editingEnemy, setEditingEnemy] = useState<number | null>(null);
 
   const brushIs = (b: Brush): boolean => JSON.stringify(b) === JSON.stringify(brush);
   const brushButton = (label: string, b: Brush, title?: string): ReactElement => (
@@ -324,7 +328,7 @@ export function CartographerInspector(props: CartographerInspectorProps): ReactE
                   }
                 />
                 <span style={dimTextStyle}>
-                  ({e.x},{e.y})
+                  ({e.x},{e.y}){e.overrides !== undefined ? ' ✱' : ''}
                 </span>
                 <button type="button" style={smallButtonStyle} onClick={() => props.onMoveEnemy(i, -1)}>
                   ↑
@@ -332,9 +336,26 @@ export function CartographerInspector(props: CartographerInspectorProps): ReactE
                 <button type="button" style={smallButtonStyle} onClick={() => props.onMoveEnemy(i, 1)}>
                   ↓
                 </button>
+                <button
+                  type="button"
+                  style={editingEnemy === i ? activeChipStyle : smallButtonStyle}
+                  title="Edit overrides (kit / loadout / gear / name)"
+                  onClick={() => setEditingEnemy(editingEnemy === i ? null : i)}
+                >
+                  ✎
+                </button>
               </div>
             ))}
-            <div style={hintStyle}>★ = lead slot; the campaign fold re-skins enemies by this order.</div>
+            <div style={hintStyle}>
+              ★ = lead slot; the campaign fold re-skins enemies by this order. ✱ = has overrides.
+            </div>
+            {editingEnemy !== null && model.lineup.enemies[editingEnemy] !== undefined && (
+              <EnemyEditor
+                slot={model.lineup.enemies[editingEnemy]!}
+                index={editingEnemy}
+                onPatch={(patch) => props.onUpdateEnemyOverrides(editingEnemy, patch)}
+              />
+            )}
           </div>
         )}
         {model.lineup !== null && (

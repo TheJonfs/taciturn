@@ -8,9 +8,13 @@
 // mistake worth flagging before a playtest finds it.
 
 import {
+  abilityId,
   classId,
+  commandSetId,
+  itemId,
   teamId,
   validateDeploymentZones,
+  validateDraftUnit,
   validateMap,
   type DeploymentZoneConfig,
   type TeamId,
@@ -19,6 +23,13 @@ import { defaultRuleset } from '@content/rulesets/default.ts';
 import { buildMapFromSpec } from '@content/maps/map-format.ts';
 import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import { loadDefaultCatalog } from '@content/index.ts';
+import {
+  COMPONENT_ENTRIES,
+  composeLineupEnemyDraft,
+  tokenKey,
+  unlockRefToToken,
+} from '@campaign/index.ts';
+import type { EnemyLineupSlot } from '@content/battles/lineup-format.ts';
 import type { CartographerModel, ZoneConfig } from './model.ts';
 import { RESERVED_LINEUP_KEYS } from './codegen.ts';
 import { defaultZoneConfig, zoneMembership } from './edit.ts';
@@ -171,6 +182,7 @@ function lineupFindings(
   for (const e of lineup.enemies) {
     if (!catalog().hasClass(classId(e.classId))) {
       findings.push({ level: 'error', message: `lineup: unknown class '${e.classId}'` });
+      continue;
     }
     if (!Number.isInteger(e.level) || e.level < 1 || e.level > 50) {
       findings.push({
@@ -185,6 +197,135 @@ function lineupFindings(
         message: `lineup: enemy at (${e.x},${e.y}) stands inside the player deployment zone`,
       });
     }
+    findings.push(...overrideFindings(e));
+  }
+  return findings;
+}
+
+// The catalog's components keyed for membership checks: known tokens, and
+// which of them are unit-restricted (signature components — never on
+// tool-authored generics; hand-authored specs are the path).
+let componentKeysSingleton: { known: Set<string>; restricted: Set<string> } | null = null;
+const componentKeys = (): { known: Set<string>; restricted: Set<string> } => {
+  if (componentKeysSingleton === null) {
+    const known = new Set<string>();
+    const restricted = new Set<string>();
+    for (const meta of COMPONENT_ENTRIES) {
+      known.add(tokenKey(meta.token));
+      if (meta.restrictedToUnit !== undefined) restricted.add(tokenKey(meta.token));
+    }
+    componentKeysSingleton = { known, restricted };
+  }
+  return componentKeysSingleton;
+};
+
+// Per-enemy override checks (Tier 3). The load-bearing one is the LAST: the
+// composed loadout + equipment run through the engine's draft-legality
+// resolver — the same check createInitialState enforces — so an illegal
+// authored build fails HERE, gating export, instead of at battle time.
+function overrideFindings(e: EnemyLineupSlot): CartographerFinding[] {
+  const o = e.overrides;
+  if (o === undefined) return [];
+  const findings: CartographerFinding[] = [];
+  const at = `enemy at (${e.x},${e.y})`;
+  const cat = catalog();
+
+  for (const stat of ['brave', 'faith'] as const) {
+    const v = o[stat];
+    if (v !== undefined && (!Number.isInteger(v) || v < 1 || v > 100)) {
+      findings.push({ level: 'error', message: `lineup: ${at} has ${stat} ${v} (expected 1-100)` });
+    }
+  }
+  if (o.jpBudget !== undefined && (o.jpBudget < 0 || !Number.isFinite(o.jpBudget))) {
+    findings.push({ level: 'error', message: `lineup: ${at} has a negative JP budget` });
+  }
+  for (const ref of o.unlocks ?? []) {
+    const key = tokenKey(unlockRefToToken(ref));
+    if (!componentKeys().known.has(key)) {
+      findings.push({ level: 'error', message: `lineup: ${at} unlocks unknown component '${key}'` });
+    } else if (componentKeys().restricted.has(key)) {
+      findings.push({
+        level: 'error',
+        message: `lineup: ${at} unlocks '${key}' — unit-restricted signature components stay hand-authored`,
+      });
+    }
+  }
+  if (
+    o.secondaryCommandSet !== undefined &&
+    !cat.hasCommandSet(commandSetId(o.secondaryCommandSet))
+  ) {
+    findings.push({
+      level: 'error',
+      message: `lineup: ${at} has unknown secondary command set '${o.secondaryCommandSet}'`,
+    });
+  }
+  for (const bucket of ['reaction', 'support', 'movement'] as const) {
+    for (const id of o.passives?.[bucket] ?? []) {
+      if (!cat.hasAbility(abilityId(id))) {
+        findings.push({
+          level: 'error',
+          message: `lineup: ${at} equips unknown ${bucket} passive '${id}'`,
+        });
+      } else if (cat.getAbility(abilityId(id)).kind !== 'passive') {
+        findings.push({
+          level: 'error',
+          message: `lineup: ${at} — '${id}' is not a passive (${bucket} bucket)`,
+        });
+      }
+    }
+  }
+  for (const [slot, id] of Object.entries(o.equipment ?? {})) {
+    if (id !== undefined && !cat.hasItem(itemId(id))) {
+      findings.push({ level: 'error', message: `lineup: ${at} equips unknown item '${id}' (${slot})` });
+    }
+  }
+  if (findings.length > 0) return findings; // composition below needs resolvable ids
+
+  // Compose exactly what the fold will ship and run the engine's
+  // draft-legality resolver — the same rules createInitialState enforces.
+  try {
+    const draft = composeLineupEnemyDraft(e, cat);
+    const legality = validateDraftUnit(
+      { classId: classId(e.classId), loadout: draft.loadout, equipment: draft.equipment },
+      cat,
+      riverRidgeBattle.rulesetId,
+    );
+    for (const bad of legality.invalidSlots) {
+      findings.push({
+        level: 'error',
+        message: `lineup: ${at} — illegal ${bad.slot} '${String(bad.itemId)}': ${bad.reason}`,
+      });
+    }
+    for (const over of legality.bucketOverages) {
+      findings.push({
+        level: 'error',
+        message:
+          `lineup: ${at} — ${String(over.bucketId)} over capacity ` +
+          `(${over.used}/${over.capacity})`,
+      });
+    }
+    for (const hand of legality.twoHandedConflictHands) {
+      findings.push({
+        level: 'error',
+        message: `lineup: ${at} — two-handed grip conflict in ${hand}`,
+      });
+    }
+    if (legality.dualWielding) {
+      // UI-tier rule, same as Team Builder/Formation: dual wield needs the
+      // granting passive (createInitialState tolerates, but the tool blocks).
+      findings.push({
+        level: 'error',
+        message: `lineup: ${at} — dual-wielding without a dual-wield passive`,
+      });
+    }
+    for (const conflict of legality.equipLegalityConflicts) {
+      findings.push({
+        level: 'error',
+        message: `lineup: ${at} — equip-legality conflict: ${JSON.stringify(conflict)}`,
+      });
+    }
+  } catch (err) {
+    findings.push({ level: 'error', message: `lineup: ${at} — ${String(err)}` });
   }
   return findings;
 }

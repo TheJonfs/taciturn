@@ -37,10 +37,55 @@ export interface LineupSlot {
   readonly facing: Direction;
 }
 
+// A component reference in an authored kit override. STRUCTURAL twin of the
+// campaign's UnlockToken (content cannot import campaign — the campaign side
+// brands the ids when it consumes the spec).
+export interface LineupUnlockRef {
+  readonly kind: 'ability' | 'item' | 'mathParameter' | 'mathValue';
+  readonly id: string;
+}
+
+export type LineupEquipmentSlot =
+  | 'leftHand'
+  | 'rightHand'
+  | 'headgear'
+  | 'armor'
+  | 'accessory';
+
+// Per-enemy authored overrides (S98 Tier 3). Everything optional — an
+// absent field keeps the enemy-kit framework default. Consumed ONLY by the
+// campaign side (`enemiesFromLineup`); `buildBattleFromLineup` stays purely
+// spatial.
+export interface EnemyOverrides {
+  readonly name?: string;
+  readonly brave?: number;
+  readonly faith?: number;
+  readonly gender?: 'male' | 'female';
+  // Kit budget dial: curriculum prefix at this JP instead of the
+  // level-derived budget. Ignored when `unlocks` is present.
+  readonly jpBudget?: number;
+  // Explicit learned components — full kit control; wins over jpBudget.
+  readonly unlocks?: ReadonlyArray<LineupUnlockRef>;
+  // A secondary command set (another class's first-action set id). Its
+  // actives need matching `unlocks` entries to be usable in battle.
+  readonly secondaryCommandSet?: string;
+  // Equipped R/S/M passives (ability ids). Class innates merge in on top,
+  // deduplicated, exactly as for every campaign-created unit.
+  readonly passives?: {
+    readonly reaction?: ReadonlyArray<string>;
+    readonly support?: ReadonlyArray<string>;
+    readonly movement?: ReadonlyArray<string>;
+  };
+  // slot → item id, only occupied slots present. Replaces basicEnemyGear
+  // wholesale (an empty record = bare-handed).
+  readonly equipment?: Readonly<Partial<Record<LineupEquipmentSlot, string>>>;
+}
+
 export interface EnemyLineupSlot extends LineupSlot {
   // Authored identity, consumed by src/campaign/lineup.ts (see header).
   readonly classId: string;
   readonly level: number;
+  readonly overrides?: EnemyOverrides;
 }
 
 export interface LineupSpec {

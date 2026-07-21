@@ -42,6 +42,7 @@ import {
   setSubZoneCap,
   toggleDeck,
   toggleProperty,
+  updateEnemyOverrides,
   updateEnemySlot,
   zoneErase,
   zonePaint,
@@ -209,6 +210,7 @@ export function CartographerApp(): ReactElement {
           onSetBattleId={(id) => setModel((m) => setBattleId(m, id))}
           onClearLineup={() => setModel(clearLineup)}
           onUpdateEnemy={(i, patch) => setModel((m) => updateEnemySlot(m, i, patch))}
+          onUpdateEnemyOverrides={(i, patch) => setModel((m) => updateEnemyOverrides(m, i, patch))}
           onMoveEnemy={(i, d) => setModel((m) => moveEnemySlot(m, i, d))}
           onSetLineupFacing={(kind, i, f) => setModel((m) => setLineupFacing(m, kind, i, f))}
           onRemoveLineupUnit={(x, y) => setModel((m) => removeLineupUnitAt(m, x, y))}

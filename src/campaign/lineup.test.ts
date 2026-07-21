@@ -3,11 +3,11 @@
 // constructor exactly as the skirmish stub frames its generics.
 
 import { describe, expect, it } from 'vitest';
-import { classId } from '@engine/index.ts';
+import { bucketId, classId, commandSetId } from '@engine/index.ts';
 import { loadDefaultCatalog } from '@content/index.ts';
 import type { LineupSpec } from '@content/battles/lineup-format.ts';
-import { enemiesFromLineup } from './lineup.ts';
-import { enemyBraveFaith, enemyKitForLevel } from './enemy-kit.ts';
+import { composeLineupEnemyDraft, enemiesFromLineup } from './lineup.ts';
+import { enemyBraveFaith, enemyKitForBudget, enemyKitForLevel } from './enemy-kit.ts';
 import { generateSkirmishParty } from './skirmish.ts';
 
 const catalog = loadDefaultCatalog();
@@ -57,5 +57,92 @@ describe('enemiesFromLineup', () => {
     expect(authored.unlocks).toEqual(skirmish.unlocks);
     expect(authored.brave).toBe(skirmish.brave);
     expect(authored.faith).toBe(skirmish.faith);
+  });
+});
+
+describe('enemy overrides (Tier 3)', () => {
+  const base = SPEC.enemies[0]!; // monk L3 at (7,1)
+
+  it('jpBudget dial decouples the kit from level (curriculum prefix at the budget)', () => {
+    const spec: LineupSpec = {
+      ...SPEC,
+      enemies: [{ ...base, overrides: { jpBudget: 900 } }],
+    };
+    const [enemy] = enemiesFromLineup(spec, catalog);
+    expect(enemy!.unlocks).toEqual(enemyKitForBudget(classId('monk'), 900, catalog));
+    expect(enemy!.unlocks).not.toEqual(enemyKitForLevel(classId('monk'), 3, catalog));
+  });
+
+  it('explicit unlocks win over jpBudget and brand into real tokens', () => {
+    const kit = enemyKitForLevel(classId('monk'), 10, catalog);
+    const refs = kit.map((t) => ({ kind: t.kind, id: String(t.id) }));
+    const spec: LineupSpec = {
+      ...SPEC,
+      enemies: [{ ...base, overrides: { jpBudget: 100, unlocks: refs } }],
+    };
+    const [enemy] = enemiesFromLineup(spec, catalog);
+    expect(enemy!.unlocks).toEqual(kit);
+  });
+
+  it('secondary command set + explicit passives compose into the loadout, innates merged', () => {
+    const monkSet = catalog.getClass(classId('monk')).firstActionCommandSet;
+    const pyroSet = catalog.getClass(classId('fire_mage')).firstActionCommandSet;
+    const spec: LineupSpec = {
+      ...SPEC,
+      enemies: [
+        {
+          ...base,
+          overrides: {
+            secondaryCommandSet: String(pyroSet),
+            passives: { reaction: [], support: [], movement: [] },
+          },
+        },
+      ],
+    };
+    const [enemy] = enemiesFromLineup(spec, catalog);
+    expect(enemy!.loadout.actionBuckets[bucketId('first_action')]).toEqual([monkSet]);
+    expect(enemy!.loadout.actionBuckets[bucketId('secondary_command_sets')]).toEqual([
+      commandSetId(String(pyroSet)),
+    ]);
+    // Monk innates still arrive equipped (withInnatePassives on the composed loadout).
+    const framework = generateSkirmishParty(3, 1, catalog)[0]!; // slot 0 = monk
+    expect(enemy!.loadout.passiveBuckets).toEqual(framework.loadout.passiveBuckets);
+  });
+
+  it('an equipment record replaces basic gear wholesale; empty record = bare-handed', () => {
+    const armed: LineupSpec = {
+      ...SPEC,
+      enemies: [{ ...base, overrides: { equipment: { rightHand: 'spiked_maul' } } }],
+    };
+    expect(String(enemiesFromLineup(armed, catalog)[0]!.equipment.rightHand)).toBe('spiked_maul');
+    const bare: LineupSpec = {
+      ...SPEC,
+      enemies: [{ ...base, overrides: { equipment: {} } }],
+    };
+    expect(enemiesFromLineup(bare, catalog)[0]!.equipment.rightHand).toBeNull();
+  });
+
+  it('name/brave/faith/gender riders apply; absent riders keep framework defaults', () => {
+    const spec: LineupSpec = {
+      ...SPEC,
+      enemies: [
+        { ...base, overrides: { name: 'Grond of the Ford', brave: 88, gender: 'male' } },
+      ],
+    };
+    const [enemy] = enemiesFromLineup(spec, catalog);
+    expect(enemy!.name).toBe('Grond of the Ford');
+    expect(enemy!.brave).toBe(88);
+    expect(enemy!.faith).toBe(enemyBraveFaith(3, 0).faith); // band default survives
+    expect(enemy!.gender).toBe('male');
+  });
+
+  it('composeLineupEnemyDraft matches what enemiesFromLineup ships (the validation contract)', () => {
+    const slot = { ...base, overrides: { equipment: { rightHand: 'dagger' as const } } };
+    const spec: LineupSpec = { ...SPEC, enemies: [slot] };
+    const draft = composeLineupEnemyDraft(slot, catalog);
+    const [enemy] = enemiesFromLineup(spec, catalog);
+    expect(enemy!.loadout).toEqual(draft.loadout);
+    expect(enemy!.equipment).toEqual(draft.equipment);
+    expect(enemy!.unlocks).toEqual(draft.unlocks);
   });
 });

@@ -53,7 +53,17 @@ export function enemyKitForLevel(
   level: number,
   catalog: Catalog,
 ): ReadonlyArray<UnlockToken> {
-  let remaining = enemyJpBudget(level);
+  return enemyKitForBudget(cls, enemyJpBudget(level), catalog);
+}
+
+// The budget-explicit sibling (S98 Tier 3): authored lineups can dial the
+// kit budget independently of level (`EnemyOverrides.jpBudget`).
+export function enemyKitForBudget(
+  cls: ClassId,
+  budget: number,
+  catalog: Catalog,
+): ReadonlyArray<UnlockToken> {
+  let remaining = Math.max(0, budget);
   const kit: UnlockToken[] = [];
   for (const meta of COMPONENT_ENTRIES) {
     if (meta.nativeClass !== cls || meta.restrictedToUnit !== undefined) continue;

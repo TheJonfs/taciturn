@@ -4,6 +4,7 @@
 // position lists stay within map bounds after a resize.
 
 import type { Direction, TerrainType } from '@engine/index.ts';
+import type { EnemyOverrides } from '@content/battles/lineup-format.ts';
 import {
   terrainForElevation,
   type MapSpec,
@@ -522,6 +523,44 @@ export function updateEnemySlot(
     ...lineup,
     enemies: lineup.enemies.map((s, i) => (i === index ? { ...s, ...patch } : s)),
   });
+}
+
+// An overrides patch: any subset of keys, where an EXPLICIT `undefined`
+// means "remove this override" (exactOptionalPropertyTypes makes that
+// distinction typeable — plain Partial would reject it).
+export type EnemyOverridesPatch = {
+  [K in keyof EnemyOverrides]?: EnemyOverrides[K] | undefined;
+};
+
+// Merge an overrides patch into an enemy slot (Tier 3). A key explicitly
+// set to `undefined` in the patch is REMOVED (back to the framework
+// default); `null` patch clears all overrides; an overrides object with no
+// keys left normalizes away entirely.
+export function updateEnemyOverrides(
+  model: CartographerModel,
+  index: number,
+  patch: EnemyOverridesPatch | null,
+): CartographerModel {
+  const lineup = model.lineup;
+  if (lineup === null) return model;
+  const enemies = lineup.enemies.map((s, i) => {
+    if (i !== index) return s;
+    if (patch === null) {
+      const { overrides: _cleared, ...rest } = s;
+      return rest;
+    }
+    const merged: Record<string, unknown> = { ...s.overrides };
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) delete merged[key];
+      else merged[key] = value;
+    }
+    if (Object.keys(merged).length === 0) {
+      const { overrides: _empty, ...rest } = s;
+      return rest;
+    }
+    return { ...s, overrides: merged as EnemyOverrides };
+  });
+  return withLineup(model, { ...lineup, enemies });
 }
 
 // Reorder an enemy slot (order is meaningful — lead = slot 0).
