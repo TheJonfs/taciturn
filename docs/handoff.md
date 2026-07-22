@@ -13,6 +13,20 @@ been processed.
 
 ## S98 — Cartographer shipped, BOTH tiers (2026-07-20)
 
+**FIRST REAL AUTHORING (2026-07-22): Zelmonia Hills shipped through the
+whole pipeline** — Chris authored map/zones/6-enemy lineup in-tool (incl.
+Tier 3 overridden generics Oscar + Tina and a 6th-slot Monk; 6v5 confirmed
+plain data), downloaded the three exports, and the wiring landed:
+reload entries, round-trip corpus (first shipped-lineup byte pin),
+registries, MAP_OPTIONS, node-content swap (withLeadEnemySlot kept for the
+deathProtected stamp; theoConditions untouched), plus
+zelmonia-hills-node.test.ts booting the folded battle. The
+authored-enemy.test escort pin was updated from the superseded
+lineup(4,4) stub — expect one such stale-pin per stand-in map replaced
+(Mount Eska, Grek Forest, etc. still fight on River Ridge). PLAYTEST the
+node: heights-vs-lowground with a 6-unit enemy party is a real difficulty
+change; watch the Theo retreat still firing (test-pinned but feel counts).
+
 **Tier 3 landed too (ADR-0159, 2026-07-21):** the per-enemy ✎ override
 editor — three-mode kit (auto/budget/explicit picks with costs; implied JP
 always shown — enemies have no wallet, the kit IS the earned JP), full

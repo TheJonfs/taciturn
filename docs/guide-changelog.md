@@ -44,6 +44,23 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 98, continued (2026-07-22) — Zelmonia Hills gets its real map
+
+Commits: `see git log` (feat(content+campaign): Zelmonia Hills).
+
+- **The first Theo Renault battle (Zelmonia Hills) is now fought on its own
+  battlefield** — a 16×16 highland ridge — instead of reusing River Ridge.
+  Player deployment is on the southern low ground; Theo and his troops hold
+  the northern heights.
+- **The enemy party there is now six units** (up from five): Theo plus five
+  authored soldiers, including two named ones (Oscar, a Hydrologist who also
+  casts earth magic; Tina, an Alchemist stocked with Potion / Phoenix Down /
+  Ether). Levels 3-4.
+- **What did NOT change:** the retreat rule (drive Theo below 15% and he
+  escapes alive — he cannot be slain), the Flametongue reward, and Theo
+  himself (L4 Hunter, Pin Down only in this first duel).
+- Zelmonia Hills also joins the quick-battle map picker.
+
 ## Session 98 (2026-07-20)
 
 _No player-facing changes._ (The Cartographer map-authoring tool — a DEV-only
