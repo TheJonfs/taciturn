@@ -60,6 +60,12 @@ Commits: `see git log` (feat(content+campaign): Zelmonia Hills).
   escapes alive — he cannot be slain), the Flametongue reward, and Theo
   himself (L4 Hunter, Pin Down only in this first duel).
 - Zelmonia Hills also joins the quick-battle map picker.
+- **Fix: skirmishes at the Theo nodes no longer crash at battle start.**
+  Skirmishes were inheriting the story battle's victory conditions (which
+  reference Theo, who isn't in a skirmish); a skirmish is now always a plain
+  "defeat all enemies" fight. This had been broken at Zelmonia Hills and
+  Mount Eska since skirmishes shipped — nobody had skirmished a Theo node
+  before.
 
 ## Session 98 (2026-07-20)
 

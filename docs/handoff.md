@@ -23,9 +23,16 @@ deathProtected stamp; theoConditions untouched), plus
 zelmonia-hills-node.test.ts booting the folded battle. The
 authored-enemy.test escort pin was updated from the superseded
 lineup(4,4) stub — expect one such stale-pin per stand-in map replaced
-(Mount Eska, Grek Forest, etc. still fight on River Ridge). PLAYTEST the
-node: heights-vs-lowground with a 6-unit enemy party is a real difficulty
-change; watch the Theo retreat still firing (test-pinned but feel counts).
+(Mount Eska, Grek Forest, etc. still fight on River Ridge). Chris
+playtested the story battle: the Theo retreat win FIRED (debug-assisted).
+His first skirmish there crashed → FIXED same session: buildSkirmishBattle
+now swaps the borrowed template's victory conditions for the plain
+defeat-all pair (skirmishes borrow the battlefield, never the story rules
+— the theoConditions predicate dangled on plot-theo; latent since S88,
+also armed at Mount Eska; regression pinned at the evaluateBattleOutcome
+crash site). Chris should RE-TRY the Zelmonia Hills skirmish to confirm
+in-flow. Remaining playtest: full-party story fight without debug
+(heights-vs-lowground, 6-unit enemy party difficulty).
 
 **Tier 3 landed too (ADR-0159, 2026-07-21):** the per-enemy ✎ override
 editor — three-mode kit (auto/budget/explicit picks with costs; implied JP
