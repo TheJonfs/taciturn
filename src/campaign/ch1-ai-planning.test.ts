@@ -75,9 +75,18 @@ describe('gated-kit AI planning — the real Oskun stubs act, never just wander'
   });
 
   it('the AI never proposes a LOCKED ability (enumeration respects usableActives)', () => {
-    // The monk stub knows only Bear's Heave + its innates; storm_stoop et
-    // al are locked. Pre-fix the joint planner picked them and nulled out.
-    const monk = [...base.units.values()].find((u) => String(u.id) === 'skirmish-enemy-1')!;
+    // The L2 generated monk knows only Bear's Heave + its innates;
+    // storm_stoop et al are locked. Pre-fix the joint planner picked them
+    // and nulled out. Found by CLASS (M4: the party is archetype-rolled,
+    // so slot order isn't monk-first anymore; the fixed node seed keeps a
+    // monk in the Oskun bandit party — re-anchor if the archetype pools
+    // change).
+    const monk = [...base.units.values()].find(
+      (u) =>
+        String(u.id).startsWith('skirmish-enemy') &&
+        String(u.classState.currentClass) === 'monk',
+    )!;
+    expect(monk).toBeDefined();
     expect(monk.usableActives).toBeDefined();
     const lumen = base.units.get(unitId('plot-lumen'))!;
     const units = new Map(base.units);

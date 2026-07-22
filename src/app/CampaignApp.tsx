@@ -43,6 +43,7 @@ import {
   buildResultSummaryBeat,
   buildRouteChoiceBeat,
   buildSkirmishBattle,
+  recordSkirmishWin,
   COMPONENT_CATALOG,
   clearSavedCampaign,
   computeGilReward,
@@ -436,7 +437,10 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
       // A skirmish pays its rewards and ends at the world map. It NEVER marks
       // a story beat cleared and never resolves the node — the valve is
       // repeatable by design (no anti-farm friction; reload-risk governs).
-      const after: CampaignState = { ...applied, phase: 'awaiting_route' };
+      // The win advances the node's skirmish counter, which seeds the NEXT
+      // party (M4 repeat-farm variance; losses don't save, so no reroll).
+      const counted = recordSkirmishWin(applied, node.id);
+      const after: CampaignState = { ...counted, phase: 'awaiting_route' };
       saveCampaign(after);
       setState(after);
       const summary = buildResultSummaryBeat({

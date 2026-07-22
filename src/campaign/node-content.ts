@@ -67,8 +67,10 @@ import {
   zelmoniaHillsBattle,
 } from '@content/battles/zelmonia-hills-battle.ts';
 import { deploymentZonesFor } from '@content/deployment/index.ts';
+import { archetypeForNode } from './archetypes.ts';
 import { authoredEnemy } from './authored-enemy.ts';
 import { clioJoinUnit, seraJoinUnit, thessalyJoinUnit } from './ch1-roster.ts';
+import { stringSeed } from './enemy-generation.ts';
 import { withInnatePassives } from './innate-passives.ts';
 import { enemiesFromLineup } from './lineup.ts';
 import { generateSkirmishParty } from './skirmish.ts';
@@ -212,13 +214,16 @@ function rukCaptain(level: number): CampaignUnit {
 
 // --- placeholder lineups + template variants ---------------------------------
 
-// Placeholder enemy lineup: the skirmish stub generator at an authored FIXED
-// level (Tier-1 classes, standard kits, no gear). Levels below approximate
-// the brief's offset curve against the expected party average entering each
-// node — the one series playtest measures and re-pins. Real authored
-// lineups are M4/M5 work; this keeps every fight walkable at an L1 start.
-function lineup(level: number, count = 5): ReadonlyArray<CampaignUnit> {
-  return generateSkirmishParty(level, count, catalog);
+// Placeholder enemy lineup: the M4 generator at an authored FIXED level,
+// cast from the node's own archetype with a FIXED per-node seed (story
+// fights never vary between attempts — only skirmishes advance the seed).
+// Levels below approximate the brief's offset curve against the expected
+// party average entering each node — the one series playtest measures and
+// re-pins. Real authored lineups are M4/M5 work; this keeps every fight
+// walkable at an L1 start.
+function lineup(nodeId: string, level: number, count = 5): ReadonlyArray<CampaignUnit> {
+  const seed = stringSeed(nodeId);
+  return generateSkirmishParty(level, count, catalog, seed, archetypeForNode(nodeId, seed));
 }
 
 // A guest ally placement added to a template: fixed authored position
@@ -419,7 +424,7 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
     ),
     battle(oskunTemplate, 'oskun_fields', {
       guests: [wiegrafGuest()],
-      enemies: lineup(2),
+      enemies: lineup('node-oskun', 2),
       grants: [itemId('pendant_of_lumara')],
     }),
     marker(
@@ -429,7 +434,7 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
   ],
   'node-alvera': [
     battle(alveraVillageBattle, 'alvera_village', {
-      enemies: lineup(3),
+      enemies: lineup('node-alvera', 3),
       joins: [clioJoinUnit(catalog)],
     }),
     marker('Alvera Village', 'Clio joins after the battle here. The caster market opens (gear wave 1).'),
@@ -462,13 +467,13 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
   ],
   'node-grek-forest': [
     battle(riverRidgeBattle, 'river_ridge', {
-      enemies: lineup(6),
+      enemies: lineup('node-grek-forest', 6),
       joins: [thessalyJoinUnit(catalog)],
     }),
     marker('Grek Forest', 'Thessaly joins after the battle here.'),
   ],
   'node-fort-cator': [
-    battle(riverRidgeBattle, 'river_ridge', { enemies: lineup(7) }),
+    battle(riverRidgeBattle, 'river_ridge', { enemies: lineup('node-fort-cator', 7) }),
     marker('Fort Cator', '“Sword Town” opens its market: the Cutlass lane.'),
   ],
   'node-ordal-canyon': [
@@ -478,13 +483,13 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
     ),
     battle(ordalCanyonTemplate, 'mountain_pass', {
       guests: [seraJoinUnit(catalog)],
-      enemies: lineup(8),
+      enemies: lineup('node-ordal-canyon', 8),
       joins: [seraJoinUnit(catalog)],
     }),
     marker('Ordal Canyon — aftermath', 'Sera joins the roster — guest no more.'),
   ],
   'node-old-ordal': [
-    battle(riverRidgeBattle, 'river_ridge', { enemies: lineup(9) }),
+    battle(riverRidgeBattle, 'river_ridge', { enemies: lineup('node-old-ordal', 9) }),
     marker(
       'Old Ordal — the road not taken',
       'Beyond the ruins the road runs on toward Viura, deep in Ordallia. The company is recalled home; the capital stays a light on the horizon. ' +
@@ -494,7 +499,7 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
   'node-mount-eska': [
     marker('Mount Eska — the commander returns', 'Theo Renault again — higher ground, harder fight, same retreat.'),
     battle(mountEskaTemplate, 'river_ridge', {
-      enemies: [theoRenault(10, true), ...lineup(10, 4)],
+      enemies: [theoRenault(10, true), ...lineup('node-mount-eska', 10, 4)],
       grants: [itemId('freelancers_charm')],
     }),
     marker(
@@ -509,7 +514,7 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
       'Back across the border: rebels and deserters, not soldiers. Subdue them all without a kill for the better outcome.',
     ),
     battle(esterRoadTemplate, 'river_ridge', {
-      enemies: lineup(7),
+      enemies: lineup('node-ester-road', 7),
       recordOutcomeAs: 'ester',
       onOutcome: {
         'ester-good': markerScene(
@@ -529,7 +534,7 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
       'The rebel captain holds the village. Subdue HIM — under quarter strength, no rebel deaths — for the better ending.',
     ),
     battle(rukVillageTemplate, 'river_ridge', {
-      enemies: [rukCaptain(13), ...lineup(13, 4)],
+      enemies: [rukCaptain(13), ...lineup('node-ruk-village', 13, 4)],
       recordOutcomeAs: 'ruk',
       onOutcome: {
         'ruk-good': markerScene(

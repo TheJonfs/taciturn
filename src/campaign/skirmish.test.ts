@@ -1,42 +1,54 @@
-// TABA economy — skirmish valve + stub generator tests (M3 Stage 1, D3).
+// TABA economy — skirmish valve + M4 generator tests.
 
 import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { createInitialState } from '@engine/index.ts';
+import { archetypeForNode, DEFAULT_ARCHETYPE, ENEMY_ARCHETYPES } from './archetypes.ts';
 import { partyAverageLevel } from './enemy-level.ts';
 import { allNodeBeats, getNode } from './graph.ts';
 import { newCampaign } from './loop.ts';
 import { CAMPAIGN_GRAPH, CAMPAIGN_NODES } from './node.ts';
-import { CLASS_TIER_MAP, tierEntryOf } from './progression/index.ts';
 import { m0Roster } from './roster.ts';
 import { firstBattleBeat } from './sequence.ts';
-import { buildSkirmishBattle, generateSkirmishParty, skirmishLevelAt } from './skirmish.ts';
+import {
+  buildSkirmishBattle,
+  generateSkirmishParty,
+  recordSkirmishWin,
+  skirmishLevelAt,
+  skirmishSeed,
+  skirmishWinsAt,
+} from './skirmish.ts';
 import { foldBattle } from './snapshot-fold.ts';
 
 const catalog = loadDefaultCatalog();
 const GRAPH = CAMPAIGN_GRAPH;
 const state = newCampaign(m0Roster, CAMPAIGN_NODES.oskun);
+const BANDITS = ENEMY_ARCHETYPES.find((a) => a.id === 'bandits')!;
 
-describe('generateSkirmishParty (the D3 stub behind the M4 seam)', () => {
-  it('spawns exactly `count` generics at `level`', () => {
-    const party = generateSkirmishParty(27, 4, catalog);
+describe('generateSkirmishParty (the M4 generator)', () => {
+  it('spawns exactly `count` enemies at `level`, cast from the archetype pool', () => {
+    const party = generateSkirmishParty(7, 4, catalog, 123, BANDITS);
     expect(party).toHaveLength(4);
-    for (const enemy of party) expect(enemy.level).toBe(27);
-  });
-
-  it('uses simple TIER-1 classes only', () => {
-    for (const enemy of generateSkirmishParty(25, 6, catalog)) {
-      expect(CLASS_TIER_MAP.has(enemy.classId)).toBe(true);
-      expect(tierEntryOf(enemy.classId).tier).toBe(1);
+    const poolIds = new Set(BANDITS.classPool.map((e) => String(e.classId)));
+    for (const enemy of party) {
+      expect(enemy.level).toBe(7);
+      expect(poolIds.has(String(enemy.classId))).toBe(true);
     }
   });
 
-  it('arms each generic with a level-budgeted kit and basic gear (S94 framework)', () => {
-    for (const enemy of generateSkirmishParty(25, 3, catalog)) {
+  it('names units with the archetype flavor prefix', () => {
+    for (const enemy of generateSkirmishParty(5, 3, catalog, 9, BANDITS)) {
+      expect(enemy.name.startsWith(`${BANDITS.unitNamePrefix} `)).toBe(true);
+    }
+  });
+
+  it('arms each enemy with a level-budgeted kit, real gear, and a rolled band (M4)', () => {
+    for (const enemy of generateSkirmishParty(7, 4, catalog, 42, BANDITS)) {
       expect(enemy.unlocks.length).toBeGreaterThan(0);
-      // Basic gear: a Dagger wherever the class may legally hold one.
-      expect(String(enemy.equipment.rightHand ?? '')).toMatch(/dagger|^$/);
-      // Rolled band, like the player's generics.
+      // M4: real gear, not the bare-dagger stub — at L7 every class can
+      // hold SOMETHING (weapon or armor).
+      const worn = Object.values(enemy.equipment).filter((id) => id !== null);
+      expect(worn.length).toBeGreaterThan(0);
       expect(enemy.brave).toBeGreaterThanOrEqual(50);
       expect(enemy.brave).toBeLessThanOrEqual(70);
       expect(enemy.faith).toBeGreaterThanOrEqual(50);
@@ -44,18 +56,58 @@ describe('generateSkirmishParty (the D3 stub behind the M4 seam)', () => {
     }
   });
 
-  it('the kit budget scales with level: an L2 knows less than an L25 (S94)', () => {
-    const low = generateSkirmishParty(2, 6, catalog);
-    const high = generateSkirmishParty(25, 6, catalog);
-    for (let i = 0; i < 6; i += 1) {
-      expect(low[i]!.unlocks.length).toBeLessThan(high[i]!.unlocks.length);
-      expect(low[i]!.unlocks.length).toBeGreaterThan(0); // never a blank sheet
-      expect(low[i]!.unlocks.length).toBeLessThanOrEqual(2); // ~200 JP of basics
+  it('is deterministic: same (level, count, seed, archetype) → same party', () => {
+    expect(generateSkirmishParty(12, 5, catalog, 777, BANDITS)).toEqual(
+      generateSkirmishParty(12, 5, catalog, 777, BANDITS),
+    );
+  });
+
+  it('different seeds vary the party (repeat-farm variance)', () => {
+    const seeds = [1, 2, 3, 4, 5];
+    const parties = seeds.map((s) =>
+      generateSkirmishParty(12, 5, catalog, s, BANDITS).map((u) => String(u.classId)).join(','),
+    );
+    expect(new Set(parties).size).toBeGreaterThan(1);
+  });
+});
+
+describe('skirmish seed stream (per-node win counter)', () => {
+  it('starts at zero wins and advances on recordSkirmishWin', () => {
+    expect(skirmishWinsAt(state, CAMPAIGN_NODES.oskun)).toBe(0);
+    const once = recordSkirmishWin(state, CAMPAIGN_NODES.oskun);
+    expect(skirmishWinsAt(once, CAMPAIGN_NODES.oskun)).toBe(1);
+    // Per-node: another node's counter is untouched.
+    expect(skirmishWinsAt(once, CAMPAIGN_NODES.alvera)).toBe(0);
+  });
+
+  it('the seed depends on node identity and fight number', () => {
+    expect(skirmishSeed(CAMPAIGN_NODES.oskun, 0)).not.toBe(skirmishSeed(CAMPAIGN_NODES.oskun, 1));
+    expect(skirmishSeed(CAMPAIGN_NODES.oskun, 0)).not.toBe(skirmishSeed(CAMPAIGN_NODES.alvera, 0));
+  });
+
+  it('a win rerolls the next skirmish party; a reload (same state) does not', () => {
+    const node = getNode(GRAPH, CAMPAIGN_NODES.oskun);
+    const before = buildSkirmishBattle(node, state, catalog);
+    const reload = buildSkirmishBattle(node, state, catalog);
+    expect(before.enemies).toEqual(reload.enemies); // same state → same party
+    const won = recordSkirmishWin(state, CAMPAIGN_NODES.oskun);
+    const after = buildSkirmishBattle(node, won, catalog);
+    expect(after.enemies).not.toEqual(before.enemies); // seed advanced
+  });
+});
+
+describe('archetypeForNode', () => {
+  it('every mapped Ch1 node resolves to a known archetype for any seed', () => {
+    for (const nodeId of Object.values(CAMPAIGN_NODES)) {
+      for (let s = 0; s < 8; s++) {
+        const archetype = archetypeForNode(nodeId, s);
+        expect(archetype.classPool.length).toBeGreaterThan(0);
+      }
     }
   });
 
-  it('is deterministic (same inputs → same party)', () => {
-    expect(generateSkirmishParty(25, 5, catalog)).toEqual(generateSkirmishParty(25, 5, catalog));
+  it('an unmapped node falls back to the default archetype', () => {
+    expect(archetypeForNode('node-not-authored-yet', 3)).toBe(DEFAULT_ARCHETYPE);
   });
 });
 

@@ -1,4 +1,4 @@
-// TABA economy — the skirmish valve + its STUB party generator (M3 Stage 1).
+// TABA economy — the skirmish valve + the M4 party generator.
 //
 // A farmable node offers an on-demand, repeatable skirmish (click to fight —
 // no random-encounter timer, no anti-farm friction; reload-risk is the
@@ -7,64 +7,74 @@
 // node's resolved level, so all three rewards (XP/JP via apply-back, gil via
 // the award) scale off the one lever.
 //
-// `generateSkirmishParty` IS THE SEAM (brief D3): the stub below spawns N
-// generics of simple Tier-1 classes at the resolved level, each with its
-// class's standard starting kit and NO equipment ("plain gear" — also keeps
-// effect weapons off enemy loadouts, the standing AI-valuation deferral).
-// M4's real generator replaces this function at this signature; nothing else
-// moves.
+// M4 replaced the M3 stub (Tier-1 rotation, bare kits, no gear) at the seam:
+// the party now rolls its CAST from the node's archetype (archetypes.ts —
+// location supplies flavor, level supplies power) and each unit is a full
+// composer build (enemy-generation.ts — bought-and-EQUIPPED kit, seeded
+// secondary class, level-banded gear via the S89 valuation).
+//
+// VARIANCE: the seed derives from (node id, skirmish wins at that node) —
+// repeat farming meets a different party each WIN, while save-reload never
+// rerolls (losses don't advance state, so the reload-risk governor is
+// untouched and replays hold). Chris's S99 call.
 
-import { classId, type Catalog, type ClassId, type VictoryCondition } from '@engine/index.ts';
-import { generatedEnemyUnit } from './enemy-kit.ts';
+import { deriveActionSeed, type Catalog, type VictoryCondition } from '@engine/index.ts';
+import { archetypeForNode, rollArchetypeClasses, type EnemyArchetype } from './archetypes.ts';
+import { generatedEnemyUnit, stringSeed } from './enemy-generation.ts';
 import { partyAverageLevel, resolveEnemyLevel } from './enemy-level.ts';
+import { getFlag, setFlag } from './flags.ts';
 import { allNodeBeats, type CampaignNode } from './graph.ts';
 import { firstBattleBeat, type NodeBattle } from './sequence.ts';
 import type { CampaignState, CampaignUnit } from './types.ts';
 
-// The stub's class rotation — simple Tier-1 classes only (brief D3). A
-// party of N takes the first N in order, so small parties skew physical
-// and larger ones round out with the mage line.
-const STUB_CLASS_ROTATION: ReadonlyArray<ClassId> = [
-  classId('monk'),
-  classId('fire_mage'),
-  classId('hunter'),
-  classId('water_mage'),
-  classId('alchemist'),
-  classId('earth_mage'),
-];
+// --- the per-node skirmish counter (the variance stream) --------------------
 
-// Throwaway flavor names, rotation-aligned (index-matched to the classes).
-const STUB_NAMES: ReadonlyArray<string> = [
-  'Wayside Brawler',
-  'Hedge Pyromancer',
-  'Poacher',
-  'Fen Hydrologist',
-  'Roadside Tinker',
-  'Dust Geosage',
-];
+// Flag key holding how many skirmishes have been WON at a node. Wins only:
+// a loss ends at retry without saving, so only wins can advance state — and
+// a fresh party per win is exactly the repeat-farm variance wanted.
+export function skirmishWinsFlagKey(nodeId: string): string {
+  return `skirmish_wins:${nodeId}`;
+}
 
-// THE M4 SEAM. Generate the skirmish's enemy party: `count` generics at
-// `level`, Tier-1 classes, each with a LEVEL-BUDGETED kit, rolled-band
-// Brave/Faith, and basic gear (the S94 enemy-kit framework — see
-// enemy-kit.ts; before it, the stub handed every enemy the FULL class
-// starting kit, so an L2 Hydrologist cast Tidal Wave). Deterministic —
-// same inputs, same party (the repeat-farm variance lever belongs to the
-// real generator, not the stub).
+export function skirmishWinsAt(state: CampaignState, nodeId: string): number {
+  const value = getFlag(state, skirmishWinsFlagKey(nodeId));
+  return typeof value === 'number' ? value : 0;
+}
+
+// Bump the counter after a skirmish win (CampaignApp's battle-end flow).
+export function recordSkirmishWin(state: CampaignState, nodeId: string): CampaignState {
+  return setFlag(state, skirmishWinsFlagKey(nodeId), skirmishWinsAt(state, nodeId) + 1);
+}
+
+// The deterministic skirmish seed: node identity branched by fight number.
+export function skirmishSeed(nodeId: string, wins: number): number {
+  return deriveActionSeed(stringSeed(nodeId), wins);
+}
+
+// Per-unit composition streams branch off the party seed (salts 1000+; the
+// class rolls use 200+/300+ inside archetypes.ts, gear 100+, pair class 1).
+const SALT_UNIT = 1000;
+
+// THE M4 GENERATOR (the S88 seam, cashed in). Roll `count` classes from the
+// archetype's pool, then compose each enemy fully: level-budgeted kit bought
+// toward a populated loadout, seeded secondary class, level-banded gear.
+// Deterministic — same (level, count, seed, archetype) → same party.
 export function generateSkirmishParty(
   level: number,
   count: number,
   catalog: Catalog,
+  seed: number,
+  archetype: EnemyArchetype,
 ): ReadonlyArray<CampaignUnit> {
-  return Array.from({ length: count }, (_, i) =>
-    // The shared generated-enemy constructor (S98: also backs authored
-    // lineups) — class first-action set + innates, level-budgeted kit,
-    // deterministic Brave/Faith, basic gear.
+  const rolled = rollArchetypeClasses(archetype, count, seed, catalog);
+  return rolled.map((cls, i) =>
     generatedEnemyUnit({
       id: `skirmish-enemy-${i + 1}`,
-      name: STUB_NAMES[i % STUB_NAMES.length]!,
-      classId: STUB_CLASS_ROTATION[i % STUB_CLASS_ROTATION.length]!,
+      name: `${archetype.unitNamePrefix} ${catalog.getClass(cls).name}`,
+      classId: cls,
       level,
       index: i,
+      seed: deriveActionSeed(seed, SALT_UNIT + i),
       catalog,
     }),
   );
@@ -95,7 +105,9 @@ export function buildSkirmishBattle(
   const count = Math.min(deployCap, enemySlots.length);
 
   const level = resolveEnemyLevel(partyAverageLevel(state.roster), node.offset ?? 0);
-  const enemies = generateSkirmishParty(level, count, catalog);
+  const seed = skirmishSeed(node.id, skirmishWinsAt(state, node.id));
+  const archetype = archetypeForNode(node.id, seed);
+  const enemies = generateSkirmishParty(level, count, catalog, seed, archetype);
 
   // Keep only the first `count` enemy positions; the fold re-skins exactly
   // those with the generated party (foldEnemyTeam leaves EXTRA slots as
