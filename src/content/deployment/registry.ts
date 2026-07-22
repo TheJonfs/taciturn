@@ -97,6 +97,30 @@ const alveraVillageDefault: DeploymentZoneConfig = {
   ],
 };
 
+// zelmonia_hills — 'default'.
+const zelmoniaHillsDefault: DeploymentZoneConfig = {
+  teams: [
+    { team: TEAM_BLUE, subZones: [{ tiles: rect(6, 9, 14, 15) }] },
+    {
+      team: TEAM_RED,
+      subZones: [
+        {
+          tiles: [
+            { x: 4, y: 2, layer: 0 },
+            { x: 11, y: 2, layer: 0 },
+            { x: 5, y: 3, layer: 0 },
+            { x: 10, y: 3, layer: 0 },
+            { x: 6, y: 4, layer: 0 },
+            { x: 7, y: 4, layer: 0 },
+            { x: 8, y: 4, layer: 0 },
+            { x: 9, y: 4, layer: 0 },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 // mapKey → (configName → config). 'default' is the convention every map
 // provides; further keys are alternate layouts on the same terrain.
 export const DEPLOYMENT_ZONE_REGISTRY: Readonly<
@@ -108,6 +132,7 @@ export const DEPLOYMENT_ZONE_REGISTRY: Readonly<
   mountain_pass: { default: mountainPassDefault },
   oskun_fields: { default: oskunFieldsDefault },
   alvera_village: { default: alveraVillageDefault },
+  zelmonia_hills: { default: zelmoniaHillsDefault },
 };
 
 // Look up a map's deployment-zone config by name (defaults to 'default').

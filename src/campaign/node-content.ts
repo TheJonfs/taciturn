@@ -62,10 +62,15 @@ import { riverRidgeBattle } from '@content/battles/river-ridge-battle.ts';
 import { mountainPassBattle } from '@content/battles/mountain-pass-battle.ts';
 import { oskunFieldsBattle } from '@content/battles/oskun-fields-battle.ts';
 import { alveraVillageBattle } from '@content/battles/alvera-village-battle.ts';
+import {
+  ZELMONIA_HILLS_LINEUP,
+  zelmoniaHillsBattle,
+} from '@content/battles/zelmonia-hills-battle.ts';
 import { deploymentZonesFor } from '@content/deployment/index.ts';
 import { authoredEnemy } from './authored-enemy.ts';
 import { clioJoinUnit, seraJoinUnit, thessalyJoinUnit } from './ch1-roster.ts';
 import { withInnatePassives } from './innate-passives.ts';
+import { enemiesFromLineup } from './lineup.ts';
 import { generateSkirmishParty } from './skirmish.ts';
 import type { CampaignUnit } from './types.ts';
 import type { NodeBattle, NodeBeat, StoryScene, StorySceneBeat } from './sequence.ts';
@@ -265,8 +270,13 @@ const theoConditions: ReadonlyArray<VictoryCondition> = [
   { kind: 'defeat_all', side: PLAYER, description: 'Defeat all enemies' },
 ];
 
+// S98: the Cartographer-authored Zelmonia Hills replaces the River Ridge
+// stand-in. The generated lineup module already stages Theo's ★ lead slot
+// first; `withLeadEnemySlot` is kept for its OTHER job — stamping
+// `deathProtected` on that slot (the reorder is a no-op). The retreat
+// victory condition and Theo's identity stay here, as ever.
 const zelmoniaHillsTemplate: BattleConfig = {
-  ...withLeadEnemySlot(riverRidgeBattle, true),
+  ...withLeadEnemySlot(zelmoniaHillsBattle, true),
   battleId: 'ch1_zelmonia_hills_v1',
   victoryConditions: theoConditions,
 };
@@ -435,8 +445,14 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
       'Zelmonia Hills — the commander',
       'Theo Renault, commander in the Ordallian army, bars the road. Drive him below strength and he will retreat — he cannot be slain.',
     ),
-    battle(zelmoniaHillsTemplate, 'river_ridge', {
-      enemies: [theoRenault(4, false), ...lineup(4, 4)],
+    battle(zelmoniaHillsTemplate, 'zelmonia_hills', {
+      // Theo re-skins the tool's ★ lead slot (its authored Hunter L4 spec
+      // is preview-only and dropped by the slice); the five authored
+      // troops — incl. Oscar and Tina — fold onto slots 1-5.
+      enemies: [
+        theoRenault(4, false),
+        ...enemiesFromLineup(ZELMONIA_HILLS_LINEUP, catalog).slice(1),
+      ],
       grants: [itemId('flametongue')],
     }),
     marker(

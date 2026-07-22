@@ -22,6 +22,7 @@ import { marshmoorBattle } from './marshmoor-battle.ts';
 import { mountainPassBattle } from './mountain-pass-battle.ts';
 import { oskunFieldsBattle } from './oskun-fields-battle.ts';
 import { alveraVillageBattle } from './alvera-village-battle.ts';
+import { zelmoniaHillsBattle } from './zelmonia-hills-battle.ts';
 
 export interface BattleTemplateEntry {
   // Display name for authoring pickers.
@@ -40,6 +41,8 @@ export const BATTLE_TEMPLATE_REGISTRY: Readonly<Record<string, BattleTemplateEnt
   mountain_pass: { label: 'Mountain Pass', template: mountainPassBattle, zonesKey: 'mountain_pass' },
   oskun_fields: { label: 'Oskun Fields', template: oskunFieldsBattle, zonesKey: 'oskun_fields' },
   alvera_village: { label: 'Alvera Village', template: alveraVillageBattle, zonesKey: 'alvera_village' },
+  // Cartographer-authored (S98+): generated lineup module, ADR-0158.
+  zelmonia_hills: { label: 'Zelmonia Hills', template: zelmoniaHillsBattle, zonesKey: 'zelmonia_hills' },
 };
 
 // Look up a template by registry key. Throws loud on an unknown key — a

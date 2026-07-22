@@ -13,6 +13,8 @@ import { OSKUN_FIELDS_SPEC } from '@content/maps/oskun-fields.ts';
 import { RIVER_RIDGE_SPEC } from '@content/maps/river-ridge.ts';
 import { STONEBRIDGE_SPEC } from '@content/maps/stonebridge.ts';
 import { DEPLOYMENT_ZONE_REGISTRY } from '@content/deployment/registry.ts';
+import { ZELMONIA_HILLS_SPEC } from '@content/maps/zelmonia-hills.ts';
+import { ZELMONIA_HILLS_LINEUP } from '@content/battles/zelmonia-hills-battle.ts';
 import type { MapSpec } from '@content/maps/map-format.ts';
 import type { LineupSpec } from '@content/battles/lineup-format.ts';
 import type { LineupModel, MapZoneEntry, ZoneTeamKey } from './model.ts';
@@ -27,6 +29,8 @@ export const SHIPPED_MAP_SPECS: ReadonlyArray<MapSpec> = [
   MOUNTAIN_PASS_SPEC,
   OSKUN_FIELDS_SPEC,
   ALVERA_VILLAGE_SPEC,
+  // Ch1 battlefields, Cartographer-authored (S98+).
+  ZELMONIA_HILLS_SPEC,
 ];
 
 export function shippedMapSpec(key: string): MapSpec | undefined {
@@ -38,7 +42,7 @@ export function shippedMapSpec(key: string): MapSpec | undefined {
 // call) and never appear here; when a Cartographer-authored lineup ships,
 // add its `<PREFIX>_LINEUP` import so the tool can reload it — same
 // convention as SHIPPED_MAP_SPECS for new maps.
-export const SHIPPED_LINEUPS: ReadonlyArray<LineupSpec> = [];
+export const SHIPPED_LINEUPS: ReadonlyArray<LineupSpec> = [ZELMONIA_HILLS_LINEUP];
 
 export function shippedLineupModel(mapKey: string): LineupModel | null {
   const spec = SHIPPED_LINEUPS.find((l) => l.mapKey === mapKey);

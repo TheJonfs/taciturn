@@ -19,6 +19,8 @@ import marshmoorSource from '@content/maps/marshmoor.ts?raw';
 import mountainPassSource from '@content/maps/mountain-pass.ts?raw';
 import oskunFieldsSource from '@content/maps/oskun-fields.ts?raw';
 import alveraVillageSource from '@content/maps/alvera-village.ts?raw';
+import zelmoniaHillsSource from '@content/maps/zelmonia-hills.ts?raw';
+import zelmoniaHillsBattleSource from '@content/battles/zelmonia-hills-battle.ts?raw';
 import zoneRegistrySource from '@content/deployment/registry.ts?raw';
 
 import { buildMapFromSpec, type MapSpec } from '@content/maps/map-format.ts';
@@ -28,10 +30,17 @@ import { marshmoor } from '@content/maps/marshmoor.ts';
 import { mountainPass } from '@content/maps/mountain-pass.ts';
 import { oskunFields } from '@content/maps/oskun-fields.ts';
 import { alveraVillage } from '@content/maps/alvera-village.ts';
+import { zelmoniaHills } from '@content/maps/zelmonia-hills.ts';
 import type { BattleMap } from '@engine/index.ts';
 
 import { generateLineupModule, generateMapModule, generateZoneRegistryModule } from './codegen.ts';
-import { importZoneRegistry, SHIPPED_MAP_SPECS, shippedMapSpec } from './import.ts';
+import { importZoneRegistry, SHIPPED_LINEUPS, SHIPPED_MAP_SPECS, shippedMapSpec } from './import.ts';
+
+// Shipped lineup modules, raw-paired for the byte round-trip (same corpus
+// convention as SHIPPED_SOURCES for maps).
+const SHIPPED_LINEUP_SOURCES: ReadonlyArray<{ key: string; source: string }> = [
+  { key: 'zelmonia_hills', source: zelmoniaHillsBattleSource },
+];
 
 const SHIPPED_SOURCES: ReadonlyArray<{ key: string; source: string; map: BattleMap }> = [
   { key: 'river_ridge', source: riverRidgeSource, map: riverRidge },
@@ -40,6 +49,7 @@ const SHIPPED_SOURCES: ReadonlyArray<{ key: string; source: string; map: BattleM
   { key: 'mountain_pass', source: mountainPassSource, map: mountainPass },
   { key: 'oskun_fields', source: oskunFieldsSource, map: oskunFields },
   { key: 'alvera_village', source: alveraVillageSource, map: alveraVillage },
+  { key: 'zelmonia_hills', source: zelmoniaHillsSource, map: zelmoniaHills },
 ];
 
 describe('cartographer codegen — shipped-map round trip', () => {
@@ -137,6 +147,16 @@ describe('cartographer codegen — lineup round trip (Tier 2)', () => {
     // Sixth enemy slot synthesized a fresh id past the base's five.
     expect(lineupFixtureBattle.units.map((u) => String(u.id))).toContain('lineup_fixture_enemy_6');
     expect(LINEUP_FIXTURE_LINEUP.enemies[0]!.classId).toBe('monk'); // lead slot
+  });
+
+  it.each(SHIPPED_LINEUP_SOURCES)('re-emits the shipped $key lineup byte-identical', ({ key, source }) => {
+    const spec = SHIPPED_LINEUPS.find((l) => l.key === key);
+    expect(spec).toBeDefined();
+    expect(generateLineupModule(spec!)).toBe(source);
+  });
+
+  it('covers every shipped lineup (no source fixture forgotten)', () => {
+    expect(SHIPPED_LINEUP_SOURCES.map((s) => s.key)).toEqual(SHIPPED_LINEUPS.map((l) => l.key));
   });
 
   it('refuses a lineup keyed as the hand-written base battle', () => {

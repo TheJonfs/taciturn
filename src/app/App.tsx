@@ -32,6 +32,7 @@ import { marshmoorBattle } from '@content/battles/marshmoor-battle.ts';
 import { mountainPassBattle } from '@content/battles/mountain-pass-battle.ts';
 import { oskunFieldsBattle } from '@content/battles/oskun-fields-battle.ts';
 import { alveraVillageBattle } from '@content/battles/alvera-village-battle.ts';
+import { zelmoniaHillsBattle } from '@content/battles/zelmonia-hills-battle.ts';
 import { buildTeamBattleConfig, type BuiltTeam } from '@content/teams/index.ts';
 import {
   CAMPAIGN_GRAPH,
@@ -61,7 +62,8 @@ export type MapId =
   | 'marshmoor'
   | 'mountain_pass'
   | 'oskun_fields'
-  | 'alvera_village';
+  | 'alvera_village'
+  | 'zelmonia_hills';
 export const MAP_OPTIONS: ReadonlyArray<{ id: MapId; label: string; config: BattleConfig }> = [
   { id: 'river_ridge', label: 'River Ridge', config: riverRidgeBattle },
   { id: 'stonebridge', label: 'Stonebridge', config: stonebridgeBattle },
@@ -69,6 +71,7 @@ export const MAP_OPTIONS: ReadonlyArray<{ id: MapId; label: string; config: Batt
   { id: 'mountain_pass', label: 'Mountain Pass', config: mountainPassBattle },
   { id: 'oskun_fields', label: 'Oskun Fields', config: oskunFieldsBattle },
   { id: 'alvera_village', label: 'Alvera Village', config: alveraVillageBattle },
+  { id: 'zelmonia_hills', label: 'Zelmonia Hills', config: zelmoniaHillsBattle },
 ];
 function battleForMap(id: MapId): BattleConfig {
   return MAP_OPTIONS.find((m) => m.id === id)!.config;

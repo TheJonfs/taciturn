@@ -145,13 +145,16 @@ describe('Zelmonia Hills — the authored Theo Renault battle (Ch1)', () => {
   const hills = getNode(CAMPAIGN_GRAPH, 'node-zelmonia-hills');
   const beat = firstBattleBeat(allNodeBeats(hills))!;
 
-  it('authors Theo first (L4 Hunter, one-active kit) over a leveled placeholder escort', () => {
+  it('authors Theo first (L4 Hunter, one-active kit) over the Cartographer-authored escort', () => {
     const enemies = beat.battle.enemies!;
     expect(enemies).toBeDefined();
     expect(String(enemies[0]!.id)).toBe('plot-theo');
     expect(enemies[0]!.level).toBe(4);
     expect(enemies[0]!.unlocks).toHaveLength(1); // pin_down only at Node 3
-    expect(enemies.slice(1).every((e) => e.level === 4)).toBe(true);
+    // S98: the escort is the authored ZELMONIA_HILLS_LINEUP (five troops,
+    // levels 3-4 as placed in the tool), not the old lineup(4, 4) stub.
+    expect(enemies).toHaveLength(6);
+    expect(enemies.slice(1).every((e) => e.level >= 3 && e.level <= 4)).toBe(true);
   });
 
   it('folds Theo onto the death-protected lead slot with a gated kit', () => {
