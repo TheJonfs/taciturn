@@ -7,13 +7,19 @@
 // THEO_ID. Also boots the folded battle through the unchanged engine.
 
 import { describe, expect, it } from 'vitest';
-import { createInitialState, teamId } from '@engine/index.ts';
+import { createInitialState, evaluateBattleOutcome, teamId } from '@engine/index.ts';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { zelmoniaHills } from '@content/maps/zelmonia-hills.ts';
 import { ZELMONIA_HILLS_LINEUP } from '@content/battles/zelmonia-hills-battle.ts';
+import { CAMPAIGN_NODES } from './node.ts';
+import { getNode } from './graph.ts';
+import { CAMPAIGN_GRAPH } from './index.ts';
 import { contentBeats, THEO_ID } from './node-content.ts';
-import { foldEnemyTeam } from './snapshot-fold.ts';
+import { m0Roster } from './roster.ts';
+import { buildSkirmishBattle } from './skirmish.ts';
+import { foldBattle, foldEnemyTeam } from './snapshot-fold.ts';
 import type { NodeBattle } from './sequence.ts';
+import type { CampaignState } from './types.ts';
 
 const catalog = loadDefaultCatalog();
 const ENEMY = teamId('team_b');
@@ -74,5 +80,35 @@ describe('Zelmonia Hills — Cartographer-authored node wiring', () => {
         `unit ${String(unit.id)} stands on the map`,
       ).toBe(true);
     }
+  });
+});
+
+describe('Zelmonia Hills — skirmish at the Theo node (regression, S98)', () => {
+  // A skirmish borrows the node's battlefield but NOT its story rules. The
+  // template's authored theoConditions target plot-theo, who is not in a
+  // generated skirmish party — evaluateBattleOutcome fails loud on the
+  // dangling id (Chris's playtest crash: "unit_below_hp references unknown
+  // unit \"plot-theo\""). Latent since S88 on the River Ridge stand-in;
+  // pinned here against the real map.
+  const node = getNode(CAMPAIGN_GRAPH, CAMPAIGN_NODES.zelmoniaHills);
+  const state = { roster: m0Roster } as unknown as CampaignState;
+  const battle = buildSkirmishBattle(node, state, catalog);
+
+  it('replaces the story victory conditions with the plain defeat-all pair', () => {
+    expect(battle.template.victoryConditions).toHaveLength(2);
+    expect(battle.template.victoryConditions.every((c) => c.kind === 'defeat_all')).toBe(true);
+  });
+
+  it('boots and evaluates cleanly with the generated party (no dangling plot-theo)', () => {
+    const folded = foldBattle(battle, m0Roster.slice(0, battle.deployCap), catalog);
+    const initial = createInitialState(folded, catalog);
+    expect(initial.units.has(THEO_ID)).toBe(false); // generated party, no Theo
+    const outcome = evaluateBattleOutcome(initial, catalog); // was the crash site
+    expect(outcome.kind).toBe('ongoing');
+  });
+
+  it('trims the six authored slots to the five-unit generated party', () => {
+    expect(battle.enemies).toHaveLength(5);
+    expect(battle.template.units.filter((u) => u.team === ENEMY)).toHaveLength(5);
   });
 });

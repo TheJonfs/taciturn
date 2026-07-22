@@ -14,7 +14,7 @@
 // M4's real generator replaces this function at this signature; nothing else
 // moves.
 
-import { classId, type Catalog, type ClassId } from '@engine/index.ts';
+import { classId, type Catalog, type ClassId, type VictoryCondition } from '@engine/index.ts';
 import { generatedEnemyUnit } from './enemy-kit.ts';
 import { partyAverageLevel, resolveEnemyLevel } from './enemy-level.ts';
 import { allNodeBeats, type CampaignNode } from './graph.ts';
@@ -104,8 +104,26 @@ export function buildSkirmishBattle(
   // Guests are story-battle authored (WI4): a skirmish borrowing this
   // battlefield never inherits the story fight's guest allies.
   const players = template.units.filter((u) => u.team === playerTeam && u.guest !== true);
+  // A skirmish borrows the node's BATTLEFIELD, never its STORY RULES: the
+  // template's authored victory conditions can reference story units that
+  // don't exist here (the Theo-node templates' `unit_below_hp` predicate
+  // targets plot-theo — the evaluator fails loud on the dangling id; latent
+  // since S88, surfaced by the first skirmish at a Theo node). Every
+  // skirmish is a plain field fight: the standard defeat-all pair.
+  const enemyTeam = template.teams.find((t) => t.id !== playerTeam);
+  if (enemyTeam === undefined) {
+    throw new Error(`buildSkirmishBattle: node "${node.id}" template has no enemy team`);
+  }
+  const skirmishConditions: ReadonlyArray<VictoryCondition> = [
+    { kind: 'defeat_all', side: enemyTeam.id, description: 'Defeat all enemies' },
+    { kind: 'defeat_all', side: playerTeam, description: 'Defeat all enemies' },
+  ];
   return {
-    template: { ...template, units: [...players, ...keptEnemySlots] },
+    template: {
+      ...template,
+      units: [...players, ...keptEnemySlots],
+      victoryConditions: skirmishConditions,
+    },
     playerTeam,
     zones,
     deployCap,
