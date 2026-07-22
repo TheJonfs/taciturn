@@ -28,8 +28,7 @@ import {
   COMPONENT_ENTRIES,
   composeLineupEnemyDraft,
   enemyJpBudget,
-  enemyKitForBudget,
-  enemyKitForLevel,
+  lineupSlotSeed,
   tokenKey,
   unlockRefToToken,
   type UnlockToken,
@@ -52,6 +51,9 @@ const catalog = (): ReturnType<typeof loadDefaultCatalog> =>
 interface EnemyEditorProps {
   readonly slot: EnemyLineupSlot;
   readonly index: number;
+  // The lineup's key — with `index` it derives the fold's per-slot
+  // composition seed (M4), so the editor echoes EXACTLY what ships.
+  readonly lineupKey: string;
   readonly onPatch: (patch: EnemyOverridesPatch | null) => void;
 }
 
@@ -67,21 +69,33 @@ const refFromToken = (token: UnlockToken): LineupUnlockRef => ({
   id: String(token.id),
 });
 
-export function EnemyEditor({ slot, index, onPatch }: EnemyEditorProps): ReactElement {
+export function EnemyEditor({ slot, index, lineupKey, onPatch }: EnemyEditorProps): ReactElement {
   const cat = catalog();
   const cls = classId(slot.classId);
   const o = slot.overrides;
+  const slotSeed = lineupSlotSeed(lineupKey, index);
 
   const kitMode: 'auto' | 'budget' | 'explicit' =
     o?.unlocks !== undefined ? 'explicit' : o?.jpBudget !== undefined ? 'budget' : 'auto';
+
+  // The composed draft — the EXACT build the fold ships (M4: auto/budget
+  // kits now include the seeded secondary-class spillover and exported
+  // passives, so the display must come from the composer, not a local
+  // curriculum rebuild).
+  const draft = useMemo(() => {
+    try {
+      return composeLineupEnemyDraft(slot, cat, slotSeed);
+    } catch {
+      return null;
+    }
+  }, [slot, cat, slotSeed]);
 
   // The kit the current settings resolve to (for display + as the seed
   // when switching into explicit mode).
   const effectiveKit = useMemo<ReadonlyArray<UnlockToken>>(() => {
     if (o?.unlocks !== undefined) return o.unlocks.map(unlockRefToToken);
-    if (o?.jpBudget !== undefined) return enemyKitForBudget(cls, o.jpBudget, cat);
-    return enemyKitForLevel(cls, slot.level, cat);
-  }, [o, cls, slot.level, cat]);
+    return draft?.unlocks ?? [];
+  }, [o, draft]);
 
   // The secondary command set's owning class, if one is chosen — its
   // components join the explicit picker (unlocking them is what makes the
@@ -94,14 +108,26 @@ export function EnemyEditor({ slot, index, onPatch }: EnemyEditorProps): ReactEl
     );
   }, [o?.secondaryCommandSet, cat]);
 
+  // Classes whose components the explicit picker offers: the enemy's own,
+  // an explicitly chosen secondary's, and any class already present in the
+  // effective kit (the M4 auto-pair spillover — its tokens must stay
+  // visible/uncheckable rather than silently hidden).
+  const kitClasses = useMemo(() => {
+    const set = new Set<string>([String(cls)]);
+    if (secondaryClass !== null) set.add(String(secondaryClass));
+    for (const token of effectiveKit) {
+      const meta = COMPONENT_ENTRIES.find((m) => tokenKey(m.token) === tokenKey(token));
+      if (meta !== undefined) set.add(String(meta.nativeClass));
+    }
+    return set;
+  }, [cls, secondaryClass, effectiveKit]);
+
   const pickerComponents = useMemo(
     () =>
       COMPONENT_ENTRIES.filter(
-        (meta) =>
-          meta.restrictedToUnit === undefined &&
-          (meta.nativeClass === cls || (secondaryClass !== null && meta.nativeClass === secondaryClass)),
+        (meta) => meta.restrictedToUnit === undefined && kitClasses.has(String(meta.nativeClass)),
       ),
-    [cls, secondaryClass],
+    [kitClasses],
   );
 
   const checkedKeys = useMemo(() => new Set(effectiveKit.map(tokenKey)), [effectiveKit]);
@@ -116,8 +142,8 @@ export function EnemyEditor({ slot, index, onPatch }: EnemyEditorProps): ReactEl
 
   // Live legality echo — the exact composition the fold ships.
   const legality = useMemo(() => {
+    if (draft === null) return null;
     try {
-      const draft = composeLineupEnemyDraft(slot, cat);
       return validateDraftUnit(
         { classId: cls, loadout: draft.loadout, equipment: draft.equipment },
         cat,
@@ -126,7 +152,7 @@ export function EnemyEditor({ slot, index, onPatch }: EnemyEditorProps): ReactEl
     } catch {
       return null;
     }
-  }, [slot, cls, cat]);
+  }, [draft, cls, cat]);
 
   const toggleComponent = (token: UnlockToken): void => {
     const refs = effectiveKit.map(refFromToken);
@@ -371,7 +397,7 @@ export function EnemyEditor({ slot, index, onPatch }: EnemyEditorProps): ReactEl
           style={gearIsCustom ? activeChipStyle : chipStyle}
           onClick={() => onPatch({ equipment: gearIsCustom ? undefined : {} })}
         >
-          {gearIsCustom ? 'custom' : 'default (basic gear)'}
+          {gearIsCustom ? 'custom' : 'default (generated gear)'}
         </button>
       </div>
       {gearIsCustom &&

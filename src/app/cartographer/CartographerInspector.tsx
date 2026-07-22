@@ -353,6 +353,7 @@ export function CartographerInspector(props: CartographerInspectorProps): ReactE
               <EnemyEditor
                 slot={model.lineup.enemies[editingEnemy]!}
                 index={editingEnemy}
+                lineupKey={spec.key}
                 onPatch={(patch) => props.onUpdateEnemyOverrides(editingEnemy, patch)}
               />
             )}

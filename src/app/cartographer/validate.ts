@@ -26,6 +26,7 @@ import { loadDefaultCatalog } from '@content/index.ts';
 import {
   COMPONENT_ENTRIES,
   composeLineupEnemyDraft,
+  lineupSlotSeed,
   tokenKey,
   unlockRefToToken,
 } from '@campaign/index.ts';
@@ -179,7 +180,7 @@ function lineupFindings(
     }
   }
 
-  for (const e of lineup.enemies) {
+  for (const [enemyIndex, e] of lineup.enemies.entries()) {
     if (!catalog().hasClass(classId(e.classId))) {
       findings.push({ level: 'error', message: `lineup: unknown class '${e.classId}'` });
       continue;
@@ -197,7 +198,7 @@ function lineupFindings(
         message: `lineup: enemy at (${e.x},${e.y}) stands inside the player deployment zone`,
       });
     }
-    findings.push(...overrideFindings(e));
+    findings.push(...overrideFindings(e, lineupSlotSeed(spec.key, enemyIndex)));
   }
   return findings;
 }
@@ -223,7 +224,9 @@ const componentKeys = (): { known: Set<string>; restricted: Set<string> } => {
 // composed loadout + equipment run through the engine's draft-legality
 // resolver — the same check createInitialState enforces — so an illegal
 // authored build fails HERE, gating export, instead of at battle time.
-function overrideFindings(e: EnemyLineupSlot): CartographerFinding[] {
+// `slotSeed` is the fold's per-slot composition seed (M4) — validation must
+// compose the EXACT build that ships.
+function overrideFindings(e: EnemyLineupSlot, slotSeed: number): CartographerFinding[] {
   const o = e.overrides;
   if (o === undefined) return [];
   const findings: CartographerFinding[] = [];
@@ -284,7 +287,7 @@ function overrideFindings(e: EnemyLineupSlot): CartographerFinding[] {
   // Compose exactly what the fold will ship and run the engine's
   // draft-legality resolver — the same rules createInitialState enforces.
   try {
-    const draft = composeLineupEnemyDraft(e, cat);
+    const draft = composeLineupEnemyDraft(e, cat, slotSeed);
     const legality = validateDraftUnit(
       { classId: classId(e.classId), loadout: draft.loadout, equipment: draft.equipment },
       cat,
