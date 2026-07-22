@@ -116,11 +116,39 @@ export {
   travelChoices,
 } from './travel.ts';
 export type { CurrentEngagement, TravelChoice } from './travel.ts';
-export { buildSkirmishBattle, generateSkirmishParty, skirmishLevelAt } from './skirmish.ts';
+export {
+  buildSkirmishBattle,
+  generateSkirmishParty,
+  recordSkirmishWin,
+  skirmishLevelAt,
+  skirmishSeed,
+  skirmishWinsAt,
+} from './skirmish.ts';
 // S98 Tier 2 — authored lineups (Cartographer unit mode): the identity half
-// of a generated lineup module, framed by the shared enemy-kit constructor.
-export { composeLineupEnemyDraft, enemiesFromLineup, unlockRefToToken } from './lineup.ts';
-export { enemyJpBudget, enemyKitForBudget, enemyKitForLevel, generatedEnemyUnit } from './enemy-kit.ts';
+// of a generated lineup module, framed by the M4 unified composer.
+export {
+  composeLineupEnemyDraft,
+  enemiesFromLineup,
+  lineupSlotSeed,
+  unlockRefToToken,
+} from './lineup.ts';
+// M4 — the unified generated-enemy composer + archetype registry.
+export {
+  composeEnemyBuild,
+  generatedEnemyUnit,
+  stringSeed,
+  type ComposedEnemyBuild,
+  type ComposeEnemyArgs,
+} from './enemy-generation.ts';
+export {
+  archetypeForNode,
+  DEFAULT_ARCHETYPE,
+  ENEMY_ARCHETYPES,
+  NODE_ARCHETYPES,
+  rollArchetypeClasses,
+  type EnemyArchetype,
+} from './archetypes.ts';
+export { enemyJpBudget, enemyKitForBudget, enemyKitForLevel } from './enemy-kit.ts';
 export { CANONICAL_PROBE_BATTLE, probeBattleFor } from './probe-battle.ts';
 export type { VitalsProbeBattle } from './probe-battle.ts';
 export { CAMPAIGN_GRAPH, CAMPAIGN_NODES } from './node.ts';

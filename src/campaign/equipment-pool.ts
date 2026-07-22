@@ -38,6 +38,17 @@ export interface TabaGearEntry {
   readonly chapter: GearChapter;
   readonly acquisition: GearAcquisition;
   /**
+   * M4 enemy generation — exotic/marquee effect item: its identity is a
+   * synergy the S89 gear-valuation FLOOR deliberately doesn't score
+   * (dump cadences, dual-stat loops, school rebalances). Excluded from
+   * generated-enemy gear pools: an enemy misusing an exotic is a WORSE
+   * encounter, not a harder one (M4 brief). Common effect patterns
+   * (procs, lifesteal, variance shapes, cast speed) are NOT exotic —
+   * the floor values those. Campaign-owned flag by design: the engine's
+   * `ItemDefinition` stays product-agnostic (this module's header).
+   */
+  readonly exotic?: true;
+  /**
    * M3 economy Stage 2 — the node whose clearing puts this item in stock
    * (the unlock TRIGGER; usually the selling hub itself, but a back-half
    * refresh can key on a later node's clear). Absent → not yet assigned,
@@ -56,6 +67,13 @@ const entry = (id: string, chapter: GearChapter, acquisition: GearAcquisition): 
   itemId: itemId(id),
   chapter,
   acquisition,
+});
+
+// An exotic entry (see `TabaGearEntry.exotic`) — S99 candidate flags,
+// Chris review pending; adjust freely, tests read the flag not the list.
+const exotic = (id: string, chapter: GearChapter, acquisition: GearAcquisition): TabaGearEntry => ({
+  ...entry(id, chapter, acquisition),
+  exotic: true,
 });
 
 // --- Sections shared with Mage War (availability 'available'; frozen) -------
@@ -219,22 +237,29 @@ export const TABA_NEW_CH3: ReadonlyArray<TabaGearEntry> = [
   entry('talisman_of_endurance', 3, 'shop'),
   // accessories
   entry('winged_boots', 3, 'shop'),
-  // engine-prerequisite items (Stage 3)
-  entry('healers_staff', 3, 'shop'),
+  // engine-prerequisite items (Stage 3). Healer's Staff is exotic for
+  // generation: attack-resolves-as-heal on the wrong wielder is an enemy
+  // basic-attacking its target back to health.
+  exotic('healers_staff', 3, 'shop'),
   entry('battle_staff', 3, 'shop'),
   entry('channelers_hat', 3, 'shop'),
-  // effect items (Stage 4)
+  // effect items (Stage 4). Exotic flags per the M4 brief's floor/ceiling
+  // boundary: Prism/Scouring Wand (brief-named), Epee (CT-refund cadence),
+  // Palliative Pike (dual-stat hit/heal loop), Moon/Terra Robe (school
+  // rebalance ×, cast-synergy self-statuses). Gaia's Axe / Star / Void
+  // Robe stay in: element imbue, lifesteal, and procs are floor-valued
+  // COMMON patterns ("common effects in, exotics out").
   entry('gaias_axe', 3, 'shop'),
   entry('spiked_maul', 3, 'shop'),
   entry('estoc', 3, 'shop'),
   entry('trident', 3, 'shop'),
-  entry('epee', 3, 'shop'),
-  entry('palliative_pike', 3, 'shop'),
-  entry('prism_wand', 3, 'shop'),
-  entry('scouring_wand', 3, 'shop'),
-  entry('moon_robe', 3, 'shop'),
+  exotic('epee', 3, 'shop'),
+  exotic('palliative_pike', 3, 'shop'),
+  exotic('prism_wand', 3, 'shop'),
+  exotic('scouring_wand', 3, 'shop'),
+  exotic('moon_robe', 3, 'shop'),
   entry('star_robe', 3, 'shop'),
-  entry('terra_robe', 3, 'shop'),
+  exotic('terra_robe', 3, 'shop'),
   entry('void_robe', 3, 'shop'),
   // Ch3 weapon uniques (single-instance, found-not-shopped — the Ch3
   // uniques brief; in-world placement/acquisition is the economy pass,

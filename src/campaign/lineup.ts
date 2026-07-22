@@ -8,7 +8,7 @@
 // full equipment). The content layer consumes only the spatial half
 // (`buildBattleFromLineup` restages fixture units). THIS module consumes the
 // identity half: it turns each slot into a `NodeBattle.enemies` spec —
-// framework defaults where no override is authored, authored values where
+// composer defaults where no override is authored, authored values where
 // one is (the same `AuthoredEnemySpec` surface named units use).
 //
 // Index alignment is the contract: `enemiesFromLineup(spec)[i]` re-skins the
@@ -18,14 +18,18 @@
 // author them as `[theoRenault(...), ...enemiesFromLineup(spec, catalog).slice(1)]`
 // style mixes, or let them re-skin the lead slot the tool ordered first.
 //
-// `composeLineupEnemyDraft` is the shared composer: the Cartographer's live
-// legality check builds the same loadout/equipment the fold will, so the
-// tool validates exactly what ships.
+// `composeLineupEnemyDraft` routes through the M4 unified composer
+// (`composeEnemyBuild`): the Cartographer's live legality check builds the
+// same loadout/equipment the fold will, so the tool validates exactly what
+// ships. The per-slot SEED is derived from (lineup key, slot index) —
+// stable across sessions, so an authored battle's generated halves never
+// shift under the author.
 
 import {
   abilityId,
   bucketId,
   classId,
+  deriveActionSeed,
   EMPTY_UNIT_EQUIPMENT,
   itemId,
   commandSetId,
@@ -42,14 +46,8 @@ import type {
   LineupUnlockRef,
 } from '@content/battles/lineup-format.ts';
 import { authoredEnemy } from './authored-enemy.ts';
-import {
-  basicEnemyGear,
-  enemyBraveFaith,
-  enemyKitForBudget,
-  enemyKitForLevel,
-  generatedEnemyUnit,
-} from './enemy-kit.ts';
-import { withInnatePassives } from './innate-passives.ts';
+import { composeEnemyBuild, stringSeed } from './enemy-generation.ts';
+import { enemyBraveFaith } from './enemy-kit.ts';
 import type { UnlockToken } from './progression/index.ts';
 import type { CampaignUnit } from './types.ts';
 
@@ -71,6 +69,14 @@ export function unlockRefToToken(ref: LineupUnlockRef): UnlockToken {
   }
 }
 
+// The deterministic per-slot composition seed: FNV-1a over the lineup key,
+// branched by slot index. Exported so the Cartographer's editor echo and
+// validation derive EXACTLY the seed the fold will (drift here would show
+// the author a different enemy than ships).
+export function lineupSlotSeed(lineupKey: string, slotIndex: number): number {
+  return deriveActionSeed(stringSeed(lineupKey), slotIndex);
+}
+
 // The overridable halves of an enemy, composed exactly as the fold will see
 // them. Exported so the Cartographer's validation can run the engine's
 // draft-legality resolver on the REAL composition (no tool-side rebuild to
@@ -84,39 +90,22 @@ export interface LineupEnemyDraft {
 export function composeLineupEnemyDraft(
   slot: EnemyLineupSlot,
   catalog: Catalog,
+  seed: number,
 ): LineupEnemyDraft {
   const cls = classId(slot.classId);
   const o = slot.overrides;
 
-  const unlocks: ReadonlyArray<UnlockToken> =
-    o?.unlocks !== undefined
-      ? o.unlocks.map(unlockRefToToken)
-      : o?.jpBudget !== undefined
-        ? enemyKitForBudget(cls, o.jpBudget, catalog)
-        : enemyKitForLevel(cls, slot.level, catalog);
-
   const passiveBuckets: Record<string, AbilityId[]> = {};
-  for (const bucket of ['reaction', 'support', 'movement'] as const) {
-    const ids = o?.passives?.[bucket];
-    if (ids !== undefined && ids.length > 0) {
-      passiveBuckets[bucketId(bucket)] = ids.map((id) => abilityId(id));
+  if (o?.passives !== undefined) {
+    for (const bucket of ['reaction', 'support', 'movement'] as const) {
+      const ids = o.passives[bucket];
+      if (ids !== undefined && ids.length > 0) {
+        passiveBuckets[bucketId(bucket)] = ids.map((id) => abilityId(id));
+      }
     }
   }
-  const loadout = withInnatePassives(
-    {
-      actionBuckets: {
-        [bucketId('first_action')]: [catalog.getClass(cls).firstActionCommandSet],
-        ...(o?.secondaryCommandSet !== undefined
-          ? { [bucketId('secondary_command_sets')]: [commandSetId(o.secondaryCommandSet)] }
-          : {}),
-      },
-      passiveBuckets,
-    },
-    cls,
-    catalog,
-  );
 
-  const equipment: UnitEquipment =
+  const equipment: UnitEquipment | undefined =
     o?.equipment !== undefined
       ? {
           ...EMPTY_UNIT_EQUIPMENT,
@@ -124,9 +113,25 @@ export function composeLineupEnemyDraft(
             Object.entries(o.equipment).map(([slotId, id]) => [slotId, itemId(id as string)]),
           ),
         }
-      : basicEnemyGear(cls, catalog);
+      : undefined;
 
-  return { loadout, equipment, unlocks };
+  const build = composeEnemyBuild({
+    classId: cls,
+    level: slot.level,
+    seed,
+    catalog,
+    ...(o?.unlocks !== undefined
+      ? { unlocks: o.unlocks.map(unlockRefToToken) }
+      : o?.jpBudget !== undefined
+        ? { jpBudget: o.jpBudget }
+        : {}),
+    ...(equipment !== undefined ? { equipment } : {}),
+    ...(o?.passives !== undefined ? { passiveBuckets } : {}),
+    ...(o?.secondaryCommandSet !== undefined
+      ? { secondaryCommandSet: commandSetId(o.secondaryCommandSet) }
+      : {}),
+  });
+  return { loadout: build.loadout, equipment: build.equipment, unlocks: build.unlocks };
 }
 
 export function enemiesFromLineup(
@@ -136,29 +141,19 @@ export function enemiesFromLineup(
   return spec.enemies.map((slot, i) => {
     const cls = classId(slot.classId);
     const o = slot.overrides;
-    if (o === undefined) {
-      return generatedEnemyUnit({
-        id: `${spec.key}-enemy-${i + 1}`,
-        name: catalog.getClass(cls).name,
-        classId: cls,
-        level: slot.level,
-        index: i,
-        catalog,
-      });
-    }
-    const draft = composeLineupEnemyDraft(slot, catalog);
+    const draft = composeLineupEnemyDraft(slot, catalog, lineupSlotSeed(spec.key, i));
     const band = enemyBraveFaith(slot.level, i);
     return authoredEnemy({
       id: `${spec.key}-enemy-${i + 1}`,
-      name: o.name ?? catalog.getClass(cls).name,
+      name: o?.name ?? catalog.getClass(cls).name,
       classId: cls,
       level: slot.level,
       loadout: draft.loadout,
       equipment: draft.equipment,
       unlocks: draft.unlocks,
-      brave: o.brave ?? band.brave,
-      faith: o.faith ?? band.faith,
-      ...(o.gender !== undefined ? { gender: o.gender } : {}),
+      brave: o?.brave ?? band.brave,
+      faith: o?.faith ?? band.faith,
+      ...(o?.gender !== undefined ? { gender: o.gender } : {}),
     });
   });
 }

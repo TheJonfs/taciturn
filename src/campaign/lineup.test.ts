@@ -1,14 +1,16 @@
-// enemiesFromLineup tests (S98 Tier 2) — the identity half of an authored
-// lineup: class + level per slot, framed by the shared enemy-kit
-// constructor exactly as the skirmish stub frames its generics.
+// enemiesFromLineup tests (S98 Tier 2, M4-composed) — the identity half of
+// an authored lineup: class + level per slot, framed by the M4 unified
+// composer exactly as skirmish generics are.
 
 import { describe, expect, it } from 'vitest';
 import { bucketId, classId, commandSetId } from '@engine/index.ts';
 import { loadDefaultCatalog } from '@content/index.ts';
 import type { LineupSpec } from '@content/battles/lineup-format.ts';
-import { composeLineupEnemyDraft, enemiesFromLineup } from './lineup.ts';
+import { composeLineupEnemyDraft, enemiesFromLineup, lineupSlotSeed } from './lineup.ts';
+import { generatedEnemyUnit } from './enemy-generation.ts';
 import { enemyBraveFaith, enemyKitForBudget, enemyKitForLevel } from './enemy-kit.ts';
-import { generateSkirmishParty } from './skirmish.ts';
+import { withInnatePassives } from './innate-passives.ts';
+import { tokenKey } from './progression/index.ts';
 
 const catalog = loadDefaultCatalog();
 
@@ -37,26 +39,39 @@ describe('enemiesFromLineup', () => {
     expect(enemies[1]!.level).toBe(5);
   });
 
-  it('frames each enemy with the enemy-kit framework (kit, Brave/Faith band, class name)', () => {
-    expect(enemies[0]!.unlocks).toEqual(enemyKitForLevel(classId('monk'), 3, catalog));
-    expect(enemies[1]!.unlocks).toEqual(enemyKitForLevel(classId('fire_mage'), 5, catalog));
+  it('frames each enemy with the composer (kit prefix, Brave/Faith band, class name)', () => {
+    // The kit STARTS with the primary curriculum prefix (M4 may append
+    // pair-class spillover after it).
+    const monkPrefix = enemyKitForLevel(classId('monk'), 3, catalog);
+    expect(enemies[0]!.unlocks.slice(0, monkPrefix.length)).toEqual(monkPrefix);
+    const pyroPrefix = enemyKitForLevel(classId('fire_mage'), 5, catalog);
+    expect(enemies[1]!.unlocks.slice(0, pyroPrefix.length)).toEqual(pyroPrefix);
     const roll0 = enemyBraveFaith(3, 0);
     expect(enemies[0]!.brave).toBe(roll0.brave);
     expect(enemies[0]!.faith).toBe(roll0.faith);
     expect(enemies[0]!.name).toBe(catalog.getClass(classId('monk')).name);
   });
 
-  it('matches the skirmish stub construction for the same class/level/index (shared constructor)', () => {
-    // Skirmish slot 0 is a monk; an authored monk at the same level and
-    // index differs only in id/name — the framing (kit, loadout, gear,
-    // Brave/Faith) is byte-for-byte the same constructor output.
-    const skirmish = generateSkirmishParty(3, 1, catalog)[0]!;
+  it('matches the shared constructor for the same class/level/index/seed (one composer)', () => {
+    const twin = generatedEnemyUnit({
+      id: 'twin',
+      name: 'Twin',
+      classId: classId('monk'),
+      level: 3,
+      index: 0,
+      seed: lineupSlotSeed('test_field', 0),
+      catalog,
+    });
     const authored = enemies[0]!;
-    expect(authored.loadout).toEqual(skirmish.loadout);
-    expect(authored.equipment).toEqual(skirmish.equipment);
-    expect(authored.unlocks).toEqual(skirmish.unlocks);
-    expect(authored.brave).toBe(skirmish.brave);
-    expect(authored.faith).toBe(skirmish.faith);
+    expect(authored.loadout).toEqual(twin.loadout);
+    expect(authored.equipment).toEqual(twin.equipment);
+    expect(authored.unlocks).toEqual(twin.unlocks);
+    expect(authored.brave).toBe(twin.brave);
+    expect(authored.faith).toBe(twin.faith);
+  });
+
+  it('is stable: the per-slot seed derives from (lineup key, index) alone', () => {
+    expect(enemiesFromLineup(SPEC, catalog)).toEqual(enemiesFromLineup(SPEC, catalog));
   });
 });
 
@@ -69,8 +84,11 @@ describe('enemy overrides (Tier 3)', () => {
       enemies: [{ ...base, overrides: { jpBudget: 900 } }],
     };
     const [enemy] = enemiesFromLineup(spec, catalog);
-    expect(enemy!.unlocks).toEqual(enemyKitForBudget(classId('monk'), 900, catalog));
-    expect(enemy!.unlocks).not.toEqual(enemyKitForLevel(classId('monk'), 3, catalog));
+    const prefix = enemyKitForBudget(classId('monk'), 900, catalog);
+    expect(enemy!.unlocks.slice(0, prefix.length)).toEqual(prefix);
+    expect(prefix.length).toBeGreaterThan(
+      enemyKitForLevel(classId('monk'), 3, catalog).length,
+    );
   });
 
   it('explicit unlocks win over jpBudget and brand into real tokens', () => {
@@ -81,7 +99,8 @@ describe('enemy overrides (Tier 3)', () => {
       enemies: [{ ...base, overrides: { jpBudget: 100, unlocks: refs } }],
     };
     const [enemy] = enemiesFromLineup(spec, catalog);
-    expect(enemy!.unlocks).toEqual(kit);
+    // Explicit kits are exact — no budget spillover appended.
+    expect(enemy!.unlocks.map(tokenKey)).toEqual(kit.map(tokenKey));
   });
 
   it('secondary command set + explicit passives compose into the loadout, innates merged', () => {
@@ -104,12 +123,16 @@ describe('enemy overrides (Tier 3)', () => {
     expect(enemy!.loadout.actionBuckets[bucketId('secondary_command_sets')]).toEqual([
       commandSetId(String(pyroSet)),
     ]);
-    // Monk innates still arrive equipped (withInnatePassives on the composed loadout).
-    const framework = generateSkirmishParty(3, 1, catalog)[0]!; // slot 0 = monk
-    expect(enemy!.loadout.passiveBuckets).toEqual(framework.loadout.passiveBuckets);
+    // Explicit (empty) passives → innates only, exactly the innate merge.
+    const innatesOnly = withInnatePassives(
+      { actionBuckets: {}, passiveBuckets: {} },
+      classId('monk'),
+      catalog,
+    );
+    expect(enemy!.loadout.passiveBuckets).toEqual(innatesOnly.passiveBuckets);
   });
 
-  it('an equipment record replaces basic gear wholesale; empty record = bare-handed', () => {
+  it('an equipment record replaces generated gear wholesale; empty record = bare-handed', () => {
     const armed: LineupSpec = {
       ...SPEC,
       enemies: [{ ...base, overrides: { equipment: { rightHand: 'spiked_maul' } } }],
@@ -139,7 +162,7 @@ describe('enemy overrides (Tier 3)', () => {
   it('composeLineupEnemyDraft matches what enemiesFromLineup ships (the validation contract)', () => {
     const slot = { ...base, overrides: { equipment: { rightHand: 'dagger' as const } } };
     const spec: LineupSpec = { ...SPEC, enemies: [slot] };
-    const draft = composeLineupEnemyDraft(slot, catalog);
+    const draft = composeLineupEnemyDraft(slot, catalog, lineupSlotSeed(spec.key, 0));
     const [enemy] = enemiesFromLineup(spec, catalog);
     expect(enemy!.loadout).toEqual(draft.loadout);
     expect(enemy!.equipment).toEqual(draft.equipment);

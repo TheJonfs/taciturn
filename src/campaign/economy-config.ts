@@ -26,6 +26,30 @@ export const ENEMY_JP_PER_LEVEL = 100;
 // The party's opening purse at campaign start. PLACEHOLDER (D-econ-6).
 export const STARTING_GIL = 0;
 
+// --- M4: enemy generation (gear banding) ---
+
+// Level-keyed gear tiers for GENERATED enemies (Chris's S99 bands — aligned
+// with the Ch1 level-band plan): the highest band whose `minLevel` the enemy
+// level reaches is its gear chapter. UNCLAMPED by story chapter (FFT-style
+// peek-at-the-future): a level-25 enemy in Ch1 carries Ch3 gear. PLACEHOLDER
+// boundaries; tune with the offset curve in the calibration pass.
+export const ENEMY_GEAR_BANDS: ReadonlyArray<{
+  readonly chapter: 1 | 2 | 3;
+  readonly minLevel: number;
+}> = [
+  { chapter: 1, minLevel: 1 },
+  { chapter: 2, minLevel: 13 },
+  { chapter: 3, minLevel: 25 },
+];
+
+// In-band ramp so crossing a band boundary isn't a cliff (Chris's S99 call):
+// at the band's entry level each equipment slot has RAMP_START chance to draw
+// from the new chapter's pool (else the previous chapters'), rising linearly
+// to 100% across RAMP_LEVELS levels — L13 ≈ one Ch2 piece in ten slots,
+// L24 fully Ch2. PLACEHOLDER dials.
+export const ENEMY_GEAR_RAMP_START = 0.1;
+export const ENEMY_GEAR_RAMP_LEVELS = 12;
+
 // --- Stage 2: shops ---
 
 // Sell-back rate (D1): the shop buys at this fraction of the buy price,

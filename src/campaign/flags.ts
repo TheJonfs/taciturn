@@ -29,5 +29,7 @@ export function setFlag(
 // Read one flag. `undefined` means never set — meaningful absence, per
 // the accessor convention (ADR-0002).
 export function getFlag(state: CampaignState, key: string): CampaignFlagValue | undefined {
-  return state.flags[key];
+  // `?.` — the lenient-field convention (pre-Ch1 saves and bare test
+  // factories carry no flag store; absent reads as never-set).
+  return state.flags?.[key];
 }
