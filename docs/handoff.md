@@ -11,129 +11,81 @@ been processed.
 
 ---
 
-## S98 — Cartographer shipped, BOTH tiers (2026-07-20)
+## S99 — M4 enemy generation shipped (2026-07-22)
 
-**FIRST REAL AUTHORING (2026-07-22): Zelmonia Hills shipped through the
-whole pipeline** — Chris authored map/zones/6-enemy lineup in-tool (incl.
-Tier 3 overridden generics Oscar + Tina and a 6th-slot Monk; 6v5 confirmed
-plain data), downloaded the three exports, and the wiring landed:
-reload entries, round-trip corpus (first shipped-lineup byte pin),
-registries, MAP_OPTIONS, node-content swap (withLeadEnemySlot kept for the
-deathProtected stamp; theoConditions untouched), plus
-zelmonia-hills-node.test.ts booting the folded battle. The
-authored-enemy.test escort pin was updated from the superseded
-lineup(4,4) stub — expect one such stale-pin per stand-in map replaced
-(Mount Eska, Grek Forest, etc. still fight on River Ridge). Chris
-playtested the story battle: the Theo retreat win FIRED (debug-assisted).
-His first skirmish there crashed → FIXED same session: buildSkirmishBattle
-now swaps the borrowed template's victory conditions for the plain
-defeat-all pair (skirmishes borrow the battlefield, never the story rules
-— the theoConditions predicate dangled on plot-theo; latent since S88,
-also armed at Mount Eska; regression pinned at the evaluateBattleOutcome
-crash site). Chris should RE-TRY the Zelmonia Hills skirmish to confirm
-in-flow. Remaining playtest: full-party story fight without debug
-(heights-vs-lowground, 6-unit enemy party difficulty).
+**The generator landed whole** (ADR-0160): `composeEnemyBuild` in
+`enemy-generation.ts` is THE composer — skirmishes, Cartographer auto/budget,
+and story-lineup defaults all resolve through it. Kit bought toward a
+POPULATED loadout (R/S/M filled from the free-in-class native passives;
+budget spillover past a FINISHED primary tree buys into a seeded pair class
+≤ the primary's tier and wields its set as Second Action), gear via
+`rankItemsForUnit` over the level-banded pool (L1–12/13–24/25+ per
+`ENEMY_GEAR_BANDS`, unclamped, per-slot 10%→100% ramp; NO uniques, NO
+exotics — both sweep-pinned), archetype-cast skirmishes with per-win seed
+advance (`skirmish_wins:<nodeId>` flag; reload never rerolls). Suite 3081,
+`tsc -b` clean. Guide-changelog carries the player-facing entry; the
+Cartographer guide's kit/equipment sections updated.
 
-**Tier 3 landed too (ADR-0159, 2026-07-21):** the per-enemy ✎ override
-editor — three-mode kit (auto/budget/explicit picks with costs; implied JP
-always shown — enemies have no wallet, the kit IS the earned JP), full
-loadout (secondary set + R/S/M on the real capacity budget), full gear
-catalog with † on pool-managed items, name/Brave/Faith/gender riders.
-`composeLineupEnemyDraft` is the single composer the fold, the editor echo,
-and validation share; restricted signature components stay hand-authored.
-Guide §3 (unit mode) + §7 updated. Named minibosses are now fully
-tool-authorable; portraits/death-protection remain node-content riders.
+### For Chris — review gates from this session (his answers pre-authorized the shape)
 
-**Tier 2 landed same-session (ADR-0158):** the unit mode — player staging +
-guest markers + enemy slots (class + level, kits framework-framed via the
-shared `generatedEnemyUnit` constructor extracted from the skirmish stub),
-generated `<key>-battle.ts` lineup modules (compiled fixture round-trip pin),
-`enemiesFromLineup` as the node-content consumer, preview running the real
-fold (authored classes as real sprites). The guide's §5b/5c now describe the
-lineup flow; §7 has the fine print (river_ridge reserved; per-enemy kit
-override deferred). The "enemy tier fast-follows" line below is superseded.
+- **Exotic flag votes** (equipment-pool.ts `exotic` entries): flagged =
+  Prism Wand, Scouring Wand, Healer's Staff, Epee, Palliative Pike, Moon
+  Robe, Terra Robe. Deliberately NOT flagged (floor-valued common effects):
+  Gaia's Axe, Star/Void Robe, variance weapons (Dagger/Estoc/etc.),
+  cast-speed items (Trident, Mithril Chain), Spiked Maul, Wand of Expanse,
+  Channeler's Hat, Abjurer's Codex, Talisman of Endurance. Flip any entry
+  with one word — tests read the flag, not a list.
+- **Ch1 archetypes** (archetypes.ts): Ordallian Patrol / Bandits /
+  Hedge-Mages / Poachers + the node mapping + weights are a DRAFT for
+  discussion before locking. Ch2/Ch3 registries are deliberately absent —
+  author them with those chapters (flagged per Chris's answer #4).
+- **Two composer calls I made beyond the brief, flag-not-ask tier:**
+  (1) pair class rolls only from classes AT OR BELOW the primary's tier
+  (legibility guard — no Tier-3 secondaries on grunts); (2) native-class
+  R/S/M passives equip FREE at any level — that's the existing player rule
+  (export tax only), so an L1 enemy fields its class passives. Parity, but
+  it does mean the loadout half of difficulty isn't budget-gated. Both in
+  ADR-0160; revisit in calibration if L1–3 feels hot.
 
-The whole map-authoring Tier 1 landed (ADR-0157): the six shipped maps +
-deployment registry migrated to the generated `MapSpec` format (data-identical
-verified pre-overwrite; byte-identical round-trip pinned by
-`src/app/cartographer/codegen.test.ts`), and the `?cartographer` DEV editor —
-paint elevation (bands derive terrain live), terrain overrides, properties,
-zones with sub-zones/caps, deck toggles; engine-validator gating + a
-connectivity *warning*; real-`BattleRenderer` preview; Atlas-style export
-overlay. Acceptance proven end-to-end in-browser: a fresh map authored in the
-tool, exported through the real codegen, wired, deployed, and fought on (AI
-acting, CT ticking). The scratch "Proving Grounds" wiring was reverted after
-proof — recreate any time via the tool. Suite 3025, `tsc -b` clean.
+### Playtest before the calibration pass
 
-### For Chris — first real authoring session
-
-- **Read `docs/cartographer-guide.md`** (S98 cont.) — the full user's guide:
-  modify-existing and author-new workflows through wiring a fresh map to a
-  Ch1 story node. Linked from the CLAUDE.md context table.
-- **Pointer-to-tile offset FIXED** (S98 cont., commit `0725546`): the canvas
-  mapped clicks proportionally over the element, ignoring SVG letterboxing —
-  off by whole tiles toward the left/right edges (Chris's report). Now uses
-  the SVG screen CTM; verified far-left/far-right clicks land exactly.
-  **AtlasCanvas has the same latent bug** — flagged as a spawned task chip;
-  port the same fix (matters for node drag precision into node-layout.ts).
-- **Open `?cartographer` in dev.** Pick a shipped map or "+ New map…". Export
-  gives you two files to paste over (`src/content/maps/<slug>.ts` +
-  `src/content/deployment/registry.ts`); `tsc` + the round-trip test vouch. For
-  a NEW map to be *fightable*, also add a battle template + `BATTLE_TEMPLATE_
-  REGISTRY` entry (same key) — the export overlay reminds you.
-- **Hand edits to the six map modules / the zone registry are overwritten
-  wholesale** by the next export (file headers say so). Prose lives in
-  `docs/maps/` now — Mountain Pass got a new doc holding its old header prose.
-- **Deck editing is minimal by design** (brief's deferral): toggle-deck brush +
-  deck elevation via the Inspect-mode tile readout. Full bridge authoring
-  (multi-span chains, ramp placement guidance) is the deferred tier — the
-  `bridge_ramp` property brush exists, but the art-chain conventions from S97
-  are on the author to follow for now.
-- **Tier 2 (enemy placement) is the agreed fast-follow** (Chris's call,
-  ADR-0157): a second canvas mode placing class+level+position+facing, kits
-  auto-filled via `enemyKitForLevel`. The brush/mode architecture is the seam.
+- **This is the global difficulty increase the brief promised.** Every
+  generated enemy (skirmishes AND non-hand-authored story lineups) now has
+  passives, secondaries at high level, and real gear. Do NOT pre-tune
+  offsets or `ENEMY_JP_PER_LEVEL` — playtest, then run the calibration
+  pass (offset curve + dial) against the REAL enemies (brief's ship order;
+  bands + ramp dials are in economy-config as placeholders).
+- Zelmonia Hills: Oscar/Tina keep their authored overrides, but any half
+  they did NOT override (e.g. R/S/M fill against their authored gear) got
+  the new defaults — worth an eyes-on.
+- Carried from S98: RE-TRY the Zelmonia Hills skirmish post-fix (crash
+  fixed + regression-pinned; now also archetype-cast), and the full-party
+  no-debug story fight there (heights vs lowground, 6-enemy party).
 
 ### Noticed, not acted on
 
-- The tool's `window.confirm` guards (map switch / reset) block automated
-  browsers — stub `window.confirm = () => true` when driving it via the
-  preview pane. Human use unaffected.
-- Browser-pane synthetic drags sample sparsely, so drag-painting via
-  automation skips tiles (real mouse drags are fine — the canvas applies per
-  pointermove). Also re-confirmed from S97: dispatch-then-read must be
-  separate `javascript_exec` calls (React flush), and a page left open across
-  `main.tsx` HMR edits accumulates duplicate React roots — hard-reload before
-  driving UI flows.
-- Deployment-zone painting on the tool canvas removes a tile from any other
-  zone (no-overlap by construction); the engine validator double-checks on
-  export anyway.
+- One unnamed test failed in the very first baseline run and never
+  reproduced (two subsequent full runs green). If a flake resurfaces,
+  capture the name before it vanishes.
+- The Cartographer's auto/budget kit list now shows composer spillover; the
+  explicit-mode picker widens to any class present in the effective kit.
+  Driving the tool via the browser pane still needs the S98 notes
+  (`window.confirm` stub, sparse synthetic drags, hard-reload after HMR).
+- AtlasCanvas still has the S98 pointer-offset latent bug (Cartographer's
+  was fixed; the spawned-task chip may still be pending).
 
-### Carried from S97 (playtest-with-eyes-on, still pending)
+### Carried (unchanged, low-priority)
 
-- **Bridge lift is DIAGONAL (up-left), not straight-up** — judge in playtest
-  (ADR-0156; `DECK_LIFT_*` constants tunable).
-- **Unit-over-unit stacked reading** pre-accepted pending a look; **AoE
-  dual-highlight** over the bridge and cross-layer targeting feel never
-  browser-exercised — first Worldcraft/AoE playtest over Alvera's bridge
-  should look.
-- **Stack chip lingers on stale hover** after keyboard-driven state changes;
-  cosmetic.
-
-### Carried from earlier (still open, low-priority)
-
-- ADR-0155 deferred edges: `layerScope` (needs a consumer), deployment zones
-  exclude stacked cells by convention, charged tile-cast on a destroyed deck.
-- Pit-the-bridge vs enemy Terraformers; ramming your own span from below is
-  legal — watch feel.
-- Economy: cost TUNING pass (D-econ-6) + Tailored Outfit; then M4 authoring
-  proper (real maps now unblocked by Cartographer; lineups via
-  `generateSkirmishParty`; dialogue — M4/M5).
-- Enemy-kit dial (ENEMY_JP_PER_LEVEL = 100) — measure in playtest; Theo kit
-  placeholder.
-- Latent (ADR-0152): joint planner fail-hard-null path unreachable now.
-- `WorldMapBeatView` march-state reset rider; win-edge dedupe in `addEdge`;
-  engagement-queue shipped-content pin when a camp lands (Ch2); Atlas
-  beat-editor tier before M5 volume.
-- S85/S87 gear watch list; kit-seeding tier-threshold watch; JP spillover
-  seam; "Level Up!" banner polish; "99 cap" guide fiction.
-- Pre-S95 saves badge-once self-heal (documented, accepted).
+- S97 playtest-with-eyes-on: bridge lift diagonal (ADR-0156 dials),
+  unit-over-unit stacked reading, AoE dual-highlight over Alvera's bridge,
+  stale stack chip on keyboard-driven changes.
+- ADR-0155 deferred edges (layerScope, stacked-cell deploy convention,
+  charged tile-cast on destroyed deck); pit-the-bridge vs enemy
+  Terraformers; ramming your own span.
+- Economy: cost TUNING (D-econ-6) + Tailored Outfit.
+- Latent ADR-0152 joint-planner null path; `WorldMapBeatView` march-state
+  reset rider; win-edge dedupe in `addEdge`; engagement-queue
+  shipped-content pin when a Ch2 camp lands; Atlas beat-editor tier before
+  M5 volume; S85/S87 gear watch list; kit-seeding tier-threshold watch; JP
+  spillover seam; "Level Up!" banner polish; "99 cap" guide fiction;
+  pre-S95 saves badge-once self-heal (documented, accepted).

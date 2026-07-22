@@ -91,8 +91,11 @@ file.
     step for tool-authored battles.
   - **Place enemy** — with the class picker + level beside the brush. Each enemy slot carries
     its authored class + level; **kits are NOT authored** — they auto-fill at fold time from the
-    enemy-kit framework (level-budgeted curriculum prefix, deterministic Brave/Faith, basic
-    gear), exactly like skirmish generics.
+    M4 composer (ADR-0160): level-budgeted curriculum bought toward a POPULATED loadout (R/S/M
+    filled; a finished primary tree spills into a seeded secondary class), deterministic
+    Brave/Faith, and level-banded gear via the AI's gear valuation — exactly like skirmish
+    generics. The per-slot seed derives from (lineup key, slot index), so a slot's generated
+    build is stable across sessions.
   - Chips on the canvas show a facing wedge, the enemy's level, and a **gold ring on the lead
     slot**. **Enemy order is meaningful**: the campaign fold re-skins slots by index (lead =
     slot 0 — where a named unit like Theo lands; death-protection keys off it). Reorder with
@@ -107,14 +110,18 @@ file.
     - **Name / Brave / Faith / gender** — named-miniboss riders (Brave/Faith placeholders show
       the deterministic band roll they'd otherwise get).
     - **Kit** — three modes. *Auto (level)*: the standard level × dial budget. *JP budget*: the
-      same curriculum prefix at a budget you set, decoupled from level. *Explicit picks*:
-      per-component checkboxes with JP costs — full control of what's learned. The implied JP
-      total is always shown (enemies have no JP wallet; the kit **is** the earned JP). Choosing
-      a secondary command set adds that class's components to the picker — unlock its actives
-      or the secondary casts nothing.
+      same buy policy at a budget you set, decoupled from level. Both auto modes may include
+      the M4 composer's spillover (secondary-class actives, exported passives) — the kit list
+      shows the real composed result. *Explicit picks*: per-component checkboxes with JP costs
+      — full control of what's learned, no spillover appended. The implied JP total is always
+      shown (enemies have no JP wallet; the kit **is** the earned JP). Choosing a secondary
+      command set adds that class's components to the picker — unlock its actives or the
+      secondary casts nothing. (An explicit kit with another class's actives auto-wields that
+      class's set as the secondary unless you pick one — learned = equipped.)
     - **Loadout** — the secondary command set and R/S/M equipped passives. Class innates
-      auto-equip on top, deduplicated, like every campaign unit.
-    - **Equipment** — *default (basic gear)* or *custom*: per-slot selects filtered by the real
+      auto-equip on top, deduplicated, like every campaign unit. Untouched, the composer
+      fills R/S/M to capacity from the class's own passives (they're free in-class).
+    - **Equipment** — *default (generated gear)* or *custom*: per-slot selects filtered by the real
       class/slot legality rules (a monk's hands offer nothing — that's the class definition,
       not a bug). **†** marks pool-managed gear (TABA uniques/exotics — legal, but generation
       never hands it out and the AI undervalues exotic effects).

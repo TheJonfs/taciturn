@@ -496,7 +496,19 @@ These are noted to make their absence intentional rather than accidental:
   battlefields + story lineups incl. named minibosses are now
   Chris-authorable in-tool (unit-restricted signature kits still
   hand-authored in node-content).
-  Then authoring (M4 — starts by replacing the skirmish stub), story (M5).
+  **M4 enemy generation — SHIPPED** (ADR-0160, S99): the skirmish stub
+  replaced by the unified composer (`composeEnemyBuild`) serving all three
+  consumers (skirmishes, Cartographer auto/budget, story-lineup defaults).
+  Enemies buy toward a POPULATED loadout (R/S/M filled, secondary class on
+  budget spillover past the finished primary tree), wear level-banded gear
+  via the S89 valuation (L1–12/13–24/25+ bands, unclamped, per-slot ramp;
+  uniques + exotics excluded, test-pinned), and skirmish casts roll from
+  per-node ARCHETYPES (Ch1 registry: Patrol/Bandits/Hedge-Mages/Poachers;
+  no Assassin/Calculator in Ch1, pinned). Skirmish seed advances per win
+  (repeat-farm variance, reload-safe). Exotic flags + Ch1 archetype
+  pools are Chris-review-pending. NEXT: the calibration pass (offset
+  curve + ENEMY_JP_PER_LEVEL vs real enemies), then remaining Ch1
+  battlefields/lineups in-tool, dialogue (M5).
 - ~~Save/load~~ — **shipped for the campaign** (between-battle localStorage
   autosave/resume, M0). Single-battle Mage War remains single-session.
 

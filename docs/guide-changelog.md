@@ -44,7 +44,39 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
-## Session 98, continued (2026-07-22) — Zelmonia Hills gets its real map
+## Session 99 (2026-07-22) — Generated enemies fight for real (M4 generator)
+
+Commits: `see git log` (feat(campaign): M4 enemy generation). ADR-0160.
+
+- **GLOBAL DIFFICULTY INCREASE: every generated enemy now fights with a full
+  loadout and real gear.** This covers skirmish parties AND the story battles
+  whose lineups aren't hand-authored (most of Chapter 1). Named units (Theo,
+  Wiegraf, the Ruk captain, Oscar/Tina) are unchanged.
+- **Enemies equip what they learn.** A generated enemy's JP budget still buys
+  its class curriculum in order, but the kit is now *deployed*: Reaction/
+  Support/Movement passives are equipped to capacity (an enemy Knight
+  counters, an enemy Thief moves like a thief), and a high-level enemy that
+  finishes its class tree diversifies into a SECOND class — wielding that
+  class's command set as its secondary (e.g. a veteran Monk who also casts
+  fire magic). Low-level enemies stay single-class.
+- **Enemies wear level-appropriate shop gear** (weapon, armor, headgear,
+  accessory, off-hand), chosen to fit their class and kit. Gear tier follows
+  the enemy's LEVEL with no story cap: roughly L1–12 wears Ch1 gear, L13–24
+  Ch2, L25+ Ch3 — so an over-leveled enemy can carry equipment the player
+  can't buy yet. Two exclusions, guaranteed: **unique items never appear on
+  generated enemies**, and neither do the exotic effect items (Prism Wand,
+  Scouring Wand, Healer's Staff, Epee, Palliative Pike, Moon/Terra Robe).
+- **Skirmish parties are now themed by location.** Each node fields one of
+  its authored enemy ARCHETYPES — Ordallian Patrol, Bandits, Hedge-Mages,
+  Poachers — a weighted class mix with flavor names ("Bandit Thief",
+  "Ordallian Hunter"). Chapter-1 casts top out at Tier-2 classes: no
+  Assassins or Calculators, at any level.
+- **Repeat skirmishes vary.** Each skirmish WIN at a node rerolls the next
+  party there (composition and gear). Reloading a save does not reroll —
+  the party you saw is the party you fight.
+- Story-battle enemy lineups authored in the Cartographer without explicit
+  loadout/gear overrides inherit all of the above as their defaults (the
+  editor shows exactly what will ship).
 
 Commits: `see git log` (feat(content+campaign): Zelmonia Hills).
 
