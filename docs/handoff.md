@@ -26,20 +26,21 @@ advance (`skirmish_wins:<nodeId>` flag; reload never rerolls). Suite 3081,
 `tsc -b` clean. Guide-changelog carries the player-facing entry; the
 Cartographer guide's kit/equipment sections updated.
 
-### For Chris — review gates from this session (his answers pre-authorized the shape)
+### Review gates — RESOLVED (Chris, S99 cont.)
 
-- **Exotic flag votes** (equipment-pool.ts `exotic` entries): flagged =
-  Prism Wand, Scouring Wand, Healer's Staff, Epee, Palliative Pike, Moon
-  Robe, Terra Robe. Deliberately NOT flagged (floor-valued common effects):
-  Gaia's Axe, Star/Void Robe, variance weapons (Dagger/Estoc/etc.),
-  cast-speed items (Trident, Mithril Chain), Spiked Maul, Wand of Expanse,
-  Channeler's Hat, Abjurer's Codex, Talisman of Endurance. Flip any entry
-  with one word — tests read the flag, not a list.
-- **Ch1 archetypes** (archetypes.ts): Ordallian Patrol / Bandits /
-  Hedge-Mages / Poachers + the node mapping + weights are a DRAFT for
-  discussion before locking. Ch2/Ch3 registries are deliberately absent —
-  author them with those chapters (flagged per Chris's answer #4).
-- **Two composer calls I made beyond the brief, flag-not-ask tier:**
+- **Exotic flags + Ch1 archetypes: APPROVED as they stand.** Standing
+  intent: a future AI-valuation update (the S89 ceiling work) should let
+  some Ch3 exotic flags come OFF — revisit the flag list when that lands.
+- **Gil purse shipped same session** (ADR-0160 addendum): Chris's playtest
+  found L1–2 enemies fully outfitted while the player can't yet afford
+  five kits — and Oskun (nominal easiest, offset +1) reads hot for a
+  grind spot. Fix at the gear layer, offsets untouched:
+  `ENEMY_GEAR_GIL_PER_LEVEL` (economy-config, placeholder 80) — weapon
+  free, armor slots pay shop prices from level × dial, priority order
+  armor → headgear → off-hand → accessory. Mechanism test-pinned
+  (spend ≤ purse), counts deliberately unpinned (prices are D-econ-6
+  placeholders). The Oskun offset itself stays a calibration-pass item.
+- **Two composer calls made beyond the brief, flag-not-ask tier:**
   (1) pair class rolls only from classes AT OR BELOW the primary's tier
   (legibility guard — no Tier-3 secondaries on grunts); (2) native-class
   R/S/M passives equip FREE at any level — that's the existing player rule

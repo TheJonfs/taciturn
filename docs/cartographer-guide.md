@@ -93,8 +93,8 @@ file.
     its authored class + level; **kits are NOT authored** — they auto-fill at fold time from the
     M4 composer (ADR-0160): level-budgeted curriculum bought toward a POPULATED loadout (R/S/M
     filled; a finished primary tree spills into a seeded secondary class), deterministic
-    Brave/Faith, and level-banded gear via the AI's gear valuation — exactly like skirmish
-    generics. The per-slot seed derives from (lineup key, slot index), so a slot's generated
+    Brave/Faith, and level-banded, gil-budgeted gear via the AI's gear valuation (weapon free,
+    armor slots priced from a level-scaled purse) — exactly like skirmish generics. The per-slot seed derives from (lineup key, slot index), so a slot's generated
     build is stable across sessions.
   - Chips on the canvas show a facing wedge, the enemy's level, and a **gold ring on the lead
     slot**. **Enemy order is meaningful**: the campaign fold re-skins slots by index (lead =

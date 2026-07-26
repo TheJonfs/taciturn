@@ -101,6 +101,20 @@ determinism hold. Story-lineup slots use a *fixed* seed
 author; the placeholder story lineups seed off their node id and pull the
 node's archetype.
 
+## Addendum (S99 cont., same day): the gil purse
+
+Chris's playtest check: full wardrobes on L1–2 enemies outpace the player's
+own early-gil reality (and sharpen the Oskun +1-offset sting). Fix at the
+gear layer, not the offsets (those wait for the calibration pass): the JP
+dial's gil sibling. `ENEMY_GEAR_GIL_PER_LEVEL` (economy-config, placeholder
+80) gives a level-L enemy `L × dial` gil for its armor slots at the same
+`itemPrice` the player pays; the **weapon is free** (a class that can't
+hold one — Monk — simply doesn't). Paid slots fill in priority order
+(armor → headgear → off-hand → accessory) with the best AFFORDABLE piece
+per slot, so a low-level enemy fields a weapon and a piece or two.
+Test-pinned as a mechanism (paid spend ≤ purse; weapon free at L1; sparse
+low / full high), not as exact counts — prices are D-econ-6 placeholders.
+
 ## Consequences
 
 - **Global difficulty increase** — every generated enemy fights with a

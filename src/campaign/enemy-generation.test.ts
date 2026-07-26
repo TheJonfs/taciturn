@@ -8,9 +8,11 @@
 import { describe, expect, it } from 'vitest';
 import { bucketId, validateDraftUnit, rulesetId } from '@engine/index.ts';
 import { loadDefaultCatalog } from '@content/index.ts';
+import { ENEMY_GEAR_GIL_PER_LEVEL } from './economy-config.ts';
 import { composeEnemyBuild } from './enemy-generation.ts';
 import { enemyGearChapterCeiling } from './enemy-gear.ts';
 import { TABA_GEAR_POOL } from './equipment-pool.ts';
+import { itemPrice } from './shop.ts';
 import { CLASS_TIER_MAP, tierEntryOf, COMPONENT_CATALOG, tokenKey } from './progression/index.ts';
 
 const catalog = loadDefaultCatalog();
@@ -127,6 +129,41 @@ describe('composeEnemyBuild — loadout deployment (WI2)', () => {
     const high = composeEnemyBuild({ classId: CLASSES[0]!, level: 25, seed: 5, catalog });
     expect(low.unlocks.length).toBeGreaterThan(0);
     expect(low.unlocks.length).toBeLessThan(high.unlocks.length);
+  });
+});
+
+describe('the gil purse (S99 cont. — level-budgeted armor slots)', () => {
+  const knight = CLASSES.find((c) => String(c) === 'knight')!;
+  const paidSpend = (build: ReturnType<typeof composeEnemyBuild>): number =>
+    (['leftHand', 'headgear', 'armor', 'accessory'] as const).reduce((sum, slot) => {
+      const id = build.equipment[slot];
+      return id === null ? sum : sum + itemPrice(id);
+    }, 0);
+
+  it('the weapon is free: even an L1 enemy of a weapon-capable class is armed', () => {
+    const build = composeEnemyBuild({ classId: knight, level: 1, seed: 2, catalog });
+    expect(build.equipment.rightHand).not.toBeNull();
+  });
+
+  it('paid slots never exceed the purse (price-tuning-proof invariant)', () => {
+    for (const cls of CLASSES) {
+      for (const level of SWEEP_LEVELS) {
+        const build = composeEnemyBuild({ classId: cls, level, seed: 11, catalog });
+        expect(paidSpend(build)).toBeLessThanOrEqual(level * ENEMY_GEAR_GIL_PER_LEVEL);
+      }
+    }
+  });
+
+  it('low levels field a sparse wardrobe; high levels a fuller one', () => {
+    const pieces = (level: number): number =>
+      (['leftHand', 'headgear', 'armor', 'accessory'] as const).filter(
+        (slot) =>
+          composeEnemyBuild({ classId: knight, level, seed: 4, catalog }).equipment[slot] !==
+          null,
+      ).length;
+    expect(pieces(2)).toBeLessThanOrEqual(2); // Chris's dial target: L≤5 ≈ 1-2 pieces
+    expect(pieces(2)).toBeLessThanOrEqual(pieces(30));
+    expect(pieces(30)).toBeGreaterThanOrEqual(3); // the purse stops binding
   });
 });
 

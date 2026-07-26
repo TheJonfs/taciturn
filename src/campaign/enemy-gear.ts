@@ -16,6 +16,10 @@
 //   - NO EXOTICS: items whose identity the S89 floor deliberately doesn't
 //     score (`TabaGearEntry.exotic`) stay off — an enemy misusing an exotic
 //     is a worse encounter, not a harder one.
+//   - GIL-BUDGETED (S99 cont., Chris): the weapon is free; the four armor
+//     slots pay shop prices (`itemPrice`) out of `level ×
+//     ENEMY_GEAR_GIL_PER_LEVEL`, spent in slot-priority order — low-level
+//     enemies field a weapon and one or two pieces, not a full wardrobe.
 //
 // Slot legality runs through the shared draft resolver (slot eligibility,
 // two-handed grip, dual-wield gating) — no enemy-specific legality path.
@@ -38,10 +42,12 @@ import {
 import { rankItemsForUnit, scoreItemForUnit, type GearScoreProfile } from '@ai/index.ts';
 import {
   ENEMY_GEAR_BANDS,
+  ENEMY_GEAR_GIL_PER_LEVEL,
   ENEMY_GEAR_RAMP_LEVELS,
   ENEMY_GEAR_RAMP_START,
 } from './economy-config.ts';
 import { TABA_GEAR_POOL } from './equipment-pool.ts';
+import { itemPrice } from './shop.ts';
 
 // A seed-derived roll in [0, 1) — the standard 32-bit stream, normalized.
 export function seedRoll01(seed: number, salt: number): number {
@@ -64,13 +70,15 @@ export function enemyGearChapterCeiling(level: number, roll: number): 1 | 2 | 3 
   return roll < p ? band.chapter : ((band.chapter - 1) as 1 | 2);
 }
 
-// Slot fill order: weapon first (its two-handedness gates the off-hand),
-// then off-hand, then the armor slots.
+// Slot fill order: weapon first (free, and its two-handedness gates the
+// off-hand), then the PAID slots in purchase-priority order — the gil
+// budget (S99 cont.) runs out top-down, so armor beats an accessory when a
+// low-level purse can't afford both.
 const SLOT_ORDER: ReadonlyArray<EquipmentSlotId> = [
   'rightHand',
-  'leftHand',
-  'headgear',
   'armor',
+  'headgear',
+  'leftHand',
   'accessory',
 ];
 
@@ -112,6 +120,12 @@ export function assignEnemyGear(args: EnemyGearArgs): UnitEquipment {
   const dualWield = loadoutGrantsDualWield(loadout, catalog);
   const monkeygrip = loadoutGrantsTwoHandedGrip(loadout, catalog);
 
+  // The gil purse (S99 cont., the JP dial's sibling): the WEAPON is free,
+  // every other slot pays its shop price out of level × the dial — a low-
+  // level enemy fields a weapon and a piece or two, not a full wardrobe,
+  // mirroring the player's own early-gil reality.
+  let purse = Math.max(0, level) * ENEMY_GEAR_GIL_PER_LEVEL;
+
   let equipment: UnitEquipment = EMPTY_UNIT_EQUIPMENT;
   SLOT_ORDER.forEach((slot, slotIndex) => {
     // Off-hand next to a two-handed main weapon: the grip owns both hands.
@@ -123,8 +137,13 @@ export function assignEnemyGear(args: EnemyGearArgs): UnitEquipment {
       }
     }
     const ceiling = enemyGearChapterCeiling(level, seedRoll01(seed, SALT_GEAR_SLOT + slotIndex));
+    const paid = slot !== 'rightHand';
     const candidates = poolDefs.filter((def) => {
       if ((chapterOf.get(String(def.id)) ?? 3) > ceiling) return false;
+      // Paid slots only offer what the purse still covers (the best
+      // AFFORDABLE piece, not best-or-nothing — a bandit wears cheap
+      // leathers, not no leathers).
+      if (paid && itemPrice(def.id) > purse) return false;
       // No dual-wield passive → no second weapon (the UI-tier rule the
       // Team Builder and Cartographer both enforce).
       if (slot === 'leftHand' && def.kind === 'weapon' && !dualWield) {
@@ -135,6 +154,7 @@ export function assignEnemyGear(args: EnemyGearArgs): UnitEquipment {
     const ranked = rankItemsForUnit(catalog, candidates, profile);
     const best = ranked[0];
     if (best === undefined || scoreItemForUnit(catalog, best, profile) <= 0) return;
+    if (paid) purse -= itemPrice(best.id);
     equipment = { ...equipment, [slot]: best.id };
   });
   return equipment;

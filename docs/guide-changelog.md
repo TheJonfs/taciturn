@@ -77,6 +77,12 @@ Commits: `see git log` (feat(campaign): M4 enemy generation). ADR-0160.
 - Story-battle enemy lineups authored in the Cartographer without explicit
   loadout/gear overrides inherit all of the above as their defaults (the
   editor shows exactly what will ship).
+- **(Same session, after playtest)** Low-level generated enemies no longer
+  arrive fully outfitted: each enemy now has a gil purse scaled to its
+  level for its armor slots (weapon always included, where the class can
+  hold one). A level-2 bandit fields a weapon and maybe one cheap piece; by
+  the level-10 range the purse stops binding and kits fill out. This
+  softens the early-game difficulty jump the loadout/gear change introduced.
 
 Commits: `see git log` (feat(content+campaign): Zelmonia Hills).
 

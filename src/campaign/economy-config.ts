@@ -50,6 +50,17 @@ export const ENEMY_GEAR_BANDS: ReadonlyArray<{
 export const ENEMY_GEAR_RAMP_START = 0.1;
 export const ENEMY_GEAR_RAMP_LEVELS = 12;
 
+// S99 cont. (Chris) — the enemy GEAR budget, the JP dial's gil sibling: a
+// generated level-L enemy "shops" its armor slots with L × this much gil at
+// the same `itemPrice` the player pays. The WEAPON is free (an unarmed
+// soldier isn't a soldier; classes that can't hold one — Monk — simply
+// don't); headgear/armor/off-hand/accessory each cost their shop price out
+// of this purse. Mirrors the player's own early-game reality: gil arrives
+// before a full five-unit wardrobe does. At 80/level a L2 grunt affords ~1
+// cheap piece, L5 ~2, and by the L10+ range the purse stops binding against
+// Ch1 prices. PLACEHOLDER (D-econ-6); tune in the calibration pass.
+export const ENEMY_GEAR_GIL_PER_LEVEL = 80;
+
 // --- Stage 2: shops ---
 
 // Sell-back rate (D1): the shop buys at this fraction of the buy price,
