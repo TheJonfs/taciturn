@@ -6,7 +6,7 @@
 // SHARED draft-legality resolver; determinism.
 
 import { describe, expect, it } from 'vitest';
-import { bucketId, validateDraftUnit, rulesetId } from '@engine/index.ts';
+import { bucketId, classId, validateDraftUnit, rulesetId } from '@engine/index.ts';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { ENEMY_GEAR_GIL_PER_LEVEL } from './economy-config.ts';
 import { composeEnemyBuild } from './enemy-generation.ts';
@@ -164,6 +164,50 @@ describe('the gil purse (S99 cont. — level-budgeted armor slots)', () => {
     expect(pieces(2)).toBeLessThanOrEqual(2); // Chris's dial target: L≤5 ≈ 1-2 pieces
     expect(pieces(2)).toBeLessThanOrEqual(pieces(30));
     expect(pieces(30)).toBeGreaterThanOrEqual(3); // the purse stops binding
+  });
+});
+
+describe('weapon flavor + gear diversity (S99 cont.)', () => {
+  const weaponTypeAt = (cls: string, level: number, seed: number): string | undefined => {
+    const build = composeEnemyBuild({ classId: classId(cls), level, seed, catalog });
+    const id = build.equipment.rightHand;
+    if (id === null) return undefined;
+    const def = catalog.getItem(id);
+    return def.kind === 'weapon' ? def.weaponType : undefined;
+  };
+
+  it('an early-game Alchemist never carries a bow (Chris: daggers, not whiff-sticks)', () => {
+    for (let seed = 0; seed < 24; seed++) {
+      for (const level of [1, 3, 6, 10]) {
+        expect(weaponTypeAt('alchemist', level, seed)).not.toBe('bow');
+      }
+    }
+  });
+
+  it('mages carry wands/staves, never martial arms', () => {
+    for (let seed = 0; seed < 16; seed++) {
+      const type = weaponTypeAt('fire_mage', 5, seed);
+      expect(type === 'wand' || type === 'staff' || type === undefined).toBe(true);
+    }
+  });
+
+  it('a Hunter population mixes weapon types, bow among them (the diversity roll)', () => {
+    const types = new Set<string | undefined>();
+    for (let seed = 0; seed < 24; seed++) types.add(weaponTypeAt('hunter', 3, seed));
+    expect(types.size).toBeGreaterThanOrEqual(2);
+    expect(types.has('bow')).toBe(true);
+  });
+
+  it('headgear varies across a population (not always the same cap)', () => {
+    // Hunter, whose armor line leaves purse for headgear (a knight's chain
+    // shirt can eat the whole low-level purse — that's the gil budget
+    // working, not a diversity failure).
+    const heads = new Set<string>();
+    for (let seed = 0; seed < 24; seed++) {
+      const build = composeEnemyBuild({ classId: classId('hunter'), level: 8, seed, catalog });
+      if (build.equipment.headgear !== null) heads.add(String(build.equipment.headgear));
+    }
+    expect(heads.size).toBeGreaterThanOrEqual(2);
   });
 });
 

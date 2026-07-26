@@ -115,6 +115,39 @@ per slot, so a low-level enemy fields a weapon and a piece or two.
 Test-pinned as a mechanism (paid spend ≤ purse; weapon free at L1; sparse
 low / full high), not as exact counts — prices are D-econ-6 placeholders.
 
+## Addendum 2 (S99 cont.): weapon flavor + the diversity roll
+
+Chris's second playtest note: Short Bows everywhere (an Alchemist whiffing
+at accuracy 40), and identical kits across a party (always Guard Cap).
+Three changes to the gear pick, all in enemy-gear.ts:
+
+- **Diversity roll.** Per slot, every candidate within
+  `GEAR_PICK_DIVERSITY_FLOOR` (0.7) of the top weight joins a seeded,
+  weight-proportional roll — parties mix Axe/Bow Hunters and cap/hood
+  headgear. A clearly-best item still always wins.
+- **Effective accuracy.** Weapon weight ×= min(1, accuracy/100 × the
+  wielder's own hit-chance passives), probed from the PROVISIONAL R/S/M
+  fill (`draftHitChanceMultiplier` — a two-pass fill: provisional against
+  bare capacity informs gear, authoritative re-runs against real gear).
+  Short Bow's deliberate accuracy-40 stays viable exactly where Eagle Eye
+  is equipped ("the passive is the weapon's other half") and collapses
+  everywhere else. Floor semantics: a `modifyOutgoingHitChance` handler
+  that evaluates from `baseHitChance` alone is credited; one needing
+  battle context is skipped unvalued.
+- **Class → weapon-type affinity table** (`CLASS_WEAPON_AFFINITY`, draft
+  weights pending Chris review, same tier as the archetype pools). The
+  S89 scorer can't express class flavor — low-level score compression let
+  wands outbid cutlasses on Thieves — so a small campaign-side table
+  multiplies weapon weights per type; an absent type never generates on
+  that class (legality untouched; authored gear can still hand anyone
+  anything). Also: the weapon hand now only offers `kind: 'weapon'`
+  (shields compete for the off-hand), and a dual-wielder's off-hand
+  never takes a two-handed weapon.
+
+Resulting distributions (30-seed peek): Hunters ≈ bow/axe mix with swords
+joining by L12; Alchemists/Thieves dagger/sword, no bows; Knights
+sword/axe; mages element-varied wands; headgear mixes cap/hood.
+
 ## Consequences
 
 - **Global difficulty increase** — every generated enemy fights with a

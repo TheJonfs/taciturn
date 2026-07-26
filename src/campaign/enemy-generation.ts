@@ -44,6 +44,7 @@ import {
   draftAbilityCost,
   draftBucketCapacity,
   deriveActionSeed,
+  EMPTY_UNIT_EQUIPMENT,
   rulesetId,
   type AbilityId,
   type Catalog,
@@ -253,8 +254,75 @@ export function composeEnemyBuild(args: ComposeEnemyArgs): ComposedEnemyBuild {
       : {}),
   };
 
-  // --- gear (before passive fill — capacity is equipment-adjusted) --------
   const innateOnly = withInnatePassives({ actionBuckets, passiveBuckets: {} }, cls, catalog);
+
+  // One R/S/M fill pass against a given equipment set (capacity is
+  // equipment-adjusted). Native passives are free in-class; an explicit
+  // kit's exported passives are already paid for; `buyPairPassives` lets
+  // the pass spend leftover budget on pair-class export taxes — only for
+  // passives that actually fit (buy toward the loadout — never convert
+  // budget into unequippable learning).
+  const fillPassives = (
+    equipment: UnitEquipment,
+    buyPairPassives: boolean,
+  ): { passiveBuckets: Loadout['passiveBuckets']; bought: UnlockToken[]; spent: number } => {
+    const passiveBuckets: Record<string, AbilityId[]> = Object.fromEntries(
+      Object.entries(innateOnly.passiveBuckets).map(([bucket, ids]) => [bucket, [...ids]]),
+    );
+    const bought: UnlockToken[] = [];
+    let spent = 0;
+    const usedIn = (bucket: string): number =>
+      (passiveBuckets[bucket] ?? []).reduce((sum, id) => sum + draftAbilityCost(cls, id, catalog), 0);
+    const tryEquip = (abilityIdToEquip: AbilityId): boolean => {
+      const def = catalog.getAbility(abilityIdToEquip);
+      const bucket = String(def.bucket);
+      const ids = (passiveBuckets[bucket] ??= []);
+      if (ids.includes(abilityIdToEquip)) return false;
+      const capacity = draftBucketCapacity(equipment, def.bucket, catalog, GENERATION_RULESET);
+      const cost = draftAbilityCost(cls, abilityIdToEquip, catalog);
+      if (usedIn(bucket) + cost > capacity) return false;
+      ids.push(abilityIdToEquip);
+      return true;
+    };
+    const ownedKeys = new Set(tokens.map(tokenKey));
+    for (const meta of COMPONENT_ENTRIES) {
+      if (meta.token.kind !== 'ability' || meta.restrictedToUnit !== undefined) continue;
+      const id = meta.token.id;
+      if (!catalog.hasAbility(id) || catalog.getAbility(id).kind !== 'passive') continue;
+      if (meta.nativeClass === cls) {
+        // Native passives are free to equip in-class (the export tax is the
+        // only JP price a passive has) — fill greedily in curriculum order.
+        tryEquip(id);
+      } else if (ownedKeys.has(tokenKey(meta.token))) {
+        // An explicit kit's exported passive: already paid for — equip it.
+        tryEquip(id);
+      } else if (
+        buyPairPassives &&
+        pairClass !== undefined &&
+        meta.nativeClass === pairClass &&
+        meta.cost <= remaining - spent
+      ) {
+        if (tryEquip(id)) {
+          bought.push(meta.token);
+          spent += meta.cost;
+        }
+      }
+    }
+    return { passiveBuckets, bought, spent };
+  };
+
+  // --- gear ---------------------------------------------------------------
+  // The gear step needs the loadout the unit will WEAR (dual-wield grants,
+  // the Eagle Eye hit-chance probe), but capacity is equipment-adjusted —
+  // so: a PROVISIONAL fill against bare-equipment capacity informs the
+  // gear pick, then the AUTHORITATIVE fill re-runs against the real gear.
+  const provisionalBuckets: Loadout['passiveBuckets'] =
+    args.passiveBuckets !== undefined
+      ? withInnatePassives({ actionBuckets, passiveBuckets: args.passiveBuckets }, cls, catalog)
+          .passiveBuckets
+      : fillPassives(EMPTY_UNIT_EQUIPMENT, false).passiveBuckets;
+  const provisionalLoadout: Loadout = { actionBuckets, passiveBuckets: provisionalBuckets };
+
   const stats = leveledClassStats(cls, level);
   const profile: GearScoreProfile = {
     classId: cls,
@@ -263,65 +331,25 @@ export function composeEnemyBuild(args: ComposeEnemyArgs): ComposedEnemyBuild {
     usesMp: kitUsesMp(cls, tokens, catalog),
   };
   const equipment: UnitEquipment =
-    args.equipment ?? assignEnemyGear({ classId: cls, level, seed, loadout: innateOnly, profile, catalog });
+    args.equipment ??
+    assignEnemyGear({ classId: cls, level, seed, loadout: provisionalLoadout, profile, catalog });
 
-  // --- R/S/M fill ----------------------------------------------------------
+  // --- R/S/M fill (authoritative) ------------------------------------------
   if (args.passiveBuckets !== undefined) {
-    // Authored passives replace the fill wholesale (innates still merge in,
-    // exactly as for every campaign-created unit).
-    const loadout = withInnatePassives(
-      { actionBuckets, passiveBuckets: args.passiveBuckets },
-      cls,
-      catalog,
-    );
-    return { unlocks: tokens, loadout, equipment, ...(pairClass !== undefined ? { secondaryClass: pairClass } : {}) };
+    // Authored passives replace the fill wholesale (innates already merged
+    // into the provisional loadout, exactly as for every campaign unit).
+    return {
+      unlocks: tokens,
+      loadout: provisionalLoadout,
+      equipment,
+      ...(pairClass !== undefined ? { secondaryClass: pairClass } : {}),
+    };
   }
+  const fill = fillPassives(equipment, args.unlocks === undefined);
+  tokens = [...tokens, ...fill.bought];
+  remaining -= fill.spent;
 
-  const passiveBuckets: Record<string, AbilityId[]> = Object.fromEntries(
-    Object.entries(innateOnly.passiveBuckets).map(([bucket, ids]) => [bucket, [...ids]]),
-  );
-  const usedIn = (bucket: string): number =>
-    (passiveBuckets[bucket] ?? []).reduce((sum, id) => sum + draftAbilityCost(cls, id, catalog), 0);
-  const tryEquip = (abilityIdToEquip: AbilityId): boolean => {
-    const def = catalog.getAbility(abilityIdToEquip);
-    const bucket = String(def.bucket);
-    const ids = (passiveBuckets[bucket] ??= []);
-    if (ids.includes(abilityIdToEquip)) return false;
-    const capacity = draftBucketCapacity(equipment, def.bucket, catalog, GENERATION_RULESET);
-    const cost = draftAbilityCost(cls, abilityIdToEquip, catalog);
-    if (usedIn(bucket) + cost > capacity) return false;
-    ids.push(abilityIdToEquip);
-    return true;
-  };
-  const ownedKeys = new Set(tokens.map(tokenKey));
-  for (const meta of COMPONENT_ENTRIES) {
-    if (meta.token.kind !== 'ability' || meta.restrictedToUnit !== undefined) continue;
-    const id = meta.token.id;
-    if (!catalog.hasAbility(id) || catalog.getAbility(id).kind !== 'passive') continue;
-    if (meta.nativeClass === cls) {
-      // Native passives are free to equip in-class (the export tax is the
-      // only JP price a passive has) — fill greedily in curriculum order.
-      tryEquip(id);
-    } else if (ownedKeys.has(tokenKey(meta.token))) {
-      // An explicit kit's exported passive: already paid for — equip it.
-      tryEquip(id);
-    } else if (
-      args.unlocks === undefined &&
-      pairClass !== undefined &&
-      meta.nativeClass === pairClass &&
-      meta.cost <= remaining
-    ) {
-      // Pair-class passive: pay the export tax out of the leftover budget,
-      // but only for a passive that actually fits (buy toward the loadout —
-      // never convert budget into unequippable learning).
-      if (tryEquip(id)) {
-        tokens = [...tokens, meta.token];
-        remaining -= meta.cost;
-      }
-    }
-  }
-
-  const loadout: Loadout = { actionBuckets, passiveBuckets };
+  const loadout: Loadout = { actionBuckets, passiveBuckets: fill.passiveBuckets };
   return { unlocks: tokens, loadout, equipment, ...(pairClass !== undefined ? { secondaryClass: pairClass } : {}) };
 }
 

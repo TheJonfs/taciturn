@@ -40,6 +40,15 @@ Cartographer guide's kit/equipment sections updated.
   armor → headgear → off-hand → accessory. Mechanism test-pinned
   (spend ≤ purse), counts deliberately unpinned (prices are D-econ-6
   placeholders). The Oskun offset itself stays a calibration-pass item.
+- **Weapon flavor + diversity shipped** (ADR-0160 addendum 2, Chris's
+  second playtest note — Short Bows on Alchemists, identical kits): per-
+  slot seeded diversity roll (window 0.7 of top weight), weapon weight ×
+  effective accuracy (probed from the unit's own equipped hit-chance
+  passives — Eagle Eye Hunters keep bows, everyone else drops them), and
+  `CLASS_WEAPON_AFFINITY` in enemy-gear.ts — a class → weapon-type weight
+  table, DRAFT WEIGHTS PENDING CHRIS REVIEW (same tier as the archetype
+  pools; an absent type never generates on that class). Weapon hand is
+  weapons-only now (shields compete for the off-hand).
 - **Two composer calls made beyond the brief, flag-not-ask tier:**
   (1) pair class rolls only from classes AT OR BELOW the primary's tier
   (legibility guard — no Tier-3 secondaries on grunts); (2) native-class

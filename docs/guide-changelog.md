@@ -83,6 +83,12 @@ Commits: `see git log` (feat(campaign): M4 enemy generation). ADR-0160.
   hold one). A level-2 bandit fields a weapon and maybe one cheap piece; by
   the level-10 range the purse stops binding and kits fill out. This
   softens the early-game difficulty jump the loadout/gear change introduced.
+- **(Same session)** Generated enemies now choose weapons in class flavor
+  and parties vary their gear: Hunters mix bows and axes (their Eagle Eye
+  is what makes the accuracy-40 Short Bow worth carrying), Alchemists and
+  Thieves favor daggers and swords — never bows — mages carry wands and
+  staves, and two enemies of the same class can wear different headgear.
+  Enemy weapon choice now accounts for the wielder's own accuracy passives.
 
 Commits: `see git log` (feat(content+campaign): Zelmonia Hills).
 
