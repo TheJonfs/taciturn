@@ -44,6 +44,29 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 100 (2026-07-28) — plot-unit loss condition, starting gil, fallen roster state
+
+Commits: see git log (S100 Ch1 iteration fixes). ADR-0161.
+
+- **Losing a leader now loses the battle.** If a plot character (Lumen, Chris,
+  Clio, Thessaly, or Sera) is KO'd and their three-turn revival countdown runs
+  out, the battle **ends immediately as a defeat** — in story battles AND
+  skirmishes. Revive them before the countdown expires and the fight goes on.
+  A defeat costs nothing permanent: the campaign rewinds to its state before
+  the battle (your last save) and you can retry. Guests are exempt; generics
+  still die for good without ending the battle.
+- **The company starts with 2,000 gil** (was 0). The opening scene now points
+  you at the Zarghidas markets — buying a couple of gear upgrades before Oskun
+  is the intended counter to fighting under-leveled.
+- **Fallen units are now shown, not silently gone.** A permadeath appears as a
+  memorialized "† Fallen" entry — greyed card in the roster gallery, a memorial
+  strip on the Formation screen — instead of simply vanishing from the lineup.
+- **Zelmonia Hills got a visual pass:** rocky crests and rocky-grass shoulders
+  (Mountain Pass's art) so the hills' elevation reads at a glance. Cosmetic
+  only — movement is unchanged.
+- **New `roof` terrain** (walkable, placeholder shingle art) exists for
+  Alvera's buildings; expect Alvera's look to change as it's applied.
+
 ## Session 99 (2026-07-22) — Generated enemies fight for real (M4 generator)
 
 Commits: `see git log` (feat(campaign): M4 enemy generation). ADR-0160.
