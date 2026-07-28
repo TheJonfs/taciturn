@@ -39,6 +39,9 @@ export const TERRAIN_COLORS: Readonly<Record<string, number>> = {
   grass_rock: 0x5d6447,
   // S96: bridge deck fallback — warm timber, distinct from rampart stone.
   bridge: 0x8a6a45,
+  // S100: roof fallback — terracotta, under the placeholder shingle SVGs
+  // (Alvera's building tops).
+  roof: 0x8a4a34,
 };
 
 // Optional per-terrain multiplicative tint applied to the texture

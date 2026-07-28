@@ -42,6 +42,8 @@ import rock02Url from './rock-02.png';
 import rock03Url from './rock-03.png';
 import grassRock01Url from './grass-rock-01.png';
 import grassRock02Url from './grass-rock-02.png';
+import roof01Url from './roof-01.svg';
+import roof02Url from './roof-02.svg';
 import bridgeFlatNsUrl from './bridge-flat-ns.svg';
 import bridgeFlatEwUrl from './bridge-flat-ew.svg';
 import bridgeRiseNUrl from './bridge-rise-n.svg';
@@ -73,8 +75,13 @@ import type { TerrainType } from '@engine/index.ts';
 // (renderer/bridge-variant.ts), and the tile layer indexes it by the
 // map-derived variant. Keep the two in lockstep — the selection module
 // owns the order.
+// S100 (Ch1 iteration): `roof` ships two PLACEHOLDER shingle variants
+// (SVG, like the bridge kit) for Alvera's building architecture —
+// authored art replaces the files in place, consumers key on this entry.
+// Unlike bridge, roof variants ARE seed-picked like any normal pool.
 export const TERRAIN_MANIFEST: ReadonlyMap<TerrainType, ReadonlyArray<string>> = new Map([
   ['ground', [ground01Url, ground02Url, ground03Url]],
+  ['roof', [roof01Url, roof02Url]],
   ['water_shallow', [shallowWater01Url, shallowWater02Url, shallowWater03Url]],
   ['water_deep', [deepWater01Url, deepWater02Url, deepWater03Url]],
   ['rampart', [rampart01Url, rampart02Url, rampart03Url]],

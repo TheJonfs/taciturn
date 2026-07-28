@@ -34,7 +34,7 @@ export const enchanter: ClassDefinition = {
     moveRange: 3,
     jump: 2,
     terrainCosts: new Map(),
-    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart', 'rock', 'grass_rock', 'bridge']),
+    canEnter: new Set(['ground', 'water_shallow', 'water_deep', 'rampart', 'rock', 'grass_rock', 'bridge', 'roof']),
   },
   evasion: { front: 6, side: 4, back: 0 },
   equipmentSlots: {

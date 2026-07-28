@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- Placeholder building-roof tile, variant 2 (S100) — slightly darker,
+       weathered course pattern so tiled roofs don't read uniform. -->
+  <rect width="256" height="256" fill="#7e4230"/>
+  <g fill="#8e5038">
+    <rect y="0" width="256" height="28"/>
+    <rect y="64" width="256" height="28"/>
+    <rect y="128" width="256" height="28"/>
+    <rect y="192" width="256" height="28"/>
+  </g>
+  <g fill="#9a5e42">
+    <rect y="32" width="256" height="24"/>
+    <rect y="96" width="256" height="24"/>
+    <rect y="160" width="256" height="24"/>
+    <rect y="224" width="256" height="24"/>
+  </g>
+  <!-- weathered patches -->
+  <g fill="#6a4a3a" opacity="0.5">
+    <rect x="96" y="0" width="64" height="28"/>
+    <rect x="0" y="96" width="64" height="24"/>
+    <rect x="160" y="128" width="64" height="28"/>
+    <rect x="64" y="224" width="64" height="24"/>
+  </g>
+  <g stroke="#5e3222" stroke-width="3">
+    <path d="M32 0v28M96 0v28M160 0v28M224 0v28"/>
+    <path d="M64 32v24M128 32v24M192 32v24"/>
+    <path d="M32 64v28M96 64v28M160 64v28M224 64v28"/>
+    <path d="M64 96v24M128 96v24M192 96v24"/>
+    <path d="M32 128v28M96 128v28M160 128v28M224 128v28"/>
+    <path d="M64 160v24M128 160v24M192 160v24"/>
+    <path d="M32 192v28M96 192v28M160 192v28M224 192v28"/>
+    <path d="M64 224v24M128 224v24M192 224v24"/>
+  </g>
+  <g fill="#54291b" opacity="0.55">
+    <rect y="28" width="256" height="4"/>
+    <rect y="56" width="256" height="8"/>
+    <rect y="92" width="256" height="4"/>
+    <rect y="120" width="256" height="8"/>
+    <rect y="156" width="256" height="4"/>
+    <rect y="184" width="256" height="8"/>
+    <rect y="220" width="256" height="4"/>
+  </g>
+</svg>

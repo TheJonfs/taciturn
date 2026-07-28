@@ -42,6 +42,7 @@ export const TERRAIN_VOCABULARY: ReadonlyArray<string> = [
   'rock',
   'grass_rock',
   'bridge',
+  'roof', // S100: Alvera building tops (placeholder shingle art)
 ];
 
 // Every TileProperty any system consumes today (S98 findings).

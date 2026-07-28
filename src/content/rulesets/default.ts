@@ -172,6 +172,10 @@ export const defaultRuleset: RulesetDefinition = {
   // pathfinding like rampart/rock; the distinct id exists for renderer /
   // content identity and so Worldcraft's terrain derivation never
   // reshapes it (decks are destroyed, not reshaped). Carries `'land'`.
+  // S100 (Ch1 iteration): `roof` joins for Alvera's building tops.
+  // Like rampart/rock — plain land, walkable by every class; the
+  // distinct id exists so the renderer paints shingle art. Carries
+  // `'land'`.
   terrain: {
     tags: new Map<string, ReadonlySet<string>>([
       ['ground', new Set(['land'])],
@@ -181,6 +185,7 @@ export const defaultRuleset: RulesetDefinition = {
       ['rock', new Set(['land'])],
       ['grass_rock', new Set(['land'])],
       ['bridge', new Set(['land'])],
+      ['roof', new Set(['land'])],
     ]),
   },
 
