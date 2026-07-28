@@ -102,7 +102,19 @@ function buildDemoRoster(): ReadonlyArray<CampaignUnit> {
     unlocks: u.seed.unlocks,
     classAccessOverride: (u.seed.override ?? []).map((c) => classId(c)),
   }));
-  return [...base, ignitionDemo, ...uniques];
+  // S100 (Fix 3): one permadeath-lost cadet so the memorialized card state
+  // is previewable without fighting a roster member to removal.
+  const fallenDemo: CampaignUnit = {
+    ...m1Roster[0]!,
+    id: unitId('demo-fallen'),
+    name: 'Elegy',
+    classId: classId('knight'),
+    level: 18,
+    earnedByClass: { knight: 600 },
+    unlocks: [],
+    fate: 'lost',
+  };
+  return [...base, ignitionDemo, ...uniques, fallenDemo];
 }
 
 export function FormationDevHarness(): ReactElement {

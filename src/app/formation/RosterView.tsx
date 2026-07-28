@@ -157,12 +157,13 @@ function UnitCard({
   readonly catalog: Catalog;
   readonly onOpen: (id: UnitId) => void;
 }): ReactElement {
-  const { unit, domain, idleJp, totalInvested, investment, isUnique } = entry;
+  const { unit, domain, idleJp, totalInvested, investment, isUnique, isFallen } = entry;
   const col = DOMAIN_COLOR[domain];
   // M3 Stage 2: the roster-card warning — an invalid loadout (over
   // capacity / illegal gear) is surfaced here so the player knows which
-  // unit to open before deploy blocks on it.
-  const invalid = !unitLegality(unit, catalog).valid;
+  // unit to open before deploy blocks on it. Moot on a fallen card (it
+  // can't deploy), so the memorial badge takes the corner instead.
+  const invalid = !isFallen && !unitLegality(unit, catalog).valid;
   // Bespoke plot face where one exists, else the class+gender portrait; the
   // capital-letter monogram remains the final fallback (unregistered class).
   const portraitUrl = resolveUnitPortrait(unit.portrait, unit.classId, unit.gender);
@@ -172,7 +173,7 @@ function UnitCard({
 
   return (
     <div
-      className="tf-card"
+      className={isFallen ? 'tf-card tf-fallen' : 'tf-card'}
       style={{ ['--dc' as string]: col }}
       role="button"
       tabIndex={0}
@@ -187,6 +188,11 @@ function UnitCard({
       {invalid && (
         <span className="tf-warnbadge" title="Loadout invalid — open the Loadout tab to fix">
           ⚠
+        </span>
+      )}
+      {isFallen && (
+        <span className="tf-fallenbadge" title="Fallen in battle">
+          † Fallen
         </span>
       )}
       <div className="tf-top">
@@ -204,7 +210,8 @@ function UnitCard({
             }}
           />
         </div>
-        {idleJp > 0 ? (
+        {/* No "go spend" nudge on a fallen card — the purse is moot. */}
+        {idleJp > 0 && !isFallen ? (
           <div className="tf-glint" title={`${idleJp} unspent JP`}>
             <StarGlyph />
             <b>{idleJp}</b>

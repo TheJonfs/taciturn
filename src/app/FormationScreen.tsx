@@ -14,6 +14,10 @@ import { unitLegality } from './formation/gear-view-model.ts';
 export interface FormationScreenProps {
   readonly nodeName: string;
   readonly roster: ReadonlyArray<CampaignUnit>; // `active` units only
+  // S100 (Fix 3): the roster's permadeath-lost units, shown as a memorial
+  // strip so a loss is COMMUNICATED, not inferred from absence. Optional so
+  // non-campaign hosts (and a loss-free run) omit it.
+  readonly fallen?: ReadonlyArray<CampaignUnit>;
   readonly deployCap: number; // K
   // For class display names — kept consistent with the deployment roster
   // panel (catalog name, e.g. "Geosage", not the raw id "earth_mage").
@@ -30,6 +34,7 @@ export interface FormationScreenProps {
 export function FormationScreen({
   nodeName,
   roster,
+  fallen,
   deployCap,
   catalog,
   onConfirm,
@@ -112,6 +117,30 @@ export function FormationScreen({
             );
           })}
         </ul>
+
+        {/* S100 (Fix 3): the memorial strip — permadeath losses stay visible
+            where the lineup is chosen, instead of being inferred from absence.
+            Rendered as "fallen" (a state), not deleted, so a future revival
+            mechanic has somewhere to point. */}
+        {fallen !== undefined && fallen.length > 0 && (
+          <div style={fallenSectionStyle}>
+            <div style={fallenHeaderStyle}>Fallen</div>
+            <ul style={fallenListStyle}>
+              {fallen.map((u) => (
+                <li key={u.id} style={fallenRowStyle}>
+                  <span style={fallenMarkStyle}>†</span>
+                  <span style={fallenNameStyle}>{u.name}</span>
+                  <span style={metaStyle}>
+                    {classLabel(u.classId)}
+                    {u.gender !== undefined ? ` ${u.gender === 'female' ? '♀' : '♂'}` : ''}
+                  </span>
+                  <span style={metaStyle}>Lv {u.level}</span>
+                  <span style={metaStyle}>fallen in battle</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div style={footerStyle}>
           <span style={countStyle}>
@@ -211,6 +240,42 @@ const checkStyle: CSSProperties = { color: '#7fb2ff', fontWeight: 700 };
 const warnCheckStyle: CSSProperties = { color: '#e2965f', fontWeight: 700 };
 const nameStyle: CSSProperties = { fontWeight: 600 };
 const metaStyle: CSSProperties = { color: '#9aa0ac' };
+
+// The memorial strip (S100 Fix 3) — same grid as the deploy rows, muted and
+// non-interactive.
+const fallenSectionStyle: CSSProperties = {
+  padding: '0 8px 8px',
+  borderTop: '1px solid #2c2f36',
+};
+
+const fallenHeaderStyle: CSSProperties = {
+  padding: '8px 12px 2px',
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+  color: '#8a8f9a',
+};
+
+const fallenListStyle: CSSProperties = { listStyle: 'none', margin: 0, padding: 0 };
+
+const fallenRowStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '24px 1.4fr 1.2fr 56px 1.4fr',
+  alignItems: 'center',
+  gap: 8,
+  padding: '8px 12px',
+  margin: '2px 0',
+  fontSize: 13,
+  color: '#7d828d',
+  background: '#17191e',
+  border: '1px solid #23262d',
+  borderRadius: 5,
+  opacity: 0.75,
+};
+
+const fallenMarkStyle: CSSProperties = { color: '#8a8f9a', fontWeight: 700, textAlign: 'center' };
+const fallenNameStyle: CSSProperties = { fontWeight: 600, color: '#9aa0ac' };
 
 const footerStyle: CSSProperties = {
   display: 'flex',

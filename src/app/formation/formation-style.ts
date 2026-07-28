@@ -72,6 +72,13 @@ export const FORMATION_STYLE = `
 .tf-foot{display:flex;align-items:center;justify-content:space-between;margin-top:13px;padding-top:11px;border-top:1px solid var(--line)}
 .tf-trace{display:flex;align-items:center;gap:5px;height:14px}
 .tf-uniq{font-size:9.5px;color:var(--brass);letter-spacing:.1em;text-transform:uppercase}
+/* S100 (Fix 3): a permadeath-lost unit's card renders memorialized — muted,
+   desaturated, badged — but stays openable (the dossier is the memorial).
+   Styled as a STATE a future revive could clear, not a tombstone layout. */
+.tf-card.tf-fallen{filter:saturate(.3);opacity:.68}
+.tf-card.tf-fallen:hover{transform:none}
+.tf-card.tf-fallen .tf-face{filter:grayscale(.9)}
+.tf-fallenbadge{position:absolute;top:8px;right:9px;font-size:10px;color:var(--star3);letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--line);border-radius:9px;padding:2px 7px;background:rgba(10,12,20,.8);z-index:2}
 
 /* ---- Dossier (View 2) ---- */
 .tf-doss-wrap{max-width:940px}

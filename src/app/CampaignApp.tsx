@@ -657,6 +657,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
       <FormationScreen
         nodeName={screen.encounter.kind === 'skirmish' ? `${node.name} — Skirmish` : node.name}
         roster={deployableRoster(state)}
+        fallen={state.roster.filter((u) => u.fate === 'lost')}
         deployCap={battle.deployCap}
         catalog={catalog}
         onConfirm={(selected) => handleFormationConfirm(screen.encounter, selected)}

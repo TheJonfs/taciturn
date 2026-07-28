@@ -123,6 +123,10 @@ export interface RosterEntry {
   readonly totalInvested: number;
   readonly investment: ReadonlyArray<InvestmentDot>;
   readonly isUnique: boolean;
+  // S100 (Fix 3): permadeath-lost, retained on the roster (D-D). The card
+  // renders memorialized — a "fallen" STATE, not a deletion, so a future
+  // revival mechanic clears it without a data migration.
+  readonly isFallen: boolean;
 }
 
 export function buildRosterEntries(
@@ -137,6 +141,7 @@ export function buildRosterEntries(
     totalInvested: unitTotalInvested(unit, catalog),
     investment: unitInvestment(unit, catalog),
     isUnique: isPlotUnique(unit),
+    isFallen: unit.fate === 'lost',
   }));
 }
 

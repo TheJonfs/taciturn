@@ -138,3 +138,14 @@ describe('rosterSummary', () => {
     expect(s).toEqual({ total: 2, withUnspent: 1, totalIdleJp: 200 });
   });
 });
+
+// S100 (Fix 3): fallen marking — the card's memorial state.
+describe('isFallen', () => {
+  it('marks fate === "lost" entries and leaves active ones unmarked', () => {
+    const entries = buildRosterEntries(
+      [unit({ id: unitId('alive') }), unit({ id: unitId('gone'), fate: 'lost' })],
+      CAT,
+    );
+    expect(entries.map((e) => e.isFallen)).toEqual([false, true]);
+  });
+});
