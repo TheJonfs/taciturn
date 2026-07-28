@@ -25,6 +25,8 @@ export const ZELMONIA_HILLS_SPEC: MapSpec = {
   bands: [
     { when: 'eq', elevation: 0, terrain: 'water_deep' },
     { when: 'eq', elevation: 1, terrain: 'water_shallow' },
+    { when: 'gte', elevation: 11, terrain: 'rock' },
+    { when: 'gte', elevation: 7, terrain: 'grass_rock' },
   ],
   elevation: [
     [14, 12, 7, 7, 7, 12, 12, 13, 13, 13, 12, 12, 7, 7, 7, 7],
