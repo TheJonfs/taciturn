@@ -25,7 +25,7 @@ export const ALVERA_VILLAGE_SPEC: MapSpec = {
   bands: [
     { when: 'eq', elevation: 0, terrain: 'water_deep' },
     { when: 'eq', elevation: 1, terrain: 'water_shallow' },
-    { when: 'eq', elevation: 8, terrain: 'rampart' },
+    { when: 'eq', elevation: 8, terrain: 'roof' },
   ],
   elevation: [
     [8, 8, 8, 8, 8, 8, 3, 3, 3, 3, 3, 2, 2, 1, 1, 0],

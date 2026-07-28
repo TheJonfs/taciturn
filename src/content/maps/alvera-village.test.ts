@@ -32,7 +32,7 @@ describe('Alvera Village map — structural', () => {
       ['ground', new Set(['land'])],
       ['water_shallow', new Set(['water', 'shallow'])],
       ['water_deep', new Set(['water', 'deep'])],
-      ['rampart', new Set(['land'])],
+      ['roof', new Set(['land'])],
       ['bridge', new Set(['land'])],
     ]);
     const result = validateMap(alveraVillage, registry);
@@ -96,7 +96,7 @@ describe('Alvera Village map — the river', () => {
 });
 
 describe('Alvera Village map — architecture (elev-8 walls, doors)', () => {
-  it('building walls stand at elev 8 with the rampart terrain (Stonebridge keep art)', () => {
+  it('building walls stand at elev 8 with the roof terrain (S100 shingle art)', () => {
     for (const [x, y] of [
       [0, 0], // NW manor corner
       [0, 11], // SW house corner
@@ -105,13 +105,13 @@ describe('Alvera Village map — architecture (elev-8 walls, doors)', () => {
     ] as const) {
       const t = tileAt(alveraVillage, x, y, 0)!;
       expect(t.elevation).toBe(8);
-      expect(t.terrain).toBe('rampart');
+      expect(t.terrain).toBe('roof');
     }
   });
 
-  it('every rampart tile is elev 8 and every elev-8 tile is rampart (walls exactly)', () => {
+  it('every roof tile is elev 8 and every elev-8 tile is roof (building tops exactly)', () => {
     for (const t of alveraVillage.tiles) {
-      expect(t.terrain === 'rampart').toBe(t.elevation === 8);
+      expect(t.terrain === 'roof').toBe(t.elevation === 8);
     }
   });
 
