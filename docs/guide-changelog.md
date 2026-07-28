@@ -64,8 +64,9 @@ Commits: see git log (S100 Ch1 iteration fixes). ADR-0161.
 - **Zelmonia Hills got a visual pass:** rocky crests and rocky-grass shoulders
   (Mountain Pass's art) so the hills' elevation reads at a glance. Cosmetic
   only — movement is unchanged.
-- **New `roof` terrain** (walkable, placeholder shingle art) exists for
-  Alvera's buildings; expect Alvera's look to change as it's applied.
+- **New `roof` terrain** (walkable, placeholder shingle art), applied to
+  Alvera Village: every building top (the elev-8 walls) now renders as
+  terracotta shingles instead of the stone keep art. Cosmetic only.
 
 ## Session 99 (2026-07-22) — Generated enemies fight for real (M4 generator)
 
