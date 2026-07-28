@@ -68,6 +68,7 @@ import {
 } from '@content/battles/zelmonia-hills-battle.ts';
 import { deploymentZonesFor } from '@content/deployment/index.ts';
 import { archetypeForNode } from './archetypes.ts';
+import { STARTING_GIL } from './economy-config.ts';
 import { authoredEnemy } from './authored-enemy.ts';
 import { clioJoinUnit, seraJoinUnit, thessalyJoinUnit } from './ch1-roster.ts';
 import { stringSeed } from './enemy-generation.ts';
@@ -414,7 +415,8 @@ const NODE_CONTENT: Readonly<Record<string, ReadonlyArray<NodeBeat>>> = {
   'node-zarghidas': [
     marker(
       'Zarghidas Trade City',
-      'Opening scene: fifty years of war. Lumen and Chris muster the company — four fresh recruits — and take the road east into Ordallia.',
+      'Opening scene: fifty years of war. Lumen and Chris muster the company — four fresh recruits — and take the road east into Ordallia. ' +
+        `The company purse holds ${STARTING_GIL.toLocaleString('en-US')} gil, and the Zarghidas markets are open — a wise commander outfits the company before taking the road.`,
     ),
   ],
   'node-oskun': [

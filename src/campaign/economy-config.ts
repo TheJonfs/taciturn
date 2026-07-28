@@ -24,7 +24,13 @@ export const GIL_PER_ENEMY_LEVEL = 20;
 export const ENEMY_JP_PER_LEVEL = 100;
 
 // The party's opening purse at campaign start. PLACEHOLDER (D-econ-6).
-export const STARTING_GIL = 0;
+// S100 (Ch1 iteration brief, Fix 1): 0 → 2000. The party's intended answer
+// to the standing 2–3 level deficit is GEAR investment, but at 0 gil the
+// player can't enter that loop before Oskun. 2000 ≈ a couple of meaningful
+// buys across a starting five at current placeholder prices. Third gil dial
+// (with ENEMY_GEAR_GIL_PER_LEVEL and item prices) — D-econ-6 moves all
+// three together.
+export const STARTING_GIL = 2000;
 
 // --- M4: enemy generation (gear banding) ---
 
