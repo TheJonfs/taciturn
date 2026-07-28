@@ -32,6 +32,7 @@ import type {
 } from '@engine/index.ts';
 import type { CampaignUnit } from './types.ts';
 import type { NodeBattle } from './sequence.ts';
+import { withPlotLossCondition } from './plot-loss.ts';
 import {
   usableActiveIds,
   usableItemIds,
@@ -83,6 +84,11 @@ export function foldCampaignRoster(
 // — those specs onto the enemy team (`foldEnemyTeam`). The single entry point
 // the driver calls; keeps the player+enemy fold composition pure and testable
 // rather than inline in the React handler.
+//
+// S100 (Fix 2): every fold passes through `withPlotLossCondition` — a deployed
+// plot unique whose KO window expires loses the battle. Composed here, on the
+// FOLDED units, so it keys off who actually deploys (story battles and
+// skirmishes alike) rather than what a template authors.
 export function foldBattle(
   battle: NodeBattle,
   selected: ReadonlyArray<CampaignUnit>,
@@ -93,12 +99,15 @@ export function foldBattle(
     battle.guests === undefined
       ? withPlayers
       : foldGuestTeam(withPlayers, battle.guests, battle.playerTeam, catalog);
-  if (battle.enemies === undefined) return withGuests;
+  if (battle.enemies === undefined) return withPlotLossCondition(withGuests, battle.playerTeam);
   const enemyTeam = battle.template.units.find((u) => u.team !== battle.playerTeam)?.team;
   if (enemyTeam === undefined) {
     throw new Error('foldBattle: beat authors enemies but the template has no non-player team');
   }
-  return foldEnemyTeam(withGuests, battle.enemies, enemyTeam, catalog);
+  return withPlotLossCondition(
+    foldEnemyTeam(withGuests, battle.enemies, enemyTeam, catalog),
+    battle.playerTeam,
+  );
 }
 
 // Fold authored ENEMY progression specs onto a battle config's enemy slots

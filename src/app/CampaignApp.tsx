@@ -41,6 +41,7 @@ import {
   buildLocationMenuBeat,
   buyItem,
   buildResultSummaryBeat,
+  PLOT_LOSS_DESCRIPTION,
   buildRouteChoiceBeat,
   buildSkirmishBattle,
   recordSkirmishWin,
@@ -393,6 +394,10 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
     if (!won) {
       // Loss: no apply-back, no rewards. Show how the battle left the deployed
       // units, then retry this same encounter (state unchanged == the last save).
+      // S100 (Fix 2): a plot-unit loss names its cause on the screen — any
+      // other loss keeps the plain rout copy.
+      const lossReason =
+        result.outcome.description === PLOT_LOSS_DESCRIPTION ? PLOT_LOSS_DESCRIPTION : undefined;
       const summary = buildResultSummaryBeat({
         node,
         roster: state.roster,
@@ -401,6 +406,7 @@ export function CampaignApp({ initialState, catalog, onExitToTitle }: CampaignAp
         campaignComplete: false,
         gilEarned: 0, // losses pay nothing
         skirmish,
+        ...(lossReason !== undefined ? { lossReason } : {}),
       });
       showRun([summary], { kind: 'retry', encounter });
       return;

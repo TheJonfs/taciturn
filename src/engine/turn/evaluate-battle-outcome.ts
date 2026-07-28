@@ -119,6 +119,22 @@ function checkPredicate(state: GameState, catalog: Catalog, pred: VictoryPredica
       }
       return true;
     }
+    case 'unit_lost': {
+      // Permadeath only: `removed` set by the KO-countdown expiry, and
+      // NOT a death-protected retreat (retreat also flips `removed` —
+      // see unit.ts — but a retreat is not a loss). Matches the
+      // campaign's apply-back classification of `lost`.
+      for (const unitId of pred.anyOf) {
+        const unit = state.units.get(unitId);
+        if (unit === undefined) {
+          throw new Error(
+            `evaluateBattleOutcome: unit_lost references unknown unit ${JSON.stringify(unitId)}`,
+          );
+        }
+        if (unit.removed && !unit.retreated) return true;
+      }
+      return false;
+    }
     case 'all_of':
       return pred.predicates.every((p) => checkPredicate(state, catalog, p));
   }

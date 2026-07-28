@@ -321,3 +321,96 @@ describe('evaluateBattleOutcome — subdue-leader (no_deaths + single unit below
     expect(evaluateBattleOutcome(state, CATALOG)).toEqual({ kind: 'ongoing' });
   });
 });
+
+// --- S100 (Ch1 iteration Fix 2): unit_lost — the plot-unit loss predicate ---
+
+describe('evaluateBattleOutcome — unit_lost', () => {
+  // Loss condition as the campaign composes it: enemy team wins when any
+  // listed unit is permadeath-removed.
+  const lumenOrChrisLost: VictoryCondition = {
+    kind: 'predicate',
+    predicate: { kind: 'unit_lost', anyOf: [unitId('lumen'), unitId('chris')] },
+    winner: B,
+    description: 'a leader has fallen',
+  };
+
+  it('stays ongoing while a listed unit is merely KO’d (revival window open)', () => {
+    const lumen = makeUnit({ id: 'lumen', spd: 10, team: 'team_a', hp: 0, turnsKOd: 2 });
+    const chris = makeUnit({ id: 'chris', spd: 10, team: 'team_a', hp: 100 });
+    const b = makeUnit({ id: 'b', spd: 10, team: 'team_b', hp: 100 });
+    const state = makeGameState({
+      units: [lumen, chris, b],
+      teams: teamsAB,
+      victoryConditions: [lumenOrChrisLost],
+    });
+    expect(evaluateBattleOutcome(state, CATALOG)).toEqual({ kind: 'ongoing' });
+  });
+
+  it('decides for the authored winner when a listed unit is permadeath-removed', () => {
+    const lumen = makeUnit({ id: 'lumen', spd: 10, team: 'team_a', hp: 0, removed: true });
+    const chris = makeUnit({ id: 'chris', spd: 10, team: 'team_a', hp: 100 });
+    const b = makeUnit({ id: 'b', spd: 10, team: 'team_b', hp: 100 });
+    const state = makeGameState({
+      units: [lumen, chris, b],
+      teams: teamsAB,
+      victoryConditions: [lumenOrChrisLost],
+    });
+    const out = evaluateBattleOutcome(state, CATALOG);
+    expect(out.kind).toBe('decided');
+    if (out.kind !== 'decided') return;
+    expect(out.decided.winner).toBe(B);
+    expect(out.decided.description).toBe('a leader has fallen');
+  });
+
+  it('any-of semantics: the SECOND listed unit lost also decides', () => {
+    const lumen = makeUnit({ id: 'lumen', spd: 10, team: 'team_a', hp: 100 });
+    const chris = makeUnit({ id: 'chris', spd: 10, team: 'team_a', hp: 0, removed: true });
+    const b = makeUnit({ id: 'b', spd: 10, team: 'team_b', hp: 100 });
+    const state = makeGameState({
+      units: [lumen, chris, b],
+      teams: teamsAB,
+      victoryConditions: [lumenOrChrisLost],
+    });
+    const out = evaluateBattleOutcome(state, CATALOG);
+    expect(out.kind).toBe('decided');
+    if (out.kind !== 'decided') return;
+    expect(out.decided.winner).toBe(B);
+  });
+
+  it('a death-protected RETREAT is not a loss (removed but retreated)', () => {
+    const lumen = makeUnit({
+      id: 'lumen',
+      spd: 10,
+      team: 'team_a',
+      hp: 0,
+      removed: true,
+      retreated: true,
+    });
+    const chris = makeUnit({ id: 'chris', spd: 10, team: 'team_a', hp: 100 });
+    const b = makeUnit({ id: 'b', spd: 10, team: 'team_b', hp: 100 });
+    const state = makeGameState({
+      units: [lumen, chris, b],
+      teams: teamsAB,
+      victoryConditions: [lumenOrChrisLost],
+    });
+    expect(evaluateBattleOutcome(state, CATALOG)).toEqual({ kind: 'ongoing' });
+  });
+
+  it('throws loudly on an unknown unit id (authoring typo)', () => {
+    const a = makeUnit({ id: 'a', spd: 10, team: 'team_a', hp: 100 });
+    const b = makeUnit({ id: 'b', spd: 10, team: 'team_b', hp: 100 });
+    const state = makeGameState({
+      units: [a, b],
+      teams: teamsAB,
+      victoryConditions: [
+        {
+          kind: 'predicate',
+          predicate: { kind: 'unit_lost', anyOf: [unitId('nobody')] },
+          winner: B,
+          description: 'typo',
+        },
+      ],
+    });
+    expect(() => evaluateBattleOutcome(state, CATALOG)).toThrow(/unknown unit/);
+  });
+});

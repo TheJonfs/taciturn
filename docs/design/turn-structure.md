@@ -117,7 +117,8 @@ The predicate grammar (`VictoryPredicate`, `engine/types/battle-outcome.ts`):
 - **`all_defeated(side)`** — every unit on `side` is down (`hp <= 0`; removed/retreated units sit at 0 so they count).
 - **`no_deaths(side)`** — no unit on `side` has died this battle. Reads the battle-scoped `Unit.hasDied` flag: set on the hp>0 → 0 transition, never reset (a revived unit still counts as having died), and *not* set by a death-protected retreat.
 - **`unit_below_hp(target, fraction)`** — one named unit, or every unit on a side, is *strictly below* `fraction` of effective max HP. A unit no longer standing (KO'd, removed, retreated) counts as below any threshold.
-- **`all_of([...])`** — shallow AND (a subdue condition is `no_deaths` AND `unit_below_hp`). There is no OR variant: an OR is two conditions in the ordered list — first-satisfied wins.
+- **`unit_lost(anyOf)`** — ANY unit in the list is permadeath-removed: `removed` set and `retreated` not (a death-protected retreat also flips `removed`, and a retreat is not a loss). Fires when the KO revival window expires (`system_ko_tick` → `system_unit_removed`), *not* at the hp → 0 moment — a unit revived during the countdown never satisfies it. The campaign's plot-unit must-survive loss condition composes on this (ADR-0161).
+- **`all_of([...])`** — shallow AND (a subdue condition is `no_deaths` AND `unit_below_hp`). There is no OR variant: an OR is two conditions in the ordered list — first-satisfied wins (except `unit_lost`, whose unit list is itself an OR over units).
 
 **Death protection** (`UnitPlacement.deathProtected`, cutscene-immortal bosses): a would-be-lethal hit cannot KO the unit — the damage write floors HP at 0, sets `Unit.retreated`, and emits a `system_unit_removed` with `reason: 'retreated'` (the `removed` flip plus the "has retreated!" log line). The KO sweeps and charged-action cleanup run as on a death (a retreat is a departure), but `hasDied` stays false — retreat ≠ death, so a retreating boss never breaks a `no_deaths` condition. The campaign's battle-result summarizer classifies retreated units as `survived`, never `lost`.
 
@@ -152,7 +153,7 @@ For online/spectator views, the same flow applies: the spectator client receives
 - Set Facing has both implicit (after movement/attack) and explicit (player choice at turn end, free) modes.
 - Turn end: apply CT cost based on consumed budgets, fire onTurnEnd hooks, decrement turn-based status durations, check win conditions, return to projection.
 - Battle start: place units, apply initial effects, initialize CT queue with semi-random initial CT values, begin first turn.
-- Victory conditions are data on the BattleConfig (copied to GameState); checked after every committed action (ADR-0074). Grammar: `defeat_all` plus predicate conditions (`all_defeated` / `no_deaths` / `unit_below_hp` / `all_of`) with authored winner + outcome tag (ADR-0149).
+- Victory conditions are data on the BattleConfig (copied to GameState); checked after every committed action (ADR-0074). Grammar: `defeat_all` plus predicate conditions (`all_defeated` / `no_deaths` / `unit_below_hp` / `unit_lost` / `all_of`) with authored winner + outcome tag (ADR-0149; `unit_lost` ADR-0161).
 - Forced-action turns (Stop, Berserk, Charm, AI control) route through the same action lifecycle with different controllers.
 - Replay walks the action log forward applying the reducer; outcomes stored on actions make this deterministic without re-rolling RNG.
 

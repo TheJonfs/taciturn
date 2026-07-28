@@ -22,7 +22,8 @@ export function ResultSummaryBeatView({
   if (beat.type !== 'result-summary') return <></>;
   const summary: ResultSummaryBeat = beat;
 
-  const { resolution, nodeName, units, gilEarned, skirmish, campaignComplete } = summary;
+  const { resolution, nodeName, units, gilEarned, skirmish, campaignComplete, lossReason } =
+    summary;
   const win = resolution === 'win';
 
   const title = campaignComplete
@@ -39,7 +40,11 @@ export function ResultSummaryBeatView({
       ? skirmish
         ? `The raiders at ${nodeName} scatter. The road stays yours — come back any time.`
         : `The field at ${nodeName} is yours. Plan your next move.`
-      : `Your company was routed at ${nodeName}. Retry from your last save, or return to the title.`;
+      : lossReason !== undefined
+        ? // S100 (Fix 2): a caused loss (plot-unit permadeath) names its
+          // cause instead of claiming a rout the field may not show.
+          `${lossReason} at ${nodeName} — the company cannot go on without them. Retry from your last save, or return to the title.`
+        : `Your company was routed at ${nodeName}. Retry from your last save, or return to the title.`;
   const advanceLabel = campaignComplete ? 'Return to Title' : win ? 'Continue →' : 'Retry Battle';
 
   return (

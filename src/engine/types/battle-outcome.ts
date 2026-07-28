@@ -32,9 +32,17 @@ import type { TeamId, UnitId } from './ids.ts';
 //   is below `fraction` of effective max HP, STRICT `<`. A unit that
 //   is no longer standing (hp <= 0, removed, or retreated) counts as
 //   below any threshold — beaten past the line is still past the line.
+// - `unit_lost` — ANY unit in `anyOf` is permadeath-removed (`removed`
+//   and NOT `retreated` — a death-protected retreat also flips
+//   `removed`, and a retreat is not a loss). Fires when the KO revival
+//   window expires (`system_ko_tick` → `system_unit_removed`), NOT at
+//   the hp → 0 moment: a unit revived during the countdown never
+//   satisfies it. The campaign's plot-unit must-survive condition
+//   (S100, Ch1 iteration Fix 2) composes on this.
 // - `all_of` — shallow AND composition (e.g. subdue = no_deaths AND
 //   unit_below_hp). No OR variant: an OR is two conditions in the
-//   ordered `victoryConditions` list (first-satisfied wins).
+//   ordered `victoryConditions` list (first-satisfied wins) — except
+//   `unit_lost`, whose `anyOf` list is itself an OR over units.
 export type VictoryPredicate =
   | { readonly kind: 'all_defeated'; readonly side: TeamId }
   | { readonly kind: 'no_deaths'; readonly side: TeamId }
@@ -45,6 +53,7 @@ export type VictoryPredicate =
         | { readonly kind: 'side'; readonly side: TeamId };
       readonly fraction: number;
     }
+  | { readonly kind: 'unit_lost'; readonly anyOf: ReadonlyArray<UnitId> }
   | { readonly kind: 'all_of'; readonly predicates: ReadonlyArray<VictoryPredicate> };
 
 // Closed union of victory-condition kinds. `defeat_all` is the v1

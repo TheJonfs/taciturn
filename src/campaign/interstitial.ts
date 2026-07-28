@@ -66,6 +66,11 @@ export interface ResultSummaryBeat {
   readonly skirmish: boolean;
   // True only on a terminal win — this beat is the campaign's victory screen.
   readonly campaignComplete: boolean;
+  // S100 (Fix 2): WHY the battle was lost, when the cause isn't a plain rout
+  // — today, the plot-unit must-survive condition ("A leader of the company
+  // has fallen"). ABSENT on wins and on ordinary all-units-down losses; the
+  // screen falls back to its rout copy.
+  readonly lossReason?: string;
 }
 
 export interface WorldMapChoiceBeat {
@@ -164,6 +169,8 @@ export function buildResultSummaryBeat(params: {
   readonly gilEarned: number;
   // Skirmish result (defaults false — a story battle beat).
   readonly skirmish?: boolean;
+  // Loss cause beyond a plain rout (S100 Fix 2) — see ResultSummaryBeat.
+  readonly lossReason?: string;
 }): ResultSummaryBeat {
   const { node, roster, result, won, campaignComplete, gilEarned } = params;
   return {
@@ -174,6 +181,7 @@ export function buildResultSummaryBeat(params: {
     gilEarned,
     skirmish: params.skirmish ?? false,
     campaignComplete: won && campaignComplete,
+    ...(params.lossReason !== undefined && !won ? { lossReason: params.lossReason } : {}),
   };
 }
 

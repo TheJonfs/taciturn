@@ -74,6 +74,9 @@ export {
 // Chunk 2 — the pure loop core (snapshot-fold in, summarize + apply-back out).
 export { foldCampaignRoster, foldEnemyTeam, foldGuestTeam, foldBattle, probeEffectiveMaxes, probeUnitStats } from './snapshot-fold.ts';
 export type { EffectiveUnitStats } from './snapshot-fold.ts';
+// S100 (Fix 2): plot units are must-survive — the fold composes this in;
+// exported for the loss screen's cause-matching + tests.
+export { PLOT_LOSS_DESCRIPTION, withPlotLossCondition } from './plot-loss.ts';
 export { authoredEnemy } from './authored-enemy.ts';
 export type { AuthoredEnemySpec } from './authored-enemy.ts';
 export { summarizeBattleResult } from './battle-result.ts';
