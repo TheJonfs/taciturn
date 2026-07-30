@@ -47,6 +47,7 @@ import type {
 } from '@content/battles/lineup-format.ts';
 import { authoredEnemy } from './authored-enemy.ts';
 import { composeEnemyBuild, stringSeed } from './enemy-generation.ts';
+import { generatedEnemyIdentities } from './enemy-names.ts';
 import { enemyBraveFaith } from './enemy-kit.ts';
 import type { UnlockToken } from './progression/index.ts';
 import type { CampaignUnit } from './types.ts';
@@ -138,6 +139,16 @@ export function enemiesFromLineup(
   spec: LineupSpec,
   catalog: Catalog,
 ): ReadonlyArray<CampaignUnit> {
+  // S100: non-overridden slots draw personal names (+ matching gender)
+  // from the naming pool, party-scoped off the lineup key — stable across
+  // sessions, no duplicates within the lineup. An authored override keeps
+  // its name/gender exactly (Oscar and Tina stay Oscar and Tina); an
+  // authored gender WITHOUT a name pins the slot's draw to that pool.
+  const identities = generatedEnemyIdentities(
+    stringSeed(spec.key),
+    spec.enemies.length,
+    spec.enemies.map((s) => s.overrides?.gender),
+  );
   return spec.enemies.map((slot, i) => {
     const cls = classId(slot.classId);
     const o = slot.overrides;
@@ -145,7 +156,7 @@ export function enemiesFromLineup(
     const band = enemyBraveFaith(slot.level, i);
     return authoredEnemy({
       id: `${spec.key}-enemy-${i + 1}`,
-      name: o?.name ?? catalog.getClass(cls).name,
+      name: o?.name ?? identities[i]!.name,
       classId: cls,
       level: slot.level,
       loadout: draft.loadout,
@@ -153,7 +164,11 @@ export function enemiesFromLineup(
       unlocks: draft.unlocks,
       brave: o?.brave ?? band.brave,
       faith: o?.faith ?? band.faith,
-      ...(o?.gender !== undefined ? { gender: o.gender } : {}),
+      ...(o?.gender !== undefined
+        ? { gender: o.gender }
+        : o?.name === undefined
+          ? { gender: identities[i]!.gender }
+          : {}),
     });
   });
 }

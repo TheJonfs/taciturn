@@ -21,6 +21,7 @@
 import { deriveActionSeed, type Catalog, type VictoryCondition } from '@engine/index.ts';
 import { archetypeForNode, rollArchetypeClasses, type EnemyArchetype } from './archetypes.ts';
 import { generatedEnemyUnit, stringSeed } from './enemy-generation.ts';
+import { generatedEnemyIdentities } from './enemy-names.ts';
 import { partyAverageLevel, resolveEnemyLevel } from './enemy-level.ts';
 import { getFlag, setFlag } from './flags.ts';
 import { allNodeBeats, type CampaignNode } from './graph.ts';
@@ -67,10 +68,15 @@ export function generateSkirmishParty(
   archetype: EnemyArchetype,
 ): ReadonlyArray<CampaignUnit> {
   const rolled = rollArchetypeClasses(archetype, count, seed, catalog);
+  // S100: personal names from the pool (party-scoped, no duplicates)
+  // instead of "<prefix> <class>" labels; gender rides along so the
+  // portrait matches. Same seed → same identities (no reload rerolls).
+  const identities = generatedEnemyIdentities(seed, rolled.length);
   return rolled.map((cls, i) =>
     generatedEnemyUnit({
       id: `skirmish-enemy-${i + 1}`,
-      name: `${archetype.unitNamePrefix} ${catalog.getClass(cls).name}`,
+      name: identities[i]!.name,
+      gender: identities[i]!.gender,
       classId: cls,
       level,
       index: i,

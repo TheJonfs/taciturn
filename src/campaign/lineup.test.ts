@@ -9,6 +9,7 @@ import type { LineupSpec } from '@content/battles/lineup-format.ts';
 import { composeLineupEnemyDraft, enemiesFromLineup, lineupSlotSeed } from './lineup.ts';
 import { generatedEnemyUnit } from './enemy-generation.ts';
 import { enemyBraveFaith, enemyKitForBudget, enemyKitForLevel } from './enemy-kit.ts';
+import { HIRE_NAMES_FEMALE, HIRE_NAMES_MALE } from './recruit.ts';
 import { withInnatePassives } from './innate-passives.ts';
 import { tokenKey } from './progression/index.ts';
 
@@ -39,7 +40,7 @@ describe('enemiesFromLineup', () => {
     expect(enemies[1]!.level).toBe(5);
   });
 
-  it('frames each enemy with the composer (kit prefix, Brave/Faith band, class name)', () => {
+  it('frames each enemy with the composer (kit prefix, Brave/Faith band, pool name)', () => {
     // The kit STARTS with the primary curriculum prefix (M4 may append
     // pair-class spillover after it).
     const monkPrefix = enemyKitForLevel(classId('monk'), 3, catalog);
@@ -49,7 +50,11 @@ describe('enemiesFromLineup', () => {
     const roll0 = enemyBraveFaith(3, 0);
     expect(enemies[0]!.brave).toBe(roll0.brave);
     expect(enemies[0]!.faith).toBe(roll0.faith);
-    expect(enemies[0]!.name).toBe(catalog.getClass(classId('monk')).name);
+    // S100: a non-overridden slot draws a personal name (+ matching
+    // gender) from the naming pools, not the class label.
+    expect(enemies[0]!.gender).toBeDefined();
+    const pool = enemies[0]!.gender === 'female' ? HIRE_NAMES_FEMALE : HIRE_NAMES_MALE;
+    expect(pool).toContain(enemies[0]!.name.replace(/ \d+$/, ''));
   });
 
   it('matches the shared constructor for the same class/level/index/seed (one composer)', () => {

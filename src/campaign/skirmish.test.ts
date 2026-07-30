@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { loadDefaultCatalog } from '@content/index.ts';
 import { createInitialState } from '@engine/index.ts';
 import { archetypeForNode, DEFAULT_ARCHETYPE, ENEMY_ARCHETYPES } from './archetypes.ts';
+import { HIRE_NAMES_FEMALE, HIRE_NAMES_MALE } from './recruit.ts';
 import { partyAverageLevel } from './enemy-level.ts';
 import { allNodeBeats, getNode } from './graph.ts';
 import { newCampaign } from './loop.ts';
@@ -36,9 +37,14 @@ describe('generateSkirmishParty (the M4 generator)', () => {
     }
   });
 
-  it('names units with the archetype flavor prefix', () => {
-    for (const enemy of generateSkirmishParty(5, 3, catalog, 9, BANDITS)) {
-      expect(enemy.name.startsWith(`${BANDITS.unitNamePrefix} `)).toBe(true);
+  it('names units from the gendered naming pools, unique within the party (S100)', () => {
+    const party = generateSkirmishParty(5, 3, catalog, 9, BANDITS);
+    const names = party.map((e) => e.name);
+    expect(new Set(names).size).toBe(names.length);
+    for (const enemy of party) {
+      expect(enemy.gender).toBeDefined();
+      const pool = enemy.gender === 'female' ? HIRE_NAMES_FEMALE : HIRE_NAMES_MALE;
+      expect(pool).toContain(enemy.name.replace(/ \d+$/, ''));
     }
   });
 

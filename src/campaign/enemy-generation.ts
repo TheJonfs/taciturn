@@ -50,6 +50,7 @@ import {
   type Catalog,
   type ClassId,
   type CommandSetId,
+  type Gender,
   type Loadout,
   type UnitEquipment,
 } from '@engine/index.ts';
@@ -369,6 +370,9 @@ export function generatedEnemyUnit(args: {
   readonly seed: number;
   readonly catalog: Catalog;
   readonly secondaryClassPool?: ReadonlyArray<ClassId>;
+  // S100: rolled alongside the pool name (enemy-names.ts) so the
+  // portrait matches it; absent keeps the class default.
+  readonly gender?: Gender;
 }): CampaignUnit {
   const { id, name, classId: cls, level, index, seed, catalog } = args;
   const build = composeEnemyBuild({
@@ -389,5 +393,6 @@ export function generatedEnemyUnit(args: {
     equipment: build.equipment,
     unlocks: build.unlocks,
     ...enemyBraveFaith(level, index),
+    ...(args.gender !== undefined ? { gender: args.gender } : {}),
   });
 }
