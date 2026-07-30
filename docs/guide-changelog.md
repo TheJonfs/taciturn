@@ -44,6 +44,24 @@ When in doubt: *would this change a sentence in the player guide?* If no, skip i
 
 ---
 
+## Session 100, continued (2026-07-30) — ESC everywhere + named enemies
+
+Commits: see git log (S100 cont.). No ADR (UI policy + content naming).
+
+- **ESC now backs out one level from every battle sub-menu** — ability
+  lists, targeting (including Math Skill, Throw Item, Compound, and
+  grapple-throw pickers), move confirm, facing pick. Previously several of
+  these either ignored ESC or opened the pause menu instead. ESC only opens
+  the pause overlay from the turn's root action menu or between turns (and
+  still closes it). The Shop, Recruit, and Manage Roster screens also
+  accept ESC as "back" now (dossier → gallery → exit).
+- **Generated enemies have personal names.** Skirmish bands and
+  non-hand-authored story enemies now draw named, gendered identities from
+  the same name pools recruits use ("Bram", "Odette", …) instead of class
+  labels like "Bandit Knight". Names are unique within an enemy party and
+  stable across reloads. Hand-authored enemies (Oscar, Tina, bosses) keep
+  their authored names.
+
 ## Session 100 (2026-07-28) — plot-unit loss condition, starting gil, fallen roster state
 
 Commits: see git log (S100 Ch1 iteration fixes). ADR-0161.
