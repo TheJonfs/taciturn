@@ -9,6 +9,7 @@
 // the same source the battle panel reads) so purchases aren't blind.
 
 import { useState, type CSSProperties, type ReactElement } from 'react';
+import { useEscapeBack } from './use-escape-back.ts';
 import type { Catalog, ItemId } from '@engine/index.ts';
 import {
   SELL_RATE,
@@ -42,6 +43,7 @@ export function ShopScreen({
   onExit,
 }: ShopScreenProps): ReactElement {
   const [hovered, setHovered] = useState<ItemId | null>(null);
+  useEscapeBack(onExit); // S100: ESC leaves the shop, same as the Leave button
 
   const itemName = (id: ItemId): string => (catalog.hasItem(id) ? catalog.getItem(id).name : String(id));
 

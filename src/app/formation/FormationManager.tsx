@@ -11,6 +11,7 @@
 import { useMemo, useState, type ReactElement } from 'react';
 import type { Catalog, UnitId } from '@engine/index.ts';
 import type { CampaignUnit, InventoryRecord } from '@campaign/index.ts';
+import { useEscapeBack } from '../use-escape-back.ts';
 import { RosterView } from './RosterView.tsx';
 import { UnitDossier } from './UnitDossier.tsx';
 
@@ -44,6 +45,10 @@ export function FormationManager({
     () => (openedId === null ? null : (roster.find((u) => u.id === openedId) ?? null)),
     [roster, openedId],
   );
+
+  // S100: ESC walks the nav stack — dossier → roster gallery → exit (when
+  // the host provides one; the dev harness mounts without an exit).
+  useEscapeBack(opened !== null ? () => setOpenedId(null) : (onExit ?? null));
 
   function updateUnit(next: CampaignUnit): void {
     onRosterChange(roster.map((u) => (u.id === next.id ? next : u)));

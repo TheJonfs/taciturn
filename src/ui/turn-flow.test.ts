@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { abilityId, commandSetId, type ProposedAction } from '@engine/index.ts';
-import { INITIAL_TURN_FLOW, transition, type TurnFlowState } from './turn-flow.ts';
+import { INITIAL_TURN_FLOW, escCancelsFrom, transition, type TurnFlowState } from './turn-flow.ts';
 import { shouldDeferToConfirm } from './use-turn-flow.ts';
 
 const setA = commandSetId('battle_skill');
@@ -601,5 +601,112 @@ describe('turn-flow reducer — tile-set (Barrier) picker (Session 55)', () => {
       payload: { abilityId: barrier, target: { kind: 'tile_set', positions: [{ x: 0, y: 0, layer: 0 }] } },
     };
     expect(shouldDeferToConfirm(action, 'confirm')).toBe(false);
+  });
+});
+
+// --- S100: ESC policy — escCancelsFrom paired with the reducer ---
+//
+// BattleView routes ESC via `escCancelsFrom`: cancelable states get a
+// `cancel` event, the rest open the pause overlay. This suite pins the
+// pairing BOTH ways over one representative of EVERY state kind, so a
+// future sub-state can't repeat the original bug (added to the union,
+// forgotten by the ESC handler, ESC silently pauses instead of backing
+// out). The reducer returns the same reference for ignored events, so
+// reference (in)equality IS the "cancel is meaningful" probe.
+
+describe('escCancelsFrom — paired with the cancel transitions', () => {
+  const u1 = 'u1' as never;
+  // One representative per TurnFlowState kind. Exhaustiveness is
+  // enforced by the Record type — adding a state kind without a row
+  // here is a compile error.
+  const REPRESENTATIVES: Record<TurnFlowState['kind'], TurnFlowState> = {
+    idle: { kind: 'idle' },
+    'action-menu': { kind: 'action-menu' },
+    'move-select': { kind: 'move-select', hoverTarget: null },
+    'move-await-confirm': { kind: 'move-await-confirm', destination: { x: 1, y: 1, layer: 0 } },
+    'command-set-select': { kind: 'command-set-select' },
+    'ability-list': { kind: 'ability-list', commandSetId: setA, commandSetCount: 2 },
+    'target-select': {
+      kind: 'target-select',
+      commandSetId: setA,
+      commandSetCount: 2,
+      abilityId: attack,
+      hoverTarget: null,
+      tileMode: false,
+    },
+    'await-confirm': {
+      kind: 'await-confirm',
+      commandSetId: setA,
+      commandSetCount: 2,
+      abilityId: attack,
+      action: attackAction,
+      tileMode: false,
+    },
+    'wait-confirm': { kind: 'wait-confirm' },
+    'compound-item-select': { kind: 'compound-item-select', commandSetId: setA, commandSetCount: 2 },
+    'throw-item-item-select': {
+      kind: 'throw-item-item-select',
+      commandSetId: setA,
+      commandSetCount: 2,
+      abilityId: attack,
+      targetUnitId: u1,
+    },
+    'math-skill-target-select': {
+      kind: 'math-skill-target-select',
+      commandSetId: setA,
+      commandSetCount: 2,
+      abilityId: attack,
+      parameter: null,
+      value: null,
+    },
+    'tile-set-target-select': {
+      kind: 'tile-set-target-select',
+      commandSetId: setA,
+      commandSetCount: 2,
+      abilityId: attack,
+      anchor: null,
+      hoverTarget: null,
+    },
+    'grapple-throw-target-select': {
+      kind: 'grapple-throw-target-select',
+      commandSetId: setA,
+      commandSetCount: 2,
+      abilityId: attack,
+      throweeId: null,
+      hoverTarget: null,
+    },
+    animation: { kind: 'animation' },
+  };
+
+  it('every cancelable state actually consumes the cancel event', () => {
+    for (const state of Object.values(REPRESENTATIVES)) {
+      if (!escCancelsFrom(state)) continue;
+      const after = transition(state, { kind: 'cancel' });
+      expect(after, `'${state.kind}' claims ESC-cancels but ignored the cancel event`).not.toBe(
+        state,
+      );
+    }
+  });
+
+  it('every non-cancelable state ignores cancel (ESC correctly falls through to pause)', () => {
+    for (const state of Object.values(REPRESENTATIVES)) {
+      if (escCancelsFrom(state)) continue;
+      const after = transition(state, { kind: 'cancel' });
+      expect(after, `'${state.kind}' routes ESC to pause but would also consume a cancel`).toBe(
+        state,
+      );
+    }
+  });
+
+  it('the four once-forgotten sub-states are ESC-cancelable (the S100 report)', () => {
+    for (const kind of [
+      'compound-item-select',
+      'throw-item-item-select',
+      'math-skill-target-select',
+      'grapple-throw-target-select',
+      'move-await-confirm',
+    ] as const) {
+      expect(escCancelsFrom(REPRESENTATIVES[kind]), kind).toBe(true);
+    }
   });
 });

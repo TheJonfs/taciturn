@@ -700,3 +700,20 @@ export function isInteractive(state: TurnFlowState): boolean {
 export function isAtMenu(state: TurnFlowState): boolean {
   return state.kind === 'action-menu';
 }
+
+// Does ESC mean "cancel one step" from this state (vs falling through to
+// the pause overlay)? S100: EXCLUSION-listed, deliberately. The original
+// handler enumerated the cancelable states inline in BattleView, and every
+// flow state added after it (compound-item / throw-item / math-skill /
+// grapple-throw / move-await-confirm) silently fell through to pause. In
+// this direction a new sub-state defaults to ESC-cancels — the correct
+// behavior for anything reachable mid-turn — and only the three states
+// with nothing to cancel (idle, the turn's root action-menu, and
+// animation) route ESC to the pause overlay. Every other state handles
+// the 'cancel' event in `transition` (this predicate and that handling
+// are pinned together by the paired test).
+export function escCancelsFrom(state: TurnFlowState): boolean {
+  return (
+    state.kind !== 'idle' && state.kind !== 'action-menu' && state.kind !== 'animation'
+  );
+}

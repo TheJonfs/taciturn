@@ -56,6 +56,7 @@ import {
   ResultsScreen,
   TurnTransitionAlert,
   UnitDetailPanel,
+  escCancelsFrom,
   useSettings,
   useTurnFlow,
 } from '@ui/index.ts';
@@ -512,7 +513,9 @@ function BattleViewInner({
 
   // ESC handler: cancel out of a picking sub-state if we're in one;
   // otherwise open / close the pause overlay. While the overlay is
-  // open, ESC closes it (Resume).
+  // open, ESC closes it (Resume). Cancelability is the flow's own
+  // predicate (`escCancelsFrom`, S100) — an inline state list here is
+  // how four later-added sub-states silently routed ESC to pause.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
@@ -521,17 +524,7 @@ function BattleViewInner({
         setPaused(false);
         return;
       }
-      // If we're mid-pick, prefer cancel over pause.
-      const kind = turnFlow.state.kind;
-      if (
-        kind === 'move-select' ||
-        kind === 'command-set-select' ||
-        kind === 'ability-list' ||
-        kind === 'target-select' ||
-        kind === 'tile-set-target-select' ||
-        kind === 'await-confirm' ||
-        kind === 'wait-confirm'
-      ) {
+      if (escCancelsFrom(turnFlow.state)) {
         turnFlow.cancel();
         return;
       }

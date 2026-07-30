@@ -8,6 +8,7 @@
 // immediately deployable.
 
 import { useState, type CSSProperties, type ReactElement } from 'react';
+import { useEscapeBack } from './use-escape-back.ts';
 import type { Catalog, ClassId } from '@engine/index.ts';
 import {
   buildHire,
@@ -42,6 +43,7 @@ export function RecruitScreen({
   onHire,
   onExit,
 }: RecruitScreenProps): ReactElement {
+  useEscapeBack(onExit); // S100: ESC leaves recruitment, same as the Leave button
   const classes = hireableClasses();
   const cap = maxHireLevel(state);
   const [classId, setClassId] = useState<ClassId>(classes[0]!);

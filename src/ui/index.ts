@@ -39,6 +39,7 @@ export { useTurnFlow, type TurnFlow, type UseTurnFlowArgs } from './use-turn-flo
 export {
   transition,
   INITIAL_TURN_FLOW,
+  escCancelsFrom,
   type TurnFlowState,
   type TurnFlowEvent,
 } from './turn-flow.ts';
