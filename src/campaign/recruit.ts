@@ -101,16 +101,30 @@ export function starterGearFor(classId: ClassId, catalog: Catalog): ReadonlyArra
   return picks;
 }
 
-// Placeholder name pools for generics, GENDERED (S94: a rolled/derived
-// gender draws a matching name, so the name never fights the portrait).
-// Exported as the sampling lists the Ch1 campaign-start roll also draws
-// from (ch1-roster.ts). A repeat gets a numeral suffix so the barracks
-// stays readable.
+// Name pools for generics, GENDERED (S94: a rolled/derived gender draws
+// a matching name, so the name never fights the portrait). Exported as
+// the sampling lists the Ch1 campaign-start roll (ch1-roster.ts) and the
+// generated-enemy identities (enemy-names.ts) also draw from. A repeat
+// gets a numeral suffix so the barracks stays readable.
+//
+// S100 (Chris): deepened from 6+6 — enemies draw here too now, and the
+// short pools collided with the player's own roster constantly. The
+// additions are the Mage War demo teams' authored unit names (the
+// "longer list" that never existed as a pool), minus the plot-reserved
+// names (Chris, Lumen, Clio, Sera, Thessaly, Tina).
 export const HIRE_NAMES_MALE: ReadonlyArray<string> = [
   'Bram', 'Fenwick', 'Corin', 'Tobias', 'Garrick', 'Piers',
+  'Abel', 'Adrian', 'Ajax', 'Aldric', 'Alfredo', 'Alistair',
+  'Beorn', 'Bremondt', 'Caedric', 'Cecil', 'Corvin', 'Eldred',
+  'Faramund', 'Grant', 'Halric', 'Linus', 'Oliver', 'Octavian',
+  'Octavius', 'Roderic', 'Samuel', 'Severin', 'Silas',
 ];
 export const HIRE_NAMES_FEMALE: ReadonlyArray<string> = [
   'Odette', 'Isolde', 'Maren', 'Elsbeth', 'Nyra', 'Sable',
+  'Alessi', 'Alice', 'Anastasia', 'Auralia', 'Bethla', 'Calista',
+  'Crystal', 'Erica', 'Helia', 'Lily', 'Lysha', 'Maerwynn',
+  'Marina', 'Marisol', 'Mireille', 'Morgaine', 'Octavia', 'Ostara',
+  'Saphira', 'Senna', 'Vionne', 'Ysolde',
 ];
 
 function hireName(state: CampaignState, gender: Gender | undefined): string {

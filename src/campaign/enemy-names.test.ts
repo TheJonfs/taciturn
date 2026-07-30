@@ -33,8 +33,14 @@ describe('generatedEnemyIdentities', () => {
   });
 
   it('suffixes on pool exhaustion instead of colliding', () => {
-    // 20 slots against 6+6 base names must exhaust at least one pool.
-    const names = generatedEnemyIdentities(99, 20).map((x) => x.name);
+    // Force every slot male with two more slots than the pool holds, so
+    // exhaustion is guaranteed regardless of how deep the pool grows.
+    const count = HIRE_NAMES_MALE.length + 2;
+    const names = generatedEnemyIdentities(
+      99,
+      count,
+      Array.from({ length: count }, () => 'male' as const),
+    ).map((x) => x.name);
     expect(new Set(names).size).toBe(names.length);
     expect(names.some((n) => / \d+$/.test(n))).toBe(true);
   });

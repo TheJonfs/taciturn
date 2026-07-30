@@ -61,6 +61,9 @@ Commits: see git log (S100 cont.). No ADR (UI policy + content naming).
   labels like "Bandit Knight". Names are unique within an enemy party and
   stable across reloads. Hand-authored enemies (Oscar, Tina, bosses) keep
   their authored names.
+- **The name pools deepened from 6+6 to 29 male + 28 female** — the Mage
+  War demo teams' unit names join the recruit/enemy pools, so hires and
+  enemy bands repeat far less often (and rarely mirror your own roster).
 
 ## Session 100 (2026-07-28) — plot-unit loss condition, starting gil, fallen roster state
 
